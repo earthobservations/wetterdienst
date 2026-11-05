@@ -11,6 +11,7 @@ import textwrap
 from pathlib import Path
 from pprint import pformat
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
+from urllib.parse import quote
 
 import click
 from click.core import ParameterSource
@@ -1139,11 +1140,58 @@ def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> Non
         sys.exit(1)
 
 
+#: the format each file type of the alerts result is written as
+_ALERTS_FILE_FORMATS = {".json": "json", ".geojson": "geojson", ".csv": "csv"}
+
+
+def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
+    """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
+
+    The extension decides what is written, as it does for `stations` and `values`, so an explicit `--format` that
+    names another format is a usage error instead of one of the two silently winning. `--with-metadata` writes beside
+    a file, and the JSON and GeoJSON on stdout carry the block always, so it needs a `--target`.
+
+    Raises:
+        click.BadParameter: An extension of none of the three, or a `--format` that disagrees with it.
+        click.UsageError: `--with-metadata` without `--target`.
+
+    """
+    if not target:
+        if with_metadata:
+            msg = (
+                "--with-metadata writes <file>.metadata.json beside the --target file, so it needs --target; "
+                "the JSON and GeoJSON on stdout carry the metadata block always"
+            )
+            raise click.UsageError(msg)
+        return None
+    path = file_target_path(target)
+    extension = next((ext for ext in _ALERTS_FILE_FORMATS if path.lower().endswith(ext)), None)
+    if extension is None:
+        msg = (
+            f"{path!r} is none of the files alerts are written as ({', '.join(_ALERTS_FILE_FORMATS)}): the extension "
+            "decides the format. Leave out --target to write to stdout"
+        )
+        raise click.BadParameter(msg, param_hint="--target")
+    context = click.get_current_context()
+    if (
+        context.get_parameter_source("fmt") is not ParameterSource.DEFAULT
+        and fmt.lower() != _ALERTS_FILE_FORMATS[extension]
+    ):
+        msg = (
+            f"--format={fmt.lower()} does not match {extension}, which is written as "
+            f"{_ALERTS_FILE_FORMATS[extension]}: the extension decides what --target holds"
+        )
+        raise click.BadParameter(msg, param_hint="--format")
+    # the path of a file named without the scheme is read as a path, `%` and all
+    return target if target.startswith("file://") else f"file://{quote(path, safe='/')}"
+
+
 def _refuse_non_file_target(target: str | None, command: str) -> None:
     """Refuse a --target with a scheme other than `file://`, for a command that writes plain text.
 
-    `alerts` and `history` write their output with `Path.write_text`, not the timeseries commands'
-    `to_target()`, so only a local path or a `file://` URI is a target they can write. Called before
+    `history` writes its output with `Path.write_text`, and `alerts` through a `to_target` that takes files only
+    (GH-3706), not the timeseries commands' one, so only a local path or a `file://` URI is a target they can
+    write. Called before
     the fetch, so that `s3://...` or `duckdb://...` is a usage error at once, rather than a write to
     the path read off the URI (`s3:/bucket/...`) that fails once the whole fetch has run.
     """
@@ -2481,9 +2529,30 @@ def radar(
 @click.option(
     "--target",
     type=click.STRING,
-    help="Write output to this file instead of stdout. Example: file://alerts.geojson",
+    help=(
+        "Write the alerts to this file instead of stdout, in the format its extension names: .json, .geojson or "
+        ".csv. Databases are refused. An empty result writes an empty file. Example: file://alerts.csv"
+    ),
+)
+@click.option(
+    "--if-exists",
+    type=click.Choice(["replace", "append", "fail", "skip"]),
+    default="replace",
+    help=(
+        "What to do when the --target file is there: 'replace' (default), 'fail' or 'skip'. A file takes "
+        "no 'append'. Default: replace"
+    ),
 )
 @pretty_opt
+@_bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Write the metadata block (provider, licence, credit line, date of the data) beside the --target file as "
+        "<file>.metadata.json. A .json or .geojson file holds it already; a .csv file does not. Needs --target. "
+        "Default: false"
+    ),
+)
 @debug_opt
 def alerts(
     granularity: str,
@@ -2491,13 +2560,17 @@ def alerts(
     timestamp: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Acquire DWD weather alerts (CAP warnings).
 
     Returns all warnings active at the selected time (the latest snapshot by default), one row per
     alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+
+    With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
     """
     set_logging_level(debug=debug)
     begin_response()
@@ -2505,6 +2578,7 @@ def alerts(
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
     _refuse_non_file_target(target, "alerts")
+    target_url = _alerts_target(target, fmt, with_metadata=with_metadata)
 
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
@@ -2531,18 +2605,21 @@ def alerts(
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e
 
-    output, _ = render_alerts(result, fmt, pretty=pretty)
-
-    if target:
-        path = file_target_path(target)
+    if target_url:
+        # an empty snapshot is written as it is, as no warning is an answer a file should say, where a table of
+        # stations or values is left alone (a schedule that rewrites the file must not keep yesterday's warnings)
         try:
-            Path(path).write_text(output, encoding="utf-8")
+            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata)
+        except (ExportRefusedError, MissingDependencyError) as e:
+            # a refusal, the message the whole of it: `--if-exists=fail` on a file that is there, `append`
+            raise click.ClickException(str(e)) from e
         except OSError as e:
             # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"
             raise click.ClickException(msg) from e
         return
 
+    output, _ = render_alerts(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
 
 

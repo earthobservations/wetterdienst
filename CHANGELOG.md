@@ -16,7 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The alerts result of `dwd/alerts` has `to_target`: `file://alerts.json`, `.geojson` or `.csv`, the
+  file the REST API answers for that format, a CSV row being one alert (areas comma-joined,
+  `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
+  it; a snapshot without a warning writes an empty file. A database target or another file type is
+  an `ExportRefusedError` (GH-3706)
+
 ### Changed
+
+- `wetterdienst alerts --target` now decides the format by the extension (`.json`, `.geojson`,
+  `.csv`), as `stations` does, and takes `--if-exists` and `--with-metadata`. A `--format` that
+  disagrees with the extension, or another extension, is a usage error: leave `--target` out and
+  redirect stdout instead (GH-3706)
 
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so

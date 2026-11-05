@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     import sqlalchemy
 
     from wetterdienst.io.export import ExportMixin
+    from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
 
 log = logging.getLogger(__name__)
 
@@ -310,7 +311,12 @@ SELF_DESCRIBING = frozenset({".parquet", ".zarr", ".nc"})
 
 
 def _write_with_metadata(
-    writer: FileWriter, extension: str, result: ExportMixin, filepath: str, *, with_metadata: bool
+    writer: FileWriter,
+    extension: str,
+    result: ExportMixin | DwdWeatherAlertResult,
+    filepath: str,
+    *,
+    with_metadata: bool,
 ) -> None:
     """Write the file, with the metadata block in it or beside it as the type and `with_metadata` say."""
     # built before anything is written: a result with nothing to describe is refused with no file left behind
@@ -330,9 +336,18 @@ def _write_with_metadata(
 
 
 def _write_file(
-    result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
+    result: ExportMixin | DwdWeatherAlertResult,
+    target: str,
+    connspec: ConnectionString,
+    if_exists: IfExists,
+    *,
+    with_metadata: bool = False,
+    writers: Mapping[str, FileWriter] = FILE_WRITERS,
 ) -> None:
     """Write the frame to the file a `file://` target names, by its extension.
+
+    `writers` are the file types of the result: those of `FILE_WRITERS` for a frame, `ALERT_FILE_WRITERS` for the
+    alerts result, whose refusal of an unknown extension then lists them.
 
     A self-describing file carries the metadata block of the REST API, light by default and with its units and quality
     legend under `with_metadata`. Any other file is bare unless `with_metadata` asks for `<file>.metadata.json` beside
@@ -354,14 +369,16 @@ def _write_file(
             log.info(f"File '{filepath}' exists, skipping write due to if_exists='skip'.")
             return
 
-    for extension, writer in FILE_WRITERS.items():
+    for extension, writer in writers.items():
         if filepath.lower().endswith(extension):
             _write_with_metadata(writer, extension, result, filepath, with_metadata=with_metadata)
             return
     msg = f"Unknown export file type for target '{target}'"
+    if writers is not FILE_WRITERS:
+        msg += f": this result is written as {', '.join(sorted(writers))}"
     # the target as written, where a `?` that is a query is not the `%3F` of a file name, which the path has decoded
     raw = target.removeprefix("file://").lower()
-    if any(raw[:i].endswith(tuple(FILE_WRITERS)) for i, char in enumerate(raw) if char == "?"):
+    if any(raw[:i].endswith(tuple(writers)) for i, char in enumerate(raw) if char == "?"):
         # everything after `file://` is the path, so a `?a=1` after a known extension belongs to the file name, which
         # then has no extension: that is a query string, where `what?.png` is an unknown type with a `?` in its name
         msg += ". A file target has no query string: write a '?' of the file name as %3F, and leave a query out"
@@ -951,6 +968,73 @@ def write_to_target(
     if with_metadata:
         refuse_metadata_without_file(target, connspec)
     sink(result, target, connspec, if_exists)
+
+
+def _write_alerts(result: DwdWeatherAlertResult, filepath: str, fmt: str) -> None:
+    """Write the answer that `render_alerts` gives for `fmt`, which is what the REST API and the command line send.
+
+    So a JSON or a GeoJSON file holds the `metadata` block as the answer does, built by the one function that builds
+    it, and a CSV file is bare, as the answer's body is: its block goes beside it, under `with_metadata`.
+    """
+    # the module imports the results, which import this one
+    from wetterdienst.ui.render import render_alerts  # noqa: PLC0415
+
+    log.info(f"Writing alerts to {fmt} file '{filepath}'")
+    content, _ = render_alerts(result, fmt, pretty=True)
+    # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
+    Path(filepath).write_bytes(content.encode("utf-8"))
+
+
+def _write_alerts_json(result: DwdWeatherAlertResult, filepath: str) -> None:
+    """Write the alerts as JSON: `metadata`, `snapshot` and `alerts`, each alert nested as `to_dict` has it."""
+    _write_alerts(result, filepath, "json")
+
+
+def _write_alerts_geojson(result: DwdWeatherAlertResult, filepath: str) -> None:
+    """Write the alerts as a GeoJSON `FeatureCollection` with the `metadata` block as a foreign member."""
+    _write_alerts(result, filepath, "geojson")
+
+
+def _write_alerts_csv(result: DwdWeatherAlertResult, filepath: str) -> None:
+    """Write the alerts as CSV: the text `to_csv` returns, a row for each alert."""
+    _write_alerts(result, filepath, "csv")
+
+
+#: the file types of the alerts result, by extension, each the answer the REST API gives for that format. An alert is
+#: nested (areas, parameters, a geometry), so a database has no table for it yet (GH-3706)
+ALERT_FILE_WRITERS: dict[str, FileWriter] = {
+    ".json": _write_alerts_json,
+    ".geojson": _write_alerts_geojson,
+    ".csv": _write_alerts_csv,
+}
+
+
+def write_alerts_to_target(
+    result: DwdWeatherAlertResult,
+    target: str,
+    connspec: ConnectionString,
+    if_exists: IfExists,
+    *,
+    with_metadata: bool = False,
+) -> None:
+    """Write the alerts result to the file a target names, by its extension: `.json`, `.geojson` or `.csv`.
+
+    The rules of a file target are those of any result (`_write_file`): `if_exists`, no append, and the sidecar of
+    `with_metadata`.
+
+    Raises:
+        ExportRefusedError: A target that is not a file (an alert holds several areas and parameters, and no table
+            holds that yet), a file type of none of the three, or what `_write_file` refuses.
+
+    """
+    if find_sink(target, connspec.protocol) is not _write_file:
+        msg = (
+            "the alerts result is written to a file only (file://alerts.json, alerts.geojson or alerts.csv); "
+            f"a {connspec.protocol or 'database'} target is refused, as an alert holds several areas and parameters "
+            "and there is no table for it"
+        )
+        raise ExportRefusedError(msg)
+    _write_file(result, target, connspec, if_exists, with_metadata=with_metadata, writers=ALERT_FILE_WRITERS)
 
 
 def refuse_metadata_without_file(target: str, connspec: ConnectionString) -> None:

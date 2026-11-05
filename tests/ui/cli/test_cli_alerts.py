@@ -217,3 +217,187 @@ def test_cli_alerts_percent_encoded_file_uri_target(monkeypatch: pytest.MonkeyPa
     assert written["alerts"] == []
     assert written["metadata"]["request"]["network"] == "alerts"
     assert not (tmp_path / "my%20data").exists()
+
+
+# --- --target, --if-exists and --with-metadata (GH-3706) -----------------------------------------------------------
+
+
+def _serve(monkeypatch: pytest.MonkeyPatch, result: DwdWeatherAlertResult) -> list[int]:
+    """Make the request answer `result`, and count the times it is asked: a refusal before the fetch asks none."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    asked: list[int] = []
+
+    def query(_self: DwdWeatherAlertRequest) -> DwdWeatherAlertResult:
+        asked.append(1)
+        return result
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", query)
+    return asked
+
+
+def _two_alerts() -> DwdWeatherAlertResult:
+    """Parse two real-shaped CAP documents as `query` does."""
+    from tests.provider.dwd.alerts.test_parser import CAP_XML  # noqa: PLC0415
+    from tests.provider.dwd.alerts.test_to_target import CAP_TWO_INFOS, _result  # noqa: PLC0415
+
+    return _result(CAP_XML, CAP_TWO_INFOS)
+
+
+@pytest.mark.parametrize("name", ["alerts.json", "alerts.geojson", "alerts.csv"])
+@pytest.mark.parametrize("scheme", ["file://", ""])
+def test_cli_alerts_target_writes_the_file_its_extension_names(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str, scheme: str
+) -> None:
+    """The extension decides the format, for a `file://` URI and for a plain path, as for `stations` and `values`."""
+    result = _two_alerts()
+    _serve(monkeypatch, result)
+    file = tmp_path / name
+    run = CliRunner().invoke(cli, ["alerts", f"--target={scheme}{file}"])
+    assert run.exit_code == 0, run.output
+    assert run.stdout == ""
+    written = file.read_text(encoding="utf-8")
+    if name.endswith(".csv"):
+        assert written == result.to_csv()
+    elif name.endswith(".geojson"):
+        assert json.loads(written)["type"] == "FeatureCollection"
+        assert len(json.loads(written)["features"]) == 2
+    else:
+        assert len(json.loads(written)["alerts"]) == 2
+        assert json.loads(written)["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    assert not (tmp_path / f"{name}.metadata.json").exists()
+
+
+def test_cli_alerts_target_reads_a_percent_of_a_plain_path_as_it_is(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A path without the scheme is a path, `%20` and all, where a `file://` URI would decode it."""
+    _serve(monkeypatch, _two_alerts())
+    directory = tmp_path / "a%20b"
+    directory.mkdir()
+    run = CliRunner().invoke(cli, ["alerts", f"--target={directory / 'alerts.csv'}"])
+    assert run.exit_code == 0, run.output
+    assert (directory / "alerts.csv").exists()
+
+
+def test_cli_alerts_with_metadata_writes_the_block_beside_the_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`--with-metadata` is `<file>.metadata.json` with the licence, the credit line and the date of the data."""
+    _serve(monkeypatch, _two_alerts())
+    file = tmp_path / "alerts.csv"
+    run = CliRunner().invoke(cli, ["alerts", f"--target={file}", "--with-metadata"])
+    assert run.exit_code == 0, run.output
+    sidecar = json.loads((tmp_path / "alerts.csv.metadata.json").read_text(encoding="utf-8"))
+    assert sidecar["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    assert sidecar["provider"]["attribution"] == "Source: Deutscher Wetterdienst"
+    assert sidecar["data_updated_at"] == "2026-07-26T07:23:00.000000+00:00"
+    assert sidecar["counts"]["rows"] == 2
+
+
+def test_cli_alerts_with_metadata_needs_a_target_and_is_told_before_the_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a file there is nothing to write beside, and the JSON on stdout has the block always: a usage error."""
+    asked = _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", "--with-metadata"])
+    assert run.exit_code == 2
+    assert "needs --target" in run.output
+    assert asked == []
+
+
+def test_cli_alerts_a_format_that_names_another_file_type_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Neither the format nor the extension silently wins: the old `--format=geojson --target=x.json` is refused."""
+    asked = _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", "--format=geojson", f"--target={tmp_path / 'alerts.json'}"])
+    assert run.exit_code == 2
+    assert "--format=geojson does not match .json" in run.output
+    assert not (tmp_path / "alerts.json").exists()
+    assert asked == []
+    # the same format as the extension says is no conflict, in any case
+    run = CliRunner().invoke(cli, ["alerts", "--format=CSV", f"--target={tmp_path / 'alerts.csv'}"])
+    assert run.exit_code == 0, run.output
+    assert (tmp_path / "alerts.csv").exists()
+
+
+@pytest.mark.parametrize("name", ["alerts.txt", "alerts.parquet", "alerts.xlsx", "alerts"])
+def test_cli_alerts_a_file_of_none_of_the_three_is_a_usage_error_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    """Parquet, a spreadsheet and the rest are refused naming the three the alerts are written as."""
+    asked = _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / name}"])
+    assert run.exit_code == 2
+    assert ".json, .geojson, .csv" in run.output
+    assert asked == []
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "target", ["duckdb:///x.duckdb?table=t", "sqlite:///x.sqlite?table=t", "s3://bucket/alerts.csv"]
+)
+def test_cli_alerts_a_database_target_is_refused_before_the_fetch(monkeypatch: pytest.MonkeyPatch, target: str) -> None:
+    """An alert is nested and has no table yet: the refusal is a usage error, as it was for any non-file target."""
+    asked = _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", f"--target={target}", "--with-metadata"])
+    assert run.exit_code == 2
+    assert "file://" in run.output
+    assert asked == []
+
+
+def test_cli_alerts_if_exists_fail_and_append_are_one_line_with_exit_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A refusal of the sink is its message and exit code 1, and the file that is there stays."""
+    _serve(monkeypatch, _two_alerts())
+    file = tmp_path / "alerts.csv"
+    file.write_text("old")
+    run = CliRunner().invoke(cli, ["alerts", f"--target={file}", "--if-exists=fail"])
+    assert run.exit_code == 1
+    assert "already exists" in run.output
+    assert "Traceback" not in run.output
+    run = CliRunner().invoke(cli, ["alerts", f"--target={file}", "--if-exists=append"])
+    assert run.exit_code == 1
+    assert "Append mode is not supported" in run.output
+    assert file.read_text() == "old"
+    run = CliRunner().invoke(cli, ["alerts", f"--target={file}", "--if-exists=skip"])
+    assert run.exit_code == 0
+    assert file.read_text() == "old"
+    run = CliRunner().invoke(cli, ["alerts", f"--target={file}"])
+    assert run.exit_code == 0
+    assert file.read_text(encoding="utf-8").startswith("alert_id,")
+
+
+def test_cli_alerts_a_directory_that_is_not_there_is_exit_1(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A path that cannot be written is told in one line, as it was before `to_target`."""
+    _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / 'missing' / 'alerts.json'}"])
+    assert run.exit_code == 1
+    assert "Could not write --target" in run.output
+
+
+def test_cli_alerts_no_warning_writes_the_empty_file_and_exits_0(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Where the other commands leave a target alone, no warning is the answer of a snapshot and the file says it."""
+    _serve(monkeypatch, _no_alerts())
+    (tmp_path / "alerts.csv").write_text("old warnings")
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / 'alerts.csv'}"])
+    assert run.exit_code == 0, run.output
+    assert (tmp_path / "alerts.csv").read_text(encoding="utf-8").startswith("alert_id,status,")
+    assert len((tmp_path / "alerts.csv").read_text(encoding="utf-8").splitlines()) == 1
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / 'alerts.json'}"])
+    assert run.exit_code == 0, run.output
+    assert json.loads((tmp_path / "alerts.json").read_text(encoding="utf-8"))["alerts"] == []
+
+
+def test_cli_alerts_without_a_target_still_prints_the_answer_with_its_block(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stdout is what it was: the format asked for, the JSON with the `metadata` block."""
+    _serve(monkeypatch, _two_alerts())
+    run = CliRunner().invoke(cli, ["alerts"])
+    assert run.exit_code == 0, run.output
+    data = json.loads(run.output)
+    assert list(data) == ["metadata", "snapshot", "alerts"]
+    run = CliRunner().invoke(cli, ["alerts", "--format=csv"])
+    assert run.exit_code == 0, run.output
+    assert run.output.startswith("alert_id,")

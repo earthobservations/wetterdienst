@@ -154,7 +154,8 @@ A sidecar is written beside a file only: `with_metadata=True` for a database tar
 a request class that is not one of the library's networks), which has no provider to describe; it is refused before
 the file is written, for every file type (not for a file that `if_exists` skips or refuses). A file that is skipped under `if_exists="skip"` gets no sidecar, and a
 sidecar is overwritten by the next write with `with_metadata=True` and left as it is by one without. The command line
-passes `--with-metadata` to `--target` of `stations`, `values`, `interpolate` and `summarize` as `to_target` takes it:
+passes `--with-metadata` to `--target` of `stations`, `values`, `interpolate`, `summarize` and `alerts` as `to_target` takes it
+(the alerts result writes the sidecar beside a `.json` and a `.geojson` file too, though those hold the block already):
 `<file>.metadata.json` beside any file but a Parquet, NetCDF or Zarr one (CSV, spreadsheet, JSON, JSON Lines, GeoJSON,
 Feather), the heavy parts in the block of those three, and a refusal, with the message of the `ExportRefusedError` and exit code 1, for a database target (a result with no
 rows writes nothing, to any target). The REST
@@ -192,7 +193,10 @@ small `typing.Protocol` of `to_dict`, `to_json` and `to_format`, so that one fun
 result is a set of arrays, not a table, and does not). The history result has JSON
 and no other format: `to_format("json")`, in any case, is its `to_json`, and `to_format("csv")` is an
 `UnknownFormatError` naming `json` as the only one supported. The alerts result of `dwd/alerts` has `json`, `geojson`
-and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others; it has no `to_target` yet.
+and `csv`, in any case, and takes the `indent` and the `with_metadata` of the others. Its `to_target` writes files
+only, `.json`, `.geojson` and `.csv` (which the table above does not list, as they are those of its own writers): an
+alert is nested, so a database target and every other file type is an `ExportRefusedError` naming the three. What a
+row of its CSV is, and what the files hold, is on the [alerts page](../data/provider/dwd/alerts/index.md#to-a-file).
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for

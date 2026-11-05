@@ -19,7 +19,7 @@ import logging
 import re
 import zipfile
 import zlib
-from typing import TYPE_CHECKING, Any, ClassVar, Never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Never, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -32,6 +32,7 @@ from wetterdienst.exceptions import (
     RequestError,
 )
 from wetterdienst.io.export import render_data_format
+from wetterdienst.io.sinks import write_alerts_to_target
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import Extent, ProviderTerms
 from wetterdienst.model.result import describe_provider
@@ -47,6 +48,7 @@ from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
+from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -245,6 +247,43 @@ class DwdWeatherAlertResult:
 
         """
         return render_data_format(self, fmt, kwargs, only=("json", "geojson", "csv"))
+
+    def to_target(
+        self,
+        target: str,
+        if_exists: Literal["replace", "append", "fail", "skip"] = "replace",
+        *,
+        with_metadata: bool = False,
+    ) -> None:
+        """Write the alerts to a file: JSON, GeoJSON or CSV, by the extension of the target.
+
+        A file holds what the REST API answers for the format (``render_alerts``), indented:
+
+        - ``file://alerts.json``: ``{"metadata": ..., "snapshot": ..., "alerts": [...]}``, an alert with its areas,
+          parameters and geometry nested as they are in ``to_dict``
+        - ``file://alerts.geojson``: the ``FeatureCollection`` of ``to_geojson``, with ``metadata`` as a foreign member
+        - ``file://alerts.csv``: the text of ``to_csv``, bare, a row for each alert: its areas are the comma-joined
+          ``warncell_ids`` and ``area_names``, its ``parameters`` and ``geometry`` JSON text, its times ISO strings
+
+        A snapshot without a warning is written as it is (an empty ``alerts`` list, a CSV of the header alone), so a
+        file that a schedule rewrites does not keep the warnings of the run before. The ``metadata`` block (provider,
+        licence, credit line and the date of the data) is in a JSON and a GeoJSON file, and ``with_metadata`` writes it
+        beside any file as ``<file>.metadata.json``, which is how a CSV file gets it. A database target is refused:
+        an alert is nested, and there is no table for it yet.
+
+        Args:
+            target: ``file://`` and a path, ending in ``.json``, ``.geojson`` or ``.csv``
+            if_exists: ``replace`` (default), ``fail`` or ``skip``; ``append`` is refused for a file
+            with_metadata: write ``<file>.metadata.json`` beside the file
+
+        Raises:
+            ExportRefusedError: a target that is no file of those three types, ``append``, a file that exists under
+                ``fail``, or ``with_metadata`` for a database target.
+
+        """
+        connspec = ConnectionString(target)
+        log.info(f"Exporting {self.df.height} alerts to {redact_password(target)}")
+        write_alerts_to_target(self, target, connspec, if_exists, with_metadata=with_metadata)
 
 
 class DwdWeatherAlertRequest:
