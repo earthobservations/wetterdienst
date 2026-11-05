@@ -47,33 +47,46 @@ For more information, see the [settings documentation](usage/settings.md).
 
 ## Crash at exit with ecCodes and pyproj on Linux
 
-On Linux, installing `eccodes` (from the `bufr` or `eccodes` extra) with pip, `uv pip` or another
-installer that reads its wheel's dependencies pulls in the `eccodeslib` and `eckitlib` wheels, and
-`eckitlib` bundles its own copy of PROJ. A process that loads `eccodes` and then imports `pyproj`
-(which the `radarplus` extra brings, as do geopandas or cartopy) crashes at interpreter exit with
+This applies to `findlibs` older than 0.1.4 only. The `bufr` and `eccodes` extras require 0.1.4 or
+newer from the release after 0.183.0 on, so an install through them is not affected.
+
+On Linux, `eccodes` 2.43 and newer pull in the `eccodeslib` and `eckitlib` wheels (not on
+Windows), and `eckitlib` bundles its own copy of PROJ. `findlibs` 0.1.3 and older loaded that
+library globally, so a process that loaded `eccodes` and then imported `pyproj` (which the
+`radarplus` extra brings, as do geopandas or cartopy) crashed at interpreter exit with
 `double free or corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or
 139. Files your code wrote and closed are complete, but the exit status fails scripts and CI jobs.
-This is the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
-[#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
+It was seen with `eckitlib` 2.3.0 and 2.5.0, not with 2.0.1. This was the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), fixed by
+`findlibs` 0.1.4 ([ecmwf/findlibs#30](https://github.com/ecmwf/findlibs/pull/30)), which loads the
+library locally; see also [#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
 
-wetterdienst imports `pyproj`, where it is installed, before it loads `eccodes` for DWD road
-BUFR, so its own reads do not set this off. Code that imports `eccodes` before wetterdienst
-does, itself or through a library such as `pdbufr` or `cfgrib`, still can:
+You can still meet it where `eccodes` was installed without these extras and the environment keeps
+an older `findlibs` (pip does not upgrade a package that already satisfies `eccodes`' own
+requirement, which names no version), or where a constraint pins one. Wetterdienst no longer
+imports `pyproj` ahead of `eccodes` for you, so code that reads DWD road BUFR and then imports
+`pyproj` is affected too. Check with
+`python -c "import importlib.metadata as m; print(m.version('findlibs'))"`, and upgrade:
 
 ```bash
-python -c "import eccodes; import pyproj"; echo $?   # 134
+pip install --upgrade "findlibs>=0.1.4"
+```
+
+If you cannot, import `pyproj` first, which the crash needs the other way round:
+
+```bash
+python -c "import eccodes; import pyproj"; echo $?   # 134, with findlibs 0.1.3
 python -c "import pyproj; import eccodes"; echo $?   # 0
 ```
 
-Import `pyproj` first. Where you cannot, install your distribution's ecCodes library and set
-`FINDLIBS_DISABLE_PACKAGE=yes` for the command that runs your code, so that `findlibs` loads that
-library instead of the `eccodeslib` wheel's (on Debian 13,
-`sudo apt-get install libeccodes0 libeccodes-data`). Both are needed: with the variable and no
-system library, `eccodes` does not load at all. The variable applies to every library `findlibs`
-looks up, so another package that relies on it to find a library in its wheel no longer finds it:
-scope it to the one command, as in `FINDLIBS_DISABLE_PACKAGE=yes python my_script.py`.
+or install your distribution's ecCodes library and set `FINDLIBS_DISABLE_PACKAGE=yes` for the
+command that runs your code, so that `findlibs` loads that library instead of the `eccodeslib`
+wheel's (on Debian 13, `sudo apt-get install libeccodes0 libeccodes-data`). Both are needed: with
+the variable and no system library, `eccodes` does not load at all. The variable applies to every
+library `findlibs` looks up, so another package that relies on it to find a library in its wheel no
+longer finds it: scope it to the one command, as in
+`FINDLIBS_DISABLE_PACKAGE=yes python my_script.py`.
 
-Only installs with the `eckitlib` wheel are affected: where
+Installs without the `eckitlib` wheel were never affected: where
 `python -c "import importlib.metadata as m; print(m.version('eckitlib'))"` raises
 `PackageNotFoundError`, yours is not. The Docker image does not install it.
 

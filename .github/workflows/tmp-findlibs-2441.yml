@@ -64,6 +64,10 @@ jobs:
             fi
             "$PY" -m pip list 2>/dev/null | grep -i -E "^(eccodes|eccodeslib|eckitlib|findlibs|pyproj|wradlib|xradar|pdbufr|wetterdienst) " | tr '\n' ';'
             echo
+            all_checks
+          }
+
+          all_checks() {
             "$PY" -c "import findlibs; print('  findlibs finds:', findlibs.find('eccodes'))" 2>&1 | tail -1
             check "import eccodes; import pyproj" "import eccodes; import pyproj"
             check "import pyproj; import eccodes" "import pyproj; import eccodes"
@@ -87,6 +91,20 @@ jobs:
           "
           }
 
+          echo
+          echo "=================== the floor: an install that asks for an older findlibs is refused"
+          for extra in bufr eccodes; do
+            "$PY" -m pip install --dry-run ".[$extra]" "findlibs<0.1.4" > floor.log 2>&1
+            echo "  [exit $?] pip install --dry-run '.[$extra]' 'findlibs<0.1.4' (expected: not 0)"
+            grep -i -E "conflict|findlibs" floor.log | head -4 | sed 's/^/        /'
+          done
+
+          echo
+          echo "=================== as the extras install it (no pins)"
+          "$PY" -m pip list 2>/dev/null | grep -i -E "^(eccodes|eccodeslib|eckitlib|findlibs|pyproj|wradlib|xradar|pdbufr|wetterdienst) " | tr '\n' ';'
+          echo
+          all_checks
+
           #        eccodes   eccodeslib   findlibs
           one_set  2.49.0    2.49.0.30    0.1.3
           one_set  2.49.0    2.49.0.30    0.1.4
@@ -98,3 +116,22 @@ jobs:
           one_set  2.46.0    2.46.0.12    0.1.5
           one_set  2.43.0    2.46.0.12    0.1.3
           one_set  2.43.0    2.46.0.12    0.1.5
+
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            echo
+            echo "=================== the distribution's library (apt libeccodes-dev), no eccodeslib wheel"
+            sudo apt-get update -qq > /dev/null 2>&1
+            sudo apt-get install -y -qq libeccodes-dev > /dev/null 2>&1
+            dpkg -s libeccodes-dev | grep -i "^version"
+            for ecc in 2.42.0 2.50.0; do
+              "$PY" -m pip uninstall --quiet -y eccodeslib eckitlib 2>&1 | tail -1
+              for fl in 0.1.3 0.1.5; do
+                echo
+                echo "=================== system library: eccodes==$ecc findlibs==$fl"
+                "$PY" -m pip install --quiet --no-deps "eccodes==$ecc" "findlibs==$fl" 2>&1 | tail -3
+                "$PY" -m pip list 2>/dev/null | grep -i -E "^(eccodes|eccodeslib|eckitlib|findlibs|pyproj|wradlib|xradar|pdbufr|wetterdienst) " | tr '\n' ';'
+                echo
+                all_checks
+              done
+            done
+          fi

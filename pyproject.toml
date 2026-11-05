@@ -140,6 +140,12 @@ bufr = [
     # keep out. Inside this repo one lock covers every extra and the `eccodes` extra below would
     # have bound it either way; a consumer installing this extra alone has no such luck
     "eccodes>=1.7.1,<3",
+    # eccodes requires findlibs at any version, and its wheels ask for `eccodeslib` from 2.43 on
+    # (not on Windows). The eckitlib behind it bundles a PROJ that findlibs 0.1.3 and older loaded
+    # globally, so a process that loaded eccodes and then imported pyproj aborted at exit
+    # (ecmwf/eckit#354, GH-2441). 0.1.4 loads it locally. 0.1.5 only puts the global load back on
+    # macOS, which BUFR decoding does not need, so it is not the floor
+    "findlibs>=0.1.4,<1",
     "pdbufr>=0.10.2,<1",
 ]
 cratedb = [
@@ -156,9 +162,11 @@ duckdb = [
 # or not this one is installed -- would have had to build, and would have continued on error if it
 # could not. Raising it only that far is deliberate: `ensure_eccodes` asks for
 # `codes_get_api_version`, which 1.x has, so nothing here needs 2.x and an install pinned to 1.x
-# keeps resolving
+# keeps resolving. `findlibs` is floored here as in `bufr` (see there), so that this extra
+# alone never leaves the abort at exit of GH-2441 reachable
 eccodes = [
     "eccodes>=1.7.1,<3",
+    "findlibs>=0.1.4,<1",
 ]
 excel = [
     "xlsxwriter>=3.0.9,<4",
@@ -449,6 +457,9 @@ scikit-learn = "sklearn"
 DEP002 = [
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
+    # a floor only: eccodes imports it, and the floor is what keeps the abort at exit of GH-2441 out
+    # (the `bufr` and `eccodes` extras); wetterdienst never imports it
+    "findlibs",
     "h5netcdf",
     "h5py",
     "influxdb",
@@ -472,17 +483,14 @@ DEP002 = [
     "xradar",
     "zarr"
 ]
-# pyproj is imported only where installed, ahead of eccodes (`util/eccodes.py`, GH-2468), and not
-# needed otherwise: `radarplus` brings it through wradlib and xradar. Missing where it is not
-# installed, transitive where it is.
 # tabula is tabula-py, which only the maintainers' radar-sites generator imports
 # (`provider/dwd/radar/sites.py`): no extra names it, because it needs a Java runtime (GH-2764)
 # mcp_types is where fastmcp takes `ToolAnnotations` from (`ui/mcp.py`), and fastmcp re-exports it
 # nowhere. It comes in transitively through fastmcp (the `mcp` extra; fastmcp-slim requires
 # mcp-types>=2,<3), so it is missing where that extra is not installed and transitive where it is;
 # declaring it would change uv.lock for a package fastmcp already brings.
-DEP001 = ["mcp_types", "pyproj", "tabula"]
-DEP003 = ["mcp_types", "pyproj"]
+DEP001 = ["mcp_types", "tabula"]
+DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError"
