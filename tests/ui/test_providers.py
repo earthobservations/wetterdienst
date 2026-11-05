@@ -14,6 +14,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
+from tests.conftest import ECCC_ATTRIBUTION
 from wetterdienst import Wetterdienst
 from wetterdienst.model.metadata import MetadataModel
 from wetterdienst.ui import restapi
@@ -141,6 +142,17 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
     assert dwd.license is not None
     assert dwd.license.spdx_id == "CC-BY-4.0"
     assert (dwd.country, dwd.country_code) == ("Germany", "DE")
+
+
+def test_eccc_carries_the_end_use_licence_of_its_data_server() -> None:
+    """ECCC's licence is the one the API it is read from declares in its OpenAPI document (GH-2567)."""
+    eccc = next(provider for provider in get_providers().providers if provider.provider == "eccc")
+
+    assert eccc.license is not None
+    assert eccc.license.spdx_id is None
+    assert eccc.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
+    assert eccc.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert eccc.attribution == ECCC_ATTRIBUTION
 
 
 def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: TestClient) -> None:

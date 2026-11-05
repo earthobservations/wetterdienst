@@ -95,7 +95,7 @@ def test_every_result_puts_the_metadata_block_first_for_with_metadata(name: str)
     """`with_metadata=True` adds the block of the provider, the producer and the date, ahead of the data."""
     data = _results()[name].to_dict(with_metadata=True)
     assert next(iter(data)) == "metadata"
-    assert list(data["metadata"]) == ["provider", "producer", "data_updated_at"]
+    assert list(data["metadata"]) == ["provider", "producer", "data_updated_at", "processing_note"]
     assert data["metadata"]["provider"]["name_english"] == "German Weather Service"
     assert "metadata" not in _results()[name].to_dict()
 
@@ -190,7 +190,7 @@ def test_the_alerts_with_metadata_is_the_block_of_the_other_results_first() -> N
     for fmt in ("json", "JSON"):
         data = json.loads(result.to_format(fmt, with_metadata=True))
         assert list(data) == ["metadata", "snapshot", "alerts"]
-        assert list(data["metadata"]) == ["provider", "producer", "data_updated_at"]
+        assert list(data["metadata"]) == ["provider", "producer", "data_updated_at", "processing_note"]
         assert data["metadata"]["data_updated_at"].startswith("2026-07-26T07:23:00")
         assert data["alerts"] == result.to_dict()["alerts"]
     assert json.loads(result.to_format("json")) == result.to_dict()

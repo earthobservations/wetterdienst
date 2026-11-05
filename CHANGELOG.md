@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- Every answer that holds provider data has a `processing_note` in its `metadata` (REST, MCP,
+  command line, Python `with_metadata=True`, files of an export) and an `X-Wetterdienst-Processing`
+  header: that wetterdienst reshaped the data into one table and converted its units where they
+  differ, which licences such as CC BY ask to be indicated. `interpolate` and `summarize` add that
+  the values were selected or calculated, the stripes' image that it is drawn from annual values.
+  One text for all providers, no legal advice (Part of GH-2567)
+- The docs have a page of the licence and credit line of every provider, built from the provider
+  metadata, and the overview no longer calls all the data open (Part of GH-2567)
 - The new check `step` judges every observation network for a jump between consecutive readings:
   a reading that differs from the one before it by more than the limit (the later one is flagged)
   or that jumps away from both neighbours and back (the middle one). Limits per parameter and
@@ -30,6 +38,13 @@ Types of changes:
 
 ### Changed
 
+- `eccc/observation` now reports the licence of the data server it reads, the Environment and
+  Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
+  the Climate Data Online agreement, whose redistribution clause does not apply to it in our
+  reading). Its `attribution` is "Data Source: Environment and Climate Change Canada. Contains
+  information licenced under the Data Server End-use Licence of Environment and Climate Change
+  Canada." (before "based on Environment and Climate Change Canada data"), and its source `url`
+  is `https://api.weather.gc.ca/` (before the Climate Data Online bulk page) (Part of GH-2567)
 - The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
   docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
   time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD

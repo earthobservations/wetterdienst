@@ -303,9 +303,10 @@ reaching back centuries where the service keeps them. Every provider is reached 
 parameter means the same thing whichever service reports it: `temperature_air_mean_2m` is the mean
 air temperature at 2 m, converted to the same unit, everywhere.
 
-Licenses and usage requirements differ per provider, so check the
-[data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) chapter before you publish
-anything built on them. It also lists every dataset and parameter per provider.
+Licenses and usage requirements differ per provider: see the table of
+[licences and credit lines](https://wetterdienst.readthedocs.io/en/latest/data/provider/licenses.html) before you publish
+anything built on them. The [data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) chapter also lists
+every dataset and parameter per provider.
 
 
 ## Where to start

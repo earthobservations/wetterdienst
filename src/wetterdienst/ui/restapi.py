@@ -2356,7 +2356,10 @@ def stripes_image(
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers={**response_headers(stripes_metadata(stripes_data, request)), **_image_headers(request.format)},
+        headers={
+            **response_headers(stripes_metadata(stripes_data, request, image=True)),
+            **_image_headers(request.format),
+        },
     )
 
 
