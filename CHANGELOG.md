@@ -26,6 +26,15 @@ Types of changes:
   One text for all providers, no legal advice (Part of GH-2567)
 - The docs have a page of the licence and credit line of every provider, built from the provider
   metadata, and the overview no longer calls all the data open (Part of GH-2567)
+- The new check `step` judges every observation network for a jump between consecutive readings:
+  a reading that differs from the one before it by more than the limit (the later one is flagged)
+  or that jumps away from both neighbours and back (the middle one). Limits per parameter and
+  resolution from ISD, DMI, MADIS and GHCN-Daily: air temperature and dew point 8 K as a spike and
+  20 K as a step in an hour, 25 K as a spike in a day, pressure 60 hPa, mean wind 10 and 15 m/s.
+  Soft by default: the value is kept as `suspect:step` and leaves interpolation, summaries and
+  `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
+  them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
+  GH-3681)
 
 ### Changed
 
@@ -36,6 +45,13 @@ Types of changes:
   information licenced under the Data Server End-use Licence of Environment and Climate Change
   Canada." (before "based on Environment and Climate Change Canada data"), and its source `url`
   is `https://api.weather.gc.ca/` (before the Climate Data Online bulk page) (Part of GH-2567)
+- The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
+  docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
+  time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD
+  shows at the 41 stations judged for 1987 to March 2001: the terms of 27 equal ISD's report of the
+  stamp's UTC hour (99 % of the values), those of 13 do not and their clock is not shown (Potsdam,
+  the secular station, reads local mean time up to 1991-10); other stations were not measured.
+  No stamp is shifted; the numbers are in `docs/data/time_reference.md` (Part of GH-2711)
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is

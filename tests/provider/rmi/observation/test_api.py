@@ -282,9 +282,10 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
     Rows as the WFS serves them for the daily layer of 6414 (checked 2026-10-16): `temp_avg` 110.26 and `temp_max` 4021
     on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09, `qc_flags` not validated. The 81.5 m/s lie inside the
     115 m/s of the table of ranges, which is the same for every provider (the highest gust on record is 113.2 m/s): it
-    is a regional defect that no world table can see, for the step check of GH-3681 to find. The 569.7 m/s are a gust of
-    the hourly layer, put among the daily rows. The highest gust of any of the 14 stations in the 36 years of the layer
-    besides is 51.05 m/s (6434, 2002-12-30). A source null is dropped as before, and a validated value is left alone.
+    is a regional defect that no world table can see, and no check finds it: `step` does not judge gusts. The 569.7 m/s
+    are a gust of the hourly layer, put among the daily rows. The highest gust of any of the 14 stations in the 36
+    years of the layer besides is 51.05 m/s (6434, 2002-12-30). A source null is dropped as before, and a validated
+    value is left alone.
     """
     qc = {"TEMP_AVG": False, "TEMP_MAX": False, "WIND_GUSTS_SPEED": False, "TEMP_MIN": True}
     rows = [
