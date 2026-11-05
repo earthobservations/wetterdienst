@@ -21,16 +21,23 @@ Types of changes:
 - The alerts result of `dwd/alerts` has `to_target`: `file://alerts.json`, `.geojson` or `.csv`, the
   file the REST API answers for that format, a CSV row being one alert (areas comma-joined,
   `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
-  it; a snapshot without a warning writes an empty file. A database target or another file type is
-  an `ExportRefusedError` (GH-3706)
+  it. A snapshot without a warning still writes the file: no alerts, and the block in a JSON one. A
+  database target or another file type is an `ExportRefusedError` (GH-3706)
 
 ### Changed
 
-- `wetterdienst alerts --target` now decides the format by the extension (`.json`, `.geojson`,
-  `.csv`), as `stations` does, and takes `--if-exists` and `--with-metadata`. A `--format` that
-  disagrees with the extension, or another extension, is a usage error: leave `--target` out and
-  redirect stdout instead (GH-3706)
-
+- **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
+  `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
+  without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
+  exit 2; `--target=x.csv` without `--format` wrote JSON and now writes CSV. Name the file after
+  the format you want, or leave `--target` out and redirect stdout (GH-3706)
+- The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
+  docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
+  time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD
+  shows at the 41 stations judged for 1987 to March 2001: the terms of 27 equal ISD's report of the
+  stamp's UTC hour (99 % of the values), those of 13 do not and their clock is not shown (Potsdam,
+  the secular station, reads local mean time up to 1991-10); other stations were not measured.
+  No stamp is shifted; the numbers are in `docs/data/time_reference.md` (Part of GH-2711)
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
