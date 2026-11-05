@@ -6,7 +6,7 @@
 |---------------|------------------------------------------------------------------------------------------------|
 | name          | subdaily                                                                                       |
 | original name | subdaily                                                                                       |
-| description   | Three fixed observation times a day: until March 2001 at 07, 14 and 21 (local mean time; from 1987 07:30, 14:30 and 21:30 CET, which the files stamp as 07, 14 and 21), from April 2001 at 06, 12 and 18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 UTC); the extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour maximum). |
+| description   | Three fixed observation times a day: until March 2001 at 07, 14 and 21 (local mean time; from 1987 07:30, 14:30 and 21:30 CET, which the files stamp as 07, 14 and 21), from April 2001 at 06, 12 and 18 UTC (some stations also at 00 UTC; East German stations 1960-1990 at 00, 06, 12 and 18 UTC); the extreme wind at 03, 09, 15 and 21 UTC (3-hour maximum) and 00, 06, 12 and 18 UTC (6-hour maximum). Compared with NOAA ISD, the stamp of the 07, 14 and 21 terms is the UTC hour of the reading from 1987 on and, at the West German stations from 1947 to 1986, a fraction of an hour before it, not local mean time and not CET; it is returned as written (see the time reference page). |
 | url           | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/) |
 
 ## datasets
