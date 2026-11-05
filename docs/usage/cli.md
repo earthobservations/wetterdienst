@@ -55,6 +55,71 @@ The command line has none of the limits of the REST API on the rows or stations 
 whole network is written with `--target` to a file or a database, see
 [Getting more than the limit](large-requests.md#leave-the-server).
 
+## Logging
+
+The data a command writes goes to stdout, and what it says about them to stderr as log lines: the warnings about the
+answer (an empty one, values a plausibility check rejected, a file the provider let go), the progress of a long
+request, and the errors. Every command but `restapi` takes `--debug`, which adds the debug lines of the package, and
+`--quiet`, which leaves **errors only**:
+
+```bash
+# a scheduled job: nothing on stderr unless it failed
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 \
+    --timestamp=2024-01 --target=file://values.json --quiet
+```
+
+`--quiet` changes the level of the log and nothing else: stdout holds what it held (a `--target` is written as without it), a failure is still its one line on
+stderr (a provider that cannot be reached, a missing credential or extra, a `--target` that cannot be written), a
+usage error is still click's and the exit code is the one the command would have had, `0`, `1` or `2`. The warnings
+about the answer are what it does silence, so a script that must tell a partial answer from a whole one reads them
+where they are kept as well: the `warnings` of the `metadata` block of JSON and GeoJSON output (see
+[response metadata](restapi.md#response-metadata)). CSV and a file `--target` carry none. `--quiet` and `--debug` are
+a usage error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone: its log is
+also uvicorn's, which `--quiet` would not reach.
+
+## Colour
+
+The command line writes no colour of its own: its help, its errors, the log and the data have no escape code,
+on a terminal, in a pipe, and where `FORCE_COLOR` asks for it (a test holds all of it to that). Two things outside it
+can: Python colours the traceback of a defect on a terminal (3.13 and later), and uvicorn the level of the log lines of
+`wetterdienst restapi`. [`NO_COLOR`](https://no-color.org) set to anything but the empty string turns both off, and
+a command that is not on a terminal is plain without it.
+
+```bash
+NO_COLOR=1 wetterdienst restapi
+```
+
+## Shell completion
+
+Completion is click's own, for bash (4.4 or later: not the 3.2 that macOS has in `/bin/bash`), zsh and fish. It
+completes the commands, their options, the choices of an option and, from the registry of providers, `--provider` and
+`--network` (the networks of the `--provider` on the line, else all of them). It does not complete `--parameters`,
+`--stations` or `--timestamp`: those would take the provider's metadata or its station list, a provider's import
+and possibly the network, which a TAB must not do. Every TAB is a process that imports the command line, which takes
+about 0.7 s on a laptop and never contacts a provider.
+
+Print the script once, put it where the shell reads it, and start a new shell:
+
+```bash
+# bash: ~/.bashrc
+eval "$(_WETTERDIENST_COMPLETE=bash_source wetterdienst)"
+# zsh: ~/.zshrc, after compinit
+eval "$(_WETTERDIENST_COMPLETE=zsh_source wetterdienst)"
+# fish
+_WETTERDIENST_COMPLETE=fish_source wetterdienst > ~/.config/fish/completions/wetterdienst.fish
+```
+
+The `eval` form runs `wetterdienst` every time a shell starts, which costs that 0.7 s each time. To keep the start
+quick, write the script to a file once and source that, and again after an upgrade:
+
+```bash
+_WETTERDIENST_COMPLETE=bash_source wetterdienst > ~/.wetterdienst-complete.bash
+echo 'source ~/.wetterdienst-complete.bash' >> ~/.bashrc
+```
+
+There is no `wetterdienst completion` command: the variable is the whole of it, and a command would be a surface to
+keep for what the variable does. PowerShell and the Windows shell are not supported by click.
+
 ## Exit codes
 
 What the command line promises across releases, its options and exit codes among it, is on the
