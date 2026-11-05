@@ -805,15 +805,15 @@ STATED_LICENCES = {
     ("chmi", "observation"): "CC-BY-4.0",
     ("dmi", "observation"): "CC-BY-4.0",
     ("noaa", "ghcn"): "CC0-1.0",
-    ("imgw", "meteorology"): None,
-    ("imgw", "hydrology"): None,
+    ("imgw", "meteorology"): "CC-BY-NC-ND-4.0",
+    ("imgw", "hydrology"): "CC-BY-NC-ND-4.0",
     ("ipma", "observation"): None,
 }
 
 
 @pytest.mark.parametrize(("network", "spdx_id"), list(STATED_LICENCES.items()))
 def test_the_licence_a_provider_states_is_the_one_declared(network: tuple[str, str], spdx_id: str | None) -> None:
-    """IMGW and IPMA state terms of their own, which no SPDX identifier names: they say so by `spdx_id` null."""
+    """IPMA states terms of its own, which no SPDX identifier names: it says so by `spdx_id` null."""
     metadata = Wetterdienst.resolve(*network).metadata
 
     assert metadata.license is not None
@@ -834,13 +834,13 @@ def test_imgw_asks_for_its_own_words() -> None:
         assert attribution == f"{source}. {processed}."
 
 
-def test_imgw_licence_points_at_its_terms() -> None:
-    """The licence URL is the PDF of the terms, not the portal they are offered on."""
+def test_imgw_licence_points_at_the_licence() -> None:
+    """All of IMGW is CC BY-NC-ND 4.0, the link is its text; the terms that apply beside it are in the docs."""
     for network in ("meteorology", "hydrology"):
         license_ = Wetterdienst.resolve("imgw", network).metadata.license
 
         assert license_ is not None
-        assert license_.url == "https://danepubliczne.imgw.pl/docs/regulamin_udostepniania_danych.pdf"
+        assert license_.url == "https://creativecommons.org/licenses/by-nc-nd/4.0/"
 
 
 def _timeseries_networks() -> list[tuple[str, str]]:

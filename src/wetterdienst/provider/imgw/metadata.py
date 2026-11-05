@@ -11,15 +11,13 @@ _METADATA = {
     "country": "Poland",
     "country_code": "PL",
     "copyright": "© IMGW, Observations",
-    # no SPDX licence: the terms are IMGW-PIB's own ("Regulamin udostępniania danych"). They make the data free for
-    # private use (§ 5 ust. 1) and, for any purpose, only where it is "dane o wysokiej wartości" (high-value data,
-    # § 3 ust. 1); use for business needs an agreement with IMGW-PIB (§ 3 ust. 2). IMGW-PIB says high-value data is
-    # CC BY 4.0 and all other data CC BY-NC-ND 4.0, but not which the directories read here are; dane.gov.pl catalogues
-    # them as CC BY-NC-ND 4.0 and not high-value, so a commercial use is not cleared
+    # one licence for all of it (maintainer, GH-2567): IMGW-PIB says CC BY-NC-ND 4.0 for all it does not class as
+    # high-value (that is CC BY 4.0) but not which the directories read here are, and dane.gov.pl catalogues them as
+    # CC BY-NC-ND 4.0 and not high-value. Its own terms ("Regulamin udostępniania danych") apply beside the licence
     "license": LicenseModel(
-        spdx_id=None,
-        name="IMGW-PIB terms of data provision (Regulamin udostępniania danych)",
-        url="https://danepubliczne.imgw.pl/docs/regulamin_udostepniania_danych.pdf",
+        spdx_id="CC-BY-NC-ND-4.0",
+        name="Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International",
+        url="https://creativecommons.org/licenses/by-nc-nd/4.0/",
     ),
     # the two statements the terms prescribe, as one sentence each: § 5 ust. 3, the source of the data on every work
     # made with it, and § 5 ust. 4, that the data were processed, beside it. The latter is always the case here: the
