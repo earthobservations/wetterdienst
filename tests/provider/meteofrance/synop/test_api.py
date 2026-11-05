@@ -554,8 +554,8 @@ def test_meteofrance_synop_api_a_temperature_below_zero_is_null_where_there_is_n
             ],
         ),
         # DUMONT D'URVILLE, 43 m: 1008.1 hPa expected, 865.6 to 1083.1 allowed; the deep lows of 2010-09-10 (938.2 hPa)
-        # and of 2020-12-28 (944.1) are readings, and so is 909.5 (98 hPa below, as far as Hurricane Irma's eye was:
-        # the gap the step check of GH-3681 is to close); 863 is not
+        # and of 2020-12-28 (944.1) are readings, and so is 909.5 (98 hPa below, as far as Hurricane Irma's eye was; the
+        # synop data is `subdaily`, which `step` does not judge, so no check says more of it); 863 is not
         (
             43.0,
             ["93820", "94410", "90950", "86300"],

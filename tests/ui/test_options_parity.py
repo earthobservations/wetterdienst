@@ -477,6 +477,7 @@ def test_a_check_given_is_laid_over_the_checks_the_environment_sets(monkeypatch:
         "floor": "soft",
         "limits": "hard",
         "source": "soft",
+        "step": "soft",
     }
     cli_options = _cli(monkeypatch, "values", ["--plausibility-range=hard", "--plausibility-floor=soft"])
     assert cli_options.model_dump() == options.model_dump()
@@ -495,6 +496,7 @@ def test_one_mode_for_every_check_and_a_check_that_wins(monkeypatch: pytest.Monk
         "floor": "soft",
         "limits": "soft",
         "source": "soft",
+        "step": "soft",
     }
     for surface, options in (
         ("rest", _rest(monkeypatch, "values", {"plausibility": "soft"})),

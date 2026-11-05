@@ -426,12 +426,12 @@ class Options(BaseSettings):
         description="What a plausibility check does to a value it finds implausible: `hard` nulls it and keeps the "
         "number as `rejected:<check>,raw:<number>` in `quality_flags`, `soft` keeps it and flags it "
         "`suspect:<check>`. One mode per check (`range`, `elevation`, `stuck`, `consistency`, `floor`, `limits`, "
-        "`source`), or a bare "
+        "`source`, `step`), or a bare "
         "`soft` or `hard` for every check at once, which a check named beside it overrides; the "
         "missing-value codes a source documents are no check and are not configurable. Interpolation and "
         "summary always leave out a suspect value. A forecast network (metadata `kind` `forecast`) is judged `soft` in "
         "every check but `floor` and `limits`, whatever is set here. `source`, the verdict of the source's own quality "
-        "flag, is soft by default.",
+        "flag, and `step`, a jump between consecutive readings, are soft by default, as `stuck` is.",
     )
     # the bounds the caller sets per parameter, judged by the check `limits` (mode: `plausibility.limits`), beside the
     # physical ranges of the check `range`. In the unit of the values the request returns (GH-3687)

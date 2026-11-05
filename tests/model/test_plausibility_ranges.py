@@ -347,7 +347,7 @@ def test_the_bounds_of_the_station_pressure_at_an_elevation() -> None:
         (2956.0, 968.6, False, "the Zugspitze reading a sea level pressure"),
         (2956.0, 908.6, False, "the Zugspitze, 1990-05-31"),
         (7.0, 1097.3, False, "Tromelin, 2000-07-17"),
-        # the known gap, for the step check of GH-3681 to close: a slip that lies between the margins
+        # the gap `elevation` leaves, which the check `step` flags: a slip that lies between the margins
         (48.0, 909.5, True, "Berlin-Tempelhof 1994-08-29: 98 hPa below, as far as Irma's eye is"),
         (25.0, 910.1, True, "List auf Sylt 1990-09-18"),
         (25.0, 908.5, True, "List auf Sylt 1992-10-22"),
@@ -376,7 +376,8 @@ def test_a_station_without_an_elevation_is_not_judged() -> None:
     )
     plan = plan_for("meteofrance/observation", dataset)
     name = next(original for original, c in plan.parameters.items() if c.name == "pressure_air_site")
-    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(2)]
+    # two hours apart: the check `step` stands aside, as the readings are further apart than the step
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=2 * hour) for hour in range(2)]
     df = pl.DataFrame(
         {"parameter": [name] * 2, "timestamp": stamps, "value": [1093.3, 800.0], "quality_flags": [None, None]},
         schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
@@ -392,7 +393,8 @@ def test_an_elevation_of_zero_is_none_where_the_list_writes_it_for_an_unknown_on
     dataset = next(d for d in _datasets("noaa/ghcn") if d.resolution.name == "hourly")
     plan = plan_for("noaa/ghcn", dataset)
     name = next(original for original, c in plan.parameters.items() if c.name == "pressure_air_site")
-    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(2)]
+    # two hours apart: the check `step` stands aside, as the readings are further apart than the step
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=2 * hour) for hour in range(2)]
     df = pl.DataFrame(
         {"parameter": [name] * 2, "timestamp": stamps, "value": [500.2, 998.0], "quality_flags": [None, None]},
         schema_overrides={"value": pl.Float64, "quality_flags": pl.String},
@@ -426,7 +428,8 @@ def test_the_checks_judge_one_pressure_with_both_modes() -> None:
     dataset = next(d for d in _datasets("dwd/observation") if d.name == "pressure" and d.resolution.name == "hourly")
     plan = plan_for("dwd/observation", dataset)
     p0 = next(original for original, c in plan.parameters.items() if c.name == "pressure_air_site")
-    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=hour) for hour in range(2)]
+    # two hours apart: the check `step` stands aside, as the readings are further apart than the step
+    stamps = [dt.datetime(2024, 1, 1, tzinfo=UTC) + dt.timedelta(hours=2 * hour) for hour in range(2)]
     df = pl.DataFrame(
         {"parameter": [p0] * 2, "timestamp": stamps, "value": [1150.0, 1000.0], "quality_flags": [None, None]},
         schema_overrides={"value": pl.Float64, "quality_flags": pl.String},

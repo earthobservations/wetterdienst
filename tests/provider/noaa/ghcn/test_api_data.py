@@ -612,7 +612,7 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
     there is none, and only the letters of the list of 382 count. The first row has the value,
     the code and the source of the file's own 11:00 row (GHCNh_ACM00078861_por.psv, read 2026-11-02, 1988-01-27: a
     temperature of 50.0 with code 2 and source 220, in the tropics), stamped 00:00 here; the other rows are made up
-    from the lists above.
+    from the lists above, at 40.1 to 41.3 degrees so that no jump (the check `step`) is among them.
     """
     from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
@@ -645,7 +645,7 @@ def test_api_hourly_quality_code_of_a_verdict_is_judged_by_the_check_source_in_t
         (
             f"1988-01-27T{hour:02d}:00:00",
             {
-                "temperature": "50.0" if hour == 0 else f"{20 + hour / 10:.1f}",
+                "temperature": "50.0" if hour == 0 else f"{40 + hour / 10:.1f}",
                 "temperature_Quality_Code": quality,
                 "temperature_Source_Code": source,
             },
