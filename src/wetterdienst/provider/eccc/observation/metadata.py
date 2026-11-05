@@ -21,10 +21,14 @@ _EcccObservationMetadataSpec = {
         name="Environment and Climate Change Canada Data Server End-use Licence",
         url="https://eccc-msc.github.io/open-data/licence/readme_en/",
     ),
-    # section 3 of the licence: the attribution statement of the information provider, else "Data Source:
-    # Environment and Climate Change Canada" (the example it gives); the collections specify none
-    "attribution": "Data Source: Environment and Climate Change Canada",
-    "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
+    # section 3 of the licence: the attribution statement the provider specifies, else "you must use" the second
+    # sentence, and the collections specify none; the first is the licence's example of the separate duty to
+    # attribute the originator
+    "attribution": (
+        "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+        "End-use Licence of Environment and Climate Change Canada."
+    ),
+    "url": "https://api.weather.gc.ca/",
     "kind": "observation",
     "extent": {
         "scope": "national",

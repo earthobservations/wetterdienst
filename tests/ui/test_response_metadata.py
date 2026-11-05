@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
-from tests.conftest import RESPONSE_METADATA_ALWAYS
+from tests.conftest import ECCC_ATTRIBUTION, RESPONSE_METADATA_ALWAYS
 from tests.provider.test_data_updated_files import READERS
 from tests.ui.cli.test_cli_history import _stations_without_histories
 from tests.ui.test_restapi import (
@@ -834,7 +834,8 @@ def test_eccc_reports_the_end_use_licence_of_the_data_server_it_reads() -> None:
     assert metadata.license.spdx_id is None
     assert metadata.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
     assert metadata.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
-    assert metadata.attribution == "Data Source: Environment and Climate Change Canada"
+    assert metadata.attribution == ECCC_ATTRIBUTION
+    assert metadata.url == "https://api.weather.gc.ca/"
     assert "attachment1" not in metadata.license.url
 
 

@@ -32,8 +32,10 @@ Types of changes:
 - `eccc/observation` now reports the licence of the data server it reads, the Environment and
   Climate Change Canada Data Server End-use Licence (`spdx_id` null, `license.url` its text; before
   the Climate Data Online agreement, whose redistribution clause does not apply to it in our
-  reading), and its `attribution` is "Data Source: Environment and Climate Change Canada" (before
-  "based on Environment and Climate Change Canada data") (Part of GH-2567)
+  reading). Its `attribution` is "Data Source: Environment and Climate Change Canada. Contains
+  information licenced under the Data Server End-use Licence of Environment and Climate Change
+  Canada." (before "based on Environment and Climate Change Canada data"), and its source `url`
+  is `https://api.weather.gc.ca/` (before the Climate Data Online bulk page) (Part of GH-2567)
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is

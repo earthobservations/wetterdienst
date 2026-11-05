@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import ECCC_ATTRIBUTION
 from wetterdienst.api import Wetterdienst
 
 # before the extension is loaded, which imports them: a collection error would fail the whole run without the group
@@ -91,7 +92,7 @@ def test_eccc_is_the_row_of_the_end_use_licence() -> None:
 
     assert row.license is not None
     assert row.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
-    assert row.attribution == "Data Source: Environment and Climate Change Canada"
+    assert row.attribution == ECCC_ATTRIBUTION
 
 
 def test_a_network_that_differs_gets_a_row_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:

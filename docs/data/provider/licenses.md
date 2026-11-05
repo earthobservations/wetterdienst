@@ -9,8 +9,8 @@ The table is built from the same declarations that every answer of the library r
 (`license` and `attribution`, see [response metadata](../../usage/restapi.md#response-metadata)) when these docs are
 built, so it cannot differ from what you get back. A row has the networks that declare these terms; a provider whose
 networks disagreed would have a row for each set. Each provider's page, linked in the first column, has a License
-section with its terms and what they ask of you, and says more where they do (a credit line the terms prescribe, a
-limit on use, a key).
+section that links its terms. Many say what the terms ask of you, in different detail (a credit line the terms
+prescribe, a limit on use, a key); where one does not, the terms themselves are the source.
 
 ```{provider-licenses}
 ```

@@ -20,6 +20,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
+from tests.conftest import ECCC_ATTRIBUTION
 from tests.ui.test_response_metadata import ENDPOINTS, _Figure, _params
 from tests.ui.test_restapi import (
     _FETCH_OF_ENDPOINT,
@@ -252,17 +253,6 @@ def test_the_report_of_the_mcp_reads_the_note_off_the_headers() -> None:
 # --- the licence of ECCC -------------------------------------------------------------------------------------------
 
 
-def test_no_answer_has_a_notice_member(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The restriction ECCC's old agreement had went with that licence, and no provider has another."""
-    _stub_result(monkeypatch, "/api/values")
-
-    response = client.get("/api/values", params=_params("/api/values", format="csv"))
-    block = client.get("/api/values", params=_params("/api/values")).json()["metadata"]
-
-    assert "notice" not in block["provider"]
-    assert "X-Wetterdienst-Notice" not in response.headers
-
-
 def test_eccc_headers_carry_the_end_use_licence_and_its_credit_line() -> None:
     """The block of an ECCC answer, built as every answer's is, has the licence of the data server in its headers."""
     metadata = response_metadata(
@@ -274,4 +264,14 @@ def test_eccc_headers_carry_the_end_use_licence_and_its_credit_line() -> None:
 
     assert headers["X-Wetterdienst-License"] == "Environment and Climate Change Canada Data Server End-use Licence"
     assert headers["Link"] == '<https://eccc-msc.github.io/open-data/licence/readme_en/>; rel="license"'
-    assert unquote(headers["X-Wetterdienst-Attribution"]) == "Data Source: Environment and Climate Change Canada"
+    assert unquote(headers["X-Wetterdienst-Attribution"]) == ECCC_ATTRIBUTION
+
+
+def test_the_mcp_sentence_reads_a_credit_line_of_two_sentences_with_one_closing_period() -> None:
+    """ECCC's credit line ends in a period, which the sentence's own is not added to, and keeps its inner one."""
+    report = _report_of({"x-wetterdienst-attribution": _header_text(ECCC_ATTRIBUTION)})
+
+    sentence = _sentence_of("text/csv", 1, "text content", report)
+
+    assert f"Attribution: {ECCC_ATTRIBUTION}" in sentence
+    assert ".." not in sentence

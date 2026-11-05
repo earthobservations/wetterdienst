@@ -5,7 +5,7 @@ usage conditions. `wetterdienst` facilitates user access to data from various ag
 Service (DWD). The data is published by the agencies under licences that differ, and not all of them are open: some ask
 for the source to be named, one is reported under a non-commercial licence without derivatives (IMGW). The page on
 [licences and credit lines](provider/licenses.md) lists the licence and the credit line of every provider in one table,
-and each provider's page links its terms and says what they ask of you.
+and each provider's page links its terms.
 Please take a moment to review them and to give the credit line the provider asks for. `wetterdienst` changes the
 data it hands over (it is reshaped into one table and its units are converted), which every answer says in its
 `metadata`; the page on licences says how.

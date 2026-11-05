@@ -58,6 +58,12 @@ RESPONSE_METADATA_ALWAYS = frozenset(
 )
 #: the members `with_metadata` adds to the block
 RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})
+#: ECCC's credit line: the second sentence is the one section 3 of its data server licence says "you must use" where
+#: no statement is specified, the first is the licence's example of attributing the originator
+ECCC_ATTRIBUTION = (
+    "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+    "End-use Licence of Environment and Climate Change Canada."
+)
 
 
 def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool = False) -> None:
