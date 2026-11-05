@@ -1423,8 +1423,9 @@ class AlertsRequest(_RefusesRenamedParameters):
     language: Annotated[
         Literal["de", "en", "es", "fr", "mul"],
         Field(
-            description="Language of the warnings. 'mul' bundles every language in one file, of which only the "
-            "first is read: prefer a single language."
+            description="Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the "
+            "German ones, and its 'translations' hold the event, headline, description and instruction in the other "
+            "seven (an answer is about a tenth larger)."
         ),
     ] = "en"
     timestamp: Annotated[

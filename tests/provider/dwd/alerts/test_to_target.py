@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.provider.dwd.alerts.stubs import CAP_MUL
 from tests.provider.dwd.alerts.test_api import _URL, _make_zip
 from tests.provider.dwd.alerts.test_parser import CAP_XML
 from wetterdienst.exceptions import ExportRefusedError
@@ -199,15 +200,37 @@ def test_a_csv_row_loses_none_of_the_areas_the_parameters_or_the_geometry(tmp_pa
     assert first["sent"] == alerts[0]["sent"] == "2026-07-26T07:23:00.000000+00:00"
 
 
-def test_the_second_info_of_a_cap_message_is_in_no_file(tmp_path: Path) -> None:
-    """The parser reads the first `<info>` (for `mul`, the first language): the files hold that and say nothing more."""
-    result = _result(CAP_TWO_INFOS)
+def test_the_further_infos_of_a_cap_message_are_in_every_file(tmp_path: Path) -> None:
+    """The other languages of a `mul` message are the alert's `translations` in every file (GH-3801)."""
+    result = _result(CAP_MUL, CAP_TWO_INFOS)
     for name in ("alerts.csv", "alerts.json", "alerts.geojson"):
         result.to_target(f"file://{tmp_path / name}")
-    assert result.df["language"].to_list() == ["de"]
-    assert "FROST" not in (tmp_path / "alerts.csv").read_text(encoding="utf-8")
-    assert "FROST" not in (tmp_path / "alerts.json").read_text(encoding="utf-8")
-    assert "FROST" not in (tmp_path / "alerts.geojson").read_text(encoding="utf-8")
+    languages = ["en", "fr", "es", "ar", "ru", "tr", "pl"]
+
+    data = json.loads((tmp_path / "alerts.json").read_text(encoding="utf-8"))
+    mul, two = data["alerts"]
+    assert mul["language"] == "de-DE"
+    assert [translation["language"] for translation in mul["translations"]] == languages
+    assert mul["translations"][0]["event"] == "fog"
+    # the second info of the other message is its translation, and it differs from the first in what it says
+    assert [translation["language"] for translation in two["translations"]] == ["en"]
+    assert two["translations"][0]["event"] == "FROST"
+    # and in more than that, which the real messages do not, so that what differs is not dropped (a severity, a code)
+    assert two["translations"][0]["severity"] == "Minor"
+    assert two["translations"][0]["event_code"] == "22"
+    assert "urgency" not in two["translations"][0]
+
+    feature = json.loads((tmp_path / "alerts.geojson").read_text(encoding="utf-8"))["features"][0]
+    assert feature["properties"]["translations"] == mul["translations"]
+    assert "geometry" not in feature["properties"]
+
+    # one row for the message, whatever the number of its languages, and the languages are JSON text in one field
+    csv = _read_csv(tmp_path / "alerts.csv")
+    assert csv.height == 2
+    assert json.loads(csv["translations"][0]) == mul["translations"]
+    assert "Туман" in (tmp_path / "alerts.csv").read_text(encoding="utf-8")
+    assert csv.columns == result.df.columns
+    assert csv.columns[-1] == "translations"
 
 
 def test_a_csv_file_is_utf8_with_unix_newlines(tmp_path: Path) -> None:

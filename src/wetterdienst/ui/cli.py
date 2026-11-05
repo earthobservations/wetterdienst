@@ -2513,7 +2513,7 @@ def radar(
     "--language",
     type=click.Choice(["de", "en", "es", "fr", "mul"], case_sensitive=False),
     default="en",
-    help="Language of the warning texts. Default: en",
+    help="Language of the warning texts; mul holds eight, the other seven as 'translations'. Default: en",
 )
 @click.option(
     "--timestamp",
