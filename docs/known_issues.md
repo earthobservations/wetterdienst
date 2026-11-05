@@ -50,15 +50,19 @@ For more information, see the [settings documentation](usage/settings.md).
 This applies to `findlibs` older than 0.1.4 only. The `bufr` and `eccodes` extras require 0.1.4 or
 newer from the release after 0.183.0 on, so an install through them is not affected.
 
-On Linux, `eccodes` 2.43 and newer pull in the `eccodeslib` and `eckitlib` wheels (not on
-Windows), and `eckitlib` bundles its own copy of PROJ. `findlibs` 0.1.3 and older loaded that
-library globally, so a process that loaded `eccodes` and then imported `pyproj` (which the
-`radarplus` extra brings, as do geopandas or cartopy) crashed at interpreter exit with
-`double free or corruption`, `free(): invalid pointer` or a segmentation fault, exit status 134 or
-139. Files your code wrote and closed are complete, but the exit status fails scripts and CI jobs.
-It was seen with `eckitlib` 2.3.0 and 2.5.0, not with 2.0.1. This was the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), fixed by
-`findlibs` 0.1.4 ([ecmwf/findlibs#30](https://github.com/ecmwf/findlibs/pull/30)), which loads the
-library locally; see also [#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
+On Linux, installing `eccodes` 2.43 or newer with pip, `uv pip` or another installer that reads its
+wheel's dependencies pulls in the `eccodeslib` and `eckitlib` wheels, and `eckitlib` bundles its own
+copy of PROJ. (An install that follows a lock file made without them, such as this project's
+`uv.lock` with `uv sync`, does not get the wheels and uses a system library, so it was never
+affected.) `findlibs` 0.1.3 and older loaded that library globally, so a process that loaded
+`eccodes` and then imported `pyproj` (which the `radarplus` extra brings, as do geopandas or
+cartopy) crashed at interpreter exit with `double free or corruption`, `free(): invalid pointer` or
+a segmentation fault, exit status 134 or 139. Files your code wrote and closed are complete, but
+the exit status fails scripts and CI jobs. It was seen with `eckitlib` 2.3.0 and 2.5.0, not with
+2.0.1. This was the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354),
+fixed by `findlibs` 0.1.4 ([ecmwf/findlibs#30](https://github.com/ecmwf/findlibs/pull/30)), which
+loads the library locally; see also
+[#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
 
 You can still meet it where `eccodes` was installed without these extras and the environment keeps
 an older `findlibs` (pip does not upgrade a package that already satisfies `eccodes`' own
