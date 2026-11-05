@@ -155,7 +155,8 @@ def test_an_image_is_drawn_with_the_options_it_is_given_and_the_browser_is_close
     assert render_image(go.Figure(), "svg", width=300, scale=2.0, timeout=5) == b"image"
 
     assert [event if isinstance(event, str) else event[0] for event in events] == ["init", "open", "draw", "close"]
-    assert events[0][1] == {"n": 1, "timeout": 5, "headers": defaults.headers}
+    headers = getattr(defaults, "headers", None)  # plotly 6.2 has none
+    assert events[0][1] == {"n": 1, "timeout": 5, **({"headers": headers} if headers else {})}
     assert events[2][1] == {"format": "svg", "width": 300, "height": 500, "scale": 2.0}
 
 
@@ -368,14 +369,22 @@ def _png_size(image: bytes) -> tuple[int, int]:
 
 
 @pytest.mark.parametrize(
-    ("defaults", "layout", "template", "arguments"),
+    ("defaults", "layout", "template", "arguments", "size", "plotly_agrees"),
     [
-        pytest.param({}, {}, {}, {}, id="plotly-defaults"),
-        pytest.param({"default_width": 1000, "default_height": 400}, {}, {}, {}, id="default-size"),
-        pytest.param({"default_scale": 2}, {}, {}, {}, id="default-scale"),
-        pytest.param({}, {"width": 640, "height": 320}, {}, {}, id="layout-size"),
-        pytest.param({}, {}, {"width": 500, "height": 300}, {}, id="template-size"),
-        pytest.param({"default_width": 1000}, {"height": 260}, {}, {"width": 420, "scale": 1.5}, id="arguments-win"),
+        pytest.param({}, {}, {}, {}, (700, 500), True, id="plotly-defaults"),
+        pytest.param({"default_width": 1000, "default_height": 400}, {}, {}, {}, (1000, 400), True, id="default-size"),
+        pytest.param({"default_scale": 2}, {}, {}, {}, (1400, 1000), True, id="default-scale"),
+        pytest.param({}, {"width": 640, "height": 320}, {}, {}, (640, 320), False, id="layout-size"),
+        pytest.param({}, {}, {"width": 500, "height": 300}, {}, (500, 300), False, id="template-size"),
+        pytest.param(
+            {"default_width": 1000},
+            {"height": 260},
+            {},
+            {"width": 420, "scale": 1.5},
+            (630, 390),
+            False,
+            id="arguments",
+        ),
     ],
 )
 def test_an_image_has_the_size_plotly_gives_it(
@@ -384,8 +393,15 @@ def test_an_image_has_the_size_plotly_gives_it(
     layout: dict[str, int],
     template: dict[str, int],
     arguments: dict[str, float],
+    size: tuple[int, int],
+    plotly_agrees: bool,  # noqa: FBT001
 ) -> None:
-    """The argument, the layout of the figure, its template and `plotly.io.defaults`, in that order: as `to_image`."""
+    """The argument, the layout of the figure, its template and `plotly.io.defaults`, in that order: as `to_image`.
+
+    Read off the pixels of the PNG. Plotly 6.2.x ignores the size of the figure's layout and template (it takes the
+    argument or its default, and the figure's own size is Kaleido's); plotly 7.1 honours them, as the
+    expected size does, so `to_image` is held to the same size only where all of them agree.
+    """
     from plotly.io import defaults as plotly_defaults  # noqa: PLC0415
 
     if _a_server_is_running():
@@ -395,6 +411,7 @@ def test_an_image_has_the_size_plotly_gives_it(
     figure = go.Figure(layout={**layout, "template": {"layout": template}})
 
     ours = render_image(figure, "png", **arguments)  # ty: ignore[invalid-argument-type]
-    plotlys = figure.to_image(format="png", **arguments)
 
-    assert _png_size(ours) == _png_size(plotlys)
+    assert _png_size(ours) == size
+    if plotly_agrees:
+        assert _png_size(figure.to_image(format="png", **arguments)) == size
