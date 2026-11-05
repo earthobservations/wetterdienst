@@ -30,6 +30,13 @@ Types of changes:
 
 ### Changed
 
+- The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
+  docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
+  time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD
+  shows at the 41 stations judged for 1987 to March 2001: the terms of 27 equal ISD's report of the
+  stamp's UTC hour (99 % of the values), those of 13 do not and their clock is not shown (Potsdam,
+  the secular station, reads local mean time up to 1991-10); other stations were not measured.
+  No stamp is shifted; the numbers are in `docs/data/time_reference.md` (Part of GH-2711)
 - `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
