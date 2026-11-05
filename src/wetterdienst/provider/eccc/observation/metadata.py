@@ -13,13 +13,22 @@ _EcccObservationMetadataSpec = {
     "country": "Canada",
     "country_code": "CA",
     "copyright": "© Environment And Climate Change Canada (ECCC)",
+    # the licence the MSC GeoMet API that the values are read from declares in its OpenAPI document (`info.license`,
+    # read 2026-11-05), whose collections climate-stations, -hourly, -daily and -monthly are the ones read. It has no
+    # SPDX identifier; docs/data/provider/eccc/index.md says what it allows and what points the other way (GH-2567)
     "license": LicenseModel(
         spdx_id=None,
-        name="Licence Agreement for Use of Environment and Climate Change Canada Data",
-        url="https://climate.weather.gc.ca/prods_servs/attachment1_e.html",
+        name="Environment and Climate Change Canada Data Server End-use Licence",
+        url="https://eccc-msc.github.io/open-data/licence/readme_en/",
     ),
-    "attribution": "based on Environment and Climate Change Canada data",
-    "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
+    # section 3 of the licence: the attribution statement the provider specifies, else "you must use" the second
+    # sentence, and the collections specify none; the first is the licence's example of the separate duty to
+    # attribute the originator
+    "attribution": (
+        "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+        "End-use Licence of Environment and Climate Change Canada."
+    ),
+    "url": "https://api.weather.gc.ca/",
     "kind": "observation",
     "extent": {
         "scope": "national",

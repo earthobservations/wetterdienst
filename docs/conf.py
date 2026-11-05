@@ -31,6 +31,7 @@ extensions = [
     "autodoc2",
     "sphinx_copybutton",
     "parameter_glossary",
+    "provider_licenses",
     "notebook_errors",
 ]
 
