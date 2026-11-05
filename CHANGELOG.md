@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The IMGW docs now state what IMGW-PIB confirmed: high-value data is CC BY 4.0, all other data is
+  CC BY-NC-ND 4.0 and free only for non-business use. Commercial use of the data wetterdienst reads
+  stays not cleared, since IMGW-PIB has not said which group they are in, nor answered on caching
+  and serving them (Part of GH-2567)
+
 ## [0.183.0] - 2026-11-03
 
 ### Added

@@ -20,16 +20,23 @@ high-value datasets. They are no standard licence, so the response metadata of t
   sentences, one after the other. Leaving them out can bring liability under the copyright act (§ 5 ust. 5).
 - **Private use** is free (§ 5 ust. 1; „cel prywatny", § 2 pkt 2, is non-commercial use, theses included).
 - **Any other purpose** is free only for "dane o wysokiej wartości" (high-value data, § 3 ust. 1 and § 5 ust. 1).
-  IMGW-PIB does not state which of its datasets are high-value. The directory read here
-  (`dane.imgw.pl/data/dane_pomiarowo_obserwacyjne/`) is catalogued on the Polish open data portal dane.gov.pl as
-  CC BY-NC-ND 4.0 and not as high-value (dataset 926, last changed 2023-05-05), and hydrology is not in the
-  meteorological annex of the regulation, so **a commercial use is not cleared** unless IMGW-PIB confirms it.
+  IMGW-PIB told us in November 2026 that the data it classes as high-value are free for any use under CC BY 4.0, at
+  [danepubliczne.imgw.pl/pl/apiinfo](https://danepubliczne.imgw.pl/pl/apiinfo), and that all its other data are
+  public-sector information under CC BY-NC-ND 4.0, free only for uses other than business (private or teaching, for
+  example) and for the bodies the Polish Water Law names.
+- **Which group the data read here are in is not settled.** IMGW-PIB was asked and did not say. That page also links
+  the directory read here (`danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/`), but the Polish open data portal
+  dane.gov.pl catalogues that directory as CC BY-NC-ND 4.0 and not as high-value (dataset 926, last changed
+  2023-05-05), and hydrology is not in the meteorological annex of the regulation, so **a commercial use is not
+  cleared** unless IMGW-PIB confirms it.
 - **Business use** of data of the state network needs a signed agreement with IMGW-PIB (§ 3 ust. 2, § 5 ust. 1), and
   § 5 ust. 6 calls the use of freely provided data for such purposes fraud under art. 286 of the Polish criminal
   code. "Business" includes publishing the data on a site with advertisements (§ 2 pkt 3). Ask IMGW-PIB
   (biznes@imgw.pl) before you rely on the data for it.
 - The terms say nothing on caching, redistribution or serving the data through an API; the credit line is what
-  they ask of whoever passes it on.
+  they ask of whoever passes it on. IMGW-PIB was asked about these, and about whether the NoDerivatives condition of
+  CC BY-NC-ND allows converted units and a uniform table, which § 5 ust. 4 of the terms provides for as processed
+  data. It has not answered.
 
 ## Update date
 
