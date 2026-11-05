@@ -3,6 +3,7 @@
 """Tests for the CLI alerts command."""
 
 import json
+import sys
 from pathlib import Path
 
 import click
@@ -284,7 +285,19 @@ def test_cli_alerts_pretty_indents_the_file_and_the_help_says_so(
     assert "Pretty-print JSON with 4-space indentation" in CliRunner().invoke(cli, ["alerts", "--help"]).output
 
 
-@pytest.mark.parametrize("name", ["100%.csv", "a%20b.csv", "what?.csv", "a#b.csv", "caf\u00e9 \u00fc.csv"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "100%.csv",
+        "a%20b.csv",
+        pytest.param(
+            "what?.csv",
+            marks=pytest.mark.skipif(sys.platform == "win32", reason="Windows has no file name with a '?'"),
+        ),
+        "a#b.csv",
+        "caf\u00e9 \u00fc.csv",
+    ],
+)
 def test_cli_alerts_a_plain_path_names_the_file_it_says(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
 ) -> None:
@@ -295,18 +308,28 @@ def test_cli_alerts_a_plain_path_names_the_file_it_says(
     assert [file.name for file in tmp_path.iterdir()] == [name]
 
 
-def test_cli_alerts_a_name_that_is_not_utf8_is_read_back_as_it_is() -> None:
-    """`quote` raised `UnicodeEncodeError` on the surrogates of a name that is not UTF-8: the URI keeps them."""
-    import os  # noqa: PLC0415
-
+@pytest.mark.parametrize(
+    "name",
+    [
+        # a name that is not UTF-8, as Python holds it on Linux (the surrogate of the byte 0xe9), with the two
+        # characters the URI reads; built as text, as `os.fsdecode` would raise for the byte on Windows
+        "/data/caf\udce9 100%?.csv",
+        "/data/a%20b?.csv",
+        # a path of Windows as the shell hands it over, which is no POSIX path but is a string like another
+        "C:\\data\\100%.csv",
+        "C:/data/a b/alerts.csv",
+    ],
+)
+def test_cli_alerts_a_plain_path_is_read_back_from_its_uri_as_it_is(name: str) -> None:
+    """`quote` raised `UnicodeEncodeError` on a surrogate: the URI writes `%` and `?` and keeps the rest as it is."""
     from wetterdienst.ui.cli import _alerts_target  # noqa: PLC0415
     from wetterdienst.util.url import ConnectionString, file_target_path  # noqa: PLC0415
 
-    name = os.fsdecode(b"/tmp/caf\xe9 100%?.csv")
     with click.Context(cli.commands["alerts"]) as context:
         context.params["fmt"] = "csv"
         url = _alerts_target(name, "csv", with_metadata=False)
     assert url is not None
+    assert url.startswith("file://")
     assert file_target_path(url) == name
     assert ConnectionString(url).path == name
 

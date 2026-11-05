@@ -23,7 +23,6 @@ Types of changes:
   `parameters` and `geometry` as JSON text). `with_metadata=True` writes the metadata block beside
   it. A snapshot without a warning still writes the file: no alerts, and the block in a JSON one. A
   database target or another file type is an `ExportRefusedError` (GH-3706)
-
 - The new check `step` judges every observation network for a jump between consecutive readings:
   a reading that differs from the one before it by more than the limit (the later one is flagged)
   or that jumps away from both neighbours and back (the middle one). Limits per parameter and
