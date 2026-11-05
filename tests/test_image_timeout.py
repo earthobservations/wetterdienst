@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -38,6 +39,9 @@ from wetterdienst.ui.cli import cli
 
 go = pytest.importorskip("plotly.graph_objects")
 pytest.importorskip("kaleido")
+# plotly keeps the `kaleido` it finds when it first imports this module for good: with a fake in `sys.modules` at that
+# moment, every later image of the session would be drawn by the fake (see `test_kaleido_server`)
+pytest.importorskip("plotly.io._kaleido")
 
 #: a time short enough for a test to wait for, long enough for a script of a browser to finish
 _SHORT = 0.3
@@ -47,22 +51,26 @@ class _ChromeNotFoundError(Exception):
     """Stand in for kaleido's error of a machine without Chrome."""
 
 
-def _fake_kaleido(
+def _fake_kaleido(  # noqa: C901
     monkeypatch: pytest.MonkeyPatch,
     *,
     stuck: tuple[str, ...] = (),
     error: BaseException | None = None,
     server: object | None = None,
+    process: subprocess.Popen[bytes] | None = None,
 ) -> list[Any]:
     """Put a `kaleido` that is a script into the imports, and give the list of what was done to its browser.
 
-    `stuck` names the steps that never end: `open`, `draw` and `close`. `error` is raised by the drawing.
+    `stuck` names the steps that never end: `open`, `draw` and `close`. `error` is raised by the drawing. `process` is
+    the browser's process, which the script's close does not end.
     """
     events: list[Any] = []
 
     class Kaleido:
         def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
             events.append(("init", kwargs))
+            if process is not None:
+                self.subprocess = process
 
         async def open(self) -> None:
             events.append("open")
@@ -139,7 +147,7 @@ def test_a_browser_that_does_not_close_does_not_hold_the_error_back(monkeypatch:
 def test_an_image_is_drawn_with_the_options_it_is_given_and_the_browser_is_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """What is not named is left to Kaleido; what plotly would give it (the OpenStreetMap header) is given."""
+    """What is not named is what plotly takes; what plotly gives Kaleido (the OpenStreetMap header) is given."""
     from plotly.io import defaults  # noqa: PLC0415
 
     events = _fake_kaleido(monkeypatch)
@@ -148,7 +156,7 @@ def test_an_image_is_drawn_with_the_options_it_is_given_and_the_browser_is_close
 
     assert [event if isinstance(event, str) else event[0] for event in events] == ["init", "open", "draw", "close"]
     assert events[0][1] == {"n": 1, "timeout": 5, "headers": defaults.headers}
-    assert events[2][1] == {"format": "svg", "width": 300, "scale": 2.0}
+    assert events[2][1] == {"format": "svg", "width": 300, "height": 500, "scale": 2.0}
 
 
 def test_the_time_is_the_default_one_where_none_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -180,6 +188,18 @@ def test_a_wait_of_the_browsers_own_that_runs_out_is_the_same_error(monkeypatch:
         render_image(go.Figure(), "png", timeout=5)
 
     assert isinstance(raised.value.__cause__, TimeoutError)
+    assert raised.value.timeout is None
+    assert "the limit is" not in str(raised.value)  # it was not the limit that ran out
+    assert events[-1] == "close"
+
+
+def test_a_browser_that_ends_under_the_drawing_is_an_error_and_no_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Choreographer cancels what waited on a browser that died: `CancelledError` is no `Exception`, this is."""
+    events = _fake_kaleido(monkeypatch, error=asyncio.CancelledError())
+
+    with pytest.raises(RuntimeError, match="ended before it was done"):
+        render_image(go.Figure(), "png", timeout=5)
+
     assert events[-1] == "close"
 
 
@@ -191,6 +211,31 @@ def test_a_caller_with_a_running_loop_is_served(monkeypatch: pytest.MonkeyPatch)
         return render_image(go.Figure(), "png", timeout=5)
 
     assert asyncio.run(call()) == b"image"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
+@pytest.mark.parametrize("stuck", [("draw", "close"), ("draw",)], ids=["close-never-answers", "close-answers-late"])
+def test_a_browser_that_is_still_there_after_the_close_is_killed_with_its_group(
+    monkeypatch: pytest.MonkeyPatch, stuck: tuple[str, ...]
+) -> None:
+    """A close that was given up on, or that returned with the browser alive, is not the end: the group is killed."""
+    # a browser that ignores the request to terminate, with a child of its own, as Chrome has
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"],
+        start_new_session=True,
+    )
+    try:
+        _fake_kaleido(monkeypatch, stuck=stuck, process=process)
+        with pytest.raises(ImageTimeoutError):
+            render_image(go.Figure(), "png", timeout=_SHORT)
+
+        assert process.poll() is not None
+        with pytest.raises(ProcessLookupError):
+            os.killpg(process.pid, 0)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
 
 
 def test_a_server_the_caller_started_draws_the_image_as_plotly_does(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -286,9 +331,19 @@ def _children() -> set[str]:
     return set(listed.stdout.split())
 
 
+def _a_server_is_running() -> bool:
+    """Tell whether the session's Chrome of `_kaleido_server` is up in this process, which `render_image` then uses."""
+    import kaleido  # noqa: PLC0415
+
+    server = getattr(kaleido, "_global_server", None)
+    return server is not None and server.is_running()
+
+
 @pytest.mark.skipif(IS_WINDOWS or shutil.which("pgrep") is None, reason="the processes are listed with `pgrep`")
 def test_a_real_browser_that_is_not_up_in_time_is_closed_with_its_processes() -> None:
     """The one test with a real Chrome: 50 ms is less than it needs to start, and none of it is left behind."""
+    if _a_server_is_running():
+        pytest.skip("the Chrome of a kaleido server is up in this process, and an image is drawn by it")
     before = _children()  # what an earlier test left, such as the resource tracker of `multiprocessing`
     try:
         with pytest.raises(ImageTimeoutError):
@@ -301,3 +356,45 @@ def test_a_real_browser_that_is_not_up_in_time_is_closed_with_its_processes() ->
     while _children() - before and time.monotonic() < deadline:
         time.sleep(0.2)
     assert _children() - before == set()
+
+
+# --- the image is what plotly draws ------------------------------------------------------------------------------
+
+
+def _png_size(image: bytes) -> tuple[int, int]:
+    """Read the width and the height out of the header of a PNG."""
+    assert image[:8] == b"\x89PNG\r\n\x1a\n"
+    return struct.unpack(">II", image[16:24])  # ty: ignore[invalid-return-type]
+
+
+@pytest.mark.parametrize(
+    ("defaults", "layout", "template", "arguments"),
+    [
+        pytest.param({}, {}, {}, {}, id="plotly-defaults"),
+        pytest.param({"default_width": 1000, "default_height": 400}, {}, {}, {}, id="default-size"),
+        pytest.param({"default_scale": 2}, {}, {}, {}, id="default-scale"),
+        pytest.param({}, {"width": 640, "height": 320}, {}, {}, id="layout-size"),
+        pytest.param({}, {}, {"width": 500, "height": 300}, {}, id="template-size"),
+        pytest.param({"default_width": 1000}, {"height": 260}, {}, {"width": 420, "scale": 1.5}, id="arguments-win"),
+    ],
+)
+def test_an_image_has_the_size_plotly_gives_it(
+    monkeypatch: pytest.MonkeyPatch,
+    defaults: dict[str, float],
+    layout: dict[str, int],
+    template: dict[str, int],
+    arguments: dict[str, float],
+) -> None:
+    """The argument, the layout of the figure, its template and `plotly.io.defaults`, in that order: as `to_image`."""
+    from plotly.io import defaults as plotly_defaults  # noqa: PLC0415
+
+    if _a_server_is_running():
+        pytest.skip("the Chrome of a kaleido server is up in this process, and both are drawn by it")
+    for name, value in defaults.items():
+        monkeypatch.setattr(plotly_defaults, name, value)
+    figure = go.Figure(layout={**layout, "template": {"layout": template}})
+
+    ours = render_image(figure, "png", **arguments)  # ty: ignore[invalid-argument-type]
+    plotlys = figure.to_image(format="png", **arguments)
+
+    assert _png_size(ours) == _png_size(plotlys)

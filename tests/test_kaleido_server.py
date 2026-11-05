@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the kaleido server the image tests share (GH-3250), driven with a fake `kaleido` module.
 
-The lowest kaleido the `plotting` extra allows (1.0.0) has no `start_sync_server` and no `_global_server`, and the
-lowest-versions job installs it: the fixture has to leave the image tests as they were there.
+An old kaleido (1.0.0, below the floor of the `plotting` extra now) has no `start_sync_server` and no
+`_global_server`: the fixture has to leave the image tests as they were with such a release.
 """
 
 from __future__ import annotations

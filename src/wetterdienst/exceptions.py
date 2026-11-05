@@ -306,13 +306,13 @@ class ImageTimeoutError(WetterdienstError, TimeoutError):
     and the command line with one line, exit 1. A `TimeoutError` too.
     """
 
-    def __init__(self, timeout: float) -> None:
-        """Keep the limit of the render, in seconds."""
+    def __init__(self, timeout: float | None) -> None:
+        """Keep the limit of the render, in seconds; None where a shorter wait of the browser's own ran out first."""
         self.timeout = timeout
+        limit = "" if timeout is None else f" (the limit is {timeout:g} seconds)"
         super().__init__(
-            f"The image was not rendered in time (the limit is {timeout:g} seconds): the browser that draws it "
-            "did not finish and was closed. Try again; if it keeps happening, check that Chrome starts on this "
-            "machine."
+            f"The image was not rendered in time{limit}: the browser that draws it did not finish and was closed. "
+            "Try again; if it keeps happening, check that Chrome starts on this machine."
         )
 
     def __reduce__(self) -> tuple:

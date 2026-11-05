@@ -8,6 +8,8 @@ import asyncio
 import inspect
 import logging
 import os
+import signal
+import subprocess
 from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
@@ -72,38 +74,75 @@ def check_image_size(
 def require_kaleido() -> None:
     """Say what to install where Kaleido, which renders a plotly figure as an image, is not.
 
-    Plotly raises a `RuntimeError` with its own advice from `Figure.to_image`, which the command
-    line prints as a traceback and the REST API answers with a 500. Asked for first, its absence is
+    Plotly's own `Figure.to_image` raises a `RuntimeError` with its own advice, which the command
+    line prints as a traceback and the REST API answers with a 500. `render_image` does not go through it
+    (GH-3723), but the surfaces ask for Kaleido first all the same, before they fetch anything: its absence is
     a `MissingDependencyError`, as that of every other package an extra installs.
     """
     import_optional("kaleido", "Rendering an image", extra="plotting")
 
 
-#: seconds a chart has to be rendered to an image, the start of its Chrome included (GH-3723). An export takes about
+#: seconds a chart has to be opened and drawn in, the start of its Chrome included (GH-3723). An export takes about
 #: 1.5 s on a warm machine and 4 s when cold; the heaviest the REST API lets through (a PDF of 8192 x 8192 px with
-#: 100000 points) took 24 s. Kaleido bounds only the drawing, 90 s by default: the start, the navigation and the
-#: close of its browser have no limit of their own, which is where a stuck export waited for ever
+#: 100000 points) took 24 to 31 s. Kaleido bounds only the drawing, 90 s by default: the start and the navigation of
+#: its browser have no limit of their own, which is where a stuck export waited for ever. The close is not under it:
+#: it has `_CLOSE_GRACE`
 IMAGE_TIMEOUT = 120.0
-#: seconds a browser has to answer the request to close after a render ended, and the render's task to notice that it
-#: is gone. A browser that does not answer is ended by choreographer, which waits 3 s for it, asks it to terminate,
-#: waits 6 s and kills its process group: a render that timed out returns within about 20 s of its timeout
+#: seconds the browser has to close after the render ended, and the render's task to notice that it is gone. A
+#: browser that is still there after that is killed with its process group (`_make_sure_it_is_gone`), so a render
+#: that timed out returns within about 10 s of its timeout
 _CLOSE_GRACE = 5.0
+
+
+def _kill_group(process: Any) -> None:  # noqa: ANN401
+    """Kill a browser process and, where the system has them, everything in its process group."""
+    if os.name == "nt":
+        subprocess.run(  # noqa: S603
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],  # noqa: S607
+            capture_output=True,
+            timeout=6,
+            check=False,
+        )
+        return
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        process.kill()
+
+
+async def _make_sure_it_is_gone(browser: Any) -> None:  # noqa: ANN401
+    """Kill the browser if closing it did not end it.
+
+    choreographer's `close` ends a browser that does not answer, but a `close` that was given up on after the grace
+    may have been cancelled before its own kill, and a cancelled wait there counts as closed. Whatever process is
+    still not reaped is killed here, so that no Chrome outlives the call. A process that was reaped is left alone: its
+    id may belong to another by now.
+    """
+    process = getattr(browser, "subprocess", None)
+    if process is None or process.poll() is not None:
+        return
+    log.warning("The browser of an image did not end when it was closed, and is killed.")
+    _kill_group(process)
+    for _ in range(50):
+        if process.poll() is not None:
+            return
+        await asyncio.sleep(0.1)
 
 
 async def _draw_in_a_browser(
     kaleido: Any,  # noqa: ANN401 -- the module, optional
-    fig: go.Figure,
+    fig: dict[str, Any],
     opts: dict[str, Any],
     kopts: dict[str, Any],
     topojson: str | None,
     seconds: float,
 ) -> bytes:
-    """Start a Chrome, draw the figure and close it, in `seconds` in all, or raise `ImageTimeoutError`.
+    """Start a Chrome and draw the figure in `seconds`, or raise `ImageTimeoutError`; close the Chrome in any case.
 
-    What `kaleido.calc_fig` does, with the one thing it does not: a clock on the whole of it. Kaleido bounds the
-    drawing and nothing around it. The browser is closed whatever happens (a timeout, an error, Ctrl-C), which
-    ends its processes, so no Chrome outlives the call; closing it also ends what the drawing still waits for, so
-    that a drawing stuck on a browser that does not answer cannot hold the close back.
+    What `kaleido.calc_fig` does, with the one thing it does not: a clock on the start and the drawing. Kaleido
+    bounds the drawing and nothing around it. The browser is closed whatever happens (a timeout, an error, Ctrl-C),
+    and killed if closing it does not end it, so no Chrome outlives the call; closing it also ends what the drawing
+    still waits for, so that a drawing stuck on a browser that does not answer cannot hold the close back.
     """
     browser = kaleido.Kaleido(n=1, timeout=seconds, **kopts)
     work = asyncio.ensure_future(_open_and_draw(browser, fig, opts, topojson))
@@ -111,23 +150,32 @@ async def _draw_in_a_browser(
         done, _ = await asyncio.wait({work}, timeout=seconds)
         if not done:
             raise ImageTimeoutError(seconds)
+        if work.cancelled():
+            # the browser ended under the drawing, and choreographer cancelled what waited for it: a
+            # `CancelledError` is no `Exception`, and would pass every handler of a request
+            msg = "The browser that draws the image ended before it was done."
+            raise RuntimeError(msg)
         try:
             return work.result()
         except TimeoutError as e:
             # a wait of Kaleido's or choreographer's own that ran out first (a page that was not ready in 30 s)
-            raise ImageTimeoutError(seconds) from e
+            raise ImageTimeoutError(None) from e
     finally:
         work.cancel()
-        try:
-            await asyncio.wait_for(browser.close(), _CLOSE_GRACE)
-        except Exception as e:  # noqa: BLE001 -- the render's own outcome is what the caller gets
-            log.warning(f"The browser of an image did not close cleanly: {e!r}")
-        await asyncio.wait({work}, timeout=_CLOSE_GRACE)
+        # not `wait_for`: choreographer swallows the cancellation of its own wait and goes on to its kill, which takes
+        # 9 s more; the browser is given the grace, and killed after it
+        closing = asyncio.ensure_future(browser.close())
+        await asyncio.wait({closing}, timeout=_CLOSE_GRACE)
+        await _make_sure_it_is_gone(browser)
+        closing.cancel()
+        await asyncio.wait({closing, work}, timeout=_CLOSE_GRACE)
+        if closing.done() and not closing.cancelled() and (error := closing.exception()) is not None:
+            log.warning(f"The browser of an image did not close cleanly: {error!r}")
         if work.done() and not work.cancelled():
             work.exception()  # read, so that asyncio does not report it as never retrieved
 
 
-async def _open_and_draw(browser: Any, fig: go.Figure, opts: dict[str, Any], topojson: str | None) -> bytes:  # noqa: ANN401
+async def _open_and_draw(browser: Any, fig: dict[str, Any], opts: dict[str, Any], topojson: str | None) -> bytes:  # noqa: ANN401
     await browser.open()
     return await browser.calc_fig(fig, opts=opts, topojson=topojson)
 
@@ -154,7 +202,8 @@ def _draw(
 
     plotly's `to_image` has no way to bound the start of the browser, and a Chrome that does not start leaves it
     waiting, so the figure is handed to Kaleido here, with the options plotly would give it
-    (`plotly.io.defaults`: the request header that OpenStreetMap's tile policy asks for, among them).
+    (`plotly.io.defaults`: the request header that OpenStreetMap's tile policy asks for, the size and the scale
+    among them).
 
     A Kaleido server that the caller started (`kaleido.start_sync_server`) is theirs: it keeps one browser for
     many images and `Figure.to_image` is how it is reached, so that is what is called.
@@ -172,17 +221,22 @@ def _draw(
         for name, value in (
             ("plotlyjs", defaults.plotlyjs),
             ("mathjax", defaults.mathjax),
-            ("headers", getattr(defaults, "headers", None)),
+            ("headers", defaults.headers),
         )
         if value
     }
+    # the size and the scale as plotly resolves them: the argument, the figure's own layout, its template's, the default
+    fig_dict = fig.to_dict()
+    layout = fig_dict.get("layout", {})
+    template_layout = layout.get("template", {}).get("layout", {})
     opts = {
-        name: value
-        for name, value in (("format", fmt), ("width", width), ("height", height), ("scale", scale))
-        if value is not None
+        "format": fmt or defaults.default_format,
+        "width": width or layout.get("width") or template_layout.get("width") or defaults.default_width,
+        "height": height or layout.get("height") or template_layout.get("height") or defaults.default_height,
+        "scale": scale or defaults.default_scale,
     }
     try:
-        return _run(_draw_in_a_browser(kaleido, fig, opts, kopts, defaults.topojson, timeout))
+        return _run(_draw_in_a_browser(kaleido, fig_dict, opts, kopts, defaults.topojson, timeout))
     except ChromeNotFoundError as e:
         # plotly says the same, as a `RuntimeError`, with its own advice
         raise RuntimeError(str(e)) from e

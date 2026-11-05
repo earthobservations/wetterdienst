@@ -612,7 +612,7 @@ def _draw_a_figure() -> None:
 def _kaleido_server_of(kaleido: Any) -> Any:  # noqa: ANN401
     """Give the global server of an imported `kaleido` module, None where this release has none to reach.
 
-    kaleido 1.0.0, the lowest the `plotting` extra allows, has no `start_sync_server`, and the server object of
+    kaleido 1.0.0, below the floor of the `plotting` extra now, has no `start_sync_server`, and the server object of
     the releases that have one is a private attribute (`_global_server`): a release that lacks any part of what
     `_serve_kaleido` calls is not given a server, and its tests render as they did before GH-3250.
     """
@@ -652,7 +652,7 @@ def _serve_kaleido() -> Generator[None]:
     import plotly.io as pio  # noqa: PLC0415 -- only the image tests need it
 
     # what plotly would hand a one-shot render (the request header of the map tiles); None is kaleido's default
-    # (the older plotly, 6.1.1 among them, has no `headers` default)
+    # (an older plotly has no `headers` default)
     kaleido.start_sync_server(
         headers=getattr(pio.defaults, "headers", None),
         plotlyjs=getattr(pio.defaults, "plotlyjs", None),
@@ -718,8 +718,8 @@ def _kaleido_server() -> Generator[None]:
     any timed request, and the images after it are drawn by the Chrome that is up. The request timeout, which
     other tests hold the REST API to, is left as it is.
 
-    Where kaleido, plotly or Chrome are not there, a release of kaleido has no server to start (1.0.0, which the
-    lowest-versions job installs), or a first figure fails, nothing is started and the image tests find out for
+    Where kaleido, plotly or Chrome are not there, a release of kaleido has no server to start (1.0.0, which an old
+    floor allowed), or a first figure fails, nothing is started and the image tests find out for
     themselves as they did before. A server that dies or does not come up while it starts fails the tests with
     that said, rather than leaving each of them waiting on a server that never answers.
 

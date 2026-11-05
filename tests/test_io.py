@@ -4306,10 +4306,10 @@ def test_rendering_an_image_without_kaleido_is_a_missing_dependency(
     go = pytest.importorskip("plotly.graph_objects")
     monkeypatch.setitem(sys.modules, "kaleido", None)
 
-    def to_image(*_args: object, **_kwargs: object) -> None:
+    def draw(*_args: object, **_kwargs: object) -> None:
         pytest.fail("rendered although Kaleido is missing")
 
-    monkeypatch.setattr(go.Figure, "to_image", to_image)
+    monkeypatch.setattr("wetterdienst.io.export._draw", draw)
     result = mock.MagicMock()
     result.to_plot.return_value = go.Figure()
 

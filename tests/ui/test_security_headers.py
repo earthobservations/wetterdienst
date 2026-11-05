@@ -316,7 +316,7 @@ def test_stripes_svg_has_the_policy_and_the_other_images_none(
 def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every route that renders an image goes through the one answer: the SVG of it has the policy, the PNG none."""
     _stub_result(monkeypatch, "/api/values")
-    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", lambda *_args, **_kwargs: b"<svg/>")
+    monkeypatch.setattr("wetterdienst.io.export._draw", lambda *_args, **_kwargs: b"<svg/>")
 
     svg = client.get("/api/values", params={**_VALUES, "format": "svg"})
     png = client.get("/api/values", params={**_VALUES, "format": "png"})

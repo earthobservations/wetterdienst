@@ -30,6 +30,10 @@ Types of changes:
 
 ### Changed
 
+- The `plotting` extra now requires `plotly>=6.2.0` and `kaleido>=1.3.0` (before 6.1.1 and 1.0.0):
+  images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
+  `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
+  group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
 - The description of the `dwd/observation` `subdaily` resolution, which `coverage` reports and the
   docs page carries, gave DWD's "local mean time, from 1987 07:30, 14:30 and 21:30 CET" as the
   time of the 07, 14 and 21 terms. It now says that this is DWD's metadata and what NOAA ISD

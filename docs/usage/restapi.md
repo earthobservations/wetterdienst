@@ -764,13 +764,14 @@ the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the 
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
-A chart is drawn by a Chrome that Kaleido starts for the image, and the image has 120 seconds from the start of
-that browser to its end, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
-through, a PDF of 8192 x 8192 px with 100000 points, took 24). A browser that does not finish is closed, its
-processes with it, and the request is a 504 problem of the kind `image-timeout` with `Retry-After`. Unlike the
+A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
+drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
+through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
+killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
+`image-timeout` with `Retry-After`. Unlike the
 [request timeout](#timeout), which answers the client and leaves the work running, this one ends the work, so a
 stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
-about 140 seconds (the limit and up to 20 seconds to close the browser), not for ever. Under the default request
+about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
 timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
 
 ## Limits

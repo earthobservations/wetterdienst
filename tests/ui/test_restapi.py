@@ -2068,13 +2068,13 @@ def test_stripes_image_without_kaleido_is_a_501(
     Plotly's `RuntimeError` out of `to_image` was a bare 500.
     """
 
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            pytest.fail("rendered although Kaleido is missing")
+    def draw(*_args: object, **_kwargs: object) -> bytes:
+        pytest.fail("rendered although Kaleido is missing")
 
     monkeypatch.setitem(sys.modules, "kaleido", None)
+    monkeypatch.setattr("wetterdienst.io.export._draw", draw)
     _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: object())
 
     with caplog.at_level(logging.ERROR):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
@@ -9340,9 +9340,9 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
 
     Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
     (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
-    started, which `to_image` is stubbed to fail on.
+    started, which `export._draw` (what starts it) is stubbed to fail on.
     """
-    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", _unreached)
+    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
     response = client.get(
         "/api/values",
         params={
@@ -9398,7 +9398,7 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     _stub_result(monkeypatch, endpoint)
     for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
         monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
-    monkeypatch.setattr(go.Figure, "to_image", _unreached)
+    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
     response = client.get(
         endpoint,
         params={
