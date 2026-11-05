@@ -16,12 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- The IMGW docs now state what IMGW-PIB confirmed: high-value data is CC BY 4.0, all other data is
-  CC BY-NC-ND 4.0 and free only for non-business use. Commercial use of the data wetterdienst reads
-  stays not cleared, since IMGW-PIB has not said which group they are in, nor answered on caching
-  and serving them (Part of GH-2567)
+- `imgw/meteorology` and `imgw/hydrology` now report CC BY-NC-ND 4.0 as `license` for all their
+  data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
+  `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
+  unchanged. A commercial use needs an agreement with IMGW-PIB (Part of GH-2567)
 
 ## [0.183.0] - 2026-11-03
 

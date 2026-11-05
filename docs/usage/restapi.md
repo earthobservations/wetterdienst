@@ -187,7 +187,7 @@ what the answer is missing:
   the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 AND NLOD-2.0`,
   where the provider names two that both apply, as MET Norway does), `name` and `url`. `spdx_id` is `null` where the
   terms have none
-  (ECCC's licence agreement, AEMET's legal notice, IMGW's terms of data provision, IPMA's statement that the
+  (ECCC's licence agreement, AEMET's legal notice, IPMA's statement that the
   data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
   whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
   and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
