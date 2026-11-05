@@ -67,17 +67,19 @@ written as short as it goes (`4021.0` as `4021`).
 | check | judges | default | rule and bounds |
 | --- | --- | --- | --- |
 | `range` | a reading outside the physical range of its parameter | hard | One table of bounds for every network, by canonical parameter and resolution (the rain of a minute and of a day differ), in the canonical unit, and generous: each rests on a record with room above it (the relative humidity's 1 % floor, which is no record, is the one exception), so that a value that is only odd stays ([the table](#the-table-of-ranges)). No network has bounds of its own in the table; a provider's `Bound` rule can only narrow it (Météo-France: no air below 0 °C at a station without frost). A relative humidity is held to 1 to 100 %, not 0 to 100: a failed hygrometer and a dropout write 0.0 (or 0.1, 0.4), which is inside every range of 0 up, and 1 % is far below any humidity the air of Germany reaches ([why 1](#relative-humidity-under-one-percent)) |
-| `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 UTC and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the step check planned in [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681) is to catch |
+| `elevation` | a station pressure the standard atmosphere does not allow at the station's elevation | hard | In every network that serves a station pressure (`pressure_air_site`, `_mean`, `_min`, `_max`), for each station of the list that has an elevation. Against the pressure of the international standard atmosphere at that elevation, from **870/1013.25 of it** (143 hPa below at sea level: the lowest pressure on record, 870 hPa in Typhoon Tip, as a share of the standard atmosphere) to **75 hPa above it** (the 1,083.8 hPa of Agata, 261 m, the highest sea level pressure of a low station, reduced to the station with the cold column of that day lies 59 to 64 hPa above the standard atmosphere there, the 1,089.1 hPa of Tosontsengel, 1,725 m, 14 to 40: a derivation of GH-3681). The world-wide bounds (300 to 1100 hPa) let through the pressure of another height (968.6 hPa at the Zugspitze, 2,956 m, where 705 are expected) and a P0 mistyped by a digit above the standard atmosphere (1093.3 hPa at 48 m, 85.8 above). A station without an elevation, or one outside -500 to 9,000 m, is not judged. So is a `noaa/ghcn` station at 0.0 m: its lists write 0.0 for stations they know no elevation of (the daily one BRM00083566, inland at about 827 m), and 54 of the 271 at 0.0 in the hourly one stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), while the 0.0 of the lists read (DWD, ECCC, IMGW, Météo-France) is a coast. The margin below keeps Hurricane Irma (917.4 hPa at 10:00 UTC and 936.0 hPa an hour earlier at St-Barthélemy, 3 m, 2017-09-06, quality code 1) and the deep lows of Dumont d'Urville (938 hPa at 43 m, where 1,008 are expected); it lets 3 of the 19 readings of DWD's hourly station pressure beyond 75 hPa of the standard atmosphere (the research of GH-3681, over Berlin-Tempelhof, List auf Sylt and the Zugspitze) pass: 909.5, 910.1 and 908.5 hPa, 98 to 102 hPa below, which the check [`step`](#the-limits-of-a-jump-step) finds as spikes of about 100 hPa |
 | `stuck` | a sensor that held one value over a period it should not have | **soft** | **Every observation network**: a run of consecutive readings of one value of one station and parameter, as long as the table of [the limit of a run](#the-limit-of-a-run) says for the parameter, the resolution (10 minutes, hourly, daily) and the step the series is written at. The air temperature (an hour: 24 readings at tenths of a degree, 30 at halves, 40 at whole degrees; a day: 5), the dew point (twice that, hourly and at 10 minutes, not daily), the pressure (72 hourly readings, 36 at 10 minutes, 5 days; a station without a barometer writes its constant in every row), the mean wind speed (a calm is exempt) and, of a day, the rain above 1 mm, the gust, the snow depth and the new snow above 0: the limits of HadISD, ECA&D and GHCN-Daily, and this library's own derivation where none is published (10 minutes, a coarser daily step), each cited in the table. Not judged: where no source gives a limit ([the list](#what-stuck-does-not-judge)). DWD road: 24 readings or more (6 h) of one value of the air, the dew point or the road surface temperature, a gap longer than four times the station's usual one ending the run, melting ice excepted; and 24 readings or more of one value **above zero** of the precipitation intensity, a run of zeros being a dry spell and no fault (55 of the 575 stations that report one write 21.6 or 20.16 mm/h in every reading; the longest run of one non-zero intensity at the others is 13 readings, and 10 for the 10-minute precipitation of 148 stations of DWD observation over 400 days). RMI: the sunshine of station 6477 in the periods its sensor was stuck or dead |
+| `step` | a reading that differs from the one before it by more than the weather does in that time, or that jumps away from both neighbours and back | **soft** | **Every observation network**: of one station and parameter, a **step** (the change from the reading one step of the resolution before it is larger than the limit; the later reading is flagged) and a **spike** (a reading that departs from both neighbours by more than the limit, in opposite directions; the middle reading is flagged), as the table of [the limits of a jump](#the-limits-of-a-jump-step) says for the parameter and the resolution (10 minutes, hourly, daily): the air temperature and the dew point (an hour: a spike of 8 K, a step of 20 K; a day: a spike of 25 K), the pressure (60 hPa), the mean wind speed (a spike of 10 m/s, a step of 15 m/s): the limits of ISD, DMI, MADIS and GHCN-Daily, and this library's own data and derivation where none is published, each cited in the table. A reading further than one step from its neighbour (a null or a gap between) is not judged, nor is the first reading of a series. Not judged: where no source gives a limit, or the limit flags good readings ([the list](#what-step-does-not-judge)) |
 | `consistency` | a reading that another parameter of the same file contradicts | hard | DWD road: a road surface more than 20 K above the air of the same minute with the sun more than 6 degrees below the horizon, the air counting only where it passed `range` and is not marked suspect by DWD's own flag. Météo-France: the humidity of an hour whose dew point lies below 0 °C at a station without frost (the same hygrometer), and a `tn12` that is the text of the `tx12` beside it (a copy, no minimum) |
 | `floor` | a model value a little below the floor of its quantity | hard | DWD DMO (a forecast, soft in every other built-in check, but `floor` corrects and does not reject, so it keeps its mode): ICON writes -0.02 mm for the precipitation of an hour, down to -0.10, and the radiation of a night below 0. **hard sets the floor**, 0.0, and keeps the number; soft keeps the number as the value |
 | `limits` | a reading outside the bounds **you** set for its parameter ([below](#bounds-of-your-own-limits)) | hard | Judges nothing until you set a bound (`Options(limits=...)`, `WD_TS_LIMITS`, `--limits`, `limits` of REST and MCP), and then only the parameters you name. The bounds are in the unit the values come back in, and are a check of their own beside `range`, whose bounds they neither narrow nor widen: a value outside both carries both verdicts, as far as both are in one mode ([the tokens](#the-tokens)) |
 | `source` | a value the source itself marks as erroneous or doubtful in its own quality flag and returns | **soft** | The codes the provider's documentation words as a failed check, erroneous, suspect, doubtful or poor, per provider ([below](#the-sources-own-verdict-source)): GHCN-Daily `QFLAG`, GHCNh `Suspect`/`Erroneous`, the letters of its source 382, source 345's `3` and `o`/`f` of a derived humidity, Frost `qualityCode` 7, CHMI `Suspect` and `Poor`, Environment Agency `Suspect`, Météo-France `Q` 2, DMI `validity:false`, NWS/MADIS `X`, `Q` and `B`, Hub'Eau `12`, DWD road `1`, Met Office MIDAS status `1`. Soft keeps the value and writes `suspect:source`; hard nulls it and writes `rejected:source,raw:<text>`, except the suspect level of a source that has two (GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`), which stays `suspect:source` |
 
 `stuck` is soft by default because it judges a series and not a value: identical readings are a sign of a stuck sensor
-and no proof, and what is found depends on what was read, which differs by network (see the caveats). `source` is soft
-by default because its verdict is the source's and not ours. Every other check is hard, which is what the library did for
-the networks it judged before the modes existed; since GH-3681 `range`, `elevation` and `stuck` judge every network.
+and no proof, and what is found depends on what was read, which differs by network (see the caveats). `step` is soft
+for the same reason, and because a front is a real step. `source` is soft by default because its verdict is the source's
+and not ours. Every other check is hard, which is what the library did for the networks it judged before the modes
+existed; since GH-3681 `range`, `elevation`, `stuck` and `step` judge every network.
 
 ### The limit of a run
 
@@ -223,6 +225,182 @@ The hourly humidity and wind direction and the 10-minute ones, which are not jud
 17,520 readings, daily 3,650), IMGW (daily, 5,601), SMHI (hourly 35,740, daily 2,921) and RMI (hourly 218,848, daily
 10,571) have no run flagged.
 
+### The limits of a jump (`step`)
+
+The air does not change by 20 K in an hour, and a barometer that reads 100 hPa too low for one hour and the right value
+the next has made a mistake, however plausible each number is by itself. The check judges two things in every
+observation network, for one station and one parameter
+([GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681)):
+
+- a **step**: a reading that differs from the one before it by more than the limit for the time between two readings.
+  The **later** reading is flagged, the one that arrives with the jump: nothing says which of the two is wrong;
+- a **spike**: a reading that departs from the one before it by more than the limit and from the one after it by more
+  than the limit, in the opposite direction, so that it comes back within one step. Only the **middle** reading is
+  flagged. A spike is judged first. The reading after it is judged against the last reading **before it that is no spike**
+  (before the spike, or before several in a row), not against the spike, which is the mistake: a jump back to where the series was is no step, and a jump somewhere else
+  (10, 10, 19, -20: a spike of 19 and a step of 30 K from the 10) is one.
+
+A change has to *exceed* the limit: 8.0 K is no spike of 8 K. The limits are per parameter and resolution, in the
+canonical unit, and `wetterdienst.model.rate_of_change` holds them with the same sources in its docstring; a test holds
+this table to it.
+
+**Where a limit comes from.** As for `stuck`, a limit is the level at which a service calls a value *certainly wrong*,
+not the strictest tolerance (the maintainer's decision of 2026-11-01), so that a `suspect:step` rarely falls on a good
+reading: an hourly air temperature of 8 K as a spike (ISD, DMI's "certain error" of 6 to 8 K) and not the 4 K an hour of
+WMO-No. 305 (1993, withdrawn), or Zahumenský's 3 K a minute, written for the firmware of a station. The sources:
+
+- **ISD** (Lott 2004, "The quality control of the Integrated Surface Hourly database", AMS 84th Annual Meeting,
+  section 4): a rise of 8 °C in one hour triggers a look at the next report, and if the temperature falls back by 8 °C
+  or more the value in the middle is "an improbable spike". The paper applies the same continuity test to the dew
+  point, the wind speed and the pressure and **gives no limit for them**. It writes "or more"; the code flags a change
+  of *more than* the limit, so a change of exactly 8.0 K is no spike.
+- **DMI** (Vejen et al. 2002, *Quality control of meteorological observations. Automatic methods used in the Nordic
+  countries*, NORDKLIM / MET Report 8/2002, table 3.1): the step limits per month, flag 3 being a "certain error": for one
+  hour 6 K (October to March) to 8 K (May to August) of the air temperature, 5 to 8 hPa of the pressure and 15 m/s of
+  the wind speed.
+- **MADIS** (NOAA / NWS, *MADIS surface data QC*, temporal consistency): 35 F (19.4 K) an hour of the air and the dew
+  point temperature, 50 % of the relative humidity, 15 hPa of the sea level pressure, 20 kt (10.3 m/s) of the wind speed
+  and 5 F (2.8 K) of the soil temperature. A reading that fails is questioned, not rejected.
+- **Durre et al.** (2010, *Journal of Applied Meteorology and Climatology* 49, 1615-1633, table 3), GHCN-Daily: a daily
+  TMAX or TMIN at least 25 K above or below both the day before and the day after is a spike or dip. The code flags
+  *more than* 25 K, so a change of exactly 25.0 K is no spike.
+- **WMO-No. 100** (2018, 3.3.6) says that a drop of 10 K in an hour "may be suspect, but could be quite realistic if
+  associated with the passage of a cold front or onset of a sea breeze": the reason for two limits, a low one for a
+  spike and a high one for a step.
+- **Own data**: the pressure, below.
+
+Where no source publishes a limit, the table says "own derivation" and why: the limits at **10 minutes** are those of the
+hour (a change in 10 minutes cannot be larger than the weather's in an hour, so the hourly limit is the more lenient
+there); the hourly dew point is judged like the air (ISD applies its test to both but gives no limit for the dew point, MADIS has one limit for both); a daily mean is judged
+like the daily extremes it lies between; and the **pressure** is 60 hPa an hour for the step and for the spike, which
+lies between the 43 hPa an hour of Hurricane Irma at Saint-Barthélemy (2017-09-06: 936.0, 917.4, 960.4 hPa in three
+hours, a good reading, which `elevation` keeps too) and the 64 hPa an hour of the smallest of the 19 keying slips found in
+DWD's hourly station pressure. DMI's 5 to 8 hPa and MADIS's 15 hPa would flag that hurricane
+([below](#what-step-does-not-judge)).
+
+<!-- rate-of-change:start -->
+
+| parameters | resolution | spike | step | unit | source |
+| --- | --- | --- | --- | --- | --- |
+| `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | 10_minutes | 60 | 60 | hPa | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
+| `pressure_air_sea_level`, `pressure_air_sea_level_mean`, `pressure_air_site`, `pressure_air_site_mean` | hourly | 60 | 60 | hPa | own derivation from data: 60 hPa, between 43 hPa an hour of Hurricane Irma at Saint-Barthélemy (2017-09-06; the minimum of 917.4 hPa is 18.6 hPa below the hour before) and 64 hPa an hour of the smallest of the 19 keying slips found in DWD's hourly station pressure; the limits of the sources would flag that hurricane (DMI: a change of 5 hPa (May to August) to 8 hPa (October to March) in an hour is a certain error; MADIS: 15 hPa questioned) |
+| `temperature_air_2m`, `temperature_air_max_2m`, `temperature_air_mean_2m`, `temperature_air_min_2m` | daily | 25 | - | °C | Durre et al. 2010 (table 3): a daily TMAX or TMIN at least 25 K above or below both the day before and the day after (here: more than 25 K); own derivation for the daily mean, which is smoother than an extreme: the same limit |
+| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m` | hourly | 8 | 20 | °C | ISD (Lott 2004, section 4): a rise of 8 K in an hour that falls back by 8 K is a spike (here: more than 8 K); MADIS (temporal consistency): 35 F (19.4 K) in an hour |
+| `temperature_air`, `temperature_air_2m`, `temperature_air_mean_2m`, `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | 10_minutes | 8 | 20 | °C | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
+| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | hourly | 8 | 20 | °C | own derivation for the spike: the temperature's 8 K (ISD applies its continuity test to the dew point as well but gives no limit for it); MADIS (temporal consistency) for the step: 35 F (19.4 K) in an hour, for the dew point as for the air |
+| `temperature_dew_point`, `temperature_dew_point_2m`, `temperature_dew_point_mean_2m` | daily | 25 | - | °C | own derivation: the spike of Durre et al. 2010 (table 3), 25 K for a daily TMAX or TMIN, applied to the daily dew point |
+| `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | 10_minutes | 10 | 15 | m/s | own derivation: the limits of the hour, which a change in 10 minutes cannot exceed by the weather (Zahumenský's step limits are for 1-minute data and the strictest tolerance, and are not used) |
+| `wind_speed`, `wind_speed_mean`, `wind_speed_mean_last_10min`, `wind_speed_mean_last_2min` | hourly | 10 | 15 | m/s | MADIS (temporal consistency): 20 kt (10.3 m/s) of the wind speed in an hour; DMI (Vejen et al. 2002, table 3.1): a change of 15 m/s in an hour is a certain error |
+
+<!-- rate-of-change:end -->
+
+`-` means that the source gives no limit for that kind of jump and none is judged: no source gives a step for the daily
+temperature (a front is a real step of a day), and a spike of 25 K between two days is what GHCN-Daily flags.
+
+**The time between readings.** A limit is for the time between two consecutive readings of the resolution of the dataset
+(10 minutes, an hour, a day). A pair or a triple of readings is judged when each interval between them is **no longer
+than that step**, which is the case in a series of the resolution. A null or a missing row between two readings leaves
+them two steps apart, and the check **stands aside**, as ISD's and DNMI's checks do where the series has no good
+coverage; the limit is not scaled up for the longer time. A reading that is *closer* to its neighbour than one step (an
+irregular series: a METAR between two hourly ones) is judged with the limit of the step, which is the more lenient for
+it.
+
+**What a neighbour is.** A reading that **any other check judged bad, soft or hard** (`range`, `elevation`, `limits`,
+`source`, `stuck`, `consistency`: the verdicts are made first and `step` runs last, whatever their modes) or that the
+source wrote as a code (`raw:-999`) is no neighbour and is not judged: it would flag the good reading beside it. A
+thermometer stuck at -40 °C for 30 hours is `stuck`'s, and the 5.0 that follows it is no step of 45 K; GHCN hourly 5, 5,
+40, 41, 5, 5 with 40 and 41 flagged erroneous by the source is the same. The reading next to such a one has no
+neighbour on that side, and is judged against the one on the other side only (the first reading of a stuck run is
+`stuck`'s too, so the jump into the run is not told as a step).
+
+**The first and the last reading.** The first reading of a series has no predecessor: it is never flagged, and the second
+is flagged for a step if the jump is there (a bad first reading flags the good second one). The last reading has no
+successor, so it can be a step but not a spike. This is the window-edge caveat of `stuck`, and the series is the one
+the reader hands the core, **before** the window of the request is cut ([the caveats](#caveats)).
+
+### What `step` does not judge
+
+Where no source gives a limit, or the limit that a source gives flags good readings, the check stands aside. The numbers
+are what the check would flag with the limit, in the whole histories of the 10 DWD stations of
+[below](#what-step-found-in-real-data) (read on 2026-11-05, no other check applied to them):
+
+| parameter | limit measured | readings flagged | of | what they are |
+| --- | --- | --- | --- | --- |
+| relative humidity | spike 30 %, step 50 % (DNMI, MADIS), hourly | 1,463 | 6.3 million | 1,319 at the Zugspitze and the Feldberg: fog and cloud take the humidity from 100 to 40 % and back in an hour |
+| gusts | step 15 m/s (the research's own derivation), hourly | 376 | 2.3 million | thunderstorm gusts: 3.0, 27.0, 20.0, 10.0 m/s in four hours (Dresden, 2001-07-07) |
+| soil temperature at 5 cm | step 3 K (MADIS 2.8 K), hourly | 17,690 | 2.1 million | the sun on bare soil |
+| air temperature | one-sided step 8 K instead of the spike, hourly | 300 | 6.3 million | fronts: 33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25 (the table's 7 are spikes) |
+| pressure | spike 5 hPa, step 60 hPa (DMI), hourly | 811 | 6.8 million | 52 are the table's; the rest are single readings 5 to 60 hPa off their neighbours (1018.9, 1008.0, 1019.3 hPa), and a hurricane's minimum |
+
+- **Relative humidity.** The limits that exist are DNMI's dip test of 30 % (not in operation, it flags nothing) and
+  MADIS's 50 % an hour. Measured, they flag 1,463 of 6.3 million hourly readings of these stations, 1,319 of them at
+  the two summits, where a station is in cloud one hour and out of it the next. That rate of false alarms is the
+  reason it is not judged, and the only one.
+- **Gusts.** Nothing publishes a limit for them; the research derived 15 m/s, and a thunderstorm gust is a real step.
+- **Soil temperature.** The limit that exists is MADIS's 2.8 K an hour (Zahumenský's 1 K is for 1-minute data).
+  Measured, a step of 3 K flags 17,690 of 2.1 million hourly readings at 5 cm, which is bare soil in the sun: the false
+  alarms are the reason it is not judged.
+- **The pressure is the one parameter where a source's limit is not taken.** DMI calls a change of 5 hPa (May to August)
+  to 8 hPa (October to March) in an hour a certain error, and MADIS questions 15 hPa. Hurricane Irma at Saint-Barthélemy
+  (2017-09-06, quality code 1) read 977.1, 936.0, 917.4, 960.4 hPa in four hours: its minimum is 18.6 hPa below the hour
+  before and 43.0 below the one after, a good reading that any of those limits flags, and which `elevation` keeps for the
+  same reason. The table takes 60 hPa for the spike and for the step: above the 43 hPa an hour of the hurricane, below the
+  64 hPa an hour of the smallest of the 19 keying slips in DWD's hourly pressure, which it finds ([below](#how-step-relates-to-elevation-and-range)).
+  What 60 hPa leaves are single readings 5 to 60 hPa off their neighbours: 759 of the 811 that 5 hPa
+  flags, in 6.8 million readings, which look like typing slips. Choosing 5 hPa is a one-line change of the table, and
+  would flag a tropical cyclone's eye at hourly resolution.
+- **A jump of the extremes of an interval, amounts, directions.** The extremes of an interval (the highest air
+  temperature of an hour) are not what the limits are for. The amounts and the sums of an interval (rain, sunshine, new
+  snow, a radiation sum) jump from 0 and back, and no Nordic service tests them for a step; **radiation** has no source
+  for a limit either. **Wind direction** is circular (350 degrees to 10 is a change of 20). Cloud cover and weather codes
+  are steps of a scale.
+- **Any resolution but 10 minutes, hourly and daily** (1, 5, 6 and 15 minutes, 6 hours, subdaily reports, months, years):
+  no source gives a limit for them, and the road's 15 minutes are a provider's. **Forecasts** (a model writes no
+  readings) and **derived quantities**.
+
+### How `step` relates to `elevation` and `range`
+
+`range` and `elevation` judge a reading by itself and stay as they are; `step` judges it beside its neighbours, and
+treats a reading either of them (or any other check) has found as no neighbour. The 19 readings of DWD's hourly station pressure that lie
+beyond 75 hPa of the standard atmosphere were the research's start of this check: `elevation` rejects 16 of them, and the
+other three (909.5 hPa at Berlin-Tempelhof, 1994-08-29, and 910.1 and 908.5 hPa at List auf Sylt, 1990-09-18 and
+1992-10-22, 98 to 102 hPa below the standard atmosphere) are spikes of about 100 hPa, which `step` flags
+(`suspect:step`).
+
+### What `step` found in real data
+
+Read on 2026-11-05 from DWD's open data (historical and recent files merged, whole histories, 10 stations for each
+resolution: Dresden-Klotzsche, Hamburg, Potsdam, Zugspitze, Helgoland, Arkona, Feldberg, Berlin-Tempelhof, Straubing,
+Trier-Petrisberg), with the check as it ships, soft. The readings that are looked at are those that have a value; the
+check needs a neighbour one step away, which nearly all have (the hourly `moisture` of the earlier decades is 3-hourly,
+and 88 % of it is judged).
+
+| resolution | parameter (dataset) | readings | flagged | what they are |
+| --- | --- | --- | --- | --- |
+| hourly | air temperature (`temperature_air`) | 6,299,464 | 7 | 2.8 °C between 20.6 and 22.0 (Hamburg, 1950), 8.0 between 17.1 and 19.4 (1960), 15.4 between 5.6 and 4.8 (1975), 0.0 between 11.9 and 12.2 (1997), a sign: 6.5 between -6.6 and -5.7 (Feldberg, 1995), 5.5 between -5.0 and -6.3 (Potsdam, 1936), 5.4 between -5.4 and -5.6 (Zugspitze, 1957) |
+| hourly | air temperature (`moisture`) | 4,505,940 | 380 | 184 are 0.0 between other values, 351 are before 1995, 110 at the Zugspitze and the Feldberg: the old whole-degree decades |
+| hourly | dew point (`moisture`) | 4,501,767 | 1,120 | 316 are 0.0 between other values, 612 at the Zugspitze and the Feldberg (the dubious ones) |
+| hourly | station pressure (`moisture`, `pressure`) | 4,505,876 | 38 | single readings about 100 hPa off their neighbours (33), 1989 to 2001; the three that `elevation` lets through are among them |
+| hourly | sea level pressure (`pressure`) | 3,539,284 | 14 | the same: 10 of 14 differ by a multiple of 10 hPa, 8 at Trier-Petrisberg |
+| hourly | mean wind speed (`wind`) | 5,841,991 | 167 | 141 at the Zugspitze (the dubious ones), 159 before 1995 |
+| 10 minutes | air temperature (`temperature_air`) | 16,287,927 | 220 | the Zugspitze's thermometer alternating between -20.2 and 15.1 °C on 2001-05-31 and 06-01 (89), Arkona down to -85.2 °C in September 1993 (26), 52 are 0.0 |
+| 10 minutes | dew point (`temperature_air`) | 15,470,459 | 510 | 359 at the Zugspitze and the Feldberg (the dubious ones), 97 in 2001 |
+| 10 minutes | station pressure (`temperature_air`) | 16,263,915 | 8 | 100 hPa off their neighbours (7), 1991 to 1997 |
+| 10 minutes | mean wind speed (`wind`) | 16,183,841 | 37 | 14 at the summits, 17 at Helgoland |
+| daily | air temperature mean, minimum, maximum (`climate_summary`) | 964,596 | 0 | |
+
+The daily temperature has no reading flagged: GHCN-Daily's 25 K is a spike no station of these ten has made. The
+readings flagged are, by what they look like: a **0.0** between other values, which DWD wrote for a missing value in the
+whole-degree decades of the hourly `moisture` (184 of the 380 temperatures, 316 of the 1,120 dew points); a **sign or a
+digit** that is wrong (5.5 °C between -5.0 and -6.3, 15.4 between 5.6 and 4.8; 33 of the 38 site pressures differ from
+their neighbours by a multiple of 10 hPa, within 1.5); a **sensor that fails**: the Zugspitze's thermometer alternated between -20.2 and 15.1 °C for 89 readings on
+2001-05-31 and 06-01, and Arkona's wrote values down to -85.2 °C in September 1993 (26 readings). Neither `range` (-90 to
+60 °C) nor `stuck` finds them. The cases that are **probably good**, the known false positives, are two: the hourly mean
+**wind speed of the Zugspitze** (141 of the 167, in storms, 38.5 m/s one hour and 7.8 the next in November 1983), and the
+**dew point of the two summit stations** (612 of the 1,120, a value derived from the temperature and the humidity in cold
+dry air that swings 8 K and back); the rest of the wind and dew point flags are at lowland stations and are mostly
+errors (a dew point of 0.0 or -59 between values of 10).
+
 ## The table of ranges
 
 The `range` check has **one table for every provider**. A quantity has the bound of the quantity and not of the network
@@ -326,8 +504,8 @@ A bound that holds for every provider cannot see a defect that lies inside it. T
   `suspect:source`, and is null with `rejected:source` where you set the check hard. DMI's 1,978 mm of a day and 17,802
   mm of a month are above the bounds and are null by `range`.
 - **A gust of 81.5 m/s in Belgium** (RMI, station 6414, 2003-10-09, `validated: false`): inside the 115 m/s of the
-  world, and not a reading. It is for the step check of [GH-3681](https://github.com/earthobservations/wetterdienst/issues/3681);
-  the 445.3 and 569.7 m/s of the hourly layer are above the bound and are null.
+  world, and not a reading. **No check finds it**: `step` does not judge gusts ([why](#what-step-does-not-judge)), so
+  it is returned as RMI writes it, and a caller who wants it gone sets a bound of their own (`limits`); the 445.3 and 569.7 m/s of the hourly layer are above the bound and are null.
 - **A station pressure keyed in by a digit, between the margins of `elevation`**: 909.5, 910.1 and 908.5 hPa at DWD's
   Berlin-Tempelhof and List auf Sylt, 98 to 102 hPa under the standard atmosphere, as far as the eye of a hurricane
   (917.4 hPa at 3 m). Steps of 90 to 129 hPa in an hour, against the 43 of Irma, tell them; that is the step check, too.
@@ -566,7 +744,7 @@ given beside it wins, so `soft` for all but the range is `soft` with `range` har
 ```python
 from wetterdienst import Options
 
-Options(plausibility="soft")  # all seven checks soft, the same as listing them
+Options(plausibility="soft")  # all eight checks soft, the same as listing them
 Options(
     plausibility={
         "range": "hard",
@@ -576,6 +754,7 @@ Options(
         "floor": "soft",
         "limits": "soft",
         "source": "soft",
+        "step": "soft",
     }
 )
 ```
@@ -595,7 +774,7 @@ and REST have both the shorthand and the checks, and the checks win whatever the
 `hard` is refused.
 
 The REST API and the MCP tools take `plausibility` and `plausibility_range`, `plausibility_elevation`, `plausibility_stuck`,
-`plausibility_consistency`, `plausibility_floor`, `plausibility_limits` and `plausibility_source` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
+`plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` and `plausibility_step` on `values`; `/api/settings` reports the modes as set (a forecast network is soft in every check but `floor` and `limits` whatever they are). A value
 other than `soft` or `hard` is refused.
 
 ## The tokens
@@ -657,7 +836,7 @@ clean = values.df.filter(~flags.str.contains(r"(^|,)(suspect|rejected):").fill_n
 The table is what the core is told to judge by the library's own tables: a network that is in no row judges no value
 unless you set [bounds of your own](#bounds-of-your-own-limits), which any network is judged by. A dataset is
 `resolution/dataset`; `*` stands for every dataset of the network that has a parameter the check judges, which is how
-`range`, `elevation` and `stuck` run on every network that has one.
+`range`, `elevation`, `stuck` and `step` run on every network that has one.
 
 <!-- coverage:start -->
 
@@ -728,6 +907,27 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `stuck` | `rmi/observation` | `*` |
 | `stuck` | `smhi/observation` | `*` |
 | `stuck` | `wsv/pegel` | `*` |
+| `step` | `aemet/observation` | `*` |
+| `step` | `chmi/observation` | `*` |
+| `step` | `dmi/observation` | `*` |
+| `step` | `dwd/observation` | `*` |
+| `step` | `dwd/poi` | `*` |
+| `step` | `eccc/observation` | `*` |
+| `step` | `fmi/observation` | `*` |
+| `step` | `geosphere/observation` | `*` |
+| `step` | `imgw/meteorology` | `*` |
+| `step` | `ipma/observation` | `*` |
+| `step` | `knmi/observation` | `*` |
+| `step` | `lhmt/observation` | `*` |
+| `step` | `meteofrance/observation` | `*` |
+| `step` | `meteoswiss/observation` | `*` |
+| `step` | `metno/frost` | `*` |
+| `step` | `metoffice/observation` | `*` |
+| `step` | `noaa/ghcn` | `*` |
+| `step` | `nws/observation` | `*` |
+| `step` | `rmi/observation` | `*` |
+| `step` | `smhi/observation` | `*` |
+| `step` | `wsv/pegel` | `*` |
 | `consistency` | `dwd/road` | `15_minutes/data` |
 | `consistency` | `meteofrance/observation` | `hourly/others` |
 | `consistency` | `meteofrance/synop` | `subdaily/data` |
@@ -742,14 +942,13 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `source` | `metoffice/observation` | `daily/rain`, `daily/temperature`, `daily/weather`, `hourly/rain`, `hourly/weather`, `hourly/wind`, `hourly/radiation`, `hourly/soil_temperature` |
 | `source` | `noaa/ghcn` | `daily/data`, `hourly/data` |
 | `source` | `nws/observation` | `hourly/data` |
-
 <!-- coverage:end -->
 
-`range`, `elevation` and `stuck` run on every network that serves a quantity of their tables (`*`: every dataset of the
-network that has one; for `stuck` also the road and RMI datasets of their own rules). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
+`range`, `elevation`, `stuck` and `step` run on every network that serves a quantity of their tables (`*`: every
+dataset of the network that has one; for `stuck` also the road and RMI datasets of their own rules). `source` runs where a provider's flag is mapped ([the codes](#the-sources-own-verdict-source)). `limits` is in no row: it runs on any network, for the parameters you set a bound for. Within a dataset a check covers the parameters its rule names, not every parameter: `range` the
 parameters that have a bound in the table, `elevation` the `pressure_air_site`, `pressure_air_site_mean`,
 `pressure_air_site_min` and `pressure_air_site_max`, `stuck` the parameters of [its table](#the-limit-of-a-run), at the
-resolutions it names. The provider pages and [special values](special_values.md) list them.
+resolutions it names, and `step` those of [its table](#the-limits-of-a-jump-step). The provider pages and [special values](special_values.md) list them.
 
 What no check covers, and why:
 
@@ -786,6 +985,30 @@ What no check covers, and why:
   - *A constant stretch below the limit of a run* (71 hourly readings of a pressure, 4 days) is not flagged, where the
     earlier rule on a whole file of at most three values flagged it whatever its length.
   - *RMI's sunshine*: the periods are fixed dates of one station (6477), so the verdict depends on neither.
+- **What `step` finds depends on what was read, as `stuck` does.** It judges the series the reader hands the core,
+  merged over the periods and **before** the window of the request is cut, and never reads more than the reader did, so
+  a reader that reads whole files (DWD observation) finds a jump across the start of the window, and one that asks its
+  source for the window only (DWD road, FMI, DMI) does not. The first reading of the series that is read has no
+  predecessor and is never flagged; if it is the wrong one, the reading after it is flagged for the change, and a
+  bad first reading of a short window costs that. A spike needs both neighbours, so the last reading of a series is no
+  spike.
+- **A front is a real step, and the check judges a series and not a value.** A cold front or a thunderstorm can lower an
+  hourly air temperature by 10 K, which is why the spike limit (8 K) is the lower and the step limit (20 K) the higher. A one-sided
+  limit of 8 K an hour would flag 300 hourly steps of 6.3 million in the DWD data read, nearly all of them weather
+  (33.8 to 24.3 °C at Berlin-Tempelhof, 2022-07-25), and is not used.
+- **A false alarm of another check can hide a spike and move the flag to the good reading.** A reading any other
+  check flagged is no neighbour, soft or hard, so a flag that is wrong takes its reading out of the series: 50 hours
+  pinned at 0.0 (`suspect:stuck`, a melting point), then 30.0, 0.2, 0.3 leaves the 30.0 without a neighbour and
+  unflagged, and flags the good 0.2 after it as the step from the 30.0. This follows from the rule and is kept. In the
+  hourly DWD data read the rule lost no flag and added 4.
+- **A step flags the later reading of the pair.** Nothing says which of two readings is wrong. A level shift (a sensor
+  that jumped by 25 K and stays) flags the first reading after the jump; a bad value that is held for two readings or
+  more is a spike of two, which is no spike, so its first reading is flagged as a step, and the first good reading after
+  it as another. The jump out of a single spike is the spike's: the good reading after it is judged against the reading
+  before the spike, and is not flagged where it is back within the limit.
+- **A hurricane's pressure.** The limit of 60 hPa an hour keeps the readings of Hurricane Irma at Saint-Barthélemy
+  (936.0, 917.4, 960.4 hPa in three hours); the limits of the sources (DMI 5 to 8 hPa, MADIS 15 hPa) would flag its
+  minimum, and also 759 more readings of DWD's hourly pressure, typing slips of 5 to 60 hPa, which 60 does not ([what step does not judge](#what-step-does-not-judge)).
 - **Melting point and the whole-degree years.** A temperature pinned at 0.0 °C (snow or ice melting, a mountain in cloud)
   can hold one value for a day, and the limits do not exempt it: seven runs of 0.0 °C of the air temperature or the dew
   point in the readings read are flagged, the Zugspitze's 171 readings of 0.0 °C among them. And three runs of 40 to 43
@@ -819,7 +1042,7 @@ What no check covers, and why:
   value with the flag `1` and count it, it is a change: a road station with long stuck runs can be skipped where it was
   kept. So it is for the run rule of every other network and parameter (GH-3681), where a stuck run is left out of an
   interpolation and a summary, and a station that has only stuck readings in the window is skipped, as before it was
-  not: in the DWD data read, about 1,500 of 93 million judged readings, apart from the barometer constants. So it is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
+  not: in the DWD data read, about 1,500 of 93 million judged readings, apart from the barometer constants. So it is for `step`: a reading flagged `suspect:step` is left out of an interpolation and a summary (a spike of 100 hPa in the pressure of a station is no pressure to interpolate), and a window whose readings are all flagged skips the station, which the readings read (a few hundred in millions) do not make. So it is for `source`: a station of `noaa/ghcn`, `metno/frost`, `chmi/observation`, `ea/hydrology`,
   `meteofrance/observation` or `dmi/observation` whose values the source flagged can be skipped where it was kept.
 - **A rejected value carries only the hard verdict.** Where a hard check nulls a value and a soft one also finds it
   suspect, the value is null and the token is `rejected:<hard checks>,raw:<number>`; the soft check is not listed. A
