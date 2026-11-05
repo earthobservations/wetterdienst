@@ -289,6 +289,36 @@ def test_an_empty_result_leaves_a_target_as_it_is(tmp_path: pathlib.Path, caplog
     assert "Nothing was written to --target" in caplog.text
 
 
+def test_quiet_still_says_that_nothing_was_written_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A scheduled run that wrote nothing must not look like one that did: `--quiet` keeps that sentence only."""
+    target = tmp_path / "values.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("values", "--stations=00001", "--timestamp=1930-06-01", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No data available" not in caplog.text
+
+
+def test_quiet_still_says_that_a_listing_wrote_nothing_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The same for `stations`: the sentence stays under `--quiet`, the one about the empty listing does not."""
+    target = tmp_path / "stations.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("stations", "--name=Nowhereville", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No stations available" not in caplog.text
+
+
 def test_a_failure_is_still_an_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exit 1 is for failure: a request that cannot be answered is not told as an empty result."""
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415

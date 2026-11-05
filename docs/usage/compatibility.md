@@ -176,7 +176,8 @@ same request gives the same output, and the options are the parameters of the RE
   upstream failure would be a break. The table is on the [command line page](cli.md#exit-codes), and
   `tests/ui/test_exit_codes.py` holds every explicit exit to the status the REST API answers the same failure with.
 - **The log**: `--quiet` (every command but `restapi`) writes the errors and the warnings about the answer (those that
-  are also in its `metadata.warnings`) to stderr, and no progress or other log line, and changes nothing else: stdout
+  are also in its `metadata.warnings`) and `Nothing was written to --target.` to stderr, and no progress or other
+  log line, and changes nothing else: stdout
   and the exit code are those of the command without it, and an error is still written. It is a usage error with
   `--debug`. See [Logging](cli.md#logging).
 - **Colour**: the command line writes none of its own, and `NO_COLOR` (set, not empty) turns off what Python's

@@ -145,7 +145,7 @@ def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> 
 
 
 class _QuietFilter(logging.Filter):
-    """Let a handler write errors and the warnings about the answer only: what `--quiet` leaves of the log."""
+    """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         return record.levelno >= logging.ERROR or hasattr(record, RESPONSE_WARNING_RECORD)
@@ -154,13 +154,14 @@ class _QuietFilter(logging.Filter):
 def _apply_log_level(*, debug: bool) -> None:
     """Set how much the command logs: `--debug` for the package's debug lines, `--quiet` for less, else as it is.
 
-    `--quiet` keeps the errors (`log.error`, `log.exception`) and the warnings about the answer itself, the ones that
-    are also in the `warnings` of its `metadata` (a file the provider let go, readings a check rejected, a parameter
-    without rows: `warn_response` marks their log records), and drops the rest: the progress (logged at INFO), the
-    other warnings of the package and everything the libraries underneath write below ERROR. The levels of the root
-    logger and of `wetterdienst` are raised to WARNING, and the handlers they have are given a filter for the rest,
-    both for the length of the command. The data on stdout, a usage error that click writes itself and the exit code
-    are untouched. With `--debug` it is a usage error, which of the two wins is not for the command to guess.
+    `--quiet` keeps the errors (`log.error`, `log.exception`), the sentence that nothing was written to the
+    `--target`, and the warnings about the answer itself, the ones that are also in the `warnings` of its
+    `metadata` (a file the provider let go, readings a check rejected, a parameter without rows: `warn_response`
+    marks their log records). It drops the rest: the progress (logged at INFO), the other warnings of the package
+    and everything the libraries underneath write below ERROR. The levels of the root logger and of `wetterdienst`
+    are raised to WARNING, and the handlers they have are given a filter for the rest, both for the length of the
+    command. The data on stdout, a usage error that click writes itself and the exit code are untouched. With
+    `--debug` it is a usage error, which of the two wins is not for the command to guess.
     """
     ctx = click.get_current_context()
     if not ctx.meta.get(_QUIET_KEY, False):
@@ -253,6 +254,8 @@ stations_timestamp_opt = click.option(
 NO_STATIONS = "No stations available for given constraints"
 NO_DATA = "No data available for given constraints"
 NOTHING_WRITTEN = "Nothing was written to --target."
+#: marks the line as one `--quiet` keeps: a scheduled run that wrote nothing must not look like one that did
+_NOTHING_WRITTEN_RECORD = {RESPONSE_WARNING_RECORD: "nothing-written"}
 
 
 def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
@@ -1181,7 +1184,7 @@ def _finish(
         log.warning(NO_DATA)
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
         _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
@@ -1838,7 +1841,7 @@ def stations(
 
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
         _export_or_exit(stations_, target, if_exists, with_metadata=request.with_metadata)
         return

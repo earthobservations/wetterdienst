@@ -64,7 +64,7 @@ long request, other warnings and notes, and the errors. Every command but `resta
 debug lines of the package, and `--quiet`, which leaves **the errors and the warnings about the answer**:
 
 ```bash
-# a scheduled job: nothing on stderr unless it failed or the answer is not whole
+# a scheduled job: nothing on stderr unless it failed, the answer is not whole or nothing was written
 wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 \
     --timestamp=2024-01 --target=file://values.json --quiet
 ```
@@ -77,11 +77,13 @@ had, `0`, `1` or `2`.
 What it keeps besides the errors are the warnings that qualify the answer, the lines that are also in the `warnings` of
 the `metadata` block of JSON and GeoJSON output (see [response metadata](restapi.md#response-metadata)): they tell a
 partial answer from a whole one, and CSV and a file `--target` carry no such block, so stderr is where a script reads
-them. What it drops is the progress, the notes (the cache that is enabled), the other warnings of the package and
-everything the libraries underneath write below an error, among them the sentence that a request returned no data or
-that nothing was written to the `--target`: an empty answer is empty on stdout. `--quiet` and `--debug` are a usage
-error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone: its log is also
-uvicorn's, which `--quiet` would not reach.
+them. It keeps one more sentence, `Nothing was written to --target.`, which a command that found no data to write to its
+`--target` says: a scheduled run that wrote nothing must not look like one that did (the `--target` is left as it
+was, and the exit code is `0`). What it drops is the progress, the notes (the cache that is enabled), the other warnings
+of the package and everything the libraries underneath write below an error, among them the sentence that a request
+returned no data or no stations: an empty answer is empty on stdout. `--quiet` and `--debug` are a usage error
+together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone: its log is also uvicorn's,
+which `--quiet` would not reach.
 
 ## Colour
 
