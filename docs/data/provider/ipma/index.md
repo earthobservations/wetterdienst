@@ -17,6 +17,13 @@ The conditions of use at the foot of the API page add that content may be used f
 utilização não decorram finalidades lucrativas ou ofensivas" (as long as no profit-making or offensive purpose
 results); whether that binds users of the API is not stated, so ask IPMA before a commercial use.
 
+The API page (read 2026-11-06, Portuguese; translated by us) "asks users of the service provided by the API to read the
+'conditions of use'" and "also asks that an e-mail be sent to webmaster@ipma.pt informing of your use of this service and
+its purpose, for statistics and to improve the service". The conditions say IPMA may "refuse or withdraw access to this
+service, at any time and without notice, to Users who do not comply" and that "the user must always cite the source of
+the information". They state no number of requests. Wetterdienst sends that e-mail for nobody: an operator who runs it
+for others, or a user who builds on it, is the one IPMA asks.
+
 ## Update date
 
 The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when IPMA
