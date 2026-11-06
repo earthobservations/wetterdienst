@@ -432,10 +432,10 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 # element (the evidence is in docs/data/provider/metno/frost/index.md):
 #
 # - from 1982 on it is a dry period, a sum of zero, returned as 0.0 with `raw:-1`. The 6-hourly series has 51 % of
-#   its readings -1 from 1982 on (0.2 % in 1981, 53 % in 1982), and the 12-hourly sum that holds one is dry in 86 % of the cases,
-#   where the one that holds a reading above 0 is dry in 1 %; at the WMO stations Frost lists since 2026-11-03 a daily
-#   -1 has 24 dry hours (213 of 213) and a daily sum is the sum of its hours with -1 as 0 (79 of 79), and in the
-#   Norwegian series a month is the sum of its days with -1 as 0 in 89 of 89 months of 1980 to 2010
+#   its readings -1 from 1982 on (0.2 % in 1981, 53 % in 1982), and the 12-hourly sum that holds one is dry in 86 %
+#   of the cases, where the one that holds a reading above 0 is dry in 1 %. At the WMO stations Frost lists since
+#   2026-11-03 a daily -1 has 24 dry hours (213 of 213) and a daily sum is the sum of its hours with -1 as 0 (79 of
+#   79); in the Norwegian series a month is the sum of its days with -1 as 0 in 53 of 53 months since 1982
 # - before 1982 it is no information, returned as null with `raw:-1`: in the 6-hourly series of the 1940s and 1950s
 #   every reading of a station is -1, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 79.3 mm of daily rain
 #   on 1951-08-05 against a 6-hourly -1), and the holding 12-hourly sum is dry in 62 % of the cases, as for a 0
