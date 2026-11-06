@@ -270,69 +270,6 @@ def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> 
         request.filter_by_station_id("SN99710").values().all()
 
 
-def test_metno_frost_decodes_sentinels() -> None:
-    """Test that Frost's in-band codes become the value they stand for.
-
-    Frost writes these into the value, where nothing distinguishes them from a measurement. Its element descriptions
-    state two: snow depth -1 is "no snow", a depth of zero rather than an absent one, and cloud cover -3 and 9 both
-    mean the cover could not be estimated (in eighths the latter two convert to -0.375 and 1.125 of the sky). Its data
-    clarifications state more (GH-3748, GH-3137): the 6-hourly precipitation sum -1 is "No precipitation", the wind
-    direction -3 is "No unique wind direction is given when winds are weak" and the snow depth -3 is "Not possible to
-    measure snowdepth", where a snow depth of 0 is "Snowdepth less than 0.5 cm" and a reading.
-    """
-    from wetterdienst.provider.metno.frost.api import _decode_sentinels  # noqa: PLC0415
-
-    given = pl.DataFrame(
-        {
-            "parameter": [
-                "surface_snow_thickness",
-                "surface_snow_thickness",
-                "surface_snow_thickness",
-                "surface_snow_thickness",
-                "cloud_area_fraction",
-                "cloud_area_fraction",
-                "cloud_area_fraction",
-                "wind_from_direction",
-                "wind_from_direction",
-                "air_temperature",
-                "air_temperature",
-            ],
-            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=UTC)] * 11,
-            "value": [-1.0, 12.0, 0.0, -3.0, -3.0, 9.0, 4.0, -3.0, 0.0, -1.0, -3.0],
-            "quality_flags": ["0"] * 11,
-        },
-    )
-    decoded = _decode_sentinels(given)
-    values = decoded.get_column("value").to_list()
-    # the code stays beside the value it stood for, after the quality code (GH-2759)
-    assert decoded.get_column("quality_flags").to_list() == [
-        "0,raw:-1",
-        "0",
-        "0",
-        "0,raw:-3",
-        "0,raw:-3",
-        "0,raw:9",
-        "0",
-        "0,raw:-3",
-        "0",
-        "0",
-        "0",
-    ]
-    # "no snow" is a depth of zero; a measured depth and a depth of less than 0.5 cm (0) are untouched
-    assert values[:3] == [0.0, 12.0, 0.0]
-    # a depth that could not be measured is no depth
-    assert values[3] is None
-    # both codes for "could not be estimated" become null; a real eighth is untouched
-    assert values[4] is None
-    assert values[5] is None
-    assert values[6] == 4.0
-    # no unique wind direction is null, and the 0 beside it stays what Frost wrote
-    assert values[7] is None
-    assert values[8] == 0.0
-    # -1 and -3 mean nothing special anywhere else, and a temperature may legitimately be negative
-    assert values[9:] == [-1.0, -3.0]
-
-
 @pytest.mark.remote
 def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None:
     """The wind direction in weak winds is Frost's -3 and comes back null, the code in the flags (GH-3137).

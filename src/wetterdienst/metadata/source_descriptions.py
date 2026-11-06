@@ -83,8 +83,8 @@ of how each value is made, the type of day and the heights), and the DWD phenolo
 the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and the definitions of the
 ``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
 over this table), and the MET Norway Frost rows (GH-3137, read against the ``/elements`` answer with a client ID:
-42 of the 49 equal it up to a trailing blank, and the other 7 add what the reader returns for a code of the data
-clarifications or of the element's own text).
+39 of the 49 equal it, 1 up to a trailing blank and 2 up to a blank before the final stop, and the other 7 add what
+the reader returns for a code of the data clarifications or of the element's own text).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data

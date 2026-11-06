@@ -146,28 +146,30 @@ wetterdienst reads. Read from Frost on 2026-11-06 (GH-3137), the numbers are rea
 
 | element | value | Frost: converted, meaning | returned | read |
 |---|---|---|---|---|
-| `wind_from_direction` (`wind_direction_mean_last_10min`) | `-3` | not converted: "No unique wind direction is given when winds are weak" | `null`, `raw:-3` (it was `null`, `rejected:range,raw:-3`: the range check took it for a bearing below 0) | 72 of 9,255 hourly readings at 12 of 252 foreign WMO stations (22 October to 5 November 2026), all beside a speed of 0.5 to 2.6 m/s; none in 108,161 readings at 328 stations in 10 to 24 January 2026 |
+| `wind_from_direction` (`wind_direction_mean_last_10min`) | `-3` | not converted: "No unique wind direction is given when winds are weak" | `null`, `raw:-3`. The range check took it for a bearing below 0: it was `null`, `rejected:range,raw:-3` with `plausibility={"range": "hard"}`, and with `soft` the value `-3.0`, `suspect:range` | 72 of 9,255 hourly readings at 12 of the 249 foreign WMO stations with wind readings (22 October to 5 November 2026), all beside a speed of 0.5 to 2.6 m/s; none in 108,161 readings at 328 stations in 10 to 24 January 2026 |
 | `cloud_area_fraction` (`cloud_cover_total`) | `-3` | not converted: "Cloud cover is not estimated because of fog or analogous phenomena" | `null`, `raw:-3` | none in 572,955 hourly readings at the 5 Norwegian stations with an open series of the element (2008 to 2025) or in 8,743 at the foreign ones |
 | `cloud_area_fraction` | `9` | the description of the element: "Code -3 or 9 = cloud cover can not be estimated because the sky is obstructed from view" | `null`, `raw:9` | 19,669 of the 572,955 and 35 of the 8,743 |
-| `surface_snow_thickness` (`snow_depth`) | `0` | not converted: "Snowdepth less than 0.5 cm" | `0.0`, no token | 32,879 of 75,143 daily readings at 40 stations (2000 to 2025) |
+| `surface_snow_thickness` (`snow_depth`) | `0` | not converted: "Snowdepth less than 0.5 cm" | `0.0`, no token | 32,879 of 75,143 daily readings at 25 of 40 stations asked, which returned readings (2000 to 2025) |
 | `surface_snow_thickness` | `-1` | not converted: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1 means no snow") | `0.0`, `raw:-1` | 6,397 of the 75,143 daily readings, 3,005 of 33,991 hourly readings at 105 stations (10 to 24 January 2026); against the daily snow cover below |
 | `surface_snow_thickness` | `-3` | not converted: "Not possible to measure snowdepth" | `null`, `raw:-3` (it was `-3.0` cm: the range of the parameter allows it) | none in about 150,000 readings (daily and hourly, Norwegian and foreign stations) |
 
-The snow depth `-1` is read as a depth of zero, as before, because the gauge shows nothing: beside the daily
-`snow_coverage_type` of the same station and day (`0` or `-1` no snow, `1` mostly snow-free ground, `2` equal parts, `3`
-mostly covered, `4` completely covered; 16 stations, 2015-10 to 2016-06), a `-1` is no snow in 93.4 % of 1,842 days
-(partial cover `1` to `4` in 6.6 %, 121 days, 89 of them "mostly snow free"), a `0` in 90.5 % of 474 days (8.4 % partial),
-where a depth of 5 cm or more is mostly or completely covered in 97.4 % of 1,161 days. The "partial snow cover" of
-Frost's words is that 6.6 %: the depth at the gauge is zero, the ground around it is not. A caller who needs the cover
-of the station area reads `snow_coverage_type`, which wetterdienst does not serve. The one value below zero that the
-table does not list, a `-2` at SN91500 on 2017-07-24 (daily, quality `2`), is returned as `-2.0`, the only one in the
-75,143 daily readings.
+The snow depth `-1` is read as a depth of zero, as before. Beside the daily `snow_coverage_type` of the same station and
+day (`0` or `-1` no snow, `1` mostly snow-free ground, `2` equal parts, `3` mostly covered, `4` completely covered; 16
+stations, 2015-10 to 2016-06), a `-1` has a cover of `1` to `4` on 11.2 % of its 954 days from November to April (107
+days) and on 1.6 % of its 888 days from May to October, and a `0` on 8.7 % of its 196 days from November to April
+(overall 6.6 % of 1,842 days for the `-1`, 8.4 % of 474 for the `0`; by the definition above a `0` is no snow in 91.6 %).
+A depth of 5 cm or more is mostly or completely covered on 97.4 % of 1,161 days. This is one winter at 16 stations.
+Frost's words for the `-1` are "zero snowdepth or partial snow cover"; the sample shows the cover classes beside it and
+does not say what the code stands for on those days. A caller who needs the cover of the station area reads
+`snow_coverage_type`, which wetterdienst does not serve. Negative depths that the table does not list are returned as
+they are: a `-2` at SN91500 on 2017-07-24 (daily, quality `2`), the only one in the 75,143 daily readings, and 12 hourly
+values of -0.29 to -0.01 at SN18700 on 2016-08-04 and 05 (quality `0`).
 
-The `0` of the wind direction is not in Frost's table. It stands beside a speed of 0 in 359 of 372 readings at the
-foreign stations. At the 20 Norwegian stations with most zeros in 10 to 24 January 2026 (chosen for them, so the first
+The `0` of the wind direction is not in Frost's table. At the foreign stations it stands beside a speed of 0 in 359 of
+372 readings. At the 20 Norwegian stations with most zeros in 10 to 24 January 2026 (chosen for them, so the first
 figure is not a share of all) it does so in 1,014 of 1,068, and 1,014 of the 1,030 readings of a speed of 0 have a
-direction of 0; north is written 360. So Frost writes a calm as 0. It is returned as `0.0`, where the other providers
-that write a calm this way return null (see [Special values](../../../special_values.md#wind)): that is open.
+direction of 0; north is written 360. So Frost writes a calm as 0. It is returned as `0.0`, where the providers listed
+for the calm in [Special values](../../../special_values.md#wind) return null.
 
 The rows of Frost's table for elements that are not read here (`low_type_cloud_area_fraction`, `cloud_area_fraction1`
 and `cloud_base_height` `-3`; `max` and `min(surface_snow_thickness P1M)` `-1`; `snow_coverage_type` `-1`, its monthly
