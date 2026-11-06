@@ -3323,6 +3323,12 @@ def post_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
+#: The most of a refusal's body that is read (`read_refusal`), and the longest the reading may take in all: a reason
+#: is a sentence, so a body past this is no reason, and a server that drips one byte at a time is not waited for.
+_REFUSAL_MAX_BYTES = 64 * 1024
+_REFUSAL_MAX_SECONDS = 15.0
+
+
 def read_refusal(
     url: str,
     *,
@@ -3330,18 +3336,25 @@ def read_refusal(
     client_kwargs: dict | None = None,
     use_certifi: bool = False,
     max_chars: int = 2000,
+    max_bytes: int = _REFUSAL_MAX_BYTES,
+    max_seconds: float = _REFUSAL_MAX_SECONDS,
 ) -> str | None:
     """Ask for a URL once more and give the body of its answer if that is a 4xx, for a provider that says why in it.
 
     A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
     (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
     exceeds the maximum") cannot be told from one that refuses the credential by the status alone. A refusal is cheap to
-    ask again. Through the same HTTP stack as `post_file`; the headers are sent with the request and not kept in the
-    client, so the credential never reaches the key the filesystem is cached under.
+    ask again: one more request, made on a 403 only, not retried and not cached. Through the same HTTP stack as
+    `post_file`; the headers are sent with the request and not kept in the client, so the credential never reaches the
+    key the filesystem is cached under, and no message names it.
+
+    The body is held to the limits of a download: no more than ``max_bytes`` of it (refused at once if the answer says
+    it is longer, as it arrives if not) and ``max_seconds`` in all, which a client timeout, bounding each silence only,
+    does not give (GH-2258).
 
     Returns:
-        The first ``max_chars`` of the body, or None where the answer is no 4xx, has no readable body, or could not be
-        had (a timeout, a lost connection): the caller then falls back on the status alone.
+        The first ``max_chars`` of the body, or None where the answer is no 4xx, has no body within the limits, or could
+        not be had (a timeout, a lost connection): the caller then falls back on the status alone.
 
     """
     filesystem = HTTPFileSystem(
@@ -3353,10 +3366,11 @@ def read_refusal(
 
     async def _get() -> str | None:
         session = await filesystem.set_session()
-        async with session.get(url, headers=headers, allow_redirects=False) as response:
+        async with _within_time(max_seconds), session.get(url, headers=headers, allow_redirects=False) as response:
             if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
                 return None
-            return (await response.read()).decode("utf-8", errors="replace")[:max_chars]
+            body = await _read_capped(response, max_bytes)
+        return body.decode("utf-8", errors="replace")[:max_chars]
 
     try:
         return sync(filesystem.loop, _get)

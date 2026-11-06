@@ -39,68 +39,88 @@ the refusal once more to read why, and raises an `InvalidTimeIntervalError` (a `
 names the estimate and says to narrow the window, where it used to say that the client ID was invalid. A 403 that does not
 say so stays a `CredentialRejectedError`.
 
-## The code -1 of the precipitation sums (our reading, not Frost's)
+## The code -1 of the precipitation sums
 
-Frost writes the value `-1` into the precipitation sums of 6 hours, an hour and a day. Its descriptions of those elements
-("Amount of precipitation per six hours", "Amount of precipitation per hour", "Daily precipitation sum (between 06-06
-UTC)") say nothing of it; only snow depth's description documents a code ("Code=-1 means no snow"). **What
-wetterdienst makes of the `-1` is our reading of the data, not a statement of Frost.** Before it, the range check took
-the `-1` for a reading below 0 mm and dropped it, and a station whose 6-hourly readings were all `-1` had "no values".
+Frost writes the value `-1` into its precipitation sums. The element descriptions do not say what it is, but the
+[data clarifications](https://frost.met.no/dataclarifications.html), in "Explanations for some coded negative value
+elements", do:
 
-| `-1` of | from 1982 | before 1982 |
-|---|---|---|
-| `6_hours/data/precipitation_amount` | `0.0`, a dry period | `null`: no information |
-| `hourly/data/precipitation_amount` | `0.0`, a dry period | `null`: no information |
-| `daily/data/precipitation_amount` | `0.0`, a dry period | `null`: no information |
-| `10_minutes`, `monthly`, `annual` precipitation | not read: below the range, `null` | not read: below the range, `null` |
+| element | value | converted to | meaning |
+|---|---|---|---|
+| `sum(precipitation_amount PT6H)` | `-1` | not converted | No precipitation |
+| `sum(precipitation_amount PT12H)` | `-1` | not converted | No precipitation |
+| `sum(precipitation_amount P1D)` | `-1` | 0.0 mm | No precipitation |
+| `sum_over_undefined_period(precipitation_amount PT1H)` | `-1` | not converted | No precipitation |
 
-The code stays in `quality_flags` as the last token, after Frost's quality code (`2,raw:-1`), for the dry period and for
-the null before 1982 alike. A `0` of Frost is a `0.0` and stays one. The year of the cut-off, 1982, is the year the code
-becomes the mainstream of the 6-hourly series: 10 of 4,030 readings are `-1` in 1981, 4,600 of 8,655 in 1982.
+The range check took the `-1` for a reading below 0 mm and dropped it, so a station whose 6-hourly readings were all `-1`
+had "no values". What wetterdienst returns now:
+
+| `-1` of | from 1982 | before 1982 | basis |
+|---|---|---|---|
+| `6_hours/data/precipitation_amount` | `0.0` | `null` | Frost states it. The year is ours: Frost states no date limit, and we depart from it on data grounds (below) |
+| `hourly/data/precipitation_amount` | `0.0` | `null` | **our reading**: Frost's table does not list `sum(precipitation_amount PT1H)`, only `sum_over_undefined_period(precipitation_amount PT1H)`. Evidence below |
+| `daily/data/precipitation_amount` | `null` | `null` | Frost states `0.0` mm. Left as it was (`rejected:range,raw:-1`) until [#3820](https://github.com/earthobservations/wetterdienst/issues/3820) has measured it: at stations that read periodically, once a week, the `-1` also marks a day that was not read |
+| `10_minutes`, `monthly`, `annual` precipitation | `null` | `null` | Frost states nothing for them and none of the readings is `-1` (10-minute, annual), or none since 1954 (monthly): below the range, as before |
+
+The code stays in `quality_flags` as the last token, after Frost's quality code (`2,raw:-1`), for the `0.0` and for the
+`null` before 1982 alike, so `raw:-1` is the filter that finds every one of them. A `0` of Frost is a `0.0` and stays
+one.
+
+### Why `null` before 1982
+
+Frost states no date limit for the 6-hourly `-1`. The data do. The share of `-1` among the 6-hourly readings is 0.2 %
+in 1981 (10 of 4,030) and 53 % in 1982 (4,600 of 8,655), and what it is differs on the two sides. `dry` is the 12-hourly
+sum that holds a 6-hourly reading (the one stamped six hours after the readings of 00 and 12 UTC) being `-1` or `0`; the
+baseline is the share of dry 12-hourly sums of the station-year the `-1` is in.
+
+- **From 1982:** the sum that holds a `-1` is dry in 86.4 % of the cases against a baseline of 57.0 %, and for a reading
+  above 0 in 0.8 %. For 77.0 % of the `-1` the holding sum is itself `-1`, the code Frost states for the 12-hourly sum.
+- **Before 1982:** 62.3 % against a baseline of 59.6 %: no more than chance. In the 1940s and 1950s the `-1` is every
+  reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950 to 1952, and on 1951-08-05 the daily sum is
+  79.3 mm and the 12-hourly sum 67.3 mm against a 6-hourly `-1`). A `0.0` there would write a dry period into a wet day.
 
 ### Evidence
 
-Read from Frost on 2026-11-06 and 07, over every series Frost lists for each element (6-hourly: all 243 series; the
-others: every station that has the element, in the windows named). `dry` is a holding sum (the 12-hourly sum that holds
-a 6-hourly reading) that is `-1` or `0`.
+Read from Frost on 2026-11-06 and 07. 6-hourly: every one of the 243 series Frost lists; the others: every station that
+has the element, in the windows named.
 
-| element, period | readings | `-1` | what `-1` is |
+| element, period | readings | `-1` | what it is |
 |---|---|---|---|
-| 6-hourly, before 1982 | 56,976 at 68 stations | 12,873 (22.6 %) at 30 stations | no information: the holding sum is dry in 62.3 % of the cases, as for a `0` (63.7 %) and unlike a reading above 0 (0.1 %). In 1943 to 1965 it is (nearly) every reading of a station (SN39040: 1,096 of 1,096 in 1950 to 1952, and on 1951-08-05 the daily sum is 79.3 mm and the 12-hourly 67.3 mm against a 6-hourly `-1`); in 1971 to 1981 it is 0.2 to 3.2 % of the readings of a year |
-| 6-hourly, 1982 to 2026-10 | 269,879 at 85 stations | 138,271 (51.2 %) at 77 stations | a dry period: the holding sum is dry in 86.3 % of the cases, for a `0` in 64.5 %, for a reading above 0 in 1.0 %. SN71550 and SN99754, the two with most readings, are 15.2 % of the readings and 14.7 % of the `-1` |
-| 6-hourly, WMO stations listed since 2026-11-03 | 861 at 122 stations | 657 (76.3 %) at 118 stations | a dry period: the six hourly values it holds are all `-1` or `0` in 158 of 158, and a reading above 0 has rain in an hour and equals the sum of the hours in 18 of 18 |
-| hourly, 1994 to 2024 (all 857 stations active in the fortnights of January 1994, 1999, 2004, 2009, 2014, 2019, 2024 and July 2014, 2024) | 796,636 | 250 at 15 stations, in 1994, 1999 and 2004 | a dry period, as far as it can be told: on 66 of the 78 days of those stations that hold one the daily sum is the sum of the hours with `-1` as 0, and none after 2004 |
-| hourly, WMO stations listed since 2026-11-03 | 11,119 at 164 stations | 10,576 (95.1 %) at 164 stations | a dry period: a daily `-1` holds 24 hours of `-1` or `0` in 213 of 213, a daily `0` in 15 of 15, and a daily reading above 0 is the sum of its hours with `-1` as 0 in 79 of 79 |
-| daily, before 1982 (1960, 1970, 1980) | 952,532 at 1,110 stations | 8,517 (0.9 %) at 23 stations | a dry period, at the stations that read by hand: the monthly sum is the sum of the days with `-1` as 0 in 91 of 96 months that hold one; the 5 others differ. It is `null` all the same, as the cut-off is the same for the three elements |
-| daily, 1982 to 2026-10 (1985, 1990, 2000, 2010, 2020, 2024) | 1,997,270 at 1,447 stations | 8,815 (0.4 %) at 27 stations | a dry period: the monthly sum is the sum of the days with `-1` as 0 in 53 of 53 months that hold one; none in 2020 and 2024 |
-| daily, WMO stations listed since 2026-11-03 | 958 at 232 stations | 541 (56.5 %) at 194 stations | a dry period: the two 12-hourly sums of a daily `-1` are both `-1` in 410 of 410, and the daily `0` and `>0` equal the sum of the halves in 43 of 43 and 193 of 197 |
-| 10-minute, 2016, 2020, 2024 (3 days of June) | 394,188 at 515 stations | 0 | not read: there is none |
-| monthly | 1,102,816 at 2,388 stations | 305 at 112 stations, all of 1884 to 1954, none since | not read: a month of a century ago that cannot be checked against days |
-| annual | 70,022 at 2,255 stations | 0 | not read: there is none |
+| 6-hourly, before 1982 | 56,976 at 68 stations | 12,873 (22.6 %) at 30 stations | no information: dry 62.3 % against 59.6 %; in 1971 to 1981 it is 0.2 to 3.2 % of the readings of a year |
+| 6-hourly, 1982 to 2026-10 | 269,879 at 85 stations | 138,271 (51.2 %) at 77 stations | no precipitation: dry 86.4 % against 57.0 %. SN71550 and SN99754, the two with most readings, are 15.2 % of the readings and 14.7 % of the `-1`. The 1.4 % of the readings at 06 and 18 UTC have no 12-hourly sum that holds them and are left out of the shares |
+| 6-hourly, WMO stations listed since 2026-11-03 | 861 at 122 stations | 657 (76.3 %) at 118 stations | no precipitation: the six hourly values it holds are `-1` or `0` in 158 of 158, and a reading above 0 has rain in an hour and equals the sum of the hours in 18 of 18 |
+| hourly, 1994 to 2024 (all 857 stations active in the fortnights of January 1994, 1999, 2004, 2009, 2014, 2019, 2024 and July 2014, 2024) | 796,636 | 250 at 15 stations, in 1994, 1999 and 2004 only | the weak part: of the 78 days of those stations that hold one, none has all 24 hours, and 66 agree with the daily sum with `-1` as 0 |
+| hourly, WMO stations listed since 2026-11-03 | 11,119 at 164 stations | 10,576 (95.1 %) at 164 stations | the strong part: a daily `-1` holds 24 hours of `-1` or `0` in 213 of 213, a daily `0` in 15 of 15, and a daily reading above 0 is the sum of its hours with `-1` as 0 in 79 of 79 |
+| 10-minute, 2016, 2020, 2024 (3 days of June) | 394,188 at 515 stations | 0 | not read |
+| monthly | 1,102,816 at 2,388 stations | 305 at 112 stations, all of 1884 to 1954 | not read |
+| annual | 70,022 at 2,255 stations | 0 | not read |
 
 ### What does not fit
 
-The evidence is the mainstream, and these are the places where it is not. They are returned as `0.0` all the same
-(1982 or later) or as `null` (before), and they are named here:
+The evidence is the mainstream, and these are the places where it is not. They are returned as `0.0` all the same (the
+6-hourly ones, from 1982 on), and named here:
 
-- **Since 1982, 6-hourly, station-years that look like the code of the 1940s and 1950s.** In these fewer than 70 % of
-  the holding 12-hourly sums are dry (86 % is the rule) or every one of 150 or more readings is `-1`: SN18960 in 1996
-  (181 of 181 readings, 59 % dry), SN94500 in 2003, SN98550 in 2003 to 2005 (51 to 60 %), SN59800 in 2004, SN69100 in
-  2004 (202 of 202), SN90490 in 2004 and 2005 (154 of 154 in 2004), SN99710 in 2005 and 2006, SN28380 in 2016 and SN59610
-  in 2011 and 2013 (157 of 157 and 168 of 168, 73 and 76 % dry). A `0.0` there may be a dry period or no reading.
-- **Daily, SN30320 on 2015-05-01.** `-1`, with no quality code, beside 7.4 mm of hourly rain on that day and the one
-  before it.
-- **Daily, quality 7.** 357 of the 17,332 `-1` carry the quality code 7 ("Erroneous, value is not corrected"), 287 of them
-  since 1982. For the 6-hourly `-1` this is 2 of 138,271, for the hourly 0 of 250 and of 10,576.
-- **Before 1982, the daily `-1` is mostly a dry day** (91 of 96 months) and is returned as `null`: a cut-off of its own
-  for the daily sum would return it. The 6-hourly `-1` of the 1970s, from a handful of stations, is `null` too.
+- **6-hourly, station-years since 1982 whose `-1` tell little.** In these the holding 12-hourly sums are dry less than 10
+  points more often than the station-year's own are (the rule is 29 points), at a station-year that is not dry
+  anyway, or every one of 150 or more readings is `-1`: SN18960 in 1996 (181 of 181 readings, 59 % against 58 %), SN94500
+  in 2003, SN98550 in 2003 to 2005, SN4780 in 2004 (273 `-1`, 72 % against 81 %), SN59800 in 2004, SN6020 in 2004,
+  SN69100 in 2004 (202 of 202), SN90490 in 2004 and 2005 (154 of 154 in 2004), SN96400 in 2004 and SN59610 in 2011 and
+  2013 (157 of 157 and 168 of 168, 73 and 76 % against 33 and 39 %). A `0.0` there may be no precipitation or no
+  reading.
+- **Quality 7** ("Erroneous, value is not corrected"): 2 of the 138,271 6-hourly `-1` carry it, none of the hourly ones.
 
 ### Checks do not see the code
 
-The code is kept as a `raw:` token, as snow depth's is, and a reading with a `raw:` token is not judged by the checks.
-So `limits={"precipitation_amount": (0.5, None)}` keeps the `0.0` of a `-1`, where a measured `0` becomes `null` with
-`rejected:limits`, and a `-1` of quality 7 comes back as `7,raw:-1` without `suspect:source`. Read the token to tell
-the two zeros apart.
+The code is kept as a `raw:` token, as snow depth's is, and a reading with a `raw:` token is not judged by the checks:
+
+- `limits={"precipitation_amount": (0.5, None)}` keeps the `0.0` of a `-1`, where a measured `0` becomes `null` with
+  `rejected:limits`.
+- A `-1` of quality 7 comes back as `7,raw:-1` at `0.0`, where a measured reading of quality 7 is `7,suspect:source` (or
+  `null` with `7,rejected:source,raw:0.5` under `plausibility={"source": "hard"}`; the decoded `0.0` stays under both).
+  `leave_out_suspect`, which interpolation, summaries, stripes and `skip_empty` apply, nulls the measured one and keeps
+  the decoded `0.0`.
+
+Read the `raw:-1` token to tell the two zeros apart.
 
 ## The source's own verdict (`source`)
 

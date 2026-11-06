@@ -18,7 +18,7 @@
 | {term}`temperature_air_mean_2m` | mean(air_temperature P1D) | Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). | degree_celsius |
 | {term}`temperature_air_max_2m` | max(air_temperature P1D) | Highest recorded air temperature per 24 hours | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1D) | Lowest recorded air temperature per 24 hours | degree_celsius |
-| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). Code -1, which Frost does not describe, is read as a dry period from 1982 on and returned as 0, and as no information before it, where it is returned as null. | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). Code -1 means no precipitation (Frost's data clarifications, 0.0 mm); it is returned as null for now, as at stations that read periodically it also marks a day not read (GH-3820). | millimeter |
 | {term}`wind_speed_mean` | mean(wind_speed P1D) | Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1D) | Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`humidity_relative_mean` | mean(relative_humidity P1D) | Daily mean relative humidity. | percent |
@@ -30,6 +30,7 @@
 
 ## Notes
 
-The `-1` that Frost writes for a dry period of the precipitation sum is read as `0.0` from 1982 on and as `null` before;
-see the section [The code -1 of the precipitation sums](index.md) of the Frost page for the reading, the evidence and the
-exceptions.
+Frost states that `-1` of the daily precipitation sum is 0.0 mm. It is returned as `null` (`rejected:range,raw:-1`) for
+now, as it was: at stations that read periodically it also marks a day that was not read
+([#3820](https://github.com/earthobservations/wetterdienst/issues/3820)). See the section
+[The code -1 of the precipitation sums](index.md) of the Frost page.

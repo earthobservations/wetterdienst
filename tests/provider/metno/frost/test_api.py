@@ -178,12 +178,12 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
 
 @pytest.mark.remote
 def test_metno_frost_values_6hour_precipitation_no_precipitation_is_zero() -> None:
-    """6-hourly precipitation at Oslo/Blindern comes back, its -1 as the dry period it stands for (GH-3748).
+    """6-hourly precipitation at Oslo/Blindern comes back, its -1 as the no precipitation it stands for (GH-3748).
 
     Frost answers the query for 2005-09-01 to 2006-01-01 with a 200 and exactly 2 observations, both `-1`
-    (2005-09-07 00:00 and 2005-10-13 12:00). The element description does not document the code; it is our reading
-    of the data that -1 is a dry period (see `_decode_sentinels`), so the sum is 0.0 and the code stays in the flags.
-    The range check had turned it into a null, which is dropped: "The source has no values".
+    (2005-09-07 00:00 and 2005-10-13 12:00). Its data clarifications state the code as "No precipitation" for this
+    element (see `_decode_sentinels`), so the sum is 0.0 and the code stays in the flags. The range check had turned
+    it into a null, which is dropped: "The source has no values".
     """
     df = (
         MetnoFrostRequest(
@@ -232,21 +232,23 @@ def test_metno_frost_values_daily_answer_without_a_quality_code_is_read() -> Non
     """The daily precipitation of Skien on 2015-05-01 has no `qualityCode` and is read (GH-3748).
 
     Frost leaves the key out of the observation; selecting the column raised a `ColumnNotFoundError`. The value is -1,
-    which is 0.0 from 1982 on, though this day is one of the named exceptions: 7.4 mm of hourly rain fell in it.
+    which Frost states as 0.0 mm and which is not read for the daily sum yet (GH-3820): null, as the range check made it
+    before, with the code in the flags and no quality code in front of it.
     """
     df = (
         MetnoFrostRequest(
             parameters=[("daily", "data", "precipitation_amount")],
             start=dt.datetime(2015, 5, 1, tzinfo=UTC),
             end=dt.datetime(2015, 5, 1, tzinfo=UTC),
+            options={"drop_nulls": False},
         )
         .filter_by_station_id("SN30320")
         .values()
         .all()
         .df
     )
-    assert df["value"].to_list() == [0.0]
-    assert df["quality_flags"].to_list() == ["raw:-1"]
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list() == ["rejected:range,raw:-1"]
 
 
 @pytest.mark.remote
@@ -273,8 +275,8 @@ def test_metno_frost_decodes_sentinels() -> None:
 
     Frost writes these into the value, where nothing distinguishes them from a measurement. Its element descriptions
     state two: snow depth -1 is "no snow", a depth of zero rather than an absent one, and cloud cover -3 and 9 both
-    mean the cover could not be estimated (in eighths the latter two convert to -0.375 and 1.125 of the sky). The third
-    is our reading of the data, not Frost's statement (GH-3748): the 6-hourly precipitation sum -1 is a dry period.
+    mean the cover could not be estimated (in eighths the latter two convert to -0.375 and 1.125 of the sky). Its data
+    clarifications state a third (GH-3748): the 6-hourly precipitation sum -1 is "No precipitation".
     """
     from wetterdienst.provider.metno.frost.api import _decode_sentinels  # noqa: PLC0415
 

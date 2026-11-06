@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.exceptions import CredentialRejectedError, InvalidParameterError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
@@ -518,12 +518,13 @@ def test_metno_frost_values_single_parameter_200_without_observations_is_no_data
 
 
 def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only() -> None:
-    """Test that -1 of the 6-hourly, hourly and daily precipitation is dry from the cut-off year, and null before.
+    """Test that -1 of the 6-hourly and hourly precipitation is no precipitation from the cut-off year, null before.
 
-    Frost writes -1 into 51 % of the 6-hourly readings. From the year its mainstream starts it is read as a dry period
-    (0.0); before it, in the old series, it is a code of no information (every reading of a station, wet and dry, is
-    -1), so it is null. The 10-minute, monthly and annual sums are not read at all: the evidence is theirs to bring
-    (GH-3748). The code stays in the flags in every case, as the last token.
+    Frost states -1 as "No precipitation" for the 6-hourly sum, and writes it into 51 % of its readings from 1982 on.
+    Before that year, in the old series, it is every reading of a station, wet days included, so it is null. The hourly
+    sum is our reading of the same code. The daily sum (Frost states 0.0 mm; GH-3820 has it), the 10-minute, the
+    monthly and the annual sum are not read at all. The code stays in the flags in every case it is read, as the last
+    token (GH-3748).
     """
     year = frost_api._NO_PRECIPITATION_FROM_YEAR  # noqa: SLF001
     sums = ["PT6H", "PT1H", "P1D", "PT10M", "P1M", "P1Y"]
@@ -541,16 +542,16 @@ def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only()
     )
     decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
     assert decoded.get_column("value").to_list() == [
-        # from the cut-off year: the three sums read, the others as they were
-        0.0, 0.0, 0.0, -1.0, -1.0, -1.0,
-        # before it: null for the three, the others as they were
-        None, None, None, -1.0, -1.0, -1.0,
+        # from the cut-off year: the two sums read, the others as they were
+        0.0, 0.0, -1.0, -1.0, -1.0, -1.0,
+        # before it: null for the two, the others as they were
+        None, None, -1.0, -1.0, -1.0, -1.0,
         0.0, 1.3, 0.0,
     ]  # fmt: skip
     # the code stays beside the value it stood for, and only there; a quality code of 7 stays in front of it
     assert decoded.get_column("quality_flags").to_list() == [
-        "2,raw:-1", "2,raw:-1", "2,raw:-1", "2", "2", "2",
-        "2,raw:-1", "2,raw:-1", "2,raw:-1", "2", "2", "2",
+        "2,raw:-1", "2,raw:-1", "2", "2", "2", "2",
+        "2,raw:-1", "2,raw:-1", "2", "2", "2", "2",
         "0", "2", "7,raw:-1",
     ]  # fmt: skip
 
@@ -955,6 +956,62 @@ def test_metno_frost_window_over_the_limit_is_a_time_interval_error_and_not_a_re
     assert "headers" not in asked[0]["client_kwargs"]
 
 
+@pytest.mark.parametrize("path", ["batch", "single", "discovery", "series"])
+def test_metno_frost_window_over_the_limit_is_told_by_every_reader(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+    """Test that the batch, the single parameter, the discovery listing and the discovered series all read a 403 why.
+
+    Each of the four requests of a values read is refused as Frost refuses a window of too many observations, with the
+    settings and the headers of the request handed on to read it (GH-3748).
+    """
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+
+    asked: list[dict] = []
+
+    def read_refusal(url: str, **kwargs: object) -> str:
+        asked.append({"url": url, **kwargs})
+        return TOO_MANY
+
+    def observations(url: str) -> File:
+        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
+        if "availableTimeSeries" in url:
+            return _failed(url, 403) if path == "discovery" else _ok(url, AVAILABLE)
+        if "timeseriesids=" in url:
+            return _failed(url, 403)
+        if path == "batch" or (path == "single" and not batched):
+            return _failed(url, 403)
+        return _failed(url, 404)
+
+    requested = [("hourly", "data", "temperature_air_2m")]
+    if path == "single":
+        requested.append(("hourly", "data", "wind_speed_mean_last_10min"))
+    values, _ = _values(monkeypatch, observations, requested)
+    monkeypatch.setattr(frost_api, "read_refusal", read_refusal)
+    with pytest.raises(InvalidTimeIntervalError, match="narrow the window"):
+        values.all()
+    assert len(asked) == 1
+    assert asked[0]["headers"]["Authorization"].startswith("Basic ")
+    assert "headers" not in asked[0]["client_kwargs"]
+
+
+@pytest.mark.parametrize("status", [401, 404, 412, 429, 500])
+def test_metno_frost_only_a_403_is_asked_why(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
+    """Test that a refusal other than a 403 is not asked for again, and is read as it was, whatever a body might say."""
+    asked: list[object] = []
+
+    def read_refusal(*args: object, **kwargs: object) -> str:
+        asked.append((args, kwargs))
+        return TOO_MANY
+
+    values, _ = _values(monkeypatch, lambda url: _failed(url, status))
+    monkeypatch.setattr(frost_api, "read_refusal", read_refusal)
+    if status == 401:
+        with pytest.raises(CredentialRejectedError):
+            values.all()
+    else:
+        values.all()
+    assert asked == []
+
+
 @pytest.mark.parametrize("reason", [None, "", '{"error": {"code": 403, "reason": "Forbidden"}}'])
 def test_metno_frost_403_that_says_nothing_of_the_window_is_a_rejected_key(
     monkeypatch: pytest.MonkeyPatch,
@@ -1004,6 +1061,9 @@ _MINUS_ONE_CASES = [
     ("sum(precipitation_amount PT6H)", "6_hours", 0, [0.0, 1.3], ("batch", "discovery"), "6_hours-from"),
     ("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], ("batch", "discovery"), "6_hours-before"),
     ("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], ("batch", "single", "discovery"), "hourly-from"),
+    ("sum(precipitation_amount PT1H)", "hourly", -1, [1.3], ("batch", "single", "discovery"), "hourly-before"),
+    # the daily -1 is not read, from the cut-off year or before: the range check nulls it, as it always did (GH-3820)
+    ("sum(precipitation_amount P1D)", "daily", 0, [1.3], ("batch", "single", "discovery"), "daily-from"),
     ("sum(precipitation_amount P1D)", "daily", -1, [1.3], ("batch", "single", "discovery"), "daily-before"),
 ]
 
@@ -1027,13 +1087,14 @@ def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader
     """Test that the batch, the single and the discovered series all decode `-1`, from the cut-off year and not before.
 
     The discovery read once decoded nothing and every test passed (GH-3748): all three go through one rule. Before the
-    cut-off year the code is null and the row is dropped, so that nothing false is returned for the old series.
+    cut-off year the code is null and the row is dropped, so that nothing false is returned for the old series. The
+    daily sum is not read in either year.
     """
     year = FROM + year_offset
     start = dt.datetime(year, 1, 1, tzinfo=ZoneInfo("UTC"))
     end = dt.datetime(year, 1, 2, tzinfo=ZoneInfo("UTC"))
     answer = _precipitation_answer(
-        element, [(f"{year}-01-01T00:00:00.000Z", -1, 2), (f"{year}-01-01T12:00:00.000Z", 1.3, 0)]
+        element, [(f"{year}-01-01T00:00:00.000Z", -1, 2), (f"{year}-01-02T00:00:00.000Z", 1.3, 0)]
     )
     available = {
         "data": [
@@ -1061,5 +1122,5 @@ def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader
     values, _ = _values(monkeypatch, observations, requested, start=start, end=end)
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount")
     assert sorted(df["value"].to_list()) == expected
-    if year_offset == 0:
+    if expected == [0.0, 1.3]:
         assert df.filter(pl.col("value") == 0.0)["quality_flags"].to_list() == ["2,raw:-1"]
