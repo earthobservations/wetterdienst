@@ -294,8 +294,8 @@ def test_a_further_info_without_a_text_the_first_has_says_so_with_a_null() -> No
     assert alert["translations"] == [{"language": "en", "event": "frost", "instruction": None}]
 
 
-def test_a_message_without_an_info_has_no_translations_key() -> None:
-    """An alert without any `<info>` is only the header, as it was."""
+def test_a_message_without_an_info_has_empty_translations() -> None:
+    """An alert without any `<info>` is only the header, and its `translations` is `[]` like every row's, not null."""
     alert = parse_cap_alert(b"<alert xmlns='urn:oasis:names:tc:emergency:cap:1.2'><identifier>x</identifier></alert>")
     assert alert is not None
-    assert "translations" not in alert
+    assert alert["translations"] == []

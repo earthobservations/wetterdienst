@@ -198,8 +198,10 @@ def _translation(info: dict[str, Any], first: dict[str, Any]) -> dict[str, Any]:
     """Give a further ``<info>`` as its ``language`` and the fields in which it differs from the first one.
 
     The languages of a ``mul`` message repeat everything but four texts (event, headline, description, instruction): the
-    times, codes, parameters and areas are the same in each. Keeping only what differs keeps an answer small and still
-    drops nothing, since a field that is not here is the first one's. A time is written as the library writes it.
+    times, codes, parameters and areas are the same in each. Keeping only what differs keeps an answer small and drops
+    no field an alert has, since one that is not here is the first one's. What the parser does not read of a block (an
+    ``altitude``, the ``audience``, the ``LICENSE`` code, the description of a polygon area) is not compared, and in
+    DWD's messages is the same in each. A time is written as the library writes it.
     """
     translation: dict[str, Any] = {"language": info["language"]}
     for key, value in info.items():
@@ -224,6 +226,7 @@ def parse_cap_alert(content: bytes) -> dict[str, Any] | None:
         "status": None,
         "msg_type": None,
         "references": None,
+        "translations": [],
     }
     infos: list[_Element] = []
     for element in root:

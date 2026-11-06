@@ -55,12 +55,18 @@ and is 20 bytes an alert larger.
 ```
 
 (The real answer has all the fields of an alert and the seven translations; two are shown, cut.) A block that DWD
-should ever let differ in more than text would show that too: the field is then in its translation, and no block is
-dropped. A text a block lacks and the first one has is `null` in its translation.
+should ever let differ in more than text would show that too, in the fields an alert has: the field is then in its
+translation. (What the parser does not read of a block, such as an `altitude`, the `audience`, the `LICENSE` code or the
+description of a polygon area, is not compared; in DWD's messages it is the same in every block.) A text a block lacks
+and the first one has is `null` in its translation. `translations` is `[]` on every row, also for a message without any
+`<info>`.
 
-What it costs: the seven languages' texts make the answer for `mul` **12 % larger than the one for `de` on a community
-snapshot and 8 % larger on a district one** (593 KB against 666 KB, and 819 KB against 882 KB, as JSON on 2026-11-06;
-the geometry is most of an alert, and is held once). Ask for the language you read if you need only one.
+What it costs: the texts of the seven languages are **3 to 5 KB an alert**, whatever its geometry, which is held once
+and varies from alert to alert. How much that is of an answer depends on the snapshot: on 2026-11-06 the `mul` answer
+was 12 % larger than the `de` one on a community snapshot (593 KB against 666 KB as JSON) and 8 % larger on a district
+one (819 KB against 882 KB); over the 13 `mul` snapshots of a 48-hour window the district answers were 3.8 to 23.1 %
+larger, the community ones 7.0 to 59.8 % (the largest, of a snapshot of 2 small alerts). Ask for the language you read
+if you need only one.
 
 ## Historical snapshots
 

@@ -52,9 +52,9 @@ Types of changes:
   its `language` and the fields that differ from the first block, which for DWD's `mul` product
   (eight languages) are the event, headline, description and instruction. Before, the seven other
   languages were dropped silently. The fields of an alert stay the first (German) block's, so
-  nothing existing changes; the answer for `mul` is 8 to 12 % larger, one for `de`, `en`, `es` or
-  `fr` has `"translations": []` (20 bytes an alert). A CSV row is still one alert, with the list as
-  JSON text, as `parameters` is (GH-3801)
+  nothing existing changes; the seven languages add 3 to 5 KB to each alert of a `mul` answer, and
+  one for `de`, `en`, `es` or `fr` has `"translations": []` (20 bytes an alert). A CSV row is still
+  one alert, with the list as JSON text, as `parameters` is (GH-3801)
 
 ### Changed
 

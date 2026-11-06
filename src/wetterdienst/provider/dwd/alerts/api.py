@@ -140,7 +140,7 @@ class DwdWeatherAlertResult:
         return None if sent.is_empty() else cast("dt.datetime", sent.max())
 
     def _alerts(self) -> list[dict[str, Any]]:
-        """Return the alert rows with nested fields (parameters, geometry) decoded to native objects."""
+        """Return the alert rows with nested fields (parameters, geometry, translations) decoded to native objects."""
         alerts = []
         for row in self.df.iter_rows(named=True):
             alert = dict(row)
@@ -264,7 +264,7 @@ class DwdWeatherAlertResult:
         A file holds what the REST API answers for the format (``render_alerts``), on one line unless ``pretty``:
 
         - ``file://alerts.json``: ``{"metadata": ..., "snapshot": ..., "alerts": [...]}``, an alert with its areas,
-          parameters and geometry nested as they are in ``to_dict``
+          parameters, translations and geometry nested as they are in ``to_dict``
         - ``file://alerts.geojson``: the ``FeatureCollection`` of ``to_geojson``, with ``metadata`` as a foreign member
         - ``file://alerts.csv``: the text of ``to_csv``, bare, a row for each alert: its areas are the comma-joined
           ``warncell_ids`` and ``area_names``, its ``parameters``, ``translations`` and ``geometry`` JSON text, its
@@ -535,7 +535,7 @@ class DwdWeatherAlertRequest:
 
     @staticmethod
     def _build_dataframe(alerts: list[dict[str, Any]]) -> pl.DataFrame:
-        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry) fields."""
+        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry, translations) fields."""
         if not alerts:
             return pl.DataFrame(schema=_SCHEMA)
         rows = []
@@ -547,5 +547,7 @@ class DwdWeatherAlertRequest:
                 )
             for column in _LIST_COLUMNS:
                 row[column] = alert.get(column) or []
+            # a message without an `<info>` has no translations either: `[]` on every row, never null
+            row["translations"] = json.dumps(alert.get("translations") or [], ensure_ascii=False)
             rows.append(row)
         return pl.DataFrame(rows, schema=_SCHEMA)

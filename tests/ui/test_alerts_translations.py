@@ -129,3 +129,34 @@ def test_cli_prints_and_writes_the_translations(monkeypatch: pytest.MonkeyPatch,
     row = pl.read_csv(tmp_path / "alerts.csv", infer_schema=False)
     assert row.height == 1
     assert _languages(json.loads(row["translations"][0])) == _FURTHER
+
+
+_NO_INFO = (
+    b"<alert xmlns='urn:oasis:names:tc:emergency:cap:1.2'><identifier>x</identifier><status>Actual</status></alert>"
+)
+
+
+def test_a_message_without_an_info_has_empty_translations_on_every_surface(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A row can always be walked: `translations` is `[]`, never null, in the frame, REST, a file and the command."""
+    from tests.provider.dwd.alerts.test_parser import CAP_XML  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    serve_snapshot(monkeypatch, _NO_INFO, CAP_XML, CAP_MUL)
+    translations = DwdWeatherAlertRequest().query().df["translations"].to_list()
+    assert translations[:2] == ["[]", "[]"]
+    assert len(json.loads(translations[2])) == 7
+
+    api = TestClient(restapi.app)
+    alerts = api.get("/api/alerts", params={"language": "mul"}).json()["alerts"]
+    assert [len(alert["translations"]) for alert in alerts] == [0, 0, 7]
+    features = api.get("/api/alerts", params={"format": "geojson"}).json()["features"]
+    assert [len(feature["properties"]["translations"]) for feature in features] == [0, 0, 7]
+    csv = pl.read_csv(io.StringIO(api.get("/api/alerts", params={"format": "csv"}).text), infer_schema=False)
+    assert csv["translations"].to_list()[:2] == ["[]", "[]"]
+
+    run = CliRunner().invoke(cli, ["alerts", f"--target={tmp_path / 'alerts.json'}"])
+    assert run.exit_code == 0, run.output
+    written = json.loads((tmp_path / "alerts.json").read_text(encoding="utf-8"))["alerts"]
+    assert [len(alert["translations"]) for alert in written] == [0, 0, 7]

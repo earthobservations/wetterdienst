@@ -1425,7 +1425,7 @@ class AlertsRequest(_RefusesRenamedParameters):
         Field(
             description="Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the "
             "German ones, and its 'translations' hold the event, headline, description and instruction in the other "
-            "seven (an answer is about a tenth larger)."
+            "seven (3 to 5 KB more an alert)."
         ),
     ] = "en"
     timestamp: Annotated[
