@@ -99,6 +99,8 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
                         "elevation": 759.0,
                         "name": "Albstadt-Badkap",
                         "region": "Baden-Württemberg",
+                        "distance": 0.0,
+                        "elevation_difference": 0.0,
                     },
                     {
                         "resolution": "daily",
@@ -111,6 +113,8 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
                         "elevation": 794.0,
                         "name": "Albstadt-Onstmettingen",
                         "region": "Baden-Württemberg",
+                        "distance": 6.97,
+                        "elevation_difference": -35.0,
                     },
                 ],
                 "values": [

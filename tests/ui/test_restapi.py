@@ -5794,12 +5794,20 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
     }
     if endpoint == "/api/values":
         result = values
-    elif endpoint == "/api/interpolate":
-        df = pl.DataFrame([{**row, "distance_mean": 5.0, "taken_station_ids": ["01048"]}])
-        result = InterpolatedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
     else:
-        df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
-        result = SummarizedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
+        # the stations of an estimate say where each stands against the point
+        placed = replace(
+            values.stations,
+            df=values.stations.df.with_columns(
+                pl.lit(5.0).alias("distance"), pl.lit(None, dtype=pl.Float64).alias("elevation_difference")
+            ),
+        )
+        if endpoint == "/api/interpolate":
+            df = pl.DataFrame([{**row, "distance_mean": 5.0, "taken_station_ids": ["01048"]}])
+            result = InterpolatedValuesResult(stations=placed, df=df, latlon=(51.1, 13.8))
+        else:
+            df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
+            result = SummarizedValuesResult(stations=placed, df=df, latlon=(51.1, 13.8))
     taken: list[Options] = []
 
     def fetch(*, options: Options, **_kwargs: object) -> object:

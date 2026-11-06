@@ -96,6 +96,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 759.0,
             "name": "Albstadt-Badkap",
             "region": "Baden-Württemberg",
+            "distance": 0.0,
+            "elevation_difference": 0.0,
         },
         {
             "resolution": "daily",
@@ -108,6 +110,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 794.0,
             "name": "Albstadt-Onstmettingen",
             "region": "Baden-Württemberg",
+            "distance": 6.97,
+            "elevation_difference": -35.0,
         },
         {
             "resolution": "daily",
@@ -120,6 +124,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 518.0,
             "name": "Hechingen",
             "region": "Baden-Württemberg",
+            "distance": 17.75,
+            "elevation_difference": 241.0,
         },
         {
             "resolution": "daily",
@@ -132,6 +138,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 974.0,
             "name": "Klippeneck",
             "region": "Baden-Württemberg",
+            "distance": 20.62,
+            "elevation_difference": -215.0,
         },
         {
             "resolution": "daily",
@@ -144,6 +152,8 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 581.0,
             "name": "Sigmaringen-Laiz",
             "region": "Baden-Württemberg",
+            "distance": 22.63,
+            "elevation_difference": 178.0,
         },
     ]
 
@@ -189,6 +199,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "elevation": 759.0,
                         "name": "Albstadt-Badkap",
                         "region": "Baden-Württemberg",
+                        "distance": 0.0,
+                        "elevation_difference": 0.0,
                     },
                     {
                         "resolution": "daily",
@@ -201,6 +213,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "elevation": 794.0,
                         "name": "Albstadt-Onstmettingen",
                         "region": "Baden-Württemberg",
+                        "distance": 6.97,
+                        "elevation_difference": -35.0,
                     },
                     {
                         "resolution": "daily",
@@ -213,6 +227,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "elevation": 518.0,
                         "name": "Hechingen",
                         "region": "Baden-Württemberg",
+                        "distance": 17.75,
+                        "elevation_difference": 241.0,
                     },
                     {
                         "resolution": "daily",
@@ -225,6 +241,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "elevation": 974.0,
                         "name": "Klippeneck",
                         "region": "Baden-Württemberg",
+                        "distance": 20.62,
+                        "elevation_difference": -215.0,
                     },
                     {
                         "resolution": "daily",
@@ -237,6 +255,8 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
                         "elevation": 581.0,
                         "name": "Sigmaringen-Laiz",
                         "region": "Baden-Württemberg",
+                        "distance": 22.63,
+                        "elevation_difference": 178.0,
                     },
                 ],
                 "values": [
