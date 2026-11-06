@@ -55,6 +55,86 @@ The command line has none of the limits of the REST API on the rows or stations 
 whole network is written with `--target` to a file or a database, see
 [Getting more than the limit](large-requests.md#leave-the-server).
 
+## Logging
+
+The data a command writes goes to stdout, and what it says about them to stderr as log lines: the warnings about the
+answer (values a plausibility check rejected, markers of the source that were nulled, a file the provider let go, a
+station `skip_empty` left out, a parameter without rows, a station id left out), the progress of a long request, other
+warnings and notes, and the errors. Each warning that counts something over the request, as the values a check
+rejected, is one line with its total when the values are in. A command that has `--debug` has `--quiet` beside it, but
+`restapi`. `--debug` adds the debug lines of the package, and `--quiet` leaves **the errors and the warnings about the
+answer**:
+
+```bash
+# a scheduled job: nothing on stderr unless it failed, the answer is not whole or nothing was written
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 \
+    --timestamp=2024-01 --target=file://values.json --quiet
+```
+
+`--quiet` changes the level of the log and nothing else: stdout holds what it held (a `--target` is written as without
+it), a failure is still written (a line for a provider that cannot be reached, a missing credential or extra; a
+`--target` that cannot be written is the traceback it is without `--quiet`), a usage error is still click's and the exit
+code is the one the command would have had, `0`, `1` or `2`.
+
+What it keeps besides the errors are the warnings that qualify the answer, the lines that are also in the `warnings` of
+the `metadata` block of JSON and GeoJSON output (see [response metadata](restapi.md#response-metadata)): they tell a
+partial answer from a whole one, and CSV and a file `--target` carry no such block, so stderr is where a script reads
+them. It keeps one more sentence, `Nothing was written to --target.`, which a command that found no data to write to its
+`--target` says: a scheduled run that wrote nothing must not look like one that did (the `--target` is left as it
+was, and the exit code is `0`). What it drops is the progress, the notes (the cache that is enabled), the other warnings
+of the package and everything the libraries underneath write below an error, among them the sentence that a request
+returned no data or no stations: an empty answer is empty on stdout. The libraries behind an image (Kaleido, its
+browser) are kept at warnings for good, since they write what they cleaned up as the process ends. `--quiet` and
+`--debug` are a usage error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone:
+its log is also uvicorn's, which `--quiet` would not reach.
+
+## Colour
+
+The command line writes no colour of its own: its help, its errors, the log and the data have no escape code,
+on a terminal, in a pipe, and where `FORCE_COLOR` asks for it (a test holds all of it to that). Two things outside it
+can: Python colours the traceback of a defect on a terminal (3.13 and later), and uvicorn the level of the log lines of
+`wetterdienst restapi`. [`NO_COLOR`](https://no-color.org) set to anything but the empty string turns both off, and
+a command that is not on a terminal is plain without it.
+
+```bash
+NO_COLOR=1 wetterdienst restapi
+```
+
+## Shell completion
+
+Completion is click's own, for bash (4.4 or later: not the 3.2 that macOS has in `/bin/bash`), zsh and fish. It
+completes the commands, their options, the choices of an option and, from the registry of providers, `--provider` and
+`--network` (the networks of the `--provider` before it on the line, else all of them). It does not complete `--parameters`,
+`--stations` or `--timestamp`: those would take the provider's metadata or its station list, a provider's import
+and possibly the network, which a TAB must not do. Every TAB is a process that imports the command line, which takes
+about 0.7 s on a laptop and never contacts a provider.
+
+Complete a value with a space, as `--provider dw` and then TAB. The `--provider=dw` spelling the examples use is not
+completed: zsh would replace the whole word with `dwd`, and bash offers nothing after the `=` (the provider before it
+still narrows `--network`).
+
+Print the script once, put it where the shell reads it, and start a new shell:
+
+```bash
+# bash: ~/.bashrc
+eval "$(_WETTERDIENST_COMPLETE=bash_source wetterdienst)"
+# zsh: ~/.zshrc, after compinit
+eval "$(_WETTERDIENST_COMPLETE=zsh_source wetterdienst)"
+# fish
+_WETTERDIENST_COMPLETE=fish_source wetterdienst > ~/.config/fish/completions/wetterdienst.fish
+```
+
+The `eval` form runs `wetterdienst` every time a shell starts, which costs that 0.7 s each time. To keep the start
+quick, write the script to a file once and source that, and again after an upgrade:
+
+```bash
+_WETTERDIENST_COMPLETE=bash_source wetterdienst > ~/.wetterdienst-complete.bash
+echo 'source ~/.wetterdienst-complete.bash' >> ~/.bashrc
+```
+
+There is no `wetterdienst completion` command: the variable is the whole of it, and a command would be a surface to
+keep for what the variable does. PowerShell and the Windows shell are not supported by click.
+
 ## Exit codes
 
 What the command line promises across releases, its options and exit codes among it, is on the

@@ -175,7 +175,7 @@ from wetterdienst.ui.streaming import (
     ndjson_stream,
     stream_response,
 )
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
@@ -2766,4 +2766,13 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:_worker_app", factory=True, host=host, port=port, reload=reload or False)
+    # uvicorn colours the level of its log lines on a terminal and does not read NO_COLOR itself; None leaves it to
+    # its terminal check
+    run(
+        app="wetterdienst.ui.restapi:_worker_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload or False,
+        use_colors=False if no_color() else None,
+    )

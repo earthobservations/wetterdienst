@@ -4812,11 +4812,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",

@@ -289,6 +289,106 @@ def test_an_empty_result_leaves_a_target_as_it_is(tmp_path: pathlib.Path, caplog
     assert "Nothing was written to --target" in caplog.text
 
 
+def _response_warnings(caplog: pytest.LogCaptureFixture) -> dict[str, list[str]]:
+    """Give the lines of the log that qualify the answer, as the `--quiet` filter tells them, by their code."""
+    lines: dict[str, list[str]] = {}
+    for record in caplog.records:
+        code = getattr(record, response_warnings.RESPONSE_WARNING_RECORD, None)
+        if code is not None:
+            lines.setdefault(code, []).append(record.getMessage())
+    return lines
+
+
+@pytest.mark.parametrize("quiet", [[], ["--quiet"]])
+def test_the_command_line_says_the_values_a_check_rejected_with_their_count_also_in_a_csv(
+    quiet: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A CSV has no `metadata.warnings`: what a check rejected is one line on stderr, with `--quiet` as without it."""
+    with caplog.at_level(logging.INFO):
+        result = _cli(
+            "values",
+            "--stations=00001",
+            "--timestamp=2020-05",
+            "--limits=temperature_air_mean_2m=2:3",
+            "--format=csv",
+            *quiet,
+        )
+
+    assert result.exit_code == 0, result.output
+    # the three days of the stub are 1.0, outside 2 to 3: null, and the CSV has them as such
+    assert result.stdout.startswith("station_id,resolution,dataset,parameter,timestamp,value")
+    lines = _response_warnings(caplog)
+    assert len(lines["rejected-by-plausibility"]) == 1
+    assert lines["rejected-by-plausibility"][0].startswith(
+        "3 values were numbers a plausibility check rejected (limits 3;"
+    )
+
+
+@pytest.mark.parametrize("quiet", [[], ["--quiet"]])
+def test_the_command_line_says_the_stations_skip_empty_left_out_also_under_quiet(
+    quiet: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A station `skip_empty` leaves out is a line on stderr (it is logged at INFO), with `--quiet` as without it."""
+    with caplog.at_level(logging.INFO):
+        result = _cli(
+            "values",
+            "--stations=00001,00002",
+            "--timestamp=2020-05",
+            "--limits=temperature_air_mean_2m=2:3",
+            "--skip-empty=true",
+            "--skip-threshold=0.9",
+            "--format=csv",
+            *quiet,
+        )
+
+    assert result.exit_code == 0, result.output
+    skipped = _response_warnings(caplog)["station-skipped"]
+    assert sorted(line.split()[1] for line in skipped) == ["00001", "00002"]
+
+
+def test_a_library_call_logs_no_counted_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """The sums are the command line's to log at the end: the library and REST carry them in the answer alone."""
+    with caplog.at_level(logging.INFO):
+        response = _rest(
+            "/api/values", stations="00001", timestamp="2020-05", limits='{"temperature_air_mean_2m": [2, 3]}'
+        )
+
+    assert response.status_code == 200, response.text
+    # the answer has the sum, in its block
+    assert "rejected-by-plausibility" in response.text
+    assert "rejected-by-plausibility" not in _response_warnings(caplog)
+
+
+def test_quiet_still_says_that_nothing_was_written_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A scheduled run that wrote nothing must not look like one that did: `--quiet` keeps that sentence only."""
+    target = tmp_path / "values.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("values", "--stations=00001", "--timestamp=1930-06-01", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No data available" not in caplog.text
+
+
+def test_quiet_still_says_that_a_listing_wrote_nothing_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The same for `stations`: the sentence stays under `--quiet`, the one about the empty listing does not."""
+    target = tmp_path / "stations.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("stations", "--name=Nowhereville", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No stations available" not in caplog.text
+
+
 def test_a_failure_is_still_an_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exit 1 is for failure: a request that cannot be answered is not told as an empty result."""
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
@@ -638,10 +738,14 @@ _SURFACES = {
 
 #: what a surface has beside the fields of the request, and why: the short list a new parameter cannot join
 #: by being forgotten
+#: the options of a command that are no setting of a request: click's own `--help` and `--version`, told by their
+#: name and not by `expose_value`, which `--quiet` (a log level that hands the command no value) would not pass
+_NOT_REQUEST_OPTIONS = {"help", "version"}
 _CLI_ONLY = {
     "target": "writes the result to a file or a database instead of stdout, where REST answers the caller",
     "if_exists": "what --target does with data already there",
     "debug": "the log level of the command's own process; a request no longer sets that of a server (GH-3336)",
+    "quiet": "the log level of the command's own process, the other end of --debug",
     "start": "with --end, the window as two options, read as the one `timestamp`",
     "end": "with --start, the window as two options, read as the one `timestamp`",
 }
@@ -675,7 +779,7 @@ def _cli_options(path: tuple[str, ...]) -> dict[str, click.Option]:
     return {
         param.opts[0].removeprefix("--").replace("-", "_"): param
         for param in _cli_command(path).params
-        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+        if isinstance(param, click.Option) and param.name not in _NOT_REQUEST_OPTIONS and not param.hidden
     }
 
 
@@ -778,7 +882,7 @@ def _options_of_every_command() -> list[tuple[tuple[str, ...], click.Option]]:
         (path, param)
         for path, command in _commands(cli)
         for param in command.params
-        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+        if isinstance(param, click.Option) and param.name not in _NOT_REQUEST_OPTIONS and not param.hidden
     ]
 
 
