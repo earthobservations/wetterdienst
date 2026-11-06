@@ -2468,6 +2468,12 @@ def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
     return stations_result(request, "daily", "data", "6477").values().all().df
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # codz_2023.zip (read 2026-10-12): `;` separated, a station per row with the stage, the discharge and the water
     # temperature, which reads 99.9 in the first rows of the file (149180020, 2023-01-01 to 2023-01-03). The stage's

@@ -1,5 +1,11 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 """The frames the core hands out for IMGW meteorology, collected through the provider's own reader (GH-2627).
 
 No offline test collected values of this network: its tests read the files (`_parse_file`, `_parse_csv`) and the
