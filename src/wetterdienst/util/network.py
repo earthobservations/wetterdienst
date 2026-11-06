@@ -2647,7 +2647,10 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server, or no files if the directory is not there
+        A list of all files on the server, or no files if the directory is not there or is empty: a URL ending in `/`
+        that lists as itself alone (an index page with no link, as nginx answers for an empty directory) is the
+        empty directory, and neither it nor a missing one is kept in the listings cache, so the next call sees the
+        directory filled. A URL that does not end in `/` and lists as itself is a file, and is returned.
 
     Raises:
         NoInternetError: If no connection could be made after three attempts (no network, a DNS
@@ -2663,6 +2666,22 @@ def list_remote_files_fsspec(
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
+
+
+def _found_or_empty_directory(fs: HTTPFileSystem, url: str, found: list[str]) -> list[str]:
+    """Give what `find` found at a URL, or no file where it is an empty directory, which is then not kept.
+
+    An empty directory is taken for a file by fsspec: it finds no link on the index page of `/x/`, asks for `/x`, which
+    nginx (DWD's server) answers with a 301 to `/x/`, and `find` then lists the directory as the one file it holds,
+    because `_isfile` is a GET that answers below 400. The listing says nothing of a file: the directory is empty. It
+    is no answer to keep either: `_ls` stored `[]` before `find` looked at it, so the directory would have been listed
+    empty from our cache for as long as `cache_expiry` (12 hours for the metadata) after the server filled it. A URL
+    with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
+    """
+    if url.endswith("/") and found == [url]:
+        fs.dircache.pop(url, None)
+        return []
+    return found
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2686,7 +2705,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
         # and callers have always had it as `[]`; anything else is a failure to read, which a
         # caller should hear about rather than infer, after the retry around this where it can help
-        return fs.find(url, on_error="raise")
+        found = fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
     except ClientSSLError as e:
@@ -2713,6 +2732,8 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # aiohttp built from its credentials in the request info, and the retry around this logs the repr
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        return _found_or_empty_directory(fs, url, found)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise tls_failure
@@ -2760,7 +2781,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     )
     failure: OSError
     try:
-        return fs.ls(url, detail=True)
+        entries = fs.ls(url, detail=True)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
@@ -2777,6 +2798,12 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        if not entries:
+            # an empty directory is not kept in the listings cache: DWD fills it again, and the next call is to see
+            # that (`_ls` stored `[]`, as it does for `find` in `list_remote_files_fsspec`)
+            fs.dircache.pop(url, None)
+        return entries
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure

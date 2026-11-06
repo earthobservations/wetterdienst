@@ -439,11 +439,6 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
-    # Not an argument: whether the stations are looked up for the history of them (`history` of the REST API, MCP and
-    # the command line set it, `ui.core._get_stations_request`; the library sets none). A provider whose history reads
-    # the directories its lookup lists (`dwd/observation`) then tells a directory that came back empty in the history
-    # and goes on with the others, where for `stations` and `values` it is an error. No other provider reads it
-    _for_history: bool = field(default=False, init=False, repr=False, compare=False)
     # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
     # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
     _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)

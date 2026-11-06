@@ -32,7 +32,9 @@ from wetterdienst.provider.dwd.derived.fileindex import (
 from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
+from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError, directory_of, warn_skipped_listings
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -626,9 +628,15 @@ class DwdDerivedValues(TimeseriesValues):
         # settled on. Iterating the set directly left the order to the set's own, which varies from one
         # interpreter run to the next
         for rank, period in enumerate(sorted(station_periods)):
-            remote_files = create_file_list_for_climate_derived(
-                station_id, dataset, period, cast("Settings", stations.settings)
-            )
+            try:
+                remote_files = create_file_list_for_climate_derived(
+                    station_id, dataset, period, cast("Settings", stations.settings)
+                )
+            except EmptyListingError as e:
+                # the directory has no file to read: the lookup of the stations tells the directory, this the station
+                log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
+                note_skipped_download()
+                continue
 
             if remote_files.is_empty():
                 dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
@@ -748,10 +756,18 @@ class DwdDerivedRequest(TimeseriesRequest):
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; `reversed(list(...))` over a set left the
             # winner to the set's own iteration order, which varies from one interpreter run to the next
+            skipped: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 df = create_meta_index_for_climate_derived(dataset, settings)
                 df = self._process_dataframe_to_expected_format(df, dataset)
-                file_index = create_file_index_for_climate_derived(dataset, period, settings)
+                try:
+                    file_index = create_file_index_for_climate_derived(dataset, period, settings)
+                except EmptyListingError as e:
+                    # a directory that came back empty or missing costs the stations that only it lists, which the
+                    # warning below says, as for `dwd/observation`; an outage is raised by the listing
+                    log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
+                    skipped.setdefault(directory_of(e.url), []).append(period)
+                    continue
                 if dataset not in TECHNICAL_DATASETS:
                     file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                     df = df.join(
@@ -766,6 +782,7 @@ class DwdDerivedRequest(TimeseriesRequest):
                     df = df.lazy()
 
                 stations.append(df)
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(

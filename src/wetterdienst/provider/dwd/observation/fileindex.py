@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -20,10 +21,13 @@ from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
 from wetterdienst.util.network import list_remote_files_fsspec
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
+
+log = logging.getLogger(__name__)
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -165,9 +169,10 @@ class EmptyListingError(FileNotFoundError):
     """A directory of DWD's server whose listing came back empty, or that is not there (a 404).
 
     A `FileNotFoundError` with the message it always had, so that whoever caught that still does. It says which
-    directory (`url`), which the history of `dwd/observation` needs to tell the one that was listed: it is no outage.
-    A connection that cannot be made is a `NoInternetError` and a reset, a timeout or a 5xx a `DownloadError`, both
-    raised by the listing itself and never turned into this.
+    directory (`url`), which the lookups of `dwd/observation` and `dwd/derived` name in their `file-skipped` warning
+    when they go on without it: it is no outage. A connection that cannot be made is a `NoInternetError` and a reset,
+    a timeout or a 5xx a `DownloadError`, both raised by the listing itself and never turned into this. Meant to be
+    caught where a directory is skipped; `describe_fields` lets it out as the `FileNotFoundError` it is.
     """
 
     def __init__(self, url: str) -> None:
@@ -181,8 +186,34 @@ class EmptyListingError(FileNotFoundError):
 
 
 def directory_of(url: str) -> str:
-    """Give the directory of a URL as the warnings name it: the path below `observations_germany/`, in backticks."""
-    return f"`{url.rsplit('observations_germany/', maxsplit=1)[-1]}`"
+    """Give the directory of a URL as the warnings name it, in backticks.
+
+    The path below `observations_germany/` for the observations, below `CDC/` for the others (`derived_germany/...`).
+    """
+    for marker in ("observations_germany/", "CDC/"):
+        if marker in url:
+            return f"`{url.rsplit(marker, maxsplit=1)[-1]}`"
+    return f"`{url}`"
+
+
+def warn_skipped_listings(label: str, skipped: dict[str, list[Period]]) -> None:
+    """Tell that the stations of a dataset were looked up without the periods whose directory came back empty.
+
+    One `file-skipped` warning for each directory, which names it, the dataset (`label`) and the periods it was to list.
+    That is what is certain: the stations that only those periods list are not in the answer, which may be partial,
+    and the values or the history of such a station are not read. What a directory was read for is not always the
+    period's own (the 1 minute precipitation reads the daily `more_precip` directory for the region of its
+    `historical` stations), so the message names the periods that were skipped, not what the directory holds.
+    """
+    for directory, periods in skipped.items():
+        named = " and ".join(period.value for period in sorted(periods))
+        warn_response(
+            log,
+            FILE_SKIPPED,
+            f"The listing of the directory {directory} came back empty or missing, so the {named} stations of {label} "
+            "were not looked up, and a station that only that release lists is not in the answer, which may be "
+            "partial. Try again later.",
+        )
 
 
 def _create_file_index_for_dwd_server(
@@ -190,6 +221,12 @@ def _create_file_index_for_dwd_server(
     settings: Settings,
     ttl: CacheExpiry,
 ) -> pl.LazyFrame:
+    """List a directory of DWD's server, as a frame of its files, or raise the `EmptyListingError` that names it.
+
+    The URL is a directory: one that does not end in `/` is listed as one that does, as a server answers it with a
+    redirect, and only a URL with the `/` can be told an empty directory from a file (`list_remote_files_fsspec`).
+    """
+    url = url if url.endswith("/") else f"{url}/"
     urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
     if not urls:
         raise EmptyListingError(url)

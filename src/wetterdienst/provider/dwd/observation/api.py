@@ -48,6 +48,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
     directory_of,
+    warn_skipped_listings,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
@@ -69,7 +70,7 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
-from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
+from wetterdienst.util.response_warnings import FILE_SKIPPED, note_skipped_download, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -127,11 +128,18 @@ class DwdObservationValues(TimeseriesValues):
         periods_and_date_ranges: list[tuple[Period, list[str] | None]] = []
         for period in sorted(cast("set[Period]", stations.periods)):
             if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(
-                    station_id,
-                    dataset,
-                    settings,
-                )
+                try:
+                    date_ranges = self._get_historical_date_ranges(
+                        station_id,
+                        dataset,
+                        settings,
+                    )
+                except EmptyListingError as e:
+                    # the directory came back empty or missing: the period has no file to read. The lookup of the
+                    # stations tells the directory (`file-skipped`), and this tells the station
+                    log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
+                    note_skipped_download()
+                    continue
                 periods_and_date_ranges.append((period, date_ranges))
             else:
                 periods_and_date_ranges.append((period, None))
@@ -177,13 +185,19 @@ class DwdObservationValues(TimeseriesValues):
                 continue
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
             log.info(f"Acquiring observation data for {dataset_identifier}.")
-            remote_files = create_file_list_for_climate_observations(
-                station_id,
-                dataset,
-                period,
-                settings,
-                date_ranges,
-            )
+            try:
+                remote_files = create_file_list_for_climate_observations(
+                    station_id,
+                    dataset,
+                    period,
+                    settings,
+                    date_ranges,
+                )
+            except EmptyListingError as e:
+                # as above: the directory has no file to read, and the station is named by `file-skipped`
+                log.info(f"No files listed at {e.url} for {dataset_identifier}. Period will be skipped.")
+                note_skipped_download()
+                continue
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
@@ -372,13 +386,14 @@ class DwdObservationHistory(TimeseriesHistory):
     the warning names the stations that asked for the dataset.
 
     The lookup of the stations lists directories first: the `historical` one of the dataset (and its `recent` and `now`
-    ones), and the `meta_data` directory of the 1 minute precipitation. Where the request was made for a history
-    (`DwdObservationRequest._for_history`, which the REST API, MCP and the command line set for `history`) the lookup
-    skips an `EmptyListingError` and goes on with the periods that are listed, and `query` tells the directory too, with
-    no station to name where the history did not read it (the `recent` directory, or a solar dataset whose one directory
-    lists no station at all). Everything else is raised: a connection that cannot be made (`NoInternetError`), a reset,
-    a timeout or a 5xx (`DownloadError`). Without the flag, in Python, and for `stations` and `values` on every
-    surface, an empty directory is the `EmptyListingError` of the lookup as before (#3819).
+    ones), and the `meta_data` directory of the 1 minute precipitation. A directory of those that comes back empty is
+    skipped there, for every request (`DwdObservationRequest._all`, #3819): the stations of the other periods are
+    answered, and a `file-skipped` warning names the directory, the dataset and the periods skipped, with no station,
+    since the lookup does not know one. So a history of a station found in `recent` whose `historical` directory is
+    empty is told twice, by the lookup and here with the stations whose history was not read. A history reads
+    `historical` (a low resolution) or `meta_data` (1, 5 and 10 minutes) only, so an empty `recent` directory loses the
+    stations that only it lists and no history of the others. Everything else is raised: a connection that cannot be
+    made (`NoInternetError`), a reset, a timeout or a 5xx (`DownloadError`).
     """
 
     #: the stations whose history was not read for want of a listing, by the directory that came back empty
@@ -408,17 +423,6 @@ class DwdObservationHistory(TimeseriesHistory):
                 "not read and is not in the answer, which is partial. Try again later.",
                 stations=stations[:_MAX_STATIONS_LISTED],
             )
-        # the lookup of the stations met directories too: one the walk did not read (a station of the dataset in
-        # another period reads it; none does where nothing else lists the dataset, such as the solar datasets) is told
-        # here, with no station to name since the lookup did not find one
-        for directory in getattr(self.sr.request, "_empty_listings", {}):
-            if directory not in self._unlisted:
-                warn_response(
-                    log,
-                    FILE_SKIPPED,
-                    f"The listing of the directory {directory} came back empty or missing, so the stations it lists "
-                    "were not looked up and their history is not in the answer, which may be partial. Try again later.",
-                )
         self._unlisted = {}
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
@@ -795,9 +799,6 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
     _history = DwdObservationHistory
     _selects_by_period = True
-    #: Not an argument: the directories whose listing came back empty or missing while the stations of a history were
-    #: looked up (`_for_history`), named as the warnings name them, which `DwdObservationHistory` tells (#3819)
-    _empty_listings: dict[str, None] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
         """Give how far back the recent release of a dataset reaches, which is not 500 days for all of them.
@@ -993,6 +994,7 @@ class DwdObservationRequest(TimeseriesRequest):
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; iterating the set directly left the winner
             # to the set's own iteration order, which varies from one interpreter run to the next
+            skipped: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 try:
                     try:
@@ -1002,13 +1004,11 @@ class DwdObservationRequest(TimeseriesRequest):
                         continue
                     file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 except EmptyListingError as e:
-                    if not self._for_history:
-                        raise
-                    # the history goes on with the periods that are listed and tells the directory in the end; the
-                    # lookup of `stations` and `values` fails as it always did, since its answer would be partial
-                    # with nothing to say so
+                    # a directory that came back empty or missing costs the stations that only it lists, which the
+                    # warning below says: the answer is partial, not an error. A connection that cannot be made or a
+                    # failing server is raised by the listing, and is not this
                     log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
-                    self._empty_listings[directory_of(e.url)] = None
+                    skipped.setdefault(directory_of(e.url), []).append(period)
                     continue
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
@@ -1022,6 +1022,7 @@ class DwdObservationRequest(TimeseriesRequest):
                 file_ids.update(file_index_ids.get_column("station_id"))
                 listed_ids.update(df.get_column("station_id"))
                 stations.append(df.lazy())
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(
