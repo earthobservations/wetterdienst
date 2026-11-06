@@ -46,8 +46,9 @@ class DwdWeatherAlertGranularity(Enum):
 class DwdWeatherAlertLanguage(Enum):
     """Language of the DWD CAP alert products.
 
-    ``multi`` (``MUL``) bundles every language into one file; only its first ``<info>`` block per
-    alert is honoured by the parser, so prefer a single language for one-row-per-alert output.
+    ``multi`` (``MUL``) bundles every language into one file: eight ``<info>`` blocks per alert, ``de-DE`` first. The
+    row of an alert is the first block's, and the other seven are its ``translations``: each its ``language`` and
+    the texts that differ (``event``, ``headline``, ``description``, ``instruction``).
     """
 
     GERMAN = "de"
