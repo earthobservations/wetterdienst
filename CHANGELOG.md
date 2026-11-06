@@ -56,6 +56,10 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- `HEAD /health` and `HEAD /ready` answer as their `GET` does (status and headers, `/ready`'s
+  `no-store` and 503 included) with no body, for monitors and `wget --spider` that read the 405
+  as a server that is down. Every other route still answers `HEAD` with a 405, and the OpenAPI
+  document lists the two `head` operations; MCP gains no tool (GH-3814)
 
 ### Changed
 
@@ -104,6 +108,26 @@ Types of changes:
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
   (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
   `findlibs` that something else keeps, upgrade it (GH-2441)
+- **Breaking**: `to_target` refuses an `if_exists` that is not `replace`, `append`, `fail` or `skip`
+  with an `ExportRefusedError`. Before, a file took any other word for `replace` and overwrote
+  itself, DuckDB wrote nothing and said nothing, and a SQL database raised pandas' `ValueError`.
+  Pass one of the four words (the command line's `--if-exists` always refused others) (GH-3814)
+- A NUL in a file target (`file://x%00.csv`) is now an `ExportRefusedError`, and on the command
+  line one line and exit 1 for `alerts` and `history` before the fetch. Before, each writer failed
+  in its own way, with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
+- A file target is written beside its place and moved into it, so a write that fails (a full disk,
+  a sidecar that cannot be written) leaves the file that was there and no half-written one, with
+  `with_metadata` both files or neither. The file keeps its mode, a link is written through, and
+  on Windows a target held open by another process is a `PermissionError`. A Zarr store, a
+  directory, is still written in place (GH-3814)
+- `history` of `dwd/observation` now tells a dataset whose listing of historical files came back
+  empty or missing with a `file-skipped` warning naming the stations, so the REST API no longer
+  keeps that partial answer for an hour. A station with no file in a listing that is there is the
+  source's answer and still no warning (GH-3814)
+- `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
+  `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
+  `counts.stations`): two rows from one station listed six stations, an empty result all of them
+  (GH-3814)
 
 ## [0.183.0] - 2026-11-03
 

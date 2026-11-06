@@ -358,6 +358,12 @@ what the answer is missing:
   again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+
+  The `history` of `dwd/observation` tells it too, for a dataset whose listing of the historical files came back
+  empty or missing (a 404, or a page with no links): no station of it can be read, and the answer is partial. It
+  carries the `stations` that asked for the dataset, and its message names the dataset. A station with no file in a
+  listing that is there (one that only has `recent` data) has no history of it, which is the source's answer, and no
+  warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -891,7 +897,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A dataset the server skipped without a warning cannot be told from a station that has no file in it, so a partial history is kept like a whole one. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` dataset whose listing of historical files came back empty or missing is a `file-skipped` warning, so that answer is not kept; a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
@@ -1032,6 +1038,12 @@ no provider: one that is down does not take the server out of the pool, its requ
 (`upstream-failed`, `upstream-unreachable`, `upstream-timeout`) and the rest are served. It does not look at the
 load either: a server working on as many requests as it allows answers those that count with a `server-busy` 503
 and stays ready. The answer is `Cache-Control: no-store`.
+
+`HEAD /health` and `HEAD /ready` answer as their `GET` does, with its status and headers (`Content-Length`, and for
+`/ready` the `no-store` and the 503 with `Retry-After`) and no body, for a monitor or `wget --spider` that probes with
+`HEAD` and reads a 405 as the server being down. They take the same path as the `GET`s: outside the host check, the cap
+and the timeout. Every other route of the API, the index and `robots.txt` answer `HEAD` with a 405, and the document lists a `head`
+operation on these two routes alone.
 
 ## Errors
 

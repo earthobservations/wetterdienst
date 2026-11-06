@@ -96,6 +96,19 @@
             }
           }
         }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check, headers only",
+        "description": "Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body."
+          }
+        }
       }
     },
     "/ready": {
@@ -121,6 +134,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ready"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Readiness check, headers only",
+        "description": "Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`.",
+        "operationId": "ready_head_ready_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
                 }
               }
             }

@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
 from zoneinfo import ZoneInfo
 
@@ -66,13 +66,14 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
 
-    from wetterdienst.model.result import StationsResult
+    from wetterdienst.model.result import HistoryResult, StationsResult
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -349,8 +350,48 @@ class DwdObservationValues(TimeseriesValues):
         return result.get_column("date_range").to_list()
 
 
+#: how many stations the `file-skipped` warning of a history lists, as the one of the values does
+_MAX_STATIONS_LISTED = 10
+
+
+@dataclass
 class DwdObservationHistory(TimeseriesHistory):
-    """History class for DWD observation data."""
+    """History class for DWD observation data.
+
+    A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
+    began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
+    answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the dataset.
+    """
+
+    #: the stations whose history of a dataset was not read for want of a listing, by `resolution/dataset`
+    _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
+
+    def query(self) -> Iterator[HistoryResult]:
+        """Query the history of the stations, and tell the stations whose dataset has no listing once all are read."""
+        self._unlisted = {}
+        try:
+            yield from super().query()
+        finally:
+            self._warn_unlisted()
+
+    def _warn_unlisted(self) -> None:
+        """Warn that a listing of historical files came back empty or missing, once for each dataset it was for."""
+        for dataset, stations in self._unlisted.items():
+            many = len(stations) > 1
+            listed = ", ".join(stations[:_MAX_STATIONS_LISTED])
+            if len(stations) > _MAX_STATIONS_LISTED:
+                where = f"{len(stations)} stations, the first {_MAX_STATIONS_LISTED} of them {listed}"
+            else:
+                where = f"{'stations' if many else 'station'} {listed}"
+            warn_response(
+                log,
+                FILE_SKIPPED,
+                f"The listing of the historical files of {dataset} came back empty or missing, so the history of "
+                f"{where} in it was not read and is not in the answer, which is partial. Try again later.",
+                stations=stations[:_MAX_STATIONS_LISTED],
+            )
+        self._unlisted = {}
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
         from typing import cast  # noqa: PLC0415
@@ -376,9 +417,13 @@ class DwdObservationHistory(TimeseriesHistory):
                         settings=settings,
                     )
             except FileNotFoundError:
+                # the listing of the directory is empty or the directory is not there (a 404, or a page with no
+                # links), which is not "this station has no file in it": DWD lists a directory for every station
+                # that has files in it. Not the source's answer, so the answer is partial
                 log.info(
                     f"No files found for {dataset_identifier} and period {Period.HISTORICAL}. Station will be skipped."
                 )
+                self._unlisted.setdefault(f"{dataset.resolution.name}/{dataset.name}", []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):

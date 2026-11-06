@@ -14,6 +14,7 @@ without a title would leave the tool bare and nothing would fail: these tests ho
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -105,10 +106,14 @@ def test_only_the_metadata_tools_are_closed_world() -> None:
 
 
 def test_every_endpoint_the_tools_come_from_only_reads() -> None:
-    """`readOnlyHint=True` and `destructiveHint=False` hold only while every route is a GET."""
+    """`readOnlyHint=True` and `destructiveHint=False` hold only while every route is a GET.
+
+    The routes that are no tool are left out (the probes, which answer `HEAD` as well, GH-3814).
+    """
     methods = {
         method
-        for operations in restapi.app.openapi()["paths"].values()
+        for path, operations in restapi.app.openapi()["paths"].items()
+        if not any(re.match(pattern, path) for pattern in mcp_module._EXCLUDE_PATTERNS)  # noqa: SLF001
         for method in operations
         if method != "parameters"
     }

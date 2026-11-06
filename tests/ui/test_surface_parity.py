@@ -753,6 +753,26 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
             assert {c.lower() for c in param.type.choices} == {c.lower() for c in choices}, name
 
 
+def test_every_cli_only_entry_is_an_option_some_command_has_without_a_field() -> None:
+    """An entry of the lists above is an option of a command that has no field of the name, or it is deleted.
+
+    The test above holds each command's options to the lists (`<=`), so an entry whose option was renamed or removed
+    kept passing, with its reason, for as long as nobody read the list. `_CLI_ONLY` is for all commands: each of its
+    names is a command-only option of at least one of them. `_CLI_ONLY_OF` is for one command, which must be a command
+    of a surface, and must not repeat what `_CLI_ONLY` already says.
+    """
+    only = {
+        path: set(_cli_options(path)) - set(model.model_fields)
+        for model, (path, _, _) in _SURFACES.items()
+        if path is not None
+    }
+    assert set(_CLI_ONLY) - set().union(*only.values()) == set(), "an entry of _CLI_ONLY that no command has"
+    assert set(_CLI_ONLY_OF) <= set(only), "an entry of _CLI_ONLY_OF for a command that is no surface"
+    for path, entries in _CLI_ONLY_OF.items():
+        assert set(entries) <= only[path], f"{' '.join(path)}: an entry for an option the command lacks"
+        assert not set(entries) & set(_CLI_ONLY), f"{' '.join(path)}: an entry that _CLI_ONLY has already"
+
+
 def _options_of_every_command() -> list[tuple[tuple[str, ...], click.Option]]:
     return [
         (path, param)

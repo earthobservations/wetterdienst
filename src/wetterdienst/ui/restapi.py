@@ -1001,6 +1001,45 @@ def ready() -> Response:
     return JSONResponse(Ready(status="ready").model_dump(), headers=_NO_STORE)
 
 
+def _head_of(answer: Response) -> Response:
+    """Give the answer of a `GET` as the `HEAD` of it is: its status and headers (`Content-Length` too), no body."""
+    return Response(status_code=answer.status_code, headers=dict(answer.headers))
+
+
+_HEAD_ANSWER = {
+    "description": "The status and the headers of the `GET`, with no body.",
+}
+
+
+@app.head(
+    "/health",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Health check, headers only",
+    responses={200: _HEAD_ANSWER},
+)
+def health_head() -> Response:
+    """Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`."""
+    return _head_of(JSONResponse(health().model_dump()))
+
+
+@app.head(
+    "/ready",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Readiness check, headers only",
+    responses={
+        200: {**_HEAD_ANSWER, "headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}
+    },
+)
+def ready_head(request: Request) -> Response:
+    """Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`."""
+    try:
+        return _head_of(ready())
+    except ProblemError as e:
+        return _head_of(_problem_of(request, e))
+
+
 class VersionAnswer(BaseModel):
     """What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to."""
 
@@ -2553,8 +2592,8 @@ def history(
         raise _logged_server_error(e, "collect station history") from e
     if not metadata.counts.rows or metadata.warnings:
         # an empty history, or one that came with warnings, may be a source that answered nothing for the moment, or
-        # ids left out: the next request can give another, so it is not kept (a dataset skipped without a warning
-        # cannot be told from a station that has no file in it)
+        # ids left out: the next request can give another, so it is not kept (a listing that came back empty is a
+        # `file-skipped` warning, a station with no file in a listing that is there is the source's answer)
         return _answer(content, "json", metadata)
     return cached_json(
         http_request,

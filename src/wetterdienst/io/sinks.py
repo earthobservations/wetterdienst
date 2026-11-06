@@ -13,18 +13,28 @@ Parquet, Zarr, NetCDF), and any other file gets them as a sidecar where the call
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
+import os
+import shutil
+import uuid
 from collections.abc import Callable, Mapping
 from copy import copy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
-from wetterdienst.io.file_metadata import block_attributes, metadata_block, require_block, write_sidecar
+from wetterdienst.io.file_metadata import (
+    block_attributes,
+    metadata_block,
+    require_block,
+    sidecar_path,
+    write_sidecar,
+)
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.json_util import dumps_json
 from wetterdienst.util.url import ConnectionString, redact_password
@@ -39,6 +49,9 @@ log = logging.getLogger(__name__)
 
 #: what `to_target` does with a target that already exists
 IfExists = Literal["replace", "append", "fail", "skip"]
+
+#: the words of `IfExists`, which a sink is only handed after `refuse_unknown_if_exists` has read them
+IF_EXISTS: tuple[str, ...] = get_args(IfExists)
 
 #: writes the result to the file at the path; the writer of a self-describing format takes the `attributes` to write
 #: into the file as a keyword, and the other writers take none
@@ -311,6 +324,27 @@ FILE_WRITERS: dict[str, FileWriter] = {
 SELF_DESCRIBING = frozenset({".parquet", ".zarr", ".nc"})
 
 
+#: the file types written where they are, since the target is a directory: a Zarr store is a tree of files, which no
+#: single replace can swap in, and a write into it replaces the group of the frame and leaves the rest of the store
+_WRITTEN_IN_PLACE = frozenset({".zarr"})
+
+
+def _staged(path: str) -> str:
+    """Name a file beside `path` that the data is written to first: the same directory and the same ending.
+
+    Hidden and with a token, so that two writes of one target do not meet in it, and ending as `path` does, as a
+    writer may read the type off the name it is given.
+    """
+    target = Path(path)
+    return str(target.with_name(f".{uuid.uuid4().hex[:8]}.{target.name}"))
+
+
+def _discard(path: str) -> None:
+    """Remove a staged file that was not moved into place, whatever it holds; a directory is no staged file."""
+    with contextlib.suppress(OSError):
+        Path(path).unlink(missing_ok=True)
+
+
 def _write_with_metadata(
     writer: FileWriter,
     extension: str,
@@ -319,7 +353,15 @@ def _write_with_metadata(
     *,
     with_metadata: bool,
 ) -> None:
-    """Write the file, with the metadata block in it or beside it as the type and `with_metadata` say."""
+    """Write the file, with the metadata block in it or beside it as the type and `with_metadata` say.
+
+    The file, and the sidecar beside it, are written next to their place and moved into it once both are whole
+    (`os.replace`, which swaps a file for another in one step on POSIX and on Windows). So an error while writing
+    (a full disk, a frame the writer cannot write, a sidecar that cannot be written) leaves the file that was there as
+    it was, where writing on the path itself had cut it to nothing first and left a new file with no sidecar. Where the
+    target cannot be replaced (on Windows a file another process holds open is a `PermissionError`) the error is that
+    of the replace, and nothing is left beside the target.
+    """
     # built before anything is written: a result with nothing to describe is refused with no file left behind
     if with_metadata:
         block = require_block(result, heavy=True, beside=filepath)
@@ -327,13 +369,34 @@ def _write_with_metadata(
         block = metadata_block(result, heavy=False)
     else:
         block = None
-    if extension in SELF_DESCRIBING:
-        writer(result, filepath, attributes=None if block is None else block_attributes(block))
+    attributes = None if block is None or extension not in SELF_DESCRIBING else block_attributes(block)
+    sidecar = block is not None and extension not in SELF_DESCRIBING
+
+    if extension in _WRITTEN_IN_PLACE:
+        writer(result, filepath, attributes=attributes)
         return
-    writer(result, filepath)
-    if block is not None:
-        log.info(f"Writing the metadata beside '{filepath}'")
-        write_sidecar(block, filepath)
+
+    # a link is written through, as it was: the file it points at is the one replaced
+    target = os.path.realpath(filepath)
+    staged = _staged(target)
+    staged_sidecar = str(sidecar_path(staged))
+    try:
+        if extension in SELF_DESCRIBING:
+            writer(result, staged, attributes=attributes)
+        else:
+            writer(result, staged)
+        if sidecar and block is not None:
+            log.info(f"Writing the metadata beside '{filepath}'")
+            write_sidecar(block, staged)
+        # the mode of the file that is replaced, as writing on it kept it, where a new file gets the umask's
+        with contextlib.suppress(OSError):
+            shutil.copymode(target, staged)
+        Path(staged).replace(target)
+        if sidecar:
+            Path(staged_sidecar).replace(sidecar_path(target))
+    finally:
+        _discard(staged)
+        _discard(staged_sidecar)
 
 
 def _write_file(
@@ -356,6 +419,7 @@ def _write_file(
     `with_metadata` for a result with no provider to describe is refused before the file is written, for any type.
     A sidecar of an earlier write is overwritten by the next `with_metadata` write and left as it is by one without.
     """
+    refuse_unknown_if_exists(if_exists)
     filepath = connspec.path
     if writers is not FILE_WRITERS:
         # a file type the result is not written as is refused first, whatever the file is there or `append` is asked:
@@ -966,16 +1030,33 @@ SINKS: dict[str, Sink] = {
 }
 
 
+def refuse_unknown_if_exists(if_exists: str) -> None:
+    """Refuse an `if_exists` that is none of the four words, before any sink reads it.
+
+    A sink reads the word by testing the ones it knows, so a fifth was a `replace` for a file, nothing at all for a
+    DuckDB table and a `ValueError` of pandas for a SQL one. The command line cannot pass one (`--if-exists` is a
+    choice of the four); a script and `TimeseriesValues.to_target` can.
+
+    Raises:
+        ExportRefusedError: `if_exists` is not `replace`, `append`, `fail` or `skip`.
+
+    """
+    if if_exists not in IF_EXISTS:
+        msg = f"if_exists must be one of {', '.join(repr(word) for word in IF_EXISTS)}, not {if_exists!r}."
+        raise ExportRefusedError(msg)
+
+
 def write_to_target(
     result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
 ) -> None:
     """Hand the result to the sink that writes the target.
 
     Raises:
-        ExportRefusedError: `with_metadata` for a target that is not a file: it writes a file beside the file, and a
-            database has none.
+        ExportRefusedError: `if_exists` is none of the four words, or `with_metadata` for a target that is not a file:
+            it writes a file beside the file, and a database has none.
 
     """
+    refuse_unknown_if_exists(if_exists)
     sink = find_sink(target, connspec.protocol)
     if sink is _write_file:
         _write_file(result, target, connspec, if_exists, with_metadata=with_metadata)
@@ -1022,9 +1103,11 @@ def write_alerts_to_target(
 
     Raises:
         ExportRefusedError: A target that is not a file (an alert holds several areas and parameters, and no table
-            holds that yet), a file type of none of the three, or what `_write_file` refuses.
+            holds that yet), a file type of none of the three, an `if_exists` of none of the four words, or what
+            `_write_file` refuses.
 
     """
+    refuse_unknown_if_exists(if_exists)
     if find_sink(target, connspec.protocol) is not _write_file:
         if connspec.protocol == "file":
             # `FILE://x.csv`: the sink reads the scheme in lower case only, and is not a database

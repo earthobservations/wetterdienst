@@ -1525,3 +1525,110 @@ def test_dwd_obs_history_records_give_their_validity() -> None:
         "missing_data.summary": [{"valid_from": utc(1934, 1, 1), "valid_to": utc(2026, 4, 18)}],
         "missing_data.periods": [{"valid_from": utc(2024, 1, 9), "valid_to": utc(2024, 1, 10)}],
     }
+
+
+def _history_of(
+    monkeypatch: pytest.MonkeyPatch, index: "pl.LazyFrame | type[Exception]", station_ids: list[str]
+) -> tuple[list[object], list[dict]]:
+    """Walk the history of the stations of one dataset whose file listing is `index`, or whose listing raises it."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    def listing(**_: object) -> pl.LazyFrame:
+        if isinstance(index, type):
+            msg = "url https://opendata.dwd.de/ does not have a list of files"
+            raise index(msg)
+        return index
+
+    monkeypatch.setattr(api, "create_file_index_for_climate_observations", listing)
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda url, **_: File(
+            url=url,
+            content=_metadata_zip({k: v for k, v in _STATION_01048_METADATA.items() if "Stationsname" in k}),
+            status=200,
+        ),
+    )
+    count = len(station_ids)
+    df = pl.DataFrame(
+        {"station_id": station_ids, "resolution": ["daily"] * count, "dataset": ["climate_summary"] * count}
+    )
+    stations = SimpleNamespace(df=df, request=SimpleNamespace(settings=Settings(), metadata=DwdObservationMetadata))
+    begin_response()
+    histories = list(DwdObservationHistory(sr=cast("StationsResult", stations)).query())
+    return histories, list(recorded_warnings())
+
+
+def test_dwd_obs_history_tells_a_listing_that_came_back_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A directory listed as empty or missing is a partial answer, which `file-skipped` says (GH-3814).
+
+    It was a log line at INFO and a complete-looking answer, which the REST API kept for an hour. One warning for the
+    dataset, naming the stations whose history it left out.
+    """
+    histories, warnings = _history_of(monkeypatch, FileNotFoundError, ["01048", "01050"])
+
+    assert histories == []
+    assert [warning["code"] for warning in warnings] == ["file-skipped"]
+    assert warnings[0]["stations"] == ["01048", "01050"]
+    assert "daily/climate_summary" in warnings[0]["message"]
+    assert "partial" in warnings[0]["message"]
+
+
+def test_dwd_obs_history_lists_the_first_ten_stations_of_an_empty_listing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As the warning of the values does: the first ten, and how many there were."""
+    stations = [f"{i:05d}" for i in range(1, 14)]
+
+    _, warnings = _history_of(monkeypatch, FileNotFoundError, stations)
+
+    assert warnings[0]["stations"] == stations[:10]
+    assert "13 stations, the first 10 of them 00001, 00002" in warnings[0]["message"]
+
+
+def test_dwd_obs_history_of_a_station_that_has_no_file_in_a_listing_that_is_there_is_no_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The source's answer: the directory is listed, and this station is not in it (only a `recent` file)."""
+    other = pl.LazyFrame({"station_id": ["09999"], "url": ["https://opendata.dwd.de/tageswerte_KL_09999_hist.zip"]})
+
+    histories, warnings = _history_of(monkeypatch, other, ["01048"])
+
+    assert histories == []
+    assert warnings == []
+
+
+def test_dwd_obs_history_of_a_listing_that_is_there_is_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole answer carries none, and the history is read as it was."""
+    index = pl.LazyFrame({"station_id": ["01048"], "url": ["https://opendata.dwd.de/tageswerte_KL_01048_hist.zip"]})
+
+    histories, warnings = _history_of(monkeypatch, index, ["01048"])
+
+    assert len(histories) == 1
+    assert warnings == []
+
+
+def test_dwd_obs_history_warns_for_each_dataset_whose_listing_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A warning for each dataset whose listing failed, with the stations that asked for it."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    def listing(**_: object) -> pl.LazyFrame:
+        msg = "empty"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr(api, "create_file_index_for_climate_observations", listing)
+    df = pl.DataFrame(
+        {
+            "station_id": ["01048", "01048", "01050"],
+            "resolution": ["daily", "hourly", "daily"],
+            "dataset": ["climate_summary", "temperature_air", "climate_summary"],
+        }
+    )
+    stations = SimpleNamespace(df=df, request=SimpleNamespace(settings=Settings(), metadata=DwdObservationMetadata))
+    begin_response()
+
+    assert list(DwdObservationHistory(sr=cast("StationsResult", stations)).query()) == []
+
+    told = {warning["message"].split(" came back")[0]: warning["stations"] for warning in recorded_warnings()}
+    assert told == {
+        "The listing of the historical files of daily/climate_summary": ["01048", "01050"],
+        "The listing of the historical files of hourly/temperature_air": ["01048"],
+    }

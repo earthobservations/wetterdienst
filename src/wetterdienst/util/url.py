@@ -73,6 +73,21 @@ _WINDOWS = os.name == "nt"
 _DRIVE_LETTER = re.compile(r"^/(?=[A-Za-z]:(?:[/\\]|$))")
 
 
+def _refuse_nul(path: str, target: str) -> None:
+    """Refuse a path with a NUL in it: no file name holds one, and a writer that is handed one fails in its own way.
+
+    Python's `open` raises a `ValueError` for it, polars an `OSError`, and the NetCDF library stops at the NUL and
+    writes the file whose name is the text before it. A target can carry one as `%00`.
+
+    Raises:
+        ExportRefusedError: The path holds a NUL character.
+
+    """
+    if "\x00" in path:
+        msg = f"The target's path holds a NUL character ({target!r}), which no file name does."
+        raise ExportRefusedError(msg)
+
+
 def file_target_path(target: str) -> str:
     """Give the path a ``--target`` names, reading ``file://`` as a URI and anything else as a path.
 
@@ -83,10 +98,16 @@ def file_target_path(target: str) -> str:
     ``file:///C:/data/obs.csv`` names ``C:/data/obs.csv``; elsewhere a path starting ``/C:/`` is a
     directory of the root and is left. A target without the scheme is a plain path and is returned
     as given, ``%`` included.
+
+    Raises:
+        ExportRefusedError: The path holds a NUL character, which a target writes as ``%00``.
+
     """
     if not target.startswith("file://"):
+        _refuse_nul(target, target)
         return target
     path = unquote(target.removeprefix("file://"))
+    _refuse_nul(path, target)
     return _DRIVE_LETTER.sub("", path, count=1) if _WINDOWS else path
 
 
@@ -144,6 +165,7 @@ class ConnectionString:
             self._name = parsed.scheme
             # the path is a URI path, percent-decoded as a `file://` one is
             self._path = unquote(parsed.path or parsed.netloc)
+            _refuse_nul(self._path, url)
             self._database = self._path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
             return
