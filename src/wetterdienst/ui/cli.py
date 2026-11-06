@@ -1268,6 +1268,18 @@ def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> Non
         sys.exit(1)
 
 
+def _target_path(target: str) -> str:
+    """Give the path a `--target` names, or tell it cannot name one: a NUL (`%00`) is in no file name, exit 1.
+
+    Told before the fetch, as the other refusals of a target are for `history` and `alerts`, which write the file
+    themselves.
+    """
+    try:
+        return file_target_path(target)
+    except ExportRefusedError as e:
+        raise click.ClickException(str(e)) from e
+
+
 def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
     """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
 
@@ -1288,7 +1300,7 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
             )
             raise click.UsageError(msg)
         return None
-    path = file_target_path(target)
+    path = _target_path(target)
     extension = next((ext for ext in ALERT_FILE_FORMATS if path.lower().endswith(ext)), None)
     if extension is None:
         msg = (
@@ -1993,7 +2005,7 @@ def history(
     """
     _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
-    path = file_target_path(target) if target else None
+    path = _target_path(target) if target else None
     if path is not None and not path.lower().endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
