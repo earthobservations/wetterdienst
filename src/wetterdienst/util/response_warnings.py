@@ -83,9 +83,6 @@ _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_r
 #: the warnings that count something across the whole request, by code: the count, the message, where `{count}` is
 #: the number, and the count by detail (`{details}` in the message, as `range 3, stuck 2`)
 _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
-#: what the request being served remembers for its own length, and no longer: a directory found empty, so that a walk
-#: over stations lists it once (`response_memory`). A context variable like the above, so that requests do not share it
-_MEMORY: ContextVar[dict[str, Any] | None] = ContextVar("wetterdienst_response_memory", default=None)
 
 
 #: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
@@ -142,39 +139,6 @@ def begin_response() -> None:
     """
     _RECORDED.set([])
     _COUNTED.set({})
-    _MEMORY.set({})
-
-
-def response_memory() -> dict[str, Any] | None:
-    """Give what the request being served remembers, or None outside one (`begin_response`, `response_memory_scope`).
-
-    For a fact that is true for the length of one request and no longer, which a walk over many stations would
-    otherwise ask the source again for each station (a directory found empty). Never a time: it is gone with the
-    request, so nothing stale outlives the answer, and it is never shared with a concurrent request.
-    """
-    return _MEMORY.get()
-
-
-@contextmanager
-def response_memory_scope() -> Iterator[dict[str, Any]]:
-    """Give the memory of the request being served, or, outside one, a memory of its own for the length of the block.
-
-    The library as a library has no request: the scope is then the call that wraps it (a lookup, a walk over stations).
-    """
-    memory = _MEMORY.get()
-    if memory is not None:
-        yield memory
-        return
-    memory = {}
-    token = _MEMORY.set(memory)
-    try:
-        yield memory
-    finally:
-        try:
-            _MEMORY.reset(token)
-        except ValueError:
-            # a generator resumed in another context than the one it began in: the block is over all the same
-            _MEMORY.set(None)
 
 
 def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:

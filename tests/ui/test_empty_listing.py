@@ -43,7 +43,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.network import File, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings, response_memory
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -722,17 +722,22 @@ def _requests_for_empty_directory(
     dwd.set(empty=(f"{directory}historical/",))
     dwd.server.requests.clear()
     if not remembered:
-        monkeypatch.setattr(fileindex, "response_memory", lambda: None)
+        monkeypatch.setattr(fileindex, "_remembered_empty_directories", set)
     begin_response()
     request = DwdObservationRequest(parameters=[parameters], settings=Settings(cache_disable=True))
     found = request.all()
     values = found.values()
     model = request.metadata[parameters.split("/", maxsplit=1)[0]][parameters.split("/")[1]]
-    for station_id in ids:
+
+    @fileindex.remembering_empty_directories
+    def walk() -> int:
+        # the fetch-ahead asks the provider for the files of each station it reaches, inside the walk and its memory
         if ahead:
-            # what the fetch-ahead asks of the provider for each station it reaches
-            values._files_ahead(station_id, [model])  # noqa: SLF001
-    assert list(values.query()) is not None
+            for station_id in ids:
+                values._files_ahead(station_id, [model])  # noqa: SLF001
+        return len(list(values.query()))
+
+    walk()
     path = f"{_OBSERVATIONS}{directory}historical"
     return len([request for request in dwd.server.requests if request[1].startswith(path)])
 
@@ -742,7 +747,7 @@ def _requests_for_empty_directory(
 def test_a_walk_lists_a_directory_found_empty_once_whatever_the_number_of_stations(
     dwd: _Dwd, monkeypatch: pytest.MonkeyPatch, parameters: str, directory: str, name: str, *, ahead: bool
 ) -> None:
-    """One listing of an empty directory per request: the lookup, the walk and the hook share what the first found.
+    """One listing of an empty directory per lookup and per walk, whatever the number of stations.
 
     An empty directory is five GETs, and the walk asked for it at every station (and the hook again): 100 stations
     were 500 requests. The count is the same for one station and for twenty.
@@ -765,33 +770,90 @@ def test_without_the_memory_a_walk_lists_an_empty_directory_at_every_station(
     assert many > 10 * one
 
 
-def test_what_a_request_remembers_is_its_own_and_ends_with_it(dwd: _Dwd) -> None:
-    """The next request asks again and sees the directory filled; the memory is not shared with another context."""
+def _file_skipped() -> list[dict[str, Any]]:
+    return [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
+
+
+def test_a_second_lookup_after_the_directory_is_filled_sees_it_in_the_same_response(dwd: _Dwd) -> None:
+    """`begin_response()` starts no memory: a lookup, the directory filled, a lookup again, in one context."""
     dwd.set(empty=(_MONTHLY_HISTORICAL,))
     begin_response()
-    assert _request().all().df.get_column("station_id").to_list() == ["00044"]
-    assert f"{_DWD}{_OBSERVATIONS}{_MONTHLY_HISTORICAL}" in response_memory()["empty_directories"]
+    _request().all()
+    assert len(_file_skipped()) == 1
 
     dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_HISTORICAL}"] = _FILES
-    # the same response still remembers it, as a walk must; the next one begins with nothing
-    begin_response()
-    assert response_memory() == {}
+    dwd.server.requests.clear()
     _request().all()
+
+    historical = f"{_OBSERVATIONS}{_MONTHLY_HISTORICAL}".rstrip("/")
+    assert any(path.startswith(historical) for _, path in dwd.server.requests)
+    assert len(_file_skipped()) == 1
+
+
+def test_a_walk_left_open_holds_no_memory_in_the_context_of_its_caller() -> None:
+    """A generator has no context of its own: what it remembers is set around its steps and not between them."""
+    steps: list[set[str]] = []
+
+    @fileindex.remembering_empty_directories
+    def walk() -> Iterator[int]:
+        for number in range(3):
+            steps.append(fileindex._remembered_empty_directories())  # noqa: SLF001
+            yield number
+
+    generator = walk()
+    assert next(generator) == 0
+    assert fileindex._REMEMBERED.get() is None  # noqa: SLF001
+    assert next(generator) == 1
+    assert fileindex._REMEMBERED.get() is None  # noqa: SLF001
+    generator.close()
+
+    # one memory for the whole walk
+    assert steps[0] is steps[1]
+    assert fileindex._REMEMBERED.get() is None  # noqa: SLF001
+
+
+def test_a_lookup_after_a_walk_left_open_sees_the_directory_filled(dwd: _Dwd) -> None:
+    """The real walk, stopped after its first step: a lookup of the same context asks again and sees the files."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+    ids = ["00044", "00045"]
+    dwd.stations = ids
+    dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_RECENT}"] = [
+        *(f"stundenwerte_KL_{station_id}_19700101_20241231_akt.zip" for station_id in ids),
+        "KL_Beschreibung_Stationen.txt",
+    ]
+    values = _request().all().values()
+    walk = values.query()
+    next(walk, None)
+
+    dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_HISTORICAL}"] = [
+        *(f"stundenwerte_KL_{station_id}_19700101_20241231_hist.zip" for station_id in ids),
+        "KL_Beschreibung_Stationen.txt",
+    ]
+    assert fileindex._REMEMBERED.get() is None  # noqa: SLF001
+    begin_response()
+    assert len(_request().all().df) == len(ids)
     assert not [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
+    walk.close()
 
 
 def test_a_populated_listing_and_an_error_are_not_remembered(dwd: _Dwd) -> None:
     """Only an empty directory is: a failure is asked again, a populated listing is the listings cache's."""
     dwd.set(raises={_MONTHLY_HISTORICAL: NoInternetError("no connection")})
-    begin_response()
+    seen: list[set[str]] = []
+
+    @fileindex.remembering_empty_directories
+    def lookup() -> None:
+        try:
+            _request().all()
+        finally:
+            seen.append(set(fileindex._remembered_empty_directories()))  # noqa: SLF001
 
     with pytest.raises(NoInternetError):
-        _request().all()
-    assert not response_memory().get("empty_directories")
-
+        lookup()
     dwd.raises = {}
-    _request().all()
-    assert not response_memory().get("empty_directories")
+    lookup()
+
+    assert seen == [set(), set()]
 
 
 # --- the Python API --------------------------------------------------------------------------------------------------

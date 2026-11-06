@@ -387,9 +387,9 @@ what the answer is missing:
   "no data". No empty listing is kept in our listing cache, a year directory of a tree included
   (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
   written by an older version that holds an empty listing is read as a miss. A directory found empty is listed once
-  for the length of a response (a walk over a hundred stations asked for it five GETs at a time, at each station, and
-  again for the fetch-ahead): the memory ends with the request, so the next one asks again; in Python outside a
-  response it is the lookup or the walk. `describe_fields` stays an error. A
+  by a lookup and once by a walk (a walk over a hundred stations asked for it, five GETs at a time, at each station and
+  again for the fetch-ahead): a lookup or a walk remembers it for its own length and no longer, in Python as over REST,
+  so the next request asks again and nothing is kept in a context between calls. `describe_fields` stays an error. A
   station with no file in a listing that is there (one that only has `recent` data) has no history of it, which is the
   source's answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this

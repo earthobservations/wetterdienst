@@ -9,6 +9,7 @@ import inspect
 import logging
 import re
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import polars as pl
@@ -24,7 +25,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
 from wetterdienst.util.network import list_remote_files_fsspec
-from wetterdienst.util.response_warnings import FILE_SKIPPED, response_memory, response_memory_scope, warn_response
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -33,8 +34,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _F = TypeVar("_F", bound=Callable[..., Any])
-#: the key of the directories found empty in the memory of a response
-_EMPTY_DIRECTORIES = "empty_directories"
+#: the directories found empty by the lookup or the walk that is running (`remembering_empty_directories`), and none
+#: outside one: a context variable, so that concurrent requests do not share it
+_REMEMBERED: ContextVar[set[str] | None] = ContextVar("wetterdienst_empty_directories", default=None)
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -224,29 +226,61 @@ def warn_skipped_listings(label: str, skipped: dict[str, list[Period]]) -> None:
 
 
 def remembering_empty_directories(method: _F) -> _F:
-    """Have a lookup or a walk list a directory that is found empty once, as long as it runs.
+    """Have a lookup or a walk list a directory that is found empty once, for as long as it runs and no longer.
 
     A directory that comes back empty costs five requests (`list_remote_files_fsspec` reads its page and asks for it
     again for the index check), and a walk over stations asks for it at each of them, and the fetch-ahead hook again.
-    The memory is that of the response being served (`begin_response`), else the call wrapped here: the length of one
-    request, so the next one asks again and sees the directory filled. Only an empty directory is remembered, not a
-    listing with files (the listings cache keeps that) and not an error.
+    What is remembered belongs to the call wrapped here, a lookup (`_all`) or a walk (`query`), and is gone with it: the
+    next request asks again and sees the directory filled. Inside a wrapped call the outer one's is used, so the hook
+    and the lookup a walk makes share it. A walk is a generator, which has no context of its own and may be left open:
+    the memory is set around each step of it and not between, so it never outlives the step in the caller's context.
+    Only an empty directory is remembered, not a listing with files (the listings cache keeps that) and not an error.
     """
     if inspect.isgeneratorfunction(method):
 
         @functools.wraps(method)
         def generator(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-            with response_memory_scope():
-                yield from method(*args, **kwargs)
+            remembered = _REMEMBERED.get()
+            if remembered is None:
+                remembered = set()
+            steps = method(*args, **kwargs)
+            try:
+                while True:
+                    token = _REMEMBERED.set(remembered)
+                    try:
+                        item = next(steps)
+                    except StopIteration:
+                        return
+                    finally:
+                        _REMEMBERED.reset(token)
+                    yield item
+            finally:
+                # the blocks the walk ends with run under the memory too
+                token = _REMEMBERED.set(remembered)
+                try:
+                    steps.close()
+                finally:
+                    _REMEMBERED.reset(token)
 
         return cast("_F", generator)
 
     @functools.wraps(method)
     def plain(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        with response_memory_scope():
+        if _REMEMBERED.get() is not None:
             return method(*args, **kwargs)
+        token = _REMEMBERED.set(set())
+        try:
+            return method(*args, **kwargs)
+        finally:
+            _REMEMBERED.reset(token)
 
     return cast("_F", plain)
+
+
+def _remembered_empty_directories() -> set[str]:
+    """Give the directories found empty by the lookup or the walk that is running, a set of its own outside one."""
+    remembered = _REMEMBERED.get()
+    return remembered if remembered is not None else set()
 
 
 def _create_file_index_for_dwd_server(
@@ -260,8 +294,7 @@ def _create_file_index_for_dwd_server(
     redirect, and only a URL with the `/` can be told an empty directory from a file (`list_remote_files_fsspec`).
     """
     url = url if url.endswith("/") else f"{url}/"
-    memory = response_memory()
-    empty: set[str] = memory.setdefault(_EMPTY_DIRECTORIES, set()) if memory is not None else set()
+    empty = _remembered_empty_directories()
     if url in empty:
         raise EmptyListingError(url)
     urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
