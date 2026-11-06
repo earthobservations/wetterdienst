@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
+  errors, the warnings about the answer and "Nothing was written to --target." only: no progress,
+  no other warning. Stdout and the exit code stay as they are; with `--debug` it is a usage error.
+  `values`, `interpolate` and `summarize` now also log, with or without `--quiet`, one line with the
+  total for each warning that was only counted (values a check rejected, markers, calms), which a
+  CSV or a file target had no place for. Shell completion is click's own (`_WETTERDIENST_COMPLETE`,
+  see the command line page) and now offers `--provider` and `--network` from the registry.
+  `NO_COLOR` is honoured by `wetterdienst restapi`, whose log lines uvicorn coloured on a terminal
+  (Part of GH-3134)
 - The REST API marks four answers as stable: `coverage`, `providers` and `glossary` get
   `Cache-Control: public, max-age=300`, an `ETag` and a `Last-Modified`, `history` gets 3600 and an
   `ETag` when it has rows and no warnings. A matching `If-None-Match` or `If-Modified-Since` is

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 
 import click
 from click.core import ParameterSource
+from click.shell_completion import CompletionItem
 from pydantic import BaseModel, ValidationError
 from pydantic_settings import SettingsError
 
@@ -86,9 +87,9 @@ from wetterdienst.ui.render import (
     render_stripes_stations,
 )
 from wetterdienst.ui.response_metadata import issues_metadata, result_metadata
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import begin_response
+from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, begin_response, log_counted_warnings
 from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
@@ -114,12 +115,103 @@ _CommandT = TypeVar("_CommandT", bound="Callable[..., Any]")
 
 appname = f"{__appname__} {__version__}"
 
+
+# Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see docs/usage/cli.md). It imports this module and nothing
+# else, so a completion that is not from this module's tables must not import a provider (a second on every TAB) and
+# never reaches the network: the providers and networks are the keys of the registry, which is a dict of names.
+def _complete_provider(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:  # noqa: ARG001
+    """Complete `--provider` with the providers of the registry."""
+    return [CompletionItem(name) for name in Wetterdienst.get_provider_names() if name.startswith(incomplete.lower())]
+
+
+def _complete_network(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:  # noqa: ARG001
+    """Complete `--network` with the networks of the `--provider` already on the line, else of every provider.
+
+    Bash hands over `--provider=dwd` as three words, `--provider`, `=` and `dwd`: click reads the `=` as the value and
+    `dwd` is left over in `ctx.args`, where the provider is taken from. The word being completed itself is not: a
+    value after an `=` is not offered (zsh would replace the whole word `--provider=dw` by `dwd`, too), which the
+    docs say, so a space is the spelling to complete with.
+    """
+    provider = ctx.params.get("provider")
+    if provider == "=":
+        provider = next((word for word in ctx.args if word.strip().lower() in Wetterdienst.registry), None)
+    if isinstance(provider, str) and provider.strip().lower() in Wetterdienst.registry:
+        names = Wetterdienst.get_network_names(provider)
+    else:
+        names = sorted({network for networks in Wetterdienst.registry.values() for network in networks})
+    return [CompletionItem(name) for name in names if name.startswith(incomplete.lower())]
+
+
+# `--quiet` is a property of the process's log, and every command that has `--debug` has it. Its value is kept in the
+# context and read where the level is set, so that it can be held against `--debug` whichever comes first on the line
+_QUIET_KEY = "wetterdienst.quiet"
+
+
+def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> bool:  # noqa: ARG001, FBT001
+    ctx.meta[_QUIET_KEY] = value
+    return value
+
+
+#: the loggers of the libraries behind an image, which write what they cleaned up as the interpreter ends
+_IMAGE_LIBRARIES = ("choreographer", "kaleido")
+
+
+class _QuietFilter(logging.Filter):
+    """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno >= logging.ERROR or hasattr(record, RESPONSE_WARNING_RECORD)
+
+
+def _apply_log_level(*, debug: bool) -> None:
+    """Set how much the command logs: `--debug` for the package's debug lines, `--quiet` for less, else as it is.
+
+    `--quiet` keeps the errors (`log.error`, `log.exception`), the sentence that nothing was written to the
+    `--target`, and the warnings about the answer itself, the ones that are also in the `warnings` of its
+    `metadata` (a file the provider let go, a station left out, readings a check rejected, a parameter without rows:
+    `warn_response` marks their log records, and `log_counted_warnings` those that are only counted). It drops the
+    rest: the progress (logged at INFO), the other warnings of the package and everything the libraries underneath
+    write below ERROR. The levels of the root logger and of `wetterdienst` are set to INFO (`station-skipped` is
+    logged there) and the handlers they have are given a filter for the rest, both for the length of the command.
+    The libraries that draw an image (`choreographer`, `kaleido`) write their INFO lines when the interpreter ends,
+    after the command, so they are kept at WARNING for good. The data on stdout, a usage error that click writes
+    itself and the exit code are untouched. With `--debug` it is a usage error, which of the two wins is not for
+    the command to guess.
+    """
+    ctx = click.get_current_context()
+    if not ctx.meta.get(_QUIET_KEY, False):
+        set_logging_level(debug=debug)
+        return
+    if debug:
+        msg = "--quiet and --debug cannot be used together: one logs less than the default and the other more."
+        raise click.UsageError(msg)
+    loggers = [logging.getLogger(), logging.getLogger("wetterdienst")]
+    levels = [logger.level for logger in loggers]
+    handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
+    quiet = _QuietFilter()
+    for name in _IMAGE_LIBRARIES:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    for logger in loggers:
+        logger.setLevel(logging.INFO)
+    for handler in handlers:
+        handler.addFilter(quiet)
+
+    def restore() -> None:
+        for logger, level in zip(loggers, levels, strict=True):
+            logger.setLevel(level)
+        for handler in handlers:
+            handler.removeFilter(quiet)
+
+    ctx.call_on_close(restore)
+
+
 # Options more than one command takes, defined once so each reads the same wherever it appears. A
 # command lists the ones it takes in the order its help shows them: what is asked for, which
 # stations, what is done to the values, and then the output.
 provider_opt = click.option(
     "--provider",
     type=click.STRING,
+    shell_complete=_complete_provider,
     required=True,
     help=(
         "Data provider/organisation. List the provider/network combinations with: "
@@ -129,6 +221,7 @@ provider_opt = click.option(
 network_opt = click.option(
     "--network",
     type=click.STRING,
+    shell_complete=_complete_network,
     required=True,
     help="Data network of the provider. Examples: observation, mosmix, radar, ghcn, pegel, hydrology",
 )
@@ -178,6 +271,8 @@ stations_timestamp_opt = click.option(
 NO_STATIONS = "No stations available for given constraints"
 NO_DATA = "No data available for given constraints"
 NOTHING_WRITTEN = "Nothing was written to --target."
+#: marks the line as one `--quiet` keeps: a scheduled run that wrote nothing must not look like one that did
+_NOTHING_WRITTEN_RECORD = {RESPONSE_WARNING_RECORD: "nothing-written"}
 
 
 def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
@@ -194,7 +289,14 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     )
 
 
-def _bool_opt(name: str, *, default: bool, help: str, dest: str | None = None) -> Callable[[_CommandT], _CommandT]:  # noqa: A002
+def _bool_opt(
+    name: str,
+    *,
+    default: bool,
+    help: str,  # noqa: A002
+    dest: str | None = None,
+    **kwargs: Any,  # noqa: ANN401
+) -> Callable[[_CommandT], _CommandT]:
     """Make a boolean option, spelled one way on every command: bare it is on, and it takes `=true` or `=false`.
 
     A value is read as the REST API reads one of its boolean query parameters, which is what
@@ -203,7 +305,7 @@ def _bool_opt(name: str, *, default: bool, help: str, dest: str | None = None) -
     flag, takes `--all=true` as REST's `all=true`.
     """
     names = (name, dest) if dest else (name,)
-    return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help)
+    return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help, **kwargs)
 
 
 # GH-2438: --date, the old name of --timestamp
@@ -463,7 +565,20 @@ with_stations_opt = _bool_opt(
     default=False,
     help="Include the stations in JSON/GeoJSON output. Default: false",
 )
-debug_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
+_debug_only_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
+_quiet_opt = _bool_opt(
+    "--quiet",
+    default=False,
+    help="Log errors and warnings about the answer only: no progress. Not with --debug. Default: false",
+    expose_value=False,
+    callback=_remember_quiet,
+)
+
+
+def debug_opt(command: _CommandT) -> _CommandT:
+    """Give a command `--debug` and `--quiet`, the two ends of how much it logs; `restapi` has `--debug` alone."""
+    return _debug_only_opt(_quiet_opt(command))
+
 
 # the reference point `interpolate` and `summarize` estimate for: exactly one of a station or a point,
 # which their request models enforce
@@ -1081,12 +1196,15 @@ def _finish(
     (GH-2635). A target is left as it is, since nothing is there to write: replacing a table with an
     empty one is not what a schedule that found no reading yet is after.
     """
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    log_counted_warnings(log)
     empty = values_.df.is_empty()
     if empty:
         log.warning(NO_DATA)
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
         _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
@@ -1292,9 +1410,14 @@ class _Cli(_Group):
     context_settings={"max_content_width": 120},
 )
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """Command line interface for the Wetterdienst package."""
     setup_logging()
+    if no_color():
+        # nothing here styles its output, but click does for what it writes itself (the deprecation of a command or an
+        # option is red): with NO_COLOR it strips every escape code from what `click.echo` writes, on a terminal too
+        ctx.color = False
 
 
 @cli.command("cache")
@@ -1318,14 +1441,14 @@ def info() -> None:
 @_bool_opt(
     "--reload", default=False, help="Reload the service when a source file changes, for development. Default: false"
 )
-@debug_opt
+@_debug_only_opt
 def restapi(
     listen: str,
     reload: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Start the Wetterdienst REST API web service."""
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # Run HTTP service.
     log.info(f"Starting {appname}")
@@ -1342,8 +1465,13 @@ def about() -> None:
 
 
 @about.command(epilog=_examples(COVERAGE_EXAMPLES))
-@click.option("--provider", type=click.STRING, help="Data provider. Without it and --network, every combination.")
-@click.option("--network", type=click.STRING, help="Data network of the provider.")
+@click.option(
+    "--provider",
+    type=click.STRING,
+    shell_complete=_complete_provider,
+    help="Data provider. Without it and --network, every combination.",
+)
+@click.option("--network", type=click.STRING, shell_complete=_complete_network, help="Data network of the provider.")
 @click.option(
     "--resolutions",
     type=click.STRING,
@@ -1374,7 +1502,7 @@ def coverage(
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
     not this answer.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
     # provider and network without the other, or resolutions / datasets, which that list has none of
@@ -1426,7 +1554,12 @@ def coverage(
 
 
 @about.command("providers")
-@click.option("--provider", type=click.STRING, help="Only this provider. Without it, every provider. Example: dwd")
+@click.option(
+    "--provider",
+    type=click.STRING,
+    shell_complete=_complete_provider,
+    help="Only this provider. Without it, every provider. Example: dwd",
+)
 @debug_opt
 def providers(
     provider: str,
@@ -1439,7 +1572,7 @@ def providers(
     networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
     offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
 
     request = ProvidersRequest.model_validate({"provider": provider})
@@ -1472,7 +1605,7 @@ def auth(
     attempt that gives up after a few seconds. `about coverage` does not probe and has no `valid`, only
     whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the answer.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # a malformed server setting is refused by its variable, as for the other commands
     Settings()
@@ -1510,7 +1643,7 @@ def glossary(
     The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
     override.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # a malformed server setting is refused by its variable, as it is for the other commands
     Settings()
@@ -1561,7 +1694,7 @@ def fields(
 
     DWD observation only: no other provider publishes such a description.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     api = get_api(provider, network)
     if not issubclass(api, DwdObservationRequest):
         msg = f"Fields are described for provider 'dwd', network 'observation' only, not {provider}/{network}."
@@ -1693,7 +1826,7 @@ def stations(
             "with_metadata": with_metadata,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
     _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
@@ -1728,7 +1861,7 @@ def stations(
 
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
         _export_or_exit(stations_, target, if_exists, with_metadata=request.with_metadata)
         return
@@ -1769,7 +1902,7 @@ def issues_cmd(
     default to what a `values` request defaults to, which is what makes the answer one that request
     accepts.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
 
     api = get_api(provider=provider, network=network)
@@ -1870,7 +2003,7 @@ def history(
         },
     )
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
 
     api = get_timeseries_api(provider=provider, network=network, history=True)
@@ -2102,7 +2235,7 @@ def values(
             "with_stations": with_stations,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
     _refuse_database_metadata(target, with_metadata=request.with_metadata)
     if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
@@ -2249,7 +2382,7 @@ def interpolate(
         },
     )
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
     _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
@@ -2394,7 +2527,7 @@ def summarize(
             "pretty": pretty,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
     _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
@@ -2578,7 +2711,7 @@ def alerts(
 
     With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
     """
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
 
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
@@ -2654,7 +2787,7 @@ def stripes_stations(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """List stations for climate stripes."""
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
     if kind not in ["temperature", "precipitation"]:
         msg = f"Invalid kind '{kind}'"
@@ -2740,7 +2873,7 @@ def stripes_image(
         msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
         raise click.BadParameter(msg, param_hint="--target")
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # the provider request builds its settings from the environment inside the catch-all below:
     # checked here first, a malformed `WD_*` setting is told by its variable

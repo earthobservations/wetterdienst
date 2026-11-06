@@ -175,9 +175,17 @@ same request gives the same output, and the options are the parameters of the RE
   that cannot be served as phrased. No command has another code, and the three are frozen; a code of its own for an
   upstream failure would be a break. The table is on the [command line page](cli.md#exit-codes), and
   `tests/ui/test_exit_codes.py` holds every explicit exit to the status the REST API answers the same failure with.
-- **The environment**: the `WD_*` variables of the [settings](settings.md).
+- **The log**: `--quiet` (every command that has `--debug`, but `restapi`) writes the errors and the warnings about the
+  answer (those that are also in its `metadata.warnings`) and `Nothing was written to --target.` to stderr, and no
+  progress or other log line, and changes nothing else: stdout and the exit code are those of the command without
+  it, and an error is still written. It is a usage error with `--debug`. See [Logging](cli.md#logging).
+- **Colour**: the command line writes none of its own, and `NO_COLOR` (set, not empty) turns off what Python's
+  traceback and uvicorn's log would. See [Colour](cli.md#colour).
+- **The environment**: the `WD_*` variables of the [settings](settings.md), and `NO_COLOR`.
 
-Not frozen: the prose of `--help` and its examples, the sentences on stderr, and how click lays out its help.
+Not frozen: the prose of `--help` and its examples, the sentences on stderr (which warnings are written, not that
+errors are), how click lays out its help, and shell completion: what it offers is a convenience, built on click's
+own and the registry of providers, and not a contract.
 
 The help snapshot shows a removed option and does not refuse it, so `tests/baselines/test_baselines.py` holds the
 command line to `tests/baselines/cli.baseline.json`: a command, an option or a spelling of one that is gone, a changed
