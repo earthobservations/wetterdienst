@@ -58,13 +58,13 @@ if TYPE_CHECKING:
 
 log = get_one_line_logger(__name__)
 
-#: the routes the timeout and the cap hold for: the API, not the index, the health check or the MCP transport
+#: the routes the timeout and the cap hold for: the API, not the index, the probes or the MCP transport
 #: (`/mcp/v1` and its alias `/mcp`); the tools call the API in process, so their requests are held to them
 _TIMED_PREFIX = "/api/"
 #: the MCP endpoint, `/mcp/v1` and its alias `/mcp`, whose `Origin` is checked as well
 _MCP_PATH = "/mcp"
-#: the liveness probe, which the host check and the cap leave alone
-_HEALTH_PATH = "/health"
+#: the liveness probe and the readiness probe, which the host check and the cap leave alone
+_PROBE_PATHS = ("/health", "/ready")
 
 
 def request_timeout() -> float | None:
@@ -212,9 +212,9 @@ class RequestContextMiddleware:
         request_id = request_id_from(headers.get(REQUEST_ID_HEADER))
         scope.setdefault("state", {})["request_id"] = request_id
         set_request_id(request_id)
-        # a probe of the health check addresses the server by an address or a service name of its own, and the route
-        # answers a fixed text: it reads no settings and is let through
-        serving = _Serving() if scope["path"] != _HEALTH_PATH else _Serving.unrestricted()
+        # a probe addresses the server by an address or a service name of its own, and its route reads no setting the
+        # request is held to: it is let through
+        serving = _Serving() if scope["path"] not in _PROBE_PATHS else _Serving.unrestricted()
         if refusal := self._refuse_host(scope, headers, serving.allowed_hosts):
             await refusal(scope, receive, send)
             return

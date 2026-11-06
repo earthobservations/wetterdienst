@@ -236,7 +236,7 @@ that was added or changed, and an enum that lost members. `tests/ui/openapi_diff
 pattern is an addition and passes.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
-a problem kind, a warning `code`, a header, a looser bound; the `title`, `detail`, descriptions and examples of the
+a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
 document; and the defaults of the server's limits, which `GET /api/version` reports.
 
 Not yet held by a test: the check against the last release does not compare the formats, descriptions and examples
