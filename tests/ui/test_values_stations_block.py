@@ -19,7 +19,15 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
-from tests.model.test_values_stations_block import DAY_ONE, DAY_TWO, pairs, stations_of, values_of
+from tests.model.test_values_stations_block import (
+    DAY_ONE,
+    DAY_TWO,
+    a_wide_merged_result,
+    only_in,
+    pairs,
+    stations_of,
+    values_of,
+)
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from tests.ui.test_restapi import _OBSERVATION
 from wetterdienst.model.result import StationsFilter, StationsResult, ValuesResult
@@ -44,17 +52,18 @@ def _serve(
     returned: dict[str, list],
     *,
     stations: StationsResult | None = None,
+    frames: list[ValuesResult] | None = None,
 ) -> StationsResult:
     """Select `stations` and have the reader return a frame of values for each of the station ids in `returned`.
 
     A station of the selection that is not in `returned` is one the source has no reading of: the reader yields
-    nothing for it.
+    nothing for it. `frames` are the results the reader yields instead, such as those of the wide shape.
     """
     stations = stations or stations_of(["00001", "00002", "00003"])
-    frames = {station_id: values_of(stations, {station_id: timestamps}) for station_id, timestamps in returned.items()}
+    results = frames or [values_of(stations, {station_id: timestamps}) for station_id, timestamps in returned.items()]
 
     def query(_reader: object) -> Iterator[ValuesResult]:
-        yield from frames.values()
+        yield from results
 
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     monkeypatch.setattr(type(stations.request)._values, "query", query)  # noqa: SLF001
@@ -173,5 +182,66 @@ def test_the_command_line_lists_the_stations_that_returned_values(monkeypatch: p
 
     assert result.exit_code == 0, result.output
     answer = json.loads(result.stdout)
+    assert _station_ids(answer["stations"]) == pairs("00001", "00002")
+    assert {row["station_id"] for row in answer["values"]} == {"00001", "00002"}
+
+
+def test_rest_lists_a_station_for_the_datasets_that_have_rows(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """00001 has rows of one dataset and 00002 of both: the block has the three, as the GeoJSON has three features."""
+    stations = stations_of(["00001", "00002", "00003"])
+    only_solar = only_in(values_of(stations, {"00001": [DAY_ONE]}), "climate_summary")
+    _serve(monkeypatch, {}, stations=stations, frames=[only_solar, values_of(stations, {"00002": [DAY_ONE]})])
+
+    block = client.get("/api/values", params={**_VALUES, "with_metadata": "true"}).json()
+    geojson = client.get("/api/values", params={**_VALUES, "format": "geojson"}).json()
+
+    in_geojson = [
+        (feature["properties"]["id"], feature["properties"]["dataset"]) for feature in geojson["data"]["features"]
+    ]
+    assert _station_ids(block["stations"]) == [("00001", "climate_summary"), *pairs("00002")]
+    assert sorted(_station_ids(block["stations"])) == sorted(in_geojson)
+    assert block["metadata"]["request"]["stations"]["ids"] == ["00001", "00002"]
+    assert block["metadata"]["counts"]["stations"] == 2
+
+
+def test_rest_in_the_wide_shape_lists_each_dataset_of_a_merged_row(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wide row of two datasets names none: the station is not lost (`stations: []` and `counts.stations: 0` once)."""
+    wide = a_wide_merged_result({"00001": [DAY_ONE, DAY_TWO]})
+    _serve(monkeypatch, {}, stations=wide.stations, frames=[wide])
+
+    response = client.get("/api/values", params={**_VALUES, "shape": "wide", "with_metadata": "true"})
+
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert len(answer["values"]) == 2
+    assert _station_ids(answer["stations"]) == pairs("00001")
+    assert answer["metadata"]["request"]["stations"]["ids"] == ["00001"]
+    assert answer["metadata"]["counts"] == {"stations": 1, "rows": 2}
+
+
+def test_the_mcp_tool_lists_the_stations_that_have_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The `values` tool runs the REST route in process, so `with_stations` reaches the same block."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _serve(monkeypatch, {"00001": [DAY_ONE, DAY_TWO], "00002": [DAY_TWO]})
+
+    async def call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            result = await client.call_tool(
+                "values", {**_OBSERVATION, "stations": "00001,00002,00003", "with_stations": True}
+            )
+            return result.structured_content["result"]
+
+    answer = asyncio.run(call())
+
     assert _station_ids(answer["stations"]) == pairs("00001", "00002")
     assert {row["station_id"] for row in answer["values"]} == {"00001", "00002"}

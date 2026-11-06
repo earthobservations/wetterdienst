@@ -834,14 +834,40 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values come from, one row per resolution, dataset and station.
 
-        Only the stations that returned values: a request for the stations nearest a point lists
-        every station with a position, and the walk stops at the ones with data. Read off the values,
-        so that a `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations
-        that are left. An interpolated or summarized result names the stations it was made from.
+        Only the stations, and the datasets of them, that have rows: a request for the stations nearest a point
+        lists every station with a position, and the walk stops at the ones with data; a station that returned
+        rows of one dataset and none of another has the row of the first only. Read off the values, so that a
+        `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left. A row
+        of nulls is a row. An interpolated or summarized result names the stations it was made from.
+
+        A series is matched to the rows of the stations frame by resolution, dataset and station. Where the rows
+        cannot name a dataset, the station is never left out for it: a wide row of a resolution that merged
+        several datasets has no dataset (`TimeseriesValues._widen_df`) and stands for each dataset of that
+        resolution and station, a dataset the stations frame does not list for the resolution stands for
+        every row of its station, and a frame without the three columns is matched on the station alone.
         """
+        stations = self.stations.df
         if "station_id" not in self.df.columns:
-            return self.stations.df.clear()
-        return self.stations.df.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
+            return stations.clear()
+        keys = ["resolution", "dataset", "station_id"]
+        if not (set(keys) <= set(self.df.columns) and set(keys) <= set(stations.columns)):
+            return stations.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
+        series = self.df.select(keys).unique()
+        listed = stations.select("resolution", "dataset").unique()
+        # a series of a dataset the stations list for its resolution is matched on all three
+        exact = series.join(listed, on=["resolution", "dataset"], how="semi")
+        rest = series.join(listed, on=["resolution", "dataset"], how="anti")
+        # a wide row of a merged resolution has no dataset: each dataset of the resolution and station
+        merged = rest.filter(pl.col("dataset").is_null() & pl.col("resolution").is_not_null())
+        # the others cannot be placed: the station stands for all of its rows
+        unplaced = rest.join(merged, on=keys, how="anti", nulls_equal=True)
+        return stations.filter(
+            pl.struct(keys).is_in(exact.to_struct().implode())
+            | pl.struct("resolution", "station_id").is_in(
+                merged.select("resolution", "station_id").to_struct().implode()
+            )
+            | pl.col("station_id").is_in(unplaced.get_column("station_id").implode())
+        )
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:

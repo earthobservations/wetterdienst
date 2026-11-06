@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import json
+from types import SimpleNamespace
 
 import polars as pl
 import pytest
@@ -24,6 +25,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
     ValuesResult,
 )
+from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 UTC = dt.UTC
@@ -288,6 +290,168 @@ def test_to_format_json_lists_the_stations_that_have_values() -> None:
     written = json.loads(result.to_format("json", with_stations=True))
 
     assert [row["station_id"] for row in written["stations"]] == ["00001", "00001"]
+
+
+# A station with rows in only some of its datasets or resolutions is listed for those only, as the GeoJSON has it. The
+# wide shape is the trap: a row of a resolution that merged several datasets names none, and stands for each of them.
+
+
+def only_in(result: ValuesResult, dataset: str) -> ValuesResult:
+    """Give `result` with the rows of one dataset only."""
+    return ValuesResult(stations=result.stations, df=result.df.filter(pl.col("dataset") == dataset))
+
+
+def block_ids_and_counts(result: ValuesResult) -> tuple[list[str], int]:
+    """Give the ids of `request.stations.ids` and `counts.stations`, which are read off `df_stations`."""
+    from wetterdienst.ui.response_metadata import result_metadata  # noqa: PLC0415
+
+    block = result_metadata(result, provider="dwd", network="observation", heavy=False)
+    return block.request.stations.ids, block.counts.stations
+
+
+def test_a_station_with_rows_in_one_dataset_is_listed_for_that_dataset_only() -> None:
+    """00001 has solar rows and no precipitation rows: the block has its one row, as the GeoJSON has one feature."""
+    stations = stations_of(["00001", "00002"])
+    both = values_of(stations, {"00001": [DAY_ONE], "00002": [DAY_ONE]})
+    result = ValuesResult(
+        stations=stations,
+        df=both.df.filter(~((pl.col("station_id") == "00001") & (pl.col("dataset") == "precipitation_more"))),
+    )
+
+    in_geojson = [
+        (feature["properties"]["id"], feature["properties"]["dataset"])
+        for feature in result.to_ogc_feature_collection()["data"]["features"]
+    ]
+
+    assert listed(result) == [("00001", "climate_summary"), *pairs("00002")]
+    assert sorted(listed(result)) == sorted(in_geojson)
+    assert block_ids_and_counts(result) == (["00001", "00002"], 2)
+
+
+def test_a_station_with_rows_in_one_resolution_is_listed_for_that_resolution_only() -> None:
+    """The same across resolutions: the hourly row of the station is not listed where only the daily one has values."""
+    stations = stations_of(["00001"], datasets=("climate_summary",))
+    hourly = stations.df.with_columns(pl.lit("hourly").alias("resolution"))
+    stations = with_frame(stations, pl.concat([stations.df, hourly]))
+    result = only_in(values_of(stations, {"00001": [DAY_ONE]}), "climate_summary")
+
+    assert [(row["resolution"], row["dataset"]) for row in result.to_dict(with_stations=True)["stations"]] == [
+        ("daily", "climate_summary")
+    ]
+
+
+def a_wide_merged_result(rows: dict[str, list[dt.datetime]]) -> ValuesResult:
+    """Give the wide shape of two datasets of one resolution, widened by the method the pipeline widens with.
+
+    So its rows are the ones it writes: one per timestamp, and no dataset on them.
+    """
+    stations = stations_of(["00001", "00002", "00003"])
+    reader = SimpleNamespace(
+        sr=SimpleNamespace(
+            parameters=stations.request.parameters, settings=stations.request.settings, options=stations.request.options
+        )
+    )
+    # a station at a time, as the pipeline does
+    wide = [
+        TimeseriesValues._widen_df(reader, values_of(stations, {station_id: timestamps}).df)  # noqa: SLF001
+        for station_id, timestamps in rows.items()
+    ]
+    return ValuesResult(stations=stations, df=pl.concat(wide, how="diagonal"))
+
+
+def test_a_wide_row_with_no_dataset_stands_for_each_dataset_of_its_station() -> None:
+    """The row names no dataset and the stations frame lists two: both are listed, the station with no row is not."""
+    result = a_wide_merged_result({"00001": [DAY_ONE, DAY_TWO], "00002": [DAY_ONE]})
+
+    assert result.df.get_column("dataset").null_count() == 3
+    assert listed(result) == pairs("00001", "00002")
+    assert result.df_stations.height == 4
+    # the metadata block reads the same ids and counts it read before
+    assert block_ids_and_counts(result) == (["00001", "00002"], 2)
+    # the GeoJSON has one feature for the station, with no dataset
+    features = result.to_ogc_feature_collection()["data"]["features"]
+    assert [(feature["properties"]["id"], feature["properties"]["dataset"]) for feature in features] == [
+        ("00001", None),
+        ("00002", None),
+    ]
+
+
+def test_a_wide_row_of_a_resolution_with_one_dataset_keeps_its_dataset() -> None:
+    """A resolution that holds one dataset keeps its name on the wide row (`_widen_df`), and is matched on it."""
+    stations = stations_of(["00001", "00002"], datasets=("climate_summary",))
+    result = only_in(values_of(stations, {"00001": [DAY_ONE]}), "climate_summary")
+
+    assert listed(result) == [("00001", "climate_summary")]
+    assert block_ids_and_counts(result) == (["00001"], 1)
+
+
+def test_a_wide_merged_result_cut_to_nothing_lists_no_station() -> None:
+    """The no-dataset row stands for the datasets of its own station, and for no other."""
+    result = a_wide_merged_result({"00001": [DAY_ONE]})
+
+    cut = ValuesResult(stations=result.stations, df=result.df.clear())
+
+    assert cut.to_dict(with_stations=True)["stations"] == []
+
+
+def test_a_merged_resolution_does_not_stand_for_another_resolution() -> None:
+    """The no-dataset row of the daily resolution lists no hourly row of the station."""
+    stations = stations_of(["00001"], datasets=("climate_summary",))
+    hourly = stations.df.with_columns(pl.lit("hourly").alias("resolution"))
+    stations = with_frame(stations, pl.concat([stations.df, hourly]))
+    result = a_wide_merged_result({"00001": [DAY_ONE]})
+    result = ValuesResult(stations=stations, df=result.df)
+
+    assert [(row["resolution"], row["dataset"]) for row in result.to_dict(with_stations=True)["stations"]] == [
+        ("daily", "climate_summary")
+    ]
+
+
+def test_a_frame_missing_a_key_column_is_matched_on_the_station() -> None:
+    """A frame with no `dataset` or no `resolution` cannot be placed in a dataset: its station is listed whole."""
+    result = three_stations_one_of_them_empty()
+    no_dataset = ValuesResult(stations=result.stations, df=result.df.drop("dataset"))
+    no_resolution = ValuesResult(stations=result.stations, df=result.df.drop("resolution"))
+    no_keys_in_stations = ValuesResult(
+        stations=with_frame(result.stations, result.stations.df.drop("dataset")), df=result.df
+    )
+
+    for cut in (no_dataset, no_resolution, no_keys_in_stations):
+        assert {row["station_id"] for row in cut.to_dict(with_stations=True)["stations"]} == {"00001", "00002"}
+    assert no_dataset.df_stations.height == 4
+
+
+def test_a_dataset_the_stations_do_not_list_does_not_drop_the_station() -> None:
+    """A series named for a dataset that the stations frame has not is not lost: its station is listed whole."""
+    result = three_stations_one_of_them_empty()
+    renamed = ValuesResult(
+        stations=result.stations,
+        df=result.df.with_columns(pl.col("dataset").replace({"climate_summary": "air_temperature"})),
+    )
+
+    assert {row["station_id"] for row in renamed.to_dict(with_stations=True)["stations"]} == {"00001", "00002"}
+    # one of the two datasets is still listed, so that one is matched on its own
+    assert block_ids_and_counts(renamed) == (["00001", "00002"], 2)
+
+
+def test_a_station_of_nulls_only_is_listed_in_both_shapes() -> None:
+    """A row of nulls is a row (`drop_nulls=false`): the station is in the block, long and wide."""
+    result = three_stations_one_of_them_empty()
+    nulls = ValuesResult(
+        stations=result.stations,
+        df=result.df.filter(pl.col("station_id") == "00002").with_columns(
+            pl.lit(None, dtype=pl.Float64).alias("value")
+        ),
+    )
+    wide = a_wide_merged_result({"00002": [DAY_ONE]})
+    value_columns = [column for column in wide.df.columns if column.endswith(PARAMETERS["climate_summary"])]
+    wide = ValuesResult(
+        stations=wide.stations,
+        df=wide.df.with_columns(*(pl.lit(None, dtype=pl.Float64).alias(column) for column in value_columns)),
+    )
+
+    assert listed(nulls) == pairs("00002")
+    assert listed(wide) == pairs("00002")
 
 
 # The estimates: their `stations` is already the stations the rows were made from, cut down by the filters (GH-3814),
