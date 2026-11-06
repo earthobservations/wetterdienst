@@ -462,15 +462,7 @@ def test_metno_frost_values_404_on_a_one_parameter_dataset_is_not_asked_again(mo
     assert df["value"].to_list() == [1.5]
 
 
-PRECIPITATION_6H = {
-    "data": [
-        {
-            **OBSERVATIONS["data"][0],
-            "observations": [{"elementId": "sum(precipitation_amount PT6H)", "value": 1.5, "qualityCode": 0}],
-        },
-    ],
-}
-# Frost's answers without an observation: no `data` at all, an empty or null list of it (GH-3748), an entry with no
+# Frost's answers without an observation: no `data` at all, an empty or null list of it, an entry with no
 # `observations`, or with an empty or null one (GH-3750)
 _ENTRY = {"sourceId": "SN18700:0", "referenceTime": "2020-01-01T00:00:00.000Z"}
 EMPTY_ANSWERS = [
@@ -484,86 +476,35 @@ EMPTY_ANSWERS = [
 
 
 @pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_synoptic_200_without_observations_reaches_discovery(
-    monkeypatch: pytest.MonkeyPatch,
-    empty: dict,
-) -> None:
-    """Test that the 6-hourly precipitation, answered 200 without observations, is resolved by its time series.
-
-    Frost used to answer the query without `timeseriesids` for this historical synoptic element with a 404 and
-    answers it with an empty 200 since 2026-11-02, so the fallback that waited for the 404 never ran (GH-3748).
-    No key was available: the answer is what the job log of the CI run shows (a download that arrived, no value).
-    """
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _ok(url, PRECIPITATION_6H)
-        return _ok(url, empty)
-
-    values, seen = _values(monkeypatch, observations, [("6_hours", "data", "precipitation_amount")])
-    df = values.all().df
-    requests = _observation_requests(seen)
-    assert ["availableTimeSeries" in url for url in requests] == [False, True, False]
-    assert "timeseriesids=" in requests[2]
-    assert df["value"].to_list() == [1.5]
-
-
-def test_metno_frost_values_synoptic_200_without_observations_and_no_time_series_is_no_data(
+@pytest.mark.parametrize(
+    "requested", [("hourly", "data", "temperature_air_2m"), ("6_hours", "data", "precipitation_amount")]
+)
+def test_metno_frost_values_200_without_observations_is_no_data(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    empty: dict,
+    requested: tuple[str, str, str],
 ) -> None:
-    """Test that an empty 200 for a synoptic element, and no time series either, is no data and goes unwarned."""
+    """Test that an empty 200, for any resolution, is no data: unwarned, and costing no discovery (GH-3750).
 
-    def observations(url: str) -> File:
-        return _failed(url, 412) if "availableTimeSeries" in url else _ok(url, EMPTY_ANSWERS[0])
-
-    values, seen = _values(monkeypatch, observations, [("6_hours", "data", "precipitation_amount")])
+    The 6-hourly precipitation was once taken to discovery on such an answer (GH-3748). Frost answers that query
+    with 200 and the observations, and the empty frame the caller then saw was the range check's, on a -1.
+    """
     with caplog.at_level("WARNING", logger=LOGGER):
-        df = values.all().df
-    assert df.is_empty()
-    assert [("availableTimeSeries" in url) for url in _observation_requests(seen)] == [False, True]
+        values, seen = _values(monkeypatch, lambda url: _ok(url, empty), [requested])
+        assert values.all().df.is_empty()
+    assert all("availableTimeSeries" not in url for url in seen)
+    # one request for the dataset, none for its parameters one by one
+    assert len(_observation_requests(seen)) == 1
     assert [record for record in caplog.records if record.name == LOGGER] == []
 
 
 @pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_200_without_observations_is_no_data_where_no_series_is_needed(
+def test_metno_frost_values_single_parameter_200_without_observations_is_no_data(
     monkeypatch: pytest.MonkeyPatch,
     empty: dict,
 ) -> None:
-    """Test that an empty 200 for any other resolution is no data, and costs no discovery (GH-3748)."""
-    values, seen = _values(monkeypatch, lambda url: _ok(url, empty))
-    assert values.all().df.is_empty()
-    assert all("availableTimeSeries" not in url for url in seen)
-    # one request for the dataset, none for its parameters one by one
-    assert len(_observation_requests(seen)) == 1
-
-
-@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_synoptic_single_parameter_200_without_observations_reaches_discovery(
-    monkeypatch: pytest.MonkeyPatch,
-    empty: dict,
-) -> None:
-    """Test that the request for one synoptic parameter, answered empty, is resolved by its time series too."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        return _ok(url, PRECIPITATION_6H) if "timeseriesids=" in url else _ok(url, empty)
-
-    values, _seen = _values(monkeypatch, observations, [("6_hours", "data", "precipitation_amount")])
-    parameter = values.sr.parameters[0]
-    df = values._collect_single_parameter("SN18700", parameter, START, END, values.sr.settings, {})  # noqa: SLF001
-    assert df["value"].to_list() == [1.5]
-
-
-@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_single_parameter_200_without_observations_is_no_data_where_no_series_is_needed(
-    monkeypatch: pytest.MonkeyPatch,
-    empty: dict,
-) -> None:
-    """Test that after a 404 on the batch, an empty 200 for one parameter of another resolution costs no discovery."""
+    """Test that after a 404 on the batch, an empty 200 for one parameter costs no discovery (GH-3750)."""
 
     def observations(url: str) -> File:
         batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
@@ -574,6 +515,38 @@ def test_metno_frost_values_single_parameter_200_without_observations_is_no_data
     assert values.all().df.is_empty()
     assert all("availableTimeSeries" not in url for url in seen)
     assert len(_observation_requests(seen)) == 3
+
+
+def test_metno_frost_decodes_the_6_hourly_precipitation_code_only() -> None:
+    """Test that -1 of the 6-hourly precipitation is a dry period, and -1 of the other precipitation sums is not.
+
+    Over 17 stations and 1995 to 2024, half of the 6-hourly readings are -1, and the 12-hourly sums that Frost writes
+    the same way add up to the daily sum with -1 as 0 (GH-3748). The other sums were measured for the same: the
+    10-minute, hourly and annual ones carry no -1 at all, the daily one 9 in 137,000 (one of them beside rain), the
+    monthly one 6 in 103,000. Where the evidence does not reach, -1 stays a number below the range, for the check.
+    """
+    elements = [
+        "sum(precipitation_amount PT6H)",
+        "sum(precipitation_amount PT6H)",
+        "sum(precipitation_amount PT6H)",
+        "sum(precipitation_amount PT10M)",
+        "sum(precipitation_amount PT1H)",
+        "sum(precipitation_amount P1D)",
+        "sum(precipitation_amount P1M)",
+        "sum(precipitation_amount P1Y)",
+    ]
+    given = pl.DataFrame(
+        {
+            "parameter": elements,
+            # a dry period, a 0 (which stays 0), a measured sum, then the same code of each other sum
+            "value": [-1.0, 0.0, 1.3, -1.0, -1.0, -1.0, -1.0, -1.0],
+            "quality_flags": ["2", "0", "2", "0", "0", "7", "2", "0"],
+        },
+    )
+    decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
+    assert decoded.get_column("value").to_list() == [0.0, 0.0, 1.3, -1.0, -1.0, -1.0, -1.0, -1.0]
+    # the code stays beside the value it stood for, and only there
+    assert decoded.get_column("quality_flags").to_list() == ["2,raw:-1", "0", "2", "0", "0", "7", "2", "0"]
 
 
 AVAILABLE_TWO = {

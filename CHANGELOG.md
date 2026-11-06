@@ -104,6 +104,13 @@ Types of changes:
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
   (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
   `findlibs` that something else keeps, upgrade it (GH-2441)
+- `metno/frost` 6-hourly precipitation (`6_hours/data/precipitation_amount`) comes back with its
+  dry periods: Frost writes them as `-1`, which the range check rejected as below 0 mm, so a
+  station whose readings were all `-1` had no values ("The source has no values"). They are
+  `0.0` now, with `raw:-1` in `quality_flags`; this is our reading of the data, as Frost does not
+  describe the code. The 0.182.0 entry on this element named the wrong cause: Frost answers the
+  query with the observations, and the extra discovery requests it added for an empty answer are
+  gone (GH-3748)
 
 ## [0.183.0] - 2026-11-03
 

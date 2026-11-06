@@ -1890,6 +1890,53 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
     return stations_result(request, "hourly", "data", "SN18700").values().all().df
 
 
+def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the answer of Frost on 2026-11-06 for `sum(precipitation_amount PT6H)`, SN18700 (Oslo - Blindern), 2005-09-01 to
+    # 2010-09-01, as it wrote it: the eight readings that station has, three of them -1 (and a 0 that is no -1). Frost's
+    # description of the element says nothing of the -1; that it is a dry period is our reading of the data (GH-3748)
+    readings = [
+        ("2005-09-07T00:00:00.000Z", -1, 2),
+        ("2005-10-13T12:00:00.000Z", -1, 0),
+        ("2006-03-07T12:00:00.000Z", -1, 0),
+        ("2006-08-23T06:00:00.000Z", 0, 0),
+        ("2008-06-13T18:00:00.000Z", 1.3, 2),
+        ("2010-02-04T06:00:00.000Z", 0.4, 2),
+        ("2010-04-26T18:00:00.000Z", 0.1, 2),
+        ("2010-08-06T18:00:00.000Z", 3, 2),
+    ]
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": time,
+                "observations": [
+                    {
+                        "elementId": "sum(precipitation_amount PT6H)",
+                        "value": value,
+                        "unit": "mm",
+                        "timeOffset": "PT0H",
+                        "timeResolution": "PT6H",
+                        "timeSeriesId": 0,
+                        "performanceCategory": "C",
+                        "exposureCategory": "2",
+                        "qualityCode": quality,
+                    },
+                ],
+            }
+            for time, value, quality in readings
+        ],
+    }
+    serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
+    request = MetnoFrostRequest(
+        parameters=[("6_hours", "data", "precipitation_amount")],
+        start=_day(2005, 9, 1),
+        end=_day(2010, 9, 1),
+        settings=_settings(auth={"metno_frost": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "6_hours", "data", "SN18700").values().all().df
+
+
 def _knmi_netcdf(values: dict[str, float]) -> bytes:
     """Write the file KNMI serves for one timestamp: a variable per name, laid out as (station, time), one station."""
     h5py = pytest.importorskip("h5py")
@@ -2824,6 +2871,14 @@ STUBS = [
         # the cloud cover is converted from eighths to percent on its way
         sentinels=(("cloud_cover_total", 112.5), ("snow_depth", -1.0)),
         tokens=(("cloud_cover_total", "9", None), ("snow_depth", "-1", 0.0)),
+    ),
+    ValueStub(
+        "metno/frost 6_hours/data",
+        _metno_frost_6_hours,
+        reading=("precipitation_amount", 1.3),
+        # the -1 is a dry period, a sum of zero, which the range check no longer takes for a reading below 0 mm
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
     ),
     ValueStub(
         "knmi/observation daily/data",

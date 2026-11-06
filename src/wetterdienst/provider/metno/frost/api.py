@@ -413,15 +413,30 @@ _MetnoFrostMetadataSpec = {
 MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMetadata")
 
 
-# Frost states two codes in the element descriptions it publishes and then writes them into the
-# value itself, where nothing tells them apart from a measurement:
+# Frost writes three codes into the value itself, where nothing tells them apart from a measurement. Two of them its
+# element descriptions state:
 #
-# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one. It reaches the
-#   caller as -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily
+# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one ("Code=-1 means no snow"). It
+#   reaches the caller as -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily
 #   observations are -1 against 92 measured zeros
 # - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured. In
 #   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
 #   plausible reading rather than a code
+#
+# The third is not stated: the description of `sum(precipitation_amount PT6H)` is "Amount of precipitation per six
+# hours", with no word of -1. It is our reading of the data (GH-3748), measured live on 2026-11-06 at 17 stations
+# over 1995 to 2024. A -1 there is a dry period, a sum of zero, and it was dropped as a reading below the 0 mm of
+# the range check ("The source has no values"):
+#
+# - 10,288 of the 20,257 readings are -1; at five of the stations the 12-hourly sum that holds one is dry (-1 or 0)
+#   in 88 % of the cases, the one that holds a reading above 0 in 2 %
+# - the 12-hourly sum, which is not served and writes -1 the same way, adds up to the daily sum with -1 read as 0
+#   in 99.9 % of the 9,865 days that have one
+#
+# Not for the other precipitation sums, where the evidence does not reach: the 10-minute and hourly ones have no -1
+# in 307,000 readings and the annual one none in 6,400. The daily one has 9 in 137,000, eight of them at one station
+# on eight days of February 2007 and one beside 1.1 mm in the hours of its day; the monthly one has 6 in 103,000,
+# all of 1915 to 1920. A -1 there stays what the range check makes of it: null, `rejected:range,raw:-1`.
 #
 # Only the elements themselves. Frost leaves the codes out of its own monthly and annual means --
 # checked over nine years at SN18700, where neither mean goes negative or above eight.
@@ -429,15 +444,9 @@ _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = "-1"
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
+_PRECIPITATION_6H = "sum(precipitation_amount PT6H)"
+_NO_PRECIPITATION = "-1"
 _DAILY = "daily"
-# The resolutions whose elements Frost holds as several time series, which the observations query answers only
-# when it names one (`timeseriesids`, `performancecategories`, `exposurecategories`, found through
-# `availableTimeSeries`): the 6-hourly synoptic precipitation, which only the synoptic stations report. Frost
-# answered a query without them with a 404, which the reader takes to discovery as it does for any element. The
-# job logs of 2026-11-02 show a download that arrived, with no value (GH-3748; no key was at hand to see the body).
-# For these an answer with no observations is taken to discovery as well. Elsewhere it is no data, as a station
-# without the element or a window before its series is, and discovery would cost a request for each of them.
-_DISCOVERY_WHEN_EMPTY = frozenset({"6_hours"})
 
 
 def _raise_if_rejected(file: File) -> None:
@@ -462,7 +471,7 @@ def _raise_if_unanswered(file: File) -> None:
 
 
 def _has_observations(df: pl.DataFrame) -> bool:
-    """Tell whether Frost's answer has a `data` entry with an observation in it (GH-3748, GH-3750).
+    """Tell whether Frost's answer has a `data` entry with an observation in it (GH-3750).
 
     `{"data": []}`, `{"data": null}`, an entry without the key `observations` and one whose `observations` is `[]`
     or `null` all answer no: read as they are, each is a column of nulls or a missing column that cannot be unnested.
@@ -536,6 +545,7 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_NO_SNOW, where=pl.col("parameter") == _SNOW_DEPTH, to=0.0),
+        Sentinel(_NO_PRECIPITATION, where=pl.col("parameter") == _PRECIPITATION_6H, to=0.0),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
         text=False,
     )
@@ -647,9 +657,7 @@ class MetnoFrostValues(TimeseriesValues):
 
         df = pl.read_json(file.content)
         if not _has_observations(df):
-            return self._collect_after_batch_without_observations(
-                station_id, dataset, parameters, start_date, end_date, settings, client_kwargs, file.url
-            )
+            return pl.DataFrame()
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
@@ -673,29 +681,6 @@ class MetnoFrostValues(TimeseriesValues):
             dataset.resolution.name,
         )
 
-    def _collect_after_batch_without_observations(
-        self,
-        station_id: str,
-        dataset: DatasetModel,
-        batched: list[ParameterModel],
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-        url: str,
-    ) -> pl.DataFrame:
-        """Resolve the parameters of a 200 without observations as after a 404, for the elements that need it.
-
-        For a synoptic element this is Frost's answer to the query that used to be a 404 (GH-3748); for any other
-        it is no data.
-        """
-        if dataset.resolution.name not in _DISCOVERY_WHEN_EMPTY:
-            return pl.DataFrame()
-        log.info(f"Frost answered {url} without observations, resolving the time series")
-        return self._collect_after_batch_404(
-            station_id, dataset, batched, start_date, end_date, settings, client_kwargs
-        )
-
     def _collect_after_batch_404(
         self,
         station_id: str,
@@ -706,7 +691,7 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Resolve the requested parameters one by one after the request for `batched` 404'd, or came back empty.
+        """Resolve the requested parameters one by one after the request for `batched` 404'd.
 
         Only the parameters that were asked for: the batch fetched the whole dataset, but its extra
         rows are dropped later, so resolving them would spend requests on nothing. A batch of one
@@ -735,7 +720,7 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Fetch a single parameter directly, falling back to time-series discovery on 404 or an empty answer.
+        """Fetch a single parameter directly, falling back to time-series discovery on 404.
 
         Used when a batched multi-element request 404s, to resolve each parameter
         individually (some historical/synoptic elements require time-series discovery,
@@ -779,13 +764,6 @@ class MetnoFrostValues(TimeseriesValues):
 
         df = pl.read_json(file.content)
         if not _has_observations(df):
-            # as in `_collect_station_parameter_or_dataset` (GH-3748); for the one-parameter 6_hours dataset this is
-            # not reached, a request of one goes to discovery as it is, and it guards the day that dataset has two
-            if parameter.dataset.resolution.name in _DISCOVERY_WHEN_EMPTY:
-                log.info(f"Frost answered {file.url} without observations, resolving the time series")
-                return self._collect_via_time_series_discovery(
-                    station_id, parameter, start_date, end_date, settings, client_kwargs
-                )
             return pl.DataFrame()
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
@@ -820,12 +798,11 @@ class MetnoFrostValues(TimeseriesValues):
         settings: Settings,
         client_kwargs: dict,
     ) -> pl.DataFrame:
-        """Fall back to availableTimeSeries discovery when the direct query returns 404 or, for some, nothing.
+        """Fall back to availableTimeSeries discovery when the direct query returns 404.
 
         Some historical/synoptic elements require specific timeseriesids, performancecategories,
         and exposurecategories parameters that can only be discovered via the availableTimeSeries
-        endpoint. Frost answers a query without them with a 404, or, as of 2026-11-02 for the elements of
-        `_DISCOVERY_WHEN_EMPTY`, with a 200 that holds no observations (GH-3748).
+        endpoint; Frost answers a query without them with a 404.
         """
         element = parameter_or_dataset.name_original
         resolution = parameter_or_dataset.dataset.resolution.name_original
