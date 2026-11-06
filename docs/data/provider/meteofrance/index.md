@@ -30,6 +30,10 @@ dates it, in one attempt (a few megabytes to some twenty per year). If the host 
 is read with no date and a warning says so. A copy made since is not downloaded again, whether the file had a date or
 not.
 
+The [terms of use of data.gouv.fr](https://www.data.gouv.fr/pages/legal/cgu) (read 2026-11-06), which lists the
+datasets, state no limit on requests, and the object store the files come from (`meteofrance.s3.sbg.io.cloud.ovh.net`)
+was not found to publish terms of its own.
+
 ```{toctree}
 :hidden:
 
