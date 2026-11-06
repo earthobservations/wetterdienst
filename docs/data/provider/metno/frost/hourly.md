@@ -24,5 +24,11 @@
 | {term}`pressure_air_site` | surface_air_pressure | Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | cloud_area_fraction | Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null. | one_eighth |
 | {term}`radiation_global_intensity_mean` | mean(surface_downwelling_shortwave_flux_in_air PT1H) | Hourly mean global radiation. Global radiation is the total downwelling shortwave radiation from the sun. Shortwave radiation have wavelengths in the area 295-2800 nm and therefore includes ultraviolet, visible and infrared light. The instrument measures the radiation flux through a horizontal surface (W/m2). | watt_per_square_meter |
-| {term}`precipitation_amount` | sum(precipitation_amount PT1H) | Amount of precipitation per hour | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount PT1H) | Amount of precipitation per hour. Code -1 is read as no precipitation (our reading: Frost's table lists it for the sum over an undefined period only): returned as 0 from 1982 on, and as null before. | millimeter |
 | {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow, and is returned as a depth of 0. | centimeter |
+
+## Notes
+
+`-1` of the precipitation sum is read as no precipitation, `0.0`, from 1982 on and is `null` before. That is our reading:
+Frost's table lists the code for `sum_over_undefined_period(precipitation_amount PT1H)` and not for this element. See the
+section [The code -1 of the precipitation sums](index.md) of the Frost page for the evidence.

@@ -167,6 +167,20 @@ Types of changes:
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them
   (GH-3814)
+- **Breaking**: `metno/frost` 6-hourly and hourly `precipitation_amount` return Frost's `-1`, which
+  its [data clarifications](https://frost.met.no/dataclarifications.html) state as no
+  precipitation for the 6-hourly sum (the hourly sum is our reading), as `0.0` with `raw:-1` in
+  `quality_flags` from 1982 on. It was null, as the range check took it for a reading below 0 mm
+  (a station with only `-1` had "no values"). Before 1982 it stays null, with `raw:-1` alone: it is
+  every reading of a station in the 1940s and 1950s, wet days included. Daily, 10-minute, monthly
+  and annual sums are unchanged (daily: GH-3820). To get the old series, drop the
+  `precipitation_amount` rows whose `quality_flags` end with `raw:-1`; the code is in
+  `docs/usage/migrating.md`. The 0.182.0 entry on this element named the wrong cause; the
+  discovery it added for an empty answer is gone (GH-3748)
+- `metno/frost` reads an answer in which no observation has a `qualityCode` (it raised
+  `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
+  `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
+  that blamed the client ID (GH-3748)
 
 ## [0.183.0] - 2026-11-03
 
