@@ -208,6 +208,66 @@ def test_metno_frost_values_6hour_precipitation_no_precipitation_is_zero() -> No
     assert df["quality_flags"].to_list() == ["2,raw:-1", "0,raw:-1"]
 
 
+@pytest.mark.remote
+def test_metno_frost_values_6hour_precipitation_before_1982_is_not_read() -> None:
+    """6-hourly precipitation of Kjevik in 1951 is every reading -1, wet days included, and is no value (GH-3748).
+
+    SN39040 has -1 for 1,096 of 1,096 readings in 1950 to 1952; on 1951-08-05 the daily sum is 79.3 mm. Read as a dry
+    period it would write 0.0 into a wet day, so before 1982 the code is null (and, null, dropped).
+    """
+    request = MetnoFrostRequest(
+        parameters=[("6_hours", "data", "precipitation_amount")],
+        start=dt.datetime(1951, 8, 1, tzinfo=UTC),
+        end=dt.datetime(1951, 8, 10, tzinfo=UTC),
+        options={"drop_nulls": False},
+    )
+    df = request.filter_by_station_id("SN39040").values().all().df
+    assert df.height > 0
+    assert df["value"].null_count() == df.height
+    assert all(flags.endswith("raw:-1") for flags in df["quality_flags"].to_list())
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_answer_without_a_quality_code_is_read() -> None:
+    """The daily precipitation of Skien on 2015-05-01 has no `qualityCode` and is read (GH-3748).
+
+    Frost leaves the key out of the observation; selecting the column raised a `ColumnNotFoundError`. The value is -1,
+    which is 0.0 from 1982 on, though this day is one of the named exceptions: 7.4 mm of hourly rain fell in it.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2015, 5, 1, tzinfo=UTC),
+            end=dt.datetime(2015, 5, 1, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN30320")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [0.0]
+    assert df["quality_flags"].to_list() == ["raw:-1"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> None:
+    """6-hourly precipitation of Bjornoya from 1920 to 2026 is over Frost's 100,000 observations (GH-3748).
+
+    Frost answers it with a 403, the status of a refused client ID, whose body says "The estimated number of
+    observations (...) exceeds the maximum number allowed (100000)". The client ID is fine and the caller is told to
+    narrow the window.
+    """
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+
+    request = MetnoFrostRequest(
+        parameters=[("6_hours", "data", "precipitation_amount")],
+        start=dt.datetime(1920, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with pytest.raises(InvalidTimeIntervalError, match="narrow the window"):
+        request.filter_by_station_id("SN99710").values().all()
+
+
 def test_metno_frost_decodes_sentinels() -> None:
     """Test that Frost's in-band codes become the value they stand for.
 
