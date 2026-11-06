@@ -10,6 +10,7 @@ import logging
 import os
 import signal
 import subprocess
+import time
 from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
@@ -92,6 +93,9 @@ IMAGE_TIMEOUT = 120.0
 #: browser that is still there after that is killed with its process group (`_make_sure_it_is_gone`), so a render
 #: that timed out returns within about 10 s of its timeout
 _CLOSE_GRACE = 5.0
+#: seconds `open()` has, after the clock ran out, to have the process of the browser started and kept (see
+#: `_let_the_process_start`); starting it takes a few hundredths of a second, a quarter of a second on a slow runner
+_START_GRACE = 2.0
 
 
 def _kill_group(process: Any) -> None:  # noqa: ANN401
@@ -116,6 +120,19 @@ def _kill_group(process: Any) -> None:  # noqa: ANN401
             process.kill()
     except (OSError, subprocess.SubprocessError) as e:
         log.warning(f"The browser of an image could not be killed: {e!r}")
+
+
+async def _let_the_process_start(browser: Any, work: asyncio.Future[bytes]) -> None:  # noqa: ANN401
+    """Wait until choreographer holds the process of the browser, if its start is under way (GH-3723).
+
+    `Browser.open` starts the process in a thread and keeps the `Popen` it returns once the thread is done. A clock
+    that ran out in between cancels the wait for the thread, which goes on: the process is started after the close,
+    and nothing holds it to kill (a Chrome with no reader of its pipe ends itself when it has started, a stuck one
+    would not). The cancel therefore waits for the process to be kept, a moment at most.
+    """
+    deadline = time.monotonic() + _START_GRACE
+    while not hasattr(browser, "subprocess") and not work.done() and time.monotonic() < deadline:  # noqa: ASYNC110
+        await asyncio.sleep(0.05)
 
 
 async def _make_sure_it_is_gone(browser: Any) -> None:  # noqa: ANN401
@@ -169,6 +186,7 @@ async def _draw_in_a_browser(
             # a wait of Kaleido's or choreographer's own that ran out first (a page that was not ready in 30 s)
             raise ImageTimeoutError(None) from e
     finally:
+        await _let_the_process_start(browser, work)
         work.cancel()
         # not `wait_for`: choreographer swallows the cancellation of its own wait and goes on to its kill, which takes
         # 9 s more; the browser is given the grace, and killed after it

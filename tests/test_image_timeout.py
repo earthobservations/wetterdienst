@@ -282,6 +282,54 @@ def test_a_browser_that_is_still_there_after_the_close_is_killed_with_its_group(
 
 
 @pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
+def test_a_clock_that_runs_out_while_the_process_is_being_started_still_kills_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`Browser.open` keeps the `Popen` of a thread that starts the process: a cancel before that loses the process.
+
+    The window is a fraction of a second, and a limit of a few milliseconds finds it every time (on a slow runner
+    50 ms did): the process was started after the close, and nothing held it to kill.
+    """
+    started: list[subprocess.Popen[bytes]] = []
+
+    def start() -> subprocess.Popen[bytes]:
+        time.sleep(0.4)  # the thread of choreographer that starts the wrapper of the browser
+        process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
+        started.append(process)
+        return process
+
+    class Kaleido:
+        def __init__(self, **_kwargs: Any) -> None:  # noqa: ANN401
+            pass
+
+        async def open(self) -> None:
+            self.subprocess = await asyncio.get_running_loop().run_in_executor(None, start)  # as choreographer does
+            await asyncio.Event().wait()  # the page is never ready
+
+        async def close(self) -> None:
+            if hasattr(self, "subprocess"):  # choreographer: "No _close(), already is closed" where it has none
+                await asyncio.Event().wait()
+
+    _fake_kaleido(monkeypatch)
+    monkeypatch.setattr(sys.modules["kaleido"], "Kaleido", Kaleido)
+    try:
+        with pytest.raises(ImageTimeoutError):
+            render_image(go.Figure(), "png", timeout=0.05)
+        deadline = time.monotonic() + 3
+        while not started and time.monotonic() < deadline:
+            time.sleep(0.05)
+
+        assert started, "the process was never started"
+        assert started[0].poll() is not None
+        assert _is_gone(started[0].pid) is True
+    finally:
+        for process in started:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="a process group is a POSIX thing")
 @pytest.mark.parametrize("error", [PermissionError("zombie"), OSError("no"), subprocess.TimeoutExpired("taskkill", 6)])
 def test_a_kill_that_fails_does_not_replace_the_image(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
     """On macOS `killpg` on a zombie leader raises `PermissionError`: the image that was drawn is still the result."""
