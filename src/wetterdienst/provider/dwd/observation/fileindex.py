@@ -8,6 +8,7 @@ import functools
 import inspect
 import logging
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import polars as pl
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_F = TypeVar("_F")
+_F = TypeVar("_F", bound=Callable[..., Any])
 #: the key of the directories found empty in the memory of a response
 _EMPTY_DIRECTORIES = "empty_directories"
 
@@ -240,10 +241,10 @@ def remembering_empty_directories(method: _F) -> _F:
 
         return cast("_F", generator)
 
-    @functools.wraps(method)  # ty: ignore[invalid-argument-type]
+    @functools.wraps(method)
     def plain(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         with response_memory_scope():
-            return method(*args, **kwargs)  # ty: ignore[call-non-callable]
+            return method(*args, **kwargs)
 
     return cast("_F", plain)
 
