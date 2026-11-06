@@ -185,6 +185,10 @@ Types of changes:
   `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
+- The OpenAPI document served at `/openapi.json` no longer gives the licence both an `identifier`
+  and a `url`, which OpenAPI 3.1 makes mutually exclusive, so a strict validator or client
+  generator no longer refuses it. `info.license` is `{"name": "MIT", "identifier": "MIT"}`; the
+  link to `LICENSE.md` is gone from it (GH-3824)
 
 ## [0.183.0] - 2026-11-03
 
