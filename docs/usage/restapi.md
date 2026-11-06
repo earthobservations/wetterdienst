@@ -462,16 +462,27 @@ release commit, with `uv run poe contracts:baseline`.
       and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
       `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
       `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
-    - the `description` of each parameter it names ends with the sentence of the refusal, such as `Exactly one of all,
-      stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.`;
-    - its `examples` hold one value the server accepts, such as `stations=01048,04411` and `name=Hamburg Fuhlsbüttel`,
-      or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list there, which a client writes
-      comma-separated (`explode: false`).
+    - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
+      `Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is
+      required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+    - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
+      `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
+      there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
+      request made of them: `all=true` on `values` or `history` over a network with more stations than the server
+      allows for one request is a 400 (see [Limits](#limits)), and `sql` is a 403 unless the server enables it
+      (see [SQL filters](#sql-filters)).
 
   The model that refuses a request, the extension, the sentences and the examples are written from one definition
-  (`Selection` in `ui/core.py`), and tests hold the document to the refusal the server answers with, and the examples
-  to the server answering them. The sentences and examples are on the parameters of the operation and not on their
-  schemas, which the MCP tools are built from, so the tools carry no more text than before.
+  (`Selection` in `ui/core.py`), which the model enforces whole, the `then` and `requires` as well as the groups.
+  Tests hold the groups to the rules as written for a client, over every combination of up to three of the
+  parameters, and the document to the 422 the server answers with. They hold the examples of each alternative to the
+  model and to the schema of the parameter, and run those of `stations` and `values` against a stand-in network of
+  eight stations; the other operations' examples are not run. The sentences and examples are on the parameters of the
+  operation and not on their schemas, which the MCP tools are built from, so the tools carry no more text than before.
+
+  `x-wetterdienst-selection` is informative. It may change in a minor release, as the descriptions and examples
+  may: what is promised is the refusal itself (the 422, its `type` and the alternatives it names), which is held by
+  the contract tests, and not this member of the document.
 - **Errors** are declared by status where the route can answer them, as references to the `responses` of
   `components`, each listing the kinds of problem that status is (see [Errors](#errors)). Every route under `/api/v1`
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many

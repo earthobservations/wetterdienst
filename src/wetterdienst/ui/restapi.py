@@ -1381,7 +1381,7 @@ def _declare_selections(schema: dict[str, Any]) -> None:
     - the `description` of each parameter it names, in the words of the refusal (`Selection.sentences`). Only the
       parameter's own `description` is changed, not that of its schema, which a tool of the MCP server is built
       from, so the tools' schemas do not grow;
-    - the `examples` of each parameter, one value that is accepted (`SELECTION_EXAMPLES`), of the type of its
+    - the `examples` of each parameter, one value it takes (`SELECTION_EXAMPLES`), of the type of its
       schema, a list as a list, which `explode: false` has a client write comma-separated. It is `examples`
       and not `example`, which the MCP server copies into the schema of its tool: 745 characters more in the list
       of the tools, which `examples` of the parameter does not.

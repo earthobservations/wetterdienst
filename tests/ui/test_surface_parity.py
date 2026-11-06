@@ -11,6 +11,7 @@ answers are held to each other.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import json
 import logging
 import re
@@ -1176,6 +1177,10 @@ _SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
 }
 
 
+#: the tools of the MCP server that are these operations
+_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize", "stripes_values", "stripes_image"}
+
+
 def _operation(path: str) -> dict[str, Any]:
     """Give the operation of the served OpenAPI document that answers `path`."""
     return restapi.app.openapi()["paths"][path]["get"]
@@ -1253,8 +1258,8 @@ def test_the_document_says_what_the_refusal_of_a_point_without_a_measure_says(pa
     assert error["type"] == "missing_one_of"
     assert error["ctx"]["one_of"] == selection["then"][0]["exactly_one_of"]
     assert selection["then"][0]["when"] == ["latitude", "longitude"]
-    assert f"{error['msg']}." in described["rank"]
-    assert f"{error['msg']}." in described["distance"]
+    for name in ("latitude", "longitude", "rank", "distance"):
+        assert f"{error['msg']}." in described[name], name
 
     for name in ("rank", "distance"):
         alone = client.get(path, params={**base, "all": "true", **_example_query(name, path=path)})
@@ -1291,10 +1296,17 @@ def test_each_example_of_a_selection_is_a_value_its_parameter_takes(path: str) -
 
 
 @pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
-def test_the_examples_of_each_alternative_are_a_request_the_server_answers(
+def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
     path: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The server answers the examples of each alternative of `stations` and `values`, not with a refusal."""
+    """The examples of each alternative pass the validation and the lookup of a network of 8 stations (not refused).
+
+    That is all it shows. A real network is larger, and a server refuses a request that reads more stations than it
+    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `sql` is a 403 where the
+    server does not enable it, which this test does. `history` reads the network's metadata from upstream, which the
+    stand-in does not serve; it, `interpolate`, `summarize` and the two stripes operations are not run here, only
+    held to the model and to the schemas of their parameters.
+    """
     _, base = _SELECTION_ROUTES[path]
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     client = TestClient(restapi.app, raise_server_exceptions=False)
@@ -1303,6 +1315,106 @@ def test_the_examples_of_each_alternative_are_a_request_the_server_answers(
         answered = client.get(path, params={**base, **alternative})
         # the stand-in network has no station by the name or at the place of an example: an empty answer, still a 200
         assert answered.status_code == 200, (alternative, answered.text[:300])
+
+
+#: what each operation takes, written out here and not read from the document or the model, so that the tests below
+#: hold both to it from outside (GH-3134)
+_STATION_GROUPS = [
+    ["all"],
+    ["stations"],
+    ["name"],
+    ["latitude", "longitude"],
+    ["left", "bottom", "right", "top"],
+    ["sql"],
+]
+_EXPECTED_GROUPS = {
+    "/api/v1/stations": _STATION_GROUPS,
+    "/api/v1/values": _STATION_GROUPS,
+    "/api/v1/history": [["all"], ["stations"]],
+    "/api/v1/interpolate": [["station"], ["latitude", "longitude"]],
+    "/api/v1/summarize": [["station"], ["latitude", "longitude"]],
+    "/api/v1/stripes/values": [["station"], ["name"]],
+    "/api/v1/stripes/image": [["station"], ["name"]],
+}
+#: parameters to combine, as a client writes them
+_ATOMS = {
+    "all": {"all": "true"},
+    "stations": {"stations": "01048"},
+    "name": {"name": "Dresden"},
+    "point": {"latitude": "51.05", "longitude": "13.74"},
+    "latitude": {"latitude": "51.05"},
+    "box": {"left": "13", "bottom": "50", "right": "14", "top": "52"},
+    "box without top": {"left": "13", "bottom": "50", "right": "14"},
+    "sql": {"sql": "region='Sachsen'"},
+    "station": {"station": "01048"},
+    "rank": {"rank": "3"},
+    "distance": {"distance": "25"},
+}
+
+
+def _is_accepted(path: str, keys: set[str]) -> bool:
+    """Say, from the rules as written for a client, whether a request giving `keys` makes exactly one selection."""
+    made = [group for group in _EXPECTED_GROUPS[path] if keys & set(group)]
+    if len(made) != 1 or not set(made[0]) <= keys:
+        return False
+    if _EXPECTED_GROUPS[path] is _STATION_GROUPS:
+        point = {"latitude", "longitude"} <= keys
+        # a point wants a rank or a distance, not both; a distance wants a point, a rank a point or a name
+        if point and len(keys & {"rank", "distance"}) != 1:
+            return False
+        if "distance" in keys and not point:
+            return False
+        if "rank" in keys and not (point or "name" in keys):
+            return False
+    return True
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_the_document_and_the_refusal_are_the_rules_as_written_for_a_client(path: str) -> None:
+    """The groups of the document, and the requests the model takes, are those the rules say, over 3 parameters at most.
+
+    The expectation is written above and does not come from the `Selection` that the document and the model are made
+    of, so a change to it that was not meant fails here (GH-3134).
+    """
+    model, base = _SELECTION_ROUTES[path]
+    assert _operation(path)["x-wetterdienst-selection"]["exactly_one_of"] == _EXPECTED_GROUPS[path]
+    taken = set(model.model_fields)
+    atoms = {name: query for name, query in _ATOMS.items() if set(query) <= taken}
+
+    checked = 0
+    for size in range(4):
+        for names in itertools.combinations(atoms, size):
+            queries = [atoms[name] for name in names]
+            keys = [key for query in queries for key in query]
+            if len(keys) != len(set(keys)):
+                continue
+            try:
+                model.model_validate({**base, **{key: value for query in queries for key, value in query.items()}})
+                accepted = True
+            except core.ValidationError:
+                accepted = False
+            assert accepted == _is_accepted(path, set(keys)), names
+            checked += 1
+    assert checked > len(atoms)
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_what_the_document_says_a_parameter_needs_is_refused_when_it_is_missing(path: str) -> None:
+    """Every `then` and `requires` of the document is enforced by the model of its operation, not only stated."""
+    model, base = _SELECTION_ROUTES[path]
+    selection = _operation(path)["x-wetterdienst-selection"]
+    first = _example_query(*selection["exactly_one_of"][0], path=path)
+
+    for field, needs in selection.get("requires", {}).items():
+        lacking = {key: value for key, value in first.items() if key not in {n for group in needs for n in group}}
+        with pytest.raises(core.ValidationError) as refused:
+            model.model_validate({**base, **lacking, **_example_query(field, path=path)})
+        assert {error["type"] for error in refused.value.errors()} == {"requires"}, field
+    for then in selection.get("then", []):
+        point = _example_query(*then["when"], path=path)
+        with pytest.raises(core.ValidationError) as refused:
+            model.model_validate({**base, **point})
+        assert {error["type"] for error in refused.value.errors()} == {"missing_one_of"}
 
 
 def test_the_tools_of_the_mcp_server_do_not_carry_the_selection_examples() -> None:
@@ -1318,9 +1430,9 @@ def test_the_tools_of_the_mcp_server_do_not_carry_the_selection_examples() -> No
         async with Client(build_mcp_server(restapi.app)) as client:
             return await client.list_tools()
 
-    selection_tools = [tool for tool in asyncio.run(tools()) if tool.name in {"stations", "values", "history"}]
+    selection_tools = [tool for tool in asyncio.run(tools()) if tool.name in _SELECTION_TOOLS]
 
-    assert len(selection_tools) == 3
+    assert {tool.name for tool in selection_tools} == _SELECTION_TOOLS
     for tool in selection_tools:
         for name, schema in tool.input_schema["properties"].items():
             assert "example" not in schema, (tool.name, name)

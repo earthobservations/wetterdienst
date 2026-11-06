@@ -725,10 +725,10 @@ class Selection:
     exactly one of the groups after it. `requires` is the parameter that is not given alone: it needs one of the
     groups beside it.
 
-    A request model holds it as `selection`, and its validator checks the request against it
-    (`_check_one_of`, `_check_station_selection`), so that a change here changes what is refused, and
-    `restapi._declare_selections` writes it into the document as `x-wetterdienst-selection` with the same words
-    (GH-3134). `tests/ui/test_surface_parity.py` holds the document, the refusal and the examples together.
+    A request model holds it as `selection`, and its validator checks the request against all of it
+    (`_check_selection`), so that a change here changes what is refused, and `restapi._declare_selections` writes
+    it into the document as `x-wetterdienst-selection` with the same words (GH-3134).
+    `tests/ui/test_surface_parity.py` holds the document, the refusal and the examples together.
     """
 
     exactly_one_of: tuple[Group, ...]
@@ -742,7 +742,7 @@ class Selection:
             for name in group:
                 found.setdefault(name, []).append(f"{exactly_one_of_message(self.exactly_one_of)}.")
         for when, groups in self.then:
-            for name in (name for group in groups for name in group):
+            for name in (*when, *(name for group in groups for name in group)):
                 found.setdefault(name, []).append(f"{exactly_one_of_message(groups, when)}.")
         for name, needs in self.requires:
             found.setdefault(name, []).append(f"{requires_message(needs)}.")
@@ -774,10 +774,11 @@ REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
 #: the station of the climate stripes
 STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
 
-#: one request that is accepted, for each parameter of a selection: its value as the schema of the parameter has
-#: it, a list as a list, which the document spells comma-separated (`explode: false`). A request gives a whole group
-#: of them, with a `rank` for the point (`tests/ui/test_surface_parity.py` makes each of them and the server
-#: answers it). `sql` is refused with a 403 where the server does not enable it
+#: one value for each parameter of a selection, as the schema of the parameter has it, a list as a list, which the
+#: document spells comma-separated (`explode: false`). A request gives a whole group of them, with a `rank` for the
+#: point, and the model accepts it (`tests/ui/test_surface_parity.py` makes each); the limits of the server still
+#: apply, such as the stations one request may read, and `sql` is refused with a 403 where the server does not
+#: enable it
 SELECTION_EXAMPLES: dict[str, Any] = {
     "all": True,
     "stations": ["01048", "04411"],
@@ -795,15 +796,16 @@ SELECTION_EXAMPLES: dict[str, Any] = {
 }
 
 
-def _check_station_selection(
-    request: StationsRequest | ValuesRequest, selection: Selection = STATION_SELECTION
-) -> list[InitErrorDetails]:
-    """Check the one station selection a stations or values request makes.
+def _check_selection(request: BaseModel, selection: Selection) -> list[InitErrorDetails]:
+    """Check the one selection a request makes, by all of its `Selection`: the model of every route calls this.
 
-    `get_stations` takes the first selection it finds, so a request making two was answered for
-    one of them and the other dropped without a word. The CLI's option parser refused that, but the
-    REST API and MCP build these models without it and answered. Checked here, all three share one
-    rule.
+    The alternatives, what a group made asks for in turn (`then`) and the parameters that are not given alone
+    (`requires`) are all enforced here, so that what the document states of a `Selection` is what is refused.
+    A selection with neither `then` nor `requires` is the alternatives alone.
+
+    For `stations` and `values`, `get_stations` takes the first selection it finds, so a request making two was
+    answered for one of them and the other dropped without a word. The CLI's option parser refused that, but the
+    REST API and MCP build these models without it and answered. Checked here, all three share one rule.
 
     `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
     """
@@ -914,7 +916,7 @@ class StationsRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> StationsRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self, self.selection))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -984,7 +986,7 @@ class HistoryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> HistoryRequest:
         """Check that exactly one of all or stations is given."""
-        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -1110,7 +1112,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self, self.selection))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -1216,7 +1218,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> InterpolationRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -1319,7 +1321,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> SummaryRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -2309,7 +2311,7 @@ class StripesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_and_years(self) -> StripesRequest:
         """Check exactly one of station or name is given, and a year range that ends after it starts."""
-        errors = _check_one_of(self, self.selection.exactly_one_of)
+        errors = _check_selection(self, self.selection)
         if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
             message = f"Input should be greater than start_year ({self.start_year})"
             errors.append(

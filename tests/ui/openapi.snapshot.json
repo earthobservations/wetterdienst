@@ -1532,7 +1532,7 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 53.63
@@ -1557,7 +1557,7 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 10.0
@@ -2361,7 +2361,7 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 53.63
@@ -2386,7 +2386,7 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
             "examples": {
               "example": {
                 "value": 10.0
