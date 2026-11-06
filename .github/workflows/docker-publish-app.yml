@@ -344,6 +344,8 @@ jobs:
     needs: docker_app_merge
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # see `deploy` in docker-publish.yml: the same environment, the same tag patterns (GH-3344)
+    environment: production
     steps:
       # the secrets are read from the environment, not written into the script: a template in `run:`
       # is expanded into the shell source before it runs

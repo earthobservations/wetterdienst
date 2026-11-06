@@ -46,6 +46,26 @@ This repository uses a **monorepo structure** with separate release workflows fo
 
 **Key point**: Backend releases only build backend images, app releases only build app images.
 
+## Who can release
+
+A tag starts the publishing workflows, and a workflow runs from the commit its tag points to, which can be
+a commit on no reviewed branch. The release tags are therefore protected by repository settings, which
+this repository does not hold as files (GH-3344):
+
+| Setting | Value | What it stops |
+|---|---|---|
+| Tag ruleset on `refs/tags/v*` and `refs/tags/app-v*` | creating, updating and deleting are restricted to the bypass team of the `default` branch ruleset | a tag by anyone with write access, and a tag moved to another commit |
+| Environment `pypi` | deployment tag pattern `v*` | the `publish` job of `release.yml` (the only job with `id-token: write`) running from a branch or an `app-v*` tag |
+| PyPI trusted publisher | bound to the environment `pypi` | a workflow run that does not name that environment publishing to PyPI |
+| Environment `production` | deployment tag patterns `v*` and `app-v*`, holding `COOLIFY_API_TOKEN`, `COOLIFY_BACKEND_UUID` and `COOLIFY_APP_UUID` | the two `deploy` jobs of `docker-publish*.yml` running from a branch, and a workflow that does not name the environment reading the Coolify secrets |
+
+`gh release create vX.Y.Z --target <sha>` creates the tag under the account that runs it, so that account
+has to be in the bypass team. Neither release workflow creates a tag: `app-release.yml` only uploads a
+file to the release that exists. A release that fails with `Cannot create ref due to creations being
+restricted` was made by an account outside the bypass team; make it as the maintainer, do not widen the
+ruleset. The environments hold no required reviewer, so a release waits for no click: the tag pattern
+checks where a run comes from, the ruleset checks who can make the tag.
+
 ## Creating Releases
 
 ### Release notes are not the changelog

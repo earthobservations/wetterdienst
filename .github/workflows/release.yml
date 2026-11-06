@@ -68,6 +68,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The environment `pypi` carries the deployment tag pattern `v*` (and the PyPI trusted publisher is
+    # bound to this name): a run that is not on a release tag does not get the token (GH-3344)
+    environment: pypi
     permissions:
       id-token: write
     steps:
