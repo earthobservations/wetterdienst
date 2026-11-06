@@ -272,10 +272,11 @@ build the request from the options, call `get_stations`, `get_values`, `get_inte
 
 **The REST API** (`ui/restapi.py`) is a FastAPI app whose data routes are served under `/api/v1` and, as an alias of
 the current version, under `/api` (the same router is included twice), beside the routes of the server itself (`/`,
-`/health`, `/robots.txt`). An endpoint validates its query with the models of `ui/core.py`, calls the same functions, and renders the
+`/health`, `/ready`, `/robots.txt`). An endpoint validates its query with the models of `ui/core.py`, calls the same functions, and renders the
 result through `ui/render.py` (or `ui/streaming.py` for NDJSON and CSV streams). The rest of `ui/` is what a server
 needs and a library does not: `limits.py` (the refusals before anything is downloaded, from the `restapi_*` settings),
-`middleware.py` (request id, timeout, concurrency, allowed hosts), `problems.py` (every failure as a problem
+`middleware.py` (request id, timeout, concurrency, allowed hosts), `caching.py` (cache headers and `304` for the
+stable answers), `readiness.py` (what `/ready` checks), `problems.py` (every failure as a problem
 document), `response_metadata.py` (the `metadata` block of every answer, with the licence and attribution of the
 provider), `providers.py` (the providers listing). See [REST API](../usage/restapi.md).
 
