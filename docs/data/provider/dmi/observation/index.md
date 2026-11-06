@@ -163,7 +163,8 @@ value may lie up to one hour from its stamp, and the library does not tell the t
 request to metObs for each station).
 
 DMI lists `no_days_fog` ("No. of days with fog (vis. < 1 km)") for 10 stations in Greenland, but the service holds no
-value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served.
+value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served. DMI holds it only as 30-year normals for 1961-1990 at those 10 Greenland
+stations (read on 2026-11-06), not as a time series.
 `no_days_snowfall`, `no_days_thunder` and `mean_absolute_humidity` are not served either, until DMI has said what they
 count and measure.
 

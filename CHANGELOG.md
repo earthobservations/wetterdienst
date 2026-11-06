@@ -86,6 +86,9 @@ Types of changes:
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
   unchanged. A commercial use needs an agreement with IMGW-PIB (Part of GH-2567)
+- `license.url` of Météo-France and Eaufrance is now
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2-0`, where the former `etalab-2.0` address
+  redirects permanently to it; it is the same Licence Ouverte 2.0 (Part of GH-3762)
 
 ### Fixed
 
