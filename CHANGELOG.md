@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- The REST API marks four answers as stable: `coverage`, `providers` and `glossary` get
+  `Cache-Control: public, max-age=300`, an `ETag` and a `Last-Modified`, `history` gets 3600 and an
+  `ETag` when it has rows and no warnings. A matching `If-None-Match` or `If-Modified-Since` is
+  answered with a `304` without a body (the transfer is saved, not the work; the tag leaves out
+  `metadata.retrieved_at`). Values, stations, streams, stripes and errors send no cache header.
+  New `GET /ready` beside `/health`: a 503 `not-ready` when the settings are invalid or neither
+  the cache directory nor the temporary one is writable (one alone is not: the cache falls back);
+  no provider is asked (Part of GH-3134)
 - The new check `relations` holds the readings of one row (the same station, timestamp and file) to
   each other on every observation network: a maximum is not below the mean and the mean not below
   the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
