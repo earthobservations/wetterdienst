@@ -402,6 +402,9 @@ def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
+    if exc.status_code == 405 and request.url.path in _HEAD_PROBES:
+        # Starlette lists the methods of the first route that matched the path, which is the `GET`: the probes take both
+        exc = StarletteHTTPException(405, exc.detail, {**(exc.headers or {}), "Allow": "GET, HEAD"})
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=exc.headers)
     if not isinstance(exc.detail, str):
@@ -1006,6 +1009,9 @@ def _head_of(answer: Response) -> Response:
     return Response(status_code=answer.status_code, headers=dict(answer.headers))
 
 
+#: the routes that answer `HEAD` as their `GET` does
+_HEAD_PROBES = ("/health", "/ready")
+
 _HEAD_ANSWER = {
     "description": "The status and the headers of the `GET`, with no body.",
 }
@@ -1224,6 +1230,17 @@ def _problem_components() -> dict[str, dict[str, Any]]:
     return components
 
 
+def _head_answer_of(status: int) -> dict[str, Any]:
+    """Describe the answer of a `HEAD` to a problem: the status and headers of the `GET`'s, and no body."""
+    name, title = _PROBLEM_COMPONENTS[status]
+    answer: dict[str, Any] = {
+        "description": f"{title}, as `GET` answers it, without the body (the problem of the component `{name}`).",
+    }
+    if status in RETRY_AFTER_STATUSES:
+        answer["headers"] = _RETRY_AFTER_HEADER
+    return answer
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
     """Describe the error body in the schema: the problem of `_problem_response`, and the routes that can answer it.
 
@@ -1299,7 +1316,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             answers = {503}
         else:
             answers = set()
-        for operation in item.values():
+        for method, operation in item.items():
             responses = operation.get("responses", {})
             if (invalid := responses.get("422")) is not None:
                 # the one status that FastAPI adds, kept as it describes it, with the problem as its content
@@ -1307,7 +1324,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             declared = {key: value for key, value in responses.items() if key not in map(str, _PROBLEM_COMPONENTS)}
             declared.update(
                 {
-                    str(status): {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    str(status): (
+                        _head_answer_of(status)
+                        if method == "head"
+                        else {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    )
                     for status in sorted(answers)
                 }
             )

@@ -1570,7 +1570,7 @@ def test_dwd_obs_history_tells_a_listing_that_came_back_empty(monkeypatch: pytes
     assert histories == []
     assert [warning["code"] for warning in warnings] == ["file-skipped"]
     assert warnings[0]["stations"] == ["01048", "01050"]
-    assert "daily/climate_summary" in warnings[0]["message"]
+    assert "the `historical` directory of daily/climate_summary" in warnings[0]["message"]
     assert "partial" in warnings[0]["message"]
 
 
@@ -1629,6 +1629,30 @@ def test_dwd_obs_history_warns_for_each_dataset_whose_listing_failed(monkeypatch
 
     told = {warning["message"].split(" came back")[0]: warning["stations"] for warning in recorded_warnings()}
     assert told == {
-        "The listing of the historical files of daily/climate_summary": ["01048", "01050"],
-        "The listing of the historical files of hourly/temperature_air": ["01048"],
+        "The listing of the `historical` directory of daily/climate_summary": ["01048", "01050"],
+        "The listing of the `historical` directory of hourly/temperature_air": ["01048"],
     }
+
+
+def test_dwd_obs_history_of_a_high_resolution_dataset_names_the_meta_data_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 1, 5 or 10 minute dataset reads the `meta_data` directory, which the warning names (and REST reaches)."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    def listing(**_: object) -> pl.LazyFrame:
+        msg = "empty"
+        raise FileNotFoundError(msg)
+
+    monkeypatch.setattr(api, "_create_file_index_for_1minute_or_5minute_historical_precipitation_metadata", listing)
+    df = pl.DataFrame({"station_id": ["01048"], "resolution": ["10_minutes"], "dataset": ["temperature_air"]})
+    stations = SimpleNamespace(df=df, request=SimpleNamespace(settings=Settings(), metadata=DwdObservationMetadata))
+    begin_response()
+
+    assert list(DwdObservationHistory(sr=cast("StationsResult", stations)).query()) == []
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["01048"]
+    assert (
+        "The listing of the `meta_data` directory of 10_minutes/temperature_air came back empty" in warning["message"]
+    )

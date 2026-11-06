@@ -73,7 +73,7 @@ _WINDOWS = os.name == "nt"
 _DRIVE_LETTER = re.compile(r"^/(?=[A-Za-z]:(?:[/\\]|$))")
 
 
-def _refuse_nul(path: str, target: str) -> None:
+def _refuse_nul(path: str) -> None:
     """Refuse a path with a NUL in it: no file name holds one, and a writer that is handed one fails in its own way.
 
     Python's `open` raises a `ValueError` for it, polars an `OSError`, and the NetCDF library stops at the NUL and
@@ -84,7 +84,8 @@ def _refuse_nul(path: str, target: str) -> None:
 
     """
     if "\x00" in path:
-        msg = f"The target's path holds a NUL character ({target!r}), which no file name does."
+        # names no part of the target: it may carry a token or a password in its query or its credentials
+        msg = "The target's path holds a NUL character (written %00), which no file name does."
         raise ExportRefusedError(msg)
 
 
@@ -104,10 +105,10 @@ def file_target_path(target: str) -> str:
 
     """
     if not target.startswith("file://"):
-        _refuse_nul(target, target)
+        _refuse_nul(target)
         return target
     path = unquote(target.removeprefix("file://"))
-    _refuse_nul(path, target)
+    _refuse_nul(path)
     return _DRIVE_LETTER.sub("", path, count=1) if _WINDOWS else path
 
 
@@ -141,6 +142,8 @@ class ConnectionString:
             a database or query, and a target with no password but a `host:port` and an `@` in
             its path or query reads as one with a password; no reading of the string can tell
             either from a target that means just that, so such an `@` is written `%40`.
+            The path of a file or DuckDB target, or the database of any other, holds a NUL
+            character (`%00`), which no file name has; the message does not repeat the target.
 
     """
 
@@ -165,7 +168,7 @@ class ConnectionString:
             self._name = parsed.scheme
             # the path is a URI path, percent-decoded as a `file://` one is
             self._path = unquote(parsed.path or parsed.netloc)
-            _refuse_nul(self._path, url)
+            _refuse_nul(self._path)
             self._database = self._path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
             return
@@ -192,6 +195,8 @@ class ConnectionString:
         self._username: str | None = None if parts["username"] is None else unquote(parts["username"])
         self._password: str | None = None if parts["password"] is None else unquote(parts["password"])
         self._database: str | None = None if parts["database"] is None else unquote(parts["database"])
+        # `sqlite:///x%00.sqlite` names a file, and the database of a server has no NUL either
+        _refuse_nul(self._database or "")
         self._query: str = parts["query"] or ""
         self._path: str = self._database or ""
 

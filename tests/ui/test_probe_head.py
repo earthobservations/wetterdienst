@@ -112,9 +112,22 @@ def test_a_probe_head_is_not_counted_against_the_cap(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize("path", ["/", "/robots.txt", "/api/v1/version", "/api/v1/providers"])
-def test_no_other_route_answers_head(client: TestClient, path: str) -> None:
-    """Only the two probes: any other route is a 405 for `HEAD`, as it was."""
+def test_no_other_route_of_the_server_answers_head(client: TestClient, path: str) -> None:
+    """Only the two probes: the index, `robots.txt` and the routes of the API are a 405 for `HEAD`, as they were.
+
+    The pages FastAPI adds itself (`/openapi.json`, `/docs`, `/redoc`) answered `HEAD` before and still do.
+    """
     assert client.head(path).status_code == 405
+
+
+@pytest.mark.parametrize("path", _PROBES)
+def test_a_method_a_probe_does_not_take_lists_both_it_takes(client: TestClient, path: str) -> None:
+    """The 405 of `POST` says `Allow: GET, HEAD`: Starlette named the `GET` alone, the first route that matched."""
+    response = client.post(path)
+
+    assert response.status_code == 405
+    assert response.headers["Allow"] == "GET, HEAD"
+    assert client.post("/api/v1/version").headers["Allow"] == "GET"
 
 
 @pytest.mark.parametrize("path", _PROBES)
@@ -127,6 +140,14 @@ def test_the_document_shows_head_on_the_probes_and_nowhere_else(path: str) -> No
     assert operation["tags"] == ["Server"]
     assert "content" not in operation["responses"]["200"]
     assert ("503" in operation["responses"]) == (path == "/ready")
+    if path == "/ready":
+        # not the component of the `GET`, whose description says the body is a problem: there is none here
+        answer = operation["responses"]["503"]
+        assert "$ref" not in answer
+        assert "without the body" in answer["description"]
+        assert "The body is a problem" not in answer["description"]
+        assert "Retry-After" in answer["headers"]
+        assert paths[path]["get"]["responses"]["503"] == {"$ref": "#/components/responses/Unavailable"}
     assert [name for name, item in paths.items() if "head" in item] == _PROBES
 
 

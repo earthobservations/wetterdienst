@@ -365,11 +365,14 @@ what the answer is missing:
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
-  The `history` of `dwd/observation` tells it too, for a dataset whose listing of the historical files came back
-  empty or missing (a 404, or a page with no links): no station of it can be read, and the answer is partial. It
-  carries the `stations` that asked for the dataset, and its message names the dataset. A station with no file in a
-  listing that is there (one that only has `recent` data) has no history of it, which is the source's answer, and no
-  warning.
+  The `history` of `dwd/observation` tells it too, for a directory whose listing came back empty or missing (a 404, or
+  a page with no links) while it was read for the history: no station of it can be read, and the answer is partial.
+  It carries the `stations` that asked for the dataset (the first ten), and its message names the directory. This is
+  the `meta_data` directory of a 1, 5 or 10 minute dataset, which is what REST and the command line reach, as a
+  history has no `periods`; the `historical` directory of the other datasets is listed first by the station lookup,
+  which fails with a 500 when it is empty, before a history begins (an older problem, not told here). A station with no
+  file in a listing that is there (one that only has `recent` data) has no history of it, which is the source's
+  answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -903,7 +906,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` dataset whose listing of historical files came back empty or missing is a `file-skipped` warning, so that answer is not kept; a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history whose `meta_data` listing (1, 5 and 10 minute datasets) came back empty or missing is a `file-skipped` warning, so that answer is not kept; a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
@@ -1048,8 +1051,9 @@ and stays ready. The answer is `Cache-Control: no-store`.
 `HEAD /health` and `HEAD /ready` answer as their `GET` does, with its status and headers (`Content-Length`, and for
 `/ready` the `no-store` and the 503 with `Retry-After`) and no body, for a monitor or `wget --spider` that probes with
 `HEAD` and reads a 405 as the server being down. They take the same path as the `GET`s: outside the host check, the cap
-and the timeout. Every other route of the API, the index and `robots.txt` answer `HEAD` with a 405, and the document lists a `head`
-operation on these two routes alone.
+and the timeout. The routes of the API, the index and `robots.txt` answer `HEAD` with a 405 as before (the pages
+FastAPI adds, `/openapi.json`, `/docs` and `/redoc`, answer it already). The document lists a `head` operation on the
+two probes alone, and a `POST` to one is a 405 with `Allow: GET, HEAD`.
 
 ## Errors
 

@@ -67,8 +67,10 @@ Types of changes:
   GH-3681)
 - `HEAD /health` and `HEAD /ready` answer as their `GET` does (status and headers, `/ready`'s
   `no-store` and 503 included) with no body, for monitors and `wget --spider` that read the 405
-  as a server that is down. Every other route still answers `HEAD` with a 405, and the OpenAPI
-  document lists the two `head` operations; MCP gains no tool (GH-3814)
+  as a server that is down. The routes of the API, the index and `robots.txt` still answer `HEAD`
+  with a 405 (`/openapi.json`, `/docs` and `/redoc` already answered it). A `POST` to a probe is a
+  405 with `Allow: GET, HEAD`. The OpenAPI document lists the two `head` operations; MCP gains no
+  tool (GH-3814)
 - An alert of `dwd/alerts` has `translations`: the further `<info>` blocks of its CAP message, each
   its `language` and the fields that differ from the first block, which for DWD's `mul` product
   (eight languages) are the event, headline, description and instruction. Before, the seven other
@@ -135,20 +137,18 @@ Types of changes:
   `findlibs` that something else keeps, upgrade it (GH-2441)
 - **Breaking**: `to_target` refuses an `if_exists` that is not `replace`, `append`, `fail` or `skip`
   with an `ExportRefusedError`. Before, a file took any other word for `replace` and overwrote
-  itself, DuckDB wrote nothing and said nothing, and a SQL database raised pandas' `ValueError`.
-  Pass one of the four words (the command line's `--if-exists` always refused others) (GH-3814)
-- A NUL in a file target (`file://x%00.csv`) is now an `ExportRefusedError`, and on the command
-  line one line and exit 1 for `alerts` and `history` before the fetch. Before, each writer failed
-  in its own way, with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
-- A file target is written beside its place and moved into it, so a write that fails (a full disk,
-  a sidecar that cannot be written) leaves the file that was there and no half-written one, with
-  `with_metadata` both files or neither. The file keeps its mode, a link is written through, and
-  on Windows a target held open by another process is a `PermissionError`. A Zarr store, a
-  directory, is still written in place (GH-3814)
-- `history` of `dwd/observation` now tells a dataset whose listing of historical files came back
-  empty or missing with a `file-skipped` warning naming the stations, so the REST API no longer
-  keeps that partial answer for an hour. A station with no file in a listing that is there is the
-  source's answer and still no warning (GH-3814)
+  itself, DuckDB wrote nothing and said nothing, and a SQL database passed it to pandas, which
+  refused most words and took its own `delete_rows`, which was never documented and is refused
+  now. Pass one of the four words (the command line's `--if-exists` always refused others)
+  (GH-3814)
+- A NUL in a file target (`file://x%00.csv`, `sqlite:///x%00.sqlite`) is now an
+  `ExportRefusedError` that names no part of the target, and on the command line one line and
+  exit 1 for `alerts` and `history` before the fetch. Before, each writer failed in its own way,
+  with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
+- `history` of `dwd/observation` now tells a `meta_data` directory (1, 5 and 10 minute datasets)
+  whose listing came back empty or missing with a `file-skipped` warning naming the stations, so
+  the REST API no longer keeps that partial answer for an hour. A station with no file in a
+  listing that is there is the source's answer and still no warning (GH-3814)
 - `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them

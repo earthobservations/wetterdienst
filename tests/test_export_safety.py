@@ -1,28 +1,22 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""What a write to a target refuses, and what it leaves behind when it fails (GH-3814).
+"""What a write to a target refuses (GH-3814).
 
 An `if_exists` that is none of the four words is refused by every sink (a file took it for `replace`, DuckDB for
 nothing at all). A NUL in a path is refused as a bad target, where each writer failed in its own way and NetCDF
-wrote the file whose name is the text before it. A file is written beside its place and moved into it, so that an
-error while writing leaves the file that was there as it was.
+wrote the file whose name is the text before it. (A file is still written in place: staging it beside its place and
+moving it in was tried and dropped, see the pull request.)
 """
 
 from __future__ import annotations
 
-import os
-import stat
-import sys
 from typing import TYPE_CHECKING, Any
 
-import polars as pl
 import pytest
 from click.testing import CliRunner
 
 from tests.model.test_results import _every_result
 from wetterdienst.exceptions import ExportRefusedError
-from wetterdienst.io import sinks
-from wetterdienst.io.file_metadata import SIDECAR_SUFFIX
 from wetterdienst.io.sinks import FILE_WRITERS
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.url import ConnectionString, file_target_path
@@ -151,153 +145,38 @@ def test_the_commands_that_write_the_file_themselves_refuse_a_nul_before_they_fe
     assert isinstance(result.exception, SystemExit), repr(result.exception)
 
 
-# --- a write that fails leaves what was there -------------------------------------------------------------------------
+def test_the_refusal_of_a_nul_names_no_part_of_the_target() -> None:
+    """A token or a password in the query or the credentials of the target is not repeated in the message."""
+    target = "duckdb:///x%00.duckdb?table=t&motherduck_token=SECRET"
+
+    with pytest.raises(ExportRefusedError) as raised:
+        ConnectionString(target)
+
+    assert "SECRET" not in str(raised.value)
+    assert "x%00" not in str(raised.value)
+    assert "NUL" in str(raised.value)
 
 
-def _names(directory: Path) -> list[str]:
-    return sorted(path.name for path in directory.iterdir())
+@pytest.mark.parametrize(
+    "target", ["sqlite:///x%00.sqlite", "sqlite:///x%00.sqlite?table=t", "postgresql://u:p@h/db%00"]
+)
+def test_a_nul_in_the_database_of_a_sql_target_is_refused(target: str) -> None:
+    """The same place: `sqlite:///x%00.sqlite` was a bare `ValueError` of the engine."""
+    with pytest.raises(ExportRefusedError, match="NUL"):
+        ConnectionString(target)
 
 
-@pytest.mark.parametrize("extension", sorted(set(FILE_WRITERS) - {".zarr"}))
-def test_every_file_type_is_written_to_its_place_and_nothing_is_left_beside_it(extension: str, tmp_path: Path) -> None:
-    """The file is written next to its place and moved in, for every type: only the file is there afterwards."""
-    filename = tmp_path / f"data{extension}"
-    filename.write_bytes(b"older")
+def test_a_sql_target_is_refused_before_anything_is_written(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+    """`to_target` reads the target first, so nothing is created for it."""
+    monkeypatch.chdir(tmp_path)
 
-    _result().to_target(f"file://{filename}")
+    with pytest.raises(ExportRefusedError, match="NUL"):
+        _result().to_target("sqlite:///x%00.sqlite?table=t")
 
-    assert _names(tmp_path) == [filename.name]
-    assert filename.read_bytes() != b"older"
+    assert list(tmp_path.iterdir()) == []
 
 
-@pytest.mark.parametrize("extension", sorted(set(FILE_WRITERS) - {".zarr"}))
-def test_a_writer_that_fails_leaves_the_file_that_was_there(extension: str, tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
-    """A full disk is an error in the middle of the writer: the file was cut to nothing before, and is kept now."""
-    filename = tmp_path / f"data{extension}"
-    filename.write_bytes(b"older")
-
-    def failing(_result: object, filepath: str, **_: object) -> None:
-        with open(filepath, "wb") as handle:  # noqa: PTH123
-            handle.write(b"half of the new")
-        msg = "No space left on device"
-        raise OSError(msg)
-
-    monkeypatch.setitem(FILE_WRITERS, extension, failing)
-
-    with pytest.raises(OSError, match="No space left"):
-        _result().to_target(f"file://{filename}")
-
-    assert filename.read_bytes() == b"older"
-    assert _names(tmp_path) == [filename.name]
-
-
-def test_a_writer_that_fails_leaves_no_file_where_there_was_none(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
-    """A new file is not there half written either."""
-
-    def failing(_result: object, filepath: str, **_: object) -> None:
-        with open(filepath, "wb") as handle:  # noqa: PTH123
-            handle.write(b"half")
-        msg = "boom"
-        raise RuntimeError(msg)
-
-    monkeypatch.setitem(FILE_WRITERS, ".csv", failing)
-
-    with pytest.raises(RuntimeError, match="boom"):
-        _result().to_target(f"file://{tmp_path / 'data.csv'}")
-
-    assert _names(tmp_path) == []
-
-
-def test_a_sidecar_that_fails_leaves_the_file_that_was_there_and_no_new_one(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
-    """The main file was written first, and stayed, new, beside a sidecar that was not there or was the old one."""
-    filename = tmp_path / "data.csv"
-    sidecar = tmp_path / f"data.csv{SIDECAR_SUFFIX}"
-    filename.write_text("older")
-    sidecar.write_text("older sidecar")
-
-    def failing(_block: object, _filepath: object) -> None:
-        msg = "No space left on device"
-        raise OSError(msg)
-
-    monkeypatch.setattr(sinks, "write_sidecar", failing)
-
-    with pytest.raises(OSError, match="No space left"):
-        _result().to_target(f"file://{filename}", with_metadata=True)
-
-    assert filename.read_text() == "older"
-    assert sidecar.read_text() == "older sidecar"
-    assert _names(tmp_path) == [filename.name, sidecar.name]
-
-
-def test_a_sidecar_that_fails_leaves_no_file_where_there_was_none(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
-    """A write with its sidecar is both files or neither."""
-
-    def failing(_block: object, _filepath: object) -> None:
-        msg = "No space left on device"
-        raise OSError(msg)
-
-    monkeypatch.setattr(sinks, "write_sidecar", failing)
-
-    with pytest.raises(OSError, match="No space left"):
-        _result().to_target(f"file://{tmp_path / 'data.csv'}", with_metadata=True)
-
-    assert _names(tmp_path) == []
-
-
-def test_a_file_with_its_sidecar_is_both_files_in_place(tmp_path: Path) -> None:
-    """What succeeded before succeeds: the file and `<file>.metadata.json`, and nothing else."""
-    filename = tmp_path / "data.csv"
-
-    _result().to_target(f"file://{filename}", with_metadata=True)
-
-    assert _names(tmp_path) == [filename.name, f"{filename.name}{SIDECAR_SUFFIX}"]
-    assert pl.read_csv(filename).height
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
-def test_a_file_that_is_replaced_keeps_its_mode(tmp_path: Path) -> None:
-    """Writing on the file kept its mode; a new file gets the umask's, so the mode is carried over."""
-    filename = tmp_path / "data.csv"
-    filename.write_text("older")
-    filename.chmod(0o640)
-
-    _result().to_target(f"file://{filename}")
-
-    assert stat.S_IMODE(filename.stat().st_mode) == 0o640
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="symbolic links need a privilege on Windows")
-def test_a_link_is_written_through(tmp_path: Path) -> None:
-    """The file a link points at is replaced, and the link stays a link, as it did when the file was written on."""
-    real = tmp_path / "real.csv"
-    real.write_text("older")
-    link = tmp_path / "link.csv"
-    link.symlink_to(real)
-
-    _result().to_target(f"file://{link}")
-
-    assert link.is_symlink()
-    assert os.path.realpath(link) == str(real.resolve())
-    assert real.read_text() != "older"
-    assert _names(tmp_path) == ["link.csv", "real.csv"]
-
-
-def test_a_zarr_store_is_still_written_where_it_is(tmp_path: Path) -> None:
-    """A Zarr store is a directory of files: it is written in place, as before, and a second group joins it."""
-    pytest.importorskip("zarr")
-    store = tmp_path / "data.zarr"
-
-    _result().to_target(f"file://{store}")
-
-    assert store.is_dir()
-    assert _names(tmp_path) == ["data.zarr"]
-
-
-def test_a_target_that_cannot_be_replaced_is_an_error_and_leaves_nothing_beside_it(tmp_path: Path) -> None:
-    """A directory in the place of the file (on Windows, a file held open) is the error of the replace."""
-    (tmp_path / "data.csv").mkdir()
-
-    with pytest.raises(OSError):  # noqa: PT011
-        _result().to_target(f"file://{tmp_path / 'data.csv'}")
-
-    assert _names(tmp_path) == ["data.csv"]
+def test_delete_rows_is_refused_too() -> None:
+    """The word pandas takes for SQL and the docs never offered: it worked before, and is refused with the others."""
+    with pytest.raises(ExportRefusedError, match="not 'delete_rows'"):
+        _result().to_target("sqlite://", if_exists="delete_rows")  # ty: ignore[invalid-argument-type]

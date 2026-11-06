@@ -361,10 +361,14 @@ class DwdObservationHistory(TimeseriesHistory):
     A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
     began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
     answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
-    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the dataset.
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the directory.
+    Which directory is read depends on the dataset: the `meta_data` directory of a 1, 5 or 10 minute dataset, the
+    `historical` directory of the others. An empty `historical` directory fails the station lookup that comes first (a
+    500 of the REST API), so the warning is rarely reached for it; a history has no `periods`, and REST and the command
+    line reach it through `meta_data`.
     """
 
-    #: the stations whose history of a dataset was not read for want of a listing, by `resolution/dataset`
+    #: the stations whose history was not read for want of a listing, by the directory that came back empty
     _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
 
     def query(self) -> Iterator[HistoryResult]:
@@ -376,8 +380,8 @@ class DwdObservationHistory(TimeseriesHistory):
             self._warn_unlisted()
 
     def _warn_unlisted(self) -> None:
-        """Warn that a listing of historical files came back empty or missing, once for each dataset it was for."""
-        for dataset, stations in self._unlisted.items():
+        """Warn that a listing came back empty or missing, once for each directory it was for."""
+        for directory, stations in self._unlisted.items():
             many = len(stations) > 1
             listed = ", ".join(stations[:_MAX_STATIONS_LISTED])
             if len(stations) > _MAX_STATIONS_LISTED:
@@ -387,8 +391,8 @@ class DwdObservationHistory(TimeseriesHistory):
             warn_response(
                 log,
                 FILE_SKIPPED,
-                f"The listing of the historical files of {dataset} came back empty or missing, so the history of "
-                f"{where} in it was not read and is not in the answer, which is partial. Try again later.",
+                f"The listing of {directory} came back empty or missing, so the history of {where} was not read and is "
+                "not in the answer, which is partial. Try again later.",
                 stations=stations[:_MAX_STATIONS_LISTED],
             )
         self._unlisted = {}
@@ -423,7 +427,13 @@ class DwdObservationHistory(TimeseriesHistory):
                 log.info(
                     f"No files found for {dataset_identifier} and period {Period.HISTORICAL}. Station will be skipped."
                 )
-                self._unlisted.setdefault(f"{dataset.resolution.name}/{dataset.name}", []).append(station_id)
+                dataset_name = f"{dataset.resolution.name}/{dataset.name}"
+                directory = (
+                    f"the `meta_data` directory of {dataset_name}"
+                    if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS
+                    else f"the `historical` directory of {dataset_name}"
+                )
+                self._unlisted.setdefault(directory, []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):

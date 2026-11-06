@@ -163,7 +163,15 @@
             }
           },
           "503": {
-            "$ref": "#/components/responses/Unavailable"
+            "description": "Service Unavailable, as `GET` answers it, without the body (the problem of the component `Unavailable`).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
