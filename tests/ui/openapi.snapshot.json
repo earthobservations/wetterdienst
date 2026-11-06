@@ -1435,11 +1435,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1460,9 +1465,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1480,7 +1493,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1514,7 +1532,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1534,7 +1557,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -1554,7 +1582,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -1573,7 +1606,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -1593,7 +1631,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -1613,7 +1656,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -1633,7 +1681,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -1653,7 +1706,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -1671,7 +1729,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "timestamp",
@@ -1883,6 +1946,65 @@
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
           }
         }
       }
@@ -2142,11 +2264,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -2167,9 +2294,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -2187,7 +2322,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -2221,7 +2361,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -2241,7 +2386,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -2261,7 +2411,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -2280,7 +2435,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -2300,7 +2460,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -2320,7 +2485,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -2340,7 +2510,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -2360,7 +2535,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -2378,7 +2558,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "with_metadata",
@@ -2948,6 +3133,65 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
+          }
         }
       }
     },
@@ -3088,7 +3332,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3108,7 +3357,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3128,7 +3382,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3487,6 +3746,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -3627,7 +3897,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3647,7 +3922,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3667,7 +3947,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -4013,6 +4298,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -4175,7 +4471,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -4193,7 +4494,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4324,6 +4630,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4367,7 +4683,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -4385,7 +4706,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4546,6 +4872,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4609,11 +4945,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all or stations is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -4634,9 +4975,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all or stations is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "sections",
@@ -4779,6 +5128,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ]
+          ]
         }
       }
     },
