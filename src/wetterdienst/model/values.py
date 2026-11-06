@@ -1289,7 +1289,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         `if_exists` is for the first station and defaults to 'fail', where a result's `to_target` defaults to
         'replace': this is one table being filled station by station rather than one frame being written, so the
         first station must not overwrite a table that already holds data. Every station after it is appended.
+
+        Raises:
+            ExportRefusedError: `if_exists` is none of the four words, told before any station is downloaded.
+
         """
+        # the sinks import the results, which import this module
+        from wetterdienst.io.sinks import refuse_unknown_if_exists  # noqa: PLC0415
+
+        refuse_unknown_if_exists(if_exists)
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
         redacted = redact_password(target)
         for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):

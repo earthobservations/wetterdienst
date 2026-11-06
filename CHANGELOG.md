@@ -65,6 +65,12 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- `HEAD /health` and `HEAD /ready` answer as their `GET` does (status and headers, `/ready`'s
+  `no-store` and 503 included) with no body, for monitors and `wget --spider` that read the 405
+  as a server that is down. The routes of the API, the index and `robots.txt` still answer `HEAD`
+  with a 405 (`/openapi.json`, `/docs` and `/redoc` already answered it). A `POST` to a probe is a
+  405 with `Allow: GET, HEAD`. The OpenAPI document lists the two `head` operations; MCP gains no
+  tool (GH-3814)
 - An alert of `dwd/alerts` has `translations`: the further `<info>` blocks of its CAP message, each
   its `language` and the fields that differ from the first block, which for DWD's `mul` product
   (eight languages) are the event, headline, description and instruction. Before, the seven other
@@ -135,6 +141,26 @@ Types of changes:
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
   (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
   `findlibs` that something else keeps, upgrade it (GH-2441)
+- **Breaking**: `to_target` refuses an `if_exists` that is not `replace`, `append`, `fail` or `skip`
+  with an `ExportRefusedError`. Before, a file took any other word for `replace` and overwrote
+  itself, DuckDB wrote nothing and said nothing, and a SQL database passed it to pandas, which
+  refused most words and took its own `delete_rows`, which was never documented and is refused
+  now. Pass one of the four words (the command line's `--if-exists` always refused others)
+  (GH-3814)
+- A NUL in a file target (`file://x%00.csv`, `sqlite:///x%00.sqlite`) is now an
+  `ExportRefusedError` that names no part of the target, and on the command line one line and
+  exit 1 for `alerts` and `history` before the fetch. Before, each writer failed in its own way,
+  with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
+- `history` of `dwd/observation` now tells a directory whose listing came back empty or missing
+  with a `file-skipped` warning naming the stations and the directory, so the REST API no longer
+  keeps that partial answer for an hour. REST and the command line reach it for the `meta_data`
+  of the 5 and 10 minute datasets (not urban); other empty directories still fail the station
+  lookup with a 500 (GH-3819). A station with no file in a listing that is there is the source's
+  answer and no warning (GH-3814)
+- `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
+  `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
+  `counts.stations`): two rows from one station listed six stations, an empty result all of them
+  (GH-3814)
 
 ## [0.183.0] - 2026-11-03
 

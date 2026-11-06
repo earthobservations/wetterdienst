@@ -18,7 +18,7 @@ import logging
 from collections.abc import Callable, Mapping
 from copy import copy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import polars as pl
 import polars.selectors as cs
@@ -39,6 +39,9 @@ log = logging.getLogger(__name__)
 
 #: what `to_target` does with a target that already exists
 IfExists = Literal["replace", "append", "fail", "skip"]
+
+#: the words of `IfExists`, which a sink is only handed after `refuse_unknown_if_exists` has read them
+IF_EXISTS: tuple[str, ...] = get_args(IfExists)
 
 #: writes the result to the file at the path; the writer of a self-describing format takes the `attributes` to write
 #: into the file as a keyword, and the other writers take none
@@ -356,6 +359,7 @@ def _write_file(
     `with_metadata` for a result with no provider to describe is refused before the file is written, for any type.
     A sidecar of an earlier write is overwritten by the next `with_metadata` write and left as it is by one without.
     """
+    refuse_unknown_if_exists(if_exists)
     filepath = connspec.path
     if writers is not FILE_WRITERS:
         # a file type the result is not written as is refused first, whatever the file is there or `append` is asked:
@@ -966,16 +970,33 @@ SINKS: dict[str, Sink] = {
 }
 
 
+def refuse_unknown_if_exists(if_exists: str) -> None:
+    """Refuse an `if_exists` that is none of the four words, before any sink reads it.
+
+    A sink reads the word by testing the ones it knows, so a fifth was a `replace` for a file, nothing at all for a
+    DuckDB table and a `ValueError` of pandas for a SQL one (which also took `delete_rows`, undocumented). The command
+    line cannot pass one (`--if-exists` is a choice of the four); a script and `TimeseriesValues.to_target` can.
+
+    Raises:
+        ExportRefusedError: `if_exists` is not `replace`, `append`, `fail` or `skip`.
+
+    """
+    if if_exists not in IF_EXISTS:
+        msg = f"if_exists must be one of {', '.join(repr(word) for word in IF_EXISTS)}, not {if_exists!r}."
+        raise ExportRefusedError(msg)
+
+
 def write_to_target(
     result: ExportMixin, target: str, connspec: ConnectionString, if_exists: IfExists, *, with_metadata: bool = False
 ) -> None:
     """Hand the result to the sink that writes the target.
 
     Raises:
-        ExportRefusedError: `with_metadata` for a target that is not a file: it writes a file beside the file, and a
-            database has none.
+        ExportRefusedError: `if_exists` is none of the four words, or `with_metadata` for a target that is not a file:
+            it writes a file beside the file, and a database has none.
 
     """
+    refuse_unknown_if_exists(if_exists)
     sink = find_sink(target, connspec.protocol)
     if sink is _write_file:
         _write_file(result, target, connspec, if_exists, with_metadata=with_metadata)
@@ -1022,9 +1043,11 @@ def write_alerts_to_target(
 
     Raises:
         ExportRefusedError: A target that is not a file (an alert holds several areas and parameters, and no table
-            holds that yet), a file type of none of the three, or what `_write_file` refuses.
+            holds that yet), a file type of none of the three, an `if_exists` of none of the four words, or what
+            `_write_file` refuses.
 
     """
+    refuse_unknown_if_exists(if_exists)
     if find_sink(target, connspec.protocol) is not _write_file:
         if connspec.protocol == "file":
             # `FILE://x.csv`: the sink reads the scheme in lower case only, and is not a database

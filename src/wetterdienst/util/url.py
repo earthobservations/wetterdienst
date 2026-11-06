@@ -73,6 +73,22 @@ _WINDOWS = os.name == "nt"
 _DRIVE_LETTER = re.compile(r"^/(?=[A-Za-z]:(?:[/\\]|$))")
 
 
+def _refuse_nul(path: str) -> None:
+    """Refuse a path with a NUL in it: no file name holds one, and a writer that is handed one fails in its own way.
+
+    Python's `open` raises a `ValueError` for it, polars an `OSError`, and the NetCDF library stops at the NUL and
+    writes the file whose name is the text before it. A target can carry one as `%00`.
+
+    Raises:
+        ExportRefusedError: The path holds a NUL character.
+
+    """
+    if "\x00" in path:
+        # names no part of the target: it may carry a token or a password in its query or its credentials
+        msg = "The target's path holds a NUL character (written %00), which no file name does."
+        raise ExportRefusedError(msg)
+
+
 def file_target_path(target: str) -> str:
     """Give the path a ``--target`` names, reading ``file://`` as a URI and anything else as a path.
 
@@ -83,10 +99,16 @@ def file_target_path(target: str) -> str:
     ``file:///C:/data/obs.csv`` names ``C:/data/obs.csv``; elsewhere a path starting ``/C:/`` is a
     directory of the root and is left. A target without the scheme is a plain path and is returned
     as given, ``%`` included.
+
+    Raises:
+        ExportRefusedError: The path holds a NUL character, which a target writes as ``%00``.
+
     """
     if not target.startswith("file://"):
+        _refuse_nul(target)
         return target
     path = unquote(target.removeprefix("file://"))
+    _refuse_nul(path)
     return _DRIVE_LETTER.sub("", path, count=1) if _WINDOWS else path
 
 
@@ -120,6 +142,10 @@ class ConnectionString:
             a database or query, and a target with no password but a `host:port` and an `@` in
             its path or query reads as one with a password; no reading of the string can tell
             either from a target that means just that, so such an `@` is written `%40`.
+            The path of a file or DuckDB target holds a NUL character (`%00`), as does the
+            database of any other, written in its path or as the `database` or `bucket` of its
+            query, which no file name has; the message does not repeat the target. (A `table`
+            with one is not refused here.)
 
     """
 
@@ -144,6 +170,7 @@ class ConnectionString:
             self._name = parsed.scheme
             # the path is a URI path, percent-decoded as a `file://` one is
             self._path = unquote(parsed.path or parsed.netloc)
+            _refuse_nul(self._path)
             self._database = self._path[1:] if parsed.path.startswith("/") else None
             self._query = parsed.query
             return
@@ -171,6 +198,10 @@ class ConnectionString:
         self._password: str | None = None if parts["password"] is None else unquote(parts["password"])
         self._database: str | None = None if parts["database"] is None else unquote(parts["database"])
         self._query: str = parts["query"] or ""
+        # `sqlite:///x%00.sqlite` names a file, and the database of a server has no NUL either, written in the path or
+        # in the `database` or `bucket` of the query, where InfluxDB takes it
+        for database in (self._database, self.get_query_param("database"), self.get_query_param("bucket")):
+            _refuse_nul(database or "")
         self._path: str = self._database or ""
 
     @property
