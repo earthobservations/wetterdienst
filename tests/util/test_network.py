@@ -75,6 +75,7 @@ from wetterdienst.util.network import (
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
+    read_refusal,
 )
 
 
@@ -899,6 +900,14 @@ def _every_carrier_of(error: BaseException) -> str:
 #: what the stand-in token endpoint answers with, and what each of its paths is for
 _TOKEN_BODY = json.dumps({"access_token": "t"}).encode()
 _STATUS_BY_PATH = {"/denied": 401, "/rate-limited": 429, "/boom": 500}
+_REFUSAL_BODY = json.dumps(
+    {
+        "error": {
+            "code": 403,
+            "reason": "The estimated number of observations (103586) exceeds the maximum number allowed (100000)",
+        }
+    }
+).encode()
 
 
 def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str, str]]:
@@ -908,6 +917,9 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
     if path == "/flaky":
         # a blip: the first caller gets a 502, everyone after it gets an answer
         return (200, _TOKEN_BODY, {}) if asked_before else (502, b"", {})
+    if path == "/too-many":
+        # a refusal that says why in its body, as Frost's 403 for a window of too many observations does
+        return 403, _REFUSAL_BODY, {}
     if path in _STATUS_BY_PATH:
         return _STATUS_BY_PATH[path], b"", {}
     return 200, _TOKEN_BODY, {}
@@ -935,6 +947,31 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
     def _record(self, method: str) -> None:
         self.server.requests.append({"method": method, "path": self.path, "headers": dict(self.headers)})
 
+    def _refuse_at_length(self) -> None:
+        """Answer with a 403 whose body is too slow (`/drip`), says it is too long (`/huge`) or is, unannounced.
+
+        The last is `/huge-stream`: the cases the limits of `read_refusal` are held to.
+        """
+        self.send_response(403)
+        if self.path == "/drip":
+            self.send_header("Content-Length", "1000")
+        elif self.path == "/huge":
+            self.send_header("Content-Length", str(8 * 1024**2))
+        self.end_headers()
+        try:
+            if self.path == "/drip":
+                for _ in range(150):
+                    self.wfile.write(b"x")
+                    self.wfile.flush()
+                    time.sleep(0.2)
+            else:
+                for _ in range(128):
+                    self.wfile.write(b"x" * 65536)
+                    self.wfile.flush()
+        except OSError:
+            # the client has hung up, which is the point
+            return
+
     def _answer(self) -> None:
         if self.path == "/drop":
             # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
@@ -948,6 +985,9 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"access_')
             self.connection.close()
+            return
+        if self.path in {"/drip", "/huge", "/huge-stream"}:
+            self._refuse_at_length()
             return
         asked_before = len([r for r in self.server.requests if r["path"] == self.path]) > 1
         status, body, headers = _answer_for(self.path, asked_before=asked_before)
@@ -981,6 +1021,91 @@ def http_server() -> Iterator[tuple[str, list]]:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_read_refusal_gives_the_body_of_a_4xx_and_sends_the_headers(http_server: tuple[str, list]) -> None:
+    """A refusal is asked for again and its body is the reason; the headers go with that request alone (GH-3748)."""
+    base_url, requests = http_server
+
+    body = read_refusal(f"{base_url}/too-many", headers={"Authorization": "Basic Zm9v"})
+
+    assert body is not None
+    assert "exceeds the maximum number allowed (100000)" in body
+    assert requests[-1]["method"] == "GET"
+    assert requests[-1]["headers"]["Authorization"] == "Basic Zm9v"
+
+
+def test_read_refusal_cuts_the_body_at_max_chars(http_server: tuple[str, list]) -> None:
+    """Only the first characters of the body are given, whatever the server sends."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}/too-many", max_chars=10) == _REFUSAL_BODY.decode()[:10]
+
+
+@pytest.mark.parametrize("path", ["/token", "/boom"])
+def test_read_refusal_gives_nothing_for_an_answer_that_is_no_4xx(path: str, http_server: tuple[str, list]) -> None:
+    """A 200 is not a refusal, and a 5xx is a failure of the server: neither has a reason to read."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}{path}") is None
+
+
+def test_read_refusal_stops_waiting_for_a_body_that_drips(http_server: tuple[str, list]) -> None:
+    """A body that arrives a byte at a time is given up on after ``max_seconds`` in all, not after each silence.
+
+    The client timeout bounds a silence only (GH-2258): with one of a second, this body, a byte every 0.2 s, ran for the
+    30 seconds it takes the server to finish it.
+    """
+    base_url, _ = http_server
+
+    started = time.monotonic()
+    body = read_refusal(f"{base_url}/drip", max_seconds=1.0, client_kwargs={"timeout": 1.0})
+
+    assert body is None
+    assert time.monotonic() - started < 10
+
+
+@pytest.mark.parametrize("path", ["/huge", "/huge-stream"])
+def test_read_refusal_does_not_read_a_body_past_max_bytes(path: str, http_server: tuple[str, list]) -> None:
+    """A body past ``max_bytes`` is no reason: refused at once if it says it is long, as it arrives if it does not."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}{path}", max_bytes=100_000) is None
+    # the same body within the limit is read, so it is the limit that refuses it
+    assert read_refusal(f"{base_url}{path}", max_bytes=16 * 1024**2, max_chars=5) == "xxxxx"
+
+
+def test_read_refusal_does_not_follow_a_redirect(http_server: tuple[str, list]) -> None:
+    """A redirect is the answer, and no 4xx: the one it points to (a 401 here) is not asked for."""
+    base_url, requests = http_server
+
+    assert read_refusal(f"{base_url}/login-redirect") is None
+    assert [request["path"] for request in requests] == ["/login-redirect"]
+
+
+def test_read_refusal_has_the_timeout_and_the_certificates_it_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The client has a timeout of its own where the caller gave none, and verifies against certifi where asked."""
+    made: list[dict] = []
+
+    class Spy(HTTPFileSystem):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            made.append(kwargs)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(network, "HTTPFileSystem", Spy)
+
+    read_refusal("http://127.0.0.1:1/unreachable")
+    read_refusal("http://127.0.0.1:1/unreachable", use_certifi=True, client_kwargs={"timeout": 3.0})
+
+    assert made[0]["use_certifi"] is False
+    assert made[0]["client_kwargs"]["timeout"] == network._POST_TIMEOUT_SECONDS  # noqa: SLF001
+    assert made[1]["use_certifi"] is True
+    assert made[1]["client_kwargs"]["timeout"] == 3.0
+
+
+def test_read_refusal_gives_nothing_where_the_connection_cannot_be_made() -> None:
+    """Nothing is raised for a refusal that cannot be asked for again: the caller falls back on the status."""
+    assert read_refusal("http://127.0.0.1:1/unreachable") is None
 
 
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
