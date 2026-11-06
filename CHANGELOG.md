@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.184.0] - 2026-11-06
+
 ### Added
 
 - Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
@@ -161,12 +163,12 @@ Types of changes:
   `ExportRefusedError` that names no part of the target, and on the command line one line and
   exit 1 for `alerts` and `history` before the fetch. Before, each writer failed in its own way,
   with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
-- `history` of `dwd/observation` now tells a directory whose listing came back empty or missing
-  with a `file-skipped` warning naming the stations and the directory, so the REST API no longer
-  keeps that partial answer for an hour. REST and the command line reach it for the `meta_data`
-  of the 5 and 10 minute datasets (not urban); other empty directories still fail the station
-  lookup with a 500 (GH-3819). A station with no file in a listing that is there is the source's
-  answer and no warning (GH-3814)
+- `history` of `dwd/observation` now tells a directory missing on the server (a 404) with a
+  `file-skipped` warning naming the stations and the directory, so the REST API no longer keeps
+  that partial answer for an hour. REST and the command line reach it for the `meta_data` of the 5
+  and 10 minute datasets (not urban); elsewhere a missing directory still fails the station lookup
+  with a 500, and a directory that is there but empty is not told yet (GH-3819). A station with no
+  file in a listing that is there is the source's answer and no warning (GH-3814)
 - `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them
@@ -7600,7 +7602,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...HEAD
+[0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0
 [0.183.0]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...v0.183.0
 [0.182.0]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...v0.182.0
 [0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
