@@ -334,7 +334,10 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 # second task that could quietly collect nothing and still go green. `explorer` is excluded as
 # `test:parallel` excludes it -- no job here runs those, and nothing in the tree is marked (GH-2003)
 "test:offline" = "uv run pytest -m 'not (remote or explorer)'"
-test = ["test:parallel", "test:cflakes"]
+# `ignore_fail = "return_non_zero"`: a red parallel run still goes on to the cflake run, and the task
+# exits non-zero at the end. A bare sequence stops at the first red task, and `cflake` tests then never
+# ran in the jobs that run `poe test` (GH-3829). Not `true`, which would turn a red run green
+test = { sequence = ["test:parallel", "test:cflakes"], ignore_fail = "return_non_zero" }
 # For Windows CI
 test-slow = "uv run pytest"
 "coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)' --junitxml=junit-parallel.xml"
