@@ -32,6 +32,7 @@ from wetterdienst.core.util import (
     one_row_per_station,
     open_parameter_data,
     parameters_still_in_reach,
+    place_station,
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
 
     from shapely.geometry.base import BaseGeometry
 
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.options import Options
@@ -95,6 +97,7 @@ def get_interpolated_df(
     *,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location.
 
@@ -107,6 +110,8 @@ def get_interpolated_df(
             where left out
         data_updated: a dict the date is put into that the source states for the data of each station that gave a
             value (`data_updated_at` of its values), by `station_id`; the answer has the newest of those it was made of
+        placements: a dict the distance of each station that gave a value, and its elevation against the point's, is
+            put into, by `station_id`; the answer names them for the stations its rows were made of
 
     Raises:
         NoStationsWithElevationError: where an elevation is asked about and leaving out the stations
@@ -125,6 +130,7 @@ def get_interpolated_df(
         zone=(zone_number, zone_letter),
         df_all=df_all,
         data_updated=data_updated,
+        placements=placements,
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, options.geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -152,6 +158,7 @@ def request_stations(
     zone: tuple[int, str] | None = None,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -169,6 +176,8 @@ def request_stations(
         df_all: the station list `request.all()` gave, which the ranking reads rather than building
             it again
         data_updated: where to put the date the source states for the data of each station that gave a value
+        placements: where to put how far each station that gave a value is from the point, and its elevation against
+            the point's
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -276,6 +285,8 @@ def request_stations(
                 force_zone_letter=zone[1],
             )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
+            if placements is not None:
+                placements[station["station_id"]] = place_station(station, elevation)
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
 

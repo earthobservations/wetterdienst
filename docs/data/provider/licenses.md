@@ -10,7 +10,9 @@ The table is built from the same declarations that every answer of the library r
 built, so it cannot differ from what you get back. A row has the networks that declare these terms; a provider whose
 networks disagreed would have a row for each set. Each provider's page, linked in the first column, has a License
 section that links its terms. Many say what the terms ask of you, in different detail (a credit line the terms
-prescribe, a limit on use, a key); where one does not, the terms themselves are the source.
+prescribe, a limit on use, a key); where one does not, the terms themselves are the source. What the project does with
+the data (how it asks the providers, what it caches, what the hosted instance passes on, what the providers that need a key
+say about sharing it, and what the repository's own test files hold) is on [what wetterdienst does with the data](data-use.md).
 
 ```{provider-licenses}
 ```
@@ -22,6 +24,8 @@ prescribe, a limit on use, a key); where one does not, the terms themselves are 
   rights holder. Give it wherever you publish the data or something made from it.
 
 ## What wetterdienst does to the data
+
+(The rest, the cache and the hosted instance, is on [what wetterdienst does with the data](data-use.md).)
 
 Licences such as CC BY ask that changes to the data be indicated. Wetterdienst changes it: the provider's files are
 reshaped into one uniform table, parameters get one name whichever provider reports them, and values are converted to

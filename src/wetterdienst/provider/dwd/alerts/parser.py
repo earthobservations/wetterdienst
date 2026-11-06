@@ -4,8 +4,9 @@
 
 Each CAP file holds exactly one ``<alert>`` with one or more ``<info>`` blocks (one per language)
 and one or more ``<area>`` blocks. We flatten a single alert into one row: the alert/info fields
-plus the union of all polygon areas as a GeoJSON ``MultiPolygon`` geometry, and the list of the
-entity areas' ``WARNCELLID`` geocodes and names. See the official "CAP DWD Profile" for the schema.
+of the first ``<info>`` plus the union of all polygon areas as a GeoJSON ``MultiPolygon`` geometry, and the
+list of the entity areas' ``WARNCELLID`` geocodes and names. The further ``<info>`` blocks (the other languages
+of the ``MUL`` product) are the row's ``translations``. See the official "CAP DWD Profile" for the schema.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import datetime as dt
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
+from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.xml import parse_xml
 
 if TYPE_CHECKING:
@@ -142,11 +144,78 @@ def _build_multipolygon(areas: list[dict[str, Any]]) -> dict[str, Any] | None:
     return {"type": "MultiPolygon", "coordinates": coordinates}
 
 
-def parse_cap_alert(content: bytes) -> dict[str, Any] | None:  # noqa: C901
+# The `<info>` children that are one text each, by the column they are in; the languages of a message differ in these
+# (event, headline, description, instruction) and, in every feed measured, in these alone (GH-3801).
+_SIMPLE_FIELDS = {
+    "language": "language",
+    "category": "category",
+    "event": "event",
+    "responseType": "response_type",
+    "urgency": "urgency",
+    "severity": "severity",
+    "certainty": "certainty",
+    "senderName": "sender_name",
+    "headline": "headline",
+    "description": "description",
+    "instruction": "instruction",
+    "web": "web",
+    "contact": "contact",
+}
+_DATETIME_FIELDS = {"effective": "effective", "onset": "onset", "expires": "expires"}
+
+
+def _parse_info(info: _Element) -> dict[str, Any]:
+    """Parse one ``<info>`` block into the alert fields it carries: its texts, times, codes, parameters and areas."""
+    fields: dict[str, Any] = dict.fromkeys((*_SIMPLE_FIELDS.values(), *_DATETIME_FIELDS.values()))
+    areas: list[dict[str, Any]] = []
+    for element in info:
+        tag = _local_name(element.tag)
+        if tag in _SIMPLE_FIELDS:
+            fields[_SIMPLE_FIELDS[tag]] = _text(element)
+        elif tag in _DATETIME_FIELDS:
+            fields[_DATETIME_FIELDS[tag]] = _parse_datetime(_text(element))
+        elif tag == "area":
+            areas.append(_parse_area(element))
+
+    event_codes = _collect_key_values(info, "eventCode")
+    event_code_map = dict(event_codes)
+    fields["event_code"] = event_code_map.get("II")
+    fields["groups"] = [value for name, value in event_codes if name == "GROUP"]
+    fields["area_color"] = event_code_map.get("AREA_COLOR")
+    # Kept as an ordered list of {name, value} rather than a dict: the DWD profile allows a
+    # <parameter> valueName to repeat within one alert (e.g. a veering "wind direction" given
+    # several times), which a dict would silently collapse to the last value.
+    fields["parameters"] = [{"name": name, "value": value} for name, value in _collect_key_values(info, "parameter")]
+    fields["warncell_ids"] = [warncell_id for area in areas for warncell_id in area["warncell_ids"]]
+    fields["area_names"] = [
+        area["area_desc"] for area in areas if area["warncell_ids"] and area["area_desc"] is not None
+    ]
+    fields["geometry"] = _build_multipolygon(areas)
+    return fields
+
+
+def _translation(info: dict[str, Any], first: dict[str, Any]) -> dict[str, Any]:
+    """Give a further ``<info>`` as its ``language`` and the fields in which it differs from the first one.
+
+    The languages of a ``mul`` message repeat everything but four texts (event, headline, description, instruction): the
+    times, codes, parameters and areas are the same in each. Keeping only what differs keeps an answer small and drops
+    no field an alert has, since one that is not here is the first one's. What the parser does not read of a block (an
+    ``altitude``, the ``audience``, the ``LICENSE`` code, the description of a polygon area) is not compared, and in
+    DWD's messages is the same in each. A time is written as the library writes it.
+    """
+    translation: dict[str, Any] = {"language": info["language"]}
+    for key, value in info.items():
+        if key != "language" and value != first[key]:
+            translation[key] = format_timestamp(value) if isinstance(value, dt.datetime) else value
+    return translation
+
+
+def parse_cap_alert(content: bytes) -> dict[str, Any] | None:
     """Parse one CAP XML document into a flat alert row, or ``None`` if it is not an alert.
 
-    Only the first ``<info>`` block is honoured, which for the single-language products is the only
-    one; for the ``MUL`` product it is the first bundled language.
+    The fields of the row are those of the first ``<info>`` block, which for the single-language products is the only
+    one and for the ``MUL`` product is the first bundled language. The further blocks are ``translations``: each its
+    ``language`` and the fields that differ from the first block's (``[]`` for one block), so no language is dropped.
     """
     root = parse_xml(content)
     if _local_name(root.tag) != "alert":
@@ -157,8 +226,9 @@ def parse_cap_alert(content: bytes) -> dict[str, Any] | None:  # noqa: C901
         "status": None,
         "msg_type": None,
         "references": None,
+        "translations": [],
     }
-    info = None
+    infos: list[_Element] = []
     for element in root:
         tag = _local_name(element.tag)
         if tag == "identifier":
@@ -171,56 +241,13 @@ def parse_cap_alert(content: bytes) -> dict[str, Any] | None:  # noqa: C901
             alert["sent"] = _parse_datetime(_text(element))
         elif tag == "references":
             alert["references"] = _text(element)
-        elif tag == "info" and info is None:
-            info = element
+        elif tag == "info":
+            infos.append(element)
 
-    if info is None:
+    if not infos:
         return alert
 
-    simple_fields = {
-        "language": "language",
-        "category": "category",
-        "event": "event",
-        "responseType": "response_type",
-        "urgency": "urgency",
-        "severity": "severity",
-        "certainty": "certainty",
-        "senderName": "sender_name",
-        "headline": "headline",
-        "description": "description",
-        "instruction": "instruction",
-        "web": "web",
-        "contact": "contact",
-    }
-    datetime_fields = {"effective": "effective", "onset": "onset", "expires": "expires"}
-    for key in (*simple_fields.values(), *datetime_fields.values()):
-        alert.setdefault(key, None)
-
-    areas: list[dict[str, Any]] = []
-    for element in info:
-        tag = _local_name(element.tag)
-        if tag in simple_fields:
-            alert[simple_fields[tag]] = _text(element)
-        elif tag in datetime_fields:
-            alert[datetime_fields[tag]] = _parse_datetime(_text(element))
-        elif tag == "area":
-            areas.append(_parse_area(element))
-
-    event_codes = _collect_key_values(info, "eventCode")
-    groups = [value for name, value in event_codes if name == "GROUP"]
-    event_code_map = dict(event_codes)
-    alert["event_code"] = event_code_map.get("II")
-    alert["groups"] = groups
-    alert["area_color"] = event_code_map.get("AREA_COLOR")
-    # Kept as an ordered list of {name, value} rather than a dict: the DWD profile allows a
-    # <parameter> valueName to repeat within one alert (e.g. a veering "wind direction" given
-    # several times), which a dict would silently collapse to the last value.
-    alert["parameters"] = [{"name": name, "value": value} for name, value in _collect_key_values(info, "parameter")]
-
-    warncell_ids = [warncell_id for area in areas for warncell_id in area["warncell_ids"]]
-    area_names = [area["area_desc"] for area in areas if area["warncell_ids"] and area["area_desc"] is not None]
-    alert["warncell_ids"] = warncell_ids
-    alert["area_names"] = area_names
-    alert["geometry"] = _build_multipolygon(areas)
-
+    first, *others = (_parse_info(info) for info in infos)
+    alert.update(first)
+    alert["translations"] = [_translation(info, first) for info in others]
     return alert

@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
+  errors, the warnings about the answer and "Nothing was written to --target." only: no progress,
+  no other warning. Stdout and the exit code stay as they are; with `--debug` it is a usage error.
+  `values`, `interpolate` and `summarize` now also log, with or without `--quiet`, one line with the
+  total for each warning that was only counted (values a check rejected, markers, calms), which a
+  CSV or a file target had no place for. Shell completion is click's own (`_WETTERDIENST_COMPLETE`,
+  see the command line page) and now offers `--provider` and `--network` from the registry.
+  `NO_COLOR` is honoured by `wetterdienst restapi`, whose log lines uvicorn coloured on a terminal
+  (Part of GH-3134)
 - The REST API marks four answers as stable: `coverage`, `providers` and `glossary` get
   `Cache-Control: public, max-age=300`, an `ETag` and a `Last-Modified`, `history` gets 3600 and an
   `ETag` when it has rows and no warnings. A matching `If-None-Match` or `If-Modified-Since` is
@@ -56,6 +65,19 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- An alert of `dwd/alerts` has `translations`: the further `<info>` blocks of its CAP message, each
+  its `language` and the fields that differ from the first block, which for DWD's `mul` product
+  (eight languages) are the event, headline, description and instruction. Before, the seven other
+  languages were dropped silently. The fields of an alert stay the first (German) block's, so
+  nothing existing changes; the seven languages add 3 to 5 KB to each alert of a `mul` answer, and
+  one for `de`, `en`, `es` or `fr` has `"translations": []` (20 bytes an alert). A CSV row is still
+  one alert, with the list as JSON text, as `parameters` is (GH-3801)
+- The stations of `interpolate` and `summarize` (`with_stations=true`, `--with-stations`, the
+  GeoJSON feature, `result.stations`) now carry `distance`, the km from the point, and
+  `elevation_difference`, the point's elevation less the station's in m (null where the point has
+  no elevation, or the station none). The rows name the stations each timestamp was made from by
+  id, as before; one id in an interpolation is a nearby station answering alone. A CSV holds the
+  rows only (Part of GH-3134)
 
 ### Changed
 
@@ -92,6 +114,12 @@ Types of changes:
 
 ### Fixed
 
+- The docs page of the Environment Agency linked its terms and conditions on a host that no longer
+  exists (the link check ignored it). It now cites the fair-use section of the Hydrology API
+  reference, and every provider page says what its terms ask of a caller: limits, a key, a
+  `User-Agent`, a credit. The new page "what wetterdienst does with the data" says what the library
+  caches, what the hosted instance passes on and what AEMET, KNMI, the Met Office and MET Norway
+  state about sharing a key (Part of GH-2567)
 - An image that Kaleido does not draw in 120 seconds is now an `ImageTimeoutError` (also a
   `TimeoutError`): the Chrome and its processes are closed, `/api/stripes/image` and every other
   image route answer a 504 problem of the kind `image-timeout`, and the command line prints one

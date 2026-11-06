@@ -80,6 +80,7 @@ from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -1373,6 +1374,8 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
+
         _require_finite_elevation(elevation)
         # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
         interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
@@ -1398,9 +1401,16 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
+        placements: dict[str, StationPlacement] = {}
         with answer_cut_to_window():
             interpolated = get_interpolated_df(
-                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
             )
         df_interpolated = self._as_asked(interpolated)
         # the elevation belongs in the name: two elevations at one point are two different
@@ -1418,12 +1428,15 @@ class TimeseriesRequest:
             ),
             INTERPOLATED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
-            .explode("station_id", empty_as_null=True)
-            .unique(),
-            on="station_id",
-            maintain_order="left",
+        df_stations = with_placement(
+            df_all.join(
+                other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
+                .explode("station_id", empty_as_null=True)
+                .unique(),
+                on="station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,
@@ -1509,6 +1522,7 @@ class TimeseriesRequest:
         this one frame, so that the provider builds its station list once.
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
 
         lat, lon = float(latlon[0]), float(latlon[1])
         require_location_in_range(lat, lon)
@@ -1530,9 +1544,16 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
+        placements: dict[str, StationPlacement] = {}
         with answer_cut_to_window():
             summarized = get_summarized_df(
-                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
             )
         summarized_values = self._as_asked(summarized)
         # the elevation belongs in the name: two elevations at one point are two different
@@ -1548,11 +1569,14 @@ class TimeseriesRequest:
             ),
             SUMMARIZED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=summarized_values.select(pl.col("taken_station_id")).unique(),
-            left_on="station_id",
-            right_on="taken_station_id",
-            maintain_order="left",
+        df_stations = with_placement(
+            df_all.join(
+                other=summarized_values.select(pl.col("taken_station_id")).unique(),
+                left_on="station_id",
+                right_on="taken_station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,

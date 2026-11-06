@@ -3310,11 +3310,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3836,11 +3836,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -4775,11 +4775,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",
@@ -6973,6 +6973,132 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -7101,7 +7227,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7152,7 +7278,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7784,7 +7910,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7835,7 +7961,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
