@@ -208,7 +208,8 @@ Options:
   --granularity [community|district]
                                   Spatial granularity: 'community' (per Gemeinde, default) or
                                   'district' (per Landkreis).
-  --language [de|en|es|fr|mul]    Language of the warning texts. Default: en
+  --language [de|en|es|fr|mul]    Language of the warning texts; mul holds eight, the other seven as
+                                  'translations'. Default: en
   --timestamp TEXT                Point in time (ISO 8601, UTC if no offset) to select the active-
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.

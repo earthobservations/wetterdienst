@@ -63,7 +63,7 @@ _MAX_UNPACKED_BYTES = 256 * 1024**2
 
 # The alert row columns whose values are nested structures; stored as JSON strings in the DataFrame
 # but returned as native objects by ``to_dict``/``to_ogc_feature_collection``.
-_JSON_COLUMNS = ("parameters", "geometry")
+_JSON_COLUMNS = ("parameters", "geometry", "translations")
 
 # List-valued alert row columns.
 _LIST_COLUMNS = ("groups", "warncell_ids", "area_names")
@@ -98,6 +98,9 @@ _SCHEMA = {
     "geometry": pl.String,
     "references": pl.String,
     "language": pl.String,
+    # the further `<info>` blocks of the message (the other languages of `mul`), JSON text: [{"language": ..., + the
+    # fields that differ from the first block's}, ...], `[]` for a message of one block (GH-3801)
+    "translations": pl.String,
 }
 
 
@@ -137,7 +140,7 @@ class DwdWeatherAlertResult:
         return None if sent.is_empty() else cast("dt.datetime", sent.max())
 
     def _alerts(self) -> list[dict[str, Any]]:
-        """Return the alert rows with nested fields (parameters, geometry) decoded to native objects."""
+        """Return the alert rows with nested fields (parameters, geometry, translations) decoded to native objects."""
         alerts = []
         for row in self.df.iter_rows(named=True):
             alert = dict(row)
@@ -157,7 +160,7 @@ class DwdWeatherAlertResult:
         return describe_provider(DwdWeatherAlertRequest.terms, self.data_updated_at)
 
     def to_dict(self, *, with_metadata: bool = False) -> dict[str, Any]:
-        """Return the alerts as ``{"snapshot": ..., "alerts": [...]}`` with nested geometry/parameters.
+        """Return the alerts as ``{"snapshot": ..., "alerts": [...]}`` with nested geometry/parameters/translations.
 
         ``snapshot`` is the UTC production time (ISO string) of the selected snapshot, or ``None``
         for the latest one, so callers can tell which point-in-time snapshot they received.
@@ -224,7 +227,7 @@ class DwdWeatherAlertResult:
     def to_csv(self) -> str:
         """Return the flat alert DataFrame as CSV.
 
-        List columns are comma-joined and the ``parameters``/``geometry`` structures stay
+        List columns are comma-joined and the ``parameters``/``geometry``/``translations`` structures stay
         JSON-encoded, since CSV cannot represent nested data.
         """
         df = timestamps_to_string(self.df.with_columns(pl.col(column).list.join(",") for column in _LIST_COLUMNS))
@@ -261,10 +264,11 @@ class DwdWeatherAlertResult:
         A file holds what the REST API answers for the format (``render_alerts``), on one line unless ``pretty``:
 
         - ``file://alerts.json``: ``{"metadata": ..., "snapshot": ..., "alerts": [...]}``, an alert with its areas,
-          parameters and geometry nested as they are in ``to_dict``
+          parameters, translations and geometry nested as they are in ``to_dict``
         - ``file://alerts.geojson``: the ``FeatureCollection`` of ``to_geojson``, with ``metadata`` as a foreign member
         - ``file://alerts.csv``: the text of ``to_csv``, bare, a row for each alert: its areas are the comma-joined
-          ``warncell_ids`` and ``area_names``, its ``parameters`` and ``geometry`` JSON text, its times ISO strings
+          ``warncell_ids`` and ``area_names``, its ``parameters``, ``translations`` and ``geometry`` JSON text, its
+          times ISO strings
 
         A snapshot without a warning is written as it is (an empty ``alerts`` list and the block in a JSON file, a CSV
         of the header alone), so a file that a schedule rewrites does not keep the warnings of the run before. The
@@ -333,7 +337,8 @@ class DwdWeatherAlertRequest:
 
         Args:
             granularity: ``community`` (per Gemeinde, default) or ``district`` (per Landkreis).
-            language: one of ``de``, ``en`` (default), ``es``, ``fr``, ``mul``.
+            language: one of ``de``, ``en`` (default), ``es``, ``fr``, ``mul``. A ``mul`` alert has the fields of its
+                first (German) language and the other seven as ``translations``.
             timestamp: point in time to select the active-warnings snapshot for. ``None`` (default)
                 uses the latest snapshot. Otherwise the newest snapshot produced at or before it is
                 used; it must fall within DWD's rolling ~48-hour window. A naive datetime or ISO
@@ -530,7 +535,7 @@ class DwdWeatherAlertRequest:
 
     @staticmethod
     def _build_dataframe(alerts: list[dict[str, Any]]) -> pl.DataFrame:
-        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry) fields."""
+        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry, translations) fields."""
         if not alerts:
             return pl.DataFrame(schema=_SCHEMA)
         rows = []
@@ -542,5 +547,7 @@ class DwdWeatherAlertRequest:
                 )
             for column in _LIST_COLUMNS:
                 row[column] = alert.get(column) or []
+            # a message without an `<info>` has no translations either: `[]` on every row, never null
+            row["translations"] = json.dumps(alert.get("translations") or [], ensure_ascii=False)
             rows.append(row)
         return pl.DataFrame(rows, schema=_SCHEMA)

@@ -65,6 +65,13 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- An alert of `dwd/alerts` has `translations`: the further `<info>` blocks of its CAP message, each
+  its `language` and the fields that differ from the first block, which for DWD's `mul` product
+  (eight languages) are the event, headline, description and instruction. Before, the seven other
+  languages were dropped silently. The fields of an alert stay the first (German) block's, so
+  nothing existing changes; the seven languages add 3 to 5 KB to each alert of a `mul` answer, and
+  one for `de`, `en`, `es` or `fr` has `"translations": []` (20 bytes an alert). A CSV row is still
+  one alert, with the list as JSON text, as `parameters` is (GH-3801)
 
 ### Changed
 
