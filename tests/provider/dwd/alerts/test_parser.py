@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+from tests.provider.dwd.alerts.stubs import CAP_MUL, CAP_MUL_LANGUAGES
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
 
 # A minimal but representative CAP v1.2 document following the DWD profile: one polygon area (with a
@@ -176,3 +177,125 @@ def test_parse_cap_alert_keeps_repeated_parameters() -> None:
 def test_parse_cap_alert_non_alert_returns_none() -> None:
     """Verify a non-alert document is rejected."""
     assert parse_cap_alert(b"<something xmlns='urn:x'><child/></something>") is None
+
+
+# --- the further <info> blocks of a message: the other languages of `mul` (GH-3801) --------------------------------
+
+_TEXTS = ("event", "headline", "description", "instruction")
+
+
+def test_a_message_of_one_info_has_no_translations() -> None:
+    """The single-language products have one `<info>` each, and nothing is said of more."""
+    alert = parse_cap_alert(CAP_XML)
+    assert alert is not None
+    assert alert["translations"] == []
+
+
+def test_a_mul_message_is_the_first_language_and_the_seven_others_as_translations() -> None:
+    """The row is the first (German) block's, as it was; the seven further blocks are kept, each by its language."""
+    alert = parse_cap_alert(CAP_MUL)
+    assert alert is not None
+    assert alert["language"] == CAP_MUL_LANGUAGES[0] == "de-DE"
+    assert alert["event"] == "NEBEL"
+    assert alert["headline"] == "Amtliche WARNUNG vor NEBEL"
+    assert [translation["language"] for translation in alert["translations"]] == CAP_MUL_LANGUAGES[1:]
+
+
+def test_the_languages_of_a_mul_message_differ_in_four_texts_and_translations_hold_only_those() -> None:
+    """The times, codes, parameter and area of the real message are the same in each block: only the texts differ."""
+    alert = parse_cap_alert(CAP_MUL)
+    assert alert is not None
+    assert len(alert["translations"]) == 7
+    for translation in alert["translations"]:
+        assert set(translation) == {"language", *_TEXTS}, translation["language"]
+        assert all(translation[text] != alert[text] for text in _TEXTS)
+    english, french, _spanish, arabic, *_others = alert["translations"]
+    assert english["event"] == "fog"
+    assert english["headline"] == "Official WARNING of FOG"
+    assert english["description"].startswith("There is a risk of fog (level 1 of 1).")
+    # the text of the message is stripped as the first block's is, the line breaks inside it kept
+    assert french["event"] == "Brouillard"
+    # (DWD writes a no-break space before a colon in French)
+    assert french["instruction"].startswith("Attention\xa0: fortes réductions éventuelles de la visibilité.")
+    assert "\nRecommandations d'action\xa0:" in french["instruction"]
+    # a right-to-left text and a non-Latin one arrive as they are written
+    assert arabic["event"] == "الضباب"
+    assert alert["translations"][4]["event"] == "Туман"
+
+
+def test_what_the_languages_share_is_in_the_row_once() -> None:
+    """A field that is in no translation is the first block's, which the row holds: the area, the codes, the times."""
+    alert = parse_cap_alert(CAP_MUL)
+    assert alert is not None
+    assert alert["warncell_ids"] == ["115091000"]
+    assert alert["area_names"] == ["Kreis Wittenberg"]
+    assert alert["event_code"] == "59"
+    assert alert["groups"] == ["FOG"]
+    assert alert["parameters"] == [{"name": "visibility", "value": "<150 [m]"}]
+    assert alert["geometry"]["type"] == "MultiPolygon"
+    assert alert["onset"] == dt.datetime(2026, 11, 5, 22, 59, tzinfo=UTC)
+    assert alert["expires"] == dt.datetime(2026, 11, 6, 8, 0, tzinfo=UTC)
+
+
+def test_a_further_info_that_differs_in_more_than_text_says_so() -> None:
+    """Nothing is dropped if DWD ever lets a block differ in more than text: the field is in its translation."""
+    xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>x</identifier>
+  <info>
+    <language>de-DE</language>
+    <event>FROST</event>
+    <onset>2026-07-26T21:00:00+02:00</onset>
+    <eventCode><valueName>II</valueName><value>22</value></eventCode>
+    <parameter><valueName>min</valueName><value>-2</value></parameter>
+    <area><areaDesc>Stadt Hof</areaDesc><geocode><valueName>WARNCELLID</valueName><value>1</value></geocode></area>
+  </info>
+  <info>
+    <language>en</language>
+    <event>frost</event>
+    <onset>2026-07-26T22:00:00+02:00</onset>
+    <eventCode><valueName>II</valueName><value>22</value></eventCode>
+    <parameter><valueName>min</valueName><value>-3</value></parameter>
+    <area><areaDesc>Stadt Hof</areaDesc><geocode><valueName>WARNCELLID</valueName><value>2</value></geocode></area>
+  </info>
+  <info>
+    <language>fr</language>
+    <event>gel</event>
+    <onset>2026-07-26T21:00:00+02:00</onset>
+    <eventCode><valueName>II</valueName><value>22</value></eventCode>
+    <parameter><valueName>min</valueName><value>-2</value></parameter>
+    <area><areaDesc>Stadt Hof</areaDesc><geocode><valueName>WARNCELLID</valueName><value>1</value></geocode></area>
+  </info>
+</alert>"""
+    alert = parse_cap_alert(xml)
+    assert alert is not None
+    assert alert["translations"] == [
+        {
+            "language": "en",
+            "event": "frost",
+            "onset": "2026-07-26T20:00:00.000000+00:00",
+            "parameters": [{"name": "min", "value": "-3"}],
+            "warncell_ids": ["2"],
+        },
+        {"language": "fr", "event": "gel"},
+    ]
+
+
+def test_a_further_info_without_a_text_the_first_has_says_so_with_a_null() -> None:
+    """A text a block lacks is null in its translation, not the first block's text taken for it."""
+    xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>x</identifier>
+  <info><language>de-DE</language><event>FROST</event><instruction>Vorsicht</instruction></info>
+  <info><language>en</language><event>frost</event></info>
+</alert>"""
+    alert = parse_cap_alert(xml)
+    assert alert is not None
+    assert alert["translations"] == [{"language": "en", "event": "frost", "instruction": None}]
+
+
+def test_a_message_without_an_info_has_empty_translations() -> None:
+    """An alert without any `<info>` is only the header, and its `translations` is `[]` like every row's, not null."""
+    alert = parse_cap_alert(b"<alert xmlns='urn:oasis:names:tc:emergency:cap:1.2'><identifier>x</identifier></alert>")
+    assert alert is not None
+    assert alert["translations"] == []

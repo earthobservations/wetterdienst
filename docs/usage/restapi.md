@@ -29,6 +29,12 @@ was got with, named as the endpoint's query parameters are. `interpolate` and `s
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
+For `interpolate` and `summarize`, `with_stations=true` lists the stations (once for each dataset of the request),
+each with its `distance` from the point (km) and its `elevation_difference` to it (m); the GeoJSON always lists them.
+The rows name their stations by id (`taken_station_ids`, `taken_station_id`) and decide which station gave a value;
+this list says where each stands: see
+[Interpolation](interpolation.md#which-stations-an-answer-was-made-from). A CSV holds the rows only.
+
 The command line renders through the same function, so the same request gives the same body there:
 `wetterdienst values ... --with-metadata=true` writes the `settings` block too, `--pretty` the
 indentation `pretty=true` does, and every command that prints JSON prints the `metadata` block.
@@ -358,6 +364,18 @@ what the answer is missing:
   again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+
+  The `history` of `dwd/observation` tells it too, for a directory whose listing came back empty or missing (a 404, or
+  a page with no links) while it was read for the history: no station of it can be read, and the answer is partial.
+  It carries the `stations` that asked for the dataset (the first ten), and its message names the directory that was
+  listed: the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the `historical` directory of
+  most others, the dataset's own directory for the solar datasets, which have no periods. The station lookup that comes
+  first lists the `historical` directories too, and the `meta_data` directory of the 1 minute precipitation, and fails
+  with a 500 when one is empty, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
+  a history has no `periods`, so REST and the command line reach the warning for the 5 and 10 minute datasets that are
+  not urban. A station with no
+  file in a listing that is there (one that only has `recent` data) has no history of it, which is the source's
+  answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -425,12 +443,12 @@ release commit, with `uv run poe contracts:baseline`.
   answer and `providers` state.
 - **Tags** group the operations: `Catalogue` (`coverage`, `providers`, `glossary`, `auth`), `Stations` (`stations`,
   `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Climate stripes`, `Alerts` and `Server`
-  (`version`, `settings`, `health`, the index and `robots.txt`).
+  (`version`, `settings`, `health`, `ready`, the index and `robots.txt`).
 - **`operationId`** is the name of the handler, then the path without the version, then the method, with every
   non-word character an underscore: `values_api_values_get`, `stripes_image_api_stripes_image_get`. It does not carry the version, so
   a client generated from the document keeps its method names when the version moves, and the MCP tools are found by it (`values`, `stripes_image`, see [MCP endpoint](#mcp-endpoint)). Changing one is a
   break of the API version, as a removed path or parameter is.
-- **Answers** have a schema everywhere: the health check (`Health`), the version (`VersionAnswer`) and the data
+- **Answers** have a schema everywhere: the health check (`Health`), the readiness check (`Ready`), the version (`VersionAnswer`) and the data
   routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
   (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
 - **Errors** are declared by status where the route can answer them, as references to the `responses` of
@@ -881,6 +899,59 @@ failure after the response began cuts the connection, as CSV cannot say it; the 
 second lists the stations of the whole answer, which a stream never holds. `format=csv` with `sql_values` is
 sent as one body, as it was, and is held to `rows`.
 
+## Caching
+
+Four routes say how long an answer may be reused and how to ask whether it changed: the catalogue (`coverage`,
+`providers`, `glossary`) and `history`. Every other route sends no `Cache-Control`, `ETag` or `Last-Modified`, and
+an error never does, so a browser, a proxy or a library keeps none of them: that is a decision for each route,
+and where an answer cannot be reasoned about it stays out.
+
+| Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
+| --- | --- | --- | --- | --- |
+| `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history whose `meta_data` listing (5 and 10 minute datasets, not urban) came back empty or missing is a `file-skipped` warning, so that answer is not kept; a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
+| `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
+| `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
+| `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
+| `stripes/*`, `alerts`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts are live, `auth` probes a provider, and the last two describe the instance. |
+| `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |
+
+**The `ETag`** is a weak tag (`W/"..."`) of the body of the answer without the one thing that differs between two
+answers to the same question, when it was made: `metadata.retrieved_at`. It is weak because that is what it says: two
+bodies that mean the same and are not the same bytes. It covers everything else in the body, including the whole
+`metadata` block (licence, attribution, counts, warnings), so an answer that changes in any other way has another
+tag. The format and every option are parameters of the query, so a request with another one is another URL with
+another tag: the tag of `pretty=false` does not answer `pretty=true`. None of these routes reads another header of the
+request, `Accept` included, so the answers have no `Vary`.
+
+**A `304`** answers a `GET` whose `If-None-Match` lists the tag (a list, a strong form of the same value and `*` match
+too), or, where there is none, whose `If-Modified-Since` is not before `Last-Modified`. It has no body and carries
+`ETag`, `Cache-Control` and `Last-Modified` as the 200 does. It means that **the copy the client holds differs from a
+fresh answer at most in its `retrieved_at`**, which is when that copy was made; the `Date` of the 304 is when it was
+found to be right. The `X-Wetterdienst-*` headers are not sent again with it, so a cache that updates what it holds
+from a 304 keeps the `X-Wetterdienst-Retrieved-At` that matches the body it holds. A client that must have a fresh
+`retrieved_at` does not send a condition.
+
+**`Last-Modified`** of the catalogue is when the server last changed: the start of its process, or the change of its
+`.env` where that is later (the settings of a request are read from it each time). It only moves forward: an `.env` that
+is edited, replaced by an older file or removed moves it on by at least a second, as each changes what `coverage` says
+(`configured`), so a client holding the earlier answer is not told it is current. The catalogue is a function of the
+code and of those settings, so it cannot be older than that. Behind several instances each has its own, and a date
+from one is never taken as proof by another that is newer; the worst case is a 200 in full.
+
+**What a 304 saves** is the transfer of the body, not the work of making it: the answer is built to be tagged. Measured
+against a server on the loopback interface, a request that sends the tag is answered with 309 bytes where the 200 is
+74,189 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,640 with `pretty=true`, 34,289 for `providers`
+and 130,848 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
+`max-age` saves the request itself. A `history` is read again to be tagged, so for it too the saving is the body.
+
+**Behind the web app** the browser keeps an answer for its `max-age` and then asks the app, whose `/api` proxy passes
+the cache headers on but does not send the client's conditions to the backend: the revalidation is answered with the
+200 in full, which is right and saves nothing.
+
+Values are not kept by any of this. A client that wants a window it has read before to be cheap keeps it itself, or
+asks for a closed window of the `historical` period, and decides how old it may be.
+
 ## Timeout
 
 A request has to be answered within a timeout, `WD_RESTAPI_TIMEOUT` (`restapi_timeout`, in seconds), 60 by
@@ -899,8 +970,8 @@ own, usually 60 seconds too; set this one below it for the answer to be this pro
 
 A server works on a limited number of requests at once, `WD_RESTAPI_MAX_CONCURRENT` (`restapi_max_concurrent`), 32 by
 default, `0` for no limit. A request under `/api` past it is not started but answered with a 503 problem of the
-kind `server-busy` and `Retry-After`, and a client retries it after that time. `/health` and the index page are
-not counted. A tool of the MCP endpoint makes its request to the API in process and is counted as one request there.
+kind `server-busy` and `Retry-After`, and a client retries it after that time. `/health`, `/ready` and the index page
+are not counted. A tool of the MCP endpoint makes its request to the API in process and is counted as one request there.
 
 A request keeps its place until the work of its handler is done, not until its answer is sent: the work of a
 request that timed out goes on in its thread (see [Timeout](#timeout)), so the limit bounds the threads of the
@@ -923,7 +994,7 @@ WD_RESTAPI_ALLOWED_HOSTS=weather.example.org,*.internal.example.org wetterdienst
 An entry is a name without a scheme or a path, compared without regard to case: `localhost` lets `localhost:7890` and
 `localhost:3000` in, `localhost:7890` only the first; an IPv6 address is written in brackets (`[::1]`);
 `*.example.org` stands for every name below `example.org`, not `example.org` itself. The `Origin` is compared by its
-host in the same way. The probe of `/health` is not checked.
+host in the same way. The probes of `/health` and `/ready` are not checked.
 
 `wetterdienst restapi` sets the list for its own process to `localhost,127.0.0.1,[::1]` (and the host it was given)
 when `--listen` is a loopback address, which is the default, `127.0.0.1:7890`, and the setting is not given. A page of
@@ -959,6 +1030,33 @@ and what follows is for an instance that others can reach (the
   a SQLite file; nothing in it is unpickled or run. Whoever can write there can still replace what the server caches,
   so keep it private to the user the server runs as (a directory wetterdienst makes gets mode 0o700; one that exists
   keeps its mode).
+
+### Health and readiness
+
+`GET /health` is the liveness probe: `{"status": "OK"}` for as long as the process answers. It reads nothing and
+cannot fail other than by the process being gone, which is what a restart is for. `GET /ready` is the readiness
+probe: it says whether the server can serve a data request, which can stop being true while the process is fine. It
+answers `{"status": "ready"}`, or a 503 problem of the kind `not-ready` with `Retry-After` and the `checks` that
+failed:
+
+| Check | Fails when |
+| --- | --- |
+| `settings` | A `WD_*` or `WD_TS_*` setting does not build. They are checked as the server starts, and every request reads them again, so a `.env` edited into something invalid afterwards makes every data request a 500. The server log names the variable, never its value. |
+| `cache` | Neither `WD_CACHE_DIR` (a directory the server can write to, or make below one it can write to) nor the temporary directory can be written to, and `WD_CACHE_DISABLE` is not set. A cache directory alone that cannot be used is **not** a failure: the library then caches in a temporary directory, warns once, and serves every request ([Docker](docker.md#upgrading-from-an-image-that-ran-as-root)); what stops a download is that fallback failing too. A full disk is not found: that takes a write. |
+
+Neither probe is held to the host check, the cap on requests served at once or the timeout, so a probe that reaches the
+server by an address of its own is answered; neither needs a credential, and neither is an MCP tool. `/ready` asks
+no provider: one that is down does not take the server out of the pool, its requests fail with the 5xx that says so
+(`upstream-failed`, `upstream-unreachable`, `upstream-timeout`) and the rest are served. It does not look at the
+load either: a server working on as many requests as it allows answers those that count with a `server-busy` 503
+and stays ready. The answer is `Cache-Control: no-store`.
+
+`HEAD /health` and `HEAD /ready` answer as their `GET` does, with its status and headers (`Content-Length`, and for
+`/ready` the `no-store` and the 503 with `Retry-After`) and no body, for a monitor or `wget --spider` that probes with
+`HEAD` and reads a 405 as the server being down. They take the same path as the `GET`s: outside the host check, the cap
+and the timeout. The routes of the API, the index and `robots.txt` answer `HEAD` with a 405 as before (the pages
+FastAPI adds, `/openapi.json`, `/docs` and `/redoc`, answer it already). The document lists a `head` operation on the
+two probes alone, and a `POST` to one is a 405 with `Allow: GET, HEAD`.
 
 ## Errors
 
@@ -1035,6 +1133,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:not-configured` | 501 | The server is not configured to serve the request. |
 | `urn:wetterdienst:problem:upstream-failed` | 502 | The data provider failed or sent an answer the server cannot read. The request was valid; retry it. |
 | `urn:wetterdienst:problem:server-busy` | 503 | The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`. |
+| `urn:wetterdienst:problem:not-ready` | 503 | The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed. |
 | `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |

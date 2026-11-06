@@ -3915,7 +3915,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "min(air_temperature PT10M)"): "Lowest recorded air temperature per ten minutes",
         ("10_minutes", "data", "min(relative_humidity PT10M)"): "Minimum relative humidity per 10 min",
         ("10_minutes", "data", "sum(precipitation_amount PT10M)"): "Amount of precipitation per 10 minutes",
-        ("6_hours", "data", "sum(precipitation_amount PT6H)"): "Amount of precipitation per six hours",
+        ("6_hours", "data", "sum(precipitation_amount PT6H)"): (
+            "Amount of precipitation per six hours. Code -1 means no precipitation (Frost's data clarifications): "
+            "returned as 0 from 1982 on, and as null before, where the code is no information."
+        ),
         ("annual", "data", "max(air_temperature P1Y)"): "Highest recorded air temperature per year",
         ("annual", "data", "mean(air_temperature P1Y)"): (
             "Annual mean temperature. The mean is an arithmetic mean of daily values."
@@ -3955,7 +3958,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "min(air_temperature P1D)"): "Lowest recorded air temperature per 24 hours",
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
-        ("daily", "data", "sum(precipitation_amount P1D)"): "Daily precipitation sum (between 06-06 UTC).",
+        ("daily", "data", "sum(precipitation_amount P1D)"): (
+            "Daily precipitation sum (between 06-06 UTC). Code -1 means no precipitation (Frost's data "
+            "clarifications, 0.0 mm); it is returned as null for now, as at stations that read periodically it also "
+            "marks a day not read (GH-3820)."
+        ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
             "snow, and is returned as a depth of 0."
@@ -3981,7 +3988,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "(W/m2)."
         ),
         ("hourly", "data", "relative_humidity"): "Relative humidity",
-        ("hourly", "data", "sum(precipitation_amount PT1H)"): "Amount of precipitation per hour",
+        ("hourly", "data", "sum(precipitation_amount PT1H)"): (
+            "Amount of precipitation per hour. Code -1 is read as no precipitation (our reading: Frost's table lists "
+            "it for the sum over an undefined period only): returned as 0 from 1982 on, and as null before."
+        ),
         ("hourly", "data", "surface_air_pressure"): (
             "Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air "
             "pressure reduced to the reference height of the station."

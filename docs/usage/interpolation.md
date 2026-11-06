@@ -97,6 +97,81 @@ df = values.df
 df
 ```
 
+### Which stations an answer was made from
+
+The stations an answer is made from can differ from one timestamp to the next: one has a gap, another stops
+reporting for good, a nearby one answers on its own when it has a reading and the stations around the point take
+over when it has not. So every row says which stations it was made from, and the stations are listed apart from the
+rows, with how far they are:
+
+| Where | Interpolation | Summary |
+|-------|---------------|---------|
+| Every row | `taken_station_ids`, the stations the value was calculated from, and `distance_mean`, the mean of their distances in km | `taken_station_id`, the station the value was taken from, and its `distance` in km |
+| The stations, once per dataset | `distance` in km, and `elevation_difference` in m | the same |
+
+The stations of a row are the ones that gave a value at its timestamp and went into the answer, not the ones that
+were candidates: a station with no reading at that timestamp is not in the row, however near it is. A row made from
+one station only is a nearby station, within `geo_use_nearby_station_distance`, that answered alone: an
+interpolation is made from four stations otherwise. A row with no value names no station. A summary takes the
+first reading of the nearest station that has one, and a row names that station.
+
+The list does not grow with the length of the window: a station is listed once however many rows name it, but once
+for each dataset of the request, as the stations of a request always are (see below). That is the list of the stations
+of the request, so it says where each one stands, not which of them gave which value: the ids in the rows decide
+that. A summary of `temperature_air` and `wind_speed_mean` can list a station under both datasets though only the rows
+of the wind name it. The stations listed are those some row of the answer was made from, and a result cut down afterwards
+(`sql_values` of the request, `filtered_by_date` or `filtered_by_sql`) lists those some row that is left was made from:
+two rows from 00001 list 00001, and a cut to no row lists no station. A station is still listed under every dataset
+of the request, as above. Ask for them with `with_stations=true` (REST API and
+MCP), `--with-stations` (command line) or read `result.stations.df` (Python), and look the stations of a row up by
+their ids. An interpolation for 50.0 N, 8.9 E at 450 m, in which the nearby station 00001 reports at 00:00 and 03:00
+only, and no station reports at 04:00:
+
+```json
+{
+  "stations": [
+    {"station_id": "00001", "latitude": 50.003, "longitude": 8.9, "elevation": 460.0, "name": "Station 00001",
+     "distance": 0.33, "elevation_difference": -10.0},
+    {"station_id": "00002", "latitude": 49.97, "longitude": 8.855, "elevation": 100.0, "name": "Station 00002",
+     "distance": 4.63, "elevation_difference": 350.0}
+  ],
+  "values": [
+    {"timestamp": "2021-02-01T00:00:00.000000+00:00", "value": 5.065, "distance_mean": 0.33,
+     "taken_station_ids": ["00001"]},
+    {"timestamp": "2021-02-01T01:00:00.000000+00:00", "value": 5.9844, "distance_mean": 4.77,
+     "taken_station_ids": ["00002", "00003", "00004", "00005"]},
+    {"timestamp": "2021-02-01T04:00:00.000000+00:00", "value": null, "distance_mean": null,
+     "taken_station_ids": []}
+  ]
+}
+```
+
+The mean distance of a row is the mean of the distances its stations are listed with, to rounding. (Abridged: four
+more stations, the members every row and station has, and the other rows.)
+
+`distance` is how far the station is from the point asked about, or from the station named as the point, in km: the
+number the distances of the rows are made of. The stations have a row for each resolution and dataset a station is
+listed for, as ever, and a station several of them list has the same distance and elevation difference in each.
+
+**Elevation.** With an elevation for the point, a station's reading of a quantity that falls with height (22
+parameters: air temperature and the dew points; the [parameter glossary](../data/parameters.md) says for each at what
+rate) is brought to that elevation before it is used, see [Elevation](#elevation). `elevation_difference` is the
+elevation of the point less the station's own, in metres, so that a station 350 m below the point has its air
+temperature lowered by 350 m times the rate (0.65 K per 100 m), and one above it raised. The point has an elevation
+when `elevation` is given, and when it is named by a station (`station`, `interpolate_by_station_id`), which answers
+at the station's own elevation unless told another. Otherwise nothing was corrected and the difference is null, as it
+is for a station whose elevation is not known (a quantity that falls with height leaves such a station out) and for
+GHCN's 0.0, which is no elevation. The other quantities are not corrected whatever it says. The correction itself is not reported per row: it is the same for every row of a
+station, so it follows from the station's difference and the rate.
+
+**Files.** A CSV, a spreadsheet or another file of the rows holds no list of records, so it holds what the rows
+have: a station id, or the ids of an interpolation joined by commas in one field (`00002,00003,00004,00005`), and
+the distance. The distances of the stations are in the table of the stations, which the result writes as a file of
+its own: `result.stations.to_csv()` or `result.stations.to_target(...)`, which has the `distance` and
+`elevation_difference` columns in a CSV, a spreadsheet and the other table formats such as Parquet. The JSON of the
+answer holds both, and so does the `stations` of the feature in its GeoJSON, which always lists them; the GeoJSON of
+the stations alone (`result.stations.to_geojson()`) has the properties of a station, not these two.
+
 ### Supported parameters
 
 Interpolation is only meaningful for parameters whose fields vary smoothly in space. Which
@@ -428,6 +503,13 @@ df = values.df
 df
 ```
 
+A row of a summary names the station its value was taken from (`taken_station_id`, with its `distance`), and
+the stations are listed with their distance and elevation difference as for an interpolation, see
+[Which stations an answer was made from](#which-stations-an-answer-was-made-from). As the first station with a
+reading is taken for each timestamp, a series may be stitched together from several stations: the stations that are
+listed are those some row was taken from, and a station nearer than another that has no reading at a timestamp is
+passed over for it.
+
 Summary is still in its early stages, we welcome feedback to enhance and refine its
 functionality.
 
@@ -522,6 +604,11 @@ The values of both are selected or calculated by wetterdienst from the readings 
 `metadata` of the answer says so: its `processing_note` adds "The values were selected or calculated from the
 provider's readings." to the note every answer has (see
 [response metadata](restapi.md#response-metadata)), so a licence that asks for changes to be indicated has them said.
+
+`with_stations=true` adds the `stations` to the JSON, each with its `distance` from the point and its
+`elevation_difference` (see [Which stations an answer was made from](#which-stations-an-answer-was-made-from)); the
+rows name them either way, and the GeoJSON always lists them. The command line has `--with-stations`, and the MCP tools take `with_stations` as the
+endpoints do.
 
 The radii are query parameters of their own, again per request rather than per server:
 

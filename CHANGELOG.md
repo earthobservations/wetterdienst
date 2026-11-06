@@ -20,6 +20,23 @@ Types of changes:
 
 ### Added
 
+- Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
+  errors, the warnings about the answer and "Nothing was written to --target." only: no progress,
+  no other warning. Stdout and the exit code stay as they are; with `--debug` it is a usage error.
+  `values`, `interpolate` and `summarize` now also log, with or without `--quiet`, one line with the
+  total for each warning that was only counted (values a check rejected, markers, calms), which a
+  CSV or a file target had no place for. Shell completion is click's own (`_WETTERDIENST_COMPLETE`,
+  see the command line page) and now offers `--provider` and `--network` from the registry.
+  `NO_COLOR` is honoured by `wetterdienst restapi`, whose log lines uvicorn coloured on a terminal
+  (Part of GH-3134)
+- The REST API marks four answers as stable: `coverage`, `providers` and `glossary` get
+  `Cache-Control: public, max-age=300`, an `ETag` and a `Last-Modified`, `history` gets 3600 and an
+  `ETag` when it has rows and no warnings. A matching `If-None-Match` or `If-Modified-Since` is
+  answered with a `304` without a body (the transfer is saved, not the work; the tag leaves out
+  `metadata.retrieved_at`). Values, stations, streams, stripes and errors send no cache header.
+  New `GET /ready` beside `/health`: a 503 `not-ready` when the settings are invalid or neither
+  the cache directory nor the temporary one is writable (one alone is not: the cache falls back);
+  no provider is asked (Part of GH-3134)
 - The new check `relations` holds the readings of one row (the same station, timestamp and file) to
   each other on every observation network: a maximum is not below the mean and the mean not below
   the minimum (not Météo-France's and FMI's daily means, whose windows differ), the dew point is at
@@ -50,6 +67,25 @@ Types of changes:
   `skip_empty`; hard nulls it as `rejected:step,raw:<text>`. A null or gap between readings leaves
   them unjudged; humidity, gusts, soil temperature and wind direction are not judged (Part of
   GH-3681)
+- `HEAD /health` and `HEAD /ready` answer as their `GET` does (status and headers, `/ready`'s
+  `no-store` and 503 included) with no body, for monitors and `wget --spider` that read the 405
+  as a server that is down. The routes of the API, the index and `robots.txt` still answer `HEAD`
+  with a 405 (`/openapi.json`, `/docs` and `/redoc` already answered it). A `POST` to a probe is a
+  405 with `Allow: GET, HEAD`. The OpenAPI document lists the two `head` operations; MCP gains no
+  tool (GH-3814)
+- An alert of `dwd/alerts` has `translations`: the further `<info>` blocks of its CAP message, each
+  its `language` and the fields that differ from the first block, which for DWD's `mul` product
+  (eight languages) are the event, headline, description and instruction. Before, the seven other
+  languages were dropped silently. The fields of an alert stay the first (German) block's, so
+  nothing existing changes; the seven languages add 3 to 5 KB to each alert of a `mul` answer, and
+  one for `de`, `en`, `es` or `fr` has `"translations": []` (20 bytes an alert). A CSV row is still
+  one alert, with the list as JSON text, as `parameters` is (GH-3801)
+- The stations of `interpolate` and `summarize` (`with_stations=true`, `--with-stations`, the
+  GeoJSON feature, `result.stations`) now carry `distance`, the km from the point, and
+  `elevation_difference`, the point's elevation less the station's in m (null where the point has
+  no elevation, or the station none). The rows name the stations each timestamp was made from by
+  id, as before; one id in an interpolation is a nearby station answering alone. A CSV holds the
+  rows only (Part of GH-3134)
 
 ### Changed
 
@@ -80,9 +116,18 @@ Types of changes:
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
   unchanged. A commercial use needs an agreement with IMGW-PIB (Part of GH-2567)
+- `license.url` of Météo-France and Eaufrance is now
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2-0`, where the former `etalab-2.0` address
+  redirects permanently to it; it is the same Licence Ouverte 2.0 (Part of GH-3762)
 
 ### Fixed
 
+- The docs page of the Environment Agency linked its terms and conditions on a host that no longer
+  exists (the link check ignored it). It now cites the fair-use section of the Hydrology API
+  reference, and every provider page says what its terms ask of a caller: limits, a key, a
+  `User-Agent`, a credit. The new page "what wetterdienst does with the data" says what the library
+  caches, what the hosted instance passes on and what AEMET, KNMI, the Met Office and MET Norway
+  state about sharing a key (Part of GH-2567)
 - An image that Kaleido does not draw in 120 seconds is now an `ImageTimeoutError` (also a
   `TimeoutError`): the Chrome and its processes are closed, `/api/stripes/image` and every other
   image route answer a 504 problem of the kind `image-timeout`, and the command line prints one
@@ -98,6 +143,40 @@ Types of changes:
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
   (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
   `findlibs` that something else keeps, upgrade it (GH-2441)
+- **Breaking**: `to_target` refuses an `if_exists` that is not `replace`, `append`, `fail` or `skip`
+  with an `ExportRefusedError`. Before, a file took any other word for `replace` and overwrote
+  itself, DuckDB wrote nothing and said nothing, and a SQL database passed it to pandas, which
+  refused most words and took its own `delete_rows`, which was never documented and is refused
+  now. Pass one of the four words (the command line's `--if-exists` always refused others)
+  (GH-3814)
+- A NUL in a file target (`file://x%00.csv`, `sqlite:///x%00.sqlite`) is now an
+  `ExportRefusedError` that names no part of the target, and on the command line one line and
+  exit 1 for `alerts` and `history` before the fetch. Before, each writer failed in its own way,
+  with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
+- `history` of `dwd/observation` now tells a directory whose listing came back empty or missing
+  with a `file-skipped` warning naming the stations and the directory, so the REST API no longer
+  keeps that partial answer for an hour. REST and the command line reach it for the `meta_data`
+  of the 5 and 10 minute datasets (not urban); other empty directories still fail the station
+  lookup with a 500 (GH-3819). A station with no file in a listing that is there is the source's
+  answer and no warning (GH-3814)
+- `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
+  `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
+  `counts.stations`): two rows from one station listed six stations, an empty result all of them
+  (GH-3814)
+- **Breaking**: `metno/frost` 6-hourly and hourly `precipitation_amount` return Frost's `-1`, which
+  its [data clarifications](https://frost.met.no/dataclarifications.html) state as no
+  precipitation for the 6-hourly sum (the hourly sum is our reading), as `0.0` with `raw:-1` in
+  `quality_flags` from 1982 on. It was null, as the range check took it for a reading below 0 mm
+  (a station with only `-1` had "no values"). Before 1982 it stays null, with `raw:-1` alone: it is
+  every reading of a station in the 1940s and 1950s, wet days included. Daily, 10-minute, monthly
+  and annual sums are unchanged (daily: GH-3820). To get the old series, drop the
+  `precipitation_amount` rows whose `quality_flags` end with `raw:-1`; the code is in
+  `docs/usage/migrating.md`. The 0.182.0 entry on this element named the wrong cause; the
+  discovery it added for an empty answer is gone (GH-3748)
+- `metno/frost` reads an answer in which no observation has a `qualityCode` (it raised
+  `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
+  `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
+  that blamed the client ID (GH-3748)
 
 ## [0.183.0] - 2026-11-03
 

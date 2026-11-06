@@ -63,6 +63,13 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
+from wetterdienst.ui.caching import (
+    CATALOGUE_CACHE_CONTROL,
+    HISTORY_CACHE_CONTROL,
+    cached_json,
+    settings_changed_at,
+    validators,
+)
 from wetterdienst.ui.core import (
     AlertsRequest,
     AuthAnswer,
@@ -130,6 +137,7 @@ from wetterdienst.ui.problems import (
     status_phrase,
 )
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
+from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
@@ -167,7 +175,7 @@ from wetterdienst.ui.streaming import (
     ndjson_stream,
     stream_response,
 )
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
@@ -394,6 +402,9 @@ def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
+    if exc.status_code == 405 and request.url.path in _HEAD_PROBES:
+        # Starlette lists the methods of the first route that matched the path, which is the `GET`: the probes take both
+        exc = StarletteHTTPException(405, exc.detail, {**(exc.headers or {}), "Allow": "GET, HEAD"})
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=exc.headers)
     if not isinstance(exc.detail, str):
@@ -938,6 +949,10 @@ def robots() -> PlainTextResponse:
     )
 
 
+#: a probe is never reused: what it answered is not what it would answer now
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
 class Health(BaseModel):
     """The answer of the liveness probe."""
 
@@ -950,6 +965,85 @@ class Health(BaseModel):
 def health() -> Health:
     """Health check: liveness, for a probe. It is `OK` as long as the server answers; it checks nothing else."""
     return Health(status="OK")
+
+
+class Ready(BaseModel):
+    """The answer of the readiness probe."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"status": "ready"}]})
+
+    status: Literal["ready"] = Field(
+        description="Always `ready`: the server can serve a data request. Where it cannot the answer is a 503 problem "
+        "of the kind `not-ready`, with the `checks` that failed."
+    )
+
+
+@app.get(
+    "/ready",
+    response_model=Ready,
+    tags=[TAG_SERVER],
+    responses={200: {"headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}},
+)
+def ready() -> Response:
+    """Readiness check, for a probe that decides whether to send traffic to the server.
+
+    Can it serve a data request? `ready` where the settings are valid and the cache directory is one the server can
+    write to or make. A 503 problem of the kind `not-ready` where not, its `checks` naming `settings` or `cache`. No
+    provider is asked, so one that is down does not make the server not ready, and no credential is needed. `/health`
+    is the liveness probe: it answers while the process does, and says nothing of this.
+    """
+    if failed := failed_checks():
+        raise ProblemError(
+            503,
+            f"The server is running but is not ready to serve data: {' and '.join(failed)} failed. "
+            "The server log says what is wrong.",
+            ProblemKind.NOT_READY,
+            extra={"checks": failed},
+            headers=_NO_STORE,
+        )
+    return JSONResponse(Ready(status="ready").model_dump(), headers=_NO_STORE)
+
+
+def _head_of(answer: Response) -> Response:
+    """Give the answer of a `GET` as the `HEAD` of it is: its status and headers (`Content-Length` too), no body."""
+    return Response(status_code=answer.status_code, headers=dict(answer.headers))
+
+
+#: the routes that answer `HEAD` as their `GET` does
+_HEAD_PROBES = ("/health", "/ready")
+
+_HEAD_ANSWER = {
+    "description": "The status and the headers of the `GET`, with no body.",
+}
+
+
+@app.head(
+    "/health",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Health check, headers only",
+    responses={200: _HEAD_ANSWER},
+)
+def health_head() -> Response:
+    """Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`."""
+    return _head_of(JSONResponse(health().model_dump()))
+
+
+@app.head(
+    "/ready",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Readiness check, headers only",
+    responses={
+        200: {**_HEAD_ANSWER, "headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}
+    },
+)
+def ready_head(request: Request) -> Response:
+    """Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`."""
+    try:
+        return _head_of(ready())
+    except ProblemError as e:
+        return _head_of(_problem_of(request, e))
 
 
 class VersionAnswer(BaseModel):
@@ -1136,6 +1230,17 @@ def _problem_components() -> dict[str, dict[str, Any]]:
     return components
 
 
+def _head_answer_of(status: int) -> dict[str, Any]:
+    """Describe the answer of a `HEAD` to a problem: the status and headers of the `GET`'s, and no body."""
+    name, title = _PROBLEM_COMPONENTS[status]
+    answer: dict[str, Any] = {
+        "description": f"{title}, as `GET` answers it, without the body (the problem of the component `{name}`).",
+    }
+    if status in RETRY_AFTER_STATUSES:
+        answer["headers"] = _RETRY_AFTER_HEADER
+    return answer
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
     """Describe the error body in the schema: the problem of `_problem_response`, and the routes that can answer it.
 
@@ -1182,6 +1287,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
                 "type": "integer",
                 "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows).",
             },
+            "checks": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(CHECKS)},
+                "description": "Of `not-ready`: the checks of `/ready` that failed.",
+            },
         },
         "required": ["type", "title", "status", "detail", "instance", "request_id"],
         "examples": [
@@ -1202,9 +1312,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             answers = {*_EVERY_ROUTE_ANSWERS, *_ROUTE_ANSWERS[route]}
         elif path in _HOST_CHECKED_ROUTES:
             answers = {400}
+        elif path == "/ready":
+            answers = {503}
         else:
             answers = set()
-        for operation in item.values():
+        for method, operation in item.items():
             responses = operation.get("responses", {})
             if (invalid := responses.get("422")) is not None:
                 # the one status that FastAPI adds, kept as it describes it, with the problem as its content
@@ -1212,7 +1324,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             declared = {key: value for key, value in responses.items() if key not in map(str, _PROBLEM_COMPONENTS)}
             declared.update(
                 {
-                    str(status): {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    str(status): (
+                        _head_answer_of(status)
+                        if method == "head"
+                        else {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    )
                     for status in sorted(answers)
                 }
             )
@@ -1336,6 +1452,44 @@ for _discovery in ("oauth-authorization-server", "oauth-protected-resource"):
         app.get(f"/.well-known/{_discovery}{_resource}", include_in_schema=False)(oauth_metadata_not_found)
 
 
+_VALIDATOR_HEADERS = {
+    "ETag": {
+        "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as "
+        "`If-None-Match` to be answered with a 304 while the answer is the same.",
+        "schema": {"type": "string"},
+    },
+    "Cache-Control": {
+        "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+        "schema": {"type": "string"},
+    },
+}
+_LAST_MODIFIED_HEADER = {
+    "Last-Modified": {
+        "description": "When the server, which these answers change with, last changed (it started, or its `.env` "
+        "did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+        "schema": {"type": "string", "format": "http-date"},
+    }
+}
+
+
+def _revalidatable(*, last_modified: bool) -> dict[int | str, dict[str, Any]]:
+    """Describe the cache headers of a route that answers `If-None-Match`, with the 304 it answers (GH-3134)."""
+    headers = {**_VALIDATOR_HEADERS, **(_LAST_MODIFIED_HEADER if last_modified else {})}
+    return {
+        200: {"headers": headers},
+        304: {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its "
+            "`retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": headers,
+        },
+    }
+
+
+def _catalogue_answer(request: Request, content: str) -> Response:
+    """Answer with a catalogue document, to be kept and asked about again, or with the 304 where it is held."""
+    return cached_json(request, content, cache_control=CATALOGUE_CACHE_CONTROL, last_modified=settings_changed_at())
+
+
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
     """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
 
@@ -1420,9 +1574,12 @@ CoverageResolutions = dict[Resolution, CoverageResolution]
 CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
-@router.get("/coverage", response_model=CoverageAnswer, tags=[TAG_CATALOGUE])
+@router.get(
+    "/coverage", response_model=CoverageAnswer, tags=[TAG_CATALOGUE], responses=_revalidatable(last_modified=True)
+)
 def coverage(
     request: Annotated[CoverageRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """List available data: providers/networks, or the resolutions, datasets and parameters within one.
 
@@ -1466,7 +1623,7 @@ def coverage(
                 "'provider' and 'network' must be given with them.",
             )
         cov = Wetterdienst.discover()
-        return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
+        return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
 
     api = _resolve_listed_network(str(provider), str(network), "list the coverage of")
 
@@ -1483,12 +1640,15 @@ def coverage(
         datasets=request.datasets,
     )
 
-    return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
+    return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
 
 
-@router.get("/providers", response_model=ProvidersAnswer, tags=[TAG_CATALOGUE])
+@router.get(
+    "/providers", response_model=ProvidersAnswer, tags=[TAG_CATALOGUE], responses=_revalidatable(last_modified=True)
+)
 def providers(
     request: Annotated[ProvidersRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
@@ -1511,17 +1671,28 @@ def providers(
             status_code=404,
             detail=f"{e} Use {app.url_path_for('providers')} to list the providers.",
         ) from e
-    return Response(
-        content=answer.model_dump_json(indent=4 if request.pretty else None),
-        media_type="application/json",
-        headers=dict(catalogue_headers(answer.metadata)),
+    content = answer.model_dump_json(indent=4 if request.pretty else None)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=CATALOGUE_CACHE_CONTROL,
+        last_modified=settings_changed_at(),
+        ignoring=[answer.metadata.retrieved_at],
+        headers=catalogue_headers(answer.metadata),
     )
 
 
-@router.get("/glossary", response_model=list[GlossaryEntry], tags=[TAG_CATALOGUE])
+@router.get(
+    "/glossary",
+    response_model=list[GlossaryEntry],
+    tags=[TAG_CATALOGUE],
+    responses=_revalidatable(last_modified=True),
+)
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
-) -> list[GlossaryEntry]:
+    http_request: Request,
+    response: Response,
+) -> Response | list[GlossaryEntry]:
     """Look up what a parameter measures and which unit it is returned in.
 
     Filter with parameter="radiation" to match names containing that text, or
@@ -1537,7 +1708,17 @@ def glossary(
     # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
 
-    return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
+    entries = get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
+    checked = validators(
+        http_request,
+        json.dumps(jsonable_encoder(entries)),
+        cache_control=CATALOGUE_CACHE_CONTROL,
+        last_modified=settings_changed_at(),
+    )
+    if checked.matched:
+        return checked.not_modified()
+    response.headers.update(checked.headers)
+    return entries
 
 
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
@@ -2381,9 +2562,15 @@ def stripes_image(
     )
 
 
-@router.get("/history", response_model=_HistoryWithMetadataDict, tags=[TAG_STATIONS])
+@router.get(
+    "/history",
+    response_model=_HistoryWithMetadataDict,
+    tags=[TAG_STATIONS],
+    responses=_revalidatable(last_modified=False),
+)
 def history(
     request: Annotated[HistoryRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Return a station's metadata history -- how the station itself changed over time (not weather).
 
@@ -2424,7 +2611,18 @@ def history(
         content, metadata = render_history(stations_, history_provider, request)
     except Exception as e:
         raise _logged_server_error(e, "collect station history") from e
-    return _answer(content, "json", metadata)
+    if not metadata.counts.rows or metadata.warnings:
+        # an empty history, or one that came with warnings, may be a source that answered nothing for the moment, or
+        # ids left out: the next request can give another, so it is not kept (a listing that came back empty is a
+        # `file-skipped` warning, a station with no file in a listing that is there is the source's answer)
+        return _answer(content, "json", metadata)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=HISTORY_CACHE_CONTROL,
+        ignoring=[metadata.retrieved_at],
+        headers=response_headers(metadata),
+    )
 
 
 @router.get(
@@ -2589,4 +2787,13 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:_worker_app", factory=True, host=host, port=port, reload=reload or False)
+    # uvicorn colours the level of its log lines on a terminal and does not read NO_COLOR itself; None leaves it to
+    # its terminal check
+    run(
+        app="wetterdienst.ui.restapi:_worker_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload or False,
+        use_colors=False if no_color() else None,
+    )

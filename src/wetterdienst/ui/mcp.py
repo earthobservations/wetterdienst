@@ -20,7 +20,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   the tool refuses, and fails on a binary one (GH-3464),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
-- exclusion of the non-data endpoints (index, robots, health, version, settings) so the tool
+- exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
   list stays focused. The settings a data tool used come back in its own answer with
   ``with_metadata``.
 
@@ -202,6 +202,7 @@ _EXCLUDE_PATTERNS = (
     r"^/$",
     r"^/robots\.txt$",
     r"^/health$",
+    r"^/ready$",
     r"^/api(/v1)?/version$",
     r"^/api(/v1)?/settings$",
 )

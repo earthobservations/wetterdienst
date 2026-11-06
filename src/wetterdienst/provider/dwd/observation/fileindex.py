@@ -145,11 +145,16 @@ def _midnight_in_utc(day: pl.Expr, days: int = 0) -> pl.Expr:
     )
 
 
+def _meta_data_url(resolution: str, dataset: str) -> str:
+    """Give the `meta_data` directory of a 1, 5 or 10 minute dataset, which lists a file for each of its stations."""
+    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{resolution}/{dataset}/meta_data/"
+
+
 def _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
     resolution: str, dataset: str, settings: Settings
 ) -> pl.LazyFrame:
     """Create metadata DataFrame for 1minute precipitation historical."""
-    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{resolution}/{dataset}/meta_data/"
+    url = _meta_data_url(resolution, dataset)
     df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     return df_files.with_columns(
         pl.col("filename").str.split("_").list.last().str.strip_suffix(".zip").alias("station_id"),

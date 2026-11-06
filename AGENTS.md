@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Wetterdienst is a Python library providing unified access to weather, climate and hydrology data from many national providers (DWD, NOAA, ECCC, EA, NWS, Geosphere Austria, IMGW, WSV, Eaufrance, Météo-France, MeteoSwiss, met.no, SMHI, FMI, KNMI, DMI, CHMI, RMI, AEMET, IPMA, LHMT, Met Office, Eumetnet). [polars](https://pola.rs/) is the primary dataframe library throughout.
+Wetterdienst is a Python library providing unified access to weather, climate and hydrology data from many national providers (DWD, NOAA, ECCC, EA, NWS, Geosphere Austria, IMGW, WSV, Eaufrance, Météo-France, MeteoSwiss, met.no, SMHI, FMI, KNMI, DMI, CHMI, RMI, AEMET, IPMA, LHMT, Met Office). [polars](https://pola.rs/) is the primary dataframe library throughout. `provider/eumetnet/opera` is no provider: it is the list of the OPERA radar sites (`OperaRadarSites`), data for `dwd/radar` and the `radar` command, with no request class, so it is not in the registry or `/api/providers`.
 
 ## Commands
 

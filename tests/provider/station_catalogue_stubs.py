@@ -193,6 +193,12 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdRoadRequest, ("15_minutes", "data"))
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -206,6 +212,12 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(ImgwMeteorologyRequest, ("daily", "climate"))
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"

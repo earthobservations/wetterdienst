@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
 from zoneinfo import ZoneInfo
 
@@ -43,6 +43,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     _build_url_from_dataset_and_period,
     _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata,
     _create_file_index_for_dwd_server,
+    _meta_data_url,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
 )
@@ -66,13 +67,14 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
 
-    from wetterdienst.model.result import StationsResult
+    from wetterdienst.model.result import HistoryResult, StationsResult
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -349,8 +351,55 @@ class DwdObservationValues(TimeseriesValues):
         return result.get_column("date_range").to_list()
 
 
+#: how many stations the `file-skipped` warning of a history lists, as the one of the values does
+_MAX_STATIONS_LISTED = 10
+
+
+@dataclass
 class DwdObservationHistory(TimeseriesHistory):
-    """History class for DWD observation data."""
+    """History class for DWD observation data.
+
+    A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
+    began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
+    answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the directory.
+    Which directory is read depends on the dataset, and the warning names the one that was listed (the path below
+    `observations_germany/`): the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the
+    `historical` directory of most others, the directory of the dataset itself for the solar datasets, which have no
+    period directories, and the `recent` directory of an urban dataset without one. The station lookup that comes
+    first lists some of these too and fails with a 500 of the REST API where they are empty (#3819): the `historical`
+    directory, and the `meta_data` directory of the 1 minute precipitation. A history has no `periods`, so REST and the
+    command line reach the warning for the 5 and 10 minute datasets that are not urban, through `meta_data`.
+    """
+
+    #: the stations whose history was not read for want of a listing, by the directory that came back empty
+    _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
+
+    def query(self) -> Iterator[HistoryResult]:
+        """Query the history of the stations, and tell the stations whose dataset has no listing once all are read."""
+        self._unlisted = {}
+        try:
+            yield from super().query()
+        finally:
+            self._warn_unlisted()
+
+    def _warn_unlisted(self) -> None:
+        """Warn that a listing came back empty or missing, once for each directory it was for."""
+        for directory, stations in self._unlisted.items():
+            many = len(stations) > 1
+            listed = ", ".join(stations[:_MAX_STATIONS_LISTED])
+            if len(stations) > _MAX_STATIONS_LISTED:
+                where = f"{len(stations)} stations, the first {_MAX_STATIONS_LISTED} of them {listed}"
+            else:
+                where = f"{'stations' if many else 'station'} {listed}"
+            warn_response(
+                log,
+                FILE_SKIPPED,
+                f"The listing of the directory {directory} came back empty or missing, so the history of {where} was "
+                "not read and is not in the answer, which is partial. Try again later.",
+                stations=stations[:_MAX_STATIONS_LISTED],
+            )
+        self._unlisted = {}
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
         from typing import cast  # noqa: PLC0415
@@ -376,9 +425,19 @@ class DwdObservationHistory(TimeseriesHistory):
                         settings=settings,
                     )
             except FileNotFoundError:
+                # the listing of the directory is empty or the directory is not there (a 404, or a page with no
+                # links), which is not "this station has no file in it": DWD lists a directory for every station
+                # that has files in it. Not the source's answer, so the answer is partial
                 log.info(
                     f"No files found for {dataset_identifier} and period {Period.HISTORICAL}. Station will be skipped."
                 )
+                url = (
+                    _meta_data_url(dataset.resolution.value.value, dataset.name_original)
+                    if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS
+                    else _build_url_from_dataset_and_period(dataset, Period.HISTORICAL)
+                )
+                directory = f"`{url.split('observations_germany/')[-1]}`"
+                self._unlisted.setdefault(directory, []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):

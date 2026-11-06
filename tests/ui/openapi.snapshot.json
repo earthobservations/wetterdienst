@@ -96,6 +96,84 @@
             }
           }
         }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check, headers only",
+        "description": "Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body."
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Ready",
+        "description": "Readiness check, for a probe that decides whether to send traffic to the server.\n\nCan it serve a data request? `ready` where the settings are valid and the cache directory is one the server can\nwrite to or make. A 503 problem of the kind `not-ready` where not, its `checks` naming `settings` or `cache`. No\nprovider is asked, so one that is down does not make the server not ready, and no credential is needed. `/health`\nis the liveness probe: it answers while the process does, and says nothing of this.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ready"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Readiness check, headers only",
+        "description": "Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`.",
+        "operationId": "ready_head_ready_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable, as `GET` answers it, without the body (the problem of the component `Unavailable`).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/version": {
@@ -892,6 +970,51 @@
                   "title": "Response Coverage Api Coverage Get"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
             }
           },
           "422": {
@@ -972,6 +1095,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProvidersAnswer"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
                 }
               }
             }
@@ -1110,6 +1278,51 @@
                     "$ref": "#/components/schemas/GlossaryEntry"
                   },
                   "title": "Response Glossary Api Glossary Get"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
                 }
               }
             }
@@ -3142,11 +3355,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3668,11 +3881,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -4502,6 +4715,37 @@
                   "$ref": "#/components/schemas/_HistoryWithMetadataDict"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "422": {
@@ -4576,11 +4820,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",
@@ -5856,6 +6100,28 @@
         "title": "QualityKind",
         "description": "One kind of token in the `quality_flags` of a network."
       },
+      "Ready": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status",
+            "description": "Always `ready`: the server can serve a data request. Where it cannot the answer is a 503 problem of the kind `not-ready`, with the `checks` that failed."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Ready",
+        "description": "The answer of the readiness probe.",
+        "examples": [
+          {
+            "status": "ready"
+          }
+        ]
+      },
       "ResolvedRequest": {
         "properties": {
           "provider": {
@@ -6752,6 +7018,132 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -6880,7 +7272,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -6931,7 +7323,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7563,7 +7955,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7614,7 +8006,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -8018,7 +8410,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -8063,6 +8455,17 @@
           "requested": {
             "type": "integer",
             "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows)."
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "settings",
+                "cache"
+              ]
+            },
+            "description": "Of `not-ready`: the checks of `/ready` that failed."
           }
         },
         "required": [
@@ -8155,7 +8558,7 @@
         }
       },
       "Unavailable": {
-        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
+        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `not-ready`: The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
         "content": {
           "application/problem+json": {
             "schema": {
