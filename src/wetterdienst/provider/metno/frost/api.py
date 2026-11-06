@@ -38,9 +38,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# the answers that say Frost refuses the client ID, as opposed to one that says it could not be asked
-_FROST_REJECTED_STATUSES = frozenset({401, 403})
-
 _MetnoFrostMetadataSpec = {
     "name_short": "MetNo Frost",
     "name_english": "Norwegian Meteorological Institute",
@@ -418,15 +415,33 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 
 # Frost writes in-band codes into the value itself, where nothing tells them apart from a measurement. It states
 # them in its data clarifications (https://frost.met.no/dataclarifications.html, "Explanations for some coded
-# negative value elements"); the description of an element states one only for the snow depth and the cloud cover:
+# negative value elements"); the description of an element states one only for the snow depth and the cloud cover.
+# Of the elements this module reads the table lists these, all "not converted":
 #
-# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one (the description of the element:
-#   "Code=-1 means no snow"; the clarifications: "Zero snowdepth or partial snow cover"). It reaches the caller as
-#   -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against
-#   92 measured zeros
-# - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured. In
-#   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
-#   plausible reading rather than a code
+# - `wind_from_direction` -3: "No unique wind direction is given when winds are weak". It is null here, with the code
+#   kept; the range check had nulled it as `rejected:range` by accident. Read on 2026-11-06, 22 October to 5 November,
+#   at the WMO stations Frost lists since 2026-11-03: 72 of 9,255 hourly readings at 12 stations, all beside a wind
+#   speed of 0.5 to 2.6 m/s, and none in 108,161 readings of the Norwegian stations in 10 to 24 January 2026. The 0
+#   of the direction is not in the table; it stands beside a speed of 0 in 359 of 372 readings there, and is returned
+#   as the 0.0 it is written as (GH-3137)
+# - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
+#   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
+#   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
+#   Beside the daily `snow_coverage_type` (0 or -1 no snow, 1 mostly free, 2 half, 3 mostly covered, 4 covered) of the
+#   same station and day, a -1 is no snow in 93.4 % of 1,842 days at 12 stations (partial cover in 6.6 %, 121 days),
+#   a 0 in 90.5 % of 474 (8.4 % partial), where a depth of 5 cm or more is mostly covered or covered ground in 97.4 % of
+#   1,161 (2015-10 to 2016-06): the gauge reads nothing in both cases, which is why they are read as 0.0
+# - `surface_snow_thickness` 0: "Snowdepth less than 0.5 cm", a depth the gauge cannot tell from none; it is returned as
+#   the 0.0 it is written as, with no token
+# - `surface_snow_thickness` -3: "Not possible to measure snowdepth". That is no depth: null, with the code kept. It
+#   was not mapped, and a -3 would have come back as -3 cm, a value inside the range of the parameter. None was seen in
+#   about 150,000 snow depths read (daily and hourly, Norwegian and foreign stations); one -2, which the table does not
+#   list, is at SN91500 on 2017-07-24 (daily, quality 2), and is returned as -2.0
+# - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured (the clarifications state
+#   the -3: "Cloud cover is not estimated because of fog or analogous phenomena"; the description of the element states
+#   both). In eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a plausible reading
+#   rather than a code. Of the hourly readings the 9 is 19,669 of 572,955 at the five Norwegian stations that have the
+#   element (2008 to 2025) and 35 of 8,743 at the foreign ones; a -3 was in none of them
 # - precipitation -1 is "No precipitation": for `sum(precipitation_amount PT6H)` and `PT12H` (not converted), for
 #   `sum(precipitation_amount P1D)` (converted to 0.0 mm) and for `sum_over_undefined_period(precipitation_amount
 #   PT1H)` (not converted). The range check took it for a reading below 0 mm and dropped it, so a station whose
@@ -465,6 +480,10 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 # checked over nine years at SN18700, where neither mean goes negative or above eight.
 _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = "-1"
+_WIND_DIRECTION = "wind_from_direction"
+# "No unique wind direction is given when winds are weak" for the direction, "Not possible to measure snowdepth" for the
+# snow depth
+_NOT_GIVEN = "-3"
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _PRECIPITATION_SUMS = (
@@ -630,6 +649,7 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year >= _NO_PRECIPITATION_FROM_YEAR), to=0.0),
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year < _NO_PRECIPITATION_FROM_YEAR)),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
+        Sentinel(_NOT_GIVEN, where=pl.col("parameter").is_in([_WIND_DIRECTION, _SNOW_DEPTH])),
         text=False,
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
@@ -668,16 +688,14 @@ class MetnoFrostValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
-        from wetterdienst.model.metadata import DatasetModel, ParameterModel  # noqa: PLC0415
+        from wetterdienst.model.metadata import DatasetModel  # noqa: PLC0415
 
         if isinstance(parameter_or_dataset, DatasetModel):
             dataset = parameter_or_dataset
             parameters = parameter_or_dataset.parameters
-        elif isinstance(parameter_or_dataset, ParameterModel):
+        else:
             dataset = parameter_or_dataset.dataset
             parameters = [parameter_or_dataset]
-        else:
-            return pl.DataFrame()
 
         start_date = self.sr.start
         end_date = self.sr.end

@@ -175,6 +175,13 @@ Types of changes:
   `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
+- `metno/frost` snow depth `-3`, "Not possible to measure snowdepth" in Frost's data
+  clarifications, is null with `raw:-3` (it came back as the depth `-3.0` cm, which the range
+  allows; none has been seen in about 150,000 readings), and the hourly wind direction `-3`, "No
+  unique wind direction is given when winds are weak", is null with `raw:-3` alone, without the
+  `rejected:range` the range check added. The descriptions of both state these codes and what is
+  returned for them. Snow depth `-1` stays `0.0`, and the wind direction `0`, which Frost writes
+  for a calm, stays `0.0` (Part of GH-3137)
 
 ## [0.183.0] - 2026-11-03
 
