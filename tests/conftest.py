@@ -80,7 +80,7 @@ def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool
 def is_no_such_option(output: str, option: str) -> bool:
     """Say whether click's output refuses an option it does not have, in the words of any click the floor allows.
 
-    click 8.2.0 says `No such option: --x`, the releases after it `No such option '--x'`.
+    click before 8.4 says `No such option: --x`, from 8.4 on `No such option '--x'`.
     """
     return f"No such option '{option}'" in output or f"No such option: {option}" in output
 

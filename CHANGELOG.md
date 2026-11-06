@@ -86,6 +86,12 @@ Types of changes:
   no elevation, or the station none). The rows name the stations each timestamp was made from by
   id, as before; one id in an interpolation is a nearby station answering alone. A CSV holds the
   rows only (Part of GH-3134)
+- The OpenAPI document states the exclusive parameters of `stations`, `values`, `history`,
+  `interpolate`, `summarize`, `stripes/values` and `stripes/image` (exactly one of `all`,
+  `stations`, `name`, a point, a box or `sql` for the first two): the operation's informative
+  `x-wetterdienst-selection` lists the groups, and each parameter has an example and, in its
+  description, the sentences of the refusal. The description of `all` no longer says it ignores
+  the other selections: it is refused with them (Part of GH-3134)
 
 ### Changed
 
@@ -93,6 +99,10 @@ Types of changes:
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
   group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
+- wetterdienst now requires `click>=8.3.2` (before `click>=8.2`). On 8.2.0, `--provider` and
+  `--network` complete nothing or the wrong candidates. On 8.3.0 and 8.3.1, every boolean option
+  given without a value (`--all`, `--pretty`, `--debug`, `--quiet`) is refused. Upgrade click where
+  an older one is pinned (GH-3826)
 - **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
   `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
   without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
