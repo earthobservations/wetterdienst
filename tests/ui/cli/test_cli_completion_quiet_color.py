@@ -17,6 +17,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from tests.conftest import is_no_such_option
 from wetterdienst import Wetterdienst
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.ui import cli as cli_module
@@ -351,7 +352,7 @@ def test_quiet_does_not_reach_the_server() -> None:
     result = CliRunner().invoke(cli, ["restapi", "--quiet"])
 
     assert result.exit_code == 2
-    assert "No such option '--quiet'" in result.stderr
+    assert is_no_such_option(result.stderr, "--quiet")
 
 
 def test_a_real_quiet_command_writes_nothing_to_stderr_and_the_data_to_stdout() -> None:

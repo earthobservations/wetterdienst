@@ -365,15 +365,16 @@ what the answer is missing:
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
-  The `history` of `dwd/observation` tells it too, for a directory whose listing came back empty or missing (a 404, or
-  a page with no links) while it was read for the history: no station of it can be read, and the answer is partial.
+  The `history` of `dwd/observation` tells it too, for a directory that is missing on the server (a 404) while it
+  was read for the history: no station of it can be read, and the answer is partial.
   It carries the `stations` that asked for the dataset (the first ten), and its message names the directory that was
   listed: the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the `historical` directory of
   most others, the dataset's own directory for the solar datasets, which have no periods. The station lookup that comes
   first lists the `historical` directories too, and the `meta_data` directory of the 1 minute precipitation, and fails
-  with a 500 when one is empty, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
+  with a 500 when one is missing, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
   a history has no `periods`, so REST and the command line reach the warning for the 5 and 10 minute datasets that are
-  not urban. A station with no
+  not urban. A directory that is there but really empty is not told yet: the answer is thin, with no warning (the
+  `meta_data` of the 1 minute precipitation is a 500 there, #3819). A station with no
   file in a listing that is there (one that only has `recent` data) has no history of it, which is the source's
   answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
@@ -451,6 +452,38 @@ release commit, with `uv run poe contracts:baseline`.
 - **Answers** have a schema everywhere: the health check (`Health`), the readiness check (`Ready`), the version (`VersionAnswer`) and the data
   routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
   (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
+- **Exclusive parameters** are stated on the operations that have them: `stations` and `values` (`all`, `stations`,
+  `name`, a point, a box or `sql`), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
+  point), and `stripes/values` and `stripes/image` (a `station` or a `name`). The document does not write it as a
+  `oneOf`. That is a keyword of one schema, and these are separate query parameters; the only place for it would be one
+  object parameter (`style: form`, `explode: true`) in place of them. Then the operation would no longer list `all`,
+  `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
+  argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
+    - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
+      and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
+      `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
+    - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
+      `Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is
+      required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+    - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
+      `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
+      there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
+      request made of them: `all=true` on `values` or `history` over a network with more stations than the server
+      allows for one request is a 400 (see [Limits](#limits)), and `sql` is a 403 unless the server enables it
+      (see [SQL filters](#sql-filters)).
+
+  The model that refuses a request, the extension, the sentences and the examples are written from one definition
+  (`Selection` in `ui/core.py`), which the model enforces whole, the `then` and `requires` as well as the groups.
+  Tests hold the groups to the rules as written for a client, over every combination of up to three of the
+  parameters, and the document to the 422 the server answers with. They hold the examples of each alternative to the
+  model and to the schema of the parameter, and run those of `stations` and `values` against a stand-in network of
+  eight stations; the other operations' examples are not run. The sentences and examples are on the parameters of the
+  operation and not on their schemas, which the MCP tools are built from, so the tools carry no more text than before.
+
+  `x-wetterdienst-selection` is informative. It may change in a minor release, as the descriptions and examples
+  may: what is promised is the refusal itself (the 422, its `type` and the alternatives it names), which is held by
+  the contract tests, and not this member of the document.
 - **Errors** are declared by status where the route can answer them, as references to the `responses` of
   `components`, each listing the kinds of problem that status is (see [Errors](#errors)). Every route under `/api/v1`
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
@@ -505,7 +538,8 @@ learnt on one holds on the others:
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
   stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
-  command.
+  command. The OpenAPI document states the alternatives and gives an example of each parameter, see
+  [The OpenAPI document](#the-openapi-document).
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 

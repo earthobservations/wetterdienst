@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.183.0",
+    "version": "0.184.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -92,6 +92,84 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check, headers only",
+        "description": "Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body."
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Ready",
+        "description": "Readiness check, for a probe that decides whether to send traffic to the server.\n\nCan it serve a data request? `ready` where the settings are valid and the cache directory is one the server can\nwrite to or make. A 503 problem of the kind `not-ready` where not, its `checks` naming `settings` or `cache`. No\nprovider is asked, so one that is down does not make the server not ready, and no credential is needed. `/health`\nis the liveness probe: it answers while the process does, and says nothing of this.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ready"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Readiness check, headers only",
+        "description": "Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`.",
+        "operationId": "ready_head_ready_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable, as `GET` answers it, without the body (the problem of the component `Unavailable`).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -411,6 +489,38 @@
               "title": "Plausibility Source"
             },
             "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
           },
           {
             "name": "limits",
@@ -861,6 +971,51 @@
                   "title": "Response Coverage Api Coverage Get"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
             }
           },
           "422": {
@@ -941,6 +1096,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProvidersAnswer"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
                 }
               }
             }
@@ -1081,6 +1281,51 @@
                   "title": "Response Glossary Api Glossary Get"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
             }
           },
           "422": {
@@ -1191,11 +1436,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1216,9 +1466,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1236,7 +1494,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1270,7 +1533,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1290,7 +1558,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -1310,7 +1583,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -1329,7 +1607,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -1349,7 +1632,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -1369,7 +1657,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -1389,7 +1682,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -1409,7 +1707,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -1427,7 +1730,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "timestamp",
@@ -1639,6 +1947,65 @@
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
           }
         }
       }
@@ -1898,11 +2265,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1923,9 +2295,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1943,7 +2323,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1977,7 +2362,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1997,7 +2387,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -2017,7 +2412,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -2036,7 +2436,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -2056,7 +2461,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -2076,7 +2486,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -2096,7 +2511,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -2116,7 +2536,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -2134,7 +2559,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "with_metadata",
@@ -2560,6 +2990,38 @@
             "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
           },
           {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
+          },
+          {
             "name": "limits",
             "in": "query",
             "required": false,
@@ -2671,6 +3133,65 @@
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
           }
         }
       }
@@ -2812,7 +3333,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -2832,7 +3358,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -2852,7 +3383,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3079,11 +3615,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3211,6 +3747,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -3351,7 +3898,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3371,7 +3923,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3391,7 +3948,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3605,11 +4167,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3737,6 +4299,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -3899,7 +4472,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -3917,7 +4495,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4048,6 +4631,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4091,7 +4684,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -4109,7 +4707,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4270,6 +4873,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4333,11 +4946,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all or stations is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -4358,9 +4976,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all or stations is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "sections",
@@ -4439,6 +5065,37 @@
                   "$ref": "#/components/schemas/_HistoryWithMetadataDict"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "422": {
@@ -4472,6 +5129,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ]
+          ]
         }
       }
     },
@@ -4513,11 +5180,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",
@@ -5793,6 +6460,28 @@
         "title": "QualityKind",
         "description": "One kind of token in the `quality_flags` of a network."
       },
+      "Ready": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status",
+            "description": "Always `ready`: the server can serve a data request. Where it cannot the answer is a 503 problem of the kind `not-ready`, with the `checks` that failed."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Ready",
+        "description": "The answer of the readiness probe.",
+        "examples": [
+          {
+            "status": "ready"
+          }
+        ]
+      },
       "ResolvedRequest": {
         "properties": {
           "provider": {
@@ -5903,6 +6592,11 @@
           "producer": {
             "$ref": "#/components/schemas/_Producer"
           },
+          "processing_note": {
+            "type": "string",
+            "title": "Processing Note",
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn from the provider's annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+          },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
           },
@@ -5956,6 +6650,7 @@
           "data_updated_at",
           "provider",
           "producer",
+          "processing_note",
           "request",
           "counts",
           "crs",
@@ -6459,6 +7154,24 @@
             "title": "Plausibility Source",
             "description": "The mode of the check `source`: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`), `soft` keeps the value and flags it (`suspect:source`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
           },
+          "plausibility_step": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Step",
+            "description": "The mode of the check `step`: `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:step`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_relations": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Relations",
+            "description": "The mode of the check `relations`: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:relations`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
           "limits": {
             "additionalProperties": {
               "prefixItems": [
@@ -6511,6 +7224,8 @@
           "plausibility_floor",
           "plausibility_limits",
           "plausibility_source",
+          "plausibility_step",
+          "plausibility_relations",
           "limits"
         ],
         "title": "ValuesSettings",
@@ -6663,6 +7378,132 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -6791,7 +7632,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -6842,7 +7683,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7474,7 +8315,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7525,7 +8366,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7929,7 +8770,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -7974,6 +8815,17 @@
           "requested": {
             "type": "integer",
             "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows)."
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "settings",
+                "cache"
+              ]
+            },
+            "description": "Of `not-ready`: the checks of `/ready` that failed."
           }
         },
         "required": [
@@ -8066,7 +8918,7 @@
         }
       },
       "Unavailable": {
-        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
+        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `not-ready`: The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -8084,7 +8936,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: The browser that draws a chart as an image did not finish in time and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -8129,5 +8981,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.183.0"
+  "x-release": "0.184.0"
 }

@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.183.0 until the next release.
+The baselines are those of 0.184.0 until the next release.
 
 ## What counts as breaking
 
@@ -237,7 +237,8 @@ pattern is an addition and passes.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
 a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
-document; and the defaults of the server's limits, which `GET /api/version` reports.
+document, and its `x-wetterdienst-selection` (the groups of exclusive parameters of an operation, informative: the
+refusal of a request is what is promised, see [The OpenAPI document](restapi.md#the-openapi-document)); and the defaults of the server's limits, which `GET /api/version` reports.
 
 Not yet held by a test: the check against the last release does not compare the formats, descriptions and examples
 of the document, nor the defaults and bounds of an answer; a change of what an answer means (a unit, a statistic)
