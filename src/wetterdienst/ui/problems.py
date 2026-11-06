@@ -77,6 +77,7 @@ class ProblemKind(StrEnum):
     NOT_CONFIGURED = "not-configured"
     UPSTREAM_FAILED = "upstream-failed"
     SERVER_BUSY = "server-busy"
+    NOT_READY = "not-ready"
     UPSTREAM_UNREACHABLE = "upstream-unreachable"
     UPSTREAM_TIMEOUT = "upstream-timeout"
     REQUEST_TIMEOUT = "request-timeout"
@@ -147,6 +148,12 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         503,
         "The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request "
         "was not started; retry it after `Retry-After`.",
+    ),
+    ProblemKind.NOT_READY: ProblemSpec(
+        503,
+        "The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor "
+        "the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. "
+        "`checks` names what failed.",
     ),
     ProblemKind.UPSTREAM_UNREACHABLE: ProblemSpec(
         503, "The server could not reach the data provider (no connection). The request was valid; retry it."

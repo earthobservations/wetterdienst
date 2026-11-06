@@ -1174,7 +1174,7 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "2")
     release, begun, _ended = _blocking_values(monkeypatch)
 
-    async def run() -> tuple[list[Any], Any, Any, Any]:
+    async def run() -> tuple[list[Any], Any, Any, Any, Any]:
         async with _async_client() as client:
             first = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(2)]
             # a request that is answered before then was refused or failed: its status says so below
@@ -1183,14 +1183,15 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
                 "handler of the two requests being served",
             )
             busy = await client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "busy-1"})
-            # what is not counted is served: the health check, the index
+            # what is not counted is served: the health check, the readiness check, the index
             health = await client.get("/health")
+            ready = await client.get("/ready")
             index = await client.get("/")
             release.set()
-            return await asyncio.gather(*first), busy, health, index
+            return await asyncio.gather(*first), busy, health, index, ready
 
     try:
-        served, busy, health, index = asyncio.run(run())
+        served, busy, health, index, ready = asyncio.run(run())
     finally:
         release.set()
 
@@ -1199,7 +1200,7 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     assert busy.json()["request_id"] == "busy-1"
     assert busy.headers["Retry-After"] == "30"
     assert "2 requests" in busy.json()["detail"]
-    assert (health.status_code, index.status_code) == (200, 200)
+    assert (health.status_code, index.status_code, ready.status_code) == (200, 200, 200)
     assert [response.status_code for response in served] == [400, 400]
 
 
@@ -1356,7 +1357,7 @@ def test_the_allowed_hosts_are_a_comma_separated_setting(monkeypatch: pytest.Mon
 
 
 def test_a_host_that_is_not_listed_is_a_400_problem(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A rebinding page reaches the server with its own name in `Host`; every route refuses it, but the health check."""
+    """A rebinding page reaches the server with its own name in `Host`; every route refuses it, but the two probes."""
     monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
 
     for path in ("/api/version", "/api/v1/version", "/api/v1/coverage", "/", "/robots.txt", "/mcp/v1"):
@@ -1370,6 +1371,7 @@ def test_a_host_that_is_not_listed_is_a_400_problem(client: TestClient, monkeypa
     for host in ("localhost", "localhost:7890", "LOCALHOST:3000", "127.0.0.1:7890", "[::1]:7890"):
         assert client.get("/api/version", headers={"Host": host}).status_code == 200, host
     assert client.get("/health", headers={"Host": "service.internal"}).status_code == 200
+    assert client.get("/ready", headers={"Host": "service.internal"}).status_code == 200
 
 
 def test_an_unlisted_host_is_refused_before_anything_is_fetched(
