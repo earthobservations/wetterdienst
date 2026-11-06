@@ -177,12 +177,13 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
 
 
 @pytest.mark.remote
-def test_metno_frost_values_6hour_fallback() -> None:
-    """6-hourly synoptic precipitation uses time-series discovery fallback.
+def test_metno_frost_values_6hour_precipitation_no_precipitation_is_zero() -> None:
+    """6-hourly precipitation at Oslo/Blindern comes back, its -1 as the no precipitation it stands for (GH-3748).
 
-    The Frost API requires timeseriesids/performancecategories/exposurecategories for
-    historical synoptic elements; without them the direct query returns 404. This test
-    verifies the fallback path resolves that and returns the correct data.
+    Frost answers the query for 2005-09-01 to 2006-01-01 with a 200 and exactly 2 observations, both `-1`
+    (2005-09-07 00:00 and 2005-10-13 12:00). Its data clarifications state the code as "No precipitation" for this
+    element (see `_decode_sentinels`), so the sum is 0.0 and the code stays in the flags. The range check had turned
+    it into a null, which is dropped: "The source has no values".
     """
     df = (
         MetnoFrostRequest(
@@ -195,22 +196,87 @@ def test_metno_frost_values_6hour_fallback() -> None:
         .all()
         .df
     )
-    # SN18700 has exactly 2 synoptic precipitation observations in this window
     assert len(df) == 2
     assert df["resolution"].unique().to_list() == ["6_hours"]
     assert df["parameter"].unique().to_list() == ["precipitation_amount"]
-    dates = df["timestamp"].to_list()
-    assert dt.datetime(2005, 9, 7, 0, 0, 0, tzinfo=UTC) in dates
-    assert dt.datetime(2005, 10, 13, 12, 0, 0, tzinfo=UTC) in dates
+    assert df["timestamp"].to_list() == [
+        dt.datetime(2005, 9, 7, 0, 0, 0, tzinfo=UTC),
+        dt.datetime(2005, 10, 13, 12, 0, 0, tzinfo=UTC),
+    ]
+    assert df["value"].to_list() == [0.0, 0.0]
+    # the quality code of Frost, then the code it wrote for the value
+    assert df["quality_flags"].to_list() == ["2,raw:-1", "0,raw:-1"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_6hour_precipitation_before_1982_is_not_read() -> None:
+    """6-hourly precipitation of Kjevik in 1951 is every reading -1, wet days included, and is no value (GH-3748).
+
+    SN39040 has -1 for 1,096 of 1,096 readings in 1950 to 1952; on 1951-08-05 the 12-hourly sum is 67.3 mm. Read as a
+    dry period it would write 0.0 into a wet day, so before 1982 the code is null (and, null, dropped).
+    """
+    request = MetnoFrostRequest(
+        parameters=[("6_hours", "data", "precipitation_amount")],
+        start=dt.datetime(1951, 8, 1, tzinfo=UTC),
+        end=dt.datetime(1951, 8, 10, tzinfo=UTC),
+        options={"drop_nulls": False},
+    )
+    df = request.filter_by_station_id("SN39040").values().all().df
+    assert df.height > 0
+    assert df["value"].null_count() == df.height
+    assert all(flags.endswith("raw:-1") for flags in df["quality_flags"].to_list())
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_answer_without_a_quality_code_is_read() -> None:
+    """The daily precipitation of Skien on 2015-05-01 has no `qualityCode` and is read (GH-3748).
+
+    Frost leaves the key out of the observation; selecting the column raised a `ColumnNotFoundError`. The value is -1,
+    which Frost states as 0.0 mm and which is not read for the daily sum yet (GH-3820): null, as the range check made it
+    before, with the code in the flags and no quality code in front of it.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2015, 5, 1, tzinfo=UTC),
+            end=dt.datetime(2015, 5, 1, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN30320")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list() == ["rejected:range,raw:-1"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> None:
+    """6-hourly precipitation of Bjornoya from 1920 to 2026 is over Frost's 100,000 observations (GH-3748).
+
+    Frost answers it with a 403, the status of a refused client ID, whose body says "The estimated number of
+    observations (...) exceeds the maximum number allowed (100000)". The client ID is fine and the caller is told to
+    narrow the window.
+    """
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+
+    request = MetnoFrostRequest(
+        parameters=[("6_hours", "data", "precipitation_amount")],
+        start=dt.datetime(1920, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with pytest.raises(InvalidTimeIntervalError, match="narrow the window"):
+        request.filter_by_station_id("SN99710").values().all()
 
 
 def test_metno_frost_decodes_sentinels() -> None:
     """Test that Frost's in-band codes become the value they stand for.
 
-    Frost states these in the element descriptions it publishes and then writes them into the
-    value, where nothing distinguishes them from a measurement: snow depth -1 is "no snow", a depth
-    of zero rather than an absent one, and cloud cover -3 and 9 both mean the cover could not be
-    estimated. In eighths the latter two convert to -0.375 and 1.125 of the sky.
+    Frost writes these into the value, where nothing distinguishes them from a measurement. Its element descriptions
+    state two: snow depth -1 is "no snow", a depth of zero rather than an absent one, and cloud cover -3 and 9 both
+    mean the cover could not be estimated (in eighths the latter two convert to -0.375 and 1.125 of the sky). Its data
+    clarifications state a third (GH-3748): the 6-hourly precipitation sum -1 is "No precipitation".
     """
     from wetterdienst.provider.metno.frost.api import _decode_sentinels  # noqa: PLC0415
 
@@ -224,6 +290,7 @@ def test_metno_frost_decodes_sentinels() -> None:
                 "cloud_area_fraction",
                 "air_temperature",
             ],
+            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=UTC)] * 6,
             "value": [-1.0, 12.0, -3.0, 9.0, 4.0, -1.0],
             "quality_flags": ["0"] * 6,
         },

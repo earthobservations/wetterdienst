@@ -63,7 +63,7 @@ library maps the code to 0.0 and keeps it as `raw:<code>`.
 | a trace written as 0 and flagged | 0.0, the source's flag | CHMI `element:T`, ECCC `T`, NOAA GHCN `measurement:T`, NWS (`P0000`, quality `C`) |
 | a precipitation or radiation a model writes a little below 0 (check `floor`) | hard: 0.0, `rejected:floor,raw:<number>`; soft: the value, `suspect:floor` | DWD DMO `rr1` and `rr3` (ICON, to -0.10 mm), `rad1h` and `rads3` (to -0.77 and -0.46 J/cm2) |
 | a trace written as a plain 0 | 0.0 | Geosphere daily ("0=weniger als 1/10 mm"), Météo-France observation |
-| no precipitation or no snow written as a code | 0.0, `raw:<code>` | FMI `-1.0`, Geosphere daily `-1.0` and `-1`, MET Norway Frost `-1` (snow depth) |
+| no precipitation or no snow written as a code | 0.0, `raw:<code>` | FMI `-1.0`, Geosphere daily `-1.0` and `-1`, MET Norway Frost `-1` (snow depth; 6-hourly and hourly precipitation from 1982 on, null before it) |
 | no precipitation written as a status | 0, the status as the quality flag | IMGW meteorology `9` |
 | a dry hour the source leaves out | null: a METAR without a precipitation group, or an empty cell, cannot be told from a station without a gauge | NWS, NOAA GHCN hourly |
 
