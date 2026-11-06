@@ -33,6 +33,12 @@ The platform's [fair use policy](https://developer.dataplatform.knmi.nl/fair-use
   complete dataset, request a dataset bulk key": "Re-downloading a complete dataset because it is easier than archiving
   it locally is not fair use".
 
+The same policy asks you to "Credit KNMI as the source, for example with 'Source: KNMI' and a link to the dataset", to
+"Make clear when you show data that you derived or modified yourself", and to "Send a descriptive User-Agent header that
+identifies your application, and, if possible, how to reach you"; the library's User-Agent names the application and
+carries no contact. It also names "Distributed downloading of the same data from many clients" and rotating "accounts,
+keys, or IP addresses" as abuse. The `attribution` of an answer is "© KNMI".
+
 What this means for wetterdienst (our reading, not KNMI's): the library sends your key from your machine and keeps what
 it downloads for five minutes, so a repeated query is not a repeated download. A server that holds a key and answers
 other people's queries is the proxy with a cache that KNMI describes for "your own users"; whether an open server that

@@ -112,8 +112,8 @@ Types of changes:
   exists (the link check ignored it). It now cites the fair-use section of the Hydrology API
   reference, and every provider page says what its terms ask of a caller: limits, a key, a
   `User-Agent`, a credit. The new page "what wetterdienst does with the data" says what the library
-  caches, what the hosted instance passes on and what the keys of AEMET, KNMI, the Met Office and
-  MET Norway allow (Part of GH-2567)
+  caches, what the hosted instance passes on and what AEMET, KNMI, the Met Office and MET Norway
+  state about sharing a key (Part of GH-2567)
 - An image that Kaleido does not draw in 120 seconds is now an `ImageTimeoutError` (also a
   `TimeoutError`): the Chrome and its processes are closed, `/api/stripes/image` and every other
   image route answer a 504 problem of the kind `image-timeout`, and the command line prints one

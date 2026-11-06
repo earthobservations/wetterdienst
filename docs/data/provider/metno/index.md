@@ -23,19 +23,24 @@ MET Norway"); see its [licensing and data policy](https://api.met.no/doc/License
 [free meteorological data](https://www.met.no/en/free-meteorological-data) page. See the
 [Frost API](https://frost.met.no/) documentation for details.
 
-**What the Frost terms ask of a caller** (the [terms of use](https://frost.met.no/termsofuse2.html), whose change
-history ends on 2026-10-21; read 2026-11-06):
+**What the Frost terms ask of a caller** (the [terms of use](https://frost.met.no/termsofuse2.html), read 2026-11-06;
+the page carries no date, and Frost's [changelog](https://frost.met.no/changelog2.html) lists 2025-09-25 as its newest
+change):
 
 - Identification: "The API requires a unique client ID for identification. Each client ID must be associated with a
   valid email address."
 - Caching: "Use the information found in any cache headers." "You should save the information on your own server if you
   have heavy traffic. Heavy traffic means on average more than 1 requests to the API per second. Please contact us if
-  you find that your service generates more traffic than this."
+  you find that your service generates more traffic than this and you have not been able to reduced the amount of
+  requests by taking into account our guidelines."
 - Proxy: "Use a proxy if possible."
 - Blocking: "If we see that there are situations that threaten the operation of our environment, we would consider
   blocking out the users / services that have high load / bad traffic patterns."
-- Licence: "Data from frost.met.no are licensed and the license is found in every response." (Reading a response needs a
-  client ID, so the licence field of a response was not read here; the licence stated above rests on the licensing page.)
+- Licence: "Data from frost.met.no are licensed and the license is found in every response." A data response needs a
+  client ID and was not read here. The answers of Frost that need none do carry the member: the error answer of
+  `https://frost.met.no/api/v0/` (a 404, read 2026-11-06) has `"license": "https://creativecommons.org/licenses/by/3.0/no/"`,
+  which is CC BY 3.0 Norway, not the licences the licensing page names. The `license` of wetterdienst follows the
+  licensing page, as stated above; which of the two a data response names is not known.
 
 MET Norway's separate [terms of service](https://api.met.no/doc/TermsOfService) are for its weather API at `api.met.no`
 (not read by the library), but state what it expects of every caller: "You must identify yourself" with a User-Agent

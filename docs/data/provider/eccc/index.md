@@ -66,8 +66,9 @@ What wetterdienst does: its requests carry the User-Agent `wetterdienst/<version
 [what wetterdienst does with the data](../data-use.md#how-it-asks-the-provider)), send no `no-cache` header, and keep
 what they download for five minutes, which is a cache and no archive. Reading every station and year of the climate
 collections through it is bulk retrieval of the kind the policy sends to Datamart, which the library does not read;
-a use that builds an archive should contact ECCC first. A server that answers many callers from one address (the hosted
-instance, any instance you run for others) is one user in ECCC's count.
+a use that builds an archive should contact ECCC first. The policy speaks of "you or your application" and does not say
+whether a server that answers many callers (the hosted instance, any instance you run for others) is one user: our
+reading is that it is.
 
 **What points the other way.** The climate collections' canonical link goes to Climate Data Online
 (`https://climate.weather.gc.ca`), and the

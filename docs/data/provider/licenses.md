@@ -11,8 +11,8 @@ built, so it cannot differ from what you get back. A row has the networks that d
 networks disagreed would have a row for each set. Each provider's page, linked in the first column, has a License
 section that links its terms. Many say what the terms ask of you, in different detail (a credit line the terms
 prescribe, a limit on use, a key); where one does not, the terms themselves are the source. What the project does with
-the data (how it asks the providers, what it caches, what the hosted instance passes on, what the keys allow and what
-the repository's own test files hold) is on [what wetterdienst does with the data](data-use.md).
+the data (how it asks the providers, what it caches, what the hosted instance passes on, what the providers that need a key
+say about sharing it, and what the repository's own test files hold) is on [what wetterdienst does with the data](data-use.md).
 
 ```{provider-licenses}
 ```

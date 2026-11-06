@@ -15,8 +15,8 @@ include contact information (website or email), we can contact you if your strin
 The rate limit "is not public information, but allows a generous amount for typical use", a request over it "will return
 with an error, and may be retried after the limit clears (typically within 5 seconds)", and "Proxies are more likely to
 reach the limit, whereas requests directly from clients are not likely." Wetterdienst sends the User-Agent
-`wetterdienst/<version> (<system>)` and does not retry a 429. A server that answers many callers from one address is
-the proxy the page means: the hosted instance can reach the limit where each of its users alone would not.
+`wetterdienst/<version> (<system>)` and does not retry a 429. A server that answers many callers may be the kind of proxy the
+page means: our reading is that the hosted instance can reach the limit where each of its users alone would not.
 
 ```{toctree}
 :hidden:

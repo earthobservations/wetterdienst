@@ -32,7 +32,7 @@ of it, only the automatic weather stations.
 
 Whether RMI counts those stations as high-value data is not stated on its pages. Our reading: it does not change what
 you may do. Weather-station observations are one of the meteorological categories of the regulation that defines
-high-value datasets (EU 2023/138; the Annex itself could not be read from here, EUMETNET's
+high-value datasets (EU 2023/138; the Annex itself was not read, EUMETNET's
 [summary](https://www.eumetnet.eu/rodeo-project-launch/) says the regulation "defines requirements for surface weather observations"), the
 catalogue record states CC BY 4.0, and the platform text allows re-use with the source named either way. Only RMI can
 settle it for certain.

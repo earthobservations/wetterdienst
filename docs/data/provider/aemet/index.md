@@ -24,8 +24,8 @@ services"; "3. The date of the last update of the documents being reused must be
 included in the original document."; "4. Declaration, insinuation, or suggestion that AEMET ... participates, sponsors,
 or supports this information's reuse is forbidden."; and "5. The integrity of the metadata on the date of update and the
 applicable reuse conditions that, if applicable, were included in the document ... must be retained." Wetterdienst
-reshapes the data into one table and converts units, which changes presentation and not the numbers; whether that keeps
-the "technical content" intact is for AEMET to say. The pages read state no number of requests (the OpenAPI document
+reshapes the data into one table and converts units, which changes the presentation and the unit of a number; whether
+that keeps the "technical content" intact is for AEMET to say. The pages read state no number of requests (the OpenAPI document
 lists a 429 for "a request that exceeds the limits of the service"), and say of the API key only that it identifies the
 user ("an identifier by which the accesses a user makes to the API are counted and attributed", our translation), that
 as many can be created as needed, and that it is requested with an e-mail address. They say nothing about sharing a key
