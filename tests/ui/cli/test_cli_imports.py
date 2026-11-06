@@ -16,17 +16,16 @@ order. The test session has imported everything, in the order of whichever test 
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import subprocess
 import sys
+import tempfile
 import textwrap
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 #: the top-level packages that cost the import: none of them is needed to print a help, a version or a completion
 HEAVY = (
@@ -94,6 +93,11 @@ ALLOWED = frozenset(
     },
 )
 
+#: the top-level modules of a light process that are neither the standard library, nor what the interpreter starts
+#: with, nor `wetterdienst`: what `ui/cli.py` imports, which is `click` and, through `util.response_warnings`,
+#: `typing_extensions`. A third-party package that is not here, `duckdb` as much as `polars`, fails the tests
+THIRD_PARTY_ALLOWED = frozenset({"click", "typing_extensions", "wetterdienst"})
+
 #: a process that does what `wetterdienst` does, with every connection refused, and tells which modules it imported
 _PROCESS = textwrap.dedent(
     """
@@ -151,6 +155,36 @@ def _imported(modules: set[str], names: tuple[str, ...]) -> list[str]:
     return sorted({name for name in names for module in modules if module == name or module.startswith(f"{name}.")})
 
 
+@functools.cache
+def _startup_roots() -> frozenset[str]:
+    """Give the top-level modules an interpreter of this environment has imported before it runs anything.
+
+    The hooks of the environment (a `sitecustomize`, `_virtualenv`, the namespace packages a `.pth` file of Sphinx
+    registers, `coverage` where a subprocess is measured) are not the command line's to answer for.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        _, modules = _run("pass", tmp_path=Path(tmp))
+    return frozenset(module.split(".")[0] for module in modules)
+
+
+def _assert_light(modules: set[str]) -> None:
+    """Assert a process imported nothing a help, a version or a completion has no use for.
+
+    The named heavy packages and modules are checked first, for a message that says which one it was; then every
+    top-level module is held to the allow-list, so that a package nobody thought of fails as well.
+    """
+    assert _imported(modules, HEAVY) == []
+    assert _imported(modules, HEAVY_OWN) == []
+    assert not [module for module in modules if module.startswith("wetterdienst.provider")]
+    own = {module for module in modules if module.split(".")[0] == "wetterdienst"}
+    assert own <= ALLOWED, sorted(own - ALLOWED)
+    roots = {module.split(".")[0] for module in modules}
+    others = sorted(
+        root for root in roots - THIRD_PARTY_ALLOWED - _startup_roots() if root not in sys.stdlib_module_names
+    )
+    assert others == [], others
+
+
 # --- what is imported where nothing is run --------------------------------------------------------------------------
 
 
@@ -159,23 +193,19 @@ def test_importing_the_package_imports_neither_polars_nor_the_settings(tmp_path:
     done, modules = _run("import wetterdienst", tmp_path=tmp_path)
 
     assert done.returncode == 0, done.stderr
-    assert _imported(modules, HEAVY) == []
-    assert _imported(modules, HEAVY_OWN) == []
-    assert not [module for module in modules if module.startswith("wetterdienst.provider")]
+    _assert_light(modules)
 
 
 def test_the_lazy_names_of_the_package_are_found_when_asked_for(tmp_path: Path) -> None:
-    """`Settings` and `Options` are imported by the first use, whether read as an attribute or imported by name."""
+    """`Settings` and `Options` are imported by the use, as an attribute or by name, and are the module's own."""
     body = textwrap.dedent(
         """
         import wetterdienst
-        before = "wetterdienst.settings" in sys.modules or "wetterdienst.options" in sys.modules
+        assert not {"wetterdienst.settings", "wetterdienst.options"} & set(sys.modules)
         from wetterdienst import Options
-        import wetterdienst.settings
         assert wetterdienst.Settings is wetterdienst.settings.Settings
         assert Options is wetterdienst.options.Options
         assert {"Settings", "Options"} <= set(dir(wetterdienst))
-        assert not before
         try:
             wetterdienst.Nothing
         except AttributeError as e:
@@ -188,6 +218,68 @@ def test_the_lazy_names_of_the_package_are_found_when_asked_for(tmp_path: Path) 
 
     assert done.returncode == 0, done.stderr
     assert "wetterdienst.settings" in modules
+
+
+@pytest.mark.parametrize(
+    "access",
+    [
+        "wetterdienst.settings.Settings",
+        "wetterdienst.options.Options",
+        "wetterdienst.model.plausibility.CHECKS",
+        "wetterdienst.ui.__name__",
+    ],
+)
+def test_the_submodules_import_wetterdienst_left_as_attributes_still_are(access: str, tmp_path: Path) -> None:
+    """`import wetterdienst; wetterdienst.settings.Settings` worked before the package read them lazily, and does."""
+    name = access.split(".")[1]
+    body = f"import wetterdienst\nassert {name!r} in dir(wetterdienst)\nassert {access}"
+    done, _ = _run(body, tmp_path=tmp_path)
+
+    assert done.returncode == 0, done.stderr
+
+
+def test_the_lazy_names_are_the_ones_of_their_module_each_time(tmp_path: Path) -> None:
+    """A patch of `wetterdienst.settings.Settings` is seen by `wetterdienst.Settings` while it lasts, a reload after.
+
+    The name is not kept in the package (GH-3809): a copy there stayed the patched object for good, and a reloaded
+    `wetterdienst.settings` left `wetterdienst.Settings` the class it had replaced.
+    """
+    body = textwrap.dedent(
+        """
+        import importlib
+        from unittest import mock
+
+        import wetterdienst
+
+        with mock.patch("wetterdienst.settings.Settings", "fake"):
+            assert wetterdienst.Settings == "fake"
+        assert wetterdienst.Settings is wetterdienst.settings.Settings
+        assert isinstance(wetterdienst.Settings, type)
+
+        importlib.reload(wetterdienst.settings)
+        assert wetterdienst.Settings is wetterdienst.settings.Settings
+
+        # a name the user sets is theirs, whenever they set it
+        wetterdienst.Settings = "mine"
+        assert wetterdienst.Settings == "mine"
+        """,
+    ).strip()
+    done, _ = _run(body, tmp_path=tmp_path)
+
+    assert done.returncode == 0, done.stderr
+
+
+def test_a_name_set_before_the_first_use_is_honoured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`monkeypatch.setattr(wetterdienst, "Settings", x)` is seen by `from wetterdienst import Settings`."""
+    import wetterdienst  # noqa: PLC0415
+    from wetterdienst import settings  # noqa: PLC0415
+
+    with monkeypatch.context() as patch:
+        patch.setattr(wetterdienst, "Settings", "mine")
+        from wetterdienst import Settings  # noqa: PLC0415
+
+        assert Settings == "mine"
+    assert wetterdienst.Settings is settings.Settings
 
 
 @pytest.mark.parametrize(
@@ -218,10 +310,7 @@ def test_help_and_version_import_no_heavy_package(args: list[str], tmp_path: Pat
     done, modules = _run(body, *args, tmp_path=tmp_path)
 
     assert done.returncode == 0, done.stderr
-    assert _imported(modules, HEAVY) == []
-    assert _imported(modules, HEAVY_OWN) == []
-    assert not [module for module in modules if module.startswith("wetterdienst.provider")]
-    assert {module for module in modules if module.split(".")[0] == "wetterdienst"} <= ALLOWED
+    _assert_light(modules)
 
 
 @pytest.mark.parametrize(
@@ -232,6 +321,8 @@ def test_help_and_version_import_no_heavy_package(args: list[str], tmp_path: Pat
         pytest.param("wetterdienst values --shape ", ["long", "wide"], id="choice"),
         pytest.param("wetterdienst values --plausibility-range ", ["hard", "soft"], id="plausibility-choice"),
         pytest.param("wetterdienst values --limits", ["--limits"], id="limits"),
+        # the limit already on the line is not read: reading it is the import of the model, for a TAB (GH-3809)
+        pytest.param("wetterdienst values --limits a=1:2 --qu", ["--quiet"], id="limits-given"),
         pytest.param("wetterdienst values --provider eau", ["eaufrance"], id="provider"),
         pytest.param("wetterdienst values --provider = noaa --network ", ["ghcn"], id="network-of-provider"),
         pytest.param("wetterdienst values --network mosmi", ["mosmix"], id="network"),
@@ -244,10 +335,7 @@ def test_a_completion_imports_no_heavy_package(line: str, offered: list[str], tm
     assert done.returncode == 0, done.stderr
     assert done.stderr == ""
     assert [row.removeprefix("plain,") for row in done.stdout.splitlines() if row] == offered
-    assert _imported(modules, HEAVY) == []
-    assert _imported(modules, HEAVY_OWN) == []
-    assert not [module for module in modules if module.startswith("wetterdienst.provider")]
-    assert {module for module in modules if module.split(".")[0] == "wetterdienst"} <= ALLOWED
+    _assert_light(modules)
 
 
 # --- a command imports what it uses ---------------------------------------------------------------------------------
@@ -260,7 +348,6 @@ _KL = ["--parameters", "daily/kl"]
 @pytest.mark.parametrize(
     ("args", "code", "output"),
     [
-        pytest.param(["cache"], 0, "wetterdienst", id="cache"),
         pytest.param(["info"], 0, "open weather data for humans", id="info"),
         pytest.param(["about", "glossary", "--limit", "1"], 0, '"unit_symbol"', id="glossary"),
         pytest.param(["about", "providers", "--provider", "dwd"], 0, '"dwd"', id="providers"),
@@ -305,6 +392,36 @@ def test_a_command_in_a_clean_process_imports_what_it_uses(
 
     assert done.returncode == code, (done.stdout, done.stderr)
     assert "Traceback" not in done.stderr
-    assert any(part in done.stdout + done.stderr for part in output.split("|")), (done.stdout, done.stderr)
+    # an answer is on stdout, and a refusal on stderr
+    said = done.stdout if code == 0 else done.stderr
+    assert any(part in said for part in output.split("|")), (done.stdout, done.stderr)
     # the command line was imported on top of what the command needed
     assert "wetterdienst.ui.cli" in modules
+
+
+def test_cache_prints_the_cache_directory(tmp_path: Path) -> None:
+    """`cache` is the command that imports the settings and nothing else: it prints the directory they name."""
+    done, _ = _run(_RUN_CLI, "cache", tmp_path=tmp_path, HOME=str(tmp_path), WD_CACHE_DIR=str(tmp_path / "cache"))
+
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == str(tmp_path / "cache")
+
+
+def test_a_dependency_that_fails_to_import_fails_the_command_that_needs_it_once(tmp_path: Path) -> None:
+    """`--version` still answers, and a command that needs polars tells its failure in one traceback, not two.
+
+    The handler of `_Cli.invoke` looks at the settings only if they are imported, and does not import them again.
+    """
+    broken = tmp_path / "broken"
+    (broken / "polars").mkdir(parents=True)
+    (broken / "polars" / "__init__.py").write_text("raise ImportError('polars is broken')\n")
+    environment = {"PYTHONPATH": str(broken), "HOME": str(tmp_path), "WD_CACHE_DIR": str(tmp_path / "cache")}
+
+    version, _ = _run(_RUN_CLI, "--version", tmp_path=tmp_path, **environment)
+    glossary, _ = _run(_RUN_CLI, "about", "glossary", tmp_path=tmp_path, **environment)
+
+    assert version.returncode == 0, version.stderr
+    assert glossary.returncode != 0
+    assert "polars is broken" in glossary.stderr
+    assert glossary.stderr.count("Traceback") == 1, glossary.stderr
+    assert "During handling of the above exception" not in glossary.stderr

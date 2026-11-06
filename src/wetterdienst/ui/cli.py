@@ -92,15 +92,29 @@ def _deferred(module: str, name: str) -> Callable[..., Any]:
     return call
 
 
-get_auth = _deferred("wetterdienst.ui.core", "get_auth")
-get_glossary = _deferred("wetterdienst.ui.core", "get_glossary")
-get_interpolate = _deferred("wetterdienst.ui.core", "get_interpolate")
-get_issues = _deferred("wetterdienst.ui.core", "get_issues")
-get_stations = _deferred("wetterdienst.ui.core", "get_stations")
-get_summarize = _deferred("wetterdienst.ui.core", "get_summarize")
-get_values = _deferred("wetterdienst.ui.core", "get_values")
-set_logging_level = _deferred("wetterdienst.ui.core", "set_logging_level")
-_plot_stripes = _deferred("wetterdienst.ui.core", "_plot_stripes")
+if TYPE_CHECKING:
+    # the real functions to a type checker, which holds a call to their signatures, a misspelled keyword included
+    from wetterdienst.ui.core import (
+        _plot_stripes,
+        get_auth,
+        get_glossary,
+        get_interpolate,
+        get_issues,
+        get_stations,
+        get_summarize,
+        get_values,
+        set_logging_level,
+    )
+else:
+    get_auth = _deferred("wetterdienst.ui.core", "get_auth")
+    get_glossary = _deferred("wetterdienst.ui.core", "get_glossary")
+    get_interpolate = _deferred("wetterdienst.ui.core", "get_interpolate")
+    get_issues = _deferred("wetterdienst.ui.core", "get_issues")
+    get_stations = _deferred("wetterdienst.ui.core", "get_stations")
+    get_summarize = _deferred("wetterdienst.ui.core", "get_summarize")
+    get_values = _deferred("wetterdienst.ui.core", "get_values")
+    set_logging_level = _deferred("wetterdienst.ui.core", "set_logging_level")
+    _plot_stripes = _deferred("wetterdienst.ui.core", "_plot_stripes")
 
 
 # Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see docs/usage/cli.md). It imports this module and nothing
@@ -405,11 +419,11 @@ def plausibility_opts(command: _CommandT) -> _CommandT:
     )(command)
 
 
-def _read_limits(_ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> dict[str, Any] | None:
+def _read_limits(ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> dict[str, Any] | None:
     """Read the `--limits` given, each a JSON object or `name=low:high`, as one mapping; the later wins for a name."""
-    if not values:
-        # click calls a callback with the default too, and a completion or `--help` has `--limits` unset: that costs
-        # no import (GH-3809)
+    if not values or ctx.resilient_parsing:
+        # click calls a callback with the default too, and with a line that is being completed (`resilient_parsing`):
+        # neither reads a limit, and neither pays for the import of the model that does (GH-3809)
         return None
     from wetterdienst.model.limits import read_limit_text
 
@@ -1441,23 +1455,24 @@ class _Cli(_Group):
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except Exception as e:
-            # an error that cannot be pydantic's, because pydantic is not imported, is not the settings' (`--help`,
-            # `--version` and a usage error come through here without it: GH-3809)
-            if "pydantic_core" not in sys.modules:
+            # Only what pydantic's classes are told apart by is looked at, and only if they are imported: an error
+            # that cannot be pydantic's is not the settings' (`--help`, `--version` and a usage error come through
+            # here without it: GH-3809), and importing the settings here would run an import that failed in the
+            # command again and show its error twice
+            pydantic_core = sys.modules.get("pydantic_core")
+            pydantic_settings = sys.modules.get("pydantic_settings")
+            settings = sys.modules.get("wetterdienst.settings")
+            options = sys.modules.get("wetterdienst.options")
+            if pydantic_core is None or pydantic_settings is None or settings is None:
                 raise
-            from pydantic import ValidationError
-            from pydantic_settings import SettingsError
-
-            from wetterdienst.options import Options
-            from wetterdienst.settings import Settings, check_settings
-
-            if not isinstance(e, (ValidationError, SettingsError)):
+            if not isinstance(e, (pydantic_core.ValidationError, pydantic_settings.SettingsError)):
                 raise
             # another model's error is not the settings', even beside a malformed variable an
             # option overrode
-            if isinstance(e, ValidationError) and e.title not in {Settings.__name__, Options.__name__}:
+            titles = {settings.Settings.__name__, *([options.Options.__name__] if options else [])}
+            if isinstance(e, pydantic_core.ValidationError) and e.title not in titles:
                 raise
-            problems = check_settings()
+            problems = settings.check_settings()
             if not problems:
                 raise
             raise click.ClickException("\n".join(problems)) from None

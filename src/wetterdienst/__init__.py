@@ -27,27 +27,35 @@ from wetterdienst.metadata.resolution import Resolution
 if TYPE_CHECKING:
     from wetterdienst.options import Options
     from wetterdienst.settings import Settings
+else:
+    # `Options` and `Settings` are pydantic models, and importing them imports pydantic-settings and polars, which
+    # `import wetterdienst` does not need to pay for: the command line's `--help`, `--version` and shell completion
+    # import this package and little else (GH-3809). They are read from their modules when asked for, so `from
+    # wetterdienst import Settings` and `wetterdienst.Settings` are what they were, and so are the submodules that
+    # `import wetterdienst` used to leave as attributes (`wetterdienst.settings.Settings`).
+    #
+    # Not cached in the module: the name is the module's own, so a patch of `wetterdienst.settings.Settings` or a
+    # reload of it is seen at once, as with an import made at the top. An access costs a `sys.modules` lookup. And not
+    # for a type checker, which reads a `__getattr__` as "every name exists": `from wetterdienst import Setings` is an
+    # error to it, and `tests/typed_caller.py` holds it to that.
+    _LAZY_NAMES = {"Options": "wetterdienst.options", "Settings": "wetterdienst.settings"}
+    _LAZY_SUBMODULES = ("model", "options", "settings", "ui")
 
-# `Options` and `Settings` are pydantic models, and importing them imports pydantic-settings and polars, which
-# `import wetterdienst` does not need to pay for: the command line's `--help`, `--version` and shell completion import
-# this package and little else (GH-3809). They are read from their modules on first use, so `from wetterdienst import
-# Settings` and `wetterdienst.Settings` are what they were.
-_LAZY = {"Options": "wetterdienst.options", "Settings": "wetterdienst.settings"}
+    def __getattr__(name: str) -> Any:  # noqa: ANN401
+        """Give `Options` and `Settings` and the submodules that are not imported with the package."""
+        if name in _LAZY_NAMES or name in _LAZY_SUBMODULES:
+            # what `import wetterdienst` imported before, and so its modules (`wetterdienst.model.plausibility`)
+            options = importlib.import_module(f"{__name__}.options")
+            settings = importlib.import_module(f"{__name__}.settings")
+            if name in _LAZY_NAMES:
+                return getattr(options if name == "Options" else settings, name)
+            return importlib.import_module(f"{__name__}.{name}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
 
-
-def __getattr__(name: str) -> Any:  # noqa: ANN401
-    """Give `Options` and `Settings`, importing the module that defines the one asked for."""
-    if name in _LAZY:
-        value = getattr(importlib.import_module(_LAZY[name]), name)
-        globals()[name] = value  # found directly from now on
-        return value
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
-
-
-def __dir__() -> list[str]:
-    """List the lazily imported names too, as `dir(wetterdienst)` always had them."""
-    return sorted({*globals(), *_LAZY})
+    def __dir__() -> list[str]:
+        """List what is imported lazily too, as `dir(wetterdienst)` always had it."""
+        return sorted({*globals(), *_LAZY_NAMES, *_LAZY_SUBMODULES})
 
 
 __appname__ = "wetterdienst"

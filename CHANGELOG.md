@@ -87,14 +87,15 @@ Types of changes:
 
 ### Changed
 
-- Command line: `--help`, `--version` and each shell completion (a TAB) start in about 0.08 s,
-  where they took about 0.7 s: they no longer import polars, pydantic, the providers and the rest
-  of the library, which a command imports when it runs. `values` with an option it refuses is
-  told in about 0.5 s instead of 0.8 s, as `import wetterdienst` and `model.request` no longer
-  import `measurement` (sympy), `pyarrow` or the settings. `from wetterdienst import Settings`
-  and `wetterdienst.Options` work as before, importing on first use. A broken dependency now
-  fails the command that needs it, not `--version`; a mistyped option still waits for the library
-  to tell whether it was renamed (GH-3809)
+- Command line: `--help`, `--version` and each shell completion (a TAB) start in about 0.07 s,
+  where they took about 0.7 s: they no longer import polars, pydantic or the providers, which a
+  command imports when it runs, and `values` refused for its options is told in 0.4 s, not 0.8 s.
+  A broken dependency now fails the command that needs it, not `--version`. `import wetterdienst`
+  and `wetterdienst.api` no longer import polars, pydantic-settings or the settings: `Settings`,
+  `Options` and the submodules `settings`, `options`, `model` and `ui` are imported when used,
+  and every way to name them still works. Gone: `wetterdienst.api.Settings` and `check_settings`. `import wetterdienst.model.request` still
+  imports polars and the settings, but no longer `measurement` (sympy) and `pyarrow`, which a
+  search by distance or by rank imports (GH-3809)
 - The `plotting` extra now requires `plotly>=6.2.0` and `kaleido>=1.3.0` (before 6.1.1 and 1.0.0):
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
