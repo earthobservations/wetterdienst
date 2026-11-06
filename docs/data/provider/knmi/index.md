@@ -44,8 +44,8 @@ it downloads for five minutes, so a repeated query is not a repeated download. A
 other people's queries is the proxy with a cache that KNMI describes for "your own users"; whether an open server that
 anyone can reach, with no account of its own, is within "your own applications" the policy does not say. Reading a long
 window of the 10-minute data takes one file per time step, which is no bulk download of a dataset and counts against
-the hourly quota. Whoever runs a shared instance should ask KNMI first, see
-[what it does with the data](../data-use.md#keys-and-credentials).
+the hourly quota. Whether a shared instance is within the policy was put to KNMI in November 2026 and no
+answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials).
 
 ```{toctree}
 :hidden:

@@ -36,11 +36,11 @@ change):
 - Proxy: "Use a proxy if possible."
 - Blocking: "If we see that there are situations that threaten the operation of our environment, we would consider
   blocking out the users / services that have high load / bad traffic patterns."
-- Licence: "Data from frost.met.no are licensed and the license is found in every response." A data response needs a
-  client ID and was not read here. The answers of Frost that need none do carry the member: the error answer of
-  `https://frost.met.no/api/v0/` (a 404, read 2026-11-06) has `"license": "https://creativecommons.org/licenses/by/3.0/no/"`,
-  which is CC BY 3.0 Norway, not the licences the licensing page names. The `license` of wetterdienst follows the
-  licensing page, as stated above; which of the two a data response names is not known.
+- Licence: "Data from frost.met.no are licensed and the license is found in every response." Frost's data answers
+  carry that `license` member and it names `https://creativecommons.org/licenses/by/3.0/no/`, which is CC BY 3.0 Norway,
+  while MET Norway's licensing page names NLOD 2.0 and CC BY 4.0. (The unauthenticated error answers of Frost carry the
+  same member, such as the 404 of `https://frost.met.no/api/v0/`, read 2026-11-06 without a key.) Wetterdienst follows
+  the licensing page and reports `CC-BY-4.0 AND NLOD-2.0`; the difference is unexplained.
 
 MET Norway's separate [terms of service](https://api.met.no/doc/TermsOfService) are for its weather API at `api.met.no`
 (not read by the library), but state what it expects of every caller: "You must identify yourself" with a User-Agent

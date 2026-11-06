@@ -134,7 +134,8 @@ without an account. What that means for the data:
   [Rate limit](../../usage/app.md#rate-limit)); there is no limit that follows a provider's own limit.
 - **It holds the keys of the four providers that need one**, and keeps serving them. Read from its public
   `/api/coverage` on 2026-11-06, `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
-  is within their terms is not settled, see the next section.
+  is within their terms is not settled; the question was put to KNMI and CEDA in November 2026 and no answer has come
+  yet (see the next section).
 - **Its logs and the data protection of its users** are in the privacy policy of the app, not here.
 
 ## Keys and credentials
@@ -146,8 +147,8 @@ sharing the key and about serving others with it, quoted at the License section 
 | Provider | What the terms say | Does a server that answers others with one key fit? |
 | --- | --- | --- |
 | [AEMET](aemet/index.md#license) | The key "identifies" the user; as many may be created as needed; an e-mail address is asked. Nothing on sharing, nothing on serving others. | Not addressed by the pages read. |
-| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Not settled: a backend with a key and a cache is the pattern KNMI names; an open server for anyone may be more than "your own users". |
-| [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: others use the server, not the account. |
+| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Not settled: the question was put to KNMI in November 2026 and no answer has come yet. Our reading: a backend with a key and a cache is the pattern KNMI names; an open server for anyone may be more than "your own users". |
+| [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: the question was put to CEDA in November 2026 and no answer has come yet. Our reading: others use the server, not the account. |
 | [MET Norway](metno/index.md#license) (Frost) | "Each client ID must be associated with a valid email address"; "Use a proxy if possible"; "Heavy traffic means on average more than 1 requests to the API per second": then "save the information on your own server", and contact them if you "have not been able to reduced the amount of requests by taking into account our guidelines". The weather API's terms (a different service) call "trying to circumvent traffic rate limiting measures and/or impersonating traffic from other clients" abuse. | A proxy with a cache is asked for; what counts is the rate on average, which is not measured here. |
 
 None of the four says in terms that serving others from one key is allowed or forbidden. We have not used any key to
@@ -194,7 +195,8 @@ Our reading:
 - The OPERA list has no stated licence.
 
 The rows stay, named and credited here; replacing the IMGW and LHMT ones with invented rows of the same shape would be
-the other way. The OPERA list is not settled: EUMETNET's page states no licence. A test
+the other way. The OPERA list is not settled: EUMETNET's page states no licence, the question was put to EUMETNET in November 2026
+and no answer has come yet. A test
 (`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
 row fails it, and this section to the data files that are in the tests.
 

@@ -27,8 +27,8 @@ other people use your accounts, except by agreement with us", "To comply with an
 particular resources", and "To inform us if you believe your credentials have been compromised"; CEDA "may suspend your
 access ... if it seems to us that you are breaking these Terms and Conditions". They state no rate limit. Whether a
 server that answers other people's queries with your token is "letting other people use your account" they do not say:
-the people it serves use the server, not the account, which is a reading and not CEDA's. A shared instance should ask
-CEDA, see [what it does with the data](../data-use.md#keys-and-credentials). Wetterdienst keeps a file for twelve hours.
+the people it serves use the server, not the account, which is a reading and not CEDA's. The question was put to
+CEDA in November 2026 and no answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials). Wetterdienst keeps a file for twelve hours.
 
 ```{toctree}
 :hidden:
