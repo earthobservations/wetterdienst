@@ -93,9 +93,13 @@ Types of changes:
   A broken dependency now fails the command that needs it, not `--version`. `import wetterdienst`
   and `wetterdienst.api` no longer import polars, pydantic-settings or the settings: `Settings`,
   `Options` and the submodules `settings`, `options`, `model` and `ui` are imported when used,
-  and every way to name them still works. Gone: `wetterdienst.api.Settings` and `check_settings`. `import wetterdienst.model.request` still
-  imports polars and the settings, but no longer `measurement` (sympy) and `pyarrow`, which a
-  search by distance or by rank imports (GH-3809)
+  and every way to name them still works. Gone: `wetterdienst.api.Settings` and
+  `wetterdienst.api.check_settings`. `wetterdienst.metadata.unit_type`, `.parameter_table`,
+  `.aliases` and `.renamed` and `wetterdienst.util.hosts` and `.response_warnings` were attribute
+  paths after a plain `import wetterdienst` and now raise `AttributeError` until something imports
+  them: `import wetterdienst.metadata.unit_type` works as ever. `import
+  wetterdienst.model.request` still imports polars and the settings, but no longer `measurement`
+  (sympy) and `pyarrow`, which a search by distance or by rank imports (GH-3809)
 - The `plotting` extra now requires `plotly>=6.2.0` and `kaleido>=1.3.0` (before 6.1.1 and 1.0.0):
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process

@@ -34,9 +34,10 @@ else:
     # wetterdienst import Settings` and `wetterdienst.Settings` are what they were, and so are the submodules that
     # `import wetterdienst` used to leave as attributes (`wetterdienst.settings.Settings`).
     #
-    # Not cached in the module: the name is the module's own, so a patch of `wetterdienst.settings.Settings` or a
-    # reload of it is seen at once, as with an import made at the top. An access costs a `sys.modules` lookup. And not
-    # for a type checker, which reads a `__getattr__` as "every name exists": `from wetterdienst import Setings` is an
+    # Not cached in the module: every access reads the name from its module, so a `mock.patch` of
+    # `wetterdienst.settings.Settings` reaches `wetterdienst.Settings` for as long as it lasts, and a reload of
+    # `wetterdienst.settings` is seen (an import made at the top keeps the object it found, and neither is). An access
+    # costs a `sys.modules` lookup. And not for a type checker, which reads a `__getattr__` as "every name exists": `from wetterdienst import Setings` is an
     # error to it, and `tests/typed_caller.py` holds it to that.
     _LAZY_NAMES = {"Options": "wetterdienst.options", "Settings": "wetterdienst.settings"}
     _LAZY_SUBMODULES = ("model", "options", "settings", "ui")
