@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -350,7 +351,8 @@ def test_quiet_does_not_reach_the_server() -> None:
     result = CliRunner().invoke(cli, ["restapi", "--quiet"])
 
     assert result.exit_code == 2
-    assert "No such option '--quiet'" in result.stderr
+    # click words it "No such option: --quiet" before 8.4
+    assert re.search(r"No such option:? '?--quiet'?", result.stderr)
 
 
 def test_a_real_quiet_command_writes_nothing_to_stderr_and_the_data_to_stdout() -> None:

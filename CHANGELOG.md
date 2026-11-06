@@ -91,6 +91,9 @@ Types of changes:
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
   group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
+- wetterdienst now requires `click>=8.2.1,!=8.3.0,!=8.3.1` (before 8.2). On 8.2.0, `--provider` and
+  `--network` complete nothing or the wrong candidates; on 8.3.0 and 8.3.1, `--quiet` is refused
+  with "requires an argument". Upgrade click where one of these is pinned (GH-3826)
 - **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
   `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
   without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
