@@ -1909,7 +1909,10 @@ def _get_stations_request(
     if issubclass(api, DwdDmoRequest) and (lead_time := getattr(request, "lead_time", None)) is not None:
         kwargs["lead_time"] = lead_time
 
-    return api(**kwargs, settings=settings, options=options)
+    stations_request = api(**kwargs, settings=settings, options=options)
+    # the lookup of a history may tell a directory that came back empty and go on, which `stations` and `values` do not
+    stations_request._for_history = isinstance(request, HistoryRequest)  # noqa: SLF001
+    return stations_request
 
 
 def get_stations(

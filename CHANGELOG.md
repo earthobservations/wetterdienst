@@ -175,6 +175,12 @@ Types of changes:
   `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
+- `history` of `dwd/observation` over REST, MCP and the command line answers a 200 (exit 0) with a
+  `file-skipped` warning naming the directory when its station lookup meets one whose listing came
+  back empty or missing (`historical`, the solar datasets' own directory, the `meta_data` of the 1
+  minute precipitation, urban `historical`), not a 500; the datasets that are listed are answered.
+  Such an answer is not cached. A connection or server failure is still an error. `stations`,
+  `values` and the Python lookup still raise `FileNotFoundError` there (GH-3819)
 
 ## [0.183.0] - 2026-11-03
 

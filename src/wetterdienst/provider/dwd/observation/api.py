@@ -40,12 +40,14 @@ from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
+    EmptyListingError,
     _build_url_from_dataset_and_period,
     _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata,
     _create_file_index_for_dwd_server,
     _meta_data_url,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
+    directory_of,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
@@ -362,14 +364,21 @@ class DwdObservationHistory(TimeseriesHistory):
     A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
     began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
     answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
-    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the directory.
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the directory, once for each.
     Which directory is read depends on the dataset, and the warning names the one that was listed (the path below
     `observations_germany/`): the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the
     `historical` directory of most others, the directory of the dataset itself for the solar datasets, which have no
-    period directories, and the `recent` directory of an urban dataset without one. The station lookup that comes
-    first lists some of these too and fails with a 500 of the REST API where they are empty (#3819): the `historical`
-    directory, and the `meta_data` directory of the 1 minute precipitation. A history has no `periods`, so REST and the
-    command line reach the warning for the 5 and 10 minute datasets that are not urban, through `meta_data`.
+    period directories, and the `recent` directory of an urban dataset without one. Where the history read the directory
+    the warning names the stations that asked for the dataset.
+
+    The lookup of the stations lists directories first: the `historical` one of the dataset (and its `recent` and `now`
+    ones), and the `meta_data` directory of the 1 minute precipitation. Where the request was made for a history
+    (`DwdObservationRequest._for_history`, which the REST API, MCP and the command line set for `history`) the lookup
+    skips an `EmptyListingError` and goes on with the periods that are listed, and `query` tells the directory too, with
+    no station to name where the history did not read it (the `recent` directory, or a solar dataset whose one directory
+    lists no station at all). Everything else is raised: a connection that cannot be made (`NoInternetError`), a reset,
+    a timeout or a 5xx (`DownloadError`). Without the flag, in Python, and for `stations` and `values` on every
+    surface, an empty directory is the `EmptyListingError` of the lookup as before (#3819).
     """
 
     #: the stations whose history was not read for want of a listing, by the directory that came back empty
@@ -399,6 +408,17 @@ class DwdObservationHistory(TimeseriesHistory):
                 "not read and is not in the answer, which is partial. Try again later.",
                 stations=stations[:_MAX_STATIONS_LISTED],
             )
+        # the lookup of the stations met directories too: one the walk did not read (a station of the dataset in
+        # another period reads it; none does where nothing else lists the dataset, such as the solar datasets) is told
+        # here, with no station to name since the lookup did not find one
+        for directory in getattr(self.sr.request, "_empty_listings", {}):
+            if directory not in self._unlisted:
+                warn_response(
+                    log,
+                    FILE_SKIPPED,
+                    f"The listing of the directory {directory} came back empty or missing, so the stations it lists "
+                    "were not looked up and their history is not in the answer, which may be partial. Try again later.",
+                )
         self._unlisted = {}
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
@@ -436,8 +456,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS
                     else _build_url_from_dataset_and_period(dataset, Period.HISTORICAL)
                 )
-                directory = f"`{url.split('observations_germany/')[-1]}`"
-                self._unlisted.setdefault(directory, []).append(station_id)
+                self._unlisted.setdefault(directory_of(url), []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):
@@ -776,6 +795,9 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
     _history = DwdObservationHistory
     _selects_by_period = True
+    #: Not an argument: the directories whose listing came back empty or missing while the stations of a history were
+    #: looked up (`_for_history`), named as the warnings name them, which `DwdObservationHistory` tells (#3819)
+    _empty_listings: dict[str, None] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
         """Give how far back the recent release of a dataset reaches, which is not 500 days for all of them.
@@ -973,11 +995,21 @@ class DwdObservationRequest(TimeseriesRequest):
             # to the set's own iteration order, which varies from one interpreter run to the next
             for period in sorted(periods, reverse=True):
                 try:
-                    df = create_meta_index_for_climate_observations(dataset, period, settings)
-                except MetaFileNotFoundError:
-                    log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                    try:
+                        df = create_meta_index_for_climate_observations(dataset, period, settings)
+                    except MetaFileNotFoundError:
+                        log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                        continue
+                    file_index = create_file_index_for_climate_observations(dataset, period, settings)
+                except EmptyListingError as e:
+                    if not self._for_history:
+                        raise
+                    # the history goes on with the periods that are listed and tells the directory in the end; the
+                    # lookup of `stations` and `values` fails as it always did, since its answer would be partial
+                    # with nothing to say so
+                    log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
+                    self._empty_listings[directory_of(e.url)] = None
                     continue
-                file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
                     other=file_index_ids.lazy(),

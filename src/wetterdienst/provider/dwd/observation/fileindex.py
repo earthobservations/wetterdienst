@@ -161,6 +161,30 @@ def _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
     )
 
 
+class EmptyListingError(FileNotFoundError):
+    """A directory of DWD's server whose listing came back empty, or that is not there (a 404).
+
+    A `FileNotFoundError` with the message it always had, so that whoever caught that still does. It says which
+    directory (`url`), which the history of `dwd/observation` needs to tell the one that was listed: it is no outage.
+    A connection that cannot be made is a `NoInternetError` and a reset, a timeout or a 5xx a `DownloadError`, both
+    raised by the listing itself and never turned into this.
+    """
+
+    def __init__(self, url: str) -> None:
+        """Keep the URL of the directory, and say what the function always said of it."""
+        super().__init__(f"url {url} does not have a list of files")
+        self.url = url
+
+    def __reduce__(self) -> tuple[type[EmptyListingError], tuple[str]]:
+        """Rebuild from the url, as the constructor takes it (a copy or a pickle would pass the message)."""
+        return type(self), (self.url,)
+
+
+def directory_of(url: str) -> str:
+    """Give the directory of a URL as the warnings name it: the path below `observations_germany/`, in backticks."""
+    return f"`{url.rsplit('observations_germany/', maxsplit=1)[-1]}`"
+
+
 def _create_file_index_for_dwd_server(
     url: str,
     settings: Settings,
@@ -168,8 +192,7 @@ def _create_file_index_for_dwd_server(
 ) -> pl.LazyFrame:
     urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
     if not urls:
-        msg = f"url {url} does not have a list of files"
-        raise FileNotFoundError(msg)
+        raise EmptyListingError(url)
     df = pl.DataFrame({"url": urls}, schema={"url": pl.String}, orient="col")
     df = df.with_columns(
         pl.col("url").str.split("/").list.last().alias("filename"),
