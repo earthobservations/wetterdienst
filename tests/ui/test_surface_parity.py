@@ -1155,6 +1155,179 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     assert f"xactly one of {named}" in str(tool_error.value)
 
 
+# the exclusive selections are stated in the OpenAPI document, from the definition the refusal is made by (GH-3134)
+
+#: the operations that state a selection, each with the request model it is made of and the parameters the
+#: request needs besides the selection
+_SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
+    "/api/v1/stations": (core.StationsRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/values": (core.ValuesRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/history": (core.HistoryRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/interpolate": (
+        core.RestInterpolationRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
+    ),
+    "/api/v1/summarize": (
+        core.RestSummaryRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
+    ),
+    "/api/v1/stripes/values": (core.StripesValuesRequest, {"kind": "temperature"}),
+    "/api/v1/stripes/image": (core.StripesImageRequest, {"kind": "temperature"}),
+}
+
+
+def _operation(path: str) -> dict[str, Any]:
+    """Give the operation of the served OpenAPI document that answers `path`."""
+    return restapi.app.openapi()["paths"][path]["get"]
+
+
+def _as_query(value: Any) -> str:  # noqa: ANN401
+    """Write the value of a parameter as a client writes it in a query: a list comma-separated (`explode: false`)."""
+    if isinstance(value, list):
+        return ",".join(value)
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
+def _example_query(*names: str, path: str) -> dict[str, str]:
+    """Give the examples the document has for the parameters `names` of an operation, as a query."""
+    examples = {p["name"]: p["examples"]["example"]["value"] for p in _operation(path)["parameters"] if "examples" in p}
+    return {name: _as_query(examples[name]) for name in names}
+
+
+def _alternatives(path: str) -> list[dict[str, str]]:
+    """Give each alternative the document states for an operation as a query of its examples, the point with a rank."""
+    selection = _operation(path)["x-wetterdienst-selection"]
+    point_asks = [then["when"] for then in selection.get("then", [])]
+    return [
+        _example_query(*group, *(["rank"] if list(group) in point_asks else []), path=path)
+        for group in selection["exactly_one_of"]
+    ]
+
+
+def test_the_operations_that_state_a_selection_are_the_ones_whose_request_has_one() -> None:
+    """An operation has `x-wetterdienst-selection` when its request model has a selection, and none else does."""
+    document = restapi.app.openapi()
+    stated = {
+        path: operation["get"]["x-wetterdienst-selection"]
+        for path, operation in document["paths"].items()
+        if "get" in operation and "x-wetterdienst-selection" in operation["get"]
+    }
+    assert stated.keys() == _SELECTION_ROUTES.keys()
+    for path, (model, _) in _SELECTION_ROUTES.items():
+        assert stated[path] == model.selection.document()
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_the_document_says_what_the_refusal_of_no_selection_says(path: str) -> None:
+    """The alternatives of an operation, and the sentence of each parameter, are what the server refuses with."""
+    _, base = _SELECTION_ROUTES[path]
+    operation = _operation(path)
+    selection = operation["x-wetterdienst-selection"]
+
+    refused = TestClient(restapi.app, raise_server_exceptions=False).get(path, params=base)
+
+    assert refused.status_code == 422, refused.text
+    (error,) = refused.json()["errors"]
+    assert error["type"] == "missing_one_of"
+    assert error["ctx"]["one_of"] == selection["exactly_one_of"]
+    described = {p["name"]: p["description"] for p in operation["parameters"]}
+    named = [name for group in selection["exactly_one_of"] for name in group]
+    for name in named:
+        assert f"{error['msg']}." in described[name], name
+    # every parameter it names is one the operation takes, with an example
+    assert set(named) <= {p["name"] for p in operation["parameters"] if "examples" in p}
+
+
+@pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
+def test_the_document_says_what_the_refusal_of_a_point_without_a_measure_says(path: str) -> None:
+    """A point needs a `rank` or a `distance`, which are not given alone: the document says what is refused."""
+    _, base = _SELECTION_ROUTES[path]
+    operation = _operation(path)
+    selection = operation["x-wetterdienst-selection"]
+    described = {p["name"]: p["description"] for p in operation["parameters"]}
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    point = client.get(path, params={**base, **_example_query("latitude", "longitude", path=path)})
+    (error,) = point.json()["errors"]
+    assert point.status_code == 422
+    assert error["type"] == "missing_one_of"
+    assert error["ctx"]["one_of"] == selection["then"][0]["exactly_one_of"]
+    assert selection["then"][0]["when"] == ["latitude", "longitude"]
+    assert f"{error['msg']}." in described["rank"]
+    assert f"{error['msg']}." in described["distance"]
+
+    for name in ("rank", "distance"):
+        alone = client.get(path, params={**base, "all": "true", **_example_query(name, path=path)})
+        (error,) = alone.json()["errors"]
+        assert alone.status_code == 422
+        assert error["type"] == "requires"
+        assert error["ctx"]["requires"] == selection["requires"][name]
+        assert f"{error['msg']}." in described[name]
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_every_alternative_the_document_states_is_made_by_its_examples_and_no_two_are_allowed(path: str) -> None:
+    """The examples of an alternative are a request the model accepts, and two alternatives together are refused."""
+    model, base = _SELECTION_ROUTES[path]
+    alternatives = _alternatives(path)
+    assert len(alternatives) == len(model.selection.exactly_one_of)
+
+    for alternative in alternatives:
+        model.model_validate({**base, **alternative})
+    for i, first in enumerate(alternatives):
+        for second in alternatives[i + 1 :]:
+            with pytest.raises(core.ValidationError) as refused:
+                model.model_validate({**base, **first, **second})
+            assert {error["type"] for error in refused.value.errors()} == {"mutually_exclusive"}
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_each_example_of_a_selection_is_a_value_its_parameter_takes(path: str) -> None:
+    """An example is a value of the schema of its parameter, so a generated client is given a valid one."""
+    jsonschema = pytest.importorskip("jsonschema")
+    for parameter in _operation(path)["parameters"]:
+        if "examples" in parameter:
+            jsonschema.validate(parameter["examples"]["example"]["value"], parameter["schema"])
+
+
+@pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
+def test_the_examples_of_each_alternative_are_a_request_the_server_answers(
+    path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The server answers the examples of each alternative of `stations` and `values`, not with a refusal."""
+    _, base = _SELECTION_ROUTES[path]
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    for alternative in _alternatives(path):
+        answered = client.get(path, params={**base, **alternative})
+        # the stand-in network has no station by the name or at the place of an example: an empty answer, still a 200
+        assert answered.status_code == 200, (alternative, answered.text[:300])
+
+
+def test_the_tools_of_the_mcp_server_do_not_carry_the_selection_examples() -> None:
+    """The examples and the sentences are on the parameters of the document, not on the schemas of the tools (#3546)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def tools() -> Any:  # noqa: ANN401
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return await client.list_tools()
+
+    selection_tools = [tool for tool in asyncio.run(tools()) if tool.name in {"stations", "values", "history"}]
+
+    assert len(selection_tools) == 3
+    for tool in selection_tools:
+        for name, schema in tool.input_schema["properties"].items():
+            assert "example" not in schema, (tool.name, name)
+            assert "examples" not in schema, (tool.name, name)
+            assert "is required" not in schema.get("description", ""), (tool.name, name)
+
+
 @pytest.mark.parametrize("given", [["00001", "00002"], "00001,00002"])
 def test_an_mcp_list_argument_is_a_list_or_one_comma_separated_string(given: list[str] | str) -> None:
     """A tool takes a list as the JSON array its schema says, and as the comma-separated string (GH-2561)."""

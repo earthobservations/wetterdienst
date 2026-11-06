@@ -84,6 +84,13 @@ Types of changes:
   no elevation, or the station none). The rows name the stations each timestamp was made from by
   id, as before; one id in an interpolation is a nearby station answering alone. A CSV holds the
   rows only (Part of GH-3134)
+- The OpenAPI document states the exclusive parameters of `stations`, `values`, `history`,
+  `interpolate`, `summarize` and `stripes/*` (exactly one of `all`, `stations`, `name`, a point, a
+  box or `sql` for the first two): the operation's `x-wetterdienst-selection` lists the groups, and
+  each parameter has an example and, in its description, the sentence of the refusal. The
+  parameters are not replaced by a `oneOf`, which would remove them from the operation. The
+  description of `all` no longer says it ignores the other selections: it is refused with them
+  (Part of GH-3134)
 
 ### Changed
 

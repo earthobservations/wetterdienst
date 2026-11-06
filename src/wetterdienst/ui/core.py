@@ -11,8 +11,8 @@ import sys
 import threading
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
-from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, LiteralString, cast
 
 import polars as pl
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -124,7 +124,7 @@ _IssueField = Annotated[
     str | None,
     Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
-_AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the stations/name/geo filters.")]
+_AllField = Annotated[bool | None, Field(description="Return all stations. Not combined with another selection.")]
 _StationsField = Annotated[
     list[str] | None,
     Field(description="Station ids, comma-separated, e.g. '01048' or '01048,04411'."),
@@ -661,11 +661,25 @@ def _is_set(request: BaseModel, field: str) -> bool:
     return not (value is None or value is False or (isinstance(value, (str, list)) and not value))
 
 
+def exactly_one_of_message(groups: Sequence[Sequence[str]], given: Sequence[str] = ()) -> str:
+    """Say that exactly one of the groups is required, with the fields it goes with where there are some.
+
+    The refusal says it, and the OpenAPI document says it of each parameter, in these words (GH-3134).
+    """
+    message = f"Exactly one of {describe_fields(groups)} is required"
+    return f"{message} with {join_names(given)}" if given else message
+
+
+def requires_message(groups: Sequence[Sequence[str]]) -> str:
+    """Say that a field needs one of the groups beside it, as the refusal and the OpenAPI document do."""
+    return f"Requires {describe_fields(groups)}"
+
+
 def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list[InitErrorDetails]:
     """Check a request gives exactly one of alternative groups of fields, and the whole of it."""
     made = [group for group in groups if any(_is_set(request, field) for field in group)]
     if not made:
-        message = f"Exactly one of {describe_fields(groups)} is required"
+        message = exactly_one_of_message(groups)
         return [_rule_error("missing_one_of", message, one_of=[list(group) for group in groups])]
     if len(made) > 1:
         # each group by the first field it gives, the one the error is located at
@@ -697,10 +711,93 @@ def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list
 
 
 _POINT = ("latitude", "longitude")
-_STATION_SELECTIONS = (("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
+_POINT_MEASURES = (("rank",), ("distance",))
+
+Group = tuple[str, ...]
 
 
-def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[InitErrorDetails]:
+@dataclass(frozen=True)
+class Selection:
+    """The exclusive parameters of a request: the one definition the refusal and the OpenAPI document are written from.
+
+    `exactly_one_of` are the alternatives, each a group of parameters that are given whole: a request makes
+    exactly one. `then` are the alternatives that the one made asks for in turn: with the group given as `when`,
+    exactly one of the groups after it. `requires` is the parameter that is not given alone: it needs one of the
+    groups beside it.
+
+    A request model holds it as `selection`, and its validator checks the request against it
+    (`_check_one_of`, `_check_station_selection`), so that a change here changes what is refused, and
+    `restapi._declare_selections` writes it into the document as `x-wetterdienst-selection` with the same words
+    (GH-3134). `tests/ui/test_surface_parity.py` holds the document, the refusal and the examples together.
+    """
+
+    exactly_one_of: tuple[Group, ...]
+    then: tuple[tuple[Group, tuple[Group, ...]], ...] = ()
+    requires: tuple[tuple[str, tuple[Group, ...]], ...] = ()
+
+    def sentences(self) -> dict[str, list[str]]:
+        """Say of each parameter the selection is about what is asked of it, in the words of the refusal."""
+        found: dict[str, list[str]] = {}
+        for group in self.exactly_one_of:
+            for name in group:
+                found.setdefault(name, []).append(f"{exactly_one_of_message(self.exactly_one_of)}.")
+        for when, groups in self.then:
+            for name in (name for group in groups for name in group):
+                found.setdefault(name, []).append(f"{exactly_one_of_message(groups, when)}.")
+        for name, needs in self.requires:
+            found.setdefault(name, []).append(f"{requires_message(needs)}.")
+        return found
+
+    def document(self) -> dict[str, Any]:
+        """Give the selection as the member `x-wetterdienst-selection` of an operation of the OpenAPI document."""
+        document: dict[str, Any] = {"exactly_one_of": [list(group) for group in self.exactly_one_of]}
+        if self.then:
+            document["then"] = [
+                {"when": list(when), "exactly_one_of": [list(group) for group in groups]} for when, groups in self.then
+            ]
+        if self.requires:
+            document["requires"] = {name: [list(group) for group in needs] for name, needs in self.requires}
+        return document
+
+
+#: the stations of `stations` and `values`: all, ids, a name, a point (with a rank or a distance), a box or SQL
+STATION_SELECTION = Selection(
+    exactly_one_of=(("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",)),
+    then=((_POINT, _POINT_MEASURES),),
+    # a `rank` goes with a name as well as with a point: there it caps the fuzzy matches
+    requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
+)
+#: the stations of `history`
+HISTORY_SELECTION = Selection(exactly_one_of=(("all",), ("stations",)))
+#: the reference of `interpolate` and `summarize`: a station, or a point, which needs no rank
+REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
+#: the station of the climate stripes
+STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
+
+#: one request that is accepted, for each parameter of a selection: its value as the schema of the parameter has
+#: it, a list as a list, which the document spells comma-separated (`explode: false`). A request gives a whole group
+#: of them, with a `rank` for the point (`tests/ui/test_surface_parity.py` makes each of them and the server
+#: answers it). `sql` is refused with a 403 where the server does not enable it
+SELECTION_EXAMPLES: dict[str, Any] = {
+    "all": True,
+    "stations": ["01048", "04411"],
+    "name": "Hamburg Fuhlsbüttel",
+    "latitude": 53.63,
+    "longitude": 10.0,
+    "rank": 3,
+    "distance": 25,
+    "left": 9.5,
+    "bottom": 53.4,
+    "right": 10.5,
+    "top": 53.9,
+    "sql": "region='Sachsen'",
+    "station": "01048",
+}
+
+
+def _check_station_selection(
+    request: StationsRequest | ValuesRequest, selection: Selection = STATION_SELECTION
+) -> list[InitErrorDetails]:
     """Check the one station selection a stations or values request makes.
 
     `get_stations` takes the first selection it finds, so a request making two was answered for
@@ -710,20 +807,24 @@ def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[I
 
     `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
     """
-    errors = _check_one_of(request, _STATION_SELECTIONS)
+    errors = _check_one_of(request, selection.exactly_one_of)
     if errors:
         return errors
-    if _is_set(request, "latitude"):
-        if request.rank is None and request.distance is None:
-            message = f"Exactly one of rank or distance is required with {join_names(_POINT)}"
-            return [_rule_error("missing_one_of", message, one_of=[["rank"], ["distance"]], required_with=[*_POINT])]
-        return _check_one_of(request, (("rank",), ("distance",)))
-    if request.distance is not None:
-        message = f"Requires {describe_fields([_POINT])}"
-        errors.append(_rule_error("requires", message, ("distance",), request.distance, requires=[[*_POINT]]))
-    if request.rank is not None and not request.name:
-        message = f"Requires {describe_fields([_POINT, ('name',)])}"
-        errors.append(_rule_error("requires", message, ("rank",), request.rank, requires=[[*_POINT], ["name"]]))
+    for when, groups in selection.then:
+        if _is_set(request, when[0]):
+            if not any(_is_set(request, field) for group in groups for field in group):
+                message = exactly_one_of_message(groups, when)
+                one_of = [list(group) for group in groups]
+                return [_rule_error("missing_one_of", message, one_of=one_of, required_with=[*when])]
+            return _check_one_of(request, groups)
+    for field, needs in selection.requires:
+        if getattr(request, field) is not None and not any(
+            all(_is_set(request, name) for name in group) for group in needs
+        ):
+            message = requires_message(needs)
+            errors.append(
+                _rule_error("requires", message, (field,), getattr(request, field), requires=[list(g) for g in needs])
+            )
     return errors
 
 
@@ -731,6 +832,7 @@ class StationsRequest(_RefusesRenamedParameters):
     """Stations request with validated parameters."""
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATION_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -812,7 +914,7 @@ class StationsRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> StationsRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self))
+        _raise_rule_errors(self, _check_station_selection(self, self.selection))
         return self
 
 
@@ -823,6 +925,7 @@ class HistoryRequest(_RefusesRenamedParameters):
     """
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = HISTORY_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -881,7 +984,7 @@ class HistoryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> HistoryRequest:
         """Check that exactly one of all or stations is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("all",), ("stations",))))
+        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
         return self
 
 
@@ -889,6 +992,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     """Values request with validated parameters."""
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATION_SELECTION
 
     # from stations
     provider: _ProviderField
@@ -1006,7 +1110,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self))
+        _raise_rule_errors(self, _check_station_selection(self, self.selection))
         return self
 
 
@@ -1014,6 +1118,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
     """Interpolation request with validated parameters."""
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = REFERENCE_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -1111,7 +1216,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> InterpolationRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
         return self
 
 
@@ -1119,6 +1224,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     """Summary request with validated parameters."""
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = REFERENCE_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -1213,7 +1319,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> SummaryRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        _raise_rule_errors(self, _check_one_of(self, self.selection.exactly_one_of))
         return self
 
 
@@ -2181,6 +2287,7 @@ class StripesRequest(_RefusesRenamedParameters):
     """
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STRIPES_SELECTION
 
     kind: Annotated[
         StripesKind,
@@ -2202,7 +2309,7 @@ class StripesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_and_years(self) -> StripesRequest:
         """Check exactly one of station or name is given, and a year range that ends after it starts."""
-        errors = _check_one_of(self, (("station",), ("name",)))
+        errors = _check_one_of(self, self.selection.exactly_one_of)
         if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
             message = f"Input should be greater than start_year ({self.start_year})"
             errors.append(

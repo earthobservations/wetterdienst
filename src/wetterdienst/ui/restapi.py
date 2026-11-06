@@ -13,12 +13,13 @@ import os
 import re
 from dataclasses import replace
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, with_config
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -71,6 +72,7 @@ from wetterdienst.ui.caching import (
     validators,
 )
 from wetterdienst.ui.core import (
+    SELECTION_EXAMPLES,
     AlertsRequest,
     AuthAnswer,
     AuthRequest,
@@ -83,6 +85,7 @@ from wetterdienst.ui.core import (
     ProvidersRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
+    Selection,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -186,7 +189,6 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 
-    from fastapi.routing import APIRoute
     from starlette.responses import StreamingResponse
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -1353,6 +1355,56 @@ def _declare_list_parameters(schema: dict[str, Any]) -> None:
                     parameter["explode"] = False
 
 
+def _selection_of(route: APIRoute) -> Selection | None:
+    """Give the exclusive parameters of the request model a route takes, if its model has some."""
+    for hint in get_type_hints(route.endpoint).values():
+        selection = getattr(hint, "selection", None)
+        if isinstance(selection, Selection):
+            return selection
+    return None
+
+
+def _declare_selections(schema: dict[str, Any]) -> None:
+    """State the exclusive parameters of each operation in the document, and an example of each (GH-3134).
+
+    Which parameters a request may not combine is a rule over several query parameters, and OpenAPI 3.1 cannot
+    say it of them: `oneOf` is a keyword of one schema, and the one thing that holds a schema for several
+    query parameters is one object parameter (`style: form`, `explode: true`), which takes the parameters away from
+    the operation, as they are there to a generated client, to the tools of the MCP server and to the check against
+    the last release. So the parameters stay as they are, and each operation whose request model has a `Selection`
+    says it in the three ways a document can carry:
+
+    - `x-wetterdienst-selection`, an extension of the operation: `exactly_one_of` the groups of parameters,
+      `then` the groups that one of them asks for in turn (a point wants a `rank` or a `distance`), and `requires`,
+      the parameters that need a group beside them. It is `Selection.document`, the definition the model's
+      validator checks the request by;
+    - the `description` of each parameter it names, in the words of the refusal (`Selection.sentences`). Only the
+      parameter's own `description` is changed, not that of its schema, which a tool of the MCP server is built
+      from, so the tools' schemas do not grow;
+    - the `examples` of each parameter, one value that is accepted (`SELECTION_EXAMPLES`), of the type of its
+      schema, a list as a list, which `explode: false` has a client write comma-separated. It is `examples`
+      and not `example`, which the MCP server copies into the schema of its tool: 745 characters more in the list
+      of the tools, which `examples` of the parameter does not.
+    """
+    # the routes of the router, which `app` includes under the prefix of the version (it holds them as an
+    # included router, not as routes), and not the alias, which the document leaves out
+    for route in router.routes:
+        if not isinstance(route, APIRoute) or not route.include_in_schema:
+            continue
+        selection = _selection_of(route)
+        if selection is None:
+            continue
+        for method in route.methods or ():
+            operation = schema["paths"][f"{API_PREFIX}{route.path}"][method.lower()]
+            operation["x-wetterdienst-selection"] = selection.document()
+            sentences = selection.sentences()
+            for parameter in operation["parameters"]:
+                name = parameter["name"]
+                if name in sentences:
+                    parameter["description"] = " ".join([parameter["description"].rstrip(), *sentences[name]])
+                    parameter["examples"] = {"example": {"value": SELECTION_EXAMPLES[name]}}
+
+
 def _openapi() -> dict[str, Any]:
     """Build the OpenAPI schema, giving each settings query parameter the server's value as its default (GH-2393).
 
@@ -1389,6 +1441,7 @@ def _openapi() -> dict[str, Any]:
     schema["info"]["x-api-version"] = API_VERSION
     _declare_problem_schema(schema)
     _declare_list_parameters(schema)
+    _declare_selections(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001

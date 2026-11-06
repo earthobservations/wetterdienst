@@ -451,6 +451,27 @@ release commit, with `uv run poe contracts:baseline`.
 - **Answers** have a schema everywhere: the health check (`Health`), the readiness check (`Ready`), the version (`VersionAnswer`) and the data
   routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
   (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
+- **Exclusive parameters** are stated on the operations that have them: `stations` and `values` (`all`, `stations`,
+  `name`, a point, a box or `sql`), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
+  point), and `stripes/values` and `stripes/image` (a `station` or a `name`). The document does not write it as a
+  `oneOf`. That is a keyword of one schema, and these are separate query parameters; the only place for it would be one
+  object parameter (`style: form`, `explode: true`) in place of them. Then the operation would no longer list `all`,
+  `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
+  argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
+    - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
+      and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
+      `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
+    - the `description` of each parameter it names ends with the sentence of the refusal, such as `Exactly one of all,
+      stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.`;
+    - its `examples` hold one value the server accepts, such as `stations=01048,04411` and `name=Hamburg Fuhlsbüttel`,
+      or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list there, which a client writes
+      comma-separated (`explode: false`).
+
+  The model that refuses a request, the extension, the sentences and the examples are written from one definition
+  (`Selection` in `ui/core.py`), and tests hold the document to the refusal the server answers with, and the examples
+  to the server answering them. The sentences and examples are on the parameters of the operation and not on their
+  schemas, which the MCP tools are built from, so the tools carry no more text than before.
 - **Errors** are declared by status where the route can answer them, as references to the `responses` of
   `components`, each listing the kinds of problem that status is (see [Errors](#errors)). Every route under `/api/v1`
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
@@ -505,7 +526,8 @@ learnt on one holds on the others:
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
   stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
-  command.
+  command. The OpenAPI document states the alternatives and gives an example of each parameter, see
+  [The OpenAPI document](#the-openapi-document).
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
