@@ -2145,3 +2145,34 @@ def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_produc
     assert hourly.icon.rad1h.unit == "joule_per_square_centimeter"
     assert hourly.icon.rads3.unit == "joule_per_square_centimeter"
     assert hourly.icon.radl3.unit == "kilojoule_per_square_meter"
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param(
+            "text/html", b'<html><title>503 - CDN</title><a href="https://status.example.com/">s</a></html>', id="cdn"
+        ),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+    ],
+)
+def test_dmo_directory_answered_with_a_page_that_is_no_index_is_an_error_not_no_forecast(
+    content_type: str, body: bytes
+) -> None:
+    """A 200 page of an outage must not read as the empty directory of a station with no forecast (GH-3819).
+
+    An empty directory is `None` and a warning; a CDN's error page or a JSON error in its place is a `DownloadError`.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    values = _stub_dmo_values()
+    with serving() as server:
+        server.pages["/kmz/"] = (content_type, body)
+        server.pages["/kmz"] = (content_type, body)
+        server.directories["/empty/"] = []
+
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            values.get_url_for_date(f"{server.base}/kmz/", api.DwdForecastDate.LATEST)
+        assert values.get_url_for_date(f"{server.base}/empty/", api.DwdForecastDate.LATEST) is None

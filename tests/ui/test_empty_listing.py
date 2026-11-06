@@ -560,6 +560,35 @@ def test_a_values_request_of_an_empty_directory_for_the_period_asked_is_empty_wi
     assert any("`climate/monthly/kl/historical/`" in warning["message"] for warning in _skipped(body))
 
 
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [
+        pytest.param("summarize", {"parameters": "monthly/climate_summary/temperature_air_mean_2m"}, id="summarize"),
+        pytest.param(
+            "interpolate", {"parameters": "monthly/climate_summary/temperature_air_mean_2m"}, id="interpolate"
+        ),
+    ],
+)
+def test_rest_a_station_only_the_skipped_directory_lists_is_a_404_that_says_nothing_of_it(
+    client: TestClient, dwd: _Dwd, route: str, extra: dict[str, str]
+) -> None:
+    """Known limit, tracked in #3834: the estimate asks for a station by id and does not hear of the warning.
+
+    00044 is listed by `historical` only (`recent` lists another station's file), and `historical` is empty.
+    """
+    dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_RECENT}"] = ["stundenwerte_KL_00045_19700101_20241231_akt.zip"]
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+
+    response = client.get(
+        f"/api/v1/{route}",
+        params={"provider": "dwd", "network": "observation", "station": "00044", "timestamp": "2020-01-01", **extra},
+    )
+
+    assert response.status_code == 404
+    assert "00044" in response.text
+    assert "historical" not in response.text
+
+
 # --- an outage is no empty directory --------------------------------------------------------------------------------
 
 
@@ -606,6 +635,45 @@ def test_cli_an_outage_of_a_listing_stays_an_error(dwd: _Dwd, failure: Exception
     assert exit_code == 1
     assert body is None
     assert "file-skipped" not in output
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param(
+            "text/html",
+            b'<html><title>503 - CDN</title><a href="https://status.example.com/">status</a></html>',
+            id="cdn",
+        ),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("route", "parameters", "directory"),
+    [
+        pytest.param("history", _MONTHLY, _MONTHLY_HISTORICAL, id="history-historical"),
+        pytest.param(
+            "history", "1_minute/precipitation", "climate/1_minute/precipitation/meta_data/", id="history-1min"
+        ),
+        pytest.param("stations", _MONTHLY, _MONTHLY_HISTORICAL, id="stations"),
+    ],
+)
+def test_rest_a_200_page_that_is_no_index_is_a_502_and_never_an_empty_directory(
+    client: TestClient, dwd: _Dwd, route: str, parameters: str, directory: str, content_type: str, body: bytes
+) -> None:
+    """A CDN's error page or a JSON error answered with a 200 is an outage, not "came back empty or missing"."""
+    for path in (dwd._path(directory), dwd._path(directory).rstrip("/")):  # noqa: SLF001
+        dwd.server.pages[path] = (content_type, body)
+    extra = {"stations": "00044"} if route == "history" else {"all": "true"}
+
+    response = client.get(
+        f"/api/v1/{route}", params={"provider": "dwd", "network": "observation", "parameters": parameters, **extra}
+    )
+
+    assert response.status_code == 502
+    assert "file-skipped" not in response.text
+    assert "parameter-without-rows" not in response.text
+    assert "Cache-Control" not in response.headers
 
 
 # --- the Python API --------------------------------------------------------------------------------------------------

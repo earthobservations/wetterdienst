@@ -596,7 +596,11 @@ class DwdDerivedValues(TimeseriesValues):
             if dataset in TECHNICAL_DATASETS:
                 continue
             for period in sorted(cast("set[Period]", stations.periods) or set()):
-                urls += create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
+                try:
+                    urls += create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
+                except EmptyListingError:
+                    # as the collection skips the period; the files ahead are only a head start
+                    continue
         return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
 
     def _collect_station_parameter_or_dataset(

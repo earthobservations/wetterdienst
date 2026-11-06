@@ -23,8 +23,9 @@ import pytest
 
 from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.util.network import list_remote_directory_fsspec, list_remote_files_fsspec
+from wetterdienst.util.network import HTTPFileSystem, list_remote_directory_fsspec, list_remote_files_fsspec
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -131,3 +132,95 @@ def test_the_directory_listing_of_an_empty_directory_is_empty_and_not_kept(
     assert [entry["name"] for entry in list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)] == [
         f"{server.base}/empty/{_ZIP}"
     ]
+
+
+# --- a page that is not the index of a directory is no empty directory ---------------------------------------------
+
+_CDN_PAGE = (
+    "<html><head><title>503 - CDN</title></head><body><h1>Service unavailable</h1>"
+    '<a href="https://status.example.com/">status</a></body></html>'
+)
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param("text/html", _CDN_PAGE.encode(), id="cdn-page"),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+        pytest.param("text/html", b"", id="empty-body"),
+    ],
+)
+def test_a_page_that_is_no_index_is_a_download_error_not_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]], content_type: str, body: bytes
+) -> None:
+    """An outage page answered with a 200 must never read as "no data": it is a `DownloadError`, a 502."""
+    server.pages["/x/"] = (content_type, body)
+    server.pages["/x"] = (content_type, body)
+
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+
+def test_a_real_index_with_no_link_is_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """The control of the above: the index page nginx writes for an empty directory."""
+    server.directories["/x/"] = []
+
+    assert listing("/x/") == []
+
+
+# --- no empty listing is kept, a subdirectory's included -----------------------------------------------------------
+
+
+def test_an_empty_year_directory_is_listed_once_it_is_filled(
+    server: NginxLike, listing: Callable[[str], list[str]], *, redirect: bool
+) -> None:
+    """DWD's `historical/2022/`: the tree lists `2023` and an empty `2024`; the next call has the files of both."""
+    if not redirect:
+        pytest.skip("fsspec lists a subdirectory without its `/` and relies on the 301 to it, as nginx answers")
+    server.directories["/tree/"] = ["2023/", "2024/"]
+    server.directories["/tree/2023/"] = [_ZIP]
+    server.directories["/tree/2024/"] = []
+    assert listing("/tree/") == [f"{server.base}/tree/2023/{_ZIP}"]
+
+    server.directories["/tree/2024/"] = [_ZIP]
+
+    assert listing("/tree/") == [f"{server.base}/tree/2023/{_ZIP}", f"{server.base}/tree/2024/{_ZIP}"]
+
+
+def test_a_directory_with_only_an_empty_subdirectory_is_listed_once_it_is_filled(
+    server: NginxLike, listing: Callable[[str], list[str]], *, redirect: bool
+) -> None:
+    """The listing is `[]` while the subdirectory is empty, and the files once it is not."""
+    if not redirect:
+        pytest.skip("fsspec lists a subdirectory without its `/` and relies on the 301 to it, as nginx answers")
+    server.directories["/only/"] = ["inner/"]
+    server.directories["/only/inner/"] = []
+    assert listing("/only/") == []
+
+    server.directories["/only/inner/"] = [_ZIP]
+
+    assert listing("/only/") == [f"{server.base}/only/inner/{_ZIP}"]
+
+
+def test_an_empty_listing_that_an_older_version_stored_is_a_miss(
+    server: NginxLike, listing: Callable[[str], list[str]], tmp_path: Path
+) -> None:
+    """The cache of a version that stored `[]` for an empty directory does not answer it empty for 12 hours.
+
+    That version kept the listing of an empty directory, and a directory filled since was listed empty (and the
+    directory itself as a file) until the entry expired. Written here as that version wrote it, into the same store.
+    """
+    server.directories["/old/"] = [_ZIP]
+    url = f"{server.base}/old/"
+    cache = HTTPFileSystem(
+        use_listings_cache=True,
+        listings_expiry_time=CacheExpiry.METAINDEX.value,
+        listings_cache_location=str(tmp_path / "cache"),
+    ).dircache
+    assert cache._store is not None  # noqa: SLF001
+    cache._store.set(url, [], CacheExpiry.METAINDEX.value)  # noqa: SLF001
+
+    assert url not in cache
+    assert listing("/old/") == [f"{server.base}/old/{_ZIP}"]

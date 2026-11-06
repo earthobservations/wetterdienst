@@ -163,8 +163,10 @@ Types of changes:
   with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
 - `history` of `dwd/observation` now tells a directory whose listing came back empty or missing
   with a `file-skipped` warning naming the stations and the directory, so the REST API no longer
-  keeps that partial answer for an hour. A station with no file in a listing that is there is
-  the source's answer and no warning (GH-3814)
+  keeps that partial answer for an hour. REST and the command line reach it for the `meta_data`
+  of the 5 and 10 minute datasets (not urban); other empty directories still fail the station
+  lookup with a 500 (GH-3819). A station with no file in a listing that is there is the source's
+  answer and no warning (GH-3814)
 - `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them
@@ -183,15 +185,14 @@ Types of changes:
   `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
-- `stations`, `values` and `history` of `dwd/observation` and `dwd/derived` skip a directory of
-  DWD's server that comes back empty or missing (`historical`, the solar datasets' own directory,
-  the `meta_data` of the 1 minute precipitation) and answer with the other periods and a
-  `file-skipped` warning that names the directory; they were a 500 (REST) or a traceback. A
-  history with the warning is not cached. An outage is still an error. In Python the lookup
-  no longer raises `FileNotFoundError` for it and logs the warning. A directory that nginx lists
-  as empty is `[]` from `list_remote_files_fsspec` (it was the directory itself as a file, which
-  kept `history` of 5 and 10 minute `meta_data` silent) and is not kept in the listing cache for
-  12 hours (GH-3819)
+- **Breaking**: `stations`, `values` and `history` of `dwd/observation` and `dwd/derived` skip a
+  directory of DWD's server that is missing (404) or empty and answer with the other periods and
+  a `file-skipped` warning that names it; for a 404 they raised `FileNotFoundError` (a 500, a
+  traceback), and an empty one on nginx was a silent partial answer. In Python read
+  `recorded_warnings()` after `begin_response()`, or catch nothing. `list_remote_files_fsspec`
+  answers `[]` for an empty directory (it listed the directory itself as a file), which
+  `dwd/mosmix` and `dwd/dmo` now meet as an empty one, keeps no empty listing in the cache (it
+  was 12 hours) and raises `DownloadError` (502) for a 200 page that is no index (GH-3819)
 
 ## [0.183.0] - 2026-11-03
 

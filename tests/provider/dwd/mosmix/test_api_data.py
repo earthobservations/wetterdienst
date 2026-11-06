@@ -1009,3 +1009,38 @@ def test_mosmix_the_error_of_a_temperature_refuses_a_target_other_than_kelvin() 
     parameter = DwdMosmixRequest(parameters=[("hourly", "large", "e_ttt")]).parameters[0]
     assert parameter.unit == "degree_kelvin"
     assert parameter.unit_type == "temperature_difference"
+
+
+_NOT_AN_INDEX = [
+    pytest.param(
+        "text/html", b'<html><title>503 - CDN</title><a href="https://status.example.com/">s</a></html>', id="cdn"
+    ),
+    pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+]
+
+
+@pytest.mark.parametrize(("content_type", "body"), _NOT_AN_INDEX)
+def test_mosmix_single_station_directory_answered_with_a_page_that_is_no_index_is_an_error_not_no_forecast(
+    content_type: str, body: bytes
+) -> None:
+    """A 200 page of an outage must not read as the retired directory of a station (GH-3819).
+
+    A directory that is empty reads as a station DWD retired (`None`, a warning); a CDN's error page or a JSON error in
+    its place is a `DownloadError`, which the REST API answers with a 502, and not "no values".
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    values = _stub_mosmix_stations().values()
+    with serving() as server:
+        server.pages["/kml/"] = (content_type, body)
+        server.pages["/kml"] = (content_type, body)
+        server.directories["/empty/"] = []
+
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            values.get_url_for_date(f"{server.base}/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
+        # the empty directory of a retired station is still `None`
+        assert (
+            values.get_url_for_date(f"{server.base}/empty/", api.DwdForecastDate.LATEST, one_station_only=True) is None
+        )

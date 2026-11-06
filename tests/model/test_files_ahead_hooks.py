@@ -25,6 +25,7 @@ from wetterdienst.provider.dwd.derived import download as derived_download
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as observation_api
 from wetterdienst.provider.dwd.observation import download as observation_download
+from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
 
 UTC = dt.UTC
 STATION = "00001"
+_EMPTY_DIRECTORY = "https://x/historical/"
 
 
 def _settings() -> Settings:
@@ -125,6 +127,71 @@ def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dat
     assert list(named.urls) == [url for url, _ in downloaded]
     assert {ttl for _, ttl in downloaded} == {named.ttl}
     assert list(technical.urls) == []
+
+
+def test_dwd_observation_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A period whose directory is empty (GH-3819) has no files to name, and the other periods are still named.
+
+    The hook raised the `EmptyListingError` the collection skips, which stopped the fetch-ahead of the whole walk.
+    """
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset_: object, period: Period, *_: object) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(observation_api, "create_file_list_for_climate_observations", file_list)
+    monkeypatch.setattr(observation_download, "download_files", download_files)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        periods=["historical", "recent"],
+        settings=_settings(),
+    )
+    values = stations_result(request, "daily", "climate_summary", STATION).values()
+    model = request.metadata["daily"]["climate_summary"]
+
+    values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
+
+
+def test_dwd_derived_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same for `dwd/derived`: the empty period has no files to name, the other one is named."""
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset: object, period: Period, settings: Settings) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(derived_api, "create_file_list_for_climate_derived", file_list)
+    monkeypatch.setattr(derived_download, "download_files", download_files)
+    request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], settings=_settings())
+    values = stations_result(request, "hourly", "radiation_global", STATION).values()
+    model = request.metadata["hourly"]["radiation_global"]
+
+    monkeypatch.setattr(derived_api, "parse_climate_derived_data", lambda *_: pl.LazyFrame({"timestamp": []}))
+    with contextlib.suppress(Exception):
+        values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
 
 
 @pytest.mark.parametrize(

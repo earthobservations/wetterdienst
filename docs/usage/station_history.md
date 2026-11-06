@@ -22,8 +22,8 @@ the place to look when a series has a jump that the weather does not explain.
   that name the directory and the periods of the dataset that were skipped for it, and, where the history was to
   read it, the stations: the answer is partial and carries no cache header. Try again later. `stations` and `values`
   do the same for the stations they look up. A station with no file in a listing that is there has no history of it,
-  which is the source's answer and no warning. A connection that cannot be made or a failing server is an error as
-  before.
+  which is the source's answer and no warning. A connection that cannot be made, a failing server and a 200 page that is
+  no index of a directory are errors as before.
 - **No snapshots.** The history is what the provider lists today. It cannot be asked for "the station as it was
   on a date"; to find the entry that applies on a date, filter a section by its `valid_from` and `valid_to`.
 

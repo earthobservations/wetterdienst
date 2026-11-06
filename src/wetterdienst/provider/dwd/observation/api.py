@@ -152,9 +152,13 @@ class DwdObservationValues(TimeseriesValues):
         for dataset in datasets:
             for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
                 if period in dataset.periods:
-                    urls += create_file_list_for_climate_observations(
-                        station_id, dataset, period, settings, date_ranges
-                    ).to_list()
+                    try:
+                        urls += create_file_list_for_climate_observations(
+                            station_id, dataset, period, settings, date_ranges
+                        ).to_list()
+                    except EmptyListingError:
+                        # as the collection skips the period; the files ahead are only a head start
+                        continue
         return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
 
     def _collect_station_parameter_or_dataset(
