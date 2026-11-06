@@ -1964,8 +1964,8 @@ def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
 def _metno_frost_6_hours_before_1982(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # SN75410, 1981-05-01 to 1981-05-11 (all 11 readings), a year before the cut-off, as Frost wrote it: -1 there is
     # not read (null, and the code in the flags). 0.5 and 0 are readings of the same days. In the 1940s and 1950s the
-    # same code is every reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 79.3 mm of daily
-    # rain on 1951-08-05 against a 6-hourly -1)
+    # same code is every reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 67.3 mm in the
+    # 12-hourly sum that holds the 6-hourly -1 of 1951-08-05 12 UTC)
     return _metno_frost_precipitation(
         monkeypatch,
         drop_nulls,
@@ -2014,7 +2014,7 @@ def _metno_frost_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_null
 
 def _metno_frost_daily_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `sum(precipitation_amount P1D)`, SN1193400, 2026-11-03 to 11-06 as Frost wrote it (stamped 06:00, the offset
-    # PT6H): a day of rain, one of 0.2 mm, then two dry days as -1. Frost states 0.0 mm for it, and it is not read
+    # PT6H): a day of rain, one of 0.2 mm, then two days of -1. Frost states 0.0 mm for it, and it is not read
     # here (GH-3820): the range check nulls it, `rejected:range,raw:-1`, as it always did
     return _metno_frost_precipitation(
         monkeypatch,

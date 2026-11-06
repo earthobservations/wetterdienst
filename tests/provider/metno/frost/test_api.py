@@ -212,8 +212,8 @@ def test_metno_frost_values_6hour_precipitation_no_precipitation_is_zero() -> No
 def test_metno_frost_values_6hour_precipitation_before_1982_is_not_read() -> None:
     """6-hourly precipitation of Kjevik in 1951 is every reading -1, wet days included, and is no value (GH-3748).
 
-    SN39040 has -1 for 1,096 of 1,096 readings in 1950 to 1952; on 1951-08-05 the daily sum is 79.3 mm. Read as a dry
-    period it would write 0.0 into a wet day, so before 1982 the code is null (and, null, dropped).
+    SN39040 has -1 for 1,096 of 1,096 readings in 1950 to 1952; on 1951-08-05 the 12-hourly sum is 67.3 mm. Read as a
+    dry period it would write 0.0 into a wet day, so before 1982 the code is null (and, null, dropped).
     """
     request = MetnoFrostRequest(
         parameters=[("6_hours", "data", "precipitation_amount")],

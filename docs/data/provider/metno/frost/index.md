@@ -71,13 +71,22 @@ one.
 Frost states no date limit for the 6-hourly `-1`. The data do. The share of `-1` among the 6-hourly readings is 0.2 %
 in 1981 (10 of 4,030) and 53 % in 1982 (4,600 of 8,655), and what it is differs on the two sides. `dry` is the 12-hourly
 sum that holds a 6-hourly reading (the one stamped six hours after the readings of 00 and 12 UTC) being `-1` or `0`; the
-baseline is the share of dry 12-hourly sums of the station-year the `-1` is in.
+baseline is the share of dry 12-hourly sums of the station-year the `-1` is in, over both stamp hours (over the stamp
+hour of the holding sums alone it is 54.9 % from 1982 and 60.5 % before).
 
 - **From 1982:** the sum that holds a `-1` is dry in 86.4 % of the cases against a baseline of 57.0 %, and for a reading
   above 0 in 0.8 %. For 77.0 % of the `-1` the holding sum is itself `-1`, the code Frost states for the 12-hourly sum.
-- **Before 1982:** 62.3 % against a baseline of 59.6 %: no more than chance. In the 1940s and 1950s the `-1` is every
-  reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950 to 1952, and on 1951-08-05 the daily sum is
-  79.3 mm and the 12-hourly sum 67.3 mm against a 6-hourly `-1`). A `0.0` there would write a dry period into a wet day.
+  The comparator is a measured `0`: dry in 64.4 % of the cases (baseline 55.6 %).
+- **1920 to 1959:** 11,600 `-1` have a holding sum, dry in 61.6 % against a baseline of 60.4 %: no more than chance. In
+  the 1940s and 1950s the `-1` is every reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950 to
+  1952; on 1951-08-05 the 12-hourly sum that holds the 12 UTC reading is 67.3 mm and the daily sum of the 18-18 series
+  is 79.3 mm, against a 6-hourly `-1`). A `0.0` there would write a dry period into a wet day.
+- **1960 to 1981:** 891 `-1` have a holding sum, dry in 70.6 % against a baseline of 49.1 %, and a measured `0` in 63.2 %
+  against 51.3 %. This is not "no information": the `-1` leans dry here, as a `0` does. It is 0.2 to 3.2 % of the
+  readings of a year, from a handful of stations.
+- **Why the cut stays at 1982 all the same:** the share of `-1` goes from 0.2 to 53 %, the median lift of a station-year
+  (the dry share of its holding sums over its baseline, with 30 or more `-1`) is 1.9 points before 1982 and 31.1 from
+  1982, and a null, a gap where there was a dry period, is the safe side of a `0.0` where there was none.
 
 ### Evidence
 
@@ -86,7 +95,7 @@ has the element, in the windows named.
 
 | element, period | readings | `-1` | what it is |
 |---|---|---|---|
-| 6-hourly, before 1982 | 56,976 at 68 stations | 12,873 (22.6 %) at 30 stations | no information: dry 62.3 % against 59.6 %; in 1971 to 1981 it is 0.2 to 3.2 % of the readings of a year |
+| 6-hourly, before 1982 | 56,976 at 68 stations | 12,873 (22.6 %) at 30 stations | 1920 to 1959: dry 61.6 % against 60.4 %, chance; 1960 to 1981: 70.6 % against 49.1 % (891 with a holding sum), 0.2 to 3.2 % of the readings of a year; pooled 62.3 % against 59.6 % |
 | 6-hourly, 1982 to 2026-10 | 269,879 at 85 stations | 138,271 (51.2 %) at 77 stations | no precipitation: dry 86.4 % against 57.0 %. SN71550 and SN99754, the two with most readings, are 15.2 % of the readings and 14.7 % of the `-1`. The 1.4 % of the readings at 06 and 18 UTC have no 12-hourly sum that holds them and are left out of the shares |
 | 6-hourly, WMO stations listed since 2026-11-03 | 861 at 122 stations | 657 (76.3 %) at 118 stations | no precipitation: the six hourly values it holds are `-1` or `0` in 158 of 158, and a reading above 0 has rain in an hour and equals the sum of the hours in 18 of 18 |
 | hourly, 1994 to 2024 (all 857 stations active in the fortnights of January 1994, 1999, 2004, 2009, 2014, 2019, 2024 and July 2014, 2024) | 796,636 | 250 at 15 stations, in 1994, 1999 and 2004 only | the weak part: of the 78 days of those stations that hold one, none has all 24 hours, and 66 agree with the daily sum with `-1` as 0 |
@@ -101,12 +110,17 @@ The evidence is the mainstream, and these are the places where it is not. They a
 6-hourly ones, from 1982 on), and named here:
 
 - **6-hourly, station-years since 1982 whose `-1` tell little.** In these the holding 12-hourly sums are dry less than 10
-  points more often than the station-year's own are (the rule is 29 points), at a station-year that is not dry
-  anyway, or every one of 150 or more readings is `-1`: SN18960 in 1996 (181 of 181 readings, 59 % against 58 %), SN94500
-  in 2003, SN98550 in 2003 to 2005, SN4780 in 2004 (273 `-1`, 72 % against 81 %), SN59800 in 2004, SN6020 in 2004,
-  SN69100 in 2004 (202 of 202), SN90490 in 2004 and 2005 (154 of 154 in 2004), SN96400 in 2004 and SN59610 in 2011 and
-  2013 (157 of 157 and 168 of 168, 73 and 76 % against 33 and 39 %). A `0.0` there may be no precipitation or no
-  reading.
+  points more often than the station-year's own are (the rule is 29 points), at a station-year whose own sums are dry
+  less than 85 % of the time (above that a lift cannot show), or every one of 150 or more readings is `-1`: SN18960 in
+  1996 (181 of 181 readings, 59 % against 58 %), SN94500 in 2003, SN98550 in 2003 to 2005, SN4780 in 2004 (273 `-1`, 72 %
+  against 81 %), SN59800 in 2004, SN6020 in 2004, SN69100 in 2004 (202 of 202), SN90490 in 2004 and 2005 (154 of 154 in
+  2004), SN96400 in 2004 and SN59610 in 2011 and 2013 (157 of 157 and 168 of 168, 73 and 76 % against 33 and 39 %). The
+  rule is applied to a station-year with at least 30 `-1` and 30 holding sums. A `0.0` there may be no precipitation or
+  no reading.
+- **6-hourly, `-1` that could not be checked.** 5,422 of the `-1` at 00 and 12 UTC since 1982 (3.9 % of the 138,271) have
+  no holding 12-hourly sum: SN99950 3,483, SN99754 969, SN42160 741. And 19 station-years with 150 or more `-1` have
+  fewer than 30 holding sums, so the test above cannot see them: SN99950 in 2009 to 2021 (13 of them), SN42160 in 2002 to
+  2004, SN99754 in 2010 and 2011 and SN99990 in 2020. They are returned as `0.0` all the same.
 - **Quality 7** ("Erroneous, value is not corrected"): 2 of the 138,271 6-hourly `-1` carry it, none of the hourly ones.
 
 ### Checks do not see the code

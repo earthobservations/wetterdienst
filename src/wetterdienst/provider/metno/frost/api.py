@@ -416,13 +416,14 @@ _MetnoFrostMetadataSpec = {
 MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMetadata")
 
 
-# Frost writes in-band codes into the value itself, where nothing tells them apart from a measurement. Its data
-# clarifications (https://frost.met.no/dataclarifications.html, "Explanations for some coded negative value elements")
-# state them, which the descriptions of the elements do not:
+# Frost writes in-band codes into the value itself, where nothing tells them apart from a measurement. It states
+# them in its data clarifications (https://frost.met.no/dataclarifications.html, "Explanations for some coded
+# negative value elements"); the description of an element states one only for the snow depth and the cloud cover:
 #
-# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one ("Code=-1 means no snow"). It
-#   reaches the caller as -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily
-#   observations are -1 against 92 measured zeros
+# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one (the description of the element:
+#   "Code=-1 means no snow"; the clarifications: "Zero snowdepth or partial snow cover"). It reaches the caller as
+#   -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against
+#   92 measured zeros
 # - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured. In
 #   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
 #   plausible reading rather than a code
@@ -437,9 +438,12 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 # - 6-hourly: 0.0 from 1982 on, null before, both with `raw:-1`. Frost states no date limit; we depart from it on data
 #   grounds. The series has 0.2 % of its readings -1 in 1981 and 53 % in 1982. From 1982 on the 12-hourly sum that
 #   holds a -1 is dry (-1 or 0) in 86.4 % of the cases, where the station-year's own 12-hourly sums are dry in 57.0 %
-#   and the sum that holds a reading above 0 in 0.8 %. Before 1982 it is 62.3 % against 59.6 %, no more than chance,
-#   and in the 1940s and 1950s every reading of a station is -1, wet days included (SN39040: 1,096 of 1,096 in
-#   1950-52, 79.3 mm of daily rain on 1951-08-05 against a 6-hourly -1)
+#   and the sum that holds a reading above 0 in 0.8 %. Before 1982 the -1 tells little: 61.6 % against 60.4 % in
+#   1920-59 (11,600 -1), 70.6 % against 49.1 % in 1960-81 (891), where it is 0.2 to 3.2 % of the readings. In the 1940s
+#   and 1950s every reading of a station is -1, wet days included (SN39040: 1,096 of 1,096 in 1950-52; on 1951-08-05
+#   the 12-hourly sum that holds the 12 UTC reading is 67.3 mm, the daily sum of the 18-18 series 79.3 mm, the
+#   6-hourly reading -1). The cut stays at 1982: the share of -1 goes from 0.2 to 53 %, the median lift of a
+#   station-year is 1.9 points before and 31.1 from 1982, and a null is the safe side of a false 0.0
 # - hourly: the same, 0.0 from 1982 on and null before. `sum(precipitation_amount PT1H)` is not an element of Frost's
 #   table (`sum_over_undefined_period(... PT1H)` is), so this is our reading. The evidence is the WMO stations Frost
 #   lists since 2026-11-03 (10,576 of 11,119 hourly readings are -1; a daily -1 holds 24 dry hours in 213 of 213),
