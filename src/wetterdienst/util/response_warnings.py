@@ -38,6 +38,11 @@ class ResponseWarning(TypedDict):
     stations: NotRequired[list[str]]
 
 
+#: the attribute of the log record of a response warning, holding its code: what tells the line that qualifies the
+#: answer (a file the provider let go, readings a check rejected, a parameter without rows) from the log around it,
+#: for a handler that lets only these and the errors through (`--quiet` of the command line, GH-3134)
+RESPONSE_WARNING_RECORD = "response_warning"
+
 #: the code of the warning that counts the readings the source wrote a marker for, and its message
 MISSING_VALUE_MARKER = "missing-value-marker"
 MISSING_VALUE_MARKER_MESSAGE = (
@@ -166,7 +171,7 @@ def warn_response(
     A warning about one `parameter` and its `stations` carries them as members beside the code and the message.
     A warning recorded twice, as an estimate asks the same stations for each parameter, is told once.
     """
-    log.log(level, message)
+    log.log(level, message, extra={RESPONSE_WARNING_RECORD: code})
     named = _NAMED.get()
     # not the warning of this very code, which is raised after a walk, and must not silence another one
     if named is not None and parameter is not None and code != PARAMETER_WITHOUT_ROWS:
@@ -179,6 +184,19 @@ def warn_response(
         warning["stations"] = list(stations)
     if recorded is not None and warning not in recorded:
         recorded.append(warning)
+
+
+def log_counted_warnings(log: logging.Logger) -> None:
+    """Log each warning that counts something across the request, once, with its total, as the command line does.
+
+    `warn_response` logs as it records, but a counted warning (`count_response_warning`: the values a check rejected,
+    the markers of the source, the calms) is only added up for the answer's `metadata`, and a CSV or a file target has
+    no place for that block. The command line calls this when the walk is over, so that what it says is the whole
+    count, in one line each, marked as `warn_response` marks its lines (`RESPONSE_WARNING_RECORD`, which `--quiet`
+    lets through). A library call and a REST answer carry the same counts in `warnings` and log nothing here.
+    """
+    for code, (count, message, details) in (_COUNTED.get() or {}).items():
+        log.warning(message.format(count=count, details=_tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
 
 
 def recorded_warnings() -> list[ResponseWarning]:
