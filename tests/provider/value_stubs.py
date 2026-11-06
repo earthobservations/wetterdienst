@@ -1890,32 +1890,34 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
     return stations_result(request, "hourly", "data", "SN18700").values().all().df
 
 
-def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the answer of Frost on 2026-11-06 for `sum(precipitation_amount PT6H)`, SN18700 (Oslo - Blindern), 2005-09-01 to
-    # 2010-09-01, as it wrote it: the eight readings that station has, three of them -1 (and a 0 that is no -1). Frost's
-    # description of the element says nothing of the -1; that it is a dry period is our reading of the data (GH-3748)
-    readings = [
-        ("2005-09-07T00:00:00.000Z", -1, 2),
-        ("2005-10-13T12:00:00.000Z", -1, 0),
-        ("2006-03-07T12:00:00.000Z", -1, 0),
-        ("2006-08-23T06:00:00.000Z", 0, 0),
-        ("2008-06-13T18:00:00.000Z", 1.3, 2),
-        ("2010-02-04T06:00:00.000Z", 0.4, 2),
-        ("2010-04-26T18:00:00.000Z", 0.1, 2),
-        ("2010-08-06T18:00:00.000Z", 3, 2),
-    ]
+def _metno_frost_precipitation(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool,  # noqa: FBT001
+    *,
+    resolution: tuple[str, str, str],
+    station: str,
+    readings: list[tuple[str, float, int]],
+    window: tuple[dt.datetime, dt.datetime],
+) -> pl.DataFrame:
+    """Serve the readings of one Frost precipitation sum as Frost wrote them, and read them as a caller does.
+
+    ``resolution`` is (name, original name, time offset), ``readings`` are (reference time, value, quality code). The
+    description of the element says nothing of the value -1 that these carry; that it is a dry period from 1982 on is
+    our reading of the data (GH-3748), measured on 2026-11-06.
+    """
+    name, original, offset = resolution
     payload = {
         "data": [
             {
-                "sourceId": "SN18700:0",
+                "sourceId": f"{station}:0",
                 "referenceTime": time,
                 "observations": [
                     {
-                        "elementId": "sum(precipitation_amount PT6H)",
+                        "elementId": f"sum(precipitation_amount {original})",
                         "value": value,
                         "unit": "mm",
-                        "timeOffset": "PT0H",
-                        "timeResolution": "PT6H",
+                        "timeOffset": offset,
+                        "timeResolution": original,
                         "timeSeriesId": 0,
                         "performanceCategory": "C",
                         "exposureCategory": "2",
@@ -1928,13 +1930,100 @@ def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     }
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
-        parameters=[("6_hours", "data", "precipitation_amount")],
-        start=_day(2005, 9, 1),
-        end=_day(2010, 9, 1),
+        parameters=[(name, "data", "precipitation_amount")],
+        start=window[0],
+        end=window[1],
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "6_hours", "data", "SN18700").values().all().df
+    return stations_result(request, name, "data", station).values().all().df
+
+
+def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount PT6H)`, SN18700 (Oslo - Blindern), 2005-09-01 to 2010-09-01, as Frost wrote it: the
+    # eight readings that station has, three of them -1 (and a 0 that is no -1)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("6_hours", "PT6H", "PT0H"),
+        station="SN18700",
+        readings=[
+            ("2005-09-07T00:00:00.000Z", -1, 2),
+            ("2005-10-13T12:00:00.000Z", -1, 0),
+            ("2006-03-07T12:00:00.000Z", -1, 0),
+            ("2006-08-23T06:00:00.000Z", 0, 0),
+            ("2008-06-13T18:00:00.000Z", 1.3, 2),
+            ("2010-02-04T06:00:00.000Z", 0.4, 2),
+            ("2010-04-26T18:00:00.000Z", 0.1, 2),
+            ("2010-08-06T18:00:00.000Z", 3, 2),
+        ],
+        window=(_day(2005, 9, 1), _day(2010, 9, 1)),
+    )
+
+
+def _metno_frost_6_hours_before_1982(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # SN75410, 1981-05-01 to 1981-05-11, a year before the cut-off, as Frost wrote it: -1 there is not read (null, and
+    # the code in the flags). 0.5 and 0 are readings of the same days. In the 1940s and 1950s the same code is every
+    # reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 79.3 mm of daily rain on 1951-08-05
+    # against a 6-hourly -1)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("6_hours", "PT6H", "PT0H"),
+        station="SN75410",
+        readings=[
+            ("1981-05-01T12:00:00.000Z", -1, 2),
+            ("1981-05-02T12:00:00.000Z", -1, 2),
+            ("1981-05-03T12:00:00.000Z", -1, 2),
+            ("1981-05-04T12:00:00.000Z", 0.5, 2),
+            ("1981-05-05T12:00:00.000Z", -1, 2),
+            ("1981-05-08T12:00:00.000Z", 0, 2),
+            ("1981-05-09T12:00:00.000Z", -1, 2),
+        ],
+        window=(_day(1981, 5, 1), _day(1981, 5, 12)),
+    )
+
+
+def _metno_frost_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount PT1H)`, SN1193400 (a WMO station Frost lists since 2026-11-03), 2026-11-03 01:00 to
+    # 11:00 as Frost wrote it: -1 in the dry hours, rain in the others
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("hourly", "PT1H", "PT0H"),
+        station="SN1193400",
+        readings=[
+            ("2026-11-03T01:00:00.000Z", -1, 2),
+            ("2026-11-03T02:00:00.000Z", -1, 2),
+            ("2026-11-03T03:00:00.000Z", 0.1, 2),
+            ("2026-11-03T04:00:00.000Z", 0.5, 2),
+            ("2026-11-03T05:00:00.000Z", 0.6, 2),
+            ("2026-11-03T07:00:00.000Z", 0.2, 2),
+            ("2026-11-03T08:00:00.000Z", -1, 2),
+            ("2026-11-03T09:00:00.000Z", -1, 2),
+            ("2026-11-03T10:00:00.000Z", -1, 2),
+            ("2026-11-03T11:00:00.000Z", 0, 2),
+        ],
+        window=(_day(2026, 11, 3), _day(2026, 11, 3, 12)),
+    )
+
+
+def _metno_frost_daily_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount P1D)`, SN1193400, 2026-11-03 to 11-06 as Frost wrote it (stamped 06:00, the offset
+    # PT6H): a day of rain, one of 0.2 mm, then two dry days as -1
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("daily", "P1D", "PT6H"),
+        station="SN1193400",
+        readings=[
+            ("2026-11-03T06:00:00.000Z", 1, 2),
+            ("2026-11-04T06:00:00.000Z", 0.2, 2),
+            ("2026-11-05T06:00:00.000Z", -1, 2),
+            ("2026-11-06T06:00:00.000Z", -1, 2),
+        ],
+        window=(_day(2026, 11, 3), _day(2026, 11, 6)),
+    )
 
 
 def _knmi_netcdf(values: dict[str, float]) -> bytes:
@@ -2877,6 +2966,28 @@ STUBS = [
         _metno_frost_6_hours,
         reading=("precipitation_amount", 1.3),
         # the -1 is a dry period, a sum of zero, which the range check no longer takes for a reading below 0 mm
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost 6_hours/data (before 1982)",
+        _metno_frost_6_hours_before_1982,
+        reading=("precipitation_amount", 0.5),
+        # before the cut-off year the -1 is a code of no information: null, with the code in the flags
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", None),),
+    ),
+    ValueStub(
+        "metno/frost hourly/data (precipitation)",
+        _metno_frost_hourly_precipitation,
+        reading=("precipitation_amount", 0.5),
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost daily/data (precipitation)",
+        _metno_frost_daily_precipitation,
+        reading=("precipitation_amount", 1.0),
         sentinels=(("precipitation_amount", -1.0),),
         tokens=(("precipitation_amount", "-1", 0.0),),
     ),

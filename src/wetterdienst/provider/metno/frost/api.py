@@ -6,14 +6,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
 import polars as pl
 from aiohttp import encode_basic_auth
 
-from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, DownloadError, InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
@@ -27,6 +29,7 @@ from wetterdienst.util.network import (
     as_outage,
     download_file,
     raise_if_credential_rejected,
+    read_refusal,
 )
 from wetterdienst.util.response_warnings import note_skipped_download
 
@@ -413,7 +416,7 @@ _MetnoFrostMetadataSpec = {
 MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMetadata")
 
 
-# Frost writes three codes into the value itself, where nothing tells them apart from a measurement. Two of them its
+# Frost writes in-band codes into the value itself, where nothing tells them apart from a measurement. Two of them its
 # element descriptions state:
 #
 # - snow depth -1 is "no snow", which is a depth of zero rather than an absent one ("Code=-1 means no snow"). It
@@ -423,20 +426,26 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
 #   plausible reading rather than a code
 #
-# The third is not stated: the description of `sum(precipitation_amount PT6H)` is "Amount of precipitation per six
-# hours", with no word of -1. It is our reading of the data (GH-3748), measured live on 2026-11-06 at 17 stations
-# over 1995 to 2024. A -1 there is a dry period, a sum of zero, and it was dropped as a reading below the 0 mm of
-# the range check ("The source has no values"):
+# The third, -1 in the precipitation sums of 6 hours, an hour and a day, is not stated: the description of
+# `sum(precipitation_amount PT6H)` is "Amount of precipitation per six hours", with no word of -1. What is done with
+# it is our reading of the data (GH-3748), measured on 2026-11-06 and 07 over every series Frost lists for the
+# element (the evidence is in docs/data/provider/metno/frost/index.md):
 #
-# - 10,288 of the 20,257 readings are -1; at five of the stations the 12-hourly sum that holds one is dry (-1 or 0)
-#   in 88 % of the cases, the one that holds a reading above 0 in 2 %
-# - the 12-hourly sum, which is not served and writes -1 the same way, adds up to the daily sum with -1 read as 0
-#   in 99.9 % of the 9,865 days that have one
+# - from 1982 on it is a dry period, a sum of zero, returned as 0.0 with `raw:-1`. The 6-hourly series has 51 % of
+#   its readings -1 from 1982 on (0.2 % in 1981, 53 % in 1982), and the 12-hourly sum that holds one is dry in 86 % of the cases,
+#   where the one that holds a reading above 0 is dry in 1 %; at the WMO stations Frost lists since 2026-11-03 a daily
+#   -1 has 24 dry hours (213 of 213) and a daily sum is the sum of its hours with -1 as 0 (79 of 79), and in the
+#   Norwegian series a month is the sum of its days with -1 as 0 in 89 of 89 months of 1980 to 2010
+# - before 1982 it is no information, returned as null with `raw:-1`: in the 6-hourly series of the 1940s and 1950s
+#   every reading of a station is -1, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 79.3 mm of daily rain
+#   on 1951-08-05 against a 6-hourly -1), and the holding 12-hourly sum is dry in 62 % of the cases, as for a 0
+# - a few station-years since 1982 do not fit (the docs page lists them, SN18960 in 1996 among them); they are
+#   returned as 0.0 all the same
+# - not for the 10-minute sum (no -1 in 394,000 readings), the monthly sum (305, none since 1954) and the annual sum
+#   (none in 16,900), where nothing supports it: a -1 there stays below the range, null, `rejected:range,raw:-1`
 #
-# Not for the other precipitation sums, where the evidence does not reach: the 10-minute and hourly ones have no -1
-# in 307,000 readings and the annual one none in 6,400. The daily one has 9 in 137,000, eight of them at one station
-# on eight days of February 2007 and one beside 1.1 mm in the hours of its day; the monthly one has 6 in 103,000,
-# all of 1915 to 1920. A -1 there stays what the range check makes of it: null, `rejected:range,raw:-1`.
+# The code is a `raw:` token, which exempts the reading from the checks, as snow depth's: the 0.0 is not judged by
+# `limits`, and a -1 of quality 7 comes back without `suspect:source`.
 #
 # Only the elements themselves. Frost leaves the codes out of its own monthly and annual means --
 # checked over nine years at SN18700, where neither mean goes negative or above eight.
@@ -444,8 +453,13 @@ _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = "-1"
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
-_PRECIPITATION_6H = "sum(precipitation_amount PT6H)"
+_PRECIPITATION_SUMS = (
+    "sum(precipitation_amount PT6H)",
+    "sum(precipitation_amount PT1H)",
+    "sum(precipitation_amount P1D)",
+)
 _NO_PRECIPITATION = "-1"
+_NO_PRECIPITATION_FROM_YEAR = 1982
 _DAILY = "daily"
 
 
@@ -454,15 +468,57 @@ def _raise_if_rejected(file: File) -> None:
     raise_if_credential_rejected(file, "Frost API", "METNO_FROST", "client ID")
 
 
-def _raise_if_unanswered(file: File) -> None:
-    """Raise for a download that Frost did not answer, or answered with a refusal of the client ID (GH-3022, GH-3018).
+# Frost's own words for a request it will not compute, in the body of a 403 (the estimate and then the limit)
+_TOO_MANY_OBSERVATIONS = re.compile(
+    r"estimated number of observations \((\d+)\) exceeds the maximum number allowed \((\d+)\)", re.IGNORECASE
+)
 
-    A client ID that Frost refuses (401, 403) is the `CredentialRejectedError`, whoever runs the process has to
-    replace it. A timeout, a dropped connection, a body cut short, a 5xx and a connection that could not be made
+
+def _raise_if_window_too_large(file: File, settings: Settings | None, client_kwargs: dict | None) -> None:
+    """Raise `InvalidTimeIntervalError` for a 403 that Frost gives a window it will not compute (GH-3748).
+
+    Frost answers a request for more than 100,000 observations with a 403, the same status it gives a client ID it
+    refuses, and says which in the body: "The estimated number of observations (...) exceeds the maximum number
+    allowed (100000)". The key is fine then, and the caller has to ask for less. The body is not kept by the
+    download, so the refusal is asked for again, once, and only when the status is a 403.
+    """
+    if settings is None or file.status != HTTPStatus.FORBIDDEN or not isinstance(file.content, Exception):
+        return
+    headers = (client_kwargs or {}).get("headers")
+    reason = read_refusal(
+        file.url,
+        headers=headers,
+        client_kwargs={key: value for key, value in (client_kwargs or {}).items() if key != "headers"},
+        use_certifi=settings.use_certifi,
+    )
+    match = _TOO_MANY_OBSERVATIONS.search(reason or "")
+    if match is None:
+        return
+    query = parse_qs(urlparse(file.url).query)
+    asked = (
+        f"{query.get('elements', ['?'])[0]} of {query.get('sources', ['?'])[0]}, {query.get('referencetime', ['?'])[0]}"
+    )
+    estimate, limit = (int(number) for number in match.groups())
+    msg = (
+        f"Frost answers at most {limit:,} observations to a request, and the window asked for ({asked}) would hold an "
+        f"estimated {estimate:,}. Your client ID is accepted; narrow the window (start and end) and ask again."
+    )
+    raise InvalidTimeIntervalError(msg)
+
+
+def _raise_if_unanswered(file: File, settings: Settings | None = None, client_kwargs: dict | None = None) -> None:
+    """Raise for a download that Frost did not answer, or answered with a refusal (GH-3022, GH-3018, GH-3748).
+
+    A window that Frost will not compute (a 403 whose body says so) is the `InvalidTimeIntervalError` the caller can
+    rephrase. A client ID that Frost refuses (401, 403) is the `CredentialRejectedError`, whoever runs the process
+    has to replace it. A timeout, a dropped connection, a body cut short, a 5xx and a connection that could not be made
     are the `DownloadError` and the `NoInternetError` (`as_outage`): none of them is Frost saying there is no data,
     and answered as an empty frame they read as a station without data. What Frost does answer stays with the
     caller, which reads the status: a 404 and a 412 are no data, and any other 4xx is warned about.
+
+    ``settings`` and ``client_kwargs`` are those the download was made with, for the 403 to be read again.
     """
+    _raise_if_window_too_large(file, settings, client_kwargs)
     _raise_if_rejected(file)
     if isinstance(file.content, Exception):
         failure = as_outage(file.content, file.url)
@@ -483,6 +539,17 @@ def _has_observations(df: pl.DataFrame) -> bool:
         return False
     observations = entries.struct.field("observations")
     return observations.dtype == pl.List and not observations.explode().drop_nulls().is_empty()
+
+
+def _quality_flags(df: pl.DataFrame) -> pl.Expr:
+    """Give Frost's `qualityCode` as the plain flag of `quality_flags`, null where the observations carry none.
+
+    Frost leaves the key out of an observation that has no code (SN30320 `daily`, 2015-05-01), so that an answer in
+    which none has one has no such column to select (GH-3748).
+    """
+    if "qualityCode" not in df.columns:
+        return pl.lit(None, dtype=pl.String).alias("quality_flags")
+    return pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags")
 
 
 def _frost_time(value: datetime) -> str:
@@ -542,10 +609,13 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
     The code stays beside the value as the last token of `quality_flags`, `0,raw:-1`, written as Frost documents the
     code: the value is a JSON number, so its text is not at hand (GH-2759).
     """
+    _precipitation = pl.col("parameter").is_in(_PRECIPITATION_SUMS)
+    _year = pl.col("timestamp").dt.year()
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_NO_SNOW, where=pl.col("parameter") == _SNOW_DEPTH, to=0.0),
-        Sentinel(_NO_PRECIPITATION, where=pl.col("parameter") == _PRECIPITATION_6H, to=0.0),
+        Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year >= _NO_PRECIPITATION_FROM_YEAR), to=0.0),
+        Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year < _NO_PRECIPITATION_FROM_YEAR)),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
         text=False,
     )
@@ -636,7 +706,7 @@ class MetnoFrostValues(TimeseriesValues):
         # the status is read before the generic failure warning below: a 404 or 412 says there is
         # nothing (or that a fallback applies), not that the request failed
         # 412: no data for this station/elements/period combination
-        _raise_if_unanswered(file)
+        _raise_if_unanswered(file, settings, client_kwargs)
         if file.status == 412:
             return pl.DataFrame()
         # 404: one or more elements may require specific time-series parameters (e.g.
@@ -675,7 +745,7 @@ class MetnoFrostValues(TimeseriesValues):
                     pl.col("elementId").alias("parameter"),
                     pl.col("referenceTime").alias("timestamp"),
                     pl.col("value"),
-                    pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
+                    _quality_flags(df),
                 ),
             ),
             dataset.resolution.name,
@@ -744,7 +814,7 @@ class MetnoFrostValues(TimeseriesValues):
         )
         # the status before the body, as in `_collect_station_parameter_or_dataset`
         # 412: no data for this station/element/period combination
-        _raise_if_unanswered(file)
+        _raise_if_unanswered(file, settings, client_kwargs)
         if file.status == 412:
             return pl.DataFrame()
         # 404: element may require specific time-series parameters (e.g. historical synoptic data)
@@ -783,7 +853,7 @@ class MetnoFrostValues(TimeseriesValues):
                     pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
                     pl.col("referenceTime").alias("timestamp"),
                     pl.col("value"),
-                    pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
+                    _quality_flags(df),
                 ),
             ),
             parameter.dataset.resolution.name,
@@ -823,7 +893,7 @@ class MetnoFrostValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        _raise_if_unanswered(avail_file)
+        _raise_if_unanswered(avail_file, settings, client_kwargs)
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
@@ -870,7 +940,7 @@ class MetnoFrostValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            _raise_if_unanswered(obs_file)
+            _raise_if_unanswered(obs_file, settings, client_kwargs)
             # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
             # may have a gap in the window), 412 "No available time series for the query parameters"
             if obs_file.status in (404, 412):
@@ -902,7 +972,7 @@ class MetnoFrostValues(TimeseriesValues):
                             pl.lit(element, dtype=pl.String).alias("parameter"),
                             pl.col("referenceTime").alias("timestamp"),
                             pl.col("value"),
-                            pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
+                            _quality_flags(df),
                         ),
                     ),
                     resolution_name,

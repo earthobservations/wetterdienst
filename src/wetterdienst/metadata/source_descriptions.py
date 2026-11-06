@@ -3917,7 +3917,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "sum(precipitation_amount PT10M)"): "Amount of precipitation per 10 minutes",
         ("6_hours", "data", "sum(precipitation_amount PT6H)"): (
             "Amount of precipitation per six hours. Code -1, which Frost does not describe, is read as a dry period "
-            "and is returned as 0."
+            "from 1982 on and returned as 0, and as no information before it, where it is returned as null."
         ),
         ("annual", "data", "max(air_temperature P1Y)"): "Highest recorded air temperature per year",
         ("annual", "data", "mean(air_temperature P1Y)"): (
@@ -3958,7 +3958,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "min(air_temperature P1D)"): "Lowest recorded air temperature per 24 hours",
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
-        ("daily", "data", "sum(precipitation_amount P1D)"): "Daily precipitation sum (between 06-06 UTC).",
+        ("daily", "data", "sum(precipitation_amount P1D)"): (
+            "Daily precipitation sum (between 06-06 UTC). Code -1, which Frost does not describe, is read as a dry "
+            "period from 1982 on and returned as 0, and as no information before it, where it is returned as null."
+        ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
             "snow, and is returned as a depth of 0."
@@ -3984,7 +3987,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "(W/m2)."
         ),
         ("hourly", "data", "relative_humidity"): "Relative humidity",
-        ("hourly", "data", "sum(precipitation_amount PT1H)"): "Amount of precipitation per hour",
+        ("hourly", "data", "sum(precipitation_amount PT1H)"): (
+            "Amount of precipitation per hour. Code -1, which Frost does not describe, is read as a dry period "
+            "from 1982 on and returned as 0, and as no information before it, where it is returned as null."
+        ),
         ("hourly", "data", "surface_air_pressure"): (
             "Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air "
             "pressure reduced to the reference height of the station."

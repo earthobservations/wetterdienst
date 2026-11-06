@@ -75,6 +75,7 @@ from wetterdienst.util.network import (
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
+    read_refusal,
 )
 
 
@@ -899,6 +900,14 @@ def _every_carrier_of(error: BaseException) -> str:
 #: what the stand-in token endpoint answers with, and what each of its paths is for
 _TOKEN_BODY = json.dumps({"access_token": "t"}).encode()
 _STATUS_BY_PATH = {"/denied": 401, "/rate-limited": 429, "/boom": 500}
+_REFUSAL_BODY = json.dumps(
+    {
+        "error": {
+            "code": 403,
+            "reason": "The estimated number of observations (103586) exceeds the maximum number allowed (100000)",
+        }
+    }
+).encode()
 
 
 def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str, str]]:
@@ -908,6 +917,9 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
     if path == "/flaky":
         # a blip: the first caller gets a 502, everyone after it gets an answer
         return (200, _TOKEN_BODY, {}) if asked_before else (502, b"", {})
+    if path == "/too-many":
+        # a refusal that says why in its body, as Frost's 403 for a window of too many observations does
+        return 403, _REFUSAL_BODY, {}
     if path in _STATUS_BY_PATH:
         return _STATUS_BY_PATH[path], b"", {}
     return 200, _TOKEN_BODY, {}
@@ -981,6 +993,38 @@ def http_server() -> Iterator[tuple[str, list]]:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_read_refusal_gives_the_body_of_a_4xx_and_sends_the_headers(http_server: tuple[str, list]) -> None:
+    """A refusal is asked for again and its body is the reason; the headers go with that request alone (GH-3748)."""
+    base_url, requests = http_server
+
+    body = read_refusal(f"{base_url}/too-many", headers={"Authorization": "Basic Zm9v"})
+
+    assert body is not None
+    assert "exceeds the maximum number allowed (100000)" in body
+    assert requests[-1]["method"] == "GET"
+    assert requests[-1]["headers"]["Authorization"] == "Basic Zm9v"
+
+
+def test_read_refusal_cuts_the_body_at_max_chars(http_server: tuple[str, list]) -> None:
+    """Only the first characters of the body are given, whatever the server sends."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}/too-many", max_chars=10) == _REFUSAL_BODY.decode()[:10]
+
+
+@pytest.mark.parametrize("path", ["/token", "/boom"])
+def test_read_refusal_gives_nothing_for_an_answer_that_is_no_4xx(path: str, http_server: tuple[str, list]) -> None:
+    """A 200 is not a refusal, and a 5xx is a failure of the server: neither has a reason to read."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}{path}") is None
+
+
+def test_read_refusal_gives_nothing_where_the_connection_cannot_be_made() -> None:
+    """Nothing is raised for a refusal that cannot be asked for again: the caller falls back on the status."""
+    assert read_refusal("http://127.0.0.1:1/unreachable") is None
 
 
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:

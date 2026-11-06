@@ -107,13 +107,18 @@ Types of changes:
   that loaded `eccodes` and then imported `pyproj` aborted at exit with status 134 or 139
   (ecmwf/eckit#354). DWD road reads no longer import `pyproj` ahead of `eccodes`; with an older
   `findlibs` that something else keeps, upgrade it (GH-2441)
-- `metno/frost` 6-hourly precipitation (`6_hours/data/precipitation_amount`) comes back with its
-  dry periods: Frost writes them as `-1`, which the range check rejected as below 0 mm, so a
-  station whose readings were all `-1` had no values ("The source has no values"). They are
-  `0.0` now, with `raw:-1` in `quality_flags`; this is our reading of the data, as Frost does not
-  describe the code. The 0.182.0 entry on this element named the wrong cause: Frost answers the
-  query with the observations, and the extra discovery requests it added for an empty answer are
-  gone (GH-3748)
+- `metno/frost` precipitation sums of 6 hours, an hour and a day: Frost writes a dry period as `-1`,
+  which the range check dropped as below 0 mm (a station with only `-1` had "no values"). From
+  1982 on it is `0.0` now, with `raw:-1` in `quality_flags`; before 1982 it is `null` with
+  `raw:-1`, as in the 1940s and 1950s it is every reading of a station (SN39040). Frost does not
+  describe the code: this is our reading, measured on every series it lists, with the station-years
+  that do not fit named in the docs. 10-minute, monthly and annual sums are not read. The 0.182.0
+  entry on this element named the wrong cause; the discovery it added for an empty answer is gone
+  (GH-3748)
+- `metno/frost` reads an answer in which no observation has a `qualityCode` (it raised
+  `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
+  `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
+  that blamed the client ID (GH-3748)
 
 ## [0.183.0] - 2026-11-03
 

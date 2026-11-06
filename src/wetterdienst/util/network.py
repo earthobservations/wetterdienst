@@ -3323,6 +3323,47 @@ def post_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
+def read_refusal(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    client_kwargs: dict | None = None,
+    use_certifi: bool = False,
+    max_chars: int = 2000,
+) -> str | None:
+    """Ask for a URL once more and give the body of its answer if that is a 4xx, for a provider that says why in it.
+
+    A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
+    (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
+    exceeds the maximum") cannot be told from one that refuses the credential by the status alone. A refusal is cheap to
+    ask again. Through the same HTTP stack as `post_file`; the headers are sent with the request and not kept in the
+    client, so the credential never reaches the key the filesystem is cached under.
+
+    Returns:
+        The first ``max_chars`` of the body, or None where the answer is no 4xx, has no readable body, or could not be
+        had (a timeout, a lost connection): the caller then falls back on the status alone.
+
+    """
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0,
+        use_certifi=use_certifi,
+        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
+    )
+
+    async def _get() -> str | None:
+        session = await filesystem.set_session()
+        async with session.get(url, headers=headers, allow_redirects=False) as response:
+            if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
+                return None
+            return (await response.read()).decode("utf-8", errors="replace")[:max_chars]
+
+    try:
+        return sync(filesystem.loop, _get)
+    except Exception:  # noqa: BLE001 -- a refusal that cannot be read again is still a refusal; nothing of it is raised
+        return None
+
+
 def download_files(
     urls: list[str],
     cache_dir: Path,

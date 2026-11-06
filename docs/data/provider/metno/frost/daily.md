@@ -18,7 +18,7 @@
 | {term}`temperature_air_mean_2m` | mean(air_temperature P1D) | Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). | degree_celsius |
 | {term}`temperature_air_max_2m` | max(air_temperature P1D) | Highest recorded air temperature per 24 hours | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1D) | Lowest recorded air temperature per 24 hours | degree_celsius |
-| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). Code -1, which Frost does not describe, is read as a dry period from 1982 on and returned as 0, and as no information before it, where it is returned as null. | millimeter |
 | {term}`wind_speed_mean` | mean(wind_speed P1D) | Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1D) | Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`humidity_relative_mean` | mean(relative_humidity P1D) | Daily mean relative humidity. | percent |
@@ -27,3 +27,9 @@
 | {term}`radiation_global_intensity_mean` | mean(surface_downwelling_shortwave_flux_in_air P1D) | Mean global radiation over the last 24 hours. Global radiation is the total downwelling shortwave radiation from the sun. Shortwave radiation have wavelengths in the area 295-2800 nm and therefore includes ultraviolet, visible and infrared light. The instrument measures the radiation flux through a horizontal surface (W/m2). | watt_per_square_meter |
 | {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow, and is returned as a depth of 0. | centimeter |
 | {term}`sunshine_duration` | sum(duration_of_sunshine P1D) | Number of hours of sunshine over the last 24 hours. | hour |
+
+## Notes
+
+The `-1` that Frost writes for a dry period of the precipitation sum is read as `0.0` from 1982 on and as `null` before;
+see the section [The code -1 of the precipitation sums](index.md) of the Frost page for the reading, the evidence and the
+exceptions.

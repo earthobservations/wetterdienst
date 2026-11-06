@@ -228,6 +228,7 @@ def test_metno_frost_decodes_sentinels() -> None:
                 "cloud_area_fraction",
                 "air_temperature",
             ],
+            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=UTC)] * 6,
             "value": [-1.0, 12.0, -3.0, 9.0, 4.0, -1.0],
             "quality_flags": ["0"] * 6,
         },
