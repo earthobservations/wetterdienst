@@ -2725,7 +2725,7 @@ def test_mcp_server_is_agent_friendly() -> None:
     # the ugly auto-generated names are gone
     assert not tools & {"values_api_values_get", "auth_api_auth_get"}
     # non-data/noise endpoints are excluded
-    assert not tools & {"index", "health_health_get", "version_api_version_get"}
+    assert not tools & {"index", "health_health_get", "ready_ready_get", "version_api_version_get"}
     # a workflow instructions block is attached and describes the station -> values path
     assert instructions is not None
     assert "stations" in instructions

@@ -75,6 +75,8 @@ Options:
   --network TEXT   Data network of the provider. Examples: observation, mosmix, radar, ghcn, pegel,
                    hydrology  [required]
   --debug BOOLEAN  Log at debug level. Default: false
+  --quiet BOOLEAN  Log errors and warnings about the answer only: no progress. Not with --debug.
+                   Default: false
   --help           Show this message and exit.
 
   Examples:
@@ -110,6 +112,8 @@ Options:
   --datasets TEXT     Only these datasets, comma-separated. Needs --provider and --network. Example:
                       climate_summary
   --debug BOOLEAN     Log at debug level. Default: false
+  --quiet BOOLEAN     Log errors and warnings about the answer only: no progress. Not with --debug.
+                      Default: false
   --help              Show this message and exit.
 
   Examples:
@@ -142,6 +146,8 @@ Options:
   --period TEXT       Period name, e.g. historical, recent or now.  [required]
   --language [en|de]  Language of the field descriptions. Default: en
   --debug BOOLEAN     Log at debug level. Default: false
+  --quiet BOOLEAN     Log errors and warnings about the answer only: no progress. Not with --debug.
+                      Default: false
   --help              Show this message and exit.
 
 
@@ -162,6 +168,8 @@ Options:
   --limit INTEGER RANGE           Return at most this many entries; the full vocabulary runs to
                                   several hundred parameters.  [x>=1]
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
 
@@ -180,6 +188,8 @@ Usage: wetterdienst about providers [OPTIONS]
 Options:
   --provider TEXT  Only this provider. Without it, every provider. Example: dwd
   --debug BOOLEAN  Log at debug level. Default: false
+  --quiet BOOLEAN  Log errors and warnings about the answer only: no progress. Not with --debug.
+                   Default: false
   --help           Show this message and exit.
 
 
@@ -198,7 +208,8 @@ Options:
   --granularity [community|district]
                                   Spatial granularity: 'community' (per Gemeinde, default) or
                                   'district' (per Landkreis).
-  --language [de|en|es|fr|mul]    Language of the warning texts. Default: en
+  --language [de|en|es|fr|mul]    Language of the warning texts; mul holds eight, the other seven as
+                                  'translations'. Default: en
   --timestamp TEXT                Point in time (ISO 8601, UTC if no offset) to select the active-
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.
@@ -217,6 +228,8 @@ Options:
                                   .json or .geojson file holds it already; a .csv file does not.
                                   Needs --target. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:
@@ -276,6 +289,8 @@ Options:
                            output, which is always there. Default: false
   --with-stations BOOLEAN  Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN          Log at debug level. Default: false
+  --quiet BOOLEAN          Log errors and warnings about the answer only: no progress. Not with
+                           --debug. Default: false
   --help                   Show this message and exit.
 
   Examples:
@@ -397,6 +412,8 @@ Options:
                                   to it (m; null if the point has no elevation). The rows' ids say
                                   which gave a value. GeoJSON always lists them. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:
@@ -434,6 +451,8 @@ Options:
   --lead-time [short|long]  DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS.
                             Default: short
   --debug BOOLEAN           Log at debug level. Default: false
+  --quiet BOOLEAN           Log errors and warnings about the answer only: no progress. Not with
+                            --debug. Default: false
   --help                    Show this message and exit.
 
 
@@ -572,6 +591,8 @@ Options:
                                   parts to the block in a Parquet, NetCDF or Zarr file; a database
                                   --target is refused. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:
@@ -645,6 +666,8 @@ Options:
   --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
   --target FILE                   Write the image to this local file instead of stdout.
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:
@@ -674,6 +697,8 @@ Options:
   --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                Default: false
   --debug BOOLEAN              Log at debug level. Default: false
+  --quiet BOOLEAN              Log errors and warnings about the answer only: no progress. Not with
+                               --debug. Default: false
   --help                       Show this message and exit.
 
 
@@ -773,6 +798,8 @@ Options:
                                   to it (m; null if the point has no elevation). The rows' ids say
                                   which gave a value. GeoJSON always lists them. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:
@@ -984,6 +1011,8 @@ Options:
                                   --target is refused. Default: false
   --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
   --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
   --help                          Show this message and exit.
 
   Examples:

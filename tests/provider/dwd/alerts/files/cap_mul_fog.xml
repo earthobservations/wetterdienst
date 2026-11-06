@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1793919540000.77ce7ce7-312a-495c-97de-d1e9b23b8f85.MUL</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-11-05T23:59:00+01:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1793919540000.77ce7ce7-312a-495c-97de-d1e9b23b8f85</code>
+  <info>
+    <language>de-DE</language>
+    <category>Met</category>
+    <event>NEBEL</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Amtliche WARNUNG vor NEBEL</headline>
+    <description>Es tritt zeitweise Nebel mit Sichtweiten unter 150 Metern auf.</description>
+    <instruction>Hinweis auf: mögliche starke Sichteinschränkungen. 
+Handlungsempfehlungen: 
+Fahrverhalten an plötzlich auftretende Sichtbehinderungen (Nebelbänke) anpassen</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>fog</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Official WARNING of FOG</headline>
+    <description>There is a risk of fog (level 1 of 1).
+Visibility: &lt; 150 m</description>
+    <instruction>Hazard(s) to expect: severely reduced visibility possible. 
+Recommendations for what to do: 
+Adapt your driving behaviour to sudden reduced visibility (fog banks).</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>fr</language>
+    <category>Met</category>
+    <event>Brouillard </event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>ALERTE officielle INTEMPÉRIES pour BROUILLARD</headline>
+    <description>Il y a un risque de brouillard (Niveau 1 sur 1).
+Visibilité: &lt; 150 m</description>
+    <instruction>Attention : fortes réductions éventuelles de la visibilité. 
+Recommandations d'action : 
+Adaptez votre conduite à des conditions de visibilité soudainement difficiles (bancs de brouillard)</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>es</language>
+    <category>Met</category>
+    <event>niebla </event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>AVISO oficial de NIEBLA</headline>
+    <description>Existe el riesgo de que se produzca niebla. (Nivel 1 de 1)
+Alcance de visibilidad: &lt; 150 m</description>
+    <instruction>Indicio de: posibilidad de visibilidad muy reducida. 
+Recomendaciones de acción: 
+adaptar la conducción a la reducción repentina de la visibilidad (bancos de niebla)</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>ar</language>
+    <category>Met</category>
+    <event>الضباب</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>تحذير رسمي من الضباب </headline>
+    <description>هناك خطر من حدوث الضباب (الدرجة 1 من 1)
+مدى الرؤية: &lt; 150 م</description>
+    <instruction>الخطر ( المخاطر ) المتوقعة: احتمالية انخفاض الرؤية بشكل شديد. 
+التوصيات التي يجب اتباعها: 
+أضبط سلوكك في القيادة أثناء انخفاض الرؤية (ركام الضباب)</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>ru</language>
+    <category>Met</category>
+    <event>Туман</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Официальное метеорологическое предупреждение: Туман</headline>
+    <description>Существует риск от: Туман (уровень 1 из 1).
+Видимость: &lt; 150 м</description>
+    <instruction>Ожидаемая опасность: возможной недостаточной видимости. 
+Поведенческие рекомендации: 
+адаптировать поведение при управлении автомобилем к внезапно возникающим ограничениям видимости (полосы тумана)</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>tr</language>
+    <category>Met</category>
+    <event>sis</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>SİSE karşı resmi UYARI</headline>
+    <description>Sis bekleniyor (Seviye 1 / 1).
+Görüş mesafesi: &lt; 150 m</description>
+    <instruction>Beklenen tehlike(ler): Ciddi şekilde azalmış görüş mesafesi olasılığı. 
+Ne yapılması gerektiğine dair tavsiyeler: 
+Ani azalan görüş mesafesine (sis kümeleri) göre sürüşe hazır olun.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>pl</language>
+    <category>Met</category>
+    <event>Mgła</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>59</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>FOG</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-05T23:59:00+01:00</effective>
+    <onset>2026-11-05T23:59:00+01:00</onset>
+    <expires>2026-11-06T09:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Oficjalne OSTRZEŻENIE METEOROLOGICZNE (1. STOPNIA) przed MGŁĄ </headline>
+    <description>Istnieje ryzyko wystąpienia: mgła (stopień 1 z 1).
+Widoczność: &lt; 150 m</description>
+    <instruction>Ostrzeżenie: możliwe poważne ograniczenia widoczności. 
+Zalecenia, jak się zachować: 
+Dostosuj sposób jazdy do nagle występujących ograniczeń widoczności (mgła).</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>visibility</valueName>
+      <value>&lt;150 [m]</value>
+    </parameter>
+    <area>
+      <areaDesc>Kreis Wittenberg</areaDesc>
+      <polygon>52.043471,12.389362 52.016982,12.435801 52.016778,12.448348 52.03476,12.460705 52.033443,12.479964 52.043471,12.389362</polygon>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>115091000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+</alert>
