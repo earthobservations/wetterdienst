@@ -142,8 +142,10 @@ class ConnectionString:
             a database or query, and a target with no password but a `host:port` and an `@` in
             its path or query reads as one with a password; no reading of the string can tell
             either from a target that means just that, so such an `@` is written `%40`.
-            The path of a file or DuckDB target, or the database of any other, holds a NUL
-            character (`%00`), which no file name has; the message does not repeat the target.
+            The path of a file or DuckDB target holds a NUL character (`%00`), as does the
+            database of any other, written in its path or as the `database` or `bucket` of its
+            query, which no file name has; the message does not repeat the target. (A `table`
+            with one is not refused here.)
 
     """
 
@@ -195,9 +197,11 @@ class ConnectionString:
         self._username: str | None = None if parts["username"] is None else unquote(parts["username"])
         self._password: str | None = None if parts["password"] is None else unquote(parts["password"])
         self._database: str | None = None if parts["database"] is None else unquote(parts["database"])
-        # `sqlite:///x%00.sqlite` names a file, and the database of a server has no NUL either
-        _refuse_nul(self._database or "")
         self._query: str = parts["query"] or ""
+        # `sqlite:///x%00.sqlite` names a file, and the database of a server has no NUL either, written in the path or
+        # in the `database` or `bucket` of the query, where InfluxDB takes it
+        for database in (self._database, self.get_query_param("database"), self.get_query_param("bucket")):
+            _refuse_nul(database or "")
         self._path: str = self._database or ""
 
     @property

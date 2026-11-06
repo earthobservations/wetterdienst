@@ -1570,7 +1570,7 @@ def test_dwd_obs_history_tells_a_listing_that_came_back_empty(monkeypatch: pytes
     assert histories == []
     assert [warning["code"] for warning in warnings] == ["file-skipped"]
     assert warnings[0]["stations"] == ["01048", "01050"]
-    assert "the `historical` directory of daily/climate_summary" in warnings[0]["message"]
+    assert "the directory `climate/daily/kl/historical/` came back empty" in warnings[0]["message"]
     assert "partial" in warnings[0]["message"]
 
 
@@ -1629,23 +1629,43 @@ def test_dwd_obs_history_warns_for_each_dataset_whose_listing_failed(monkeypatch
 
     told = {warning["message"].split(" came back")[0]: warning["stations"] for warning in recorded_warnings()}
     assert told == {
-        "The listing of the `historical` directory of daily/climate_summary": ["01048", "01050"],
-        "The listing of the `historical` directory of hourly/temperature_air": ["01048"],
+        "The listing of the directory `climate/daily/kl/historical/`": ["01048", "01050"],
+        "The listing of the directory `climate/hourly/air_temperature/historical/`": ["01048"],
     }
 
 
-def test_dwd_obs_history_of_a_high_resolution_dataset_names_the_meta_data_directory(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "directory"),
+    [
+        pytest.param("daily", "climate_summary", "climate/daily/kl/historical/", id="historical"),
+        # no period directories: the listing is of the dataset itself
+        pytest.param("hourly", "solar", "climate/hourly/solar/", id="solar"),
+        pytest.param("daily", "solar", "climate/daily/solar/", id="solar-daily"),
+        # an urban dataset without a historical directory lists `recent`, with one it lists `historical`
+        pytest.param(
+            "hourly", "urban_temperature_air", "climate_urban/hourly/air_temperature/recent/", id="urban-hourly"
+        ),
+        pytest.param(
+            "10_minutes", "urban_temperature_air", "climate_urban/10_minutes/air_temperature/historical/", id="urban-10"
+        ),
+        # 1, 5 and 10 minutes that are not urban: the `meta_data` directory
+        pytest.param("10_minutes", "temperature_air", "climate/10_minutes/air_temperature/meta_data/", id="meta-10"),
+        pytest.param("1_minute", "precipitation", "climate/1_minute/precipitation/meta_data/", id="meta-1"),
+    ],
+)
+def test_dwd_obs_history_names_the_directory_that_was_listed(
+    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, directory: str
 ) -> None:
-    """A 1, 5 or 10 minute dataset reads the `meta_data` directory, which the warning names (and REST reaches)."""
+    """The warning names the directory the dataset lists, which is not always `historical` or `meta_data` (#3816)."""
     from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
 
-    def listing(**_: object) -> pl.LazyFrame:
+    def listing(*_: object, **__: object) -> pl.LazyFrame:
         msg = "empty"
         raise FileNotFoundError(msg)
 
+    monkeypatch.setattr(api, "create_file_index_for_climate_observations", listing)
     monkeypatch.setattr(api, "_create_file_index_for_1minute_or_5minute_historical_precipitation_metadata", listing)
-    df = pl.DataFrame({"station_id": ["01048"], "resolution": ["10_minutes"], "dataset": ["temperature_air"]})
+    df = pl.DataFrame({"station_id": ["01048"], "resolution": [resolution], "dataset": [dataset]})
     stations = SimpleNamespace(df=df, request=SimpleNamespace(settings=Settings(), metadata=DwdObservationMetadata))
     begin_response()
 
@@ -1653,6 +1673,4 @@ def test_dwd_obs_history_of_a_high_resolution_dataset_names_the_meta_data_direct
 
     (warning,) = recorded_warnings()
     assert warning["stations"] == ["01048"]
-    assert (
-        "The listing of the `meta_data` directory of 10_minutes/temperature_air came back empty" in warning["message"]
-    )
+    assert f"The listing of the directory `{directory}` came back empty or missing" in warning["message"]

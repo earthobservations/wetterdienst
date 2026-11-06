@@ -158,12 +158,27 @@ def test_the_refusal_of_a_nul_names_no_part_of_the_target() -> None:
 
 
 @pytest.mark.parametrize(
-    "target", ["sqlite:///x%00.sqlite", "sqlite:///x%00.sqlite?table=t", "postgresql://u:p@h/db%00"]
+    "target",
+    [
+        "sqlite:///x%00.sqlite",
+        "sqlite:///x%00.sqlite?table=t",
+        "postgresql://u:p@h/db%00",
+        # the InfluxDB forms of `docs/usage/export.md`: the database or the bucket is in the query
+        "influxdb://u:p@h:8086/?database=db%00&table=t",
+        "influxdb2://u:p@h:8086/?bucket=b%00&table=t",
+    ],
 )
 def test_a_nul_in_the_database_of_a_sql_target_is_refused(target: str) -> None:
     """The same place: `sqlite:///x%00.sqlite` was a bare `ValueError` of the engine."""
     with pytest.raises(ExportRefusedError, match="NUL"):
         ConnectionString(target)
+
+
+def test_an_influxdb_target_without_a_nul_is_read_as_before() -> None:
+    """The check reads `database` and `bucket` and leaves the rest of the target as it was."""
+    target = ConnectionString("influxdb2://u:p@h:8086/?bucket=b&table=t")
+
+    assert (target.database, target.table, target.host, target.port) == ("b", "t", "h", 8086)
 
 
 def test_a_sql_target_is_refused_before_anything_is_written(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
@@ -180,3 +195,40 @@ def test_delete_rows_is_refused_too() -> None:
     """The word pandas takes for SQL and the docs never offered: it worked before, and is refused with the others."""
     with pytest.raises(ExportRefusedError, match="not 'delete_rows'"):
         _result().to_target("sqlite://", if_exists="delete_rows")  # ty: ignore[invalid-argument-type]
+
+
+def test_a_plain_path_with_a_nul_is_refused() -> None:
+    """A path given without the scheme (`alerts` and `history` take one) is read as it is; a NUL in it is refused."""
+    with pytest.raises(ExportRefusedError, match="NUL"):
+        file_target_path("out/x\x00.json")
+    assert file_target_path("out/x.json") == "out/x.json"
+
+
+def test_the_reader_of_values_refuses_an_unknown_if_exists_before_it_downloads_a_station() -> None:
+    """`TimeseriesValues.to_target` told it after the first station was downloaded, and not at all for no station."""
+    from unittest import mock  # noqa: PLC0415
+
+    from wetterdienst.model.values import TimeseriesValues  # noqa: PLC0415
+
+    values = mock.MagicMock()
+    values.query.return_value = iter([])
+    values.sr.station_id = []
+
+    with pytest.raises(ExportRefusedError, match="not 'bogus'"):
+        TimeseriesValues.to_target(values, "file://x.csv", if_exists="bogus")  # ty: ignore[invalid-argument-type]
+
+    values.query.assert_not_called()
+
+
+def test_a_file_is_refused_an_unknown_if_exists_where_it_is_written(tmp_path: Path) -> None:
+    """`_write_file` reads the word itself, for a caller that reaches it without `write_to_target`."""
+    from wetterdienst.io.sinks import _write_file  # noqa: PLC0415
+
+    filename = tmp_path / "data.csv"
+    filename.write_text("kept")
+    target = f"file://{filename}"
+
+    with pytest.raises(ExportRefusedError, match="not 'bogus'"):
+        _write_file(_result(), target, ConnectionString(target), "bogus")  # ty: ignore[invalid-argument-type]
+
+    assert filename.read_text() == "kept"

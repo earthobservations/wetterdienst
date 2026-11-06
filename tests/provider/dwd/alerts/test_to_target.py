@@ -466,3 +466,27 @@ def test_pretty_changes_nothing_in_a_csv_file(tmp_path: Path) -> None:
     result.to_target(f"file://{tmp_path / 'a.csv'}")
     result.to_target(f"file://{tmp_path / 'b.csv'}", pretty=True)
     assert (tmp_path / "a.csv").read_bytes() == (tmp_path / "b.csv").read_bytes()
+
+
+# --- an `if_exists` that is none of the four words (GH-3814) ---------------------------------------------------
+
+
+def test_the_alerts_result_refuses_an_unknown_if_exists_before_it_reads_the_target() -> None:
+    """The word is told first, for a target that would be refused anyway: a database has no table for an alert."""
+    with pytest.raises(ExportRefusedError, match="if_exists must be one of"):
+        _result(CAP_XML).to_target("duckdb:///alerts.duckdb", if_exists="bogus")  # ty: ignore[invalid-argument-type]
+
+
+def test_a_file_is_refused_an_unknown_if_exists_where_it_is_written(tmp_path: Path) -> None:
+    """`_write_file` reads the word itself, for a caller that reaches it without `write_to_target`."""
+    from wetterdienst.io.sinks import _write_file  # noqa: PLC0415
+    from wetterdienst.util.url import ConnectionString  # noqa: PLC0415
+
+    file = tmp_path / "alerts.json"
+    file.write_text("kept")
+    target = f"file://{file}"
+
+    with pytest.raises(ExportRefusedError, match="not 'bogus'"):
+        _write_file(_result(CAP_XML), target, ConnectionString(target), "bogus")  # ty: ignore[invalid-argument-type]
+
+    assert file.read_text() == "kept"
