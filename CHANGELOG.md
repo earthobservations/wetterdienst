@@ -72,6 +72,12 @@ Types of changes:
   nothing existing changes; the seven languages add 3 to 5 KB to each alert of a `mul` answer, and
   one for `de`, `en`, `es` or `fr` has `"translations": []` (20 bytes an alert). A CSV row is still
   one alert, with the list as JSON text, as `parameters` is (GH-3801)
+- The stations of `interpolate` and `summarize` (`with_stations=true`, `--with-stations`, the
+  GeoJSON feature, `result.stations`) now carry `distance`, the km from the point, and
+  `elevation_difference`, the point's elevation less the station's in m (null where the point has
+  no elevation, or the station none). The rows name the stations each timestamp was made from by
+  id, as before; one id in an interpolation is a nearby station answering alone. A CSV holds the
+  rows only (Part of GH-3134)
 
 ### Changed
 

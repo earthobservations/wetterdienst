@@ -229,6 +229,14 @@ _WithMetadataSettingsField = Annotated[
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
+# of the interpolation and the summary: the stations are the ones the rows were made from, and where each stands
+_WithEstimateStationsField = Annotated[
+    bool,
+    Field(
+        description="Include the stations used, one entry per dataset, with their `distance` from the point (km) and "
+        "`elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
+    ),
+]
 _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
@@ -1091,7 +1099,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithEstimateStationsField = False
 
     pretty: _PrettyField = False
 
@@ -1193,7 +1201,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithEstimateStationsField = False
 
     pretty: _PrettyField = False
 
