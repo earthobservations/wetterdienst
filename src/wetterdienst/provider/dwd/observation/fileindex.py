@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import polars as pl
 
@@ -21,13 +23,17 @@ from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
 from wetterdienst.util.network import list_remote_files_fsspec
-from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
+from wetterdienst.util.response_warnings import FILE_SKIPPED, response_memory, response_memory_scope, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+_F = TypeVar("_F")
+#: the key of the directories found empty in the memory of a response
+_EMPTY_DIRECTORIES = "empty_directories"
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -216,6 +222,32 @@ def warn_skipped_listings(label: str, skipped: dict[str, list[Period]]) -> None:
         )
 
 
+def remembering_empty_directories(method: _F) -> _F:
+    """Have a lookup or a walk list a directory that is found empty once, as long as it runs.
+
+    A directory that comes back empty costs five requests (`list_remote_files_fsspec` reads its page and asks for it
+    again for the index check), and a walk over stations asks for it at each of them, and the fetch-ahead hook again.
+    The memory is that of the response being served (`begin_response`), else the call wrapped here: the length of one
+    request, so the next one asks again and sees the directory filled. Only an empty directory is remembered, not a
+    listing with files (the listings cache keeps that) and not an error.
+    """
+    if inspect.isgeneratorfunction(method):
+
+        @functools.wraps(method)
+        def generator(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            with response_memory_scope():
+                yield from method(*args, **kwargs)
+
+        return cast("_F", generator)
+
+    @functools.wraps(method)  # ty: ignore[invalid-argument-type]
+    def plain(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        with response_memory_scope():
+            return method(*args, **kwargs)  # ty: ignore[call-non-callable]
+
+    return cast("_F", plain)
+
+
 def _create_file_index_for_dwd_server(
     url: str,
     settings: Settings,
@@ -227,8 +259,13 @@ def _create_file_index_for_dwd_server(
     redirect, and only a URL with the `/` can be told an empty directory from a file (`list_remote_files_fsspec`).
     """
     url = url if url.endswith("/") else f"{url}/"
+    memory = response_memory()
+    empty: set[str] = memory.setdefault(_EMPTY_DIRECTORIES, set()) if memory is not None else set()
+    if url in empty:
+        raise EmptyListingError(url)
     urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
     if not urls:
+        empty.add(url)
         raise EmptyListingError(url)
     df = pl.DataFrame({"url": urls}, schema={"url": pl.String}, orient="col")
     df = df.with_columns(

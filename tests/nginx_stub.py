@@ -35,6 +35,11 @@ class NginxLike:
         #: paths answered with a page of their own, whatever they are: (content type, body), status 200. A CDN's error
         #: page answered with a 200, or a JSON error, stands for a directory this way
         self.pages: dict[str, tuple[str, bytes]] = {}
+        #: paths answered with a status of their own and no body, before anything else (a 404 or a 503 on a path)
+        self.statuses: dict[str, int] = {}
+        #: the same for the successive requests of a path, one status for each (None: answered as it would be), until
+        #: the list is used up: `[None, 503]` fails the second GET only, which is the one fsspec's `_isfile` makes
+        self.flaky: dict[str, list[int | None]] = {}
         #: paths of files, which are served whole
         self.files: set[str] = set()
         #: every request the server met, as (method, path with query)
@@ -58,6 +63,10 @@ class NginxLike:
 
     def answer(self, path: str) -> tuple[int, list[tuple[str, str]], bytes]:
         """Say what the server answers for a path: the status, the headers and the body."""
+        if self.flaky.get(path) and (status := self.flaky[path].pop(0)) is not None:
+            return status, [], b""
+        if path in self.statuses:
+            return self.statuses[path], [], b""
         if path in self.pages:
             content_type, body = self.pages[path]
             return 200, [("Content-Type", content_type)], body

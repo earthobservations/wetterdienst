@@ -187,12 +187,13 @@ Types of changes:
   that blamed the client ID (GH-3748)
 - **Breaking**: `stations`, `values` and `history` of `dwd/observation` and `dwd/derived` skip a
   directory of DWD's server that is missing (404) or empty and answer with the other periods and
-  a `file-skipped` warning that names it; for a 404 they raised `FileNotFoundError` (a 500, a
-  traceback), and an empty one on nginx was a silent partial answer. In Python read
-  `recorded_warnings()` after `begin_response()`, or catch nothing. `list_remote_files_fsspec`
-  answers `[]` for an empty directory (it listed the directory itself as a file), which
-  `dwd/mosmix` and `dwd/dmo` now meet as an empty one, keeps no empty listing in the cache (it
-  was 12 hours) and raises `DownloadError` (502) for a 200 page that is no index (GH-3819)
+  a `file-skipped` warning that names it. A 404 raised `FileNotFoundError` (a 500, a traceback);
+  an empty one was a silent partial answer, or a 500 (`BadZipFile`, the 1 minute `meta_data`). In
+  Python read `recorded_warnings()` after `begin_response()`, or catch nothing.
+  `list_remote_files_fsspec` answers `[]` for an empty directory (it listed the directory itself
+  as a file): `dwd/mosmix` large and `dwd/dmo` go from a 500 to a 200 with no values for one
+  (small stays a 500). It keeps no empty listing in the cache (it was 12 hours), and a 200 page
+  that is no `Index of /` page is a `DownloadError` (502) (GH-3819)
 
 ## [0.183.0] - 2026-11-03
 

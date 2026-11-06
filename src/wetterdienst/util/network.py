@@ -924,6 +924,8 @@ class FileDirCache(MutableMapping):
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
+        # through `get`, which reads the listing: one an older version stored empty is a miss, and fsspec's `_ls`
+        # indexes the cache after asking `in` (`ListingStore.contains` does not decode, so knows no empty one)
         return self.get(item) is not None
 
     def __setitem__(self, key: str, value: list[dict]) -> None:
@@ -2676,29 +2678,55 @@ def list_remote_files_fsspec(
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
 
 
-#: how much of the page that stood for a directory is read for its title, which every index page puts first
+#: how much of the page that stood for a directory is searched for its title, which every index page puts first. The
+#: whole page is read (up to the download cap, `MAX_DOWNLOAD_BYTES`): only the search stops here
 _INDEX_PAGE_HEAD_BYTES = 65536
-_INDEX_PAGE_TITLE = re.compile(rb"<(?:title|h1)>\s*Index of ", re.IGNORECASE)
+#: `Index of /`, as nginx and Apache write the title and the heading of an index page; not `Index of services`
+_INDEX_PAGE_TITLE = re.compile(rb"<(?:title|h1)>\s*Index of /", re.IGNORECASE)
 
 
-def _found_or_empty_directory(url: str, found: list[str], page: bytes) -> list[str]:
-    """Give what `find` found at a URL, or no file where the URL is an empty directory.
+def _found_or_empty_directory(url: str, found: list[str] | None, page: bytes | None) -> list[str]:
+    """Give what `find` found at a URL, or no file where the URL is a directory with none.
+
+    `found` is None where `find` raised `FileNotFoundError`, and `page` is None where the page of the URL is a 404.
 
     An empty directory is taken for a file by fsspec: it finds no link on the index page of `/x/`, asks for `/x`, which
     nginx (DWD's server) answers with a 301 to `/x/`, and `find` then lists the directory as the one file it holds,
-    because `_isfile` is a GET that answers below 400. The listing says nothing of a file there: the directory is empty
-    (`[]`; the listings cache stores no empty listing, so the next call asks again).
+    because `_isfile` is a GET that answers below 400 (and as nothing at all if that GET fails: a 503, a reset). The
+    listing says nothing of a file there: the directory is empty (`[]`; the listings cache stores no empty listing, so
+    the next call asks again).
 
-    That holds only if the page is the index of a directory (`Index of /x/`, which nginx, Apache and the other servers
-    that list a directory write). Any other answer below 400 for the URL, a CDN's "503" page with a link to itself
-    elsewhere or a JSON error, is not an empty directory and must not read as "no data": it is a `DownloadError` (a
-    502). A URL with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
+    That holds only if the page of a URL ending in `/` is the index of a directory (`Index of /x/`, which nginx and
+    Apache write), whichever way `find` came to list no file: itself as the one file, nothing, or a 404 for `/x`. Any
+    other 200 page, a CDN's "503" page with a link to itself elsewhere or a JSON error, is not an empty directory and
+    must not read as "no data": it is a `DownloadError` (a 502). A 404 for the page is a directory that is not there,
+    `[]`. A URL with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
     """
-    if not (url.endswith("/") and found == [url]):
-        return found
+    if not url.endswith("/") or (found and found != [url]):
+        return found or []
+    if page is None:
+        return []
     if _INDEX_PAGE_TITLE.search(page[:_INDEX_PAGE_HEAD_BYTES]):
         return []
     raise DownloadError(url, "the answer is not the index page of a directory")
+
+
+def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None, bytes | None]:
+    """List a URL, and read its page where the listing leaves it open whether it is an empty directory.
+
+    The page of a URL ending in `/` is read when no file but the URL itself was found (nothing, the URL itself, or a
+    `FileNotFoundError` of `find`), which costs one more GET for such a directory.
+    """
+    try:
+        found: list[str] | None = fs.find(url, on_error="raise")
+    except FileNotFoundError:
+        found = None
+    if not url.endswith("/") or (found and found != [url]):
+        return found, None
+    try:
+        return found, fs.cat_file(url)
+    except FileNotFoundError:
+        return found, None
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2722,11 +2750,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
         # and callers have always had it as `[]`; anything else is a failure to read, which a
         # caller should hear about rather than infer, after the retry around this where it can help
-        found = fs.find(url, on_error="raise")
-        # the page that stood for the directory, read only for one that lists as itself
-        page = fs.cat_file(url) if url.endswith("/") and found == [url] else b""
-    except FileNotFoundError:
-        return []
+        found, page = _find_and_read_page(fs, url)
     except ClientSSLError as e:
         # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
         # is not being offline, and `[]` would hand the caller an empty directory with no hint of

@@ -48,6 +48,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
     directory_of,
+    remembering_empty_directories,
     warn_skipped_listings,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
@@ -77,7 +78,7 @@ if TYPE_CHECKING:
 
     from fsspec.implementations.zip import ZipFileSystem
 
-    from wetterdienst.model.result import HistoryResult, StationsResult
+    from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -104,6 +105,11 @@ def _is_value_column(column: str) -> bool:
 
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
+
+    @remembering_empty_directories
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
+        yield from super().query()
 
     def _zero_direction_is_no_bearing(self) -> pl.Expr:
         """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
@@ -403,6 +409,7 @@ class DwdObservationHistory(TimeseriesHistory):
     #: the stations whose history was not read for want of a listing, by the directory that came back empty
     _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
 
+    @remembering_empty_directories
     def query(self) -> Iterator[HistoryResult]:
         """Query the history of the stations, and tell the stations whose dataset has no listing once all are read."""
         self._unlisted = {}
@@ -978,6 +985,7 @@ class DwdObservationRequest(TimeseriesRequest):
         log.info(f"Acquiring field information from {description_file_url}")
         return read_description(description_file_url, language=language)
 
+    @remembering_empty_directories
     def _all(self) -> pl.LazyFrame:
         """:return:"""
         from typing import cast  # noqa: PLC0415

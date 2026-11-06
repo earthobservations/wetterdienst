@@ -32,14 +32,20 @@ from wetterdienst.provider.dwd.derived.fileindex import (
 from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
-from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError, directory_of, warn_skipped_listings
+from wetterdienst.provider.dwd.observation.fileindex import (
+    EmptyListingError,
+    directory_of,
+    remembering_empty_directories,
+    warn_skipped_listings,
+)
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst import Period
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
 
 
@@ -81,6 +87,11 @@ def _get_data_from_file(
 
 class DwdDerivedValues(TimeseriesValues):
     """Values class for dwd derived data."""
+
+    @remembering_empty_directories
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
+        yield from super().query()
 
     _default_start_dates: ClassVar = {
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -737,6 +748,7 @@ class DwdDerivedRequest(TimeseriesRequest):
 
         return stations_data.sort(by=["station_id"], maintain_order=True)
 
+    @remembering_empty_directories
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
 

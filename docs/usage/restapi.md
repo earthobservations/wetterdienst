@@ -386,7 +386,10 @@ what the answer is missing:
   CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never a `file-skipped` and never
   "no data". No empty listing is kept in our listing cache, a year directory of a tree included
   (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
-  written by an older version that holds an empty listing is read as a miss. `describe_fields` stays an error. A
+  written by an older version that holds an empty listing is read as a miss. A directory found empty is listed once
+  for the length of a response (a walk over a hundred stations asked for it five GETs at a time, at each station, and
+  again for the fetch-ahead): the memory ends with the request, so the next one asks again; in Python outside a
+  response it is the lookup or the walk. `describe_fields` stays an error. A
   station with no file in a listing that is there (one that only has `recent` data) has no history of it, which is the
   source's answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this

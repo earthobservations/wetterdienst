@@ -43,7 +43,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.network import File, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings, response_memory
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -130,10 +130,14 @@ _MINUTE_1 = pl.LazyFrame(
 )
 
 
-def _description_for(url: str) -> bytes:
+def _description_for(url: str, station_ids: list[str]) -> bytes:
     if "derived_germany" in url:
         return _DESCRIPTION_DERIVED.encode("latin-1")
-    return (_DESCRIPTION_URBAN if "climate_urban" in url else _DESCRIPTION).encode("latin-1")
+    if "climate_urban" in url:
+        return _DESCRIPTION_URBAN.encode("latin-1")
+    header, rule, row = _DESCRIPTION.split("\r\n")[:3]
+    rows = [row.replace("00044", station_id) for station_id in station_ids]
+    return "\r\n".join([header, rule, *rows, ""]).encode("latin-1")
 
 
 def _history_zip() -> io.BytesIO:
@@ -155,6 +159,8 @@ class _Dwd:
         self.asked: list[str] = []
         #: the settings of the listings: the cache of a listing with files is kept, as it is for a request
         self.local = Settings()
+        #: the stations the description lists
+        self.stations = ["00044"]
 
     def _path(self, directory: str) -> str:
         if directory.startswith("derived_germany/"):
@@ -196,7 +202,7 @@ def dwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[_Dwd]:
             return [item.replace(server.base, _DWD) for item in found]
 
         def download_file(url: str, **_: object) -> File:
-            return File(url=url, content=io.BytesIO(_description_for(url)), status=200)
+            return File(url=url, content=io.BytesIO(_description_for(url, state.stations)), status=200)
 
         monkeypatch.setattr(fileindex, "list_remote_files_fsspec", listing)
         monkeypatch.setattr(metaindex, "download_file", download_file)
@@ -674,6 +680,118 @@ def test_rest_a_200_page_that_is_no_index_is_a_502_and_never_an_empty_directory(
     assert "file-skipped" not in response.text
     assert "parameter-without-rows" not in response.text
     assert "Cache-Control" not in response.headers
+
+
+# --- what an empty directory costs a walk -----------------------------------------------------------------------------
+
+_COUNT_CASES = [
+    pytest.param(
+        "daily/climate_summary",
+        "climate/daily/kl/",
+        "tageswerte_KL_{}_19700101_20241231_akt.zip",
+        id="daily-kl",
+    ),
+    pytest.param(
+        "10_minutes/temperature_air",
+        "climate/10_minutes/air_temperature/",
+        "10minutenwerte_TU_{}_akt.zip",
+        id="10-minutes",
+    ),
+]
+
+
+def _requests_for_empty_directory(
+    dwd: _Dwd,
+    monkeypatch: pytest.MonkeyPatch,
+    parameters: str,
+    directory: str,
+    name: str,
+    stations: int,
+    *,
+    ahead: bool,
+    remembered: bool = True,
+) -> int:
+    """Count the GETs for the empty `historical` directory of a response that looks up and reads some stations."""
+    ids = [f"{number:05d}" for number in range(1, stations + 1)]
+    dwd.stations = ids
+    # no listings cache: the stations of the first count are not those of the second
+    dwd.local = Settings(cache_disable=True)
+    files = [name.format(station_id) for station_id in ids]
+    for period in ("recent", "now"):
+        dwd.server.directories[f"{_OBSERVATIONS}{directory}{period}/"] = [*files, "KL_Beschreibung_Stationen.txt"]
+    dwd.set(empty=(f"{directory}historical/",))
+    dwd.server.requests.clear()
+    if not remembered:
+        monkeypatch.setattr(fileindex, "response_memory", lambda: None)
+    begin_response()
+    request = DwdObservationRequest(parameters=[parameters], settings=Settings(cache_disable=True))
+    found = request.all()
+    values = found.values()
+    model = request.metadata[parameters.split("/", maxsplit=1)[0]][parameters.split("/")[1]]
+    for station_id in ids:
+        if ahead:
+            # what the fetch-ahead asks of the provider for each station it reaches
+            values._files_ahead(station_id, [model])  # noqa: SLF001
+    assert list(values.query()) is not None
+    path = f"{_OBSERVATIONS}{directory}historical"
+    return len([request for request in dwd.server.requests if request[1].startswith(path)])
+
+
+@pytest.mark.parametrize("ahead", [False, True], ids=["no-fetch-ahead", "fetch-ahead"])
+@pytest.mark.parametrize(("parameters", "directory", "name"), _COUNT_CASES)
+def test_a_walk_lists_a_directory_found_empty_once_whatever_the_number_of_stations(
+    dwd: _Dwd, monkeypatch: pytest.MonkeyPatch, parameters: str, directory: str, name: str, *, ahead: bool
+) -> None:
+    """One listing of an empty directory per request: the lookup, the walk and the hook share what the first found.
+
+    An empty directory is five GETs, and the walk asked for it at every station (and the hook again): 100 stations
+    were 500 requests. The count is the same for one station and for twenty.
+    """
+    one = _requests_for_empty_directory(dwd, monkeypatch, parameters, directory, name, 1, ahead=ahead)
+    many = _requests_for_empty_directory(dwd, monkeypatch, parameters, directory, name, 20, ahead=ahead)
+
+    assert one > 0
+    assert many == one
+
+
+def test_without_the_memory_a_walk_lists_an_empty_directory_at_every_station(
+    dwd: _Dwd, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control of the above, with the memory off: what the count would be."""
+    args = ("daily/climate_summary", "climate/daily/kl/", "tageswerte_KL_{}_19700101_20241231_akt.zip")
+    one = _requests_for_empty_directory(dwd, monkeypatch, *args, 1, ahead=False, remembered=False)
+    many = _requests_for_empty_directory(dwd, monkeypatch, *args, 20, ahead=False, remembered=False)
+
+    assert many > 10 * one
+
+
+def test_what_a_request_remembers_is_its_own_and_ends_with_it(dwd: _Dwd) -> None:
+    """The next request asks again and sees the directory filled; the memory is not shared with another context."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+    begin_response()
+    assert _request().all().df.get_column("station_id").to_list() == ["00044"]
+    assert f"{_DWD}{_OBSERVATIONS}{_MONTHLY_HISTORICAL}" in response_memory()["empty_directories"]
+
+    dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_HISTORICAL}"] = _FILES
+    # the same response still remembers it, as a walk must; the next one begins with nothing
+    begin_response()
+    assert response_memory() == {}
+    _request().all()
+    assert not [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
+
+
+def test_a_populated_listing_and_an_error_are_not_remembered(dwd: _Dwd) -> None:
+    """Only an empty directory is: a failure is asked again, a populated listing is the listings cache's."""
+    dwd.set(raises={_MONTHLY_HISTORICAL: NoInternetError("no connection")})
+    begin_response()
+
+    with pytest.raises(NoInternetError):
+        _request().all()
+    assert not response_memory().get("empty_directories")
+
+    dwd.raises = {}
+    _request().all()
+    assert not response_memory().get("empty_directories")
 
 
 # --- the Python API --------------------------------------------------------------------------------------------------

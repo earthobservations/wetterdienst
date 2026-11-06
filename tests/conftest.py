@@ -29,6 +29,7 @@ from aiohttp import ClientResponseError, ClientSSLError
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.model.processing_note import PROCESSING_NOTE
+from wetterdienst.util import response_warnings
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
@@ -736,6 +737,15 @@ def _kaleido_server() -> Generator[None]:
     queue behind it. `calc_fig_sync` is therefore called under a lock for the session.
     """
     yield from _serve_kaleido()
+
+
+@pytest.fixture(autouse=True)
+def _forget_the_memory_of_a_response() -> None:
+    """Start every test with no response begun: what a request remembers (a directory found empty) is its own.
+
+    `begin_response()` sets the memory in the context of the thread, which a test shares with the next one.
+    """
+    response_warnings._MEMORY.set(None)  # noqa: SLF001
 
 
 @pytest.fixture(autouse=True)

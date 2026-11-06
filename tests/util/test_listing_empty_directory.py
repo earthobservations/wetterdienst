@@ -161,6 +161,70 @@ def test_a_page_that_is_no_index_is_a_download_error_not_an_empty_directory(
         listing("/x/")
 
 
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param("text/html", _CDN_PAGE.encode(), id="cdn-page"),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+    ],
+)
+@pytest.mark.parametrize("failure", ["slashless-404", "isfile-fails"])
+def test_a_page_that_is_no_index_is_an_error_whatever_the_get_of_the_directory_without_the_slash_answers(
+    server: NginxLike, listing: Callable[[str], list[str]], content_type: str, body: bytes, failure: str
+) -> None:
+    """`find` lists no file at all if `/x` is a 404 (it raises) or the `_isfile` GET fails (a 503): the page is read."""
+    server.pages["/x/"] = (content_type, body)
+    if failure == "slashless-404":
+        server.statuses["/x"] = 404
+    else:
+        server.flaky["/x"] = [None, 503]
+
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+
+@pytest.mark.parametrize("failure", ["slashless-404", "isfile-fails"])
+def test_a_real_index_is_an_empty_directory_whatever_the_get_without_the_slash_answers(
+    server: NginxLike, listing: Callable[[str], list[str]], failure: str
+) -> None:
+    """The same, with the index nginx writes for an empty directory: `[]`, and the directory is listed once filled."""
+    server.directories["/x/"] = []
+    if failure == "slashless-404":
+        server.statuses["/x"] = 404
+    else:
+        server.flaky["/x"] = [None, 503]
+    assert listing("/x/") == []
+
+    server.directories["/x/"] = [_ZIP]
+    server.statuses.clear()
+    server.flaky.clear()
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+def test_a_503_for_the_directory_without_the_slash_is_an_outage_not_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """A server that fails the second page of the listing is down, and says so with a `DownloadError`."""
+    server.directories["/x/"] = []
+    server.statuses["/x"] = 503
+
+    with pytest.raises(DownloadError):
+        listing("/x/")
+
+
+def test_the_title_of_an_index_is_index_of_a_path_not_index_of_a_word(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """A maintenance page titled "Index of services" is no index of a directory."""
+    page = ("text/html", b"<html><head><title>Index of services - maintenance</title></head><body></body></html>")
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+
 def test_a_real_index_with_no_link_is_an_empty_directory(
     server: NginxLike, listing: Callable[[str], list[str]]
 ) -> None:
