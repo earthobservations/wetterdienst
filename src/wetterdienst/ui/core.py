@@ -234,7 +234,8 @@ _WithValueStationsField = Annotated[
     bool,
     Field(
         description="Include the metadata of the stations that have rows in the answer, one entry per dataset that "
-        "has rows. A queried station with no rows is not listed.",
+        "has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows "
+        "is not listed.",
     ),
 ]
 # of the interpolation and the summary: the stations are the ones the rows were made from, and where each stands

@@ -434,6 +434,69 @@ def test_a_dataset_the_stations_do_not_list_does_not_drop_the_station() -> None:
     assert block_ids_and_counts(renamed) == (["00001", "00002"], 2)
 
 
+def test_a_station_whose_only_series_the_stations_do_not_list_is_still_listed() -> None:
+    """The fallback itself: 00001 has one series, of a dataset the stations frame has not, and is listed whole."""
+    stations = stations_of(["00001", "00002"])
+    only_unlisted = values_of(stations, {"00001": [DAY_ONE], "00002": [DAY_ONE]}).df.filter(
+        (pl.col("station_id") == "00001") & (pl.col("dataset") == "climate_summary")
+    )
+    result = ValuesResult(stations=stations, df=only_unlisted.with_columns(pl.lit("air_temperature").alias("dataset")))
+
+    assert listed(result) == pairs("00001")
+
+
+def test_a_series_the_stations_hold_for_another_station_only_does_not_drop_its_station() -> None:
+    """The dataset is listed for another station, not for this one: this station is listed whole, as it was."""
+    stations = stations_of(["00001", "00002"], datasets=("climate_summary",))
+    extra = stations.df.filter(pl.col("station_id") == "00002").with_columns(
+        pl.lit("precipitation_more").alias("dataset")
+    )
+    stations = with_frame(stations, pl.concat([stations.df, extra]))
+    frame = pl.DataFrame(
+        {
+            "station_id": ["00001", "00002"],
+            "resolution": ["daily", "daily"],
+            "dataset": ["precipitation_more", "climate_summary"],
+            "parameter": ["a", "b"],
+            "timestamp": [DAY_ONE, DAY_ONE],
+            "value": [1.0, 2.0],
+        },
+        schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")},
+    )
+
+    result = ValuesResult(stations=stations, df=frame)
+
+    assert listed(result) == [("00001", "climate_summary"), ("00002", "climate_summary")]
+
+
+@pytest.mark.parametrize(
+    "casts",
+    [
+        {"dataset": pl.Null},
+        {"dataset": pl.Categorical},
+        {"resolution": pl.Categorical},
+        {"station_id": pl.Categorical},
+        {"resolution": pl.Enum(["daily", "hourly"])},
+        {"dataset": pl.Enum(["climate_summary", "precipitation_more"]), "station_id": pl.Categorical},
+    ],
+    ids=["null dataset", "categorical dataset", "categorical resolution", "categorical station", "enum", "both"],
+)
+def test_a_frame_built_by_hand_with_other_types_of_key_is_matched_as_text(casts: dict) -> None:
+    """A null column, a categorical or an enum is a key like a string one: the block has rows, and no schema error."""
+    result = three_stations_one_of_them_empty()
+    if casts.get("dataset") is pl.Null:
+        frame = result.df.with_columns(pl.lit(None, dtype=pl.Null).alias("dataset"))
+    else:
+        frame = result.df.with_columns(*(pl.col(name).cast(dtype) for name, dtype in casts.items()))
+    hand_built = ValuesResult(stations=result.stations, df=frame)
+
+    stations = hand_built.df_stations
+
+    assert {row["station_id"] for row in hand_built.to_dict(with_stations=True)["stations"]} == {"00001", "00002"}
+    assert stations.height == 4
+    assert block_ids_and_counts(hand_built) == (["00001", "00002"], 2)
+
+
 def test_a_station_of_nulls_only_is_listed_in_both_shapes() -> None:
     """A row of nulls is a row (`drop_nulls=false`): the station is in the block, long and wide."""
     result = three_stations_one_of_them_empty()

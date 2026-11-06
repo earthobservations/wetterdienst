@@ -30,7 +30,7 @@ station read with `drop_nulls=false` is listed): the stations that `metadata.req
 into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
 feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
 the block, and the block is an empty list where there are no rows. To find a requested station that has no
-rows, compare your ids with `metadata.request.stations.ids` (up to 100 stations), or ask `stations` for it without `timestamp`
+rows, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
 (with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
 lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result

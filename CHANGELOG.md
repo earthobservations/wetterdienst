@@ -182,14 +182,15 @@ Types of changes:
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
 - **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
-  `df_stations` list the stations that have rows, for each resolution and dataset that has rows, as
-  the GeoJSON and `counts.stations` do. The block listed every station of the request, and
-  `df_stations` every dataset of a station with any row, so a station that returned nothing, one
-  that `sql_values`, `filtered_by_date` or `filtered_by_sql` took every row of, or one a `rank` walk
-  stopped before was there: `{s["station_id"]: s for s in answer["stations"]}[asked]` now raises
-  `KeyError`. No rows is an empty list. Compare your ids with `metadata.request.stations.ids`, or
-  ask `stations` without `timestamp` for the stations of the request. `history` still lists them;
-  `interpolate` and `summarize` are unchanged (GH-3818)
+  `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
+  merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
+  of the request, and `df_stations` every dataset of a station with any row, so a station that
+  returned nothing, that `sql_values`, `filtered_by_date` or `filtered_by_sql` took every row of, or
+  that a `rank` walk stopped before was there: looking one up now raises `KeyError`. No rows is an
+  empty list. To find a requested station with no rows, compare the ids the answer names
+  (`metadata.request.stations.ids`, padded as it pads them) with yours, or ask `stations` without
+  `timestamp`; in Python read `result.stations.df`. `history`, `interpolate` and `summarize` are
+  unchanged (GH-3818)
 
 ## [0.183.0] - 2026-11-03
 
