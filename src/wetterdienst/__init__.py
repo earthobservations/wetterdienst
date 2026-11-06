@@ -2,13 +2,14 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Package for accessing weather data from various APIs."""
 
+import importlib
 from dataclasses import dataclass
 from email.utils import getaddresses
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import metadata as package_metadata  # `wetterdienst.metadata` is a subpackage
 from pathlib import Path
 from textwrap import dedent
-from typing import TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
@@ -22,8 +23,32 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.options import Options
-from wetterdienst.settings import Settings
+
+if TYPE_CHECKING:
+    from wetterdienst.options import Options
+    from wetterdienst.settings import Settings
+
+# `Options` and `Settings` are pydantic models, and importing them imports pydantic-settings and polars, which
+# `import wetterdienst` does not need to pay for: the command line's `--help`, `--version` and shell completion import
+# this package and little else (GH-3809). They are read from their modules on first use, so `from wetterdienst import
+# Settings` and `wetterdienst.Settings` are what they were.
+_LAZY = {"Options": "wetterdienst.options", "Settings": "wetterdienst.settings"}
+
+
+def __getattr__(name: str) -> Any:  # noqa: ANN401
+    """Give `Options` and `Settings`, importing the module that defines the one asked for."""
+    if name in _LAZY:
+        value = getattr(importlib.import_module(_LAZY[name]), name)
+        globals()[name] = value  # found directly from now on
+        return value
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
+
+
+def __dir__() -> list[str]:
+    """List the lazily imported names too, as `dir(wetterdienst)` always had them."""
+    return sorted({*globals(), *_LAZY})
+
 
 __appname__ = "wetterdienst"
 __version__ = boot.get_version(__appname__)
@@ -98,6 +123,8 @@ class Info:
         malformed `WD_*` setting then stopped with a traceback, before the server could refuse it
         by its variable (GH-2335).
         """
+        from wetterdienst.settings import Settings  # noqa: PLC0415
+
         return Settings().cache_dir
 
     def __str__(self) -> str:

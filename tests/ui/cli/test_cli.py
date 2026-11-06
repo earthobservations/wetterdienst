@@ -988,7 +988,8 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
         calls.append(kwargs)
         return Settings(**kwargs)
 
-    monkeypatch.setattr("wetterdienst.ui.cli.Settings", record)
+    # the commands read `Settings` from the package when they run, not when the command line is imported (GH-3809)
+    monkeypatch.setattr("wetterdienst.Settings", record)
     _settings_of(monkeypatch, args, {})
     assert calls
     assert all(not kwargs for kwargs in calls)

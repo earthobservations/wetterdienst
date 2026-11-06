@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from measurement.measures import Distance
-from measurement.utils import guess
 
 from wetterdienst.exceptions import (
     DateRequiredError,
@@ -1263,6 +1261,11 @@ class TimeseriesRequest:
             raise ValueError(msg)
 
         unit = unit.strip()
+
+        # imported here: `measurement` imports sympy, which is 0.14 s of the 0.5 s a `values` command takes to start,
+        # and only a request by distance reads it (GH-3809)
+        from measurement.measures import Distance  # noqa: PLC0415
+        from measurement.utils import guess  # noqa: PLC0415
 
         distance_in_km = guess(distance, unit, [Distance]).km
 

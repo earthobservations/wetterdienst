@@ -108,7 +108,7 @@ The processes that share a cache directory take turns on its metadata file and i
 
 ### UI layer
 
-- **CLI** (`ui/cli.py`): click-based.
+- **CLI** (`ui/cli.py`): click-based. Importing it costs click and a few plain tables, so `--help`, `--version` and a shell completion start in about 0.07 s: a command imports what it uses (the settings, the request models, the results, the providers) as the first thing it does, and the readers it calls are names of the module that import on the first call (`get_values`, `get_stations`, ...), which tests replace there. A top-level import in `ui/cli.py`, or in what it imports, that is not as light brings the 0.5 s back: `tests/ui/cli/test_cli_imports.py` names the packages (polars, pydantic, sympy, ...) and the modules that must stay out of a clean process's `sys.modules`, and the ones allowed in. For the same reason `import wetterdienst` and `wetterdienst.api` import no polars, pydantic or provider; `Settings` and `Options` are read from their modules by the first use (`wetterdienst/__init__.py`).
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
 - **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
 - **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_API_BASE` (private runtime config `apiBase`; the old `NUXT_PUBLIC_API_BASE` still works, deprecated) sets the backend URL.
