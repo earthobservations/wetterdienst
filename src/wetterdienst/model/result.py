@@ -432,6 +432,16 @@ def _fit_map_view(
     return center, max(0.0, min(zooms))
 
 
+def _station_rows(df: pl.DataFrame) -> list[_Station]:
+    """Write a stations frame as the rows of a `stations` block, its timestamps as text.
+
+    The one place that writes them: a listing of stations and the `stations` block of a values result, which
+    reads its frame off `df_stations`, give the same row for the same station.
+    """
+    # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
+    return cast("list[_Station]", timestamps_to_string(df, ["start_timestamp", "end_timestamp"]).to_dicts())
+
+
 @dataclass(frozen=True, kw_only=True, eq=False)
 class StationsResult(_EqualByFields, ExportMixin):
     """Result class for stations.
@@ -524,9 +534,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             Dictionary with station information.
 
         """
-        df = timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"])
-        # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
-        stations = cast("list[_Station]", df.to_dicts())
+        stations = _station_rows(self.df)
         if with_metadata:
             return {"metadata": _metadata_of(self), "stations": stations}
         return {"stations": stations}
@@ -847,13 +855,25 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         return cast("_RowsT", timestamps_to_string(df, ["timestamp"]).to_dicts())
 
     def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _DictT:
-        """Format values as dictionary."""
+        """Format values as dictionary.
+
+        Args:
+            with_metadata: whether to include the `metadata` block
+            with_stations: whether to include the `stations` block: `df_stations`, the stations that have a row
+                in this result, one row per resolution, dataset and station. A station of the request that
+                returned nothing, or whose rows `filtered_by_date` or `filtered_by_sql` cut away, is not in it,
+                and the block is an empty list where no row is left. The stations of the request are `stations.df`.
+
+        Returns:
+            Dictionary with the optional `metadata` and `stations` blocks and the `values`.
+
+        """
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
             data["metadata"] = _metadata_of(self.stations, self.data_updated_at, derived=self._derived)
         if with_stations:
-            data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
+            data["stations"] = _station_rows(self.df_stations)
         data["values"] = self._to_dict(self.df)
         return cast("_DictT", data)
 

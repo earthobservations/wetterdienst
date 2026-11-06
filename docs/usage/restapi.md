@@ -22,8 +22,13 @@ and a glossary; its page says what is in it and how to run it.
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
 `with_metadata=true` for its heavier parts, and (for the endpoints of values and `history`)
-`with_stations=true` to include the queried stations' metadata; a listing of `stations` is the
-stations, and takes no `with_stations`. With `with_metadata=true`, the JSON and GeoJSON of `values`,
+`with_stations=true` to include the stations' metadata; a listing of `stations` is the
+stations, and takes no `with_stations`. In `values` the `stations` block lists the stations that have
+values in the answer, one entry for each resolution and dataset, as the GeoJSON and the `metadata` block
+(`counts.stations`, `request.stations.ids`) name them; a station of the request that returned nothing, or
+whose rows `sql_values` cut away, is not in it, and the block is an empty list where there are no values.
+The `stations` endpoint lists the stations a request selects. The `history` block lists the
+stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
 was got with, named as the endpoint's query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,

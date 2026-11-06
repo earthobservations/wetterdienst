@@ -161,6 +161,13 @@ Types of changes:
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them
   (GH-3814)
+- `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict` and `to_json`) now lists the
+  stations that have values in the answer, as `df_stations`, the GeoJSON and `counts.stations` do.
+  It listed every station of the request, so a station that returned nothing, one that `sql_values`,
+  `filtered_by_date` or `filtered_by_sql` took every row of, or one a `rank` walk stopped before was
+  there without a row in `values`; with no rows the block is an empty list. Use the `stations`
+  endpoint, or `result.stations.df`, for the stations of the request. `history` still lists them;
+  `interpolate` and `summarize` are unchanged (GH-3818)
 
 ## [0.183.0] - 2026-11-03
 

@@ -229,6 +229,14 @@ _WithMetadataSettingsField = Annotated[
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
+# of the values: the stations that have values in the answer, as the GeoJSON lists them (GH-3818)
+_WithValueStationsField = Annotated[
+    bool,
+    Field(
+        description="Include the metadata of the stations that have values in the answer, one entry per dataset. "
+        "A queried station that returned no values is not listed.",
+    ),
+]
 # of the interpolation and the summary: the stations are the ones the rows were made from, and where each stands
 _WithEstimateStationsField = Annotated[
     bool,
@@ -959,7 +967,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     sql: _SqlField = None
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithValueStationsField = False
 
     format: _StreamFormatField = "json"
     pretty: _PrettyField = False

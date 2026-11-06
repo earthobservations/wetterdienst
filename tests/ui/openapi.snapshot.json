@@ -2398,11 +2398,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the metadata of the stations that have values in the answer, one entry per dataset. A queried station that returned no values is not listed.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the metadata of the stations that have values in the answer, one entry per dataset. A queried station that returned no values is not listed."
           },
           {
             "name": "format",
