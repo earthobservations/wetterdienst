@@ -1,0 +1,1506 @@
+[
+ {
+  "id": "j9 T1 wrong 'Rain' col, dd/mm/yyyy dates, right RESULT [unnamed column: decides nothing, the RESULT line decides]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,rain\n15/10/2026,0.0\n16/10/2026,11.1\n17/10/2026,7.2\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T1b same, ISO dates (control) [unnamed column: decides nothing, the RESULT line decides]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,rain\n2026-10-15,0.0\n2026-10-16,11.1\n2026-10-17,7.2\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T1c wrong 'Niederschlag' + TABLE-UNIT for the wrong-named column",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDatum,Niederschlag\n15/10/2026,0.0\n16/10/2026,11.1\n```\nTABLE-UNIT: Niederschlag | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9 T1d transposed markdown dd/mm/yyyy wrong value [unnamed column: decides nothing, the RESULT line decides]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| | 15/10/2026 | 16/10/2026 | 17/10/2026 |\n|---|---|---|---|\n| Rain | 0.0 | 11.1 | 7.2 |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T2 right table, wide with wind cols declared first",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,wind_speed_mean,precipitation_amount\n2026-10-15,3.1,0.0\n2026-10-16,3.0,15.5\n2026-10-17,4.2,11.1\n```\nTABLE-UNIT: wind_speed_mean | m/s\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T2b right table, wide, temp first declared, plus RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,temperature_air_mean_2m,precipitation_amount\n2026-10-16,11.2,15.5\n```\nTABLE-UNIT: temperature_air_mean_2m | °C\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T2c right table, precip first then temp declared",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,temperature_air_mean_2m\n2026-10-16,15.5,11.2\n```\nTABLE-UNIT: temperature_air_mean_2m | °C\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T3 right table with ISO timestamps, date declared UTC",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-15T00:00:00+00:00,0.0\n2026-10-16T00:00:00+00:00,15.5\n```\nTABLE-UNIT: date | UTC\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T3b right table dd/mm/yyyy, date declared",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n15/10/2026,0.0\n16/10/2026,15.5\n```\nTABLE-UNIT: date | DD/MM/YYYY\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T4 right, tool long CSV copied (quality col)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,dataset,parameter,date,value,quality\n01975,climate_summary,precipitation_amount,2026-10-15T00:00:00+00:00,0.0,10\n01975,climate_summary,precipitation_amount,2026-10-16T00:00:00+00:00,15.5,10\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T5 markdown, unit in header, no TABLE-UNIT, RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (mm) |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T5b markdown, unit in header, TABLE-UNIT names header w/o unit",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (mm) |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T5c markdown header in cm, no TABLE-UNIT, value written in cm, RESULT mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (cm) |\n|---|---|\n| 2026-10-16 | 1.55 |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T6 duplicated day row, second wrong",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n2026-10-16,9.9\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": false
+ },
+ {
+  "id": "j9 T6b duplicated day row, first wrong",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,9.9\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": false
+ },
+ {
+  "id": "j9 T7 table not in fence, right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "date,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T7b fence, header line has digit (precipitation_mm_24h)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precip_24h\n2026-10-16,15.5\n2026-10-17,11.1\n```\nTABLE-UNIT: precip_24h | mm",
+  "expected": true
+ },
+ {
+  "id": "j9 T7c fence, wrong, header has digit, right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precip_24h\n2026-10-16,9.9\n2026-10-17,11.1\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9 T7d CSV header 'date,rr_mm' wrong + RESULT, rows with Oct 16 2026 [unnamed column: decides nothing, the RESULT line decides]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```\ndate,rr\nOct 15 2026,0.0\nOct 16 2026,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T8 CSV with quoted date \"16 Oct, 2026\"",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n\"15 Oct 2026\",0.0\n\"16 Oct 2026\",9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9 T10 day row says 2026-10-16 in a range cell",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| period | precipitation |\n|---|---|\n| 2026-10-14 to 2026-10-18 | 33.8 |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9 T11 a summary table: total row cites the day",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\n| stat | precipitation | day |\n|---|---|---|\n| max | 15.5 | 2026-10-16 |\n| total | 33.8 | 14-18 Oct |\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b L1 long CSV, two params, precip row second, TABLE-UNIT value",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_amount,15.5\n2026-10-16,temperature_air_mean_2m,11.2\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b L2 long CSV, temp row first",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,temperature_air_mean,11.2\n2026-10-16,precipitation_amount,15.5\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j9b L3 long CSV temp first, precip WRONG",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,temperature_air_mean,15.4\n2026-10-16,precipitation_amount,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9b U1 TABLE-UNIT 'precipitation amount' vs header precipitation_amount",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U2 TABLE-UNIT with backticks",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: `precipitation_amount` | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U3 TABLE-UNIT 'precipitation' header 'precipitation_mm'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U4 TABLE-UNIT ok, header quoted \"precipitation_amount\"",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\n\"date\",\"precipitation_amount\"\n\"2026-10-16\",\"15.5\"\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U5 TABLE-UNIT ok, unit 'mm (millimetres)'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm (millimetres)",
+  "expected": true
+ },
+ {
+  "id": "j9b U6 TABLE-UNIT 'precipitation_amount (mm)' header same",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount (mm)\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount (mm) | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U7 wide table date first col + station col",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,date,precipitation_amount\n01975,2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U8 TABLE-UNIT also for date ISO plain",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: date | ISO 8601\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U9 TABLE-UNIT date with time col '00:00'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,time,precipitation_amount\n2026-10-16,00:00 UTC,15.5\n```\nTABLE-UNIT: time | UTC\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U10 quality col declared",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,quality\n2026-10-16,15.5,10\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: quality | QN",
+  "expected": true
+ },
+ {
+  "id": "j9b U11 quality col declared BEFORE",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,quality,precipitation_amount\n2026-10-16,10,15.5\n```\nTABLE-UNIT: quality | QN\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9b U12 two tables: a right one and a station table with day",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm\n\n| station | height | start |\n|---|---|---|\n| 01975 | 11 | 1891-01-01 |",
+  "expected": true
+ },
+ {
+  "id": "j9b U13 table with day and distance",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm\n\n| date | event | km |\n|---|---|---|\n| 2026-10-16 | front passed | 40 |",
+  "expected": true
+ },
+ {
+  "id": "j9c 2026/10/16 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n2026/10/16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c 2026/10/16 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n2026/10/16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9c 16-10-2026 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n16-10-2026,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c 16-10-2026 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n16-10-2026,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9c 20261016 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n20261016,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c 20261016 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n20261016,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9c 16 Oct 2026 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n16 Oct 2026,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c 16 Oct 2026 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n16 Oct 2026,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9c Fri 16 Oct 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\nFri 16 Oct,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c Fri 16 Oct 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\nFri 16 Oct,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j9c 2026-10-16 00:00 15.5",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n2026-10-16 00:00,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j9c 2026-10-16 00:00 9.9",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\nX,0.0\n2026-10-16 00:00,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N1 wide amount+form, form declared dimensionless",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,precipitation_form\n2026-10-15,0.0,0\n2026-10-16,15.5,6\n2026-10-17,2.1,6\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | dimensionless",
+  "expected": true
+ },
+ {
+  "id": "j10 N1b same, form declared '-'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,precipitation_form\n2026-10-16,15.5,6\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | -",
+  "expected": true
+ },
+ {
+  "id": "j10 N1c same, form declared 'code', plus RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,precipitation_form\n2026-10-16,15.5,6\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | code\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N1d form first, no TABLE-UNIT for form",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_form,precipitation_amount\n2026-10-16,6,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N1e form only declared generic 'precipitation | mm', both cols",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_form,precipitation_amount\n2026-10-16,6,15.5\n```\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N2 long amount then form, value | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_amount,15.5\n2026-10-16,precipitation_form,6\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N2b long form then amount, value | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_form,6\n2026-10-16,precipitation_amount,15.5\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N2c long form then amount, + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_form,6\n2026-10-16,precipitation_amount,15.5\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N3 wide WRONG on 16, note mentions precip on 15, right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,note\n2026-10-15,0.3,light precipitation\n2026-10-16,9.9,heavy rain\n2026-10-17,2.1,showers\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N3b same RIGHT, TABLE-UNIT only",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,note\n2026-10-15,0.3,light precipitation\n2026-10-16,15.5,heavy rain\n2026-10-17,2.1,showers\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N3c WRONG, note mentions 'no precipitation' on 14",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,remark\n2026-10-14,0.0,no precipitation\n2026-10-16,9.9,\n2026-10-17,2.1,\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N3d WRONG, station name col with 'Precip' in another table? (control) markdown remark",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| date | precipitation_amount | remark |\n|---|---|---|\n| 2026-10-14 | 0.0 | dry, no precipitation |\n| 2026-10-16 | 9.9 | wettest day |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N4 wide with two units columns, mm and cm, both right [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm,precipitation_cm\n2026-10-16,15.5,1.55\n```\nTABLE-UNIT: precipitation_mm | mm\nTABLE-UNIT: precipitation_cm | cm",
+  "expected": false
+ },
+ {
+  "id": "j10 N4b same, cm col first [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_cm,precipitation_mm\n2026-10-16,1.55,15.5\n```\nTABLE-UNIT: precipitation_cm | cm\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": false
+ },
+ {
+  "id": "j10 N4c only a cm column declared generic, mm column [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm,precipitation_cm\n2026-10-16,15.5,1.55\n```\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": false
+ },
+ {
+  "id": "j10 N5 hourly-ish: 16th twice with 00 and 06 UTC, both one day value",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16T00:00Z,15.5\n2026-10-16T06:00Z,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N6 wide: mean_value(temp) wrong place? header 'value' for quality",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,value\n2026-10-16,15.5,10\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: value | QN",
+  "expected": true
+ },
+ {
+  "id": "j10 N7 right table + 2 prose lines with commas (precip named)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-15,0.3\n2026-10-16,15.5\n```\nPrecipitation peaked mid-week, then eased.\nOn 16 October 2026, rain was heavy.\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N7b WRONG table hidden by any_column? no column match; prose table [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,rr\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N8 value written 16.10 on day 16.10.2026 (coincidence) control",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 16.1
+  },
+  "answer": "```csv\ndate,precipitation_amount\n15.10.2026,0.0\n16.10.2026,16.10\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N8b value 16.1 dd.mm dates",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 16.1
+  },
+  "answer": "```csv\ndate,precipitation_amount\n15.10.,0.0\n16.10.,16.1\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N8c time column '06:00' and value",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,time,precipitation_amount\n2026-10-16,06:00,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10 N9 header with colon 'precipitation: mm'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation: mm\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9b header starts with digit '24h_precipitation'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,24h_precipitation\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9c header with hash/# 'precip #'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation [mm/d]\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9d header 'Niederschlag (mm)' umlaut-free ok; 'Höhe'  [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDatum,Niederschlagshöhe\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N9e header with '+' 'precip+snow'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation (rain+snow)\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9f header with '&'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate & time,precipitation\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9g header 'date,precip_mm,station_id' no issue",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precip,station\n2026-10-16,9.9,01975\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9h header with '#'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\n#date,precipitation\n2026-10-15,0.3\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9i TSV header 'Date\\tPrecip. (mm)'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```\nDate\tPrecip. (mm)\n2026-10-15\t0.3\n2026-10-16\t9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9j header with ':' in markdown no sep line? csv 'Precipitation, mm'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDate,Precipitation (mm/24h),Quality\n2026-10-16,9.9,10\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9k header 'date,RR, mm' [by the principle: an unnamed or ambiguous table decides nothing] [known limit: quoted CSV fields are not parsed]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\n\"date\",\"precipitation, mm\"\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N9l header with apostrophe/ü 'Niederschlag (l/m²)' [by the principle: an unnamed or ambiguous table decides nothing]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDatum,Niederschlag (l/m²)\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10 N9m header with '=' 'RR = precipitation'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,RR=precipitation\n2026-10-16,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 N9n header with question mark ''",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation,rain?\n2026-10-16,9.9,yes\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10 P1 kiel prose 2 lines with one comma each",
+  "case": "units-kiel-celsius",
+  "truth": {
+   "value": -0.7
+  },
+  "answer": "The daily mean temperature at Kiel-Holtenau on 26 December 2025 was -0.7 °C, just below freezing.\nThe station is run by DWD, the German weather service.",
+  "expected": true
+ },
+ {
+  "id": "j10 P1b kiel prose WRONG unit K, same layout",
+  "case": "units-kiel-celsius",
+  "truth": {
+   "value": -0.7
+  },
+  "answer": "The daily mean temperature at Kiel-Holtenau on 26 December 2025 was -0.7 K, just below freezing.\nThe station is run by DWD, the German weather service.",
+  "expected": false
+ },
+ {
+  "id": "j10 P2 humidity prose",
+  "case": "units-humidity-percent",
+  "truth": {
+   "value": 0.8404
+  },
+  "answer": "Mean relative humidity at Hamburg on 16 October 2026 was 84 %, fairly humid.\nThe value comes from DWD, station 01975.",
+  "expected": true
+ },
+ {
+  "id": "j10 P2b humidity prose WRONG 0.84 %",
+  "case": "units-humidity-percent",
+  "truth": {
+   "value": 0.8404
+  },
+  "answer": "Mean relative humidity at Hamburg on 16 October 2026 was 0.84 %, fairly humid.\nThe value comes from DWD, station 01975.",
+  "expected": false
+ },
+ {
+  "id": "j10 P3 lax forecast prose, wrong 45 °C in a 2-line comma prose",
+  "case": "units-lax-forecast-celsius",
+  "truth": {
+   "min": 17.1,
+   "max": 21.6
+  },
+  "answer": "Tomorrow afternoon at Los Angeles, about 20 °C, then at night 45 °C, odd.\nForecast from DWD MOSMIX, station 72295, issued today.",
+  "expected": false
+ },
+ {
+  "id": "j10b N1f form col FIRST, both declared (form dimensionless)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_form,precipitation_amount\n2026-10-16,6,15.5\n```\nTABLE-UNIT: precipitation_form | dimensionless\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10b N1g form col FIRST, both declared, + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_form,precipitation_amount\n2026-10-16,6,15.5\n```\nTABLE-UNIT: precipitation_form | -\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j10b N1h amount first but WRONG, form declared mm by regex? no line for form",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,precipitation_form\n2026-10-16,9.9,6\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N1i two asked cols: precipitation_amount WRONG, precip_max right-coincident",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,precipitation_max_1h\n2026-10-16,9.9,15.5\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N1j two asked cols: precipitation_max_1h=15.5 first, amount WRONG",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_max_1h,precipitation_amount\n2026-10-16,15.5,9.9\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N10 right table, 2 adjacent prose lines w/ commas before RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nHamburg, station 01975, was wettest on 16 October 2026.\nThe unit, as the glossary says, is mm.\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j10b N11 no TABLE-UNIT, RESULT right, table WRONG, header has colon in markdown w/o separator",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Date | Precipitation: mm\n2026-10-15 | 0.3\n2026-10-16 | 9.9\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N12 long table with station names col containing 'Precip'? -> parameter label 'Niederschlag' row + amount",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_amount,9.9\n2026-10-16,precipitation_amount,15.5\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N13 wide, 'value' header but quality, + precipitation col WRONG",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,value\n2026-10-16,9.9,15.5\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10b N14 transposed markdown with a notes row naming precip",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| | 2026-10-15 | 2026-10-16 |\n|---|---|---|\n| precipitation_amount | 0.3 | 9.9 |\n| notes | light precipitation | heavy |\n\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j10c N15 by_regex takes the first asked line: form line before a generic precipitation line",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_form | -\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j10c N16 two-day summary row '15-16 Oct 2026' in the table",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| period | precipitation (mm) |\n|---|---|\n| 14 Oct 2026 | 0.0 |\n| 16 Oct 2026 | 15.5 |\n| 15-16 Oct 2026 | 15.8 |\n\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S1 wide with station `name` column, right, TABLE-UNIT only",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,name,date,precipitation_amount\n01975,Hamburg-Fuhlsbüttel,2026-10-14,0.0\n01975,Hamburg-Fuhlsbüttel,2026-10-15,0.3\n01975,Hamburg-Fuhlsbüttel,2026-10-16,15.5\n01975,Hamburg-Fuhlsbüttel,2026-10-17,2.1\n01975,Hamburg-Fuhlsbüttel,2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S1b same, WRONG value + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,name,date,precipitation_amount\n01975,Hamburg-Fuhlsbüttel,2026-10-14,0.0\n01975,Hamburg-Fuhlsbüttel,2026-10-15,0.3\n01975,Hamburg-Fuhlsbüttel,2026-10-16,9.9\n01975,Hamburg-Fuhlsbüttel,2026-10-17,2.1\n01975,Hamburg-Fuhlsbüttel,2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S1c `name` col, precipitation_mm header, right, TABLE-UNIT only",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nname,date,precipitation_mm\nHamburg-Fuhlsbüttel,2026-10-14,0.0\nHamburg-Fuhlsbüttel,2026-10-15,0.3\nHamburg-Fuhlsbüttel,2026-10-16,15.5\nHamburg-Fuhlsbüttel,2026-10-17,2.1\nHamburg-Fuhlsbüttel,2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S2 long, TABLE-UNIT precipitation_amount | mm, right, no RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-15,precipitation_amount,0.3\n2026-10-16,precipitation_amount,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S2b long, WRONG, TABLE-UNIT precipitation_amount | mm, right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-15,precipitation_amount,0.3\n2026-10-16,precipitation_amount,9.9\n```\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S3 prose (1 comma, no digit) right above unfenced CSV, right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here is the daily precipitation, in millimetres.\ndate,precipitation_mm\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S3b same, WRONG + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here is the daily precipitation, in millimetres.\ndate,precipitation_mm\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,9.9\n2026-10-17,2.1\n2026-10-18,0.0\n\nTABLE-UNIT: precipitation_mm | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S3c prose with digit above unfenced CSV, right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Daily precipitation at station 01975, 14 to 18 October 2026:\ndate,precipitation_mm\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S4 header 'precipitation (06-06 UTC)', right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation (06-06 UTC)\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n```\nTABLE-UNIT: precipitation (06-06 UTC) | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S4b header 'Precip. in 24 h (mm)', WRONG + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,Precip. in 24 h (mm)\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,9.9\n2026-10-17,2.1\n2026-10-18,0.0\n```\nTABLE-UNIT: Precip. in 24 h (mm) | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S4c header 'precipitation_mm,quality (1-10)', right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm,quality (1-10)\n2026-10-16,15.5,10\n```\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S5 total row 2026-10-16–2026-10-18 after the day row, right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| date | precipitation (mm) |\n|---|---|\n| 2026-10-16 | 15.5 |\n| 2026-10-16–2026-10-18 | 17.6 |\n\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S5b total row '2026-10-16 to 2026-10-18' [known limit: a range written with 'to' makes the day ambiguous]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| date | precipitation (mm) |\n|---|---|\n| 2026-10-16 | 15.5 |\n| 2026-10-16 to 2026-10-18 | 17.6 |\n\nTABLE-UNIT: precipitation | mm",
+  "expected": false
+ },
+ {
+  "id": "j11 S5c weekday + dash: 'Fri - 16 Oct 2026'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| day | precipitation (mm) |\n|---|---|\n| Thu - 15 Oct 2026 | 0.3 |\n| Fri - 16 Oct 2026 | 9.9 |\n\nTABLE-UNIT: precipitation | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S6 header precipitation, two lines amount|mm form|- [two lines that are spellings of the header: no unit is stated]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | -",
+  "expected": false
+ },
+ {
+  "id": "j11 S6c header 'value' (wide!), line 'precipitation_value | mm'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,value\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_value | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S7 header 'variable' unrelated: wide table with 'variable' = quality flag text",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,variable\n2026-10-16,15.5,ok\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S7b long table, param cells 'Precipitation amount' (spaced)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,Precipitation amount,15.5\n2026-10-16,Precipitation form,6\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S7c long table, cells 'precipitation_amount (mm)' and value",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-16,precipitation_amount (mm),15.5\n2026-10-16,temperature_air_mean_2m (°C),12.1\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S8 wide 'precipitation_mm,value' where value is quality, right precip",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm,value\n2026-10-16,15.5,10\n```\nTABLE-UNIT: precipitation_mm | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S9 station table then data, right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| station_id | name | lat |\n|---|---|---|\n| 01975 | Hamburg | 53.6 |\n\n```csv\ndate,precipitation_amount\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S10b date,rr,snow_cm with only snow_cm|cm, right rr + RESULT [known limit: a column a TABLE-UNIT line names with a unit of the case is the value, whatever the quantity]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,rr,snow_cm\n2026-10-16,15.5,0\n```\nTABLE-UNIT: snow_cm | cm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S11 markdown header **Precipitation** (mm)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| **Date** | **Precipitation (mm)** |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S11b markdown `precipitation_amount` in backticks",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| `date` | `precipitation_amount` |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11 S11c markdown **precipitation_amount** WRONG + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| **date** | **precipitation_amount** |\n|---|---|\n| 2026-10-16 | 9.9 |\n\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11 S12 header 'precipitation_amount [mm]', no TABLE-UNIT line but RESULT right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount [mm]\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,15.5\n2026-10-17,2.1\n2026-10-18,0.0\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j11 S12b same WRONG",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount [mm]\n2026-10-14,0.0\n2026-10-15,0.3\n2026-10-16,9.9\n2026-10-17,2.1\n2026-10-18,0.0\n```\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11b P1 wide pretty 'Precipitation amount (mm)','Precipitation form', right, TU",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDate,Precipitation amount (mm),Precipitation form\n2026-10-15,0.3,6\n2026-10-16,15.5,6\n```\nTABLE-UNIT: Precipitation amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j11b P2 same WRONG + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nDate,Precipitation amount (mm),Precipitation form\n2026-10-15,0.3,6\n2026-10-16,9.9,6\n```\nTABLE-UNIT: Precipitation amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11b P3 md 'Precipitation (mm)' + 'Precipitation type'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (mm) | Precipitation type |\n|---|---|---|\n| 2026-10-16 | 15.5 | rain (6) |\n\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j11b P3b same WRONG + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (mm) | Precipitation type |\n|---|---|---|\n| 2026-10-16 | 9.9 | rain (6) |\n\nTABLE-UNIT: Precipitation | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j11b P4 'precipitation_mm,precipitation_form' right",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_mm,precipitation_form\n2026-10-16,15.5,6\n```\nTABLE-UNIT: precipitation_mm | mm\nTABLE-UNIT: precipitation_form | -",
+  "expected": true
+ },
+ {
+  "id": "j11b P5 long pretty, 'Precipitation amount' only",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,parameter,value\n2026-10-15,Precipitation amount,0.3\n2026-10-16,Precipitation amount,15.5\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j11b P6 long with name col first (station name)",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nname,date,parameter,value\nHamburg,2026-10-16,precipitation_amount,15.5\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j11b P7 md 'Precipitation (mm)' + 'Max precip. 1h (mm)'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation (mm) | Max precip. 1h (mm) |\n|---|---|---|\n| 2026-10-16 | 15.5 | 4.2 |\n\nTABLE-UNIT: Precipitation | mm\nTABLE-UNIT: Max precip. 1h | mm",
+  "expected": true
+ },
+ {
+  "id": "real Haiku answer, csv repeat 1",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Daily precipitation at Hamburg-Fuhlsbüttel (01975) for 14 to 18 October 2026 was 0.0, 0.0, 15.5, 11.1 and 7.2 mm; the precipitation column is in millimetres (mm). The first request used a parameter name that the server had renamed, so I retried with `precipitation_amount`, and the unit comes from the glossary.\n\n```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,15.5,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n01975,daily,climate_summary,precipitation_amount,2026-10-18T00:00:00.000000+00:00,7.2,1\n```\n\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "real Haiku answer, csv repeat 2",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Daily precipitation at Hamburg-Fuhlsbüttel (01975), 14 to 18 October 2026:\n\n```csv\ndate,precipitation_amount\n2026-10-14,0\n2026-10-15,0\n2026-10-16,15.5\n2026-10-17,11.1\n2026-10-18,7.2\n```\n\nThe precipitation column is in millimetres (mm), the daily precipitation height.\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "real Haiku answer, csv repeat 3",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Daily precipitation at Hamburg-Fuhlsbüttel (01975) for 14 to 18 October 2026 was 0.0, 0.0, 15.5, 11.1 and 7.2 mm, with 16 October the wettest day. The precipitation column is in millimetres (mm), per the glossary entry for `precipitation_amount`; the values response itself did not state a unit.\n\n```csv\ndate,precipitation_amount\n2026-10-14,0.0\n2026-10-15,0.0\n2026-10-16,15.5\n2026-10-17,11.1\n2026-10-18,7.2\n```\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 L1 real-1 shape, TABLE-UNIT value | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,15.5,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n```\nTABLE-UNIT: value | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 L2 real-1 shape, TABLE-UNIT precipitation | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,15.5,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n```\nTABLE-UNIT: precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 L3 real-1 shape, TABLE-UNIT value (precipitation_amount) | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,15.5,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n```\nTABLE-UNIT: value (precipitation_amount) | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 L4 real-1 shape WRONG, TABLE-UNIT value | mm + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,9.9,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n```\nTABLE-UNIT: value | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j12 L5 real-1 shape, two lines value|mm and quality_flags|-",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,resolution,dataset,parameter,timestamp,value,quality_flags\n01975,daily,climate_summary,precipitation_amount,2026-10-14T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-15T00:00:00.000000+00:00,0.0,1\n01975,daily,climate_summary,precipitation_amount,2026-10-16T00:00:00.000000+00:00,15.5,1\n01975,daily,climate_summary,precipitation_amount,2026-10-17T00:00:00.000000+00:00,11.1,1\n```\nTABLE-UNIT: value | mm\nTABLE-UNIT: quality_flags | -",
+  "expected": true
+ },
+ {
+  "id": "j12 L6 long daily/kl, per-parameter TABLE-UNIT lines",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,parameter,date,value\n01975,precipitation_amount,2026-10-15,0.0\n01975,precipitation_form,2026-10-15,6\n01975,temperature_air_mean_2m,2026-10-15,12.1\n01975,snow_depth,2026-10-15,0\n01975,precipitation_amount,2026-10-16,15.5\n01975,precipitation_form,2026-10-16,6\n01975,temperature_air_mean_2m,2026-10-16,12.1\n01975,snow_depth,2026-10-16,0\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: temperature_air_mean_2m | °C\nTABLE-UNIT: snow_depth | cm",
+  "expected": true
+ },
+ {
+  "id": "j12 L7 long daily/kl WRONG, per-parameter lines + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,parameter,date,value\n01975,precipitation_amount,2026-10-15,0.0\n01975,precipitation_form,2026-10-15,6\n01975,temperature_air_mean_2m,2026-10-15,12.1\n01975,snow_depth,2026-10-15,0\n01975,precipitation_amount,2026-10-16,9.9\n01975,precipitation_form,2026-10-16,6\n01975,temperature_air_mean_2m,2026-10-16,12.1\n01975,snow_depth,2026-10-16,0\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: temperature_air_mean_2m | °C\nTABLE-UNIT: snow_depth | cm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j12 L8 long daily/kl, value | mixed + param lines [known limit: a mixed 'value' unit is not one the case knows]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\nstation_id,parameter,date,value\n01975,precipitation_amount,2026-10-15,0.0\n01975,precipitation_form,2026-10-15,6\n01975,temperature_air_mean_2m,2026-10-15,12.1\n01975,snow_depth,2026-10-15,0\n01975,precipitation_amount,2026-10-16,15.5\n01975,precipitation_form,2026-10-16,6\n01975,temperature_air_mean_2m,2026-10-16,12.1\n01975,snow_depth,2026-10-16,0\n```\nTABLE-UNIT: value | see parameter\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": false
+ },
+ {
+  "id": "j12 W1 wide daily/kl canonical, every column declared",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,temperature_air_mean_2m,temperature_air_max_2m,temperature_air_min_2m,precipitation_amount,precipitation_form,sunshine_duration,snow_depth\n2026-10-15,11.0,13.2,8.1,0.0,0,1.2,0\n2026-10-16,10.1,12.0,8.9,15.5,6,0.0,0\n```\nTABLE-UNIT: temperature_air_mean_2m | °C\nTABLE-UNIT: temperature_air_max_2m | °C\nTABLE-UNIT: temperature_air_min_2m | °C\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: precipitation_form | code\nTABLE-UNIT: sunshine_duration | h\nTABLE-UNIT: snow_depth | cm",
+  "expected": true
+ },
+ {
+  "id": "j12 W2 md wide pretty units-in-headers",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Tmean (°C) | Tmax (°C) | Tmin (°C) | Precipitation (mm) | Precip. form | Sunshine (h) |\n|---|---|---|---|---|---|---|\n| 2026-10-15 | 11.0 | 13.2 | 8.1 | 0.0 | 0 | 1.2 |\n| 2026-10-16 | 10.1 | 12.0 | 8.9 | 15.5 | 6 | 0.0 |\n\nTABLE-UNIT: Tmean | °C\nTABLE-UNIT: Precipitation | mm\nTABLE-UNIT: Sunshine | h",
+  "expected": true
+ },
+ {
+  "id": "j12 W3 md wide pretty WRONG + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Tmean (°C) | Precipitation (mm) | Precip. form |\n|---|---|---|---|\n| 2026-10-16 | 10.1 | 9.9 | 6 |\n\nTABLE-UNIT: Precipitation | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j12 W4 md 'Precipitation, 24-hour total (mm)'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Precipitation, 24-hour total (mm) |\n|---|---|\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: Precipitation, 24-hour total | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W5 md 'Rainfall (mm)' + TABLE-UNIT Rainfall | mm",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Rainfall (mm) |\n|---|---|\n| 2026-10-15 | 0.0 |\n| 2026-10-16 | 15.5 |\n\nTABLE-UNIT: Rainfall | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W6 md 'Rainfall (mm)' WRONG + RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Date | Rainfall (mm) |\n|---|---|\n| 2026-10-16 | 9.9 |\n\nTABLE-UNIT: Rainfall | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ },
+ {
+  "id": "j12 W7 csv header abbreviated 'Precip. amt.'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,Precip. amt.\n2026-10-15,0.0\n2026-10-16,15.5\n```\nTABLE-UNIT: Precip. amt. | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W8 csv daily/kl with 'Temp. max.' cell",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount,Temp. max.\n2026-10-15,0.0,13.2\n2026-10-16,15.5,12.0\n```\nTABLE-UNIT: precipitation_amount | mm\nTABLE-UNIT: Temp. max. | °C",
+  "expected": true
+ },
+ {
+  "id": "j12 W9 csv 'Precipitation (mm/day)' + canonical TU",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,Precipitation (mm/day)\n2026-10-16,15.5\n```\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W10 md weekday-dash label 'Fri – 16 Oct'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Day | Precipitation (mm) |\n|---|---|\n| Thu – 15 Oct | 0.0 |\n| Fri – 16 Oct | 15.5 |\n\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W11 md '16 Oct (Fri)'",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "| Day | Precipitation (mm) |\n|---|---|\n| 15 Oct (Thu) | 0.0 |\n| 16 Oct (Fri) | 15.5 |\n\nTABLE-UNIT: Precipitation | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 W13 csv timestamps with Z and a 'total' row",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "```csv\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\n2026-10-17,11.1\ntotal,26.6\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 P1 short title line w/o colon right above unfenced CSV [known limit: a title line of names above an unfenced CSV becomes its header]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Hamburg-Fuhlsbüttel, daily precipitation\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": false
+ },
+ {
+  "id": "j12 P2 same WRONG + RESULT [known limit: a title line of names above an unfenced CSV becomes its header]",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Hamburg-Fuhlsbüttel, daily precipitation\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,9.9\n\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": true
+ },
+ {
+  "id": "j12 P3 sentence with whole numbers above unfenced CSV",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Station 01975, 5 days of data\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j12 P4 bullets with commas then CSV",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "- Hamburg-Fuhlsbüttel, 01975\n- 14 to 18 October, daily\n\n```csv\ndate,precipitation_amount\n2026-10-16,15.5\n```\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j13 L1 prose 'Here it is, in mm.' above unfenced CSV, right, no RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here it is, in mm.\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,15.5\n\nTABLE-UNIT: precipitation_amount | mm",
+  "expected": true
+ },
+ {
+  "id": "j13 L1b same, wrong table 9.9 + right RESULT",
+  "case": "units-csv-with-unit",
+  "truth": {
+   "value": 15.5
+  },
+  "answer": "Here it is, in mm.\ndate,precipitation_amount\n2026-10-15,0.0\n2026-10-16,9.9\n\nTABLE-UNIT: precipitation_amount | mm\nRESULT: 15.5 mm | precipitation on 2026-10-16",
+  "expected": false
+ }
+]
