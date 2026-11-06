@@ -998,14 +998,22 @@ def test_metno_frost_answer_without_any_quality_code_is_read(monkeypatch: pytest
     assert df["quality_flags"].to_list() == [None]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+# (element, resolution, years from the cut-off, the values that come back, the readers that reach it); the 6-hourly
+# dataset has one parameter, so a request of it goes to discovery on a 404 and the single reader is not reached
+_MINUS_ONE_CASES = [
+    ("sum(precipitation_amount PT6H)", "6_hours", 0, [0.0, 1.3], ("batch", "discovery"), "6_hours-from"),
+    ("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], ("batch", "discovery"), "6_hours-before"),
+    ("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], ("batch", "single", "discovery"), "hourly-from"),
+    ("sum(precipitation_amount P1D)", "daily", -1, [1.3], ("batch", "single", "discovery"), "daily-before"),
+]
+
+
 @pytest.mark.parametrize(
-    ("element", "resolution", "year_offset", "expected"),
+    ("path", "element", "resolution", "year_offset", "expected"),
     [
-        pytest.param("sum(precipitation_amount PT6H)", "6_hours", 0, [0.0, 1.3], id="6_hours-from"),
-        pytest.param("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], id="6_hours-before"),
-        pytest.param("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], id="hourly-from"),
-        pytest.param("sum(precipitation_amount P1D)", "daily", -1, [1.3], id="daily-before"),
+        pytest.param(path, element, resolution, offset, expected, id=f"{case_id}-{path}")
+        for element, resolution, offset, expected, paths, case_id in _MINUS_ONE_CASES
+        for path in paths
     ],
 )
 def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader(
@@ -1048,9 +1056,7 @@ def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader
 
     requested = [(resolution, "data", "precipitation_amount")]
     if path == "single":
-        sibling = {"6_hours": None, "hourly": "temperature_air_2m", "daily": "temperature_air_mean_2m"}[resolution]
-        if sibling is None:
-            pytest.skip("the 6-hourly dataset has one parameter: a request of one goes to discovery")
+        sibling = {"hourly": "temperature_air_2m", "daily": "temperature_air_mean_2m"}[resolution]
         requested.append((resolution, "data", sibling))
     values, _ = _values(monkeypatch, observations, requested, start=start, end=end)
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount")
