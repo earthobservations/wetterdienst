@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
+  errors, the warnings about the answer and "Nothing was written to --target." only: no progress,
+  no other warning. Stdout and the exit code stay as they are; with `--debug` it is a usage error.
+  `values`, `interpolate` and `summarize` now also log, with or without `--quiet`, one line with the
+  total for each warning that was only counted (values a check rejected, markers, calms), which a
+  CSV or a file target had no place for. Shell completion is click's own (`_WETTERDIENST_COMPLETE`,
+  see the command line page) and now offers `--provider` and `--network` from the registry.
+  `NO_COLOR` is honoured by `wetterdienst restapi`, whose log lines uvicorn coloured on a terminal
+  (Part of GH-3134)
 - The REST API marks four answers as stable: `coverage`, `providers` and `glossary` get
   `Cache-Control: public, max-age=300`, an `ETag` and a `Last-Modified`, `history` gets 3600 and an
   `ETag` when it has rows and no warnings. A matching `If-None-Match` or `If-Modified-Since` is
@@ -93,6 +102,9 @@ Types of changes:
   data (`spdx_id` `CC-BY-NC-ND-4.0`, before `null` with a link to IMGW-PIB's terms), so
   `license.url` is now the licence text. Those terms still apply beside it, and `attribution` is
   unchanged. A commercial use needs an agreement with IMGW-PIB (Part of GH-2567)
+- `license.url` of Météo-France and Eaufrance is now
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2-0`, where the former `etalab-2.0` address
+  redirects permanently to it; it is the same Licence Ouverte 2.0 (Part of GH-3762)
 
 ### Fixed
 
