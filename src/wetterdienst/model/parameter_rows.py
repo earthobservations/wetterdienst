@@ -43,6 +43,21 @@ out are those, so it does not repeat `file-skipped`. Which stations it names:
 - except the stations a rank walk (`filter_by_rank`) passed over for the next ones, when it filled its `rank`: the
   answer holds as many stations as were asked for, and the ones replaced are not a gap in it. A rank walk that ends
   short (an outage that emptied most of the candidates) names them all.
+
+A request that names its stations by id (`stations=`, `filter_by_station_id`) has a third warning,
+`station-without-rows` (GH-3828): the ids that returned no rows while other stations of the request did.
+
+- It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
+  ranked walk stops early), after a walk read to its end, so that a station never read is never named.
+- The stations are in the order of the walk, capped as the other warnings cap theirs.
+- A station is named when the answer holds none of its rows: the source holds no readings of it in the window (one that
+  begins after the window too), or all of them were null and `drop_nulls` left them out (with `drop_nulls=False` the
+  station has rows).
+- It leaves out the stations another warning explains, those of `file-skipped` and `station-skipped`, and the ones with
+  a row of any requested parameter (a parameter with no row at a station that has others is `parameter-without-rows`'s,
+  if no station has it).
+- Nothing is told where every station is empty, which `parameter-without-rows` tells where it can, nor for an id the
+  network has no station for (`unknown-station`).
 """
 
 from __future__ import annotations
@@ -55,12 +70,13 @@ from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
     PARAMETER_WITHOUT_ROWS,
+    STATION_WITHOUT_ROWS,
     collecting,
     warn_response,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
     from contextlib import AbstractContextManager
 
     import polars as pl
@@ -96,12 +112,22 @@ class ParameterRows:
         end: dt.datetime | None,
         *,
         enabled: bool = True,
+        asked: Sequence[str] | None = None,
     ) -> None:
-        """Hold the request's parameters and the window of the walk; `enabled` False reads nothing and says nothing."""
+        """Hold the request's parameters and the window of the walk; `enabled` False reads nothing and says nothing.
+
+        `asked` is the stations of a request that named them by id, in the order of the walk, and None for any other
+        selection (`station-without-rows`).
+        """
         self._request = request
         self._enabled = enabled
         self._start = start
         self._end = end
+        #: the stations the request named by id, and those the walk handed to the answer (`returned`) or told another
+        #: warning of (`explained`: `station-skipped`)
+        self._asked = None if asked is None else list(asked)
+        self._returned: set[str] = set()
+        self._explained: set[str] = set()
         #: the stations whose file the provider let go, in the order they came (a dict for the order): no evidence that
         #: the source holds nothing, and the stations `file-skipped` names
         self._skipped: dict[str, None] = {}
@@ -147,6 +173,14 @@ class ParameterRows:
         """
         self._passed_over.add(station_id)
 
+    def returned(self, station_id: str) -> None:
+        """Note that the station has rows in the answer: the walk hands them over."""
+        self._returned.add(station_id)
+
+    def explained(self, station_id: str) -> None:
+        """Note that another warning tells why the station is not in the answer (`station-skipped`)."""
+        self._explained.add(station_id)
+
     def note(self, df: pl.DataFrame) -> None:
         """Note the parameters that a station's rows of the answer are of, in the long form the provider handed over."""
         if not self._enabled or df.is_empty():
@@ -164,6 +198,37 @@ class ParameterRows:
         self._warn_skipped(rank_filled=rank_filled)
         if not self._skipped_all:
             self._warn_without_rows()
+        self._warn_stations_without_rows()
+
+    def _warn_stations_without_rows(self) -> None:
+        """Tell the stations named by id that have no rows in the answer, once the others do (GH-3828).
+
+        Only an explicit list of ids: for a point, a box, a name or a rank an empty station is the ordinary case and a
+        ranked walk stops early. Only after a walk read to its end (`warn` is not reached otherwise), so a station
+        never read is never named. Not when no station has rows, which `parameter-without-rows` tells where it can
+        (a station that has rows of one parameter and none of another has rows, and is not named). Left out are the
+        stations another warning already explains: the file of which was let go (`file-skipped`), and one `skip_empty`
+        dropped (`station-skipped`); an id the network has no station for was never in the walk (`unknown-station`).
+        """
+        if self._asked is None or not self._returned:
+            return
+        left_go = set(self._collected) if self._skipped_all else set(self._skipped)
+        stations = [
+            station
+            for station in self._asked
+            if station not in self._returned and station not in self._explained and station not in left_go
+        ]
+        if not stations:
+            return
+        many = len(stations) > 1
+        warn_response(
+            log,
+            STATION_WITHOUT_ROWS,
+            f"No rows for {self._where(stations)}{_window(self._start, self._end)}, while the other stations named in "
+            f"`stations` have rows: the source holds no readings of {'them' if many else 'it'} there, or "
+            f"{'all of them were' if many else 'every reading was'} null and left out (`drop_nulls`).",
+            stations=stations[:MAX_STATIONS_LISTED],
+        )
 
     def _warn_without_rows(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""

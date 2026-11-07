@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- A `station-without-rows` warning names the ids of `stations=` (REST, MCP, CLI, and
+  `filter_by_station_id` in Python) that returned no rows while other named stations did. Before,
+  `values` held the rows of the others and nothing said the rest was missing. It is not told for a
+  point, box, name, `sql` or `rank`, nor where every station is empty (`parameter-without-rows`),
+  nor for a station `file-skipped` or `station-skipped` names; a station whose readings are all
+  null has no rows unless `drop_nulls=False`. Up to 10 ids, then their number (GH-3828)
+
 ### Changed
 
 - Command line: `--help`, `--version` and each shell completion (a TAB) start in about 0.07 s,

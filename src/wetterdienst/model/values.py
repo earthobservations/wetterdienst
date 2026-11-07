@@ -483,7 +483,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
-        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
+        # an explicit list of ids is the one selection whose empty stations are told (`station-without-rows`, GH-3828)
+        asked = (
+            [cast("str", station_id) for (station_id,), _ in groups]
+            if self.sr._stations_filter == StationsFilter.BY_STATION_ID  # noqa: SLF001
+            else None
+        )
+        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows, asked=asked)
         # mapping of original to humanized parameter names is always the same
         hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None
         for position, ((station_id,), df_station_meta) in enumerate(groups):
@@ -521,7 +527,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 if percentage < self.sr.options.skip_threshold:
                     # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
                     self._note_nulls_dropped(rows)
-                    self._warn_station_skipped(station_id, percentage)
+                    self._warn_station_skipped(station_id, percentage, rows)
                     self._pass_over(rows, station_id)
                     continue
             self._tell_missing_value_markers()
@@ -540,6 +546,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             df = df.sort(sort_columns)
             stations_collected += 1
+            rows.returned(station_id)
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
@@ -554,8 +561,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr._stations_filter == StationsFilter.BY_RANK:  # noqa: SLF001
             rows.passed_over(station_id)
 
-    def _warn_station_skipped(self, station_id: str, percentage: float) -> None:
+    def _warn_station_skipped(self, station_id: str, percentage: float, rows: ParameterRows) -> None:
         """Tell that `skip_empty` leaves the station out, for a share of actual values below the threshold."""
+        rows.explained(station_id)
         warn_response(
             log,
             "station-skipped",
@@ -568,7 +576,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
         if self._note_nulls_dropped(rows):
             # `skip_empty` leaves it out, as it does with the nulls kept
-            self._warn_station_skipped(station_id, 0.0)
+            self._warn_station_skipped(station_id, 0.0, rows)
         self._tell_missing_value_markers(emptied=True)
 
     def _station_spans(self) -> pl.DataFrame | None:
