@@ -229,6 +229,15 @@ _WithMetadataSettingsField = Annotated[
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
+# of the values: the stations that have rows in the answer (GH-3818)
+_WithValueStationsField = Annotated[
+    bool,
+    Field(
+        description="Include the metadata of the stations that have rows in the answer, one entry per dataset that "
+        "has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows "
+        "is not listed.",
+    ),
+]
 # of the interpolation and the summary: the stations are the ones the rows were made from, and where each stands
 _WithEstimateStationsField = Annotated[
     bool,
@@ -1065,7 +1074,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     sql: _SqlField = None
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithValueStationsField = False
 
     format: _StreamFormatField = "json"
     pretty: _PrettyField = False

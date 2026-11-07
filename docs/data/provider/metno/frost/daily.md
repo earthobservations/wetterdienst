@@ -25,7 +25,7 @@
 | {term}`pressure_air_sea_level_mean` | mean(air_pressure_at_sea_level P1D) | Mean daily air pressure reduced to sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site_mean` | mean(surface_air_pressure P1D) | Daily mean air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`radiation_global_intensity_mean` | mean(surface_downwelling_shortwave_flux_in_air P1D) | Mean global radiation over the last 24 hours. Global radiation is the total downwelling shortwave radiation from the sun. Shortwave radiation have wavelengths in the area 295-2800 nm and therefore includes ultraviolet, visible and infrared light. The instrument measures the radiation flux through a horizontal surface (W/m2). | watt_per_square_meter |
-| {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow, and is returned as a depth of 0. | centimeter |
+| {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow (Frost's data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible to measure the depth, and is returned as null. | centimeter |
 | {term}`sunshine_duration` | sum(duration_of_sunshine P1D) | Number of hours of sunshine over the last 24 hours. | hour |
 
 ## Notes
@@ -34,3 +34,7 @@ Frost states that `-1` of the daily precipitation sum is 0.0 mm. It is returned 
 now, as it was: at stations that read periodically it also marks a day that was not read
 ([#3820](https://github.com/earthobservations/wetterdienst/issues/3820)). See the section
 [The code -1 of the precipitation sums](index.md) of the Frost page.
+
+The `-1` of `snow_depth` ("Zero snowdepth or partial snow cover") is `0.0` with `raw:-1`, a `0` ("Snowdepth less than 0.5
+cm") stays `0.0`, and a `-3` ("Not possible to measure snowdepth") is `null` with `raw:-3`. See the section
+[The other coded values](index.md) of the Frost page.

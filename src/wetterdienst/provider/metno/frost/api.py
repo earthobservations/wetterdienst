@@ -38,9 +38,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# the answers that say Frost refuses the client ID, as opposed to one that says it could not be asked
-_FROST_REJECTED_STATUSES = frozenset({401, 403})
-
 _MetnoFrostMetadataSpec = {
     "name_short": "MetNo Frost",
     "name_english": "Norwegian Meteorological Institute",
@@ -418,15 +415,35 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 
 # Frost writes in-band codes into the value itself, where nothing tells them apart from a measurement. It states
 # them in its data clarifications (https://frost.met.no/dataclarifications.html, "Explanations for some coded
-# negative value elements"); the description of an element states one only for the snow depth and the cloud cover:
+# negative value elements"); the description of an element states one only for the snow depth and the cloud cover.
+# Of the elements this module reads the table lists these (all "not converted"; the precipitation sums are below):
 #
-# - snow depth -1 is "no snow", which is a depth of zero rather than an absent one (the description of the element:
-#   "Code=-1 means no snow"; the clarifications: "Zero snowdepth or partial snow cover"). It reaches the caller as
-#   -1 cm otherwise, and it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against
-#   92 measured zeros
-# - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured. In
-#   eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a
-#   plausible reading rather than a code
+# - `wind_from_direction` -3: "No unique wind direction is given when winds are weak". It is null here, with the code
+#   kept (the range check used to take it for a bearing below 0: null as `rejected:range` in hard mode, and the
+#   value `-3.0` with `suspect:range` in soft mode). Read on 2026-11-06, 22 October to 5 November, at the foreign WMO
+#   stations Frost lists since 2026-11-03: 72 of 9,255 hourly readings at 12 of the 249 stations with wind readings,
+#   all beside a wind speed of 0.5 to 2.6 m/s, and none in 108,161 readings of 328 stations in 10 to 24 January 2026.
+#   The 0 of the direction is not in the table; at those foreign stations it stands beside a speed of 0 in 359 of 372
+#   readings, and it is returned as the 0.0 it is written as (GH-3137)
+# - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
+#   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
+#   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
+#   Beside the daily `snow_coverage_type` (0 or -1 no snow, 1 mostly free, 2 half, 3 mostly covered, 4 covered) of the
+#   same station and day (16 stations, 2015-10 to 2016-06), 11.2 % of the 954 days of a -1 from November to April have
+#   a cover of 1 to 4 (107 days), and 1.6 % of the 888 from May to October; a 0 has it on 8.7 % of 196 days from
+#   November to April. Read as 0.0
+# - `surface_snow_thickness` 0: "Snowdepth less than 0.5 cm", returned as the 0.0 it is written as, with no token. By
+#   the same definition (0 or -1 is no snow) it is no snow in 91.6 % of 474 days
+# - `surface_snow_thickness` -3: "Not possible to measure snowdepth". That is no depth: null, with the code kept. It
+#   was not mapped, and a -3 would have come back as -3 cm, a value inside the range of the parameter. None was seen in
+#   about 150,000 snow depths read (daily and hourly, Norwegian and foreign stations). Negative depths the table does
+#   not list are returned as they are: one -2 at SN91500 on 2017-07-24 (daily, quality 2), and 12 hourly values of
+#   -0.29 to -0.01 at SN18700 on 2016-08-04 and 05 (quality 0)
+# - cloud cover -3 and 9 both mean the cover could not be estimated, the sky being obscured (the clarifications state
+#   the -3: "Cloud cover is not estimated because of fog or analogous phenomena"; the description of the element states
+#   both). In eighths those convert to -0.375 and 1.125 of the sky, the second of which looks like a plausible reading
+#   rather than a code. Of the hourly readings the 9 is 19,669 of 572,955 at the five Norwegian stations with an open
+#   series of the element (seven have one; 2008 to 2025) and 35 of 8,743 at the foreign ones; a -3 was in none of them
 # - precipitation -1 is "No precipitation": for `sum(precipitation_amount PT6H)` and `PT12H` (not converted), for
 #   `sum(precipitation_amount P1D)` (converted to 0.0 mm) and for `sum_over_undefined_period(precipitation_amount
 #   PT1H)` (not converted). The range check took it for a reading below 0 mm and dropped it, so a station whose
@@ -465,6 +482,10 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 # checked over nine years at SN18700, where neither mean goes negative or above eight.
 _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = "-1"
+_WIND_DIRECTION = "wind_from_direction"
+# "No unique wind direction is given when winds are weak" for the direction, "Not possible to measure snowdepth" for the
+# snow depth
+_NOT_GIVEN = "-3"
 _CLOUD_COVER = "cloud_area_fraction"
 _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _PRECIPITATION_SUMS = (
@@ -630,6 +651,7 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year >= _NO_PRECIPITATION_FROM_YEAR), to=0.0),
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year < _NO_PRECIPITATION_FROM_YEAR)),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
+        Sentinel(_NOT_GIVEN, where=pl.col("parameter").is_in([_WIND_DIRECTION, _SNOW_DEPTH])),
         text=False,
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
@@ -668,16 +690,14 @@ class MetnoFrostValues(TimeseriesValues):
         station_id: str,
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
-        from wetterdienst.model.metadata import DatasetModel, ParameterModel  # noqa: PLC0415
+        from wetterdienst.model.metadata import DatasetModel  # noqa: PLC0415
 
         if isinstance(parameter_or_dataset, DatasetModel):
             dataset = parameter_or_dataset
             parameters = parameter_or_dataset.parameters
-        elif isinstance(parameter_or_dataset, ParameterModel):
+        else:
             dataset = parameter_or_dataset.dataset
             parameters = [parameter_or_dataset]
-        else:
-            return pl.DataFrame()
 
         start_date = self.sr.start
         end_date = self.sr.end
@@ -722,8 +742,8 @@ class MetnoFrostValues(TimeseriesValues):
         _raise_if_unanswered(file, settings, client_kwargs)
         if file.status == 412:
             return pl.DataFrame()
-        # 404: one or more elements may require specific time-series parameters (e.g.
-        # historical synoptic data). Fall back to resolving each requested parameter individually.
+        # 404: Frost's "No data found" for a window without data. The elements are resolved one by one and then
+        # through the time series, which found data in none of the 12 such series of a sample of 208 (GH-3137)
         if file.status == 404:
             return self._collect_after_batch_404(
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
@@ -806,8 +826,7 @@ class MetnoFrostValues(TimeseriesValues):
         """Fetch a single parameter directly, falling back to time-series discovery on 404.
 
         Used when a batched multi-element request 404s, to resolve each parameter
-        individually (some historical/synoptic elements require time-series discovery,
-        see `_collect_via_time_series_discovery`).
+        individually before the time series are asked for (`_collect_via_time_series_discovery`).
         """
         url = self._observations_url.format(
             station_id=station_id,
@@ -830,7 +849,7 @@ class MetnoFrostValues(TimeseriesValues):
         _raise_if_unanswered(file, settings, client_kwargs)
         if file.status == 412:
             return pl.DataFrame()
-        # 404: element may require specific time-series parameters (e.g. historical synoptic data)
+        # 404: no data in the window; the time series are asked for (see `_collect_via_time_series_discovery`)
         if file.status == 404:
             return self._collect_via_time_series_discovery(
                 station_id, parameter, start_date, end_date, settings, client_kwargs
@@ -883,9 +902,11 @@ class MetnoFrostValues(TimeseriesValues):
     ) -> pl.DataFrame:
         """Fall back to availableTimeSeries discovery when the direct query returns 404.
 
-        Some historical/synoptic elements require specific timeseriesids, performancecategories,
-        and exposurecategories parameters that can only be discovered via the availableTimeSeries
-        endpoint; Frost answers a query without them with a 404.
+        The time series of an element carry a `timeseriesids`, `performancecategories` and `exposurecategories`
+        that the availableTimeSeries endpoint lists, and the query is asked once more with them. Frost's 404 is "No
+        data found" for a window without data, and it was the same 404 with them in each of the 12 series that
+        answered one in a sample of 208 (4 stations, 2026-11-06, GH-3137): the step has not been seen to find data
+        that the direct query did not.
         """
         element = parameter_or_dataset.name_original
         resolution = parameter_or_dataset.dataset.resolution.name_original
