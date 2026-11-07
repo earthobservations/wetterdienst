@@ -19,16 +19,22 @@
 | {term}`temperature_dew_point_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
 | {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
 | {term}`wind_speed_mean_last_10min` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |
-| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. | degree |
+| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. | degree |
 | {term}`pressure_air_sea_level` | air_pressure_at_sea_level | Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site` | surface_air_pressure | Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | cloud_area_fraction | Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null. | one_eighth |
 | {term}`radiation_global_intensity_mean` | mean(surface_downwelling_shortwave_flux_in_air PT1H) | Hourly mean global radiation. Global radiation is the total downwelling shortwave radiation from the sun. Shortwave radiation have wavelengths in the area 295-2800 nm and therefore includes ultraviolet, visible and infrared light. The instrument measures the radiation flux through a horizontal surface (W/m2). | watt_per_square_meter |
 | {term}`precipitation_amount` | sum(precipitation_amount PT1H) | Amount of precipitation per hour. Code -1 is read as no precipitation (our reading: Frost's table lists it for the sum over an undefined period only): returned as 0 from 1982 on, and as null before. | millimeter |
-| {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow, and is returned as a depth of 0. | centimeter |
+| {term}`snow_depth` | surface_snow_thickness | The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no snow (Frost's data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible to measure the depth, and is returned as null. | centimeter |
 
 ## Notes
 
 `-1` of the precipitation sum is read as no precipitation, `0.0`, from 1982 on and is `null` before. That is our reading:
 Frost's table lists the code for `sum_over_undefined_period(precipitation_amount PT1H)` and not for this element. See the
 section [The code -1 of the precipitation sums](index.md) of the Frost page for the evidence.
+
+The `-3` of `wind_direction_mean_last_10min` ("No unique wind direction is given when winds are weak") and of `snow_depth`
+("Not possible to measure snowdepth") is `null` with `raw:-3`; the `-1` of `snow_depth` ("Zero snowdepth or partial snow
+cover") is `0.0` with `raw:-1`, and a `0` ("Snowdepth less than 0.5 cm") stays `0.0`. A `0` of the wind direction stays
+`0.0`, though Frost writes a calm as 0. See the section [The other coded values](index.md) of the Frost page for the
+evidence.

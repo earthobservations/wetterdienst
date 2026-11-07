@@ -23,7 +23,9 @@ Six more providers publish descriptions of their own fields, in machine-readable
 are taken as they come:
 
 - MeteoSwiss: ``ogd-smn_meta_parameters.csv``, published beside the data, English column
-- MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``
+- MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``, and for the codes written into a value
+  https://frost.met.no/dataclarifications.html ("Explanations for some coded negative value elements"), which the
+  entry quotes where it states what the reader returns for one
 - KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files, and the longer
   ``description`` attribute where it states the window (hourly ``DD``)
 - FMI: the ``observableProperty`` metadata endpoint, ``language=eng``, composed from its label,
@@ -80,7 +82,9 @@ the DMI rows (GH-3136, the ninth group: from the canonical sentence of the quant
 of how each value is made, the type of day and the heights), and the DWD phenology rows (GH-3136, the tenth group:
 the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and the definitions of the
 ``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
-over this table).
+over this table), and the MET Norway Frost rows (GH-3137, read against the ``/elements`` answer with a client ID:
+39 of the 49 equal it, 1 up to a trailing blank and 2 up to a blank before the final stop, and the other 7 add what
+the reader returns for a code of the data clarifications or of the element's own text).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
@@ -3965,7 +3969,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow, and is returned as a depth of 0."
+            'snow (Frost\'s data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth '
+            "of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible "
+            "to measure the depth, and is returned as null."
         ),
         ("hourly", "data", "air_pressure_at_sea_level"): (
             "Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the "
@@ -3998,12 +4004,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow, and is returned as a depth of 0."
+            'snow (Frost\'s data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth '
+            "of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible "
+            "to measure the depth, and is returned as null."
         ),
         ("hourly", "data", "wind_from_direction"): (
             "Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as "
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
-            "degrees is east."
+            "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
+            "clarifications), and is returned as null."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "

@@ -8,11 +8,7 @@ import importlib
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, cast, overload
 
-from pydantic import ValidationError
-from pydantic_settings import SettingsError
-
 from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
-from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
 
 if TYPE_CHECKING:
@@ -305,8 +301,17 @@ class Wetterdienst:
         is_configured = getattr(api, "is_configured", lambda: True)
         try:
             return is_configured()
-        except (ValidationError, SettingsError) as e:
+        except Exception as e:
+            # imported here: this module is what the command line's shell completion reads the registry from, and
+            # pydantic and the settings are not (GH-3809)
+            from pydantic import ValidationError  # noqa: PLC0415
+            from pydantic_settings import SettingsError  # noqa: PLC0415
+
+            from wetterdienst.settings import Settings, check_settings  # noqa: PLC0415
+
             # another model's error is not the settings'
+            if not isinstance(e, (ValidationError, SettingsError)):
+                raise
             if isinstance(e, ValidationError) and e.title != Settings.__name__:
                 raise
             problems = tuple(check_settings())

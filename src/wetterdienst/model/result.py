@@ -432,6 +432,16 @@ def _fit_map_view(
     return center, max(0.0, min(zooms))
 
 
+def _station_rows(df: pl.DataFrame) -> list[_Station]:
+    """Write a stations frame as the rows of a `stations` block, its timestamps as text.
+
+    The one place that writes them: a listing of stations and the `stations` block of a values result, which
+    reads its frame off `df_stations`, give the same row for the same station.
+    """
+    # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
+    return cast("list[_Station]", timestamps_to_string(df, ["start_timestamp", "end_timestamp"]).to_dicts())
+
+
 @dataclass(frozen=True, kw_only=True, eq=False)
 class StationsResult(_EqualByFields, ExportMixin):
     """Result class for stations.
@@ -524,9 +534,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             Dictionary with station information.
 
         """
-        df = timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"])
-        # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
-        stations = cast("list[_Station]", df.to_dicts())
+        stations = _station_rows(self.df)
         if with_metadata:
             return {"metadata": _metadata_of(self), "stations": stations}
         return {"stations": stations}
@@ -826,14 +834,45 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values come from, one row per resolution, dataset and station.
 
-        Only the stations that returned values: a request for the stations nearest a point lists
-        every station with a position, and the walk stops at the ones with data. Read off the values,
-        so that a `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations
-        that are left. An interpolated or summarized result names the stations it was made from.
+        Only the stations, and the datasets of them, that have rows: a request for the stations nearest a point
+        lists every station with a position, and the walk stops at the ones with data; a station that returned
+        rows of one dataset and none of another has the row of the first only. Read off the values, so that a
+        `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left. A row
+        of nulls is a row. An interpolated or summarized result names the stations it was made from.
+
+        A series is matched to the rows of the stations frame by resolution, dataset and station, compared as
+        text. A station of the stations frame with a row is always listed, by at least one of its rows:
+
+        - a wide row of a resolution that merged several datasets has no dataset (`TimeseriesValues._widen_df`)
+          and stands for each dataset row of that resolution and station;
+        - a series that the stations frame does not hold for its station (a dataset it is not listed for, which
+          the collection does not produce, as it reads the datasets off that frame) stands for every row of the
+          station;
+        - a frame without the three key columns is matched on the station alone.
         """
+        stations = self.stations.df
         if "station_id" not in self.df.columns:
-            return self.stations.df.clear()
-        return self.stations.df.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
+            return stations.clear()
+        keys = ["resolution", "dataset", "station_id"]
+        if not (set(keys) <= set(self.df.columns) and set(keys) <= set(stations.columns)):
+            return stations.filter(
+                pl.col("station_id").cast(pl.String).is_in(self.df.get_column("station_id").cast(pl.String).implode())
+            )
+        # compared as text, whatever the frames hold the keys as (a null column, a categorical, an enum)
+        text = [pl.col(key).cast(pl.String) for key in keys]
+        held = stations.select(text).with_row_index("row")
+        series = self.df.select(text).unique()
+        unmatched = series.join(held.drop("row"), on=keys, how="anti")
+        merged = unmatched.filter(pl.col("dataset").is_null() & pl.col("resolution").is_not_null())
+        unplaced = unmatched.join(merged, on=keys, how="anti", nulls_equal=True)
+        rows = pl.concat(
+            [
+                held.join(series, on=keys, how="semi"),
+                held.join(merged.select("resolution", "station_id"), on=["resolution", "station_id"], how="semi"),
+                held.join(unplaced.select("station_id"), on="station_id", how="semi"),
+            ]
+        ).get_column("row")
+        return stations.filter(pl.int_range(pl.len()).is_in(rows.implode()))
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:
@@ -847,13 +886,25 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         return cast("_RowsT", timestamps_to_string(df, ["timestamp"]).to_dicts())
 
     def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _DictT:
-        """Format values as dictionary."""
+        """Format values as dictionary.
+
+        Args:
+            with_metadata: whether to include the `metadata` block
+            with_stations: whether to include the `stations` block: `df_stations`, the stations that have a row
+                in this result, one row per resolution, dataset and station. A station of the request that
+                returned nothing, or whose rows `filtered_by_date` or `filtered_by_sql` cut away, is not in it,
+                and the block is an empty list where no row is left. The stations of the request are `stations.df`.
+
+        Returns:
+            Dictionary with the optional `metadata` and `stations` blocks and the `values`.
+
+        """
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
             data["metadata"] = _metadata_of(self.stations, self.data_updated_at, derived=self._derived)
         if with_stations:
-            data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
+            data["stations"] = _station_rows(self.df_stations)
         data["values"] = self._to_dict(self.df)
         return cast("_DictT", data)
 

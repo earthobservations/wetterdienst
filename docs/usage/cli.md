@@ -107,7 +107,8 @@ completes the commands, their options, the choices of an option and, from the re
 `--network` (the networks of the `--provider` before it on the line, else all of them). It does not complete `--parameters`,
 `--stations` or `--timestamp`: those would take the provider's metadata or its station list, a provider's import
 and possibly the network, which a TAB must not do. Every TAB is a process that imports the command line, which takes
-about 0.7 s on a laptop and never contacts a provider.
+under 0.1 s on a laptop (`--help` and `--version` as well: the settings, polars and the providers are imported by the
+command that uses them) and never contacts a provider.
 
 Complete a value with a space, as `--provider dw` and then TAB. The `--provider=dw` spelling the examples use is not
 completed: zsh would replace the whole word with `dwd`, and bash offers nothing after the `=` (the provider before it
@@ -124,7 +125,7 @@ eval "$(_WETTERDIENST_COMPLETE=zsh_source wetterdienst)"
 _WETTERDIENST_COMPLETE=fish_source wetterdienst > ~/.config/fish/completions/wetterdienst.fish
 ```
 
-The `eval` form runs `wetterdienst` every time a shell starts, which costs that 0.7 s each time. To keep the start
+The `eval` form runs `wetterdienst` every time a shell starts, which costs that time each time. To keep the start
 quick, write the script to a file once and source that, and again after an upgrade:
 
 ```bash

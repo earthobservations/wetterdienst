@@ -22,8 +22,17 @@ and a glossary; its page says what is in it and how to run it.
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
 `with_metadata=true` for its heavier parts, and (for the endpoints of values and `history`)
-`with_stations=true` to include the queried stations' metadata; a listing of `stations` is the
-stations, and takes no `with_stations`. With `with_metadata=true`, the JSON and GeoJSON of `values`,
+`with_stations=true` to include the stations' metadata; a listing of `stations` is the
+stations, and takes no `with_stations`. In `values` the `stations` block lists the stations that have rows
+in the answer, one entry for each resolution and dataset that has rows (a row of nulls is a row, so a
+station read with `drop_nulls=false` is listed): the stations that `metadata.request.stations.ids` and
+`counts.stations` name, and those of the GeoJSON. Where the wide shape merged several datasets of a resolution
+into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
+feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
+the block, and the block is an empty list where there are no rows. To find a requested station that has no
+rows, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
+(with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
+lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
 was got with, named as the endpoint's query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
@@ -365,15 +374,16 @@ what the answer is missing:
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
-  The `history` of `dwd/observation` tells it too, for a directory whose listing came back empty or missing (a 404, or
-  a page with no links) while it was read for the history: no station of it can be read, and the answer is partial.
+  The `history` of `dwd/observation` tells it too, for a directory that is missing on the server (a 404) while it
+  was read for the history: no station of it can be read, and the answer is partial.
   It carries the `stations` that asked for the dataset (the first ten), and its message names the directory that was
   listed: the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the `historical` directory of
   most others, the dataset's own directory for the solar datasets, which have no periods. The station lookup that comes
   first lists the `historical` directories too, and the `meta_data` directory of the 1 minute precipitation, and fails
-  with a 500 when one is empty, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
+  with a 500 when one is missing, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
   a history has no `periods`, so REST and the command line reach the warning for the 5 and 10 minute datasets that are
-  not urban. A station with no
+  not urban. A directory that is there but really empty is not told yet: the answer is thin, with no warning (the
+  `meta_data` of the 1 minute precipitation is a 500 there, #3819). A station with no
   file in a listing that is there (one that only has `recent` data) has no history of it, which is the source's
   answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
