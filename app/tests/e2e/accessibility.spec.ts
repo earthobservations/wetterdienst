@@ -63,7 +63,8 @@ const PAGES: Target[] = [
     // the map tool (GH-3650): its chips, its map and its panel with the list of the stations
     page: 'map',
     path: '/map',
-    ready: async (page) => { await expect(page.getByTestId('map-count')).toBeVisible() },
+    // the list of stations is the panel's, at every width (the count over the map is not there on a phone)
+    ready: async (page) => { await expect(page.getByTestId('map-list')).toBeVisible() },
   },
   {
     page: 'widget',
