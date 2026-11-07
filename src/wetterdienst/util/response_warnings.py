@@ -85,7 +85,7 @@ FILE_SKIPPED = "file-skipped"
 
 #: the code of the warning that names the parameters whose rows of another window the provider left out of the answer
 #: (`note_left_out`): the source holds values for those dates, but of a series that is not the one the parameter is
-#: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one, its calendar-day temperature extreme beside the 19-18
+#: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one, its calendar-day temperature extreme beside the 18-18
 #: UTC one): no missing data, and no values of the parameter
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 

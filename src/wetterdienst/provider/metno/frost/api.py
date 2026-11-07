@@ -529,32 +529,33 @@ _DAILY = "daily"
 # sum of another window under this one's name; the answer says so (`other-window-left-out`, `_tell_left_out`), and it is
 # no "the source has no values" (`parameter-without-rows`), as the source has them.
 #
-# The daily `max` and `min(air_temperature P1D)` are chosen the same way (GH-3843): they have `PT0H` (00-24 UTC) and
-# `PT18H` at 579 and 574 stations of Frost's listing (550 and 545 of the catalogue's), and the table prefers `PT18H`
-# ("Standard sampling period for temperature extremes is 19-18 UTC"). `PT0H` sorts first, so a station with both
-# returned the calendar day, where its `PT18H` series had a date that `PT0H` had not (before `PT0H` began, 1.8 million
-# station-days) the 19-18 window: the window of one parameter changed along the series, and from station to station.
-# The maintainer decided that `PT18H` is returned where a station has it, and the series it has where it has not
-# (`_FALLS_BACK`: `PT0H` at the 9 maximum stations of the listing, `PT6H` at the 9 minimum ones; none of them is in
-# the catalogue), decided on the rows of the answer for each station and element. A date that only the other series
-# has, at a station that has `PT18H`, is left out and told, as the precipitation's is.
+# The daily `max` and `min(air_temperature P1D)` are chosen the same way (GH-3843): they have `PT0H` (the calendar
+# day, the hourly readings stamped 00:00 to 23:00) and `PT18H` at 579 and 574 stations of Frost's listing (550 and 545
+# of the catalogue's), and the table prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18
+# UTC": the 24 hours ending 18 UTC, the hourly readings stamped `D-1` 19:00 to `D` 18:00). `PT0H` sorts first, so a
+# station with both returned the calendar day, where its `PT18H` series had a date that `PT0H` had not (before `PT0H`
+# began, 1.8 million station-days) the 18-18 window: the window of one parameter changed along the series, and from
+# station to station. The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation: only
+# `PT18H` is returned, a station without that series returns no extremes, and a date that only the other series has is
+# left out and told, so that the answer does not depend on the window asked for.
 _STANDARD_OFFSET = {
     "sum(precipitation_amount P1D)": "PT6H",
     "sum(precipitation_amount P1M)": "PT6H",
     "max(air_temperature P1D)": "PT18H",
     "min(air_temperature P1D)": "PT18H",
 }
-# the elements whose standard series is returned where the station has one, and the series it has where it has not:
-# the precipitation sums have no other series that would be one of their window
-_FALLS_BACK = frozenset({"max(air_temperature P1D)", "min(air_temperature P1D)"})
-# what the `other-window-left-out` warning says of the dates that only the other series has, by element
+# the series each standard offset is not, as the `other-window-left-out` warning names it
+_OTHER_SERIES = {
+    "PT6H": "18-18 UTC series (`timeOffset` PT18H)",
+    "PT18H": "calendar-day series (`timeOffset` PT0H)",
+}
+# what the `other-window-left-out` warning says of the dates that only the other series has, by element: the windows
+# are the 24 hours ending at the offset (06-06, 18-18 UTC), the calendar day for `PT0H`
 _LEFT_OUT_BECAUSE = {
     element: (
-        "these dates have a value in Frost's calendar-day series (`timeOffset` PT0H) only, and this parameter is the "
-        "19-18 UTC series (`timeOffset` PT18H), the one Frost names its standard"
-        if element in _FALLS_BACK
-        else "these dates have a value in Frost's 18-18 UTC series (`timeOffset` PT18H) only, and this parameter is "
-        f"the 06-06 UTC series (`timeOffset` {offset}), the one Frost names its standard"
+        f"these dates have a value in Frost's {_OTHER_SERIES[offset]} only, and this parameter is the "
+        f"{'06-06' if offset == 'PT6H' else '18-18'} UTC series (`timeOffset` {offset}), the one Frost names its "
+        "standard"
     )
     for element, offset in _STANDARD_OFFSET.items()
 }
@@ -703,45 +704,29 @@ def _stamp_days(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
     return df.with_columns(pl.col("timestamp").dt.truncate("1d"))
 
 
-def _elements_with_standard(df: pl.DataFrame) -> list[str]:
-    """Give the elements of `_FALLS_BACK` that the observations hold a row of the standard offset of (GH-3843)."""
-    if "timeOffset" not in df.columns:
-        return []
-    standard = pl.col("elementId").replace_strict(_STANDARD_OFFSET, default=None, return_dtype=pl.String)
-    rows = df.filter(pl.col("elementId").is_in(list(_FALLS_BACK)) & (pl.col("timeOffset") == standard))
-    return rows.get_column("elementId").unique().to_list()
-
-
-def _keep_standard_offset(df: pl.DataFrame, has_standard: list[str] | None = None) -> pl.DataFrame:
+def _keep_standard_offset(df: pl.DataFrame) -> pl.DataFrame:
     """Keep, of an element that has several series by `timeOffset`, the rows of the one that is named (GH-3832).
 
     ``df`` is the observations of an answer, one row each, with `elementId` and `timeOffset`. An element that is not in
-    `_STANDARD_OFFSET`, and a row that gives no offset, are kept as they are. An element of `_FALLS_BACK` keeps every
-    row where the station has no row of its standard offset (GH-3843): ``has_standard`` names the elements that it has
-    one of, in the answer of the station, and is read from ``df`` where the answer is no more than ``df``.
+    `_STANDARD_OFFSET`, and a row that gives no offset, are kept as they are.
     """
     if "timeOffset" not in df.columns:
         return df
-    return df.filter(_is_standard_offset(_elements_with_standard(df) if has_standard is None else has_standard))
+    return df.filter(_is_standard_offset())
 
 
-def _is_standard_offset(has_standard: list[str]) -> pl.Expr:
-    """Tell the observations that are of the offset their element names, or of an element that names none.
-
-    The elements of `_FALLS_BACK` that are not in ``has_standard`` have no such series at the station: what they have is
-    the series there is, and all of their rows are kept.
-    """
+def _is_standard_offset() -> pl.Expr:
+    """Tell the observations that are of the offset their element names, or of an element that names none."""
     standard = pl.col("elementId").replace_strict(_STANDARD_OFFSET, default=None, return_dtype=pl.String)
-    has_only_others = pl.col("elementId").is_in(list(_FALLS_BACK)) & ~pl.col("elementId").is_in(list(has_standard))
-    return standard.is_null() | pl.col("timeOffset").is_null() | (pl.col("timeOffset") == standard) | has_only_others
+    return standard.is_null() | pl.col("timeOffset").is_null() | (pl.col("timeOffset") == standard)
 
 
-def _left_out_dates(df: pl.DataFrame, parameter: pl.Expr, has_standard: list[str]) -> pl.DataFrame:
+def _left_out_dates(df: pl.DataFrame, parameter: pl.Expr) -> pl.DataFrame:
     """Give the `parameter` and `timestamp` of the observations `_keep_standard_offset` leaves out, one row per date."""
     if "timeOffset" not in df.columns:
         return pl.DataFrame()
     return (
-        df.filter(~_is_standard_offset(has_standard))
+        df.filter(~_is_standard_offset())
         .select(parameter.alias("parameter"), pl.col("referenceTime").alias("timestamp"))
         .unique()
     )
@@ -786,21 +771,16 @@ def _level(df: pl.DataFrame) -> pl.Expr:
     return pl.lit("", dtype=pl.String).alias(_LEVEL)
 
 
-def _read_observations(
-    df: pl.DataFrame, parameter: pl.Expr, resolution: str, has_standard: list[str] | None = None
-) -> tuple[pl.DataFrame, pl.DataFrame]:
+def _read_observations(df: pl.DataFrame, parameter: pl.Expr, resolution: str) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Give the frame the core takes from the observations of an answer, and the dates of another series it left out.
 
     ``df`` has one row per observation (`elementId`, `referenceTime`, `value`, `timeOffset`, ...), ``parameter`` is
     the expression of the name the rows are given and ``resolution`` the name of the resolution they were asked for.
-    ``has_standard`` is `_elements_with_standard` of the whole answer of the station, where ``df`` is a part of it (the
-    queries of the discovery). The frame has the columns parameter, timestamp, value and quality flags; the second frame
-    is `_left_out_dates`, for `_tell_left_out`.
+    The frame has the columns parameter, timestamp, value and quality flags; the second frame is `_left_out_dates`,
+    for `_tell_left_out`.
     """
-    if has_standard is None:
-        has_standard = _elements_with_standard(df)
-    left_out = _left_out_dates(df, parameter, has_standard)
-    df = _keep_standard_offset(df, has_standard)
+    left_out = _left_out_dates(df, parameter)
+    df = _keep_standard_offset(df)
     if df.is_empty():
         # every row was of another series: nothing to return, and what was left out is told
         return pl.DataFrame(), left_out
@@ -1139,7 +1119,8 @@ class MetnoFrostValues(TimeseriesValues):
             return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
-        answers = []
+        frames = []
+        left_outs = []
         asked: set[str] = set()
         for ts in ts_list:
             valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
@@ -1203,15 +1184,8 @@ class MetnoFrostValues(TimeseriesValues):
                 .dt.replace_time_zone("UTC"),
             )
             df = df.explode("observations", empty_as_null=True).unnest("observations")
-            answers.append(df.filter(pl.col("elementId").eq(element)))
-
-        # the rows of one series that differ in `timeOffset` come with the queries of the station, and which offset is
-        # the one the station has is decided on all of them, as the batch decides it on its one answer (GH-3843)
-        has_standard = sorted({name for df in answers for name in _elements_with_standard(df)})
-        frames = []
-        left_outs = []
-        for df in answers:
-            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name, has_standard)
+            df = df.filter(pl.col("elementId").eq(element))
+            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name)
             left_outs.append(left_out)
             if not frame.is_empty():
                 frames.append(frame)

@@ -448,12 +448,13 @@ def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour
 
 
 @pytest.mark.remote
-def test_metno_frost_values_daily_temperature_extremes_are_the_19_18_series_where_a_station_has_it() -> None:
-    """The daily maximum and minimum of SN18701 (Oslo, Blindern) from 2016-01-13 on are the 19-18 UTC series (GH-3843).
+def test_metno_frost_values_daily_temperature_extremes_are_the_18_18_series_of_oslo_blindern_2016() -> None:
+    """The daily maximum and minimum of SN18701 (Oslo, Blindern) from 2016-01-13 on are the 18-18 UTC series (GH-3843).
 
-    SN18701 has `PT0H` (00-24 UTC) from 2016-01-09 and `PT18H` (19-18 UTC, Frost's standard for temperature extremes)
+    SN18701 has `PT0H` (00-24 UTC) from 2016-01-09 and `PT18H` (the 24 hours ending 18 UTC, Frost's standard for
+    temperature extremes)
     from 2016-01-13: the reader returned the calendar day wherever `PT0H` had a row (-4.6, -7.9, -8.5, -6.9 for the
-    maximum of 2016-01-13 to 16), and the 19-18 window nowhere else of a series that goes on to 2023. They are -3.5,
+    maximum of 2016-01-13 to 16), and the 18-18 window nowhere else of a series that goes on to 2023. They are -3.5,
     -7.9, -9.4 and -6.9 now (-10.5, -14.2, -16.2, -12.2 for the minimum). 2016-01-09 has the calendar-day value only
     (-7.2 and -10.1): it is not returned, and the answer says so for both parameters.
     """
@@ -487,11 +488,11 @@ def test_metno_frost_values_daily_temperature_extremes_are_the_19_18_series_wher
 
 
 @pytest.mark.remote
-def test_metno_frost_values_daily_temperature_extremes_of_oslo_blindern_are_the_19_18_window() -> None:
-    """The maximum of 2026-10-31 and the minimum of 2026-11-02 at SN18700 are those of the 19-18 UTC window (GH-3843).
+def test_metno_frost_values_daily_temperature_extremes_of_oslo_blindern_are_the_18_18_window() -> None:
+    """The maximum of 2026-10-31 and the minimum of 2026-11-02 at SN18700 are those of the 18-18 UTC window (GH-3843).
 
-    SN18700 has both series. The maximum of 2026-10-31 is 7.9 in the calendar-day series and 8.7 in the 19-18 one, the
-    minimum of 2026-11-02 is 0.0 and 3.3. The 19-18 values equal the extreme of Frost's hourly `max` and
+    SN18700 has both series. The maximum of 2026-10-31 is 7.9 in the calendar-day series and 8.7 in the 18-18 one, the
+    minimum of 2026-11-02 is 0.0 and 3.3. The 18-18 values equal the extreme of Frost's hourly `max` and
     `min(air_temperature PT1H)` stamped 19:00 of the day before to 18:00 of the date, on 16 of 16 days at this station
     and at SN50540 (the calendar-day ones those of 00:00 to 23:00), which is how the window was identified.
     """
@@ -510,3 +511,34 @@ def test_metno_frost_values_daily_temperature_extremes_of_oslo_blindern_are_the_
     minimum = df.filter(pl.col("parameter") == "temperature_air_min_2m").sort("timestamp")
     assert maximum["value"].to_list() == [pytest.approx(8.7), pytest.approx(8.8), pytest.approx(9.7)]
     assert minimum["value"].to_list() == [pytest.approx(3.3), pytest.approx(6.6), pytest.approx(3.3)]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_temperature_extreme_of_a_gap_date_is_left_out_in_any_window() -> None:
+    """SN60850 has no `PT18H` maximum or minimum on 2022-09-27, and no window returns the calendar day for it (GH-3843).
+
+    The calendar-day series has a value that day. A request of that one date answered with it when the extremes fell
+    back to `PT0H` where the window held no `PT18H` row, and left it out, with a warning, for 2022-09-20 to 09-30: the
+    answer now does not depend on the window. The maximum of 2022-09-24 and 26 is missing from both series.
+    """
+    for parameter, days in (
+        ("temperature_air_max_2m", [20, 21, 22, 23, 25, 28, 29, 30]),
+        ("temperature_air_min_2m", [20, 21, 22, 23, 25, 28, 30]),
+    ):
+        for start, end, expected in (
+            (dt.datetime(2022, 9, 27, tzinfo=UTC), dt.datetime(2022, 9, 27, tzinfo=UTC), []),
+            (dt.datetime(2022, 9, 20, tzinfo=UTC), dt.datetime(2022, 9, 30, tzinfo=UTC), days),
+        ):
+            begin_response()
+            df = (
+                MetnoFrostRequest(parameters=[("daily", "data", parameter)], start=start, end=end)
+                .filter_by_station_id("SN60850")
+                .values()
+                .all()
+                .df
+            )
+            assert df["timestamp"].dt.day().to_list() == expected
+            (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+            assert warning["parameter"] == f"daily/data/{parameter}"
+            assert warning["stations"] == ["SN60850"]
+            assert "on 1 date that is not in the answer (SN60850 1)" in warning["message"]
