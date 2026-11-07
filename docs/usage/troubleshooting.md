@@ -9,7 +9,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | --- | --- | --- |
 | `InvalidParameterError`, exit 2, 400 `request-refused` | the request is understood and cannot be served as phrased | read the message, it names the entry and the close match |
 | 422 `invalid-parameters` | a query parameter is unknown or malformed | `errors` names each; check the spelling and the [vocabulary](restapi.md#one-vocabulary) |
-| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist | look it up with `coverage` or `about coverage` |
+| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look it up with `coverage` or `about coverage` |
 | `MissingDependencyError`, 501 `dependency-missing` | an extra is not installed | install the extra the message names, see [Installation](quickstart.md#installation) |
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
@@ -61,8 +61,14 @@ The usual reasons:
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
   `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
   A `file-skipped` of `dwd/observation` or `dwd/derived` that names a directory and no station says that DWD's
-  server listed it empty or not at all: the stations only it lists are not in the answer (a stations list, values or a
-  history), and a later request finds them once DWD has filled it again.
+  server listed it empty or not at all, or (`dwd/observation`) that it lists files and no description of its
+  stations: the stations only it lists are not in the answer (a stations list, values or a history), and a later
+  request finds them once DWD has filled it again.
+- **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
+  directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
+  with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
+  404 for the same station means every directory was listed and none has it, or the directory that was skipped lists
+  files and names the stations of its files, and this is not one.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
