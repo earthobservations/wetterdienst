@@ -243,11 +243,8 @@ app = FastAPI(
     ),
     version=__version__,
     contact={"name": "wetterdienst", "url": "https://github.com/earthobservations/wetterdienst/issues"},
-    license_info={
-        "name": "MIT",
-        "identifier": "MIT",
-        "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md",
-    },
+    # `identifier` and `url` are mutually exclusive in OpenAPI 3.1: the SPDX identifier says which licence
+    license_info={"name": "MIT", "identifier": "MIT"},
     servers=[
         {"url": "https://wetterdienst.eobs.org", "description": "The hosted instance."},
         {"url": "http://127.0.0.1:7890", "description": "A local server, as `wetterdienst restapi` starts it."},

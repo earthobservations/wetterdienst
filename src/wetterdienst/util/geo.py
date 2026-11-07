@@ -2,17 +2,17 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Geo utilities for the wetterdienst package."""
 
+from __future__ import annotations
+
 import math
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import polars as pl
-import pyarrow as pa
-import pyarrow.compute as _pc
 
 from wetterdienst.exceptions import LocationOutOfRangeError
 
-# pyarrow.compute lacks complete type stubs for compute functions
-pc: Any = _pc
+if TYPE_CHECKING:
+    import pyarrow as pa
 
 EARTH_RADIUS_IN_KM = 6371
 
@@ -61,6 +61,13 @@ def derive_nearest_neighbours(
         Tuple of distances and ranks of nearest to most distant station
 
     """
+    # imported here: pyarrow is 0.07 s of the start-up of a `values` command, and only a request by distance or rank
+    # reads it (GH-3809)
+    import pyarrow.compute as _pc  # noqa: PLC0415
+
+    # pyarrow.compute lacks complete type stubs for compute functions
+    pc: Any = _pc
+
     lat_radians = pc.multiply(latitudes, math.pi / 180)
     lon_radians = pc.multiply(longitudes, math.pi / 180)
     q_lat_radians = q_lat * math.pi / 180

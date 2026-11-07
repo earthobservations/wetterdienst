@@ -128,10 +128,18 @@ def test_the_info_is_the_projects_own() -> None:
     assert info["summary"] == _PYPROJECT["project"]["description"]
     assert info["description"].strip()
     assert info["license"]["identifier"] == _PYPROJECT["project"]["license-expression"] == "MIT"
-    assert info["license"]["url"].startswith(urls["Repository"])
     assert info["contact"]["url"] == urls["Issues"]
     assert urls["Restapi"].rstrip("/") in [server["url"] for server in document["servers"]]
     assert all(server["description"] for server in document["servers"])
+
+
+def test_the_licence_has_an_identifier_or_a_url_never_both() -> None:
+    """OpenAPI 3.1 makes `identifier` and `url` mutually exclusive, so a validator refuses both (GH-3824)."""
+    for name, document in (("served", build_document()), ("snapshot", _snapshot())):
+        licence = document["info"]["license"]
+
+        assert not ({"identifier", "url"} <= licence.keys()), f"the {name} document has both: {licence}"
+        assert licence["identifier"] == "MIT", name
 
 
 def test_every_operation_is_in_a_tag_that_is_described() -> None:

@@ -6842,7 +6842,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.183.0"
+version = "0.184.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -7024,7 +7024,7 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'postgresql'", specifier = ">=2.2.2,<4" },
     { name = "pdbufr", marker = "extra == 'bufr'", specifier = ">=0.10.2,<1" },
     { name = "platformdirs", specifier = ">=4,<5" },
-    { name = "plotly", marker = "extra == 'plotting'", specifier = ">=6.2.0" },
+    { name = "plotly", marker = "extra == 'plotting'", specifier = ">=6.3.1" },
     { name = "polars", extras = ["calamine"], specifier = ">=1.43.2,<3" },
     { name = "portion", specifier = ">=2.4.2,<3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgresql'", specifier = ">=3.0.2,<4" },

@@ -50,7 +50,9 @@ uv run poe test
 ```
 
 `poe test` is a sequence of two pytest runs and drops what follows it, so a `-k` or `-m` behind it still runs the
-whole suite. To run only specific tests, call pytest:
+whole suite. A red parallel run does not stop it: the serial `cflake` run follows, and the task exits non-zero at
+the end if either was red. A Ctrl-C ends the run in hand and the next one starts, so press it twice to stop. To run
+only specific tests, call pytest:
 
 ```bash
 # Run tests by module name or function name.

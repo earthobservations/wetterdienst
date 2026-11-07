@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.183.0"
+version = "0.184.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -212,7 +212,7 @@ pdf = [
 ]
 plotting = [
     "kaleido>=1.3.0",
-    "plotly>=6.2.0",
+    "plotly>=6.3.1",
 ]
 postgresql = [
     "pandas>=2.2.2,<4",
@@ -334,7 +334,10 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 # second task that could quietly collect nothing and still go green. `explorer` is excluded as
 # `test:parallel` excludes it -- no job here runs those, and nothing in the tree is marked (GH-2003)
 "test:offline" = "uv run pytest -m 'not (remote or explorer)'"
-test = ["test:parallel", "test:cflakes"]
+# `ignore_fail = "return_non_zero"`: a red parallel run still goes on to the cflake run, and the task
+# exits non-zero at the end. A bare sequence stops at the first red task, and `cflake` tests then never
+# ran in the jobs that run `poe test` (GH-3829). Not `true`, which would turn a red run green
+test = { sequence = ["test:parallel", "test:cflakes"], ignore_fail = "return_non_zero" }
 # For Windows CI
 test-slow = "uv run pytest"
 "coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)' --junitxml=junit-parallel.xml"
@@ -445,6 +448,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
 "examples/*" = ["T20", "INP001"]
+# the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
+# load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
+"src/wetterdienst/ui/cli.py" = ["PLC0415"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]

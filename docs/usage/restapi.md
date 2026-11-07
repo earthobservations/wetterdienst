@@ -22,8 +22,17 @@ and a glossary; its page says what is in it and how to run it.
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
 `with_metadata=true` for its heavier parts, and (for the endpoints of values and `history`)
-`with_stations=true` to include the queried stations' metadata; a listing of `stations` is the
-stations, and takes no `with_stations`. With `with_metadata=true`, the JSON and GeoJSON of `values`,
+`with_stations=true` to include the stations' metadata; a listing of `stations` is the
+stations, and takes no `with_stations`. In `values` the `stations` block lists the stations that have rows
+in the answer, one entry for each resolution and dataset that has rows (a row of nulls is a row, so a
+station read with `drop_nulls=false` is listed): the stations that `metadata.request.stations.ids` and
+`counts.stations` name, and those of the GeoJSON. Where the wide shape merged several datasets of a resolution
+into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
+feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
+the block, and the block is an empty list where there are no rows. To find a requested station that has no
+rows, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
+(with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
+lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
 was got with, named as the endpoint's query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
