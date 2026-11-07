@@ -3,7 +3,7 @@ import type { PlacedStation, Point } from '~/utils/map-tool'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
-import { clickReach, dotRadius, HOME_VIEW } from '~/utils/map-tool'
+import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
 
 // The map of the map tool (GH-3650), from the design of #3580. Stations are dots drawn on canvas tiles rather than
 // markers: a station is no stop of the keyboard, so Tab does not walk through the thousands of the forecast's points,
@@ -27,10 +27,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   /**
-   * A click on the map, how far from it a dot under the pointer can be (`tolerance`: the dot as drawn and a little more)
-   * and, for a finger, how far a station can be for a tap (`tap`; none for a mouse), in kilometres
+   * A click on the map, how far from it a dot under the pointer can be (`tolerance`: the dot as drawn and a little more),
+   * how far the disc of the station picked reaches (`disc`) and, for a finger, how far a station can be for a tap (`tap`;
+   * none for a mouse), in kilometres
    */
-  pick: [point: Point & { tolerance: number, tap: number }]
+  pick: [point: Point & { tolerance: number, tap: number, disc: number }]
   /** The view of the map after each move: its centre, which the panel lists the nearest stations of, and its zoom */
   view: [view: Point & { zoom: number }]
 }>()
@@ -118,9 +119,9 @@ function drawSelection() {
     }).addTo(map)
   }
   selection = L.circleMarker([station.latitude, station.longitude], {
-    radius: 9,
+    radius: SELECTED_RADIUS_PX,
     color: NAVY,
-    weight: 3,
+    weight: SELECTED_EDGE_PX,
     fillColor: SUN,
     fillOpacity: 1,
     interactive: false,
@@ -177,7 +178,9 @@ onMounted(() => {
     const reach = clickReach(owner.getZoom(), coarsePointer.value)
     // pixels to kilometres at the place clicked
     const kilometres = (pixels: number) => pixels === 0 ? 0 : owner.distance(event.latlng, owner.containerPointToLatLng(owner.latLngToContainerPoint(event.latlng).add([pixels, 0]))) / 1000
-    emit('pick', { latitude: event.latlng.lat, longitude: event.latlng.lng, tolerance: kilometres(reach.dot), tap: kilometres(reach.tap) })
+    // a copy of the world beside the first (the map repeats it) has longitudes beyond 180, which are the same places
+    const at = event.latlng.wrap()
+    emit('pick', { latitude: at.lat, longitude: at.lng, tolerance: kilometres(reach.dot), tap: kilometres(reach.tap), disc: kilometres(reach.disc) })
   })
   map.on('moveend', emitView)
   drawSelection()

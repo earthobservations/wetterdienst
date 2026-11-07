@@ -161,16 +161,26 @@ function validSource(wanted: MeasuredSource): MeasuredSource {
  * name a resolution or a dataset that does not exist, which is replaced (the station of the address, picked in the
  * view as it was written, stays picked in the view as it is made right), and no request is made for it.
  */
-async function ensureMeasured() {
+async function ensureMeasured(force = false) {
   await loadCoverage()
+  // the reader has left the layer, and no station needs the list, while the coverage was on its way
+  if (layer.value !== 'measured' && !selectedId.value)
+    return
   const valid = validSource(source.value)
   if (valid.resolution === source.value.resolution && valid.dataset === source.value.dataset)
-    return measured.ensure()
+    return measured.ensure(force)
   const pickedHere = pickedIn === viewKey.value
   // the watch of the source asks again, for the source that exists
   source.value = valid
   if (pickedHere)
     pickedIn = viewKey.value
+}
+
+/** Asks for the list of the layer shown again, as Retry does: the coverage too, where it is what failed */
+function retryList() {
+  if (layer.value === 'measured')
+    return ensureMeasured(true)
+  return forecast.ensure(true)
 }
 
 /** Asks for the list of the layer shown */
@@ -269,10 +279,13 @@ function tellNoStationNear(point: Point) {
  * A pick at a point (a click on the map, the centre of the map): the station on its dot where the point is on one,
  * whatever its status, else the station for the place (`stationFor`), which has to be within reach.
  */
-function pickAt(point: Point, tolerance: number, focus = false, tap = 0) {
+function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 0) {
   // nothing to pick from, and no word of there being none, until the list has come
   if (listStatus.value !== 'success')
     return
+  // the yellow disc drawn for the station picked is bigger than a dot, and a click on it is on that station
+  if (selected.value && disc > 0 && distanceKm(point, selected.value) <= disc)
+    return choose(selected.value, { focus })
   const hit = stationAt(stations.value, point, tolerance)
   if (hit)
     return choose(hit, { focus })
@@ -291,11 +304,14 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0) {
  * A click on the map. `tolerance` is how far from it a dot under the pointer can be (the dot as drawn, and a little
  * more), `tap` how far a station can be for a finger (none for a mouse), both measured by the map, in kilometres.
  */
-function onPick(point: Point & { tolerance: number, tap?: number }) {
-  pickAt(point, point.tolerance, false, point.tap ?? 0)
+function onPick(point: Point & { tolerance: number, tap?: number, disc?: number }) {
+  pickAt(point, point.tolerance, false, point.tap ?? 0, point.disc ?? 0)
 }
 
-/** The place at the centre of the map, as a click there would pick it: the keyboard's way to a place */
+/**
+ * The place at the centre of the map: the station within half a kilometre of it, else the station for the place, as
+ * a click with a mouse that is not on a dot would pick (no ring of a finger): the keyboard's way to a place
+ */
 function pickCentre() {
   pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true)
 }
@@ -409,7 +425,11 @@ const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${res
  * stopped; nothing where it has no end, which says nothing of whether it has stopped.
  */
 function measuredFor(station: Station) {
-  const year = (timestamp?: string | null) => timestamp ? new Date(timestamp).getUTCFullYear() : null
+  // a date that does not parse is no year (it would read "NaN")
+  const year = (timestamp?: string | null) => {
+    const date = timestamp ? new Date(timestamp) : null
+    return date && !Number.isNaN(date.getTime()) ? date.getUTCFullYear() : null
+  }
   const from = year(station.start_timestamp)
   const to = year(station.end_timestamp)
   if (from === null || to === null)
@@ -593,7 +613,7 @@ watch(() => route.query, (query) => {
                   <p class="map-card-note" role="alert">
                     {{ t('mapTool.stationsFailed') }}
                   </p>
-                  <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="measured.ensure(true)" />
+                  <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="ensureMeasured(true)" />
                 </div>
                 <p v-else class="map-card-note">
                   {{ t('mapTool.noneNearby', { distance: reach }) }}
@@ -712,7 +732,7 @@ watch(() => route.query, (query) => {
                 icon="i-ph-warning-circle"
                 :title="t('mapTool.stationsFailed')"
                 :description="listFailure"
-                :actions="[{ label: t('common.retry'), onClick: () => current.ensure(true) }]"
+                :actions="[{ label: t('common.retry'), onClick: () => retryList() }]"
                 data-testid="map-failure"
               />
             </div>

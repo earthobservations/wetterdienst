@@ -6,7 +6,7 @@ import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 
 // The map tool (GH-3650), by its main path in a browser: open the map, pick a place, read what the panel shows of it
 // and follow its links; the layers; the search of the header opening the map on a station; and the phone's navigation
-// with the history in the Menu. The backend is the accessibility spec's mock, so nothing here reaches a provider, and
+// with the map in the Menu. The backend is the accessibility spec's mock, so nothing here reaches a provider, and
 // the map's tiles are answered with a pixel.
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
@@ -269,11 +269,46 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await page.mouse.click(box.x + box.width / 2 + artern.x, box.y + box.height / 2 + artern.y)
     await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
     await page.getByTestId('map-back').click()
-    // a click 9 px beside it (the dot is 2.75 px across, and the click reaches 4.75): 14 km from Artern, 85 km from Neuhaus
+    // a click 9 px beside it (the dot has a radius of 2.75 px, and the click reaches 4.75): 14 km from Artern, 85 km from Neuhaus
     const beside = offsetAtOpening(51.25, 11.15)
     expect(Math.hypot(beside.x - artern.x, beside.y - artern.y)).toBeGreaterThan(8)
     await page.mouse.click(box.x + box.width / 2 + beside.x, box.y + box.height / 2 + beside.y)
     await expect(page.getByTestId('map-station-name')).toHaveText('Neuhaus am Rennweg')
+    await expect(page.getByTestId('map-place')).toBeVisible()
+  })
+
+  test('keeps the pick for a click on the yellow disc of the station picked, which is bigger than its dot, and does not take it to the station that reports', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const artern = offsetAtOpening(51.3745, 11.2915)
+    // Artern, which stopped in 2018, picked on its dot
+    await page.mouse.click(box.x + box.width / 2 + artern.x, box.y + box.height / 2 + artern.y)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
+    // 7 px from its centre, which is on the yellow disc (10.5 px with its edge) and beyond the dot (4.75 px): Artern still
+    await page.mouse.click(box.x + box.width / 2 + artern.x + 7, box.y + box.height / 2 + artern.y)
+    await page.waitForTimeout(400)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
+    await expect(page.getByTestId('map-place')).toHaveCount(0)
+    // 16 px from it is the map, and the station that reports is Neuhaus am Rennweg
+    await page.mouse.click(box.x + box.width / 2 + artern.x - 16, box.y + box.height / 2 + artern.y + 9)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Neuhaus am Rennweg')
+  })
+
+  test('keeps a place that is clicked on another copy of the world, as the same place on the first', async ({ page, baseURL }) => {
+    const dateline = { station_id: '91000', name: 'DATELINE', region: null, latitude: -17.7, longitude: 179.95, elevation: 5, start_timestamp: null, end_timestamp: null }
+    await open(page, baseURL!, '/map?station=91000', { stations: () => ({ stations: [dateline] }) })
+    await expect.poll(() => zoomOf(page)).toBe(8)
+    await expect(page.getByTestId('map-station-name')).toHaveText('DATELINE')
+    await page.getByTestId('map-back').click()
+    // 60 px east of the station, across the antimeridian: the map says 180.28, which is -179.72
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    await page.mouse.click(box.x + box.width / 2 + 60, box.y + box.height / 2)
+    await expect(page.getByTestId('map-station-name')).toHaveText('DATELINE')
+    await expect(page).toHaveURL(/lat=.*&lon=-179\./)
+    const longitude = Number(new URL(page.url()).searchParams.get('lon'))
+    expect(Math.abs(longitude)).toBeLessThanOrEqual(180)
     await expect(page.getByTestId('map-place')).toBeVisible()
   })
 
@@ -326,7 +361,7 @@ test.describe('the map tool at 320 px', () => {
 test.describe('the map tool on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('has the map first and the panel under it as a sheet, and the Menu holds the history', async ({ page, baseURL }) => {
+  test('has the map first and the panel under it as a sheet', async ({ page, baseURL }) => {
     await open(page, baseURL!)
     const stage = await page.getByTestId('map-stage').boundingBox()
     const panel = await page.getByTestId('map-panel').boundingBox()
@@ -354,6 +389,26 @@ test.describe('the map tool on a phone', () => {
     await page.getByTestId('map-layer-measured').click()
     await expect(page).toHaveURL(/layer=measured/)
     await expect(menu).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('marks the Menu while one is on the map, as one goes from page to page by the sheet, a tab and the browser\'s Back', async ({ page, baseURL }) => {
+    // the navigations of the app itself, no page load: the mark follows the route
+    await open(page, baseURL!, '/', {}, 'Wetterdienst')
+    const bar = page.locator('.app-tabbar')
+    const menu = bar.getByRole('button', { name: en.header.menu })
+    await expect(menu).not.toHaveAttribute('aria-current', 'true')
+    await menu.click()
+    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.map }).click()
+    await expect(page).toHaveURL(/\/map$/)
+    await expect(menu).toHaveAttribute('aria-current', 'true')
+    await bar.getByRole('link', { name: en.nav.history }).click()
+    await expect(page).toHaveURL(/\/history/)
+    await expect(menu).not.toHaveAttribute('aria-current', 'true')
+    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveAttribute('aria-current', 'page')
+    await page.goBack()
+    await expect(page).toHaveURL(/\/map$/)
+    await expect(menu).toHaveAttribute('aria-current', 'true')
+    await expect(bar.locator('[aria-current="page"]')).toHaveCount(0)
   })
 
   test('is found from the Menu, where the map is a link of the sheet that opens it', async ({ page, baseURL }) => {
@@ -388,5 +443,22 @@ test.describe('the map tool on a phone', () => {
     expect(overflow).toBeLessThanOrEqual(0)
     const chips = await page.locator('.map-chips').boundingBox()
     expect(chips!.x + chips!.width).toBeLessThanOrEqual(390)
+  })
+})
+
+test.describe('the map tool with a finger', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, hasTouch: true })
+
+  test('takes a tap beside a closed dot, in the ring of a finger, for the closed station, where the same click of a mouse is the station that reports', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    test.skip(!(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)), 'this browser does not report a coarse pointer for a touch screen')
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const artern = offsetAtOpening(51.3745, 11.2915)
+    // 9 px beside the dot of Artern (the dot reaches 4.75 px, the ring of a finger 12): Artern, the only dot in the ring
+    await page.touchscreen.tap(box.x + box.width / 2 + artern.x - 6, box.y + box.height / 2 + artern.y + 7)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
+    await expect(page.getByTestId('map-place')).toBeVisible()
   })
 })

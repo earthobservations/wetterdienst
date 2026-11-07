@@ -18,6 +18,8 @@ import {
   REPORTING_WITHIN_DAYS,
   reportingRule,
   searchStations,
+  SELECTED_EDGE_PX,
+  SELECTED_RADIUS_PX,
   stateFromQuery,
   stateToQuery,
   stationAt,
@@ -253,6 +255,16 @@ describe('whether a station is still reporting', () => {
     expect(ahead.map(reportingRule(ahead, now))).toEqual([true, true, true])
   })
 
+  it('takes the clock from the ends that are not later than today: one end ahead does not make a list that is a publication behind read as closed', () => {
+    // a list 38 days behind, as the solar radiation is, with one station whose end is 30 days in the future
+    const solar = [...listOf(38, 0, 0, 5), endedAgo(-30)]
+    const reporting = reportingRule(solar, now)
+    expect(solar.map(reporting)).toEqual([true, true, true, true, true])
+    // and the list that is ahead as a whole is not a clock of the future: it has only the ends of the future, so none
+    const ahead = [endedAgo(-5), endedAgo(-30)]
+    expect(ahead.some(reportingRule(ahead, now))).toBe(false)
+  })
+
   it('says a station with no end is not reporting, and nor is a list of none: its status is not known', () => {
     const list = [endedAgo(1), endedAgo(null), { end_timestamp: 'soon' }]
     expect(list.map(reportingRule(list, now))).toEqual([true, false, false])
@@ -282,6 +294,16 @@ describe('what a click reaches', () => {
   it('follows the radius the dots are drawn with at each zoom', () => {
     expect([2, 4, 5, 6, 7, 8, 9, 14].map(zoom => dotRadius(zoom))).toEqual([1.75, 1.75, 2.75, 2.75, 3.75, 3.75, 5, 5])
     expect([2, 6, 8, 12].map(zoom => clickReach(zoom, false).dot)).toEqual([3.75, 4.75, 5.75, 7])
+  })
+
+  it('has the disc of the station picked, which is drawn larger than a dot: its radius, half its edge and a little more', () => {
+    expect(SELECTED_RADIUS_PX).toBe(9)
+    expect(SELECTED_EDGE_PX).toBe(3)
+    expect(clickReach(6, false).disc).toBe(12.5)
+    expect(clickReach(6, true).disc).toBe(12.5)
+    // larger than the dot at every zoom, which is why a click on the disc is a click on the station and not on the map
+    for (const zoom of [2, 6, 12])
+      expect(clickReach(zoom, false).disc).toBeGreaterThan(clickReach(zoom, false).dot)
   })
 
   it('has a ring for a tap of a finger, and none for a mouse', () => {

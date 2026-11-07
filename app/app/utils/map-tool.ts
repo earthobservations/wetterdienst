@@ -61,15 +61,20 @@ export const DOT_SLOP_PX = 2
 /** How far a finger's tap reaches, in pixels, which a dot cannot be as small as: a tap in the ring beside a dot prefers a station that reports */
 export const TAP_RADIUS_PX = 12
 
+/** The radius and the edge of the disc drawn for the station picked, in pixels (the edge is drawn half outside the radius) */
+export const SELECTED_RADIUS_PX = 9
+export const SELECTED_EDGE_PX = 3
+
 /**
  * What a click at a zoom reaches, in pixels from it: a dot under it (its drawn radius and a little more, so that a click
- * on empty map at the opening zoom, where a 12 px circle would be 18 km across and take three in four clicks for one on a
- * dot, is not one), and, for a finger (a coarse pointer), the wider ring a tap has, which is no hit on a dot but
- * the reach in which the station for the tap is chosen with the reporting ones first.
+ * on empty map at the opening zoom, where a circle of 12 px radius is about 37 km across and took 89 % of the clicks
+ * for one on a dot, is not one), and, for a finger (a coarse pointer), the wider ring a tap has, which is no hit on a
+ * dot but the reach in which the station for the tap is chosen with the reporting ones first.
  */
-export function clickReach(zoom: number, coarse: boolean): { dot: number, tap: number } {
+export function clickReach(zoom: number, coarse: boolean): { dot: number, tap: number, disc: number } {
   const dot = dotRadius(zoom) + DOT_SLOP_PX
-  return { dot, tap: coarse ? Math.max(TAP_RADIUS_PX, dot) : 0 }
+  // the yellow disc of the station picked is larger than a dot, and a click on it is on that station
+  return { dot, tap: coarse ? Math.max(TAP_RADIUS_PX, dot) : 0, disc: SELECTED_RADIUS_PX + SELECTED_EDGE_PX / 2 + DOT_SLOP_PX }
 }
 
 const EARTH_RADIUS_KM = 6371.0088
@@ -131,21 +136,32 @@ const DAY_MS = 86_400_000
  * How far behind the newest end of its list a station may be and still be reporting, in days. The REST API gives
  * every station an `end_timestamp`, a running one too: the day (or month, or year) of its last value. How far behind
  * today that is depends on the dataset, not on the resolution: the daily climate summary is a day or two behind, the
- * solar radiation 38 days, the snow water equivalent 215 days (it is measured in winter), the annual datasets 311
- * (the end of last year), and the stations of one list are up to a month apart (the monthly precipitation, the
- * hourly wind). So a station is compared with the newest end of the list it is in, which is the clock of that
- * dataset, and the tolerance is generous: a station that stopped within 90 days of it still reads as reporting
- * (a little harm), where one that is running and a publication behind must never read as closed (the harm of
- * the fixed tolerance by resolution it replaces). Measured on the 38 observation lists of 2026-11-07 (the PR's
- * table): 90 days takes in the whole running cluster of every list.
+ * solar radiation 38 days, the snow water equivalent 215 days (DWD's files of two of its stations have continuous
+ * daily rows through the summer of 2025 and stop in April 2026, which looks like a publication lag; why is not
+ * known), the annual datasets 311 (the end of last year), and the stations of one list are up to two months apart
+ * (the daily precipitation, the monthly lists). So a station is compared with the newest end of the list it is in,
+ * which is the clock of that dataset, and the tolerance is generous: a station that stopped within 90 days of it still
+ * reads as reporting (a little harm), where one that is running and a publication behind must never read as closed
+ * (the harm of the fixed tolerance by resolution it replaces).
+ *
+ * Measured on the 62 observation lists of 2026-11-07 (the PR's table): of the 61 that are running, 90 days takes in the
+ * stations that are running in each, but the 498 of the snow water equivalent, where one is 92 days behind and reads
+ * as closed; beyond 90 days a list has between 1 and 271 stations that ended within the year, which read as
+ * closed, and may be running late or have stopped (that cannot be told from the list).
+ *
+ * The clock is the newest end of the list, one station's: a single end that is far ahead of the others (but not
+ * later than today) moves it, and takes a list's stations out of the tolerance (a simulation on the snow water
+ * equivalent: one station moved 30 days ahead takes it from 497 stations reporting to 381). The lists are
+ * not like that today. A later end than the newest ones, such as the 10th newest, as the clock would close
+ * the one running station of `daily/weather_phenomena`, so the rule stays as it is.
  */
 export const REPORTING_WITHIN_DAYS = 90
 
 /**
  * How far behind today the newest end of a list may be for the list to be running at all, in days. A list whose newest
  * end is older than this has stopped as a whole (the annual weather phenomena end in 2024), and every station of it
- * reads as closed; the lists that are only behind (the snow water equivalent in summer, 215 days; the annual
- * datasets, 311, and up to 365 before the new year's files) are within it.
+ * reads as closed; the lists that are only behind (the snow water equivalent, 215 days; the annual datasets, 311, and up
+ * to 365 before the new year's files) are within it.
  */
 export const LIST_RUNNING_WITHIN_DAYS = 450
 
@@ -154,7 +170,7 @@ export type ReportingRule = (station: Pick<Station, 'end_timestamp'>) => boolean
 
 /**
  * The rule of whether a station is still reporting, for the list it is in: its end is within `REPORTING_WITHIN_DAYS`
- * of the newest end of the list (that end taken at most as late as `now`), and the list is running
+ * of the newest end of the list (taken over the ends that are not later than `now`), and the list is running
  * (`LIST_RUNNING_WITHIN_DAYS`). A station with no end, or one that is no date, is not reporting: its status is not
  * known, and a station of a layer that has none (the forecast's points) is not asked.
  *
@@ -163,13 +179,13 @@ export type ReportingRule = (station: Pick<Station, 'end_timestamp'>) => boolean
  * stations.filter(reporting) // the 41 of the 56 that are running, though the newest end is 38 days ago
  */
 export function reportingRule(stations: Array<Pick<Station, 'end_timestamp'>>, now: number = Date.now()): ReportingRule {
-  let newest = Number.NEGATIVE_INFINITY
+  // an end that is later than today is no clock: it would take the stations that are running out of the tolerance
+  let clock = Number.NEGATIVE_INFINITY
   for (const station of stations) {
     const end = station.end_timestamp ? Date.parse(station.end_timestamp) : Number.NaN
-    if (end > newest)
-      newest = end
+    if (end <= now && end > clock)
+      clock = end
   }
-  const clock = Math.min(newest, now)
   const running = Number.isFinite(clock) && now - clock <= LIST_RUNNING_WITHIN_DAYS * DAY_MS
   return (station) => {
     const end = station.end_timestamp ? Date.parse(station.end_timestamp) : Number.NaN

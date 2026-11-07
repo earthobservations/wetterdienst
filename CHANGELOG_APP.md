@@ -25,8 +25,8 @@ Types of changes:
   station offered is the nearest within 100 km, one that still reports (its end within 90 days of
   its list's newest) before a closed one (shown with its years); a click on a dot is that station.
   Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
-  it on a station, not yet a town
-  (GH-3650, GH-3791). All eleven locales; all but `en` machine-made, none read by a native speaker
+  it on a station, not yet a town (GH-3650, GH-3791). All eleven locales; all but `en`
+  machine-made, none read by a native speaker
 
 ### Changed
 
