@@ -29,8 +29,9 @@ station read with `drop_nulls=false` is listed): the stations that `metadata.req
 `counts.stations` name, and those of the GeoJSON. Where the wide shape merged several datasets of a resolution
 into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
 feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
-the block, and the block is an empty list where there are no rows. To find a requested station that has no
-rows, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
+the block, and the block is an empty list where there are no rows. A station named in `stations` that has no
+rows while other named stations do is told by a `station-without-rows` warning ([below](#response-metadata)). To find a
+requested station that has no rows otherwise, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
 (with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
 lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
@@ -319,8 +320,9 @@ what the answer is missing:
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
-  `file-skipped` (the stations whose file the provider let go, see below) and `other-window-left-out` (dates the
-  source has values for that the answer leaves out because they are of another series, see below). Codes are added as
+  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  source has values for that the answer leaves out because they are of another series, see below) and
+  `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are added as
   more are told; a client reads the ones it knows.
 
   `other-window-left-out` says that the source holds values of a parameter on dates the answer has no row for, because
@@ -368,6 +370,38 @@ what the answer is missing:
   `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
   than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
   `begin_response()`, as the REST API and the command line do.
+
+  `station-without-rows` says that stations the request named by id (`stations=`; `filter_by_station_id` in Python,
+  the same on the command line, in REST and in the MCP tool) returned no rows while other named stations returned
+  rows, which `values` alone does not say. It carries `stations` (the ids, in the order of the answer, which is the
+  catalogue's and not the order they were asked in, the first ten if there are more; the message then gives their
+  number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name, `sql` and `all` have
+  empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`,
+  `summarize` and `stripes` read stations as candidates or one station and do not tell it.
+
+  A station has no rows when the source holds no values of it in the window (a station the index says begins after
+  the window included), or, in the long shape with `drop_nulls` (the default), when all its values were null and
+  left out: with `drop_nulls=false`, and in the wide shape, which never drops a null row, such a station has rows
+  and is not named, and the message does not offer that reason. With `skip_empty` a station with any value in the
+  window is `station-skipped`'s, so a station named has none at all and the message does not offer it either. A null
+  that carries a `raw:` token is counted by `missing-value-marker`, `calm-wind-direction` or, where a hard check made
+  it, `rejected-by-plausibility`; one without is counted by none. The message gives the window and, as
+  `parameter-without-rows` does, what narrowed the request (`periods`, a run, a lead time, for any of its datasets,
+  the periods of the datasets in one phrase) with what to ask instead, since the values may be in what was left out.
+  Without a window it says "there" only when something narrowed the request. It does not say what the other stations
+  have: at least one returned rows, but a clause of `sql_values` that cuts rows afterwards may leave none of them
+  with rows in the answer, and the stations named had none before it either.
+  A station with a row of any requested parameter has rows, even if another parameter has none (that is
+  `parameter-without-rows`). It is not told when no named station has rows (`parameter-without-rows` is, where it
+  can be), for an id the network has no station for (`unknown-station` names it), for a station `file-skipped`
+  names (a file that serves every station is every station read's; a station the index says begins after the window
+  was not read and is still named), for one `skip_empty` dropped (`station-skipped`), or for one whose dates were
+  left out for another series (`other-window-left-out`: the source holds values of it, which that warning says);
+  `parameter-ended` names a parameter, not a station, and does not keep a station from being named. It is raised
+  once the walk has read every station, so a stream that the client stops, a walk that fails and a rank that ends
+  early name none; a limit (`max_rows`, `max_stream_rows`) refuses the request before any station is read. A
+  streamed answer (`ndjson`) carries it in the `end` line, and a streamed CSV, which has no place for warnings, not
+  at all.
 
   `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
   listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
