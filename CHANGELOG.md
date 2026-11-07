@@ -31,6 +31,11 @@ Types of changes:
   them: `import wetterdienst.metadata.unit_type` works as ever. `import
   wetterdienst.model.request` still imports polars and the settings, but no longer `measurement`
   (sympy) and `pyarrow`, which a search by distance or by rank imports (GH-3809)
+- The `plotting` extra now requires `plotly>=6.3.1` (before `plotly>=6.2.0`). On plotly 6.2.0 and
+  6.3.0, `Figure.to_image` ignores the `width` and `height` of the figure's layout and draws 700x500
+  unless the call passes them; 6.3.1 honours them. wetterdienst works the size out itself and was
+  not affected, except through a `kaleido.start_sync_server()` you started, where its images go
+  through `to_image`. Upgrade plotly where an older one is pinned (GH-3829)
 
 ### Fixed
 
