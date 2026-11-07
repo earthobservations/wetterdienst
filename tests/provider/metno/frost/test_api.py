@@ -3,8 +3,6 @@
 """Tests for MET Norway Frost API provider."""
 
 import datetime as dt
-import json
-import os
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -13,9 +11,7 @@ from polars.testing import assert_frame_equal
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
 from tests.provider.metno.frost.weekly_readers import unread_station_years
-from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
-from wetterdienst.util.network import download_file
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 OSLO_BLINDERN = "SN18700"
@@ -617,15 +613,17 @@ def test_metno_frost_values_daily_precipitation_minus_one_of_storstilla_is_unrea
 
 @pytest.mark.remote
 def test_metno_frost_values_daily_precipitation_minus_one_of_a_wmo_station_of_2026_is_a_dry_day() -> None:
-    """The daily `-1` of SN1193400, a WMO station Frost lists since 2026-11-03, is 0.0 (GH-3820).
+    """The daily `-1` of SN1193400, a WMO station Frost lists since 2026-11-03, is 0.0 with the code (GH-3820).
 
-    The series starts on 2026-11-04 (0.2 mm), and 2026-11-05 to 07 are `-1` (quality 2), a dry day: both 12-hourly
-    halves are `-1` in 472 of 472 days of such stations. These series are new: if Frost rolls its archive over, the
-    dates here are the first to go.
+    These series are new (quality 2, not yet controlled) and their values may be revised, so the test pins the property
+    and no neighbouring value: the `-1` days of 2026-11-04 to 07 (there were three) are `0.0` with `raw:-1` as the last
+    flag, a dry day (both 12-hourly halves are `-1` in 472 of 472 days of such stations), and a reading is no `-1`.
     """
-    df = _daily("SN1193400", dt.datetime(2026, 11, 4, tzinfo=UTC), dt.datetime(2026, 11, 6, tzinfo=UTC))
-    assert df["value"].to_list() == [pytest.approx(0.2), 0.0, 0.0]
-    assert df["quality_flags"].to_list() == ["2", "2,raw:-1", "2,raw:-1"]
+    df = _daily("SN1193400", dt.datetime(2026, 11, 4, tzinfo=UTC), dt.datetime(2026, 11, 7, tzinfo=UTC))
+    minus_one = df.filter(pl.col("quality_flags").str.ends_with("raw:-1"))
+    assert minus_one.height >= 1
+    assert minus_one["value"].to_list() == [0.0] * minus_one.height
+    assert df.filter(~pl.col("quality_flags").str.ends_with("raw:-1"))["value"].min() >= 0
 
 
 @pytest.mark.remote
@@ -756,103 +754,3 @@ def test_metno_frost_the_weekly_reader_rule_finds_storstilla_and_no_other_statio
     assert minus_one.filter(pl.col("date").dt.year() <= 1993)["value"].null_count() == 1860
     assert minus_one.filter(pl.col("date").dt.year() <= 1993).height == 1860
     assert minus_one.filter(pl.col("date").dt.year() >= 1994)["value"].to_list() == [0.0] * 150
-
-
-SWEEP = "FROST_WEEKLY_READER_SWEEP"
-
-
-@pytest.mark.remote
-@pytest.mark.slow
-@pytest.mark.skipif(
-    not os.environ.get(SWEEP),
-    reason=f"the sweep reads every station: set {SWEEP}=1 (or a number n: the first n and SN81930)",
-)
-def test_metno_frost_every_weekly_reader_of_the_catalogue_is_named_by_the_reader() -> None:
-    """The rule that finds a weekly reader gives the station-years the reader names, over every station of the list.
-
-    One request for the whole span of each station of the station list that has a daily precipitation series (the
-    series the reader returns: `timeoffsets=PT6H`), about 1,000 requests at 1.05 s, as the census of 2026-11-07 read
-    them. A station-year the rule finds that `_UNREAD_DAYS_THROUGH` does not name is a new weekly reader whose `-1` the
-    reader returns as a dry day (or a name that no longer is one): add it there, with the year, and to the docs
-    (GH-3820).
-    """
-    import time  # noqa: PLC0415
-    from urllib.parse import quote  # noqa: PLC0415
-
-    from aiohttp import encode_basic_auth  # noqa: PLC0415
-
-    from wetterdienst.provider.metno.frost.api import _UNREAD_DAYS_THROUGH  # noqa: PLC0415
-    from wetterdienst.settings import Settings  # noqa: PLC0415
-
-    settings = Settings()
-    client_id, secret = settings.auth.metno_frost
-    client_kwargs = {
-        **settings.fsspec_client_kwargs,
-        "headers": {"Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value())},
-    }
-
-    def get(url: str) -> dict | None:
-        time.sleep(1.05)
-        file = download_file(
-            url=url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.NO_CACHE,
-            client_kwargs=client_kwargs,
-            cache_disable=True,
-            use_certifi=settings.use_certifi,
-        )
-        if file.status in (404, 412):
-            return None
-        file.raise_if_exception()
-        return json.loads(file.content.read())
-
-    element = quote("sum(precipitation_amount P1D)")
-    listing = get(
-        "https://frost.met.no/observations/availableTimeSeries/v0.jsonld"
-        f"?elements={element}&timeresolutions=P1D&timeoffsets=PT6H"
-    )
-    in_listing = {series["sourceId"].split(":")[0] for series in listing["data"]}
-    catalogue = set(
-        MetnoFrostRequest(
-            parameters=[("daily", "data", "precipitation_amount")],
-            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
-            end=dt.datetime(2020, 1, 2, tzinfo=UTC),
-        )
-        .all()
-        .df["station_id"]
-        .to_list()
-    )
-    stations = sorted(in_listing & catalogue)
-    assert len(stations) > 900
-    limit = int(os.environ[SWEEP])
-    if limit > 1:
-        # a trial of the test itself: the first stations and the one weekly reader
-        stations = [*stations[:limit], "SN81930"]
-    frames = []
-    for station in stations:
-        answer = get(
-            "https://frost.met.no/observations/v0.jsonld"
-            f"?sources={station}&elements={element}&timeresolutions=P1D&timeoffsets=PT6H"
-            f"&referencetime=1874-01-01/{dt.datetime.now(UTC).date() + dt.timedelta(days=2)}"
-        )
-        if answer is None:
-            continue
-        rows = [
-            (observation["value"], row["referenceTime"][:10])
-            for row in answer["data"]
-            for observation in row["observations"]
-            if observation.get("value") is not None
-        ]
-        if rows:
-            frames.append(
-                pl.DataFrame({"value": [float(v) for v, _ in rows], "date": [d for _, d in rows]}).select(
-                    pl.lit(station).alias("station_id"),
-                    pl.col("date").str.to_date(),
-                    "value",
-                    pl.when(pl.col("value") == -1).then(pl.lit("raw:-1")).alias("quality_flags"),
-                )
-            )
-    found = unread_station_years(pl.concat(frames))
-    # every station-year the rule finds is one the reader names, and every station the reader names is found
-    assert {(station, year) for station, year in found if year > _UNREAD_DAYS_THROUGH.get(station, 0)} == set()
-    assert {station for station, _ in found} == set(_UNREAD_DAYS_THROUGH)

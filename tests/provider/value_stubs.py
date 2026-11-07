@@ -2067,10 +2067,10 @@ def _metno_frost_daily_precipitation_weekly_reader(
     monkeypatch: pytest.MonkeyPatch,
     drop_nulls: bool = True,  # noqa: FBT001, FBT002
 ) -> pl.DataFrame:
-    # `sum(precipitation_amount P1D)`, SN81930 (Storstilla), written after its 1990 (a reading each 7th day, the days
-    # between are -1: eight -1, 17.5, eight -1, 32.5), a weekly reader whose -1 up to and including 1993 is a day
-    # nobody read the gauge on, so that the week's rain sits in the next reading: null, with the code kept. The -1 of
-    # 1994 on is dry-like and 0.0 (GH-3820)
+    # `sum(precipitation_amount P1D)`, SN81930 (Storstilla), 1990-03-01 to 03-09 as Frost wrote it (checked on
+    # 2026-11-07 for 03-01 to 03-11): a weekly reader (a median gap of 7 days between its readings) whose -1 up to and
+    # including 1993 is a day nobody read the gauge on, so that the week's rain, 31.5 mm on 03-06, sits in the next
+    # reading: null, with the code kept. The -1 of 1994 on is dry-like and 0.0 (GH-3820)
     return _metno_frost_precipitation(
         monkeypatch,
         drop_nulls,
@@ -2082,8 +2082,8 @@ def _metno_frost_daily_precipitation_weekly_reader(
             ("1990-03-03T06:00:00.000Z", -1, 2),
             ("1990-03-04T06:00:00.000Z", -1, 2),
             ("1990-03-05T06:00:00.000Z", -1, 2),
-            ("1990-03-06T06:00:00.000Z", -1, 2),
-            ("1990-03-07T06:00:00.000Z", 17.5, 2),
+            ("1990-03-06T06:00:00.000Z", 31.5, 2),
+            ("1990-03-07T06:00:00.000Z", -1, 2),
             ("1990-03-08T06:00:00.000Z", -1, 2),
             ("1990-03-09T06:00:00.000Z", -1, 2),
         ],
@@ -3081,7 +3081,7 @@ STUBS = [
     ValueStub(
         "metno/frost daily/data (precipitation, weekly reader)",
         _metno_frost_daily_precipitation_weekly_reader,
-        reading=("precipitation_amount", 17.5),
+        reading=("precipitation_amount", 31.5),
         # the -1 of a day nobody read is no value: null, with the code in the flags (GH-3820)
         sentinels=(("precipitation_amount", -1.0),),
         tokens=(("precipitation_amount", "-1", None),),

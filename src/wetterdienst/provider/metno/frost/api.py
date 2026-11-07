@@ -485,10 +485,11 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   run of -1 follows the run's total, Spearman 0.63, and not the day's, 0.28, so the week's rain sits in the next
 #   reading): null, with `raw:-1`, for `_UNREAD_DAYS_THROUGH`. From 1994 its -1 are dry-like (neighbours 18.9 % wet) and
 #   0.0. The rule that finds such a station is a median gap of 4 days or more between the readings and at least half of
-#   the rows -1 in a calendar year: it gives exactly SN81930 for 1987 to 1993 and nothing else (a live test holds it, so
-#   that a new weekly reader shows up as a failing test). The rest is dry: Bjornoya (SN99700) 11,174 days up to 1956
-#   (1 mm or more on 25.6 % of them against 25.3 % at the station beside it), the WMO series of 2026-11 (472 of 472
-#   days whose two 12-hourly halves are both -1), and 88 isolated days (neighbours wet on 9.4 %)
+#   the rows -1 in a calendar year: it gives exactly SN81930 for 1987 to 1993 and nothing else (a live test holds it for
+#   SN81930 and four look-alikes; the census is the evidence for the other stations). The rest is dry: Bjornoya
+#   (SN99700) 11,174 days up to 1956 (1 mm or more on 25.6 % of them against 25.3 % at the station beside it), the
+#   WMO series of 2026-11 (472 of 472 days whose two 12-hourly halves are both -1), and 88 isolated days (neighbours
+#   wet on 9.4 %)
 # - not for the 10-minute sum (no -1 in 394,188 readings), the monthly sum (305, none since 1954) and the annual sum
 #   (none in 70,022), where Frost states nothing and nothing supports it: a -1 there is null by the range check
 #
@@ -585,12 +586,20 @@ _STANDARD_SERIES = {
     "PT18H": "18-18 UTC series (`timeOffset` PT18H)",
     "PT0H": "calendar-day series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00)",
 }
+# the monthly mean is the calendar month, not a day, and its `PT6H` series runs from 06 UTC on the last day of the month
+# before to 06 UTC on the last day of the month (the daily wording would call a month "the hourly readings stamped
+# 00:00 to 23:00")
+_MONTHLY_MEAN = "mean(air_temperature P1M)"
+_MONTHLY_MEAN_SERIES = "calendar-month series (`timeOffset` PT0H, midnight to midnight of the calendar month)"
+_MONTHLY_MEAN_OTHER = "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)"
 # what the `other-window-left-out` warning says of the dates that only the other series has, by element: Frost names
 # the standard of the sums and of the extremes in its table, and prefers `PT0H` for every other element
 _LEFT_OUT_BECAUSE = {
     element: (
-        f"these dates have a value in Frost's {_OTHER_SERIES[offset]} only, and this parameter is the "
-        f"{_STANDARD_SERIES[offset]}, the one Frost {'prefers' if offset == 'PT0H' else 'names its standard'}"
+        f"these dates have a value in Frost's "
+        f"{_MONTHLY_MEAN_OTHER if element == _MONTHLY_MEAN else _OTHER_SERIES[offset]} only, and this parameter is the "
+        f"{_MONTHLY_MEAN_SERIES if element == _MONTHLY_MEAN else _STANDARD_SERIES[offset]}, "
+        f"the one Frost {'prefers' if offset == 'PT0H' else 'names its standard'}"
     )
     for element, offset in _STANDARD_OFFSET.items()
 }
@@ -834,7 +843,26 @@ def _read_observations(
         ),
         resolution,
     )
-    return frame, left_out
+    return _a_reading_beats_a_minus_one(frame), left_out
+
+
+def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
+    """Leave out the `-1` of a day of the daily precipitation sum that another stamp of the day has a reading for.
+
+    A few stations of the WMO series Frost lists since 2026-11-03 write several rows for one date, stamped at different
+    times (SN644700: on 2026-11-07 eight rows of `-1` from 00:00 to 08:00 and five of 0.1 from 10:00 to 16:00). The
+    stamp is cut to the day, and the core keeps the first row of a reading that has a value
+    (`merge_duplicate_readings`): a `-1` that was null lost to the reading, and as the 0.0 it is now, one that comes
+    first would win it (GH-3820). The reading is the day's, so the rows of `-1` of such a day are left out. A day
+    with `-1` alone, and a `-1` beside another `-1`, are as they were.
+    """
+    minus_one = (
+        (pl.col("parameter") == _DAILY_PRECIPITATION_SUM)
+        & pl.col("value").is_not_null()
+        & pl.col("quality_flags").fill_null("").str.ends_with(f"raw:{_NO_PRECIPITATION}")
+    )
+    reading = pl.col("value").is_not_null() & ~minus_one
+    return df.filter(~(minus_one & reading.any().over("parameter", "timestamp")))
 
 
 def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:

@@ -1959,11 +1959,19 @@ def test_metno_frost_the_mean_temperature_is_the_calendar_day_series_by_every_re
     assert warning["parameter"] == f"{resolution}/data/temperature_air_mean_2m"
     assert warning["stations"] == ["SN18700"]
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
-    assert "other series (`timeOffset` PT6H" in warning["message"]
-    assert (
-        "this parameter is the calendar-day series (`timeOffset` PT0H, the hourly readings stamped"
-        in (warning["message"])
-    )
+    message = warning["message"]
+    assert "other series (`timeOffset` PT6H" in message
+    # Frost's table does not name a standard for the mean, it prefers `PT0H`: the clause says which of the two it is
+    assert ", the one Frost prefers." in message
+    assert "names its standard" not in message
+    if resolution == "daily":
+        assert "this parameter is the calendar-day series (`timeOffset` PT0H, the hourly readings stamped" in message
+        assert "other series (`timeOffset` PT6H, the 06-06 UTC mean, or PT18H)" in message
+    else:
+        # a month is no day: it is not the hourly readings of 00:00 to 23:00
+        assert "this parameter is the calendar-month series (`timeOffset` PT0H, midnight to midnight" in message
+        assert "hourly readings" not in message
+        assert "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)" in message
     # the source has values there: nothing says that it has none
     assert [w for w in _told_of("temperature_air_mean_2m") if w["code"] == "parameter-without-rows"] == []
 
@@ -2387,7 +2395,7 @@ def test_metno_frost_only_the_daily_sum_has_a_day_that_is_not_read() -> None:
 
 
 def test_metno_frost_the_rule_that_finds_a_weekly_reader_finds_the_pattern_of_the_census() -> None:
-    """Test the rule on Storstilla's pattern (316 of 365 rows `-1`, a reading each 7th day) and a dry spell's.
+    """Test the rule on Storstilla's pattern (316 of 365 rows `-1`, a median gap of 7 days) and a dry spell's.
 
     The daily reader that has a dry spell has a `-1` on most days too, and a reading every few days at the most; the
     rule needs the median gap of 4 days or more, which only a weekly or monthly reader has (GH-3820).
@@ -2446,3 +2454,42 @@ def test_metno_frost_the_zero_of_a_daily_minus_one_is_not_judged_by_the_checks_a
         assert df["quality_flags"].to_list()[0] == "raw:-1"
         if not drop_nulls:
             assert df["quality_flags"].to_list()[1].startswith("rejected:limits")
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_the_day(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that a day stamped several times keeps its reading, wherever its `-1` is, and a day of `-1` alone is 0.0.
+
+    SN644700, one of four WMO stations that write several rows for a date, has on 2026-11-07 eight rows of `-1`
+    (00:00 to 08:00) and five of 0.1 (10:00 to 16:00), and on 2026-11-04 the reading before its `-1`. The core keeps
+    the first row of a day that has a value: the `-1` was null and lost, and as `0.0` it would win when it comes first
+    (GH-3820). 2026-11-05 has `-1` rows alone.
+    """
+    readings = [
+        ("2026-11-04T00:00:00.000Z", "PT6H", 0.1),
+        ("2026-11-04T10:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-05T00:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-05T06:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T00:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T08:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T10:00:00.000Z", "PT6H", 0.1),
+        ("2026-11-07T12:00:00.000Z", "PT6H", 0.1),
+    ]
+    observations = _answered_by(path, _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+    requested = [("daily", "data", "precipitation_amount")]
+    if path == "single":
+        requested.append(("daily", "data", "temperature_air_mean_2m"))
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        requested,
+        start=dt.datetime(2026, 11, 4, tzinfo=dt.UTC),
+        end=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        options={"drop_nulls": False},
+        station="SN644700",
+    )
+    df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
+    assert df["value"].to_list() == [pytest.approx(0.1), 0.0, pytest.approx(0.1)]
+    assert df["quality_flags"].to_list() == [None, "raw:-1", None]
