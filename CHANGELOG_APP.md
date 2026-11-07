@@ -16,6 +16,30 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Navigation]` On a phone you choose which four tools are in the tab bar, and in which order:
+  "Customise the bar", a link in the Menu's sheet and a card of the Settings, a list with a line
+  between the four of the bar and the tools that are only in the Menu, and a preview of the bar that
+  follows it. Drag a tool by its handle, or press the arrow buttons of its row, which do the same by
+  keyboard and screen reader and say what moved. Forecast, Explorer, Stripes and History stay the
+  default. The choice stays in the browser with the settings, and the privacy policy says so; a
+  stored one that names a tool that is gone, or too few, is repaired. All eleven locales; all but
+  `en` machine-made, none read by a native speaker (GH-3846)
+
+### Changed
+
+- `[Navigation]` On a phone the Menu's tab is marked as the page you are on for every page that is
+  in its sheet and has no tab of its own: a tool that is not in your bar, Providers, Glossary, API,
+  About, Support and Settings, where it was the Map only. A tool in your bar marks its own tab; the
+  home page and the legal notices mark nothing (GH-3851)
+
+### Fixed
+
+- `[Settings]` The app starts in a browser that refuses access to its storage (the setting that
+  blocks it): it showed an error page. The settings now hold for the visit and are the defaults at
+  the next (GH-3846)
+
 ## [0.45.0] - 2026-11-07
 
 ### Added
