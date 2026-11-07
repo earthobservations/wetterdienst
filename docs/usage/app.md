@@ -16,10 +16,17 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 The five tools, Forecast, Explorer, Climate stripes, History and Map, are tabs in the header; Providers, Glossary and
 API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
-(Forecast, Explorer, Climate stripes and History) are a tab bar at the foot of the screen (under the header in a
-window lower than 30 rem, such as a phone on its side) and its **Menu** opens the rest, the Map among it: a bar holds
-four tools and the Menu, and these are the four it had before the Map. The Menu's tab is marked while the page is
-the Map. **Search** (the button in the header, or Ctrl+K
+are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
+and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
+Explorer, Climate stripes and History, and the Map is in the Menu's sheet. **Customise the bar** (a link in the Menu,
+and a card of the Settings) lets you choose which four, and in which order: a list of all the tools, the four of the
+bar above a line and the ones that are only in the Menu below it, with a preview of the bar that follows the list.
+Drag a tool by its handle, or press the arrow buttons on its row (they do the same, by keyboard, screen reader or
+single tap, and say what moved); a tool moved into the bar pushes the one at the line out of it, so the bar always has
+four. The choice stays in the browser. The header of a wide screen shows all five tools whatever the choice. The
+Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
+your bar, Providers, Glossary and API, About, Support and the Settings. The home page and the legal notices mark
+nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
 or ⌘K) goes to any page, to the forecast of a DWD station by its name or to the map opened on it, or to a provider,
 and sets the theme or the language.
 
@@ -34,7 +41,7 @@ and sets the theme or the language.
 | API | The endpoints, the formats and the [MCP](mcp.md) endpoint of the instance, with examples. |
 | Providers | Who publishes the data: the country, the licence and the credit line to give, and what the networks offer, with a link into the explorer. |
 | Glossary | What each parameter measures and the unit it comes back in, searchable by name and quantity. |
-| Settings | Kept in the browser: the language, light or dark, plain-language labels for the parameters, and whether and in which units the values are converted. |
+| Settings | Kept in the browser: the language, light or dark, which four tools are in the tab bar of a phone (see above), plain-language labels for the parameters, and whether and in which units the values are converted. Where the browser refuses its storage the settings hold for the visit and are the defaults at the next. |
 
 The settings of a request that the explorer offers are the [options](settings.md#options) of the library
 (`humanize`, `convert_units`, `unit_targets`, `shape`, `skip_empty`, the interpolation distances), under the

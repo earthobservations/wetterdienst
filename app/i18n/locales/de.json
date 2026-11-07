@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Masse pro Volumen",
     "unitSignificantWeather": "Signifikantes Wetter",
     "unitTurbidity": "Trübung",
-    "unitWindScale": "Windskala"
+    "unitWindScale": "Windskala",
+    "bar": {
+      "title": "Leiste anpassen",
+      "hint": "Auf dem Smartphone zeigt die Leiste am unteren Bildschirmrand vier Werkzeuge und das Menü. Wähle, welche vier. Die anderen bleiben im Menü.",
+      "preview": "Vorschau",
+      "previewLabel": "Vorschau der Leiste: {tools}, Menü",
+      "menuOnly": "Nur im Menü: {tools}",
+      "inBar": "In der Leiste",
+      "inMenu": "Nur im Menü",
+      "instructions": "Ziehe ein Werkzeug am Griff, oder nutze die Pfeil-Schaltflächen in seiner Zeile. Vier Werkzeuge sind immer in der Leiste: Rückt eines hinein, rückt ein anderes hinaus.",
+      "moveUp": "{tool} nach oben schieben",
+      "moveDown": "{tool} nach unten schieben",
+      "reset": "Leiste zurücksetzen",
+      "reorderedBar": "{tool} steht jetzt an Platz {position} von {total} in der Leiste.",
+      "reorderedMenu": "{tool} steht jetzt an Platz {position} von {total} im Menü.",
+      "enteredBar": "{tool} ist jetzt in der Leiste, an Platz {position} von {total}. {other} ist jetzt nur noch im Menü.",
+      "leftBar": "{tool} ist jetzt nur noch im Menü. {other} ist jetzt in der Leiste, an Platz {position} von {total}.",
+      "resetDone": "Die Leiste ist wieder wie zu Beginn: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

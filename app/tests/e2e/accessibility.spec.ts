@@ -571,6 +571,28 @@ const STATES: State[] = [
       await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
     },
   },
+  {
+    // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
+    // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
+    page: 'settings',
+    state: 'phone-bar-chooser',
+    path: '/settings#bar',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
+      await page.getByTestId('bar-chooser').locator('li[data-tool="map"] button[data-dir="up"]').click()
+      await expect(page.getByTestId('bar-status')).not.toHaveText('')
+    },
+  },
+  {
+    page: 'settings',
+    state: 'phone-bar-chooser-narrow',
+    path: '/settings#bar',
+    viewport: { width: 320, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
+    },
+  },
 ]
 
 /** Opens `path` and waits until the app, in this variant, has taken the page up */
