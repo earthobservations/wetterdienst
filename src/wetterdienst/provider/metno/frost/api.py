@@ -18,7 +18,15 @@ from aiohttp import encode_basic_auth
 from wetterdienst.exceptions import CredentialMissingError, DownloadError, InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    RAW_TOKEN,
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
@@ -31,7 +39,7 @@ from wetterdienst.util.network import (
     raise_if_credential_rejected,
     read_refusal,
 )
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import note_left_out, note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -108,11 +116,6 @@ _MetnoFrostMetadataSpec = {
                             "name": "wind_gust_max",
                             "name_original": "max(wind_speed_of_gust PT10M)",
                             "unit": "meter_per_second",
-                        },
-                        {
-                            "name": "wind_direction_gust_max",
-                            "name_original": "max(wind_from_direction_of_gust PT10M)",
-                            "unit": "degree",
                         },
                         {
                             "name": "precipitation_amount",
@@ -423,8 +426,16 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   value `-3.0` with `suspect:range` in soft mode). Read on 2026-11-06, 22 October to 5 November, at the foreign WMO
 #   stations Frost lists since 2026-11-03: 72 of 9,255 hourly readings at 12 of the 249 stations with wind readings,
 #   all beside a wind speed of 0.5 to 2.6 m/s, and none in 108,161 readings of 328 stations in 10 to 24 January 2026.
-#   The 0 of the direction is not in the table; at those foreign stations it stands beside a speed of 0 in 359 of 372
-#   readings, and it is returned as the 0.0 it is written as (GH-3137)
+#   The 0 of the direction is not in the table, but a calm: the element's own text says "360 degrees is north", and 360
+#   exists (276 foreign and 463 Norwegian readings, about twice the neighbouring degrees). The 0 stands beside a speed
+#   of 0 in 359 of 372 readings at the foreign stations and, at 20 Norwegian stations picked for having the most zeros
+#   (10 to 24 January 2026), in 1,014 of 1,068; 1,014 of their 1,030 readings of a speed of 0 have a direction of 0. It
+#   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
+#   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
+#   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
+#   may measure the wind at two heights (7 have a direction at both, the 10 m first): the core keeps the first row of a
+#   reading that has a value, so a calm or a -3 of the first height is what the hour is, and the rows of the other
+#   height are left out (`_first_height_decides_a_code`); a gap (a null with no code) is filled from the other height
 # - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
 #   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
 #   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
@@ -483,6 +494,8 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 _SNOW_DEPTH = "surface_snow_thickness"
 _NO_SNOW = "-1"
 _WIND_DIRECTION = "wind_from_direction"
+# the speed of the same reading, which tells a calm (a direction of 0 beside a speed of 0) from a north written as 0
+_WIND_SPEED = "wind_speed"
 # "No unique wind direction is given when winds are weak" for the direction, "Not possible to measure snowdepth" for the
 # snow depth
 _NOT_GIVEN = "-3"
@@ -495,6 +508,46 @@ _PRECIPITATION_SUMS = (
 _NO_PRECIPITATION = "-1"
 _NO_PRECIPITATION_FROM_YEAR = 1982
 _DAILY = "daily"
+
+# Frost keeps several series of an element at a station that differ in `timeOffset` only ("Sometimes multiple
+# timeseries are available at the same station, with the only difference being the timeOffset value",
+# https://frost.met.no/dataclarifications.html, "Standard time offsets"), and answers all of them where no
+# `timeoffsets` is asked for: two rows for one `referenceTime`, of which the core kept the first, the one whose offset
+# sorts first as a text, `PT18H` before `PT6H`. So the precipitation sums came back as the 18-18 UTC sum under a
+# description of 06-06 (GH-3832). The table of that page names the offset to take:
+#
+#     sum(precipitation_amount P1D)  P1D  PT6H  "Standard sampling period for precipitation is 07-06 UTC"
+#     sum(precipitation_amount P1M)  P1M  PT6H  "Standard sampling period for precipitation is 07-06 UTC"
+#
+# and https://frost.met.no/concepts2.html says what it means: "If timeOffset != PT0H, the observation represents the
+# last 24 hr, at the time after midnight equal to timeOffset. E.g. elementId = sum(precipitation_amount P1D) has
+# timeOffset PT6H. This means that the observation period lasts continuously from the previous date at 06 UTC to
+# current date 06 UTC" (for the month: from the last day of the previous month). The rows of that offset are kept, and
+# the choice is made on the rows of the answer, not by asking Frost for `timeoffsets=PT6H` or `default`: the request
+# holds every element of the dataset, a `PT6H` filter drops each of them that has only `PT0H`, and `default` would
+# move the temperature extremes too (below). A date that only the other series has is not returned, as it would be a
+# sum of another window under this one's name; the answer says so (`other-window-left-out`, `_tell_left_out`), and it is
+# no "the source has no values" (`parameter-without-rows`), as the source has them.
+#
+# Not touched here: `max` and `min(air_temperature P1D)` have `PT0H` and `PT18H` at 579 and 574 stations of Frost's
+# listing, and the table prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18 UTC"). `PT0H`
+# sorts first, and is what comes back where both exist, `PT18H` where it is the only one. The maintainer has decided
+# 19-18 UTC where a station has it, in a change of its own.
+_STANDARD_OFFSET = {
+    "sum(precipitation_amount P1D)": "PT6H",
+    "sum(precipitation_amount P1M)": "PT6H",
+}
+# what the `other-window-left-out` warning says of the dates that only the other series has, by element
+_LEFT_OUT_BECAUSE = {
+    element: (
+        "these dates have a value in Frost's 18-18 UTC series (`timeOffset` PT18H) only, and this parameter is the "
+        f"06-06 UTC series (`timeOffset` {offset}), the one Frost names its standard"
+    )
+    for element, offset in _STANDARD_OFFSET.items()
+}
+# the column that carries the height of a reading's sensor beside it: a station may measure the wind at 10 m and 2 m,
+# and the speed that tells a calm is the one of the direction's own level. Blank where Frost gives none
+_LEVEL = "__level"
 
 
 def _raise_if_rejected(file: File) -> None:
@@ -637,14 +690,132 @@ def _stamp_days(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
     return df.with_columns(pl.col("timestamp").dt.truncate("1d"))
 
 
+def _keep_standard_offset(df: pl.DataFrame) -> pl.DataFrame:
+    """Keep, of an element that has several series by `timeOffset`, the rows of the one that is named (GH-3832).
+
+    ``df`` is the observations of an answer, one row each, with `elementId` and `timeOffset`. An element that is not in
+    `_STANDARD_OFFSET`, and a row that gives no offset, are kept as they are.
+    """
+    if "timeOffset" not in df.columns:
+        return df
+    return df.filter(_is_standard_offset())
+
+
+def _is_standard_offset() -> pl.Expr:
+    """Tell the observations that are of the offset their element names, or of an element that names none."""
+    standard = pl.col("elementId").replace_strict(_STANDARD_OFFSET, default=None, return_dtype=pl.String)
+    return standard.is_null() | pl.col("timeOffset").is_null() | (pl.col("timeOffset") == standard)
+
+
+def _left_out_dates(df: pl.DataFrame, parameter: pl.Expr) -> pl.DataFrame:
+    """Give the `parameter` and `timestamp` of the observations `_keep_standard_offset` leaves out, one row per date."""
+    if "timeOffset" not in df.columns:
+        return pl.DataFrame()
+    return (
+        df.filter(~_is_standard_offset())
+        .select(parameter.alias("parameter"), pl.col("referenceTime").alias("timestamp"))
+        .unique()
+    )
+
+
+def _full_name(parameter: ParameterModel) -> str:
+    """Give the name a warning calls a parameter by: `resolution/dataset/parameter`."""
+    return f"{parameter.dataset.resolution.name}/{parameter.dataset.name}/{parameter.name}"
+
+
+def _tell_left_out(
+    left_out: pl.DataFrame,
+    kept: pl.DataFrame,
+    names: dict[str, str],
+    start: datetime,
+    end: datetime,
+) -> None:
+    """Tell the walk of the dates, of the parameters asked for, that only the series of another offset has (GH-3832).
+
+    ``left_out`` is what `_left_out_dates` gave, ``kept`` the frame the station returns, ``names`` the name
+    (`resolution/dataset/parameter`) of each parameter that was asked for by the name Frost gives it, and ``start`` and
+    ``end`` the window the core cuts the answer to. A date the returned series has is no date left out. The warning is
+    `other-window-left-out`, and is why `parameter-without-rows` says nothing of such a parameter.
+    """
+    if left_out.is_empty():
+        return
+    if not kept.is_empty():
+        left_out = left_out.join(
+            kept.select("parameter", "timestamp").unique(), on=["parameter", "timestamp"], how="anti"
+        )
+    left_out = left_out.filter(pl.col("timestamp").is_between(start, end))
+    for parameter, count in left_out.group_by("parameter").len().iter_rows():
+        if parameter in names:
+            note_left_out(names[parameter], count, _LEFT_OUT_BECAUSE[parameter])
+
+
+def _level(df: pl.DataFrame) -> pl.Expr:
+    """Give the height of the sensor of each observation as text (blank where Frost gives none), as `_LEVEL`."""
+    level = df.schema.get("level")
+    if isinstance(level, pl.Struct) and "value" in level.to_schema():
+        return pl.col("level").struct.field("value").cast(pl.String).fill_null("").alias(_LEVEL)
+    return pl.lit("", dtype=pl.String).alias(_LEVEL)
+
+
+def _read_observations(df: pl.DataFrame, parameter: pl.Expr, resolution: str) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Give the frame the core takes from the observations of an answer, and the dates of another series it left out.
+
+    ``df`` has one row per observation (`elementId`, `referenceTime`, `value`, `timeOffset`, ...), ``parameter`` is
+    the expression of the name the rows are given and ``resolution`` the name of the resolution they were asked for.
+    The frame has the columns parameter, timestamp, value and quality flags; the second frame is `_left_out_dates`,
+    for `_tell_left_out`.
+    """
+    left_out = _left_out_dates(df, parameter)
+    df = _keep_standard_offset(df)
+    if df.is_empty():
+        # every row was of another series: nothing to return, and what was left out is told
+        return pl.DataFrame(), left_out
+    frame = _stamp_days(
+        _decode_sentinels(
+            df.select(
+                parameter.alias("parameter"),
+                pl.col("referenceTime").alias("timestamp"),
+                pl.col("value"),
+                _quality_flags(df),
+                _level(df),
+            ),
+        ),
+        resolution,
+    )
+    return frame, left_out
+
+
+def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
+    """Leave out the later rows of a wind direction whose first row is a code of the source (GH-3833).
+
+    A station that measures the wind at two heights answers a direction for each, the 10 m one first, and the core keeps
+    the first row of a reading that has a value (`merge_duplicate_readings`): a calm (or a "no unique direction", `-3`)
+    at the first height is null, so the bearing of the second height would fill it and the hour would read as a wind
+    that blows beside a speed of 0. The code is what the hour is, so the rows after it are left out. A null that is no
+    code (a gap) is filled from the other height as it always was.
+    """
+    direction = pl.col("parameter") == _WIND_DIRECTION
+    # a null with no `qualityCode` has no flags at all, which is no code (and not a null that drops the row)
+    coded = (direction & pl.col("value").is_null() & pl.col("quality_flags").str.contains(RAW_TOKEN)).fill_null(
+        value=False
+    )
+    first_is_coded = coded.first().over("parameter", "timestamp")
+    later = pl.int_range(pl.len()).over("parameter", "timestamp") > 0
+    return df.filter(~(first_is_coded & later))
+
+
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
     """Turn Frost's in-band codes into the value they stand for, before anything reads them.
 
     The code stays beside the value as the last token of `quality_flags`, `0,raw:-1`, written as Frost documents the
-    code: the value is a JSON number, so its text is not at hand (GH-2759).
+    code: the value is a JSON number, so its text is not at hand (GH-2759). A wind direction of 0 beside a wind speed
+    of 0 of the same time and height is a calm, and null with `raw:0`; where the frame has no speed it stays (GH-3833).
     """
     _precipitation = pl.col("parameter").is_in(_PRECIPITATION_SUMS)
     _year = pl.col("timestamp").dt.year()
+    df = with_speed_beside(
+        df, {_WIND_DIRECTION: _WIND_SPEED}, on=["timestamp", _LEVEL] if _LEVEL in df.columns else ["timestamp"]
+    )
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_NO_SNOW, where=pl.col("parameter") == _SNOW_DEPTH, to=0.0),
@@ -652,10 +823,12 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year < _NO_PRECIPITATION_FROM_YEAR)),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
         Sentinel(_NOT_GIVEN, where=pl.col("parameter").is_in([_WIND_DIRECTION, _SNOW_DEPTH])),
+        calm(pl.col(SPEED_BESIDE), where=pl.col("parameter") == _WIND_DIRECTION),
         text=False,
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
-    return df.with_columns(value.alias("value"), join_quality_flags(quality, raw=raw))
+    decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, raw=raw))
+    return _first_height_decides_a_code(decoded).drop(SPEED_BESIDE, _LEVEL, strict=False)
 
 
 class MetnoFrostValues(TimeseriesValues):
@@ -772,17 +945,15 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        return _stamp_days(
-            _decode_sentinels(
-                df.select(
-                    pl.col("elementId").alias("parameter"),
-                    pl.col("referenceTime").alias("timestamp"),
-                    pl.col("value"),
-                    _quality_flags(df),
-                ),
-            ),
-            dataset.resolution.name,
-        )
+        frame, left_out = _read_observations(df, pl.col("elementId"), dataset.resolution.name)
+        # the batch holds the whole dataset: what is told is of the parameters asked for
+        asked = {
+            parameter.name_original: _full_name(parameter)
+            for parameter in self.sr.parameters
+            if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
+        }
+        _tell_left_out(left_out, frame, asked, start_date, end_date)
+        return frame
 
     def _collect_after_batch_404(
         self,
@@ -879,17 +1050,11 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.unnest("observations")
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        return _stamp_days(
-            _decode_sentinels(
-                df.select(
-                    pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-                    pl.col("referenceTime").alias("timestamp"),
-                    pl.col("value"),
-                    _quality_flags(df),
-                ),
-            ),
-            parameter.dataset.resolution.name,
+        frame, left_out = _read_observations(
+            df, pl.lit(parameter.name_original, dtype=pl.String), parameter.dataset.resolution.name
         )
+        _tell_left_out(left_out, frame, {parameter.name_original: _full_name(parameter)}, start_date, end_date)
+        return frame
 
     def _collect_via_time_series_discovery(  # noqa: C901
         self,
@@ -941,6 +1106,8 @@ class MetnoFrostValues(TimeseriesValues):
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
         frames = []
+        left_outs = []
+        asked: set[str] = set()
         for ts in ts_list:
             valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
             valid_to_str = ts.get("validTo")
@@ -965,6 +1132,11 @@ class MetnoFrostValues(TimeseriesValues):
                 perf_cats=params.get("performancecategories", [""])[0],
                 expo_cats=params.get("exposurecategories", [""])[0],
             )
+            # the series of one element that differ in `timeOffset` only are listed apart and have one `timeseriesids`:
+            # their query is the same where their validity is, and answers the rows of every offset (GH-3832)
+            if obs_url in asked:
+                continue
+            asked.add(obs_url)
             log.info(f"Acquiring data from {obs_url}")
             obs_file = download_file(
                 url=obs_url,
@@ -999,23 +1171,19 @@ class MetnoFrostValues(TimeseriesValues):
             )
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
-            frames.append(
-                _stamp_days(
-                    _decode_sentinels(
-                        df.select(
-                            pl.lit(element, dtype=pl.String).alias("parameter"),
-                            pl.col("referenceTime").alias("timestamp"),
-                            pl.col("value"),
-                            _quality_flags(df),
-                        ),
-                    ),
-                    resolution_name,
-                )
-            )
+            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name)
+            left_outs.append(left_out)
+            if not frame.is_empty():
+                frames.append(frame)
 
-        if not frames:
-            return pl.DataFrame()
-        return pl.concat(frames, how="diagonal_relaxed")
+        kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+        # a date is left out when no series of the station returned it
+        left_out = [frame for frame in left_outs if not frame.is_empty()]
+        if left_out:
+            _tell_left_out(
+                pl.concat(left_out).unique(), kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date
+            )
+        return kept
 
 
 def _probe_frost_credentials(settings: Settings) -> bool | None:

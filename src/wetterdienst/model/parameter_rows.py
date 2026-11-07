@@ -26,7 +26,10 @@ It is not told where it would say what is not so:
 - the walk was not read to its end, or the request failed and raised;
 - a station whose file the provider let go (`note_skipped_download`) is not one of the stations it names, as its
   missing values may be missing for that: the other stations still count, and where none is left nothing is said;
-- a parameter another warning already names (`parameter-ended`).
+- a parameter another warning already names (`parameter-ended`);
+- a parameter whose values the provider left out because they are of another window (`note_left_out`): the source has
+  them, and `other-window-left-out` says so, once, with the stations and the dates, for the dataset asked for whole
+  as for the parameter asked for by its name.
 
 What it says is limited to what is known: the window, and what narrowed the request (`periods`, a run, a lead time,
 for the datasets they narrowed). It says nothing of the source being behind for a window that reaches the present:
@@ -55,7 +58,8 @@ the other stations have rows: those another warning explains, or `sql_values` la
 - A station is named when the answer holds none of its rows: the source holds no readings of it in the window (one that
   begins after the window too), or all of them were null and `drop_nulls` left them out (with `drop_nulls=False` the
   station has rows).
-- It leaves out the stations another warning explains, those of `file-skipped` and `station-skipped`, and the ones with
+- It leaves out the stations another warning explains, those of `file-skipped`, `station-skipped` and
+  `other-window-left-out` (the source holds values of them, of another series), and the ones with
   a row of any requested parameter (a parameter with no row at a station that has others is `parameter-without-rows`'s,
   if no station has it).
 - Nothing is told where every station is empty, which `parameter-without-rows` tells where it can, nor for an id the
@@ -71,6 +75,7 @@ from typing import TYPE_CHECKING
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
+    OTHER_WINDOW_LEFT_OUT,
     PARAMETER_WITHOUT_ROWS,
     STATION_WITHOUT_ROWS,
     collecting,
@@ -128,7 +133,7 @@ class ParameterRows:
         self._start = start
         self._end = end
         #: the stations the request named by id, and those the walk handed to the answer (`returned`) or told another
-        #: warning of (`explained`: `station-skipped`)
+        #: warning of (`explained`: `station-skipped`, `other-window-left-out`)
         self._asked = None if asked is None else list(asked)
         self._nulls_dropped = nulls_dropped
         self._returned: set[str] = set()
@@ -148,6 +153,10 @@ class ParameterRows:
         self._examined: dict[tuple[str, str], list[str]] = {}
         #: `(resolution, dataset, parameter)` of every row the walk found in the window
         self._with_rows: set[tuple[str, str, str]] = set()
+        #: the dates a provider left out for the rows of another window (`note_left_out`), by parameter
+        #: (`resolution/dataset/parameter`) and then by station, and the clause that says which series it was
+        self._left_out: dict[str, dict[str, int]] = {}
+        self._left_out_because: dict[str, str] = {}
 
     def examine(self, station_id: str, datasets: Iterator[DatasetModel] | list[DatasetModel]) -> None:
         """Note that the station is read for these datasets, which the station index lists it for."""
@@ -167,8 +176,17 @@ class ParameterRows:
             else:
                 self._skipped[station_id] = None
 
+        def left_out(parameter: str, count: int, because: str) -> None:
+            stations = self._left_out.setdefault(parameter, {})
+            stations[station_id] = stations.get(station_id, 0) + count
+            self._left_out_because[parameter] = because
+            # the source has values there: `parameter-without-rows` must not say it has none, nor
+            # `station-without-rows` that the station has no values of it: `other-window-left-out` says why
+            self._named.add(parameter)
+            self._explained.add(station_id)
+
         self._collected[station_id] = None
-        return collecting(skipped, self._named)
+        return collecting(skipped, self._named, left_out)
 
     def passed_over(self, station_id: str) -> None:
         """Note that a rank walk passed the station over for the next one (an empty frame, or below the threshold).
@@ -183,7 +201,7 @@ class ParameterRows:
         self._returned.add(station_id)
 
     def explained(self, station_id: str) -> None:
-        """Note that another warning tells why the station is not in the answer (`station-skipped`)."""
+        """Note that another warning tells why the station is not in the answer (`station-skipped` and the like)."""
         self._explained.add(station_id)
 
     def note(self, df: pl.DataFrame) -> None:
@@ -201,6 +219,7 @@ class ParameterRows:
         if not self._enabled:
             return
         self._warn_skipped(rank_filled=rank_filled)
+        self._warn_left_out()
         if not self._skipped_all:
             self._warn_without_rows()
         self._warn_stations_without_rows()
@@ -213,7 +232,8 @@ class ParameterRows:
         never read is never named. Not when no station has rows, which `parameter-without-rows` tells where it can
         (a station that has rows of one parameter and none of another has rows, and is not named). Left out are the
         stations another warning already explains: the file of which was let go (`file-skipped`), and one `skip_empty`
-        dropped (`station-skipped`); an id the network has no station for was never in the walk (`unknown-station`).
+        dropped (`station-skipped`), or whose values were left out for another window (`other-window-left-out`); an id
+        the network has no station for was never in the walk (`unknown-station`).
 
         The message says nothing of the other stations (those another warning explains, or `sql_values`, which cuts
         rows afterwards, may leave none of them with rows in the answer), but what narrowed the request
@@ -262,6 +282,30 @@ class ParameterRows:
                     hints[hint] = None
         return list(phrases), list(hints)
 
+    def _warn_left_out(self) -> None:
+        """Tell, for each parameter a provider left the rows of another window out of, the stations and the dates.
+
+        The source holds values for those dates, which the answer does not have, and it is no gap in the source: the
+        values are another window's and would be wrong under the parameter's name. One warning for each parameter,
+        with the stations (the first ten) and the dates counted at each. A station whose rows were the candidate of a
+        rank walk that passed it over for the next is still named: the dates were left out of its frame.
+        """
+        for parameter, stations in self._left_out.items():
+            listed = list(stations)[:MAX_STATIONS_LISTED]
+            dates = ", ".join(f"{station} {stations[station]}" for station in listed)
+            more = f", and {len(stations) - len(listed)} more" if len(stations) > len(listed) else ""
+            total = sum(stations.values())
+            these = "dates that are" if total != 1 else "date that is"
+            warn_response(
+                log,
+                OTHER_WINDOW_LEFT_OUT,
+                f"The source has values of {parameter} on {total} {these} not in the answer ({dates}{more}): "
+                f"{self._left_out_because[parameter]}. They are not missing at the source, and the answer has no row "
+                "for them rather than a value of another window under this name.",
+                parameter=parameter,
+                stations=listed,
+            )
+
     def _warn_without_rows(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""
         request = self._request
@@ -287,7 +331,10 @@ class ParameterRows:
                         self._tell(name, name, stations, parameter.dataset)
             elif key in whole and key not in told_whole and key not in named_datasets:
                 told_whole.add(key)
-                if not any(row[:2] == key for row in self._with_rows):
+                # a parameter of it that has values the answer left out (`other-window-left-out`) is a dataset the
+                # source holds values of
+                held_back = any(name.startswith(f"{key[0]}/{key[1]}/") for name in self._left_out)
+                if not held_back and not any(row[:2] == key for row in self._with_rows):
                     name = f"{key[0]}/{key[1]}"
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)
 

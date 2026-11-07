@@ -320,9 +320,19 @@ what the answer is missing:
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
-  `file-skipped` (the stations whose file the provider let go, see below) and
-  `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are added as more are told; a
-  client reads the ones it knows.
+  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  source has values for that the answer leaves out because they are of another series, see below) and
+  `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are added as
+  more are told; a client reads the ones it knows.
+
+  `other-window-left-out` says that the source holds values of a parameter on dates the answer has no row for, because
+  the values are of another series than the one the parameter is: `metno/frost` keeps two series of the daily and the
+  monthly precipitation sum, 06-06 UTC (the parameter) and 18-18 UTC, and a date that only the 18-18 series has would be
+  a sum of another window under the parameter's name. They are no missing data, so this is not
+  `parameter-without-rows`, which is not told of a parameter this one names (a parameter asked for by its name, or any
+  parameter of a dataset asked for whole). It carries `parameter` (`resolution/dataset/parameter`) and `stations` (the
+  first ten); its message gives the number of dates at each station and says which series was left out. One for each
+  parameter and request. The dates beyond the window of the request are not counted.
 
   `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
   asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
@@ -380,8 +390,9 @@ what the answer is missing:
   `parameter-without-rows`). It is not told when no named station has rows (`parameter-without-rows` is, where it
   can be), for an id the network has no station for (`unknown-station` names it), for a station `file-skipped`
   names (a file that serves every station is every station read's; a station the index says begins after the window
-  was not read and is still named), or for one `skip_empty` dropped (`station-skipped`); `parameter-ended` names a
-  parameter, not a station, and does not keep a station from being named. It is raised once the walk has read every
+  was not read and is still named), for one `skip_empty` dropped (`station-skipped`), or for one whose dates were
+  left out for another series (`other-window-left-out`: the source holds values of it, which that warning says);
+  `parameter-ended` names a parameter, not a station, and does not keep a station from being named. It is raised once the walk has read every
   station, so a stream that the client stops, a walk that fails and a rank that ends early name none; a limit
   (`max_rows`, `max_stream_rows`) refuses the request before any station is read. A streamed answer (`ndjson`)
   carries it in the `end` line, and a streamed CSV, which has no place for warnings, not at all.

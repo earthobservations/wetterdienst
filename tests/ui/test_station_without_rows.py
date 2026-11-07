@@ -29,7 +29,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.util.response_warnings import begin_response, note_skipped_download, recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, note_left_out, note_skipped_download, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -570,3 +570,44 @@ def test_the_next_request_says_it_again(monkeypatch: pytest.MonkeyPatch) -> None
         response.json()["metadata"]["warnings"]
         == _rest("/api/values", stations="00001,00002", timestamp="2020-05").json()["metadata"]["warnings"]
     )
+
+
+# dates left out for another window (`other-window-left-out`, GH-3832) are that warning's, not this one's
+
+LEFT_OUT = "other-window-left-out"
+LEFT_OUT_NAME = "daily/climate_summary/temperature_air_mean_2m"
+BECAUSE = "these dates are of another series"
+
+
+def _leaving_out(count: int, *, keep_rows: bool) -> Callable[[pl.DataFrame], pl.DataFrame]:
+    """Give a source that leaves `count` dates out (the provider's `note_left_out`), with its rows or with none."""
+
+    def leave_out(df: pl.DataFrame) -> pl.DataFrame:
+        note_left_out(LEFT_OUT_NAME, count, BECAUSE)
+        return df if keep_rows else df.clear()
+
+    return leave_out
+
+
+def test_a_station_whose_dates_were_all_left_out_is_named_by_the_other_warning_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The source has its values, so "the source holds no values of it" would contradict `other-window-left-out`."""
+    _serving(monkeypatch, s00002=_leaving_out(3, keep_rows=False), s00003=_nothing)
+
+    (warning,) = _told(["00001", "00002", "00003"])
+
+    assert warning["stations"] == ["00003"]
+    (left_out,) = [w for w in recorded_warnings() if w["code"] == LEFT_OUT]
+    assert left_out["stations"] == ["00002"]
+    assert "00002" not in warning["message"]
+
+
+def test_a_station_with_rows_beside_dates_left_out_is_named_by_neither_station_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Some dates are in the answer and some were left out: it has rows, and only the dates warning names it."""
+    _serving(monkeypatch, s00002=_leaving_out(3, keep_rows=True))
+
+    assert _told(["00001", "00002"]) == []
+    assert [(w["code"], w["stations"]) for w in recorded_warnings()] == [(LEFT_OUT, ["00002"])]

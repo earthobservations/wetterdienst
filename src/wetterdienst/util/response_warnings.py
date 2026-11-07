@@ -32,15 +32,17 @@ class ResponseWarning(TypedDict):
     code: str
     message: str
     #: what the warning is about, where it is about one parameter: `resolution/dataset/parameter`, or
-    #: `resolution/dataset` for a whole dataset (`parameter-without-rows`)
+    #: `resolution/dataset` for a whole dataset (`parameter-without-rows`); always `resolution/dataset/parameter` for
+    #: `other-window-left-out`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `station-without-rows`)
+    #: `other-window-left-out`, `station-without-rows`)
     stations: NotRequired[list[str]]
 
 
 #: the attribute of the log record of a response warning, holding its code: what tells the line that qualifies the
-#: answer (a file the provider let go, readings a check rejected, a parameter without rows) from the log around it,
+#: answer (a file the provider let go, readings a check rejected, a parameter without rows, dates left out for another
+#: window) from the log around it,
 #: for a handler that lets only these and the errors through (`--quiet` of the command line, GH-3134)
 RESPONSE_WARNING_RECORD = "response_warning"
 
@@ -81,6 +83,11 @@ STATION_WITHOUT_ROWS = "station-without-rows"
 #: partial answer can be told from a whole one
 FILE_SKIPPED = "file-skipped"
 
+#: the code of the warning that names the parameters whose rows of another window the provider left out of the answer
+#: (`note_left_out`): the source holds values for those dates, but of a series that is not the one the parameter is
+#: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one): no missing data, and no values of the parameter
+OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
+
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
@@ -93,24 +100,51 @@ _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_cou
 #: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
 #: walk of the values around the collection of one station, and `None` outside it
 _SKIPPING: ContextVar[Callable[[bool], None] | None] = ContextVar("wetterdienst_skipping", default=None)
+#: what a provider tells when it leaves the rows of another window out of the station being collected
+#: (`note_left_out`), set like `_SKIPPING`
+_LEFT_OUT: ContextVar[Callable[[str, int, str], None] | None] = ContextVar("wetterdienst_left_out", default=None)
 
 
 @contextmanager
-def collecting(note: Callable[[bool], None], named: set[str] | None = None) -> Iterator[None]:
+def collecting(
+    note: Callable[[bool], None],
+    named: set[str] | None = None,
+    left_out: Callable[[str, int, str], None] | None = None,
+) -> Iterator[None]:
     """Have `note` told what a provider lets go while the block runs, which is the collection of one station.
 
     The `parameter` of every warning raised meanwhile is added to `named`, for a walk that must not say again what
     another warning has said of a parameter (`parameter-without-rows` after `parameter-ended`): the warnings of the
     request are not kept outside a response, but the log lines are written all the same, and would repeat. Both are
     the block's alone, so that walks that overlap (interleaved, or one in the other's collection) keep to their own.
+    `left_out` is told the rows of another window that the provider left out (`note_left_out`).
     """
     skipping = _SKIPPING.set(note)
     watching = _NAMED.set(named)
+    leaving = _LEFT_OUT.set(left_out)
     try:
         yield
     finally:
+        _LEFT_OUT.reset(leaving)
         _NAMED.reset(watching)
         _SKIPPING.reset(skipping)
+
+
+def note_left_out(parameter: str, count: int, because: str) -> None:
+    """Tell that the provider left `count` dates of `parameter` out of the station being collected: another window's.
+
+    For a source that holds more than one series of a parameter that differ in the window they sum (Frost's `PT6H` and
+    `PT18H` precipitation) and returns one. A date that only the other series has is left out, as a value of the other
+    window under this parameter's name would be wrong, and the answer then has no row for it although the source has
+    values: `OTHER_WINDOW_LEFT_OUT` says so once the walk is over (`ParameterRows.warn`), which is the difference to a
+    parameter the source holds nothing of (`parameter-without-rows`, which does not name a parameter this was told of).
+
+    ``parameter`` is `resolution/dataset/parameter`, ``because`` says which series was left out and which one is
+    returned, as a clause of the warning. Nothing happens outside the collection of a station.
+    """
+    note = _LEFT_OUT.get()
+    if note is not None and count > 0:
+        note(parameter, count, because)
 
 
 def note_skipped_download(*, whole_request: bool = False) -> None:
