@@ -68,8 +68,15 @@ Types of changes:
   longer returned and is told by an `other-window-left-out` warning, never as no values: 650
   months at 176 stations, and at least 1,592 days at 271 (SN85380 692 from 2015-10, SN12648 302
   in 2017-18; the daily gaps inside the 06-06 series are counted in nine years). A stored series
-  does not join the new one: read it anew. The daily maximum and minimum temperature, which also
-  have two series, are unchanged (GH-3832)
+  does not join the new one: read it anew (GH-3832)
+- **Breaking**: `metno/frost` daily `temperature_air_max_2m` and `temperature_air_min_2m` are the
+  19-18 UTC series (`PT18H`, Frost's standard) where a station has it, and the calendar day
+  (`PT0H`) only where it has no other. Frost answers both and the first, the calendar day, was
+  kept, so the window changed along a station's series. At the 550 and 545 stations wetterdienst
+  lists that have both, the value differs on 27 % (maximum) and 41 % (minimum) of the days (median
+  0.7 and 0.8 degC, up to 19). A date that only the calendar-day series has is no longer returned
+  and is told by an `other-window-left-out` warning: at least 65 and 68 dates in all. A stored
+  series does not join the new one: read it anew (GH-3843)
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

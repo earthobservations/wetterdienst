@@ -445,3 +445,68 @@ def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour
     )
     assert df["value"].to_list() == [None], other
     assert df["quality_flags"].to_list()[0].endswith("raw:0")
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_temperature_extremes_are_the_19_18_series_where_a_station_has_it() -> None:
+    """The daily maximum and minimum of SN18701 (Oslo, Blindern) from 2016-01-13 on are the 19-18 UTC series (GH-3843).
+
+    SN18701 has `PT0H` (00-24 UTC) from 2016-01-09 and `PT18H` (19-18 UTC, Frost's standard for temperature extremes)
+    from 2016-01-13: the reader returned the calendar day wherever `PT0H` had a row (-4.6, -7.9, -8.5, -6.9 for the
+    maximum of 2016-01-13 to 16), and the 19-18 window nowhere else of a series that goes on to 2023. They are -3.5,
+    -7.9, -9.4 and -6.9 now (-10.5, -14.2, -16.2, -12.2 for the minimum). 2016-01-09 has the calendar-day value only
+    (-7.2 and -10.1): it is not returned, and the answer says so for both parameters.
+    """
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "temperature_air_max_2m"), ("daily", "data", "temperature_air_min_2m")],
+            start=dt.datetime(2016, 1, 8, tzinfo=UTC),
+            end=dt.datetime(2016, 1, 16, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN18701")
+        .values()
+        .all()
+        .df
+    )
+    days = [dt.datetime(2016, 1, d, tzinfo=UTC) for d in (13, 14, 15, 16)]
+    for parameter, values in (
+        ("temperature_air_max_2m", [-3.5, -7.9, -9.4, -6.9]),
+        ("temperature_air_min_2m", [-10.5, -14.2, -16.2, -12.2]),
+    ):
+        part = df.filter(pl.col("parameter") == parameter).sort("timestamp")
+        assert part["timestamp"].to_list() == days
+        assert part["value"].to_list() == [pytest.approx(value) for value in values]
+    told = {w["parameter"]: w for w in recorded_warnings() if w["code"] == "other-window-left-out"}
+    assert sorted(told) == ["daily/data/temperature_air_max_2m", "daily/data/temperature_air_min_2m"]
+    for warning in told.values():
+        assert warning["stations"] == ["SN18701"]
+        assert "on 1 date that is not in the answer (SN18701 1)" in warning["message"]
+        assert "calendar-day series (`timeOffset` PT0H) only" in warning["message"]
+    assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_temperature_extremes_of_oslo_blindern_are_the_19_18_window() -> None:
+    """The maximum of 2026-10-31 and the minimum of 2026-11-02 at SN18700 are those of the 19-18 UTC window (GH-3843).
+
+    SN18700 has both series. The maximum of 2026-10-31 is 7.9 in the calendar-day series and 8.7 in the 19-18 one, the
+    minimum of 2026-11-02 is 0.0 and 3.3. The 19-18 values equal the extreme of Frost's hourly `max` and
+    `min(air_temperature PT1H)` stamped 19:00 of the day before to 18:00 of the date, on 16 of 16 days at this station
+    and at SN50540 (the calendar-day ones those of 00:00 to 23:00), which is how the window was identified.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "temperature_air_max_2m"), ("daily", "data", "temperature_air_min_2m")],
+            start=dt.datetime(2026, 10, 31, tzinfo=UTC),
+            end=dt.datetime(2026, 11, 2, tzinfo=UTC),
+        )
+        .filter_by_station_id(OSLO_BLINDERN)
+        .values()
+        .all()
+        .df
+    )
+    maximum = df.filter(pl.col("parameter") == "temperature_air_max_2m").sort("timestamp")
+    minimum = df.filter(pl.col("parameter") == "temperature_air_min_2m").sort("timestamp")
+    assert maximum["value"].to_list() == [pytest.approx(8.7), pytest.approx(8.8), pytest.approx(9.7)]
+    assert minimum["value"].to_list() == [pytest.approx(3.3), pytest.approx(6.6), pytest.approx(3.3)]

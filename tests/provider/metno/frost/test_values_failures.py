@@ -1323,21 +1323,42 @@ def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_
     assert df["value"].to_list() == [6.0]
 
 
-def test_metno_frost_only_the_precipitation_sums_choose_an_offset() -> None:
-    """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832).
+def test_metno_frost_only_the_sums_and_the_daily_extremes_choose_an_offset() -> None:
+    """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832, GH-3843).
 
-    `max(air_temperature P1D)` has `PT0H` and `PT18H` at 579 stations. Returning the 19-18 UTC one where a station has
-    it is a change of its own, so what comes back of it is what came back.
+    The precipitation sums keep their standard series alone. The daily extremes keep theirs where the station has it,
+    and the other series where it has not. The daily mean has `PT0H` and `PT6H` at 1,063 stations and is not chosen
+    here: its rows are kept as they come, and the core returns the first of a date.
     """
     given = pl.DataFrame(
         {
-            "elementId": ["max(air_temperature P1D)"] * 2 + ["sum(precipitation_amount P1D)"] * 3,
-            "timeOffset": ["PT0H", "PT18H", "PT18H", "PT6H", None],
+            "elementId": ["max(air_temperature P1D)"] * 2
+            + ["mean(air_temperature P1D)"] * 2
+            + ["sum(precipitation_amount P1D)"] * 3,
+            "timeOffset": ["PT0H", "PT18H", "PT0H", "PT6H", "PT18H", "PT6H", None],
+            "value": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+        }
+    )
+    assert frost_api._keep_standard_offset(given)["value"].to_list() == [2.0, 3.0, 4.0, 6.0, 7.0]  # noqa: SLF001
+    assert frost_api._keep_standard_offset(given.drop("timeOffset")).height == 7  # noqa: SLF001
+
+
+def test_metno_frost_a_daily_extreme_of_a_station_without_the_19_18_series_keeps_the_series_it_has() -> None:
+    """Test that `PT0H` is kept for an extreme whose station has no `PT18H` series in the answer (GH-3843).
+
+    "Return `PT18H` where a station has it, and `PT0H` only where that is the only one": the choice is made for each
+    element on the rows of the answer. `min` has a `PT18H` row and `max` has none; the `PT6H` of the 9 stations of
+    Frost's listing that have it alone is kept as well.
+    """
+    given = pl.DataFrame(
+        {
+            "elementId": ["max(air_temperature P1D)"] * 2 + ["min(air_temperature P1D)"] * 3,
+            "timeOffset": ["PT0H", "PT0H", "PT0H", "PT18H", "PT6H"],
             "value": [1.0, 2.0, 3.0, 4.0, 5.0],
         }
     )
-    assert frost_api._keep_standard_offset(given)["value"].to_list() == [1.0, 2.0, 4.0, 5.0]  # noqa: SLF001
-    assert frost_api._keep_standard_offset(given.drop("timeOffset")).height == 5  # noqa: SLF001
+    assert frost_api._keep_standard_offset(given)["value"].to_list() == [1.0, 2.0, 4.0]  # noqa: SLF001
+    assert frost_api._keep_standard_offset(given.filter(pl.col("timeOffset") == "PT6H"))["value"].to_list() == [5.0]  # noqa: SLF001
 
 
 def _wind(readings: list[tuple[str, str, float, int]]) -> pl.DataFrame:
@@ -1609,6 +1630,187 @@ def test_metno_frost_nothing_is_told_where_the_standard_series_has_every_date(mo
     )
     begin_response()
     assert values.all().df["value"].to_list() == [6.0, 8.0]
+    assert recorded_warnings() == []
+
+
+# --- the 19-18 series of the daily temperature extremes (GH-3843) ---------------------------------------------------
+
+EXTREMES = [
+    pytest.param("max(air_temperature P1D)", "temperature_air_max_2m", id="max"),
+    pytest.param("min(air_temperature P1D)", "temperature_air_min_2m", id="min"),
+]
+EXTREME_STAMPS = ["2020-01-01T00:00:00.000Z", "2020-01-02T00:00:00.000Z", "2020-01-03T00:00:00.000Z"]
+EXTREME_END = dt.datetime(2020, 1, 3, tzinfo=dt.UTC)
+
+
+def _available_offsets(*offsets: str) -> dict:
+    """Give the listing of the series of one element at SN18700, one `timeseriesids`, that differ in `timeOffset`."""
+    return {
+        "data": [
+            {
+                "validFrom": "1940-01-01T00:00:00Z",
+                "timeOffset": offset,
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
+                f"&timeoffsets={offset}",
+            }
+            for offset in offsets
+        ]
+    }
+
+
+def _extreme_values(
+    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str, readings: list[tuple[str, str, float]]
+) -> pl.DataFrame:
+    """Give the frame a reader of `path` returns for the daily extreme `name`, Frost answering `readings`."""
+    offsets = sorted({offset for _, offset, _ in readings})
+    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(*offsets))
+    requested = [("daily", "data", name)]
+    if path == "single":
+        requested.append(("daily", "data", "temperature_air_mean_2m"))
+    values, _ = _values(
+        monkeypatch, observations, requested, start=dt.datetime.fromisoformat(EXTREME_STAMPS[0]), end=EXTREME_END
+    )
+    begin_response()
+    return values.all().df.filter(pl.col("parameter") == name).sort("timestamp")
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(("element", "name"), EXTREMES)
+def test_metno_frost_daily_temperature_extreme_is_the_19_18_series_by_every_reader(
+    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+) -> None:
+    """Test that a station with both series returns the 19-18 UTC extreme on every date it has (GH-3843).
+
+    Frost answers `PT0H` (00-24 UTC) before `PT18H` (19-18 UTC: "Standard sampling period for temperature extremes is
+    19-18 UTC") for a date, and the core kept the first: a station with both returned the calendar day where `PT0H` had
+    a row and the 19-18 window where it had not, so the window of one parameter changed along the series. A date that
+    only the calendar-day series has is left out (and told, below).
+    """
+    readings = [
+        (EXTREME_STAMPS[0], "PT0H", 5.0),
+        (EXTREME_STAMPS[0], "PT18H", 6.0),
+        # a date before the `PT0H` series began
+        (EXTREME_STAMPS[1], "PT18H", 7.0),
+        # a gap of the `PT18H` series
+        (EXTREME_STAMPS[2], "PT0H", 8.0),
+    ]
+    df = _extreme_values(monkeypatch, path, element, name, readings)
+    assert df["value"].to_list() == [6.0, 7.0]
+    assert df["timestamp"].to_list() == [dt.datetime(2020, 1, 1, tzinfo=dt.UTC), dt.datetime(2020, 1, 2, tzinfo=dt.UTC)]
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(("element", "name"), EXTREMES)
+def test_metno_frost_daily_temperature_extreme_of_a_station_without_the_19_18_series_is_the_calendar_day(
+    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+) -> None:
+    """Test that `PT0H` is returned where it is the only series, with nothing told (GH-3843)."""
+    readings = [(EXTREME_STAMPS[0], "PT0H", 5.0), (EXTREME_STAMPS[1], "PT0H", 7.0)]
+    df = _extreme_values(monkeypatch, path, element, name, readings)
+    assert df["value"].to_list() == [5.0, 7.0]
+    # (the mean that makes the single reader the one reached has no rows, and is told as that)
+    assert [w for w in recorded_warnings() if w.get("parameter", "").endswith(name)] == []
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(("element", "name"), EXTREMES)
+def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_are_told(
+    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+) -> None:
+    """Test that a date with the calendar-day extreme only is left out and told (GH-3843).
+
+    Of the catalogue's 550 stations with both series of the daily maximum, 17 have days that only `PT0H` has (34 days,
+    all before the `PT18H` series began) and the readings of a sample of years add gaps inside it. Those dates are not
+    returned (a value of the 00-24 window under the name of the 19-18 one) and are never "the source has no values".
+    """
+    readings = [
+        (EXTREME_STAMPS[0], "PT0H", 5.0),
+        (EXTREME_STAMPS[0], "PT18H", 6.0),
+        (EXTREME_STAMPS[1], "PT0H", 7.0),
+        (EXTREME_STAMPS[2], "PT0H", 8.0),
+    ]
+    df = _extreme_values(monkeypatch, path, element, name, readings)
+    assert df["value"].to_list() == [6.0]
+    (warning,) = _told("other-window-left-out")
+    assert warning["parameter"] == f"daily/data/{name}"
+    assert warning["stations"] == ["SN18700"]
+    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
+    assert "calendar-day series (`timeOffset` PT0H) only" in warning["message"]
+    assert "19-18 UTC series (`timeOffset` PT18H)" in warning["message"]
+    assert [w for w in _told("parameter-without-rows") if w["parameter"] in ("daily/data", f"daily/data/{name}")] == []
+
+
+def test_metno_frost_daily_temperature_extreme_is_chosen_over_the_queries_of_the_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the discovery decides on the rows of all the series of the station, not of each query (GH-3843).
+
+    Two series of the station that differ in their validity are two queries: the older one answers `PT0H` rows only,
+    the newer one both. The station has the 19-18 series in the answer, so the calendar-day rows of the first query are
+    left out and told, as they are when one query holds both (the batch).
+    """
+    element = "max(air_temperature P1D)"
+    first, second = "2000-01-02T00:00:00.000Z", "2006-01-02T00:00:00.000Z"
+    answers = {
+        "0": _offset_answer(element, [(first, "PT0H", 1.0)]),
+        "1": _offset_answer(element, [(second, "PT0H", 2.0), (second, "PT18H", 3.0)]),
+    }
+    available = {
+        "data": [
+            {
+                "validFrom": valid_from,
+                "validTo": valid_to,
+                "timeOffset": "PT0H",
+                "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids={ts}",
+            }
+            for ts, valid_from, valid_to in (
+                ("0", "2000-01-01T00:00:00Z", "2005-12-31T00:00:00Z"),
+                ("1", "2006-01-01T00:00:00Z", None),
+            )
+        ]
+    }
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, available)
+        if "timeseriesids=" in url:
+            return _ok(url, answers[url.split("timeseriesids=")[1].split("&", maxsplit=1)[0]])
+        return _failed(url, 404)
+
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        [("daily", "data", "temperature_air_max_2m")],
+        start=dt.datetime(2000, 1, 1, tzinfo=dt.UTC),
+        end=dt.datetime(2006, 1, 3, tzinfo=dt.UTC),
+    )
+    begin_response()
+    assert values.all().df["value"].to_list() == [3.0]
+    (warning,) = _told("other-window-left-out")
+    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
+
+
+def test_metno_frost_the_daily_mean_temperature_is_not_chosen_by_offset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the rows of the daily mean are returned as they come, `PT0H` before `PT6H` (GH-3843).
+
+    The mean has `PT0H` and `PT6H` at 609 stations of the catalogue, and Frost's table prefers `PT0H` for it ("For cases
+    not listed above"), which sorts first. The 11 stations that have days with `PT6H` only return those days from it.
+    The maintainer has not decided that case: it is as it was.
+    """
+    stamps = EXTREME_STAMPS[:2]
+    answer = _offset_answer(
+        "mean(air_temperature P1D)",
+        [(stamps[0], "PT0H", 1.0), (stamps[0], "PT6H", 2.0), (stamps[1], "PT6H", 3.0)],
+    )
+    values, _ = _values(
+        monkeypatch,
+        lambda url: _ok(url, answer),
+        [("daily", "data", "temperature_air_mean_2m")],
+        start=dt.datetime.fromisoformat(stamps[0]),
+        end=dt.datetime.fromisoformat(stamps[1]),
+    )
+    begin_response()
+    assert values.all().df.sort("timestamp")["value"].to_list() == [1.0, 3.0]
     assert recorded_warnings() == []
 
 
