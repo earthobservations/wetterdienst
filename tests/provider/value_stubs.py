@@ -1864,8 +1864,12 @@ def _metoffice_hourly_weather(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
 
 
 def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the API needs a client id, so this is worded after the element descriptions Frost publishes, which state the codes
-    # of the reader: a cloud cover of 9 (and -3) could not be estimated, and a snow thickness of -1 is no snow
+    # the API needs a client id, so this is worded after what Frost publishes: the element descriptions, which state
+    # the codes of the cloud cover (9 and -3, the sky could not be estimated) and of the snow depth (-1), and the data
+    # clarifications (https://frost.met.no/dataclarifications.html), which state -3 for the wind direction ("No unique
+    # wind direction is given when winds are weak") and for the snow depth ("Not possible to measure snowdepth"), and 0
+    # for the snow depth ("Snowdepth less than 0.5 cm"), a reading of its own. The -3 of the direction was read at the
+    # WMO stations Frost lists since 2026-11-03 (GH-3137), beside a wind speed of 0.5 to 2.6 m/s
     payload = {
         "data": [
             {
@@ -1874,16 +1878,21 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
                 "observations": [
                     {"elementId": "cloud_area_fraction", "value": cloud, "qualityCode": 0},
                     {"elementId": "surface_snow_thickness", "value": snow, "qualityCode": 0},
+                    {"elementId": "wind_from_direction", "value": direction, "qualityCode": 0},
                 ],
             }
-            for hour, (cloud, snow) in enumerate([(4, 12.0), (9, -1.0)])
+            for hour, (cloud, snow, direction) in enumerate([(4, 12.0, 90.0), (9, -1.0, -3.0), (8, -3.0, 0.0)])
         ],
     }
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
-        parameters=[("hourly", "data", "cloud_cover_total"), ("hourly", "data", "snow_depth")],
+        parameters=[
+            ("hourly", "data", "cloud_cover_total"),
+            ("hourly", "data", "snow_depth"),
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+        ],
         start=_day(2020, 1, 1),
-        end=_day(2020, 1, 1, 1),
+        end=_day(2020, 1, 1, 2),
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
@@ -2969,8 +2978,20 @@ STUBS = [
         _metno_frost_hourly,
         reading=("cloud_cover_total", 50.0),
         # the cloud cover is converted from eighths to percent on its way
-        sentinels=(("cloud_cover_total", 112.5), ("snow_depth", -1.0)),
-        tokens=(("cloud_cover_total", "9", None), ("snow_depth", "-1", 0.0)),
+        sentinels=(
+            ("cloud_cover_total", 112.5),
+            ("snow_depth", -1.0),
+            ("snow_depth", -3.0),
+            ("wind_direction_mean_last_10min", -3.0),
+        ),
+        tokens=(
+            ("cloud_cover_total", "9", None),
+            ("snow_depth", "-1", 0.0),
+            # not a depth: it was returned as -3 cm, a number inside the range of the parameter
+            ("snow_depth", "-3", None),
+            # null before as well, as `rejected:range,raw:-3` by the range check; now the code and nothing else
+            ("wind_direction_mean_last_10min", "-3", None),
+        ),
     ),
     ValueStub(
         "metno/frost 6_hours/data",

@@ -32,6 +32,26 @@ Types of changes:
   wetterdienst.model.request` still imports polars and the settings, but no longer `measurement`
   (sympy) and `pyarrow`, which a search by distance or by rank imports (GH-3809)
 
+### Fixed
+
+- **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
+  `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
+  merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
+  of the request, and `df_stations` every dataset of a station with any row, so a station that
+  returned nothing, that `sql_values`, `filtered_by_date` or `filtered_by_sql` took every row of, or
+  that a `rank` walk stopped before was there: looking one up now raises `KeyError`. No rows is an
+  empty list. To find a requested station with no rows, compare the ids the answer names
+  (`metadata.request.stations.ids`, padded as it pads them) with yours, or ask `stations` without
+  `timestamp`; in Python read `result.stations.df`. `history`, `interpolate` and `summarize` are
+  unchanged (GH-3818)
+- **Breaking**: `metno/frost` hourly wind direction `-3` ("No unique wind direction is given when
+  winds are weak" in Frost's data clarifications) and snow depth `-3` ("Not possible to measure
+  snowdepth") are null with `raw:-3` in any window. The wind direction was null as
+  `rejected:range,raw:-3` with `range: hard`, and `-3.0` with `suspect:range` with `range: soft`
+  (72 of 9,255 readings at foreign stations), so `range: soft` no longer returns it: filter on
+  `raw:-3`. The snow depth was `-3.0` cm in any window; none has been seen in about 150,000
+  readings (Part of GH-3137)
+
 ## [0.184.0] - 2026-11-06
 
 ### Added
