@@ -74,30 +74,61 @@ series alone, for the daily and the monthly sum. The choice is made on the `time
 not made by asking Frost for `timeoffsets`, because the request holds every element of the dataset:
 
 - `timeoffsets=PT6H` leaves out each element that has no `PT6H` series. At SN50540 for ten days of January 2024 the
-  batch of the daily elements gave 100 rows without it, and with it 30: the precipitation, the snow depth and the mean
-  temperature of the `PT6H` series, and no maximum or minimum temperature, no mean wind speed;
-- `timeoffsets=default` takes Frost's table for each element (60 rows there) and so also moves `max` and
-  `min(air_temperature P1D)` from `PT0H` to `PT18H`, which is not decided here (below).
+  batch of the 12 daily elements (the request of the reader) gave 140 rows without it, and with it 30: the
+  precipitation, the snow depth and the mean temperature of the `PT6H` series (not the calendar day the description
+  says), and none of the other 9 elements: no maximum or minimum temperature, no wind speed, humidity or pressure;
+- `timeoffsets=default` takes Frost's table for each element (100 rows there) and so also moves `max` and
+  `min(air_temperature P1D)` from `PT0H` to `PT18H`, which is a change of its own (below).
 
-A date that only the 18-18 series has is not returned: it would be a sum of another window under this one's name. That is
-the first day of a series at some stations, and two stations have no `PT6H` series at all (SN10000 in July 1998, SN59680
-in April 2005); `timeoffsets=default` would return the 18-18 sum there.
+A date that only the 18-18 series has is not returned: it would be a sum of another window under this one's name. The
+answer says so, with an `other-window-left-out` warning that names the parameter, the stations and the number of dates
+left out at each (the first ten stations), in the batch, the single and the discovery reading alike, and counts only the
+dates within the window asked for. It is no "the source has no values": `parameter-without-rows` does not name a
+parameter, nor a dataset asked for whole, that this warning names, because the source has those values. So an answer
+with fewer rows than the source holds at a station never reads as no data; see
+[the response metadata](../../../../usage/restapi.md#response-metadata). `timeoffsets=default` would return the 18-18 sum
+at those dates, under the name of the 06-06 one.
 
 ### What changes
 
-Counted from the readings Frost had on 2026-11-07: the daily sum of every station that was active in nine years (1960,
-1970, 1980, 1985, 1990, 2000, 2010, 2020 and 2024, the whole year each), and the monthly sum of every station, all years.
-Frost lists a `PT18H` series of the daily sum at 987 of its 2,334 stations, and of the monthly sum at 964 of 2,388; the
-other stations have the `PT6H` series only and nothing changes for them.
+Counted from the readings Frost had on 2026-11-07. Frost lists a `PT18H` series of the daily sum at 987 of its 2,334
+stations (and two more that have `PT18H` only), and of the monthly sum at 964 of 2,388; the other stations have the
+`PT6H` series only and nothing changes for them. The values first, at the stations and dates that have both series: the
+daily sum of every station that was active in nine years (1960, 1970, 1980, 1985, 1990, 2000, 2010, 2020 and 2024, the
+whole year each), and the monthly sum of every station, all years.
 
-| sum | station-dates in the sample | with both series | the value differs | by 1 mm or more | only the 18-18 series has it |
-|---|---|---|---|---|---|
-| daily | 2,206,547 at 2,048 stations | 744,221 (33.7 %) at 849 stations | 434,573 (58.4 % of those) at 843 stations | 270,871 | 562 dates at 198 stations |
-| monthly | 922,494 at 2,388 stations | 180,958 (19.6 %) at 963 stations | 122,231 (67.5 % of those) at 959 stations | 74,073 | 1,292 months at 392 stations |
+| sum | station-dates in the sample | with both series | the value differs | by 1 mm or more |
+|---|---|---|---|---|
+| daily | 2,206,547 at 2,048 stations | 744,221 (33.7 %) at 849 stations | 434,573 (58.4 % of those) at 843 stations | 270,871 |
+| monthly | 922,494 at 2,388 stations | 180,958 (19.6 %) at 963 stations | 122,231 (67.5 % of those) at 959 stations | 74,073 |
 
 Where the two differ, the median difference is 1.6 mm for the daily sum (90th percentile 9.5, largest 321.5 mm) and 1.5 mm
-for the monthly sum (90th percentile 8.6, largest 317.3 mm). The dates only the 18-18 series has are no longer returned.
-A series stored from the old reader holds the 18-18 sums at those stations and does not join the new one.
+for the monthly sum (90th percentile 8.6, largest 317.3 mm). A series stored from the old reader holds the 18-18 sums at
+those stations and does not join the new one.
+
+#### The dates that are left out
+
+The dates that only the 18-18 series has, which are not returned any more (and are told, as above). They are of two
+kinds, and the first is counted over all years, from the listing of every time series (`availableTimeSeries`: the
+stretches in which a station's `PT18H` series is valid and its `PT6H` series is not), then the readings of those
+stretches:
+
+- **Outside the validity of the `PT6H` series, all years.** Daily: 2,139 dates at 352 stations. 338 of them lose one
+  date, the first of their 18-18 series (the day before their 06-06 series starts, at 334); 14 lose more, five of them
+  many: SN85380 692 dates from 2015-10 to 2020-03 (315 in 2018 and 301 in 2019; its last `PT6H` date is 2015-09-01),
+  SN55840 549 (1952-07 to 1953-12), SN12648 302 (2017-07 to 2018-05, a series that is still open), SN59580 128
+  (1961 to 1972) and SN69570 75 (1971 to 1977), then SN28360 23 and SN27470 16. The two stations with `PT18H` only have
+  one date each (SN10000 on 1998-07-21 and SN59680 on 2005-04-01). Monthly: 216 months at 181 stations, 173 of them the
+  first month of the series; SN55840 18, SN85380 9 and SN94280 6 are the largest.
+- **Inside the validity of the `PT6H` series, a gap of the 06-06 series.** Monthly, all years and every station: 1,076
+  months at 299 stations (SN55830 85, SN76450 57, SN8850 52, SN63705 50, SN99917 24), so that the monthly sum has 1,292
+  months at 392 stations that only the 18-18 series has. Daily, in the nine sampled years only: 470 dates at 163
+  stations (SN93140 82, SN99990 44, SN44554 20). The daily figure is a lower bound for all years, since the other years
+  were not read (the readings of both series of every station would be about 13 million), so at least 2,609 dates at
+  more than 352 stations.
+
+The largest blocks are the ones a caller notices: SN85380 from 2015-10 and SN12648 from 2017-07 to 2018-05 return 06-06
+sums up to the day the 06-06 series ends and then nothing, with the warning, where they returned the 18-18 sums.
 
 ### Other elements with several series
 
@@ -106,10 +137,10 @@ with both). Nothing is changed for them here:
 
 | element | offsets | stations with both | what is returned |
 |---|---|---|---|
-| `mean(air_temperature P1D)` | `PT0H`, `PT6H` | 1,063 of 1,695 | `PT0H`, the calendar day (00-00 UTC) the description says: it sorts first |
+| `mean(air_temperature P1D)` | `PT0H`, `PT6H` | 1,063 of 1,695 (7 have `PT6H` only, 1 `PT18H` only) | `PT0H`, the calendar day (00-00 UTC) the description says: it sorts first; `PT6H` or `PT18H` at the 8 stations that have no other |
 | `max(air_temperature P1D)` | `PT0H`, `PT18H` | 579 of 1,133 (545 have `PT18H` only) | `PT0H` where both exist, `PT18H` where it is the only one |
 | `min(air_temperature P1D)` | `PT0H`, `PT18H` | 574 of 1,161 (578 have `PT18H` only, 9 `PT6H` only) | as the maximum |
-| `mean(air_temperature P1M)` | `PT0H`, `PT6H` | 1,054 of 1,316 | `PT0H` |
+| `mean(air_temperature P1M)` | `PT0H`, `PT6H` | 1,054 of 1,316 (5 have `PT6H` only) | `PT0H`; `PT6H` at the 5 stations that have no other |
 
 Every other element has one offset (the monthly and annual temperature extremes `PT18H`; the daily snow depth, its
 monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`). The temperature extremes of a station that has both come back as the calendar day,
@@ -117,8 +148,8 @@ and those of a station that has `PT18H` only as the 19-18 UTC window, which Fros
 period for temperature extremes is 19-18 UTC"). Read in 2024 at the 448 and 449 stations that have both open through
 the year, the two differ on 47,342 of 157,948 days of the maximum (30.0 %, 20,122 by 1 degC or more, median 0.8, 90th
 percentile 2.7, largest 16.1) and on 71,795 of 158,242 of the minimum (45.4 %, 32,422 by 1 degC or more, median 0.8, 90th
-percentile 2.7, largest 15.6). Which window the daily maximum and minimum are is a decision of its own and is open: see
-[#3832](https://github.com/earthobservations/wetterdienst/issues/3832).
+percentile 2.7, largest 15.6). The maintainer has decided that the daily maximum and minimum are the 19-18 UTC series where a station has it; that is
+a change of its own, and the table above is what they return until it lands.
 
 ## The code -1 of the precipitation sums
 
@@ -255,8 +286,10 @@ time and height is a calm: `null` with `raw:0`, as for the providers listed for 
 [Special values](../../../special_values.md#wind). A `0` beside a speed above 0 stays `0.0` (54 of the 1,068 zeros
 of the Norwegian sample are not beside a speed of 0, and may be north), and so does a `0` read without its speed, which
 happens only when Frost answers the request for the whole dataset with a 404 and each parameter is asked for by itself.
-A station may measure the wind at several heights (71 have a speed at more than one, and 32 a direction): a direction
-is held against the speed of its own height, and with none there it stays. The `0` was returned as `0.0` before
+A station may measure the wind at several heights (71 have had a speed at more than one, and 32 a direction; 7 have a direction at two heights now): a direction
+is held against the speed of its own height, and with none there it stays. At the 7 stations that have a direction at two
+heights a calm or a `-3` of the first height, the 10 m one, is the answer for the hour and the other height does not
+fill it ([the hourly page](hourly.md) says what the answer keeps, and the counts). The `0` was returned as `0.0` before
 (GH-3833).
 
 The rows of Frost's table for elements that are not read here (`low_type_cloud_area_fraction`, `cloud_area_fraction1`

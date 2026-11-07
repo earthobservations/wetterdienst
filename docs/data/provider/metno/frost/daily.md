@@ -33,7 +33,7 @@
 The daily precipitation sum is the 06-06 UTC series: the date `D` is the sum from `D-1` 06 UTC to `D` 06 UTC. Frost keeps
 a second series of it, 18-18 UTC, at 987 of its 2,334 stations, and the reader used to return that one where there is
 one. See the section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
-of the Frost page, which also says what is not decided for the temperature extremes.
+of the Frost page, which also says what the temperature extremes return.
 
 Frost states that `-1` of the daily precipitation sum is 0.0 mm. It is returned as `null` (`rejected:range,raw:-1`) for
 now, as it was: at stations that read periodically it also marks a day that was not read

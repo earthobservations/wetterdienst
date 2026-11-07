@@ -11,6 +11,7 @@ from polars.testing import assert_frame_equal
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 OSLO_BLINDERN = "SN18700"
 UTC = ZoneInfo("UTC")
@@ -353,6 +354,77 @@ def test_metno_frost_values_wind_direction_of_a_calm_is_null() -> None:
             options={"drop_nulls": False},
         )
         .filter_by_station_id("SN99840")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list()[0].endswith("raw:0")
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_dates_of_the_18_18_series_only_are_told() -> None:
+    """The daily precipitation of SN85380 from 2015-09 on has no 06-06 series, and the answer says so (GH-3832).
+
+    The last `PT6H` date of SN85380 is 2015-09-01; its `PT18H` series goes on to 2020-03 (692 dates, 315 of them in
+    2018). January 2018 had 31 readings of the 18-18 series (26.5 mm) and none of the 06-06 one: the answer was empty
+    and said that the source has no values. It is empty now and says that the source has values of another series, and
+    a longer window that holds rows says how many dates it leaves out, never nothing.
+    """
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2018, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2018, 1, 31, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN85380")
+        .values()
+        .all()
+        .df
+    )
+    assert df.is_empty()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["parameter"] == "daily/data/precipitation_amount"
+    assert warning["stations"] == ["SN85380"]
+    assert "on 31 dates that are not in the answer (SN85380 31)" in warning["message"]
+    assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
+
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2015, 8, 1, tzinfo=UTC),
+            end=dt.datetime(2018, 12, 31, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN85380")
+        .values()
+        .all()
+        .df
+    )
+    assert df.height > 0
+    assert df["timestamp"].max() <= dt.datetime(2015, 9, 1, tzinfo=UTC)
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["stations"] == ["SN85380"]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize("hour", [0, 7, 13])
+def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour: int) -> None:
+    """The calm of the first height of SN99460 stays a calm, whatever the other height says (GH-3833).
+
+    SN99460 answers the wind at 10 m and 2 m. On 2026-01-10 the direction of 10 m is 0 beside a speed of 0 at 00:00
+    (2 m: 170), 07:00 (2 m: 0) and 13:00 (2 m: 256). The core keeps the first row that has a value, so the hour read
+    170.0, 0.0 and 256.0, beside a speed of 0.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            start=dt.datetime(2026, 1, 10, hour, tzinfo=UTC),
+            end=dt.datetime(2026, 1, 10, hour, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN99460")
         .values()
         .all()
         .df

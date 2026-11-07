@@ -17,6 +17,7 @@ from wetterdienst.exceptions import CredentialRejectedError, InvalidParameterErr
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -74,6 +75,7 @@ def _values(
     parameters: list[tuple[str, str, str]] | None = None,
     start: dt.datetime = START,
     end: dt.datetime = END,
+    options: dict | None = None,
 ) -> tuple[MetnoFrostValues, list[str]]:
     """Give the values of one station, the stations and the observations answered as stubbed."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
@@ -90,6 +92,7 @@ def _values(
         parameters=parameters or [("hourly", "data", "temperature_air_2m")],
         start=start,
         end=end,
+        **({"options": options} if options else {}),
     )
     return request.filter_by_station_id("SN18700").values(), seen
 
@@ -1151,7 +1154,8 @@ def test_metno_frost_decodes_sentinels() -> None:
                 "air_temperature",
                 "air_temperature",
             ],
-            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=dt.UTC)] * 11,
+            # one hour for each reading: two readings of one parameter at one time are two heights of a sensor
+            "timestamp": [dt.datetime(2020, 1, 1, hour, tzinfo=dt.UTC) for hour in range(11)],
             "value": [-1.0, 12.0, 0.0, -3.0, -3.0, 9.0, 4.0, -3.0, 0.0, -1.0, -3.0],
             "quality_flags": ["0"] * 11,
         },
@@ -1299,9 +1303,9 @@ def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_
 ) -> None:
     """Test that a date with only an 18-18 sum has no value, rather than that sum under the name of the 06-06 sum.
 
-    The `PT18H` series reaches a day before the `PT6H` one at 350 of the stations that have both (562 such dates at 198
-    stations in the nine years sampled, GH-3832), and two stations have no `PT6H` series at all (SN10000 in July 1998,
-    SN59680 in April 2005). Frost's own `timeoffsets=default` would return the 18-18 sum there.
+    2,139 days at 352 stations are of the 18-18 series only (338 of them the first day of that series, SN85380 692 from
+    2015-10 on), and two stations have no `PT6H` series at all (SN10000 and SN59680, one day each). Frost's own
+    `timeoffsets=default` would return the 18-18 sum there. The answer says so (GH-3832).
     """
     answer = _offset_answer(
         "sum(precipitation_amount P1D)",
@@ -1322,8 +1326,8 @@ def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_
 def test_metno_frost_only_the_precipitation_sums_choose_an_offset() -> None:
     """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832).
 
-    `max(air_temperature P1D)` has `PT0H` and `PT18H` at 579 stations. Which of them to return is not decided here, so
-    what comes back of it is what came back.
+    `max(air_temperature P1D)` has `PT0H` and `PT18H` at 579 stations. Returning the 19-18 UTC one where a station has
+    it is a change of its own, so what comes back of it is what came back.
     """
     given = pl.DataFrame(
         {
@@ -1462,3 +1466,223 @@ def test_metno_frost_has_no_direction_of_the_gust() -> None:
     }
     assert "wind_direction_gust_max" not in names
     assert "wind_gust_max" in names
+
+
+def _told(code: str) -> list[dict]:
+    """Give the warnings of the request with this code."""
+    return [warning for warning in recorded_warnings() if warning["code"] == code]
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(
+    ("element", "resolution", "stamps", "name"),
+    [
+        pytest.param(
+            "sum(precipitation_amount P1D)",
+            "daily",
+            ["2020-01-01T00:00:00.000Z", "2020-01-02T00:00:00.000Z", "2020-01-03T00:00:00.000Z"],
+            "daily/data/precipitation_amount",
+            id="P1D",
+        ),
+        pytest.param(
+            "sum(precipitation_amount P1M)",
+            "monthly",
+            ["2020-01-01T00:00:00.000Z", "2020-02-01T00:00:00.000Z", "2020-03-01T00:00:00.000Z"],
+            "monthly/data/precipitation_amount",
+            id="P1M",
+        ),
+    ],
+)
+def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    element: str,
+    resolution: str,
+    stamps: list[str],
+    name: str,
+) -> None:
+    """Test that a date that only the 18-18 series has is left out with a warning, never silently (GH-3832).
+
+    SN85380 has 698 such days from 2015-10 on: its last `PT6H` date is 2015-09-01, and the answer to a request from
+    2015-08 to 2018-12 had 2 rows and said nothing. The warning is `other-window-left-out`, with the parameter, the
+    station and the number of dates. A date beyond the window of the request is not counted.
+    """
+    readings = [
+        (stamps[0], "PT18H", 4.0),
+        (stamps[0], "PT6H", 22.3),
+        (stamps[1], "PT18H", 7.0),
+        (stamps[2], "PT18H", 8.0),
+    ]
+    available = {
+        "data": [
+            {
+                "validFrom": "1940-01-01T00:00:00Z",
+                "timeOffset": offset,
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
+                f"&timeoffsets={offset}",
+            }
+            for offset in ("PT18H", "PT6H")
+        ]
+    }
+    observations = _answered_by(path, _offset_answer(element, readings), available)
+    requested = [(resolution, "data", "precipitation_amount")]
+    if path == "single":
+        requested.append((resolution, "data", "temperature_air_mean_2m"))
+    # the window ends with the second date: the third is not in the answer, and not counted
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        requested,
+        start=dt.datetime.fromisoformat(stamps[0]),
+        end=dt.datetime.fromisoformat(stamps[1]),
+    )
+    begin_response()
+    df = values.all().df.filter(pl.col("parameter") == "precipitation_amount")
+    assert df["value"].to_list() == [22.3]
+    (warning,) = _told("other-window-left-out")
+    assert warning["parameter"] == name
+    assert warning["stations"] == ["SN18700"]
+    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
+    assert "18-18 UTC series (`timeOffset` PT18H) only" in warning["message"]
+    # the source has values there: nothing says that it has none
+    assert [w for w in _told("parameter-without-rows") if w["parameter"] in (resolution + "/data", name)] == []
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize("asked", ["named", "whole"])
+def test_metno_frost_a_station_with_only_the_other_series_is_no_station_without_values(
+    monkeypatch: pytest.MonkeyPatch, path: str, asked: str
+) -> None:
+    """Test that a window with the 18-18 series only is told as that, and is not "the source has no values" (GH-3832).
+
+    SN85380 in 2018-01 holds 31 `PT18H` readings (26.5 mm) and no `PT6H` one: the answer was empty, with
+    `parameter-without-rows` saying that the source has no values. It says now that the source has values of another
+    series, for a parameter asked for by its name and for a dataset asked for whole.
+    """
+    answer = _offset_answer(
+        "sum(precipitation_amount P1D)",
+        [("2020-01-01T00:00:00.000Z", "PT18H", 5.0), ("2020-01-02T00:00:00.000Z", "PT18H", 7.0)],
+    )
+    available = {
+        "data": [
+            {
+                "validFrom": "1940-01-01T00:00:00Z",
+                "timeOffset": "PT18H",
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
+                "&timeoffsets=PT18H",
+            }
+        ]
+    }
+    observations = _answered_by(path, answer, available)
+    requested = [("daily", "data", "precipitation_amount")] if asked == "named" else [("daily", "data")]
+    if path == "single":
+        # the single reader is reached by a parameter of a dataset whose batch 404s
+        requested = [("daily", "data", "precipitation_amount"), ("daily", "data", "temperature_air_mean_2m")]
+    values, _ = _values(monkeypatch, observations, requested, start=START, end=END)
+    begin_response()
+    assert values.all().df.is_empty()
+    (warning,) = _told("other-window-left-out")
+    assert warning["parameter"] == "daily/data/precipitation_amount"
+    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
+    # not of the parameter, nor of the dataset asked for whole
+    assert [
+        w
+        for w in _told("parameter-without-rows")
+        if w["parameter"] in ("daily/data", "daily/data/precipitation_amount")
+    ] == []
+
+
+def test_metno_frost_nothing_is_told_where_the_standard_series_has_every_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a date the 06-06 series has too is no date left out (GH-3832)."""
+    answer = _offset_answer(
+        "sum(precipitation_amount P1D)",
+        [
+            ("2020-01-01T00:00:00.000Z", "PT18H", 5.0),
+            ("2020-01-01T00:00:00.000Z", "PT6H", 6.0),
+            ("2020-01-02T00:00:00.000Z", "PT18H", 7.0),
+            ("2020-01-02T00:00:00.000Z", "PT6H", 8.0),
+        ],
+    )
+    values, _ = _values(
+        monkeypatch, lambda url: _ok(url, answer), [("daily", "data", "precipitation_amount")], start=START, end=END
+    )
+    begin_response()
+    assert values.all().df["value"].to_list() == [6.0, 8.0]
+    assert recorded_warnings() == []
+
+
+def _two_heights(hours: list[list[tuple[str, int, float | None]]]) -> dict:
+    """Give Frost's answer for the hourly wind of a station that measures it at two heights.
+
+    Each hour is a list of (element, height, value), in the order Frost gives them.
+    """
+    return {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-01T{hour:02d}:00:00.000Z",
+                "observations": [
+                    {
+                        "elementId": element,
+                        "value": value,
+                        "qualityCode": 0,
+                        "level": {"levelType": "height_above_ground", "unit": "m", "value": height},
+                    }
+                    for element, height, value in readings
+                ],
+            }
+            for hour, readings in enumerate(hours)
+        ],
+    }
+
+
+def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_two(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the bearing of the second height does not fill a calm of the first, and the speed is of its height.
+
+    SN99460 answers the wind at 10 m and 2 m for every hour, and the core keeps the first row of a reading that has a
+    value: the calm of 10 m (null) was filled with the bearing of 2 m. 34 of the 79 calm hours at the 7 stations with
+    two heights read as a wind that blows beside a speed of 0, 22 with a bearing above 0. A code of the first height
+    (`-3` too) is what the hour is. A gap (a null that is no code) is filled from the other height, as it always was,
+    and a first height with a bearing is the bearing.
+    """
+    wind = "wind_speed"
+    direction = "wind_from_direction"
+    hours = [
+        # 00:00 the calm of 10 m beside a speed of 0, a bearing at 2 m beside a speed of 0
+        [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 170)],
+        # 01:00 both heights calm
+        [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 0)],
+        # 02:00 a gap at 10 m is filled from 2 m
+        [(wind, 10, 1.0), (wind, 2, 1.0), (direction, 10, None), (direction, 2, 90)],
+        # 03:00 a bearing at 10 m stays, whatever 2 m is
+        [(wind, 10, 3.0), (wind, 2, 0.0), (direction, 10, 45), (direction, 2, 0)],
+        # 04:00 no unique direction at 10 m is what the hour is
+        [(wind, 10, 1.0), (wind, 2, 1.0), (direction, 10, -3), (direction, 2, 200)],
+        # 05:00 the speeds come in the order 2 m, 10 m: the 0 of 10 m is beside the speed of 10 m, which is 0
+        [(wind, 2, 3.0), (wind, 10, 0.0), (direction, 10, 0), (direction, 2, 90)],
+        # 06:00 a 0 beside a wind that blows stays
+        [(wind, 10, 2.0), (wind, 2, 2.0), (direction, 10, 0), (direction, 2, 270)],
+    ]
+    payload = _two_heights(hours)
+    parameters = [
+        ("hourly", "data", "wind_direction_mean_last_10min"),
+        ("hourly", "data", "wind_speed_mean_last_10min"),
+    ]
+    values, _ = _values(
+        monkeypatch,
+        lambda url: _ok(url, payload),
+        parameters,
+        start=START,
+        end=START + dt.timedelta(hours=6),
+        options={"drop_nulls": False},
+    )
+    begin_response()
+    df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
+    assert df["value"].to_list() == [None, None, 90.0, 45.0, None, None, 0.0]
+    flags = [flag.split(",")[-1] for flag in df["quality_flags"].to_list()]
+    assert flags == ["raw:0", "raw:0", "0", "0", "raw:-3", "raw:0", "0"]
+    # the calm hours are counted, whichever height would have filled them
+    (calm,) = _told("calm-wind-direction")
+    assert calm["message"].startswith("3 wind directions were a calm")

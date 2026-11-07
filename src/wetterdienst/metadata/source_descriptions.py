@@ -4013,8 +4013,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
             "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
             "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
-            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 requested "
-            "without the speed."
+            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
+            "itself after a 404 of the whole dataset. At a station with the wind at two heights (10 m and 2 m) a calm "
+            "or a -3 of the first height is the answer for the hour, and the other height does not fill it."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "

@@ -19,7 +19,7 @@
 | {term}`temperature_dew_point_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
 | {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
 | {term}`wind_speed_mean_last_10min` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |
-| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 requested without the speed. | degree |
+| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by itself after a 404 of the whole dataset. At a station with the wind at two heights (10 m and 2 m) a calm or a -3 of the first height is the answer for the hour, and the other height does not fill it. | degree |
 | {term}`pressure_air_sea_level` | air_pressure_at_sea_level | Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site` | surface_air_pressure | Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | cloud_area_fraction | Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null. | one_eighth |
@@ -43,5 +43,15 @@ with `raw:0`, as for every provider that writes a calm ([Special values](../../.
 north as 360. A `0` beside a speed above 0 stays `0.0`. The speed is read from the answer, which holds the whole dataset
 whatever parameters were asked for, so it is there for a request of the direction alone; the one case without it is a
 batch that Frost answers with a 404, when each parameter is asked for by itself and a `0` stays `0.0`. At a station with
-the wind at two heights (71 have a speed at more than one, 10 m and 2 m among them) a direction is held against the speed
+the wind at two heights (71 have had a speed at more than one, 10 m and 2 m among them) a direction is held against the speed
 of its own height; with no speed at that height it stays.
+
+**At a station with two heights** Frost answers a direction for each, the 10 m one first, and the answer keeps one value
+for an hour: the first height that has one. A calm of the first height is that value, `null` with `raw:0`, and the
+bearing of the other height does not fill it (the `calm-wind-direction` warning counts it); the same holds for a `-3` of
+the first height. A gap of the first height, a null with no code, is still filled from the other height, as every
+direction and every other parameter of such a station always was. Where the first height has a bearing it is the
+answer, whatever the other height says, a calm included. Read on 10 to 24 January 2026 at the 7 stations that have a
+direction at two heights (SN99460, SN76530, SN44300, SN26990, SN58070, SN99990 and SN38140), 78 hours had a calm at the
+first height; 33 of them would have been filled from the other height, 21 with a bearing above 0 and 12 with a 0 that
+stands beside a wind (SN99460 alone has 70 calm hours and 29 of those).

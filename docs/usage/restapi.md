@@ -318,9 +318,19 @@ what the answer is missing:
   an estimate, only if the station has a record in the window),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
-  `parameter-without-rows` (a requested parameter that the source holds no values for, see below) and
-  `file-skipped` (the stations whose file the provider let go, see below). Codes are added as more are told; a
-  client reads the ones it knows.
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
+  `file-skipped` (the stations whose file the provider let go, see below) and `other-window-left-out` (dates the
+  source has values for that the answer leaves out because they are of another series, see below). Codes are added as
+  more are told; a client reads the ones it knows.
+
+  `other-window-left-out` says that the source holds values of a parameter on dates the answer has no row for, because
+  the values are of another series than the one the parameter is: `metno/frost` keeps two series of the daily and the
+  monthly precipitation sum, 06-06 UTC (the parameter) and 18-18 UTC, and a date that only the 18-18 series has would be
+  a sum of another window under the parameter's name. They are no missing data, so this is not
+  `parameter-without-rows`, which is not told of a parameter this one names (a parameter asked for by its name, or any
+  parameter of a dataset asked for whole). It carries `parameter` (`resolution/dataset/parameter`) and `stations` (the
+  first ten); its message gives the number of dates at each station and says which series was left out. One for each
+  parameter and request. The dates beyond the window of the request are not counted.
 
   `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
   asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`

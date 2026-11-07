@@ -1889,6 +1889,22 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
             )
         ],
     }
+    # 03:00 at a station that measures the wind at 10 m and 2 m (71 do, SN99460 among them), the 10 m first: a calm at
+    # 10 m beside a speed of 0, and a bearing of 170 at 2 m, which must not fill it (GH-3833)
+    heights = {"levelType": "height_above_ground", "unit": "m"}
+    payload["data"].append(
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T03:00:00.000Z",
+            "observations": [
+                {"elementId": "cloud_area_fraction", "value": 4, "qualityCode": 0},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 2}},
+                {"elementId": "wind_from_direction", "value": 0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_from_direction", "value": 170, "qualityCode": 0, "level": {**heights, "value": 2}},
+            ],
+        }
+    )
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
         parameters=[
@@ -1898,7 +1914,7 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
             ("hourly", "data", "wind_speed_mean_last_10min"),
         ],
         start=_day(2020, 1, 1),
-        end=_day(2020, 1, 1, 2),
+        end=_day(2020, 1, 1, 3),
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
