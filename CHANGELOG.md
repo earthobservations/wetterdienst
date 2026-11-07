@@ -27,6 +27,14 @@ Types of changes:
   shape keeps them). The message names the window and the `periods`, run or lead time that narrowed
   the request, and does not say what the other stations have. Up to 10 ids, then their number
   (GH-3828)
+- `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool, `get_providers`)
+  takes `datasets` (`--datasets`), true by default, so the answer is as before. `datasets=false`
+  leaves out the `resolutions` of each network (null) and keeps everything else, the number of
+  `parameters` among it: 20 kB for every provider where the answer was 34 kB (44 kB where 109 kB
+  with `pretty`). The default will become false in a later release, before 1.0: pass
+  `datasets=true` where you read `resolutions`. The field descriptions (OpenAPI, MCP, `--help`)
+  and the docs now say that `attribution` is the credit line to cite and `copyright` the rights
+  holder's notice, for information; the values are unchanged (GH-3536)
 
 ### Changed
 

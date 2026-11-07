@@ -645,6 +645,9 @@ def removed_parameter_message(name: str) -> str:
 class _RefusesRenamedParameters(BaseModel):
     """A request model that refuses a parameter given by its old name, naming the new one, or one that is gone."""
 
+    #: names of `RENAMED_REQUEST_PARAMETERS` that this model never had, so that giving one is no old name
+    never_renamed: ClassVar[frozenset[str]] = frozenset()
+
     @model_validator(mode="before")
     @classmethod
     def refuse_renamed_parameters(cls, data: Any) -> Any:  # noqa: ANN401
@@ -654,6 +657,7 @@ class _RefusesRenamedParameters(BaseModel):
                 _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
                 for old, new in RENAMED_REQUEST_PARAMETERS.items()
                 if old in data and old not in cls.model_fields and new in cls.model_fields
+                if old not in cls.never_renamed
             ]
             errors += [
                 _rule_error("removed", removed_parameter_message(name), (name,), data[name])
@@ -1512,10 +1516,21 @@ class ProvidersRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
+    # `providers` never took `dataset`, so a request that gives it is not told it was renamed to `datasets`
+    never_renamed: ClassVar[frozenset[str]] = frozenset({"dataset"})
+
     provider: Annotated[
         str | None,
         Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
     ] = None
+    datasets: Annotated[
+        bool,
+        Field(
+            description="List the resolutions and datasets of each network, with the number of parameters of each "
+            "(the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything "
+            "else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
+        ),
+    ] = True
     pretty: _PrettyField = False
 
 

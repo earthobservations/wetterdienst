@@ -96,7 +96,7 @@ async function answerWind(): Promise<Status> {
 }
 
 async function answerDownload(): Promise<Status> {
-  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', RETRY_TRANSIENT)).providers
+  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', { query: { datasets: true }, ...RETRY_TRANSIENT })).providers
   const candidates = hourlyNetworks(providers)
   const found = await Promise.all(candidates.map(async ({ provider, network }) => {
     try {
