@@ -97,6 +97,9 @@ ALLOWED = frozenset(
 #: with, nor `wetterdienst`: what `ui/cli.py` imports, which is `click` and, through `util.response_warnings`,
 #: `typing_extensions`. A third-party package that is not here, `duckdb` as much as `polars`, fails the tests
 THIRD_PARTY_ALLOWED = frozenset({"click", "typing_extensions", "wetterdienst"})
+#: the modules of the standard library that `sys.stdlib_module_names` does not list: `traceback` of Python 3.15 imports
+#: `_missing_stdlib_info`, which the interpreter's build generates
+STDLIB_NOT_LISTED = frozenset({"_missing_stdlib_info"})
 
 #: a process that does what `wetterdienst` does, with every connection refused, and tells which modules it imported
 _PROCESS = textwrap.dedent(
@@ -180,7 +183,9 @@ def _assert_light(modules: set[str]) -> None:
     assert own <= ALLOWED, sorted(own - ALLOWED)
     roots = {module.split(".")[0] for module in modules}
     others = sorted(
-        root for root in roots - THIRD_PARTY_ALLOWED - _startup_roots() if root not in sys.stdlib_module_names
+        root
+        for root in roots - THIRD_PARTY_ALLOWED - STDLIB_NOT_LISTED - _startup_roots()
+        if root not in sys.stdlib_module_names
     )
     assert others == [], others
 
