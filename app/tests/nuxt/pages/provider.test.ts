@@ -4,10 +4,10 @@ import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProviderPage from '~/pages/providers/[provider].vue'
-import { providersResponse } from '../fixtures/providers'
+import { providersAnswer, providersResponse } from '../fixtures/providers'
 
 const mounted: Array<{ unmount: () => void }> = []
-let served: (event: H3Event) => unknown = () => providersResponse()
+let served: (event: H3Event) => unknown = providersAnswer
 // registered once: re-registering the same path in a later test does not replace the handler
 registerEndpoint('/api/providers', event => served(event))
 
@@ -25,7 +25,7 @@ function hrefs(wrapper: { findAll: (selector: string) => Array<{ attributes: (na
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
-  served = () => providersResponse()
+  served = providersAnswer
   Reflect.deleteProperty(navigator, 'clipboard')
 })
 
@@ -34,7 +34,7 @@ describe('provider Page', () => {
     const queries: Array<Record<string, unknown>> = []
     served = (event) => {
       queries.push(getQuery(event))
-      return providersResponse()
+      return providersAnswer(event)
     }
     const wrapper = await mountProvider('dwd')
 
@@ -101,6 +101,20 @@ describe('provider Page', () => {
     expect(text).toContain('(8)')
     const source = observation.findAll('a').find(a => a.text() === 'Source')
     expect(source?.attributes('href')).toBe('https://opendata.dwd.de/climate_environment/CDC/')
+  })
+
+  it('shows the provider and says there is nothing to list for a network whose list of resolutions did not come', async () => {
+    served = () => {
+      const response = providersResponse()
+      for (const network of response.providers.flatMap(provider => provider.networks))
+        network.resolutions = null
+      return response
+    }
+    const wrapper = await mountProvider('dwd')
+
+    expect(wrapper.find('h1').text()).toBe('German Weather Service')
+    expect(wrapper.text()).toContain('Not a time series: nothing to list here.')
+    expect(wrapper.text()).not.toContain('Climate summary')
   })
 
   it('says a network without resolutions is no time series, and does not offer to explore it', async () => {

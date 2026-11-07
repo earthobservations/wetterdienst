@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import AppCommandPalette from '~/components/AppCommandPalette.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
-import { providersResponse } from '../fixtures/providers'
+import { providersAnswer } from '../fixtures/providers'
 
 // The command palette of the search (GH-3518): the ARIA combobox with a listbox, its keys, and what it finds.
 
@@ -12,7 +12,7 @@ import { providersResponse } from '../fixtures/providers'
 const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn() }))
 mockNuxtImport('navigateTo', () => navigateTo)
 
-registerEndpoint('/api/providers', () => providersResponse())
+registerEndpoint('/api/providers', event => providersAnswer(event))
 const stationQueries: string[] = []
 const stationNetworks: string[] = []
 let failStations = false

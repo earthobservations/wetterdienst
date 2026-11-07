@@ -1053,7 +1053,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nThe answer is compact. With `datasets=true` each network also lists its resolutions and datasets, with how many\nparameters each has; a dataset whose stations are fewer than its network's has an `extent` of its own.\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nEach network also lists its resolutions and datasets, with how many parameters each has (a dataset whose\nstations are fewer than its network's has an `extent` of its own): pass `datasets=false` for a short answer\nwithout them, which is all a question about a licence or about the providers that reach a place needs.\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1080,11 +1080,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Also list the resolutions and datasets of each network, with the number of parameters of each. Off by default: the answer then has the number of parameters of each network only, and is a good deal shorter. `coverage` lists the parameters.",
-              "default": false,
+              "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
+              "default": true,
               "title": "Datasets"
             },
-            "description": "Also list the resolutions and datasets of each network, with the number of parameters of each. Off by default: the answer then has the number of parameters of each network only, and is a good deal shorter. `coverage` lists the parameters."
+            "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -6283,12 +6283,19 @@
             "description": "How many parameters the network has in all of its datasets."
           },
           "resolutions": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderResolution"
-            },
-            "type": "array",
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderResolution"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Resolutions",
-            "description": "The resolutions of the network, each with its datasets and their numbers of parameters. Only with `datasets=true`, else left out of the answer; empty for a network that has none (`dwd/radar`, `dwd/alerts`)."
+            "description": "The resolutions of the network, each with its datasets and their numbers of parameters; empty for a network that has none (`dwd/radar`, `dwd/alerts`), null with `datasets=false`, which leaves them out."
           }
         },
         "additionalProperties": false,
@@ -6301,7 +6308,8 @@
           "copyright",
           "auth",
           "date_required",
-          "parameters"
+          "parameters",
+          "resolutions"
         ],
         "title": "ProviderNetwork",
         "description": "A network of a provider, with what it offers."

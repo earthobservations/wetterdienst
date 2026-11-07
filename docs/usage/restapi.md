@@ -680,11 +680,13 @@ by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the co
 terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
 (`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice, shown for
 information), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-how many parameters they have (`parameters`). The answer is compact: it is short enough to read in one go, and a
-question about a licence or about which providers reach a place needs nothing more. `datasets=true` adds the
-resolutions and datasets of each network, with how many parameters each has (`dwd/radar` and `dwd/alerts` have an empty
-list); `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it answers at
-once, and `auth` checks whether credentials are accepted.
+how many parameters they have (`parameters`), and the resolutions and datasets they offer, with how many parameters each
+has (`dwd/radar` and `dwd/alerts` have an empty list). `datasets=false` leaves the resolutions and datasets out
+(`resolutions` is then null and everything else stays), which is all that a question about a licence or about which
+providers reach a place needs, and an answer about half the size: 19 kB for every provider where the full one is 34 kB.
+`datasets` is true for now and becomes false in a later release, before 1.0, so pass `datasets=true` where you read
+`resolutions`. `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
+answers at once, and `auth` checks whether credentials are accepted.
 
 ```bash
 # Every provider, sorted by name.
@@ -693,11 +695,11 @@ http localhost:7890/api/providers
 # One provider.
 http localhost:7890/api/providers provider==dwd
 
-# With the resolutions and datasets of each network.
-http localhost:7890/api/providers provider==dwd datasets==true
+# Without the resolutions and datasets of each network.
+http localhost:7890/api/providers provider==dwd datasets==false
 ```
 
-The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`.
+The command line is `wetterdienst about providers [--provider dwd] [--datasets=false]` and the MCP tool is `providers`.
 
 ### Extent
 

@@ -4,12 +4,12 @@ import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProvidersPage from '~/pages/providers/index.vue'
-import { providersResponse } from '../fixtures/providers'
+import { providersAnswer } from '../fixtures/providers'
 
 // `useFetch` keys the answer by name, so the list and the detail page share one request: cleared
 // between tests, or a later test is served the answer of the one before
 const mounted: Array<{ unmount: () => void }> = []
-let served: (event: H3Event) => unknown = () => providersResponse()
+let served: (event: H3Event) => unknown = providersAnswer
 // registered once: re-registering the same path in a later test does not replace the handler
 registerEndpoint('/api/providers', event => served(event))
 
@@ -23,7 +23,7 @@ async function mountProviders() {
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
-  served = () => providersResponse()
+  served = providersAnswer
 })
 
 describe('providers Page', () => {
@@ -31,7 +31,7 @@ describe('providers Page', () => {
     const queries: Array<Record<string, unknown>> = []
     served = (event) => {
       queries.push(getQuery(event))
-      return providersResponse()
+      return providersAnswer(event)
     }
     await mountProviders()
 
@@ -158,7 +158,7 @@ describe('providers Page', () => {
     const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')
     expect(retry).toBeDefined()
 
-    served = () => providersResponse()
+    served = providersAnswer
     await retry!.trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('German Weather Service'))
     expect(wrapper.text()).not.toContain('Request failed')

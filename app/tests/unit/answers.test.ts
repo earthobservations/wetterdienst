@@ -165,6 +165,14 @@ describe('where can I download hourly temperatures', () => {
     expect(hourlyNetworks(providers).map(({ provider, network }) => `${provider.provider}/${network}`)).toEqual(['dwd/observation'])
   })
 
+  it('finds no hourly network in an answer without the lists of resolutions, and does not fail on it', () => {
+    // the compact answer of the backend has `resolutions: null`, an older one has no member
+    const providers = [
+      { provider: 'dwd', networks: [{ network: 'observation', kind: 'observation', resolutions: null }, { network: 'mosmix', kind: 'observation' }] },
+    ] as unknown as Provider[]
+    expect(hourlyNetworks(providers)).toEqual([])
+  })
+
   it('finds the hourly air temperature, the dataset named for it first', () => {
     const parameter = (name: string) => ({ name, name_original: name, unit_type: 'temperature', unit: 'degree_celsius', unit_source: undefined, description: '' })
     expect(hourlyTemperatureIn({

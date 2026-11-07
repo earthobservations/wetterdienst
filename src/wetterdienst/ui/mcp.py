@@ -135,7 +135,7 @@ knows nothing about providers or stations, so `coverage` remains the tool for "w
 does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
 where its stations are), the licence of its data and the credit line to cite \
 (`attribution`, not `copyright`), and its networks with the `extent` of each -- and is the tool for \
-"may I reuse this data" and "which providers' networks reach a place". `datasets=true` adds each \
+"may I reuse this data" and "which providers' networks reach a place". `datasets=false` omits each \
 network's resolutions and datasets.
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
@@ -302,6 +302,7 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     from wetterdienst.ui.core import (  # noqa: PLC0415
         REMOVED_REQUEST_PARAMETERS,
         RENAMED_REQUEST_PARAMETERS,
+        ProvidersRequest,
         join_names,
         removed_parameter_message,
     )
@@ -318,7 +319,11 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
                 unknown = [name for name in arguments if name not in taken]
-                renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken]
+                # a name the tool's request never had is no old name of one it has (`providers` never took `dataset`)
+                never = ProvidersRequest.never_renamed if tool.name == "providers" else frozenset()
+                renamed = [
+                    name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name not in never
+                ]
                 refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
                 removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
                 refused += [removed_parameter_message(name) for name in removed]

@@ -1642,9 +1642,9 @@ def coverage(
 )
 @_bool_opt(
     "--datasets",
-    default=False,
-    help="Also list the resolutions and datasets of each network, with their number of parameters. Without it, "
-    "the answer has the number of parameters of each network only. Default: false",
+    default=True,
+    help="List the resolutions and datasets of each network, with their number of parameters. "
+    "--datasets=false leaves them out, for a short answer. Default: true",
 )
 @debug_opt
 def providers(
@@ -1657,8 +1657,8 @@ def providers(
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
     its data under (`license`, null where it states none), the credit line to cite (`attribution`; the `copyright`
     of a network is the rights holder's notice, for information), and its networks with their `kind`, `extent`,
-    source `url`, whether they need credentials and their number of parameters. With `--datasets` each network also
-    lists its resolutions and datasets. Nothing is downloaded and no credential is read. `about coverage` lists the
+    source `url`, whether they need credentials, their number of parameters and their resolutions and datasets;
+    `--datasets=false` leaves out the last. Nothing is downloaded and no credential is read. `about coverage` lists the
     parameters of a network.
     """
     from wetterdienst.ui.core import ProvidersRequest

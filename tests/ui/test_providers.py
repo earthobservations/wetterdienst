@@ -449,20 +449,23 @@ def _every_network(body: dict[str, Any]) -> list[dict[str, Any]]:
     return [network for provider in body["providers"] for network in provider["networks"]]
 
 
-def test_the_answer_is_compact_by_default_and_lists_the_datasets_when_asked(client: TestClient) -> None:
-    """GH-3536: the default has no resolutions and datasets, `datasets=true` has them and nothing else differs."""
-    compact = client.get("/api/providers").json()
+def test_the_answer_lists_the_datasets_by_default_and_is_compact_without_them(client: TestClient) -> None:
+    """GH-3536: the default is `datasets=true`, as before; `datasets=false` leaves out the resolutions only."""
+    default = client.get("/api/providers").json()
     full = client.get("/api/providers", params={"datasets": True}).json()
+    compact = client.get("/api/providers", params={"datasets": False}).json()
 
-    assert client.get("/api/providers", params={"datasets": False}).json()["providers"] == compact["providers"]
-    assert all("resolutions" not in network for network in _every_network(compact))
-    assert all("resolutions" in network for network in _every_network(full))
-    # what stays: the terms, the credit line, the source, the extent and the number of parameters of each network
+    assert _untimed(default) == _untimed(full)
+    assert all(network["resolutions"] is not None for network in _every_network(default))
+    # the member stays, null: it says the list was not asked for, where `[]` says the network has none
+    assert all(network["resolutions"] is None for network in _every_network(compact))
+    # what stays: everything but `resolutions`
     stripped = [
-        {**provider, "networks": [{k: v for k, v in n.items() if k != "resolutions"} for n in provider["networks"]]}
+        {**provider, "networks": [{**n, "resolutions": None} for n in provider["networks"]]}
         for provider in full["providers"]
     ]
     assert stripped == compact["providers"]
+    assert compact["metadata"]["counts"] == full["metadata"]["counts"]
     observation = next(n for n in _every_network(compact) if n["url"].startswith("https://opendata.dwd.de/climate"))
     assert observation["parameters"] > 0
     assert {"extent", "copyright", "kind", "url", "auth", "date_required"} <= set(observation)
@@ -471,9 +474,17 @@ def test_the_answer_is_compact_by_default_and_lists_the_datasets_when_asked(clie
     assert len(json.dumps(compact)) * 3 < len(json.dumps(full)) * 2
 
 
+def test_the_python_function_lists_the_datasets_by_default() -> None:
+    """`get_providers()` is `get_providers(datasets=True)`, and `datasets=False` leaves `resolutions` as None."""
+    assert get_providers().model_dump(exclude={"metadata": {"retrieved_at"}}) == get_providers(
+        datasets=True
+    ).model_dump(exclude={"metadata": {"retrieved_at"}})
+    assert all(n.resolutions is not None for p in get_providers().providers for n in p.networks)
+
+
 def test_the_number_of_parameters_of_a_network_is_the_same_with_and_without_the_datasets() -> None:
     """The count is read from the metadata, not from the lists that the compact answer leaves out."""
-    compact = get_providers()
+    compact = get_providers(datasets=False)
     full = get_providers(datasets=True)
 
     for left, right in zip(compact.providers, full.providers, strict=True):
@@ -487,23 +498,23 @@ def test_the_number_of_parameters_of_a_network_is_the_same_with_and_without_the_
     assert compact.metadata.counts == full.metadata.counts
 
 
-def test_the_command_line_lists_the_datasets_with_the_flag_only(client: TestClient) -> None:
-    """`wetterdienst about providers` is compact, `--datasets` gives the answer of `datasets=true`."""
-    compact = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
-    full = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv", "--datasets"])
-    explicit = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv", "--datasets=false"])
+def test_the_command_line_lists_the_datasets_unless_told_not_to(client: TestClient) -> None:
+    """`wetterdienst about providers` is the answer of REST, `--datasets=false` the compact one."""
+    default = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
+    compact = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv", "--datasets=false"])
 
+    assert default.exit_code == 0, default.output
     assert compact.exit_code == 0, compact.output
-    assert full.exit_code == 0, full.output
-    assert all("resolutions" not in n for n in _every_network(json.loads(compact.stdout)))
-    assert explicit.exit_code == 0, explicit.output
-    assert _untimed(json.loads(explicit.stdout)) == _untimed(json.loads(compact.stdout))
-    rest = client.get("/api/providers", params={"provider": "wsv", "datasets": True}).json()
-    assert _untimed(json.loads(full.stdout)) == _untimed(rest)
+    assert all(n["resolutions"] is not None for n in _every_network(json.loads(default.stdout)))
+    assert all(n["resolutions"] is None for n in _every_network(json.loads(compact.stdout)))
+    rest = client.get("/api/providers", params={"provider": "wsv"}).json()
+    assert _untimed(json.loads(default.stdout)) == _untimed(rest)
+    rest = client.get("/api/providers", params={"provider": "wsv", "datasets": False}).json()
+    assert _untimed(json.loads(compact.stdout)) == _untimed(rest)
 
 
-def test_the_mcp_tool_is_compact_and_takes_datasets() -> None:
-    """`providers(datasets=true)` lists the resolutions, without it they are left out."""
+def test_the_mcp_tool_lists_the_datasets_unless_told_not_to() -> None:
+    """`providers(datasets=false)` leaves the resolutions out, without it they are listed."""
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
@@ -515,10 +526,39 @@ def test_the_mcp_tool_is_compact_and_takes_datasets() -> None:
         async with Client(build_mcp_server(restapi.app)) as client:
             return (await client.call_tool("providers", arguments)).structured_content or {}
 
-    compact = asyncio.run(call({"provider": "dwd"}))
-    full = asyncio.run(call({"provider": "dwd", "datasets": True}))
-    assert all("resolutions" not in network for network in _every_network(compact))
-    assert any(network["resolutions"] for network in _every_network(full))
+    default = asyncio.run(call({"provider": "dwd"}))
+    compact = asyncio.run(call({"provider": "dwd", "datasets": False}))
+    assert any(network["resolutions"] for network in _every_network(default))
+    assert all(network["resolutions"] is None for network in _every_network(compact))
+
+
+def test_dataset_is_not_a_renamed_parameter_of_providers(client: TestClient) -> None:
+    """`providers` never took `dataset`: it is an unknown parameter, not one renamed to `datasets` (GH-3536)."""
+    refused = client.get("/api/providers", params={"dataset": "true"})
+    assert refused.status_code == 422
+    assert "renamed" not in refused.text
+    assert "dataset" in refused.text
+    # the endpoints that had `dataset` are still told
+    assert "dataset was renamed to datasets" in client.get("/api/coverage", params={"dataset": "kl"}).text
+
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call(tool: str, arguments: dict[str, Any]) -> str:
+        async with Client(build_mcp_server(restapi.app)) as mcp:
+            with pytest.raises(ToolError) as error:
+                await mcp.call_tool(tool, arguments)
+            return str(error.value)
+
+    message = asyncio.run(call("providers", {"dataset": "true"}))
+    assert "renamed" not in message
+    assert "is not an argument of providers" in message
+    assert "dataset was renamed to datasets" in asyncio.run(call("coverage", {"dataset": "kl"}))
 
 
 def test_the_fields_say_which_one_is_the_credit_line(client: TestClient) -> None:

@@ -4,10 +4,10 @@
 
 `/api/coverage` lists the networks and, for one, its parameters; nothing said what a provider *is*. Every network's
 metadata model already holds it (`name_english`, `country`, the licence and the credit line of #3058), and this
-module reads it out. The answer is compact by default: per network its kind, extent, source and number of parameters;
-the resolutions and datasets it offers are listed only for `datasets=True` (GH-3536), since they are most of the answer
-and a question about a licence or about which providers reach a place needs none of them (`/api/coverage` is the place
-for the lists). Nothing is downloaded, no credential is
+module reads it out. With `datasets=False` the answer is compact: everything but the resolutions and datasets each
+network offers (GH-3536), which are most of the answer, and a question about a licence or about which providers reach
+a place needs none of them (`/api/coverage` is the place for the lists). `datasets` is True for now; it is to become
+False in a later release, before 1.0. Nothing is downloaded, no credential is
 read or probed, so the answer is as fast on a cold cache as on a warm one: whether a key is accepted is
 `/api/auth`'s question, for one network. This module imports no web framework, so the command line and MCP use it
 without the `restapi` extra.
@@ -92,21 +92,13 @@ class ProviderNetwork(BaseModel):
     )
     date_required: bool = Field(description="Whether a request for a dataset of the network has to give a date.")
     parameters: int = Field(description="How many parameters the network has in all of its datasets.")
-    resolutions: list[ProviderResolution] | SkipJsonSchema[None] = Field(
-        default=None,
-        description="The resolutions of the network, each with its datasets and their numbers of parameters. Only "
-        "with `datasets=true`, else left out of the answer; empty for a network that has none (`dwd/radar`, "
-        "`dwd/alerts`).",
+    # required and nullable, not optional: a member that was always there stays one for a client written against the
+    # schema, and the MCP tool validates what it returns against the schema, which a missing required member fails.
+    # `null` says the list was not asked for (`datasets=false`), an empty list that the network has none
+    resolutions: list[ProviderResolution] | None = Field(
+        description="The resolutions of the network, each with its datasets and their numbers of parameters; empty "
+        "for a network that has none (`dwd/radar`, `dwd/alerts`), null with `datasets=false`, which leaves them out.",
     )
-
-    # no return annotation, on purpose: see `ProviderDataset`
-    @model_serializer(mode="wrap")
-    def _leave_out_the_resolutions_not_asked_for(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202
-        """Leave `resolutions` out where the answer is the compact one, which says so by its absence."""
-        serialized = handler(self)
-        if serialized.get("resolutions") is None:
-            serialized.pop("resolutions", None)
-        return serialized
 
 
 class Provider(BaseModel):
@@ -147,7 +139,7 @@ class ProvidersAnswer(BaseModel):
 
 
 def _network(
-    provider: str, network: str, *, datasets: bool = False
+    provider: str, network: str, *, datasets: bool = True
 ) -> tuple[ProviderNetwork, MetadataModel | None] | None:
     """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning.
 
@@ -214,12 +206,12 @@ def _network(
     )
 
 
-def get_providers(provider: str | None = None, *, datasets: bool = False) -> ProvidersAnswer:
+def get_providers(provider: str | None = None, *, datasets: bool = True) -> ProvidersAnswer:
     """Describe every provider of the registry, sorted by name, or the one named.
 
-    The answer is compact: each network has its `kind`, `extent`, `url` and the number of its `parameters`. With
-    `datasets=True` it also lists the network's resolutions and datasets, with the number of parameters of each
-    (GH-3536: that was the answer before).
+    With `datasets=True` (for now the default) each network lists its resolutions and datasets, with the number of
+    parameters of each. With `datasets=False` they are left out and everything else stays, the number of parameters
+    of the network among it (GH-3536).
 
     A provider is what its networks say of it; they agree (`tests/ui/test_providers.py` holds the registry to it), so
     the first network's declaration speaks for the provider. The standalone networks of `dwd` say the same by their
