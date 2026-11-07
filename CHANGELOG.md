@@ -92,6 +92,20 @@ Types of changes:
   41 % (minimum) of them (median 0.7 and 0.8 degC, up to 19). A date that only the calendar-day
   series has is no longer returned, in any window, and an `other-window-left-out` warning tells it:
   at least 65 and 68 dates. A stored series does not join the new one: read it anew (GH-3843)
+- **Breaking**: `metno/frost` daily `precipitation_amount` returns Frost's `-1`, which its [data
+  clarifications](https://frost.met.no/dataclarifications.html) state as 0.0 mm, as `0.0` with
+  `raw:-1` in `quality_flags` at every station and in every year. It was null (`rejected:range`):
+  13,869 days, 11,174 of them Bjornoya's up to 1956. One exception: SN81930 (Storstilla) up to and
+  including 1993, a weekly reader whose `-1` is a day nobody read, stays null with `raw:-1`. The
+  monthly sum and other elements are unchanged. A day that also has a reading under another stamp
+  (four WMO stations) returns that reading, where it was null. A stored series has nulls where
+  there are zeros: read it anew, and filter on `raw:-1` to find the former nulls (GH-3820)
+- **Breaking**: `metno/frost` daily and monthly `temperature_air_mean_2m` is the calendar series
+  (`PT0H`: the day, the hourly readings stamped 00:00 to 23:00; the calendar month) alone. It
+  returned the 06 UTC-offset mean (`PT6H`) on a date `PT0H` lacks, so the window changed along a
+  station's series: at least 3,694 days at 11 stations, 901 months at 179. Those dates are no
+  longer returned, in any window, and an `other-window-left-out` warning tells them. A stored
+  series does not join the new one: read it anew (GH-3855)
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

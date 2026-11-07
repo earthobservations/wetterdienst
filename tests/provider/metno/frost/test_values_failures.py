@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.provider.metno.frost.weekly_readers import unread_station_years
 from wetterdienst.exceptions import CredentialRejectedError, InvalidParameterError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
@@ -76,15 +77,17 @@ def _values(
     start: dt.datetime = START,
     end: dt.datetime = END,
     options: dict | None = None,
+    station: str = "SN18700",
 ) -> tuple[MetnoFrostValues, list[str]]:
     """Give the values of one station, the stations and the observations answered as stubbed."""
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     seen: list[str] = []
+    sources = {"data": [{**SOURCES["data"][0], "id": station}]}
 
     def _download(*, url: str, **_kwargs: object) -> File:
         seen.append(url)
         if "/sources/" in url:
-            return _ok(url, SOURCES)
+            return _ok(url, sources)
         return observations(url)
 
     monkeypatch.setattr(frost_api, "download_file", _download)
@@ -94,7 +97,7 @@ def _values(
         end=end,
         **({"options": options} if options else {}),
     )
-    return request.filter_by_station_id("SN18700").values(), seen
+    return request.filter_by_station_id(station).values(), seen
 
 
 def test_metno_frost_every_dataset_is_date_required() -> None:
@@ -525,9 +528,9 @@ def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only()
 
     Frost states -1 as "No precipitation" for the 6-hourly sum, and writes it into 51 % of its readings from 1982 on.
     Before that year, in the old series, it is every reading of a station, wet days included, so it is null. The hourly
-    sum is our reading of the same code. The daily sum (Frost states 0.0 mm; GH-3820 has it), the 10-minute, the
-    monthly and the annual sum are not read at all. The code stays in the flags in every case it is read, as the last
-    token (GH-3748).
+    sum is our reading of the same code. The daily sum has no cut-off year: Frost states 0.0 mm, and it is read in every
+    year (GH-3820). The 10-minute, the monthly and the annual sum are not read at all. The code stays in the flags in
+    every case it is read, as the last token (GH-3748).
     """
     year = frost_api._NO_PRECIPITATION_FROM_YEAR  # noqa: SLF001
     sums = ["PT6H", "PT1H", "P1D", "PT10M", "P1M", "P1Y"]
@@ -545,16 +548,16 @@ def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only()
     )
     decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
     assert decoded.get_column("value").to_list() == [
-        # from the cut-off year: the two sums read, the others as they were
-        0.0, 0.0, -1.0, -1.0, -1.0, -1.0,
-        # before it: null for the two, the others as they were
-        None, None, -1.0, -1.0, -1.0, -1.0,
+        # from the cut-off year: the three sums read, the others as they were
+        0.0, 0.0, 0.0, -1.0, -1.0, -1.0,
+        # before it: null for the two with a cut-off year, 0.0 for the daily sum, the others as they were
+        None, None, 0.0, -1.0, -1.0, -1.0,
         0.0, 1.3, 0.0,
     ]  # fmt: skip
     # the code stays beside the value it stood for, and only there; a quality code of 7 stays in front of it
     assert decoded.get_column("quality_flags").to_list() == [
-        "2,raw:-1", "2,raw:-1", "2", "2", "2", "2",
-        "2,raw:-1", "2,raw:-1", "2", "2", "2", "2",
+        "2,raw:-1", "2,raw:-1", "2,raw:-1", "2", "2", "2",
+        "2,raw:-1", "2,raw:-1", "2,raw:-1", "2", "2", "2",
         "0", "2", "7,raw:-1",
     ]  # fmt: skip
 
@@ -1065,9 +1068,9 @@ _MINUS_ONE_CASES = [
     ("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], ("batch", "discovery"), "6_hours-before"),
     ("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], ("batch", "single", "discovery"), "hourly-from"),
     ("sum(precipitation_amount PT1H)", "hourly", -1, [1.3], ("batch", "single", "discovery"), "hourly-before"),
-    # the daily -1 is not read, from the cut-off year or before: the range check nulls it, as it always did (GH-3820)
-    ("sum(precipitation_amount P1D)", "daily", 0, [1.3], ("batch", "single", "discovery"), "daily-from"),
-    ("sum(precipitation_amount P1D)", "daily", -1, [1.3], ("batch", "single", "discovery"), "daily-before"),
+    # the daily -1 is 0.0 mm as Frost states, in every year: no cut-off year (GH-3820)
+    ("sum(precipitation_amount P1D)", "daily", 0, [0.0, 1.3], ("batch", "single", "discovery"), "daily-from"),
+    ("sum(precipitation_amount P1D)", "daily", -1, [0.0, 1.3], ("batch", "single", "discovery"), "daily-before"),
 ]
 
 
@@ -1091,7 +1094,7 @@ def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader
 
     The discovery read once decoded nothing and every test passed (GH-3748): all three go through one rule. Before the
     cut-off year the code is null and the row is dropped, so that nothing false is returned for the old series. The
-    daily sum is not read in either year.
+    daily sum has no cut-off year: its -1 is 0.0 mm in both (GH-3820).
     """
     year = FROM + year_offset
     start = dt.datetime(year, 1, 1, tzinfo=ZoneInfo("UTC"))
@@ -1323,24 +1326,27 @@ def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_
     assert df["value"].to_list() == [6.0]
 
 
-def test_metno_frost_only_the_sums_and_the_daily_extremes_choose_an_offset() -> None:
+def test_metno_frost_only_the_sums_the_daily_extremes_and_the_means_choose_an_offset() -> None:
     """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832, GH-3843).
 
-    The precipitation sums and the daily extremes keep their standard series alone. The daily mean has `PT0H` and
-    `PT6H` at 1,063 stations of Frost's listing and is not chosen here: its rows are kept as they come, and the core
-    returns the first of a date.
+    The precipitation sums, the daily extremes and the daily and monthly mean keep their standard series alone (the
+    mean's is `PT0H`, the calendar day, GH-3855); the rows of the other elements, and those that give no offset, are
+    kept as they come.
     """
     given = pl.DataFrame(
         {
             "elementId": ["max(air_temperature P1D)"] * 2
             + ["mean(air_temperature P1D)"] * 2
-            + ["sum(precipitation_amount P1D)"] * 3,
-            "timeOffset": ["PT0H", "PT18H", "PT0H", "PT6H", "PT18H", "PT6H", None],
-            "value": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            + ["mean(air_temperature P1M)"] * 2
+            + ["sum(precipitation_amount P1D)"] * 3
+            + ["mean(wind_speed P1D)"] * 2,
+            "timeOffset": ["PT0H", "PT18H", "PT0H", "PT6H", "PT6H", "PT0H", "PT18H", "PT6H", None, "PT0H", "PT6H"],
+            "value": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0],
         }
     )
-    assert frost_api._keep_standard_offset(given)["value"].to_list() == [2.0, 3.0, 4.0, 6.0, 7.0]  # noqa: SLF001
-    assert frost_api._keep_standard_offset(given.drop("timeOffset")).height == 7  # noqa: SLF001
+    kept = frost_api._keep_standard_offset(given)["value"].to_list()  # noqa: SLF001
+    assert kept == [2.0, 3.0, 6.0, 8.0, 9.0, 10.0, 11.0]
+    assert frost_api._keep_standard_offset(given.drop("timeOffset")).height == 11  # noqa: SLF001
 
 
 def test_metno_frost_a_daily_extreme_without_a_18_18_row_has_no_row() -> None:
@@ -1903,28 +1909,140 @@ def test_metno_frost_daily_temperature_extreme_is_chosen_over_the_queries_of_the
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
 
 
-def test_metno_frost_the_daily_mean_temperature_is_not_chosen_by_offset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the rows of the daily mean are returned as they come, `PT0H` before `PT6H` (GH-3843).
+MEAN_STAMPS = ["2020-01-01T00:00:00.000Z", "2020-01-02T00:00:00.000Z", "2020-01-03T00:00:00.000Z"]
 
-    The mean has `PT0H` and `PT6H` at 609 stations of the catalogue, and Frost's table prefers `PT0H` for it ("For cases
-    not listed above"), which sorts first. The 11 stations that have days with `PT6H` only return those days from it
-    (at least 3,694). Its window is a separate issue (GH-3855): the mean is as it was.
-    """
-    stamps = EXTREME_STAMPS[:2]
-    answer = _offset_answer(
-        "mean(air_temperature P1D)",
-        [(stamps[0], "PT0H", 1.0), (stamps[0], "PT6H", 2.0), (stamps[1], "PT6H", 3.0)],
+
+def _mean_values(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    resolution: str,
+    readings: list[tuple[str, str, float]],
+    start: str = MEAN_STAMPS[0],
+    end: str = MEAN_STAMPS[1],
+) -> pl.DataFrame:
+    """Give the frame a reader of `path` returns for the mean of `resolution`, Frost answering `readings`."""
+    element = f"mean(air_temperature {'P1M' if resolution == 'monthly' else 'P1D'})"
+    offsets = sorted({offset for _, offset, _ in readings})
+    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(*offsets))
+    requested = [(resolution, "data", "temperature_air_mean_2m")]
+    if path == "single":
+        requested.append((resolution, "data", "precipitation_amount"))
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        requested,
+        start=dt.datetime.fromisoformat(start),
+        end=dt.datetime.fromisoformat(end),
     )
+    begin_response()
+    return values.all().df.filter(pl.col("parameter") == "temperature_air_mean_2m").sort("timestamp")
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+def test_metno_frost_the_mean_temperature_is_the_calendar_day_series_by_every_reader(
+    monkeypatch: pytest.MonkeyPatch, path: str, resolution: str
+) -> None:
+    """Test that the daily and monthly mean is the `PT0H` series alone, and a date that only `PT6H` has is left out.
+
+    The mean has `PT0H` (the calendar day, the hourly readings stamped 00:00 to 23:00) and `PT6H` (06-06 UTC) at 609
+    and 605 stations of the catalogue, and Frost prefers `PT0H` for it ("For cases not listed above, PT0H is always the
+    preferred offset"). The core kept the first row of a date, which is `PT0H` where it has one and `PT6H` where it has
+    not, so the window of one parameter changed along a station's series: SN25830 2,966 days, SN27270 603 (GH-3855).
+    """
+    stamps = MEAN_STAMPS if resolution == "daily" else ["2020-01-01T00:00:00.000Z", "2020-02-01T00:00:00.000Z"]
+    readings = [(stamps[0], "PT0H", 1.0), (stamps[0], "PT6H", 2.0), (stamps[1], "PT6H", 3.0)]
+    df = _mean_values(monkeypatch, path, resolution, readings, start=stamps[0], end=stamps[1])
+    assert df["value"].to_list() == [1.0]
+    assert df["timestamp"].to_list() == [dt.datetime(2020, 1, 1, tzinfo=dt.UTC)]
+    (warning,) = _told("other-window-left-out")
+    assert warning["parameter"] == f"{resolution}/data/temperature_air_mean_2m"
+    assert warning["stations"] == ["SN18700"]
+    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
+    message = warning["message"]
+    assert "other series (`timeOffset` PT6H" in message
+    # Frost's table does not name a standard for the mean, it prefers `PT0H`: the clause says which of the two it is
+    assert ", the one Frost prefers." in message
+    assert "names its standard" not in message
+    if resolution == "daily":
+        assert "this parameter is the calendar-day series (`timeOffset` PT0H, the hourly readings stamped" in message
+        assert "other series (`timeOffset` PT6H, the 06-06 UTC mean, or PT18H)" in message
+    else:
+        # a month is no day: it is not the hourly readings of 00:00 to 23:00
+        assert "this parameter is the calendar-month series (`timeOffset` PT0H, midnight to midnight" in message
+        assert "hourly readings" not in message
+        assert "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)" in message
+    # the source has values there: nothing says that it has none
+    assert [w for w in _told_of("temperature_air_mean_2m") if w["code"] == "parameter-without-rows"] == []
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_the_mean_temperature_of_a_date_that_only_pt6h_has_does_not_depend_on_the_window(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that a date that `PT0H` lacks is left out in a window of that date and in a wider one (GH-3855)."""
+    readings = [(MEAN_STAMPS[0], "PT0H", 1.0), (MEAN_STAMPS[1], "PT6H", 3.0), (MEAN_STAMPS[2], "PT0H", 5.0)]
+    df = _mean_values(monkeypatch, path, "daily", readings, start=MEAN_STAMPS[1], end=MEAN_STAMPS[1])
+    assert df.is_empty()
+    (warning,) = _told("other-window-left-out")
+    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
+    df = _mean_values(monkeypatch, path, "daily", readings, start=MEAN_STAMPS[0], end=MEAN_STAMPS[2])
+    assert df["value"].to_list() == [1.0, 5.0]
+    (warning,) = _told("other-window-left-out")
+    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_the_mean_temperature_of_a_station_that_has_no_pt0h_series_has_no_values(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that a station with `PT6H` (or `PT18H`) only returns no mean, and says so (GH-3855).
+
+    None of the stations of the station list has no `PT0H` mean; one of Frost's listing has `PT18H` only, and 7 `PT6H`
+    only. The answer is the "other series" one, never "the source has no values": the source has them.
+    """
+    readings = [(MEAN_STAMPS[0], "PT6H", 1.0), (MEAN_STAMPS[1], "PT6H", 2.0)]
+    df = _mean_values(monkeypatch, path, "daily", readings)
+    assert df.is_empty()
+    (warning,) = _told("other-window-left-out")
+    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
+    assert [w for w in _told_of("temperature_air_mean_2m") if w["code"] == "parameter-without-rows"] == []
+
+
+def test_metno_frost_the_mean_temperature_is_decided_for_itself_beside_the_other_daily_elements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the mean that has `PT0H` and the maximum that has `PT18H` only do not decide each other (GH-3855)."""
+    answer = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": MEAN_STAMPS[0],
+                "observations": [
+                    {"elementId": "mean(air_temperature P1D)", "value": 1.0, "timeOffset": "PT0H"},
+                    {"elementId": "mean(air_temperature P1D)", "value": 9.0, "timeOffset": "PT6H"},
+                    {"elementId": "max(air_temperature P1D)", "value": 4.0, "timeOffset": "PT18H"},
+                    {"elementId": "mean(wind_speed P1D)", "value": 3.0, "timeOffset": "PT0H"},
+                ],
+            }
+        ]
+    }
     values, _ = _values(
         monkeypatch,
         lambda url: _ok(url, answer),
-        [("daily", "data", "temperature_air_mean_2m")],
-        start=dt.datetime.fromisoformat(stamps[0]),
-        end=dt.datetime.fromisoformat(stamps[1]),
+        [
+            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "temperature_air_max_2m"),
+            ("daily", "data", "wind_speed_mean"),
+        ],
+        start=dt.datetime.fromisoformat(MEAN_STAMPS[0]),
+        end=dt.datetime.fromisoformat(MEAN_STAMPS[0]),
     )
     begin_response()
-    assert values.all().df.sort("timestamp")["value"].to_list() == [1.0, 3.0]
-    assert recorded_warnings() == []
+    df = values.all().df.sort("parameter")
+    assert df["parameter"].to_list() == ["temperature_air_max_2m", "temperature_air_mean_2m", "wind_speed_mean"]
+    assert df["value"].to_list() == [4.0, 1.0, 3.0]
+    assert _told("other-window-left-out") == []
 
 
 def _two_heights(hours: list[list[tuple[str, int, float | None]]]) -> dict:
@@ -2149,3 +2267,301 @@ def test_metno_frost_a_date_is_counted_once_however_many_series_answer_it(monkey
     assert sum("timeseriesids=" in url for url in seen) == 2
     (warning,) = _told("other-window-left-out")
     assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
+
+
+# --- the -1 of the daily precipitation sum, and the one station that writes it for a day nobody read (GH-3820) -------
+
+DAILY_SUM = "sum(precipitation_amount P1D)"
+# the exception of the reader: SN81930 (Storstilla), a weekly reader, up to and including 1993
+WEEKLY_READER = "SN81930"
+
+
+def _minus_one_days(
+    monkeypatch: pytest.MonkeyPatch, path: str, station: str, element: str, stamps: list[str], offset: str = "PT6H"
+) -> pl.DataFrame:
+    """Give what a reader of `path` returns for `station` if Frost answers -1 on the first date and 1.3 on the next."""
+    readings = [(stamps[0], offset, -1.0), (stamps[1], offset, 1.3)]
+    resolution = "monthly" if element.endswith("P1M)") else "daily"
+    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(offset))
+    requested = [(resolution, "data", "precipitation_amount")]
+    if path == "single":
+        requested.append((resolution, "data", "temperature_air_mean_2m"))
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        requested,
+        start=dt.datetime.fromisoformat(stamps[0]),
+        end=dt.datetime.fromisoformat(stamps[1]),
+        options={"drop_nulls": False},
+        station=station,
+    )
+    return values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(
+    ("station", "year", "value"),
+    [
+        # Frost states 0.0 mm, at every station and in every year: Bjornoya (1895-1956), Oslo, a new WMO series
+        pytest.param("SN18700", 2026, 0.0, id="a-station-today"),
+        pytest.param("SN18700", 1955, 0.0, id="a-station-of-the-1950s"),
+        pytest.param("SN99700", 1950, 0.0, id="bjornoya"),
+        # the weekly reader writes -1 for a day it did not read, up to and including 1993: null, with the code kept
+        pytest.param(WEEKLY_READER, 1987, None, id="weekly-reader-1987"),
+        pytest.param(WEEKLY_READER, 1993, None, id="weekly-reader-1993"),
+        # from 1994 its -1 is dry-like (neighbours 18.9 % wet against 48 % before) and is read as Frost states it
+        pytest.param(WEEKLY_READER, 1994, 0.0, id="weekly-reader-1994"),
+        pytest.param(WEEKLY_READER, 2008, 0.0, id="weekly-reader-2008"),
+    ],
+)
+def test_metno_frost_daily_minus_one_is_no_precipitation_but_a_weekly_readers_unread_day(
+    monkeypatch: pytest.MonkeyPatch, path: str, station: str, year: int, value: float | None
+) -> None:
+    """Test that the daily `-1` is 0.0 mm with `raw:-1` at every station and year, except SN81930 up to 1993 (GH-3820).
+
+    Frost states `-1` of `sum(precipitation_amount P1D)` as "No precipitation", converted to 0.0 mm. At SN81930 a
+    weekly reader, it is a filler for the days of the week nobody read the gauge on, and the week's rain is in the next
+    reading (the neighbours are wet on 48.0 % of those days, on 49.2 % of all days): null, with the code kept.
+    """
+    stamps = [f"{year}-03-01T00:00:00.000Z", f"{year}-03-02T00:00:00.000Z"]
+    df = _minus_one_days(monkeypatch, path, station, DAILY_SUM, stamps)
+    assert df["value"].to_list() == [value, 1.3]
+    # the code is kept for the 0.0 and for the null alike, as the last token
+    assert df["quality_flags"].to_list()[0] == "raw:-1"
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_daily_minus_one_of_a_weekly_reader_is_by_the_year_of_the_date_not_of_the_window(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that the last day of 1993 is unread and the first of 1994 is dry, in one window and in another (GH-3820)."""
+    stamps = ["1993-12-31T00:00:00.000Z", "1994-01-01T00:00:00.000Z"]
+    df = _minus_one_days(monkeypatch, path, WEEKLY_READER, DAILY_SUM, stamps)
+    assert df["value"].to_list() == [None, 1.3]
+    stamps = ["1994-01-01T00:00:00.000Z", "1994-01-02T00:00:00.000Z"]
+    df = _minus_one_days(monkeypatch, path, WEEKLY_READER, DAILY_SUM, stamps)
+    assert df["value"].to_list() == [0.0, 1.3]
+
+
+def test_metno_frost_daily_minus_one_of_a_weekly_reader_is_dropped_by_default_and_a_dry_one_is_found_by_its_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that an unread day has no row by default, and a dry `-1` is a row of 0.0 that `raw:-1` finds (GH-3820)."""
+    readings = [
+        ("1993-03-01T00:00:00.000Z", "PT6H", -1.0),
+        ("1993-03-02T00:00:00.000Z", "PT6H", 2.0),
+        ("1994-03-01T00:00:00.000Z", "PT6H", -1.0),
+    ]
+    observations = _answered_by("batch", _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        [("daily", "data", "precipitation_amount")],
+        start=dt.datetime(1993, 1, 1, tzinfo=dt.UTC),
+        end=dt.datetime(1994, 12, 31, tzinfo=dt.UTC),
+        station=WEEKLY_READER,
+    )
+    df = values.all().df.sort("timestamp")
+    assert df["value"].to_list() == [2.0, 0.0]
+    assert df["quality_flags"].to_list() == [None, "raw:-1"]
+
+
+def test_metno_frost_only_the_daily_sum_has_a_day_that_is_not_read() -> None:
+    """Test that the monthly sum and every other element read `-1` as they did, and the exception is the daily sum's.
+
+    A -1 of the monthly sum (305, none since 1954) and of the other elements is decided by nobody here: the monthly
+    sum's is left to the range check, a temperature of -1 is a temperature (GH-3820).
+    """
+    given = pl.DataFrame(
+        {
+            "parameter": [
+                "sum(precipitation_amount P1D)",
+                "sum(precipitation_amount P1M)",
+                "mean(air_temperature P1D)",
+                "sum(precipitation_amount PT6H)",
+            ],
+            "timestamp": [dt.datetime(1970, 1, 1, tzinfo=dt.UTC)] * 4,
+            "value": [-1.0] * 4,
+            "quality_flags": [None] * 4,
+        }
+    )
+    decoded = frost_api._decode_sentinels(given, WEEKLY_READER)  # noqa: SLF001
+    # the daily sum is the weekly reader's unread day; the 6-hourly sum, before 1982, null as it was; the rest as it was
+    assert decoded["value"].to_list() == [None, -1.0, -1.0, None]
+    assert decoded["quality_flags"].to_list() == ["raw:-1", None, None, "raw:-1"]
+    decoded = frost_api._decode_sentinels(given, "SN18700")  # noqa: SLF001
+    assert decoded["value"].to_list() == [0.0, -1.0, -1.0, None]
+    assert decoded["quality_flags"].to_list() == ["raw:-1", None, None, "raw:-1"]
+
+
+def test_metno_frost_the_rule_that_finds_a_weekly_reader_finds_the_pattern_of_the_census() -> None:
+    """Test the rule on Storstilla's pattern (316 of 365 rows `-1`, a median gap of 7 days) and a dry spell's.
+
+    The daily reader that has a dry spell has a `-1` on most days too, and a reading every few days at the most; the
+    rule needs the median gap of 4 days or more, which only a weekly or monthly reader has (GH-3820).
+    """
+    days = [dt.date(1990, 1, 1) + dt.timedelta(days=n) for n in range(365)]
+    weekly = pl.DataFrame(
+        {
+            "station_id": WEEKLY_READER,
+            "date": days,
+            "value": [2.0 if n % 7 == 6 else None for n in range(365)],
+            "quality_flags": [None if n % 7 == 6 else "raw:-1" for n in range(365)],
+        }
+    )
+    dry_spell = pl.DataFrame(
+        {
+            "station_id": "SN18700",
+            "date": days,
+            "value": [1.0 if n % 3 == 0 else 0.0 for n in range(365)],
+            "quality_flags": [None if n % 3 == 0 else "raw:-1" for n in range(365)],
+        }
+    )
+    monthly = pl.DataFrame(
+        {
+            "station_id": "SN53101",
+            "date": [dt.date(1990, month, 1) for month in range(1, 13)],
+            "value": [1.0] * 12,
+            "quality_flags": [None] * 12,
+        }
+    )
+    assert unread_station_years(pl.concat([weekly, dry_spell, monthly])) == {(WEEKLY_READER, 1990)}
+
+
+def test_metno_frost_the_zero_of_a_daily_minus_one_is_not_judged_by_the_checks_and_is_no_null_to_drop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a daily `-1` read as 0.0 stays through `limits` and `drop_nulls`, a measured 0 does not (GH-3820).
+
+    A reading that carries a `raw:` token is a code of the source and is not judged (`model/judge.py`): a lower bound of
+    0.5 mm turns a measured `0` into null with `rejected:limits`, and keeps the `0.0` of a `-1`. Neither is dropped by
+    `drop_nulls` for being null: the zero is a value. Read the `raw:-1` token to tell the two zeros apart.
+    """
+    readings = [(MEAN_STAMPS[0], "PT6H", -1.0), (MEAN_STAMPS[1], "PT6H", 0.0), (MEAN_STAMPS[2], "PT6H", 1.3)]
+    for drop_nulls in (True, False):
+        observations = _answered_by("batch", _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+        values, _ = _values(
+            monkeypatch,
+            observations,
+            [("daily", "data", "precipitation_amount")],
+            start=dt.datetime.fromisoformat(MEAN_STAMPS[0]),
+            end=dt.datetime.fromisoformat(MEAN_STAMPS[2]),
+            options={"drop_nulls": drop_nulls, "limits": {"precipitation_amount": (0.5, None)}},
+        )
+        df = values.all().df.sort("timestamp")
+        measured_zero = [] if drop_nulls else [None]
+        assert df["value"].to_list() == [0.0, *measured_zero, 1.3]
+        assert df["quality_flags"].to_list()[0] == "raw:-1"
+        if not drop_nulls:
+            assert df["quality_flags"].to_list()[1].startswith("rejected:limits")
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_the_day(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that a day stamped several times keeps its reading, wherever its `-1` is, and a day of `-1` alone is 0.0.
+
+    SN644700, one of four WMO stations that write several rows for a date, has on 2026-11-07 eight rows of `-1`
+    (00:00 to 08:00) and five of 0.1 (10:00 to 16:00), and on 2026-11-04 the reading before its `-1`. The core keeps
+    the first row of a day that has a value: the `-1` was null and lost, and as `0.0` it would win when it comes first
+    (GH-3820). 2026-11-05 has `-1` rows alone.
+    """
+    readings = [
+        ("2026-11-04T00:00:00.000Z", "PT6H", 0.1),
+        ("2026-11-04T10:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-05T00:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-05T06:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T00:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T08:00:00.000Z", "PT6H", -1.0),
+        ("2026-11-07T10:00:00.000Z", "PT6H", 0.1),
+        ("2026-11-07T12:00:00.000Z", "PT6H", 0.1),
+    ]
+    observations = _answered_by(path, _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+    requested = [("daily", "data", "precipitation_amount")]
+    if path == "single":
+        requested.append(("daily", "data", "temperature_air_mean_2m"))
+    values, _ = _values(
+        monkeypatch,
+        observations,
+        requested,
+        start=dt.datetime(2026, 11, 4, tzinfo=dt.UTC),
+        end=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        options={"drop_nulls": False},
+        station="SN644700",
+    )
+    df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
+    assert df["value"].to_list() == [pytest.approx(0.1), 0.0, pytest.approx(0.1)]
+    assert df["quality_flags"].to_list() == [None, "raw:-1", None]
+
+
+def test_metno_frost_a_reading_beats_the_minus_one_of_another_series_of_the_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the discovery, which reads each `timeseriesids` apart, leaves out a `-1` for a reading of another.
+
+    The `-1` of series 0 is stamped 00:00 and the 0.1 of series 1 10:00 of the same date (GH-3820).
+    """
+    answers = {
+        "0": _offset_answer(DAILY_SUM, [("2026-11-07T00:00:00.000Z", "PT6H", -1.0)]),
+        "1": _offset_answer(DAILY_SUM, [("2026-11-07T10:00:00.000Z", "PT6H", 0.1)]),
+    }
+    available = {
+        "data": [
+            {
+                "validFrom": "2026-11-01T00:00:00Z",
+                "timeOffset": "PT6H",
+                "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN644700:0&timeseriesids={ts}",
+            }
+            for ts in answers
+        ]
+    }
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, available)
+        if "timeseriesids=" in url:
+            return _ok(url, answers[url.split("timeseriesids=")[1].split("&", maxsplit=1)[0]])
+        return _failed(url, 404)
+
+    values, seen = _values(
+        monkeypatch,
+        observations,
+        [("daily", "data", "precipitation_amount")],
+        start=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        end=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        options={"drop_nulls": False},
+        station="SN644700",
+    )
+    df = values.all().df
+    assert sum("timeseriesids=" in url for url in seen) == 2
+    assert df["value"].to_list() == [pytest.approx(0.1)]
+    assert df["quality_flags"].to_list() == [None]
+
+
+def test_metno_frost_a_reading_beats_a_minus_one_of_the_daily_sum_alone() -> None:
+    """Test that the `-1` of another parameter, or of a sub-daily sum, beside a reading of its day is kept (GH-3820)."""
+    day = dt.datetime(2026, 11, 7, tzinfo=dt.UTC)
+    parameters = [
+        "sum(precipitation_amount P1D)",
+        "sum(precipitation_amount P1D)",
+        "surface_snow_thickness",
+        "surface_snow_thickness",
+        "sum(precipitation_amount PT6H)",
+        "sum(precipitation_amount PT6H)",
+    ]
+    given = pl.DataFrame(
+        {
+            "parameter": parameters,
+            "timestamp": [day] * 6,
+            "value": [0.0, 0.1, 0.0, 3.0, 0.0, 1.0],
+            "quality_flags": ["raw:-1", None] * 3,
+        }
+    )
+    kept = frost_api._a_reading_beats_a_minus_one(given)  # noqa: SLF001
+    # only the daily sum's `-1` goes: the snow depth's and the 6-hourly sum's stay beside their readings
+    assert kept["parameter"].to_list() == parameters[1:]
+    assert kept["value"].to_list() == [0.1, 0.0, 3.0, 0.0, 1.0]
+    # a `-1` alone, and a `-1` beside a `-1`, stay
+    alone = given.head(1).vstack(given.head(1))
+    assert frost_api._a_reading_beats_a_minus_one(alone).height == 2  # noqa: SLF001

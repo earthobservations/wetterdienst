@@ -477,9 +477,19 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   lists since 2026-11-03 (10,576 of 11,119 hourly readings are -1; a daily -1 holds 24 dry hours in 213 of 213),
 #   less the Norwegian hourly series: 250 of 796,636 readings, in 1994 to 2004, and no day of them has all 24 hours
 #   (66 of 78 days agree with the daily sum)
-# - daily: Frost states 0.0 mm, and the -1 stays below the range here: null, `rejected:range,raw:-1`, as before. At the
-#   stations that read once a week it also marks a day that was not read (SN81930 in 1990: eight -1, 17.5, eight -1,
-#   32.5), so it is left until GH-3820 has measured it
+# - daily (`sum(precipitation_amount P1D)`, the 06-06 series that is returned): 0.0 at every station and in every year,
+#   with `raw:-1`, as Frost states ("converted to 0.0 mm"), with one named exception (GH-3820, the census of 2026-11-07,
+#   every catalogue station with a daily series, all years: 13,869 -1 of 8,940,078 rows, none in `PT18H`). SN81930
+#   (Storstilla) is a weekly reader, and up to and including 1993 its -1 is a day nobody read the gauge on (1,860 days,
+#   1987-12 to 1993-11: the neighbours are wet on 48.0 % of them against 49.2 % of all its days, and a reading after a
+#   run of -1 follows the run's total, Spearman 0.63, and not the day's, 0.28, so the week's rain sits in the next
+#   reading): null, with `raw:-1`, for `_UNREAD_DAYS_THROUGH`. From 1994 its -1 are dry-like (neighbours 18.9 % wet) and
+#   0.0. The rule that finds such a station is a median gap of 4 days or more between the readings and at least half of
+#   the rows -1 in a calendar year: it gives exactly SN81930 for 1987 to 1993 and nothing else (a live test holds it for
+#   SN81930 and four look-alikes; the census is the evidence for the other stations). The rest is dry: Bjornoya
+#   (SN99700) 11,174 days up to 1956 (1 mm or more on 25.6 % of them against 25.3 % at the station beside it), the
+#   WMO series of 2026-11 (472 of 472 days whose two 12-hourly halves are both -1), and 88 isolated days (neighbours
+#   wet on 9.4 %)
 # - not for the 10-minute sum (no -1 in 394,188 readings), the monthly sum (305, none since 1954) and the annual sum
 #   (none in 70,022), where Frost states nothing and nothing supports it: a -1 there is null by the range check
 #
@@ -507,6 +517,10 @@ _PRECIPITATION_SUMS = (
 )
 _NO_PRECIPITATION = "-1"
 _NO_PRECIPITATION_FROM_YEAR = 1982
+# the daily sum, whose -1 is 0.0 in every year but for the station-years below
+_DAILY_PRECIPITATION_SUM = "sum(precipitation_amount P1D)"
+# the stations whose daily -1 is a day nobody read the gauge on, up to and including the year: a weekly reader (GH-3820)
+_UNREAD_DAYS_THROUGH = {"SN81930": 1993}
 _DAILY = "daily"
 
 # Frost keeps several series of an element at a station that differ in `timeOffset` only ("Sometimes multiple
@@ -538,26 +552,54 @@ _DAILY = "daily"
 # station to station. The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation: only
 # `PT18H` is returned, a station without that series returns no extremes, and a date that only the other series has is
 # left out and told, so that the answer does not depend on the window asked for.
+#
+# The daily and monthly `mean(air_temperature)` are chosen the same way (GH-3855): the calendar day (`PT0H`, the hourly
+# readings stamped 00:00 to 23:00), which Frost prefers ("For cases not listed above, PT0H is always the preferred
+# offset when multiple offsets are returned"). `PT0H` sorts first, so a station with both series returned it where it
+# has a date and the 06-06 UTC mean (`PT6H`) on a date it lacks, one parameter in two windows: at least 3,694 days
+# at 11 catalogue stations (SN25830 2,966) and 901 months at 179 (the monthly count has 804 gaps inside the validity of
+# `PT0H`, so the daily one is a lower bound; docs/data/provider/metno/frost/index.md). The
+# maintainer decided on 2026-11-07 that the mean is the calendar day alone, by the same mechanism: any other offset's
+# rows are left out and told, a station without a `PT0H` series (none in the catalogue) returns no mean, and the answer
+# does not depend on the window.
 _STANDARD_OFFSET = {
     "sum(precipitation_amount P1D)": "PT6H",
     "sum(precipitation_amount P1M)": "PT6H",
     "max(air_temperature P1D)": "PT18H",
     "min(air_temperature P1D)": "PT18H",
+    "mean(air_temperature P1D)": "PT0H",
+    "mean(air_temperature P1M)": "PT0H",
 }
 # the series a standard offset is not, as the `other-window-left-out` warning names them: the precipitation's is
 # `PT18H`; the extremes' is `PT0H` at the stations that have both, or `PT6H` at the 9 minimum stations of Frost's
-# listing that have only that, and the clause is no more than that
+# listing that have only that; the mean's is `PT6H` (06-06 UTC), or `PT18H` at the one station of Frost's listing that
+# has only that. The clause is no more than that
 _OTHER_SERIES = {
     "PT6H": "18-18 UTC series (`timeOffset` PT18H)",
     "PT18H": "other series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00, or PT6H)",
+    "PT0H": "other series (`timeOffset` PT6H, the 06-06 UTC mean, or PT18H)",
 }
-# what the `other-window-left-out` warning says of the dates that only the other series has, by element: the windows
-# are the 24 hours ending at the offset (06-06, 18-18 UTC)
+# the series a standard offset is, as the warning names it: the 24 hours ending at the offset (06-06, 18-18 UTC), and
+# `PT0H` by its stamps only, the hourly readings stamped 00:00 to 23:00 (the hours it ends are another reading of them)
+_STANDARD_SERIES = {
+    "PT6H": "06-06 UTC series (`timeOffset` PT6H)",
+    "PT18H": "18-18 UTC series (`timeOffset` PT18H)",
+    "PT0H": "calendar-day series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00)",
+}
+# the monthly mean is the calendar month, not a day, and its `PT6H` series runs from 06 UTC on the last day of the month
+# before to 06 UTC on the last day of the month (the daily wording would call a month "the hourly readings stamped
+# 00:00 to 23:00")
+_MONTHLY_MEAN = "mean(air_temperature P1M)"
+_MONTHLY_MEAN_SERIES = "calendar-month series (`timeOffset` PT0H, midnight to midnight of the calendar month)"
+_MONTHLY_MEAN_OTHER = "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)"
+# what the `other-window-left-out` warning says of the dates that only the other series has, by element: Frost names
+# the standard of the sums and of the extremes in its table, and prefers `PT0H` for every other element
 _LEFT_OUT_BECAUSE = {
     element: (
-        f"these dates have a value in Frost's {_OTHER_SERIES[offset]} only, and this parameter is the "
-        f"{'06-06' if offset == 'PT6H' else '18-18'} UTC series (`timeOffset` {offset}), the one Frost names its "
-        "standard"
+        f"these dates have a value in Frost's "
+        f"{_MONTHLY_MEAN_OTHER if element == _MONTHLY_MEAN else _OTHER_SERIES[offset]} only, and this parameter is the "
+        f"{_MONTHLY_MEAN_SERIES if element == _MONTHLY_MEAN else _STANDARD_SERIES[offset]}, "
+        f"the one Frost {'prefers' if offset == 'PT0H' else 'names its standard'}"
     )
     for element, offset in _STANDARD_OFFSET.items()
 }
@@ -773,13 +815,15 @@ def _level(df: pl.DataFrame) -> pl.Expr:
     return pl.lit("", dtype=pl.String).alias(_LEVEL)
 
 
-def _read_observations(df: pl.DataFrame, parameter: pl.Expr, resolution: str) -> tuple[pl.DataFrame, pl.DataFrame]:
+def _read_observations(
+    df: pl.DataFrame, parameter: pl.Expr, resolution: str, station_id: str
+) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Give the frame the core takes from the observations of an answer, and the dates of another series it left out.
 
     ``df`` has one row per observation (`elementId`, `referenceTime`, `value`, `timeOffset`, ...), ``parameter`` is
-    the expression of the name the rows are given and ``resolution`` the name of the resolution they were asked for.
-    The frame has the columns parameter, timestamp, value and quality flags; the second frame is `_left_out_dates`,
-    for `_tell_left_out`.
+    the expression of the name the rows are given, ``resolution`` the name of the resolution they were asked for and
+    ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags;
+    the second frame is `_left_out_dates`, for `_tell_left_out`.
     """
     left_out = _left_out_dates(df, parameter)
     df = _keep_standard_offset(df)
@@ -795,10 +839,31 @@ def _read_observations(df: pl.DataFrame, parameter: pl.Expr, resolution: str) ->
                 _quality_flags(df),
                 _level(df),
             ),
+            station_id,
         ),
         resolution,
     )
-    return frame, left_out
+    return _a_reading_beats_a_minus_one(frame), left_out
+
+
+def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
+    """Leave out the `-1` of a day of the daily precipitation sum that another stamp of the day has a reading for.
+
+    A few stations of the WMO series Frost lists since 2026-11-03 write several rows for one date, stamped at different
+    times (SN644700: on 2026-11-07 eight rows of `-1` from 00:00 to 08:00 and five of 0.1 from 10:00 to 16:00). The
+    stamp is cut to the day, and the core keeps the first row of a reading that has a value
+    (`merge_duplicate_readings`): in 0.184.0 the `-1` was not decoded, a `-1` that came first won the merge as `-1.0`
+    and the range check, which runs after it, made the day null (`rejected:range,raw:-1`); as the 0.0 it is now, it
+    would stand and the reading be lost (GH-3820). The reading is the day's, so the rows of `-1` of such a day are left
+    out. A day with `-1` alone, and a `-1` beside another `-1`, are as they were.
+    """
+    minus_one = (
+        (pl.col("parameter") == _DAILY_PRECIPITATION_SUM)
+        & pl.col("value").is_not_null()
+        & pl.col("quality_flags").fill_null("").str.ends_with(f"raw:{_NO_PRECIPITATION}")
+    )
+    reading = pl.col("value").is_not_null() & ~minus_one
+    return df.filter(~(minus_one & reading.any().over("parameter", "timestamp")))
 
 
 def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
@@ -820,15 +885,21 @@ def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
     return df.filter(~(first_is_coded & later))
 
 
-def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
+def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.DataFrame:
     """Turn Frost's in-band codes into the value they stand for, before anything reads them.
 
     The code stays beside the value as the last token of `quality_flags`, `0,raw:-1`, written as Frost documents the
     code: the value is a JSON number, so its text is not at hand (GH-2759). A wind direction of 0 beside a wind speed
     of 0 of the same time and height is a calm, and null with `raw:0`; where the frame has no speed it stays (GH-3833).
+
+    ``station_id`` is the station the rows are of. It matters for one code: the daily precipitation `-1` is 0.0, but the
+    one of a weekly reader's unread days (`_UNREAD_DAYS_THROUGH`) is null (GH-3820).
     """
     _precipitation = pl.col("parameter").is_in(_PRECIPITATION_SUMS)
     _year = pl.col("timestamp").dt.year()
+    _daily_sum = pl.col("parameter") == _DAILY_PRECIPITATION_SUM
+    unread_through = _UNREAD_DAYS_THROUGH.get(station_id or "")
+    _unread = _daily_sum & (_year <= unread_through) if unread_through is not None else pl.lit(value=False)
     df = with_speed_beside(
         df, {_WIND_DIRECTION: _WIND_SPEED}, on=["timestamp", _LEVEL] if _LEVEL in df.columns else ["timestamp"]
     )
@@ -837,6 +908,9 @@ def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
         Sentinel(_NO_SNOW, where=pl.col("parameter") == _SNOW_DEPTH, to=0.0),
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year >= _NO_PRECIPITATION_FROM_YEAR), to=0.0),
         Sentinel(_NO_PRECIPITATION, where=_precipitation & (_year < _NO_PRECIPITATION_FROM_YEAR)),
+        # the first that matches decides: the unread days of a weekly reader are null, the rest of the daily sum 0.0
+        Sentinel(_NO_PRECIPITATION, where=_unread),
+        Sentinel(_NO_PRECIPITATION, where=_daily_sum, to=0.0),
         Sentinel(*_CLOUD_COVER_NOT_ESTIMATED, where=pl.col("parameter") == _CLOUD_COVER),
         Sentinel(_NOT_GIVEN, where=pl.col("parameter").is_in([_WIND_DIRECTION, _SNOW_DEPTH])),
         calm(pl.col(SPEED_BESIDE), where=pl.col("parameter") == _WIND_DIRECTION),
@@ -961,7 +1035,7 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        frame, left_out = _read_observations(df, pl.col("elementId"), dataset.resolution.name)
+        frame, left_out = _read_observations(df, pl.col("elementId"), dataset.resolution.name, station_id)
         # the batch holds the whole dataset: what is told is of the parameters asked for
         asked = {
             parameter.name_original: _full_name(parameter)
@@ -1067,7 +1141,7 @@ class MetnoFrostValues(TimeseriesValues):
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
         frame, left_out = _read_observations(
-            df, pl.lit(parameter.name_original, dtype=pl.String), parameter.dataset.resolution.name
+            df, pl.lit(parameter.name_original, dtype=pl.String), parameter.dataset.resolution.name, station_id
         )
         _tell_left_out(left_out, frame, {parameter.name_original: _full_name(parameter)}, start_date, end_date)
         return frame
@@ -1187,12 +1261,15 @@ class MetnoFrostValues(TimeseriesValues):
             )
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
-            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name)
+            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name, station_id)
             left_outs.append(left_out)
             if not frame.is_empty():
                 frames.append(frame)
 
         kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+        # the series of one station are read apart: a `-1` of one can come first to a reading of another (idempotent)
+        if not kept.is_empty():
+            kept = _a_reading_beats_a_minus_one(kept)
         # a date is left out when no series of the station returned it
         left_out = [frame for frame in left_outs if not frame.is_empty()]
         if left_out:

@@ -15,7 +15,7 @@
 
 | name                                  | original name                       | description                                                                                                                                                                                                     | unit |
 |---------------------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_mean_2m` | mean(air_temperature P1M) | Monthly mean temperature. The mean is an arithmetic mean of daily values. | degree_celsius |
+| {term}`temperature_air_mean_2m` | mean(air_temperature P1M) | Monthly mean temperature. The mean is an arithmetic mean of daily values. Only the calendar-month series is returned (`timeOffset` PT0H); Frost also has a 06-06 UTC series (PT6H), which is left out, and a month that only it has is not returned and the answer says so (901 months at 179 stations of the station list) (GH-3855). | degree_celsius |
 | {term}`temperature_air_max_2m` | max(air_temperature P1M) | Highest recorded air temperature per month | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1M) | Lowest recorded air temperature per month | degree_celsius |
 | {term}`temperature_dew_point_mean_2m` | mean(dew_point_temperature P1M) | Monthly mean dew-point temperature. Dew-point temperature is the temperature at which the air, when cooled, will become saturated (and dew is formed). | degree_celsius |
@@ -36,4 +36,5 @@ from 06 UTC on the last day of the previous month to 06 UTC on the last day of `
 has referenceTime = 2018-02-01T00:00 and is based on the period from 2018-01-31T06:00 to 2018-02-28T06:00"). Frost keeps
 an 18-18 UTC series of it too at 964 of the 2,388 stations of its time-series listing (612 of them in the station list), which the reader used to return where there is one. See the
 section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
-of the Frost page.
+of the Frost page, which also says what the monthly mean temperature returns
+([the two series of the mean](index.md#the-two-series-of-the-daily-and-monthly-mean-temperature)).
