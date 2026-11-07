@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Masa na objętość",
     "unitSignificantWeather": "Znaczące zjawisko pogodowe",
     "unitTurbidity": "Mętność",
-    "unitWindScale": "Skala wiatru"
+    "unitWindScale": "Skala wiatru",
+    "bar": {
+      "title": "Dostosuj pasek",
+      "hint": "Na telefonie pasek na dole ekranu pokazuje cztery narzędzia i Menu. Wybierz, które cztery. Pozostałe zostają w Menu.",
+      "preview": "Podgląd",
+      "previewLabel": "Podgląd paska: {tools}, Menu",
+      "menuOnly": "Tylko w Menu: {tools}",
+      "inBar": "Na pasku",
+      "inMenu": "Tylko w Menu",
+      "instructions": "Przeciągnij narzędzie za uchwyt albo użyj przycisków ze strzałkami w jego wierszu. Na pasku są zawsze cztery narzędzia: gdy jedno wchodzi, inne wychodzi.",
+      "moveUp": "Przesuń {tool} w górę",
+      "moveDown": "Przesuń {tool} w dół",
+      "reset": "Przywróć pasek",
+      "reorderedBar": "{tool} jest teraz na miejscu {position} z {total} na pasku.",
+      "reorderedMenu": "{tool} jest teraz na miejscu {position} z {total} w Menu.",
+      "enteredBar": "{tool} jest teraz na pasku, na miejscu {position} z {total}. {other} jest teraz tylko w Menu.",
+      "leftBar": "{tool} jest teraz tylko w Menu. {other} jest teraz na pasku, na miejscu {position} z {total}.",
+      "resetDone": "Pasek wrócił do ustawień początkowych: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Stopnie Celsjusza (°C)",

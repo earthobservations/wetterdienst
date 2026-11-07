@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Masse je Volumen",
     "unitSignificantWeather": "Signifikantes Wedder",
     "unitTurbidity": "Trübung",
-    "unitWindScale": "Windskala"
+    "unitWindScale": "Windskala",
+    "bar": {
+      "title": "Balken anpassen",
+      "hint": "Op'n Handy wiest de Balken ünnen an'n Schirm veer Warktüüch un dat Menü. Söök ut, welke veer. De annern blievt in't Menü.",
+      "preview": "Vörschau",
+      "previewLabel": "Vörschau vun'n Balken: {tools}, Menü",
+      "menuOnly": "Blots in't Menü: {tools}",
+      "inBar": "In'n Balken",
+      "inMenu": "Blots in't Menü",
+      "instructions": "Treck en Warktüüch an'n Greep, oder bruuk de Piel-Knööp in sien Reeg. Veer Warktüüch sünd jümmers in'n Balken: Rückt een rin, rückt en annern rut.",
+      "moveUp": "{tool} na boven schuven",
+      "moveDown": "{tool} na ünnen schuven",
+      "reset": "Balken trüchsetten",
+      "reorderedBar": "{tool} steiht nu op Platz {position} vun {total} in'n Balken.",
+      "reorderedMenu": "{tool} steiht nu op Platz {position} vun {total} in't Menü.",
+      "enteredBar": "{tool} is nu in'n Balken, op Platz {position} vun {total}. {other} is nu blots noch in't Menü.",
+      "leftBar": "{tool} is nu blots noch in't Menü. {other} is nu in'n Balken, op Platz {position} vun {total}.",
+      "resetDone": "De Balken is wedder as vörher: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",
