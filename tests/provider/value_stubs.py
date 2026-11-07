@@ -1869,7 +1869,9 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
     # clarifications (https://frost.met.no/dataclarifications.html), which state -3 for the wind direction ("No unique
     # wind direction is given when winds are weak") and for the snow depth ("Not possible to measure snowdepth"), and 0
     # for the snow depth ("Snowdepth less than 0.5 cm"), a reading of its own. The -3 of the direction was read at the
-    # WMO stations Frost lists since 2026-11-03 (GH-3137), beside a wind speed of 0.5 to 2.6 m/s
+    # WMO stations Frost lists since 2026-11-03 (GH-3137), beside a wind speed of 0.5 to 2.6 m/s. The 0 of the direction
+    # is a calm beside a speed of 0 ("360 degrees is north", and the 0 stands beside a speed of 0 in 1,014 of 1,030
+    # such readings at 20 Norwegian stations, GH-3833): null with the 0 kept in the flags
     payload = {
         "data": [
             {
@@ -1879,20 +1881,40 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
                     {"elementId": "cloud_area_fraction", "value": cloud, "qualityCode": 0},
                     {"elementId": "surface_snow_thickness", "value": snow, "qualityCode": 0},
                     {"elementId": "wind_from_direction", "value": direction, "qualityCode": 0},
+                    {"elementId": "wind_speed", "value": speed, "qualityCode": 0},
                 ],
             }
-            for hour, (cloud, snow, direction) in enumerate([(4, 12.0, 90.0), (9, -1.0, -3.0), (8, -3.0, 0.0)])
+            for hour, (cloud, snow, direction, speed) in enumerate(
+                [(4, 12.0, 90.0, 3.1), (9, -1.0, -3.0, 1.0), (8, -3.0, 0.0, 0.0)]
+            )
         ],
     }
+    # 03:00 at a station that measures the wind at 10 m and 2 m (71 do, SN99460 among them), the 10 m first: a calm at
+    # 10 m beside a speed of 0, and a bearing of 170 at 2 m, which must not fill it (GH-3833)
+    heights = {"levelType": "height_above_ground", "unit": "m"}
+    payload["data"].append(
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T03:00:00.000Z",
+            "observations": [
+                {"elementId": "cloud_area_fraction", "value": 4, "qualityCode": 0},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 2}},
+                {"elementId": "wind_from_direction", "value": 0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_from_direction", "value": 170, "qualityCode": 0, "level": {**heights, "value": 2}},
+            ],
+        }
+    )
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
         parameters=[
             ("hourly", "data", "cloud_cover_total"),
             ("hourly", "data", "snow_depth"),
             ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
         ],
         start=_day(2020, 1, 1),
-        end=_day(2020, 1, 1, 2),
+        end=_day(2020, 1, 1, 3),
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
@@ -2983,6 +3005,8 @@ STUBS = [
             ("snow_depth", -1.0),
             ("snow_depth", -3.0),
             ("wind_direction_mean_last_10min", -3.0),
+            # a calm: the 0 beside a speed of 0 (GH-3833)
+            ("wind_direction_mean_last_10min", 0.0),
         ),
         tokens=(
             ("cloud_cover_total", "9", None),
@@ -2991,6 +3015,7 @@ STUBS = [
             ("snow_depth", "-3", None),
             # null before as well, as `rejected:range,raw:-3` by the range check; now the code and nothing else
             ("wind_direction_mean_last_10min", "-3", None),
+            ("wind_direction_mean_last_10min", "0", None),
         ),
     ),
     ValueStub(
