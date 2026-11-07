@@ -16,6 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Command line: `--help`, `--version` and each shell completion (a TAB) start in about 0.07 s,
+  where they took about 0.7 s: they no longer import polars, pydantic or the providers, which a
+  command imports when it runs, and `values` refused for its options is told in 0.4 s, not 0.8 s.
+  A broken dependency now fails the command that needs it, not `--version`. `import wetterdienst`
+  and `wetterdienst.api` no longer import polars, pydantic-settings or the settings: `Settings`,
+  `Options` and the submodules `settings`, `options`, `model` and `ui` are imported when used,
+  and every way to name them still works. Gone: `wetterdienst.api.Settings` and
+  `wetterdienst.api.check_settings`. `wetterdienst.metadata.unit_type`, `.parameter_table`,
+  `.aliases` and `.renamed` and `wetterdienst.util.hosts` and `.response_warnings` were attribute
+  paths after a plain `import wetterdienst` and now raise `AttributeError` until something imports
+  them: `import wetterdienst.metadata.unit_type` works as ever. `import
+  wetterdienst.model.request` still imports polars and the settings, but no longer `measurement`
+  (sympy) and `pyarrow`, which a search by distance or by rank imports (GH-3809)
+
 ## [0.184.0] - 2026-11-06
 
 ### Added
