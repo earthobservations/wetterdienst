@@ -138,7 +138,8 @@ def test_a_provider_that_answered_badly_is_not_offline(monkeypatch: pytest.Monke
     def missing(*_args: object, **_kwargs: object) -> None:
         raise FileNotFoundError
 
-    _serve_listings(monkeypatch, SimpleNamespace(find=missing))
+    # the page of a directory that is not there is a 404 as well
+    _serve_listings(monkeypatch, SimpleNamespace(find=missing, cat_file=missing))
 
     assert list_remote_files_fsspec("https://example.invalid/gone/", Settings(cache_disable=True)) == []
 

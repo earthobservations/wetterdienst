@@ -908,7 +908,8 @@ class FileDirCache(MutableMapping):
         if store is None:
             return default
         value = store.get(key)
-        return default if value is None else value
+        # an empty listing is no answer to keep (see `__setitem__`): one that an older version stored is a miss too
+        return value or default
 
     def clear(self) -> None:
         """Clear cache."""
@@ -923,8 +924,9 @@ class FileDirCache(MutableMapping):
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        store = self._store
-        return store is not None and store.contains(item)
+        # through `get`, which reads the listing: one an older version stored empty is a miss, and fsspec's `_ls`
+        # indexes the cache after asking `in` (`ListingStore.contains` does not decode, so knows no empty one)
+        return self.get(item) is not None
 
     def __setitem__(self, key: str, value: list[dict]) -> None:
         """Store listing in cache.
@@ -936,6 +938,12 @@ class FileDirCache(MutableMapping):
         """
         store = self._store
         if store is None:
+            return
+        if not value:
+            # an empty listing is never stored: DWD fills a directory again, and a year directory of a tree that is
+            # empty today (`.../historical/2022/`) is listed with the others, so keeping it would hide the files from
+            # the next call for the whole `cache_expiry` (12 hours for the metadata), across restarts. What an empty
+            # directory costs is one request
             return
         store.set(key, value, self.listings_expiry_time)
 
@@ -2647,22 +2655,78 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server, or no files if the directory is not there
+        A list of all files on the server, or no files if the directory is not there or is empty: a URL ending in `/`
+        that lists as itself alone, and whose page is an index (`Index of`) with no link, as nginx answers for an empty
+        directory, is the empty directory. No empty listing is kept in the listings cache, a subdirectory's included
+        (a year directory of a tree that is empty today), so the next call sees the directory filled. A URL that does
+        not end in `/` and lists as itself is a file, and is returned.
 
     Raises:
         NoInternetError: If no connection could be made after three attempts (no network, a DNS
             failure, a refusing host), naming the URL, the connection error as its ``__cause__``.
             A directory that is not there is an answer, `[]`; being offline is not (GH-2640).
         DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
-            broken body, or an HTTP error status other than 404, naming the URL, the failure as its
-            ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
-            times before it is raised, so is a TLS handshake the server fumbled (a wrong version
+            broken body, an HTTP error status other than 404, or a page that is no index of a directory
+            where a directory was asked for (a CDN's error page answered with a 200, a JSON error), naming the
+            URL, the failure as its ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked
+            for three times before it is raised, so is a TLS handshake the server fumbled (a wrong version
             number, an invalid session id, GH-3533); a 4xx once. A certificate that does not verify
             is raised at the first attempt, with the ``ssl.SSLError`` as its ``__cause__``: asking
             again would meet the same certificate (GH-3099).
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
+
+
+#: how much of the page that stood for a directory is searched for its title, which every index page puts first. The
+#: whole page is read (up to the download cap, `MAX_DOWNLOAD_BYTES`): only the search stops here
+_INDEX_PAGE_HEAD_BYTES = 65536
+#: `Index of /`, as nginx and Apache write the title and the heading of an index page; not `Index of services`
+_INDEX_PAGE_TITLE = re.compile(rb"<(?:title|h1)>\s*Index of /", re.IGNORECASE)
+
+
+def _found_or_empty_directory(url: str, found: list[str] | None, page: bytes | None) -> list[str]:
+    """Give what `find` found at a URL, or no file where the URL is a directory with none.
+
+    `found` is None where `find` raised `FileNotFoundError`, and `page` is None where the page of the URL is a 404.
+
+    An empty directory is taken for a file by fsspec: it finds no link on the index page of `/x/`, asks for `/x`, which
+    nginx (DWD's server) answers with a 301 to `/x/`, and `find` then lists the directory as the one file it holds,
+    because `_isfile` is a GET that answers below 400 (and as nothing at all if that GET fails: a 503, a reset). The
+    listing says nothing of a file there: the directory is empty (`[]`; the listings cache stores no empty listing, so
+    the next call asks again).
+
+    That holds only if the page of a URL ending in `/` is the index of a directory (`Index of /x/`, which nginx and
+    Apache write), whichever way `find` came to list no file: itself as the one file, nothing, or a 404 for `/x`. Any
+    other 200 page, a CDN's "503" page with a link to itself elsewhere or a JSON error, is not an empty directory and
+    must not read as "no data": it is a `DownloadError` (a 502). A 404 for the page is a directory that is not there,
+    `[]`. A URL with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
+    """
+    if not url.endswith("/") or (found and found != [url]):
+        return found or []
+    if page is None:
+        return []
+    if _INDEX_PAGE_TITLE.search(page[:_INDEX_PAGE_HEAD_BYTES]):
+        return []
+    raise DownloadError(url, "the answer is not the index page of a directory")
+
+
+def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None, bytes | None]:
+    """List a URL, and read its page where the listing leaves it open whether it is an empty directory.
+
+    The page of a URL ending in `/` is read when no file but the URL itself was found (nothing, the URL itself, or a
+    `FileNotFoundError` of `find`), which costs one more GET for such a directory.
+    """
+    try:
+        found: list[str] | None = fs.find(url, on_error="raise")
+    except FileNotFoundError:
+        found = None
+    if not url.endswith("/") or (found and found != [url]):
+        return found, None
+    try:
+        return found, fs.cat_file(url)
+    except FileNotFoundError:
+        return found, None
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2686,9 +2750,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
         # and callers have always had it as `[]`; anything else is a failure to read, which a
         # caller should hear about rather than infer, after the retry around this where it can help
-        return fs.find(url, on_error="raise")
-    except FileNotFoundError:
-        return []
+        found, page = _find_and_read_page(fs, url)
     except ClientSSLError as e:
         # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
         # is not being offline, and `[]` would hand the caller an empty directory with no hint of
@@ -2713,6 +2775,8 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # aiohttp built from its credentials in the request info, and the retry around this logs the repr
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        return _found_or_empty_directory(url, found, page)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise tls_failure
@@ -2760,7 +2824,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     )
     failure: OSError
     try:
-        return fs.ls(url, detail=True)
+        entries = fs.ls(url, detail=True)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
@@ -2777,6 +2841,8 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        return entries
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure
