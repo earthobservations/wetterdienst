@@ -44,6 +44,13 @@ Types of changes:
   (`metadata.request.stations.ids`, padded as it pads them) with yours, or ask `stations` without
   `timestamp`; in Python read `result.stations.df`. `history`, `interpolate` and `summarize` are
   unchanged (GH-3818)
+- **Breaking**: `metno/frost` hourly wind direction `-3` ("No unique wind direction is given when
+  winds are weak" in Frost's data clarifications) and snow depth `-3` ("Not possible to measure
+  snowdepth") are null with `raw:-3` in any window. The wind direction was null as
+  `rejected:range,raw:-3` with `range: hard`, and `-3.0` with `suspect:range` with `range: soft`
+  (72 of 9,255 readings at foreign stations), so `range: soft` no longer returns it: filter on
+  `raw:-3`. The snow depth was `-3.0` cm in any window; none has been seen in about 150,000
+  readings (Part of GH-3137)
 
 ## [0.184.0] - 2026-11-06
 

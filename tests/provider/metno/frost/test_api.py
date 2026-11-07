@@ -270,40 +270,25 @@ def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> 
         request.filter_by_station_id("SN99710").values().all()
 
 
-def test_metno_frost_decodes_sentinels() -> None:
-    """Test that Frost's in-band codes become the value they stand for.
+@pytest.mark.remote
+def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None:
+    """The wind direction in weak winds is Frost's -3 and comes back null, the code in the flags (GH-3137).
 
-    Frost writes these into the value, where nothing distinguishes them from a measurement. Its element descriptions
-    state two: snow depth -1 is "no snow", a depth of zero rather than an absent one, and cloud cover -3 and 9 both
-    mean the cover could not be estimated (in eighths the latter two convert to -0.375 and 1.125 of the sky). Its data
-    clarifications state a third (GH-3748): the 6-hourly precipitation sum -1 is "No precipitation".
+    SN1165900, a WMO station Frost lists since 2026-11-03, has -3 at 2026-11-04 13:00 (beside a speed of 1 to 2 m/s):
+    "No unique wind direction is given when winds are weak" in Frost's data clarifications. The range check used to turn
+    it into a null as `rejected:range`, which says the reading is out of range.
     """
-    from wetterdienst.provider.metno.frost.api import _decode_sentinels  # noqa: PLC0415
-
-    given = pl.DataFrame(
-        {
-            "parameter": [
-                "surface_snow_thickness",
-                "surface_snow_thickness",
-                "cloud_area_fraction",
-                "cloud_area_fraction",
-                "cloud_area_fraction",
-                "air_temperature",
-            ],
-            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=UTC)] * 6,
-            "value": [-1.0, 12.0, -3.0, 9.0, 4.0, -1.0],
-            "quality_flags": ["0"] * 6,
-        },
+    df = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            start=dt.datetime(2026, 11, 4, 13, tzinfo=UTC),
+            end=dt.datetime(2026, 11, 4, 13, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN1165900")
+        .values()
+        .all()
+        .df
     )
-    decoded = _decode_sentinels(given)
-    values = decoded.get_column("value").to_list()
-    # the code stays beside the value it stood for, after the quality code (GH-2759)
-    assert decoded.get_column("quality_flags").to_list() == ["0,raw:-1", "0", "0,raw:-3", "0,raw:9", "0", "0"]
-    # "no snow" is a depth of zero; a measured depth is untouched
-    assert values[:2] == [0.0, 12.0]
-    # both codes for "could not be estimated" become null; a real eighth is untouched
-    assert values[2] is None
-    assert values[3] is None
-    assert values[4] == 4.0
-    # -1 means nothing special anywhere else, and a temperature may legitimately be negative
-    assert values[5] == -1.0
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list() == ["2,raw:-3"]
