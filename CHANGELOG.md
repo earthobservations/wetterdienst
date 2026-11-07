@@ -18,12 +18,6 @@ Types of changes:
 
 ### Added
 
-- `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once that source data was left out,
-  with a `source-data-left-out` warning: how many of the stations they read lost a file the
-  provider let go (a failed download, a directory found empty) or dates of another series (Frost),
-  and the cause of each. Before, neither `file-skipped` nor `other-window-left-out` reached an
-  estimate, which answered `warnings: []` over a station that had lost either. One warning per
-  answer, not per station, with up to 10 station ids (GH-3848)
 - A `station-without-rows` warning names the ids of `stations=` (REST, MCP, CLI, and
   `filter_by_station_id` in Python) that returned no rows while other named stations did. Before,
   `values` held the rows of the others and nothing said the rest was missing. It is not told for a
@@ -57,6 +51,12 @@ Types of changes:
 
 ### Fixed
 
+- `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
+  warning, that source data was left out: how many of the stations they read lost a file the
+  provider let go (a failed download, a directory found empty), dates of another series (Frost) or
+  values a hard plausibility check rejected. Before, none reached an estimate, which answered
+  `warnings: []`. One warning per answer, not per station, up to 10 station ids; the station the
+  walk stops at is not counted (GH-3848)
 - **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
   of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
   warning names the directory (it was a log line, and a history of it was cached); so does the

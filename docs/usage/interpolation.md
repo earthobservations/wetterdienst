@@ -185,15 +185,19 @@ the stations alone (`result.stations.to_geojson()`) has the properties of a stat
 An interpolation and a summary read the stations around the point nearest first, as candidates, and stop once they have
 enough. A station can lose something on the way: the provider lets a file go (a refused or failed download, a file
 withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty), so its values
-may be missing, or leaves out the dates of another series of the source (`metno/frost` keeps two series of a
+may be missing; the provider leaves out the dates of another series of the source (`metno/frost` keeps two series of a
 precipitation sum or a temperature extreme, and a date only the other one has would be a value of another window under
-the parameter's name). Neither is a station without a reading, and the estimate is made from the other stations and
-the other dates all the same. The answer says so once, with a `source-data-left-out` warning: how many of the stations
-read were affected, by which cause, and the first ten of them in `stations`. It is one warning however many stations or
-causes there are, and none is told for a station on its own. A file let go may be there later (try again), a date of
-another series never is. `values` tells the same two causes with `file-skipped` and `other-window-left-out`; the
-[response metadata](restapi.md#response-metadata) says what each code carries. In Python, read it with
-`begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a log line.
+the parameter's name); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
+does not use (a value a soft check flags is left out in every mode and is not told). None is a station without a
+reading, and the estimate is made from the other stations and the other values all the same. The answer says so once,
+with a `source-data-left-out` warning: how many of the stations read were affected, by which cause, and the first ten
+of them in `stations`. It is one warning however many stations or causes there are, a station is counted once, and none
+is told for a station on its own. The station the walk reads to find that it is done and does not use is not counted.
+A download, a page or a directory may be there later (try again), a file that would not parse and a date of another
+series are not. `values` tells the first two causes with `file-skipped` and `other-window-left-out`, and the third with
+`rejected-by-plausibility`; the [response metadata](restapi.md#response-metadata) says what each code carries. In
+Python, read it with `begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a
+log line.
 
 ### Supported parameters
 

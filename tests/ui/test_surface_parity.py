@@ -2341,8 +2341,8 @@ def test_an_estimate_tells_a_file_let_go_once_and_not_of_each_station(
 
     assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
     (summary,) = [w for w in recorded_warnings() if w["code"] == "source-data-left-out"]
-    assert summary["stations"]
-    assert set(summary["stations"]) <= {"00001", "00002"}
+    assert summary["stations"] == ["00002", "00001"]
+    assert "at 2 of the 7 stations it read." in summary["message"]
 
 
 def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:

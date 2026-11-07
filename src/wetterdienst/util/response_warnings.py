@@ -90,8 +90,9 @@ FILE_SKIPPED = "file-skipped"
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 
 #: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
-#: (GH-3848): the stations it read whose file the provider let go (`note_skipped_download`) and those whose dates of
-#: another series were left out (`note_left_out`), counted by cause, in one warning for the answer. An estimate reads
+#: (GH-3848): the stations it read whose file the provider let go (`note_skipped_download`), those whose dates of
+#: another series were left out (`note_left_out`) and those with values a hard plausibility check rejected, counted by
+#: cause, in one warning for the answer. An estimate reads
 #: the stations around a point as candidates, so it tells neither `file-skipped` nor `other-window-left-out` of each
 #: station, nor `parameter-without-rows`, which a station without a parameter is the ordinary case of
 SOURCE_DATA_LEFT_OUT = "source-data-left-out"
@@ -245,19 +246,19 @@ def log_counted_warnings(log: logging.Logger) -> None:
     lets through). A library call and a REST answer carry the same counts in `warnings` and log nothing here.
     """
     for code, (count, message, details) in (_COUNTED.get() or {}).items():
-        log.warning(message.format(count=count, details=_tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
+        log.warning(message.format(count=count, details=tell_details(details)), extra={RESPONSE_WARNING_RECORD: code})
 
 
 def recorded_warnings() -> list[ResponseWarning]:
     """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
     counted = [
-        ResponseWarning(code=code, message=message.format(count=count, details=_tell_details(details)))
+        ResponseWarning(code=code, message=message.format(count=count, details=tell_details(details)))
         for code, (count, message, details) in (_COUNTED.get() or {}).items()
     ]
     return [*(_RECORDED.get() or []), *counted]
 
 
-def _tell_details(details: dict[str, int]) -> str:
+def tell_details(details: dict[str, int]) -> str:
     """Give the counts by reason as `range 3, stuck 2`: the largest first, ties by name."""
     return ", ".join(
         f"{detail} {number}" for detail, number in sorted(details.items(), key=lambda item: (-item[1], item[0]))

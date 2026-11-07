@@ -87,6 +87,7 @@ from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
     STATION_WITHOUT_ROWS,
     collecting,
+    tell_details,
     warn_response,
 )
 
@@ -207,6 +208,11 @@ class ParameterRows:
         if self._estimate is not None:
             self._estimate.collected(station_id)
         return collecting(skipped, self._named, left_out)
+
+    def rejected(self, station_id: str, count: int, by_check: dict[str, int]) -> None:
+        """Tell an estimate how many values of the station a hard plausibility check made null, by check."""
+        if self._estimate is not None:
+            self._estimate.rejected(station_id, count, by_check)
 
     def passed_over(self, station_id: str) -> None:
         """Note that a rank walk passed the station over for the next one (an empty frame, or below the threshold).
@@ -463,20 +469,28 @@ class EstimateLeftOut:
     - `other-window-left-out`'s: dates of a parameter that only another series of the source has, which are no missing
       data and are left out so that a value of another window is not given under this parameter's name; counted in dates
       for each parameter.
+    - `rejected-by-plausibility`'s: values a hard plausibility check made null (`REJECTED_TOKEN`), counted in values and
+      by check. What a soft check flags (`suspect:`) is left out by the estimate itself, whatever the mode, and is not
+      counted here.
 
-    One warning holds both causes: a caller of an estimate asks one question of it (is the answer made from all that
-    the source holds?), and the warning is for that question; a values request, which has two questions (is it
-    partial? is it a series of another window?), keeps its two codes. It carries the stations that were affected, the
-    first ten.
+    One warning holds the causes: a caller of an estimate asks one question of it (is the answer made from all that
+    the source holds?), and the warning is for that question; a values request keeps its codes. It carries the stations
+    that were affected, the first ten.
+
+    The estimate stops at the first station it reads that it does not need (`collection_is_done`), and that station was
+    read all the same: `forget` leaves it out, as the answer is not made of it.
     """
 
     def __init__(self) -> None:
         """Start with nothing read."""
         self._collected: dict[str, None] = {}
         self._files: dict[str, None] = {}
-        self._files_of_all = False
+        #: the stations that let go a file every station is read from: it is every station's while one of them stays
+        self._files_of_all: set[str] = set()
         #: the dates left out, by parameter (`resolution/dataset/parameter`) and then by station
         self._dates: dict[str, dict[str, int]] = {}
+        #: the values a hard check made null, by station: the count, and the count by check
+        self._rejected: dict[str, tuple[int, dict[str, int]]] = {}
 
     def collected(self, station_id: str) -> None:
         """Note that the walk reads the station, which a file that serves every station was let go for."""
@@ -485,7 +499,7 @@ class EstimateLeftOut:
     def skipped(self, station_id: str, *, whole_request: bool) -> None:
         """Note that the provider let a file go while the station was read."""
         if whole_request:
-            self._files_of_all = True
+            self._files_of_all.add(station_id)
         else:
             self._files[station_id] = None
 
@@ -494,11 +508,29 @@ class EstimateLeftOut:
         stations = self._dates.setdefault(parameter, {})
         stations[station_id] = stations.get(station_id, 0) + count
 
+    def rejected(self, station_id: str, count: int, by_check: dict[str, int]) -> None:
+        """Note that a hard plausibility check made `count` values of the station null, `by_check` for each check."""
+        if count > 0:
+            self._rejected[station_id] = (count, dict(by_check))
+
+    def forget(self, station_id: str) -> None:
+        """Leave out the station the walk read and the estimate stopped at, unused: it lost the answer nothing."""
+        self._collected.pop(station_id, None)
+        self._files.pop(station_id, None)
+        self._files_of_all.discard(station_id)
+        self._rejected.pop(station_id, None)
+        for stations in self._dates.values():
+            stations.pop(station_id, None)
+        self._dates = {parameter: stations for parameter, stations in self._dates.items() if stations}
+
     def warn(self) -> None:
         """Tell, in one warning, what was left out and at how many of the stations read; nothing if nothing was."""
         files = list(self._collected if self._files_of_all else self._files)
         other = [station for station in self._collected if any(station in dates for dates in self._dates.values())]
-        affected = [station for station in self._collected if station in files or station in other]
+        rejected = [station for station in self._collected if station in self._rejected]
+        affected = [
+            station for station in self._collected if station in files or station in other or station in rejected
+        ]
         if not affected:
             return
         read = len(self._collected)
@@ -510,12 +542,23 @@ class EstimateLeftOut:
                 "The source holds values for them, so nothing is missing there, but they are not read: a value of "
                 "another window would be wrong under the parameter's name."
             )
+        if rejected:
+            total = sum(self._rejected[station][0] for station in rejected)
+            checks: dict[str, int] = {}
+            for station in rejected:
+                for check, number in self._rejected[station][1].items():
+                    checks[check] = checks.get(check, 0) + number
+            sentences.append(
+                f"{total} values at {self._count(rejected)} were numbers a plausibility check rejected "
+                f"({tell_details(checks)}; a value several checks rejected is counted under each) and are not used."
+            )
         if files:
             sentences.append(
                 "A file the provider could not use (a refused or failed download, a file withdrawn since the listing, "
                 "a maintenance page, a file that would not parse, or a directory found empty) was left out at "
                 f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
-                "missing from the estimate. Try again later."
+                "missing from the estimate. A failed download, a withdrawn file, a maintenance page and an empty "
+                "directory may be back later, so try again; a file that would not parse stays as it is."
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
 

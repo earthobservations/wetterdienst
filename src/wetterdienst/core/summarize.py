@@ -180,6 +180,8 @@ def request_stations(
         if collection_is_done(
             param_dict, dropped_for_elevation.keys() & parameters_still_in_reach(counts, station["distance"])
         ):
+            # read to find that the walk is done, and not used: it lost the answer nothing
+            left_out.forget(station["station_id"])
             break
         if result_df.drop_nulls("value").is_empty():
             continue

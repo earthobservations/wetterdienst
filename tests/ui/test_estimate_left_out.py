@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import io
 import json
 import logging
+import math
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -29,15 +31,16 @@ from tests.provider.metno.frost.test_values_failures import (
     _offset_answer,
     _ok,
 )
-from tests.ui.test_empty_listing import dwd  # noqa: F401
+from tests.ui.test_empty_listing import _DESCRIPTION, dwd  # noqa: F401
 from wetterdienst import Settings
 from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED, EstimateLeftOut
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest, metaindex
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
     begin_response,
@@ -47,8 +50,9 @@ from wetterdienst.util.response_warnings import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from tests.ui.test_empty_listing import _Dwd
-    from wetterdienst.util.network import File
 
 UTC = dt.UTC
 ESTIMATES = ["summarize", "interpolate"]
@@ -143,35 +147,32 @@ def test_a_values_request_still_tells_the_dates_by_its_own_code(frost: None) -> 
     assert _codes() == ["other-window-left-out"]
 
 
-def _surfaces() -> dict[str, list[dict[str, Any]]]:
-    """Make the same summary on the library, the command line, REST and the MCP tool, and give the warnings of each."""
+def _surfaces(
+    make: Callable[[], object], arguments: dict[str, str], estimate: str = "summarize"
+) -> dict[str, list[dict[str, Any]]]:
+    """Make the same estimate on the library, the command line, REST and the MCP tool, and give the warnings of each.
+
+    `make` is the library's call, `arguments` the same request for the other three.
+    """
     pytest.importorskip("fastmcp")
     from fastmcp import Client  # noqa: PLC0415
 
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     begin_response()
-    _frost_request().summarize(_FROST_POINT)
+    make()
     library = recorded_warnings()
-    arguments = {
-        "provider": "metno",
-        "network": "frost",
-        "parameters": _FROST,
-        "latitude": str(_FROST_POINT[0]),
-        "longitude": str(_FROST_POINT[1]),
-        "timestamp": "2020-01-01/2020-01-03",
-    }
     result = CliRunner().invoke(
         cli,
-        ["summarize", *(f"--{key}={value}" for key, value in arguments.items()), "--with-metadata=true"],
+        [estimate, *(f"--{key}={value}" for key, value in arguments.items()), "--with-metadata=true"],
     )
     assert result.exit_code == 0, result.output
-    rest = TestClient(restapi.app, raise_server_exceptions=False).get("/api/summarize", params=arguments)
+    rest = TestClient(restapi.app, raise_server_exceptions=False).get(f"/api/{estimate}", params=arguments)
     assert rest.status_code == 200, rest.text
 
     async def call() -> Any:  # noqa: ANN401
         async with Client(build_mcp_server(restapi.app)) as client:
-            return (await client.call_tool("summarize", arguments)).structured_content
+            return (await client.call_tool(estimate, arguments)).structured_content
 
     answer = asyncio.run(call())
     return {
@@ -185,7 +186,17 @@ def _surfaces() -> dict[str, list[dict[str, Any]]]:
 
 def test_the_summary_warning_is_told_alike_on_every_surface(frost: None) -> None:  # noqa: ARG001
     """The library, the command line, REST and the MCP tool carry the same warning once; REST names it in a header."""
-    told = _surfaces()
+    told = _surfaces(
+        lambda: _frost_request().summarize(_FROST_POINT),
+        {
+            "provider": "metno",
+            "network": "frost",
+            "parameters": _FROST,
+            "latitude": str(_FROST_POINT[0]),
+            "longitude": str(_FROST_POINT[1]),
+            "timestamp": "2020-01-01/2020-01-03",
+        },
+    )
 
     (warning,) = told["rest"]
     assert warning["code"] == SOURCE_DATA_LEFT_OUT
@@ -258,7 +269,7 @@ def test_an_estimate_tells_a_directory_found_empty(
     assert warning["stations"] == ["00044"]
     assert "Source data was left out of this estimate at 1 of the 1 stations it read." in warning["message"]
     assert "a directory found empty) was left out at 1 station (00044)" in warning["message"]
-    assert "Try again later." in warning["message"]
+    assert "so try again" in warning["message"]
     # the lookup's warning names the directory and stays; the station is told by the summary and no `file-skipped`
     skipped = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
     assert [("stations" in w, _MONTHLY_HISTORICAL in w["message"]) for w in skipped] == [(False, True)]
@@ -325,6 +336,193 @@ def test_an_estimate_with_nothing_left_out_has_no_summary(dwd: _Dwd, monkeypatch
     _dwd_request().summarize(_DWD_POINT)
 
     assert _summary() == []
+
+
+# --- the station the walk stops at is read and not used (GH-3848) ----------------------------------------------------
+
+_TWELVE = [f"{number:05d}" for number in range(44, 56)]
+
+
+def _serving_stations(
+    monkeypatch: pytest.MonkeyPatch, *, losing: set[str] = frozenset(), rejecting: set[str] = frozenset()
+) -> list[str]:
+    """Have each station answer three monthly readings, give the stations read in order.
+
+    A station in `losing` lets a file go on the way; one in `rejecting` reads 1000 degrees for the first month, which
+    the range check (hard by default) makes null.
+    """
+    read: list[str] = []
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401, ARG001
+        read.append(station_id)
+        if station_id in losing:
+            note_skipped_download()
+        dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
+        name = next(parameter.name_original for parameter in dataset if parameter.name == "temperature_air_mean_2m")
+        return pl.DataFrame(
+            {
+                "timestamp": [dt.datetime(2026, month, 1, tzinfo=UTC) for month in (1, 2, 3)],
+                "parameter": [name] * 3,
+                "value": [1000.0 if station_id in rejecting else 10.0, 11.0, 12.0],
+                "quality_flags": ["1"] * 3,
+                "resolution": ["monthly"] * 3,
+                "dataset": [dataset.name] * 3,
+            }
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    return read
+
+
+def _twelve_stations(dwd: _Dwd, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: F811
+    """List twelve stations around the point, nearest first, so that an estimate stops before the last of them.
+
+    They lie on a spiral of eight directions at growing distances: four of the nearest surround the point, which an
+    interpolation needs to be done, and a summary is done with the first.
+    """
+    dwd.stations = _TWELVE
+    dwd.server.default = [
+        *(f"stundenwerte_KL_{station}_19700101_20241231_hist.zip" for station in _TWELVE),
+        "KL_Beschreibung_Stationen.txt",
+    ]
+    dwd.local = Settings(cache_disable=True)
+    header, rule, row = _DESCRIPTION.split("\r\n")[:3]
+    rows = []
+    for index, station in enumerate(_TWELVE):
+        angle = index * math.pi / 4
+        distance = 0.02 * (index + 1)
+        latitude, longitude = _DWD_POINT[0] + distance * math.sin(angle), _DWD_POINT[1] + distance * math.cos(angle)
+        rows.append(
+            row.replace("00044", station).replace("52.9336", f"{latitude:.4f}").replace("8.2370", f"{longitude:.4f}")
+        )
+    description = "\r\n".join([header, rule, *rows, ""]).encode("latin-1")
+    monkeypatch.setattr(
+        metaindex, "download_file", lambda url, **_: File(url=url, content=io.BytesIO(description), status=200)
+    )
+
+
+@pytest.mark.parametrize("cause", ["file", "rejected"])
+@pytest.mark.parametrize("estimate", ESTIMATES)
+def test_the_station_the_walk_stops_at_is_not_counted(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    estimate: str,
+    cause: str,
+) -> None:
+    """An estimate reads one station more than it uses to find that it is done; what that one lost is no loss.
+
+    The warning said "at 1 of the 9 stations it read (00052)" for a summary of twelve stations in one place, of
+    which the answer was made from the first.
+    """
+    _twelve_stations(dwd, monkeypatch)
+    clean = _serving_stations(monkeypatch)
+    getattr(_dwd_request(), estimate)(_DWD_POINT)
+    last = clean[-1]
+    assert last != _TWELVE[-1], "the walk read every station: there is no station it stopped at"
+
+    _serving_stations(
+        monkeypatch, losing={last} if cause == "file" else set(), rejecting={last} if cause == "rejected" else set()
+    )
+    begin_response()
+    result = getattr(_dwd_request(), estimate)(_DWD_POINT)
+
+    taken = result.df.get_column("taken_station_id" if estimate == "summarize" else "taken_station_ids")
+    assert last not in {*taken.explode().to_list()} if estimate == "interpolate" else last not in taken.to_list()
+    assert _summary() == []
+
+
+def test_a_station_the_walk_used_is_counted_and_the_one_it_stopped_at_is_not(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first station loses a file and the answer is made from it: the count is of the stations before the last."""
+    _twelve_stations(dwd, monkeypatch)
+    clean = _serving_stations(monkeypatch)
+    _dwd_request().summarize(_DWD_POINT)
+    first, last = clean[0], clean[-1]
+
+    _serving_stations(monkeypatch, losing={first, last})
+    begin_response()
+    _dwd_request().summarize(_DWD_POINT)
+
+    (warning,) = _summary()
+    assert warning["stations"] == [first]
+    assert f"at 1 of the {len(clean) - 1} stations it read." in warning["message"]
+
+
+# --- values a hard plausibility check rejected are a cause too (GH-3848) ---------------------------------------------
+
+
+@pytest.mark.parametrize("estimate", ESTIMATES)
+def test_an_estimate_tells_the_values_a_plausibility_check_rejected(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    estimate: str,
+) -> None:
+    """Three stations read 1000 degrees in one month, which the range check nulls: told once, with the check."""
+    _twelve_stations(dwd, monkeypatch)
+    rejecting = set(_TWELVE[:3])
+    _serving_stations(monkeypatch, rejecting=rejecting)
+    begin_response()
+
+    getattr(_dwd_request(), estimate)(_DWD_POINT)
+
+    (warning,) = _summary()
+    assert set(warning["stations"]) == rejecting
+    assert "3 values at 3 stations (" in warning["message"]
+    assert "were numbers a plausibility check rejected (range 3;" in warning["message"]
+    assert "and are not used." in warning["message"]
+    # the markers and the counts of a values request are no part of an estimate
+    assert not {"rejected-by-plausibility", "missing-value-marker"} & set(_codes())
+
+
+def test_a_soft_check_the_estimate_leaves_out_itself_is_not_counted(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A value a soft check flags `suspect:` is left out by the estimate in any mode, and is no value rejected."""
+    _twelve_stations(dwd, monkeypatch)
+    _serving_stations(monkeypatch, rejecting={_TWELVE[0]})
+    begin_response()
+
+    DwdObservationRequest(
+        parameters=[_MONTHLY],
+        start="2026-01-01",
+        end="2026-03-01",
+        settings=Settings(cache_disable=True),
+        options={"plausibility": {"range": "soft"}},
+    ).summarize(_DWD_POINT)
+
+    assert _summary() == []
+
+
+def test_the_rejected_values_are_told_alike_on_every_surface(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The library, the command line, REST and the MCP tool carry the one warning, REST names it in its header."""
+    _twelve_stations(dwd, monkeypatch)
+    _serving_stations(monkeypatch, rejecting={_TWELVE[0]})
+
+    told = _surfaces(
+        lambda: _dwd_request().summarize(_DWD_POINT),
+        {
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": _MONTHLY,
+            "latitude": str(_DWD_POINT[0]),
+            "longitude": str(_DWD_POINT[1]),
+            "timestamp": "2026-01-01/2026-03-01",
+        },
+    )
+
+    (warning,) = [w for w in told["rest"] if w["code"] == SOURCE_DATA_LEFT_OUT]
+    assert warning["stations"] == [_TWELVE[0]]
+    assert "1 values at 1 station (00044) were numbers a plausibility check rejected (range 1;" in warning["message"]
+    assert [w for w in told["cli"] if w["code"] == SOURCE_DATA_LEFT_OUT] == [warning]
+    assert [w for w in told["mcp"] if w["code"] == SOURCE_DATA_LEFT_OUT] == [warning]
+    assert [w for w in told["library"] if w["code"] == SOURCE_DATA_LEFT_OUT] == [warning]
+    assert SOURCE_DATA_LEFT_OUT in [w["code"] for w in told["header"]]
 
 
 # --- the tally on its own: what the warning says, and that it is one ------------------------------------------------
@@ -401,3 +599,99 @@ def test_nothing_left_out_is_no_warning() -> None:
     left_out.warn()
 
     assert recorded_warnings() == []
+
+
+def test_forget_leaves_a_station_out_of_every_cause() -> None:
+    """The station the walk stops at is out of the count, the lists and the sums, and a parameter left empty is gone."""
+    left_out = EstimateLeftOut()
+    for station in ("A", "B", "C"):
+        left_out.collected(station)
+    left_out.skipped("C", whole_request=False)
+    left_out.left_out("C", _FROST_NAME, 4)
+    left_out.left_out("A", "daily/data/other", 1)
+    left_out.left_out("C", "daily/data/other", 2)
+    left_out.rejected("C", 2, {"range": 2})
+    begin_response()
+
+    left_out.forget("C")
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A"]
+    assert "at 1 of the 2 stations it read." in warning["message"]
+    assert "1 of daily/data/other" in warning["message"]
+    assert _FROST_NAME not in warning["message"]
+    assert "rejected" not in warning["message"]
+    assert "file the provider" not in warning["message"]
+
+
+def test_forget_of_the_only_station_of_a_cause_leaves_no_warning() -> None:
+    """Every cause of the station was the one the walk stopped at: nothing was left out of the answer."""
+    left_out = EstimateLeftOut()
+    left_out.collected("A")
+    left_out.collected("B")
+    left_out.left_out("B", _FROST_NAME, 4)
+    left_out.rejected("B", 1, {"range": 1})
+    left_out.skipped("B", whole_request=False)
+    begin_response()
+
+    left_out.forget("B")
+    left_out.warn()
+
+    assert recorded_warnings() == []
+
+
+def test_forget_undoes_a_file_that_serves_every_station_only_where_that_station_let_it_go() -> None:
+    """A file all stations are read from, let go while the stop station was read, is not every station's after it."""
+    left_out = EstimateLeftOut()
+    for station in ("A", "B"):
+        left_out.collected(station)
+    left_out.skipped("B", whole_request=True)
+    begin_response()
+    left_out.forget("B")
+    left_out.warn()
+    assert recorded_warnings() == []
+
+    # the station before it let the same file go: it stays every station's
+    left_out = EstimateLeftOut()
+    for station in ("A", "B"):
+        left_out.collected(station)
+    left_out.skipped("A", whole_request=True)
+    left_out.skipped("B", whole_request=True)
+    left_out.forget("B")
+    left_out.warn()
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A"]
+    assert "at 1 of the 1 stations it read." in warning["message"]
+
+
+def test_the_rejected_values_are_summed_by_check_and_a_zero_is_no_cause() -> None:
+    """Several stations sum their counts, per check; a station with none rejected is not listed."""
+    left_out = EstimateLeftOut()
+    for station in ("A", "B", "C"):
+        left_out.collected(station)
+    left_out.rejected("A", 3, {"range": 2, "elevation": 1})
+    left_out.rejected("B", 2, {"range": 2})
+    left_out.rejected("C", 0, {})
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A", "B"]
+    assert (
+        "5 values at 2 stations (A, B) were numbers a plausibility check rejected (range 4, elevation 1;"
+        in (warning["message"])
+    )
+
+
+def test_the_advice_for_a_file_does_not_promise_that_one_that_would_not_parse_comes_back() -> None:
+    """The cause is not known where the provider lets a file go: the advice is right for each of the causes."""
+    left_out = _walk(skipped=("A",))
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert "may be back later, so try again; a file that would not parse stays as it is." in warning["message"]
+    assert "Try again later." not in warning["message"]

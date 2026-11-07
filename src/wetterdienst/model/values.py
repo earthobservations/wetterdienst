@@ -526,6 +526,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # Collect data for this station
             with rows.collecting(station_id):
                 df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            # the values a hard check made null at this station, for an estimate to tell (`EstimateLeftOut`)
+            rows.rejected(station_id, self._rejected_in_window, self._rejected_by_check)
             rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.
