@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettings } from '~/composables/useSettings'
 import SettingsPage from '~/pages/settings.vue'
 
@@ -8,7 +8,7 @@ describe('settings Page', () => {
   // the settings (the ones after it are the slower for each page left behind), so a test unmounts
   // what it mounted.
   const mounted: { unmount: () => void }[] = []
-  async function mountPage(options?: { attachTo: HTMLElement }) {
+  async function mountPage(options?: { attachTo?: HTMLElement, route?: string }) {
     const wrapper = await mountSuspended(SettingsPage, options)
     mounted.push(wrapper)
     return wrapper
@@ -131,5 +131,35 @@ describe('settings Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(vm.settings.friendlyLabels).toBe(true)
+  })
+
+  // the phone bar's tools (GH-3846)
+  it('has the chooser of the phone bar\'s tools, a card the Menu\'s sheet links to (`#bar`)', async () => {
+    const wrapper = await mountPage()
+    const card = wrapper.find('#bar')
+    expect(card.exists()).toBe(true)
+    expect(card.find('h2').text()).toBe('Customise the bar')
+    expect(card.find('[data-testid="bar-chooser"]').exists()).toBe(true)
+  })
+
+  it('takes the focus to the heading of the chooser when it is opened by the link to `#bar`', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#bar' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
+  })
+
+  it('leaves the focus alone on the page without the link', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings' })
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).not.toBe(wrapper.find('#bar h2').element)
+  })
+
+  it('puts the phone bar back with the rest when the settings are reset', async () => {
+    const wrapper = await mountPage()
+    const vm = wrapper.vm as any
+    vm.settings.tabBar = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    await wrapper.vm.$nextTick()
+    vm.reset()
+    await wrapper.vm.$nextTick()
+    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
   })
 })

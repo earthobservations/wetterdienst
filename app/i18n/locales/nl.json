@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Massa per volume",
     "unitSignificantWeather": "Significant weer",
     "unitTurbidity": "Troebelheid",
-    "unitWindScale": "Windschaal"
+    "unitWindScale": "Windschaal",
+    "bar": {
+      "title": "Balk aanpassen",
+      "hint": "Op een telefoon toont de balk onderaan het scherm vier hulpmiddelen en het Menu. Kies welke vier. De andere blijven in het Menu.",
+      "preview": "Voorbeeld",
+      "previewLabel": "Voorbeeld van de balk: {tools}, Menu",
+      "menuOnly": "Alleen in het Menu: {tools}",
+      "inBar": "In de balk",
+      "inMenu": "Alleen in het Menu",
+      "instructions": "Sleep een hulpmiddel aan zijn handvat, of gebruik de pijlknoppen op zijn rij. Er staan altijd vier hulpmiddelen in de balk: als er een bij komt, gaat er een weg.",
+      "moveUp": "{tool} omhoog verplaatsen",
+      "moveDown": "{tool} omlaag verplaatsen",
+      "reset": "Balk herstellen",
+      "reorderedBar": "{tool} staat nu op plaats {position} van {total} in de balk.",
+      "reorderedMenu": "{tool} staat nu op plaats {position} van {total} in het Menu.",
+      "enteredBar": "{tool} staat nu in de balk, op plaats {position} van {total}. {other} staat nu alleen nog in het Menu.",
+      "leftBar": "{tool} staat nu alleen nog in het Menu. {other} staat nu in de balk, op plaats {position} van {total}.",
+      "resetDone": "De balk is weer zoals aan het begin: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Graden Celsius (°C)",

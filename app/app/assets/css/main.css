@@ -582,6 +582,123 @@
   box-shadow: inset 3px 0 0 var(--app-current);
 }
 
+/* The chooser of the phone bar's tools (settings page, GH-3846): the preview is the bar as it is drawn on a phone, the
+   rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
+.bar-sticky {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 5;
+  margin-inline: -0.25rem;
+  padding: 0.5rem 0.25rem;
+  background: var(--ui-bg);
+}
+/* a focused button is scrolled clear of what stands over it (WCAG 2.4.11): the header and this preview */
+.bar-move {
+  scroll-margin-top: calc(var(--header-height) + 9rem);
+}
+/* too low a window: the header is not fixed, and a preview that stood on would cover half of what is left */
+@media (max-height: 30rem) {
+  .bar-sticky {
+    position: static;
+  }
+  .bar-move {
+    scroll-margin-top: 0;
+  }
+}
+.bar-preview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 4.25rem;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg);
+}
+.dark .bar-preview {
+  background: var(--app-canvas);
+}
+.bar-preview-item[data-moving] {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.bar-line {
+  padding-top: 1rem;
+  border-top: 2px dashed var(--ui-border-accented);
+}
+.bar-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.5rem;
+  padding-inline: 0.25rem 0.5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg-elevated);
+}
+.bar-row[data-dragging] {
+  opacity: 0.55;
+}
+/* where the dragged tool will land: a bar on the edge of the row it comes to stand at */
+.bar-row[data-drop]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-current);
+}
+.bar-row[data-drop="before"]::before {
+  top: -6px;
+}
+.bar-row[data-drop="after"]::before {
+  bottom: -6px;
+}
+.bar-handle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 2.5rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-muted);
+  cursor: grab;
+  /* only here: a finger anywhere else scrolls the sheet and the page */
+  touch-action: none;
+  user-select: none;
+}
+.bar-dragging,
+.bar-dragging .bar-handle {
+  cursor: grabbing;
+}
+.bar-dragging {
+  user-select: none;
+}
+.bar-move {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+}
+.bar-move:hover {
+  background: var(--ui-bg-accented);
+}
+/* at the end of the list: stays a stop, so that the focus of a button pressed to the end is not lost */
+.bar-move[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.bar-move[aria-disabled="true"]:hover {
+  background: var(--ui-bg);
+}
+
 .footer-heading {
   margin-bottom: 0.75rem;
   font-size: 0.75rem;
