@@ -33,17 +33,9 @@ export const TOOLS: Section[] = [
 /** The map, which the search opens on a station (`/map?station=`) */
 export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
 
-/**
- * The tools that have a tab in the bar of the narrow layout. Five tools and the Menu are six items, more than a tab
- * bar should hold (GH-3650), so the bar holds four tools and the Menu: the four there were before the map, which
- * changes nothing for a reader who knows the bar, and the map, the newest tool, is in the Menu's sheet. The header of
- * the wide layout shows all of `TOOLS`. (The four are a default: a reader choosing their own is a change of its own,
- * which would replace this list with the saved choice.)
- */
-export const TAB_BAR_TOOLS: Section[] = TOOLS.filter(tool => tool.key !== 'map')
-
-/** The tools that are in the Menu's sheet and not in the tab bar: a page of one of them is the Menu's page */
-export const SHEET_ONLY_TOOLS: Section[] = TOOLS.filter(tool => !TAB_BAR_TOOLS.includes(tool))
+// Which of the tools have a tab in the bar of the narrow layout is the reader's choice, with Forecast, Explorer, Stripes
+// and History as the default (`utils/tab-bar.ts`, GH-3846): five tools and the Menu are six items, more than a tab bar
+// holds (GH-3650), so the bar holds four tools and the Menu. The header of the wide layout shows all of `TOOLS`.
 
 export const REFERENCE: Section[] = [
   { key: 'providers', to: '/providers', group: 'reference', label: 'nav.providers', description: 'providers.subtitle', icon: 'i-ph-buildings' },

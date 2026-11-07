@@ -1,5 +1,7 @@
 import type { RemovableRef } from '@vueuse/core'
+import { useStorage } from '@vueuse/core'
 import { z } from 'zod'
+import { DEFAULT_TOOL_ORDER, normalizeToolOrder } from '../utils/tab-bar'
 
 // Zod compiles a faster parser of an object with `new Function`, and finds out whether it may by trying it. The
 // app's Content Security Policy has no `'unsafe-eval'` (GH-3094), so the try is a violation that the browser
@@ -70,6 +72,12 @@ export const wdSettingsSchema = z.object({
   convertUnits: z.boolean(),
   units: unitSettingsSchema,
   stripes: stripesDisplaySchema,
+  /**
+   * The keys of all the tools in the order of the phone's tab bar, of which the first four are in the bar and the rest
+   * only in the Menu (GH-3846). A default, so that what an earlier version stored, which has none, is read; whatever
+   * is stored is made a valid order by `normalizeToolOrder` where it is read and here.
+   */
+  tabBar: z.array(z.string()).default([...DEFAULT_TOOL_ORDER]),
 })
 export type WdSettings = z.infer<typeof wdSettingsSchema>
 
@@ -105,6 +113,7 @@ export const SETTINGS_DEFAULTS: WdSettings = {
     showTimeseries: false,
     showTrendline: false,
   },
+  tabBar: [...DEFAULT_TOOL_ORDER],
 }
 
 const STORAGE_KEY = 'wd_settings'
@@ -117,7 +126,7 @@ const STORAGE_KEY = 'wd_settings'
 export function coerceSettings(raw: unknown): WdSettings {
   const parsed = wdSettingsSchema.safeParse(raw)
   if (parsed.success && parsed.data.version === SETTINGS_VERSION) {
-    return parsed.data
+    return { ...parsed.data, tabBar: normalizeToolOrder(parsed.data.tabBar) }
   }
 
   const result = structuredClone(SETTINGS_DEFAULTS)
@@ -133,6 +142,7 @@ export function coerceSettings(raw: unknown): WdSettings {
     const stripes = stripesDisplaySchema.safeParse(r.stripes)
     if (stripes.success)
       result.stripes = stripes.data
+    result.tabBar = normalizeToolOrder(r.tabBar)
   }
   return result
 }
@@ -141,8 +151,13 @@ let store: RemovableRef<WdSettings> | null = null
 
 export function useSettings() {
   if (!store) {
-    store = useLocalStorage<WdSettings>(STORAGE_KEY, structuredClone(SETTINGS_DEFAULTS), {
+    // The storage is left to `useStorage`, which looks `window.localStorage` up itself, in a try: a browser that refuses
+    // the property (its storage blocked) gets settings kept in memory for the visit. `useLocalStorage` reads the property
+    // before it, outside any try, and the whole app fails to start. A read or a write that fails later (a full storage,
+    // a private window that refuses it) is caught by the library as well; nothing a visitor can do about it, so no error.
+    store = useStorage<WdSettings>(STORAGE_KEY, structuredClone(SETTINGS_DEFAULTS), undefined, {
       mergeDefaults: true,
+      onError: () => {},
     })
     // Repair legacy/corrupted payloads against the schema on first read.
     store.value = coerceSettings(store.value)

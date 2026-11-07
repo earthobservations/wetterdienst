@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Massa per volume",
     "unitSignificantWeather": "Tempo significativo",
     "unitTurbidity": "Torbidità",
-    "unitWindScale": "Scala del vento"
+    "unitWindScale": "Scala del vento",
+    "bar": {
+      "title": "Personalizza la barra",
+      "hint": "Su un telefono, la barra in fondo allo schermo mostra quattro strumenti e il Menu. Scegli quali. Gli altri restano nel Menu.",
+      "preview": "Anteprima",
+      "previewLabel": "Anteprima della barra: {tools}, Menu",
+      "menuOnly": "Solo nel Menu: {tools}",
+      "inBar": "Nella barra",
+      "inMenu": "Solo nel Menu",
+      "instructions": "Trascina uno strumento dalla maniglia, oppure usa i pulsanti freccia della sua riga. Nella barra ci sono sempre quattro strumenti: quando uno entra, un altro esce.",
+      "moveUp": "Sposta {tool} in su",
+      "moveDown": "Sposta {tool} in giù",
+      "reset": "Ripristina la barra",
+      "reorderedBar": "{tool} è ora al posto {position} di {total} nella barra.",
+      "reorderedMenu": "{tool} è ora al posto {position} di {total} nel Menu.",
+      "enteredBar": "{tool} è ora nella barra, al posto {position} di {total}. {other} è ora solo nel Menu.",
+      "leftBar": "{tool} è ora solo nel Menu. {other} è ora nella barra, al posto {position} di {total}.",
+      "resetDone": "La barra è tornata come all'inizio: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Gradi Celsius (°C)",
