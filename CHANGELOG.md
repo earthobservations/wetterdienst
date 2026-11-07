@@ -68,6 +68,27 @@ Types of changes:
   and a `url`, which OpenAPI 3.1 makes mutually exclusive, so a strict validator or client
   generator no longer refuses it. `info.license` is `{"name": "MIT", "identifier": "MIT"}`; the
   link to `LICENSE.md` is gone from it (GH-3824)
+- **Breaking**: `metno/frost` daily and monthly `precipitation_amount` is the 06-06 UTC sum
+  (`PT6H`, Frost's standard), as its description says. Frost also has an 18-18 UTC series (`PT18H`),
+  answers both, and the first was kept: SN50540 on 2026-10-29 gave 4.0 for 22.3. At the stations
+  wetterdienst lists that have both (618 daily, 612 monthly) the value differs on 60 % of the dates
+  and 70 % of the months (median 1.6 and 1.4 mm). A date that only the 18-18 series has is no
+  longer returned and is told by an `other-window-left-out` warning, never as no values: 650
+  months at 176 stations, and at least 1,592 days at 271 (SN85380 692 from 2015-10, SN12648 302
+  in 2017-18; the daily gaps inside the 06-06 series are counted in nine years). A stored series
+  does not join the new one: read it anew. The daily maximum and minimum temperature, which also
+  have two series, are unchanged (GH-3832)
+- **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
+  `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
+  other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read
+  by itself after a 404. At a station with the wind at two heights a calm or `-3` at 10 m is the
+  hour, and 2 m does not fill it. Pass `drop_nulls=False` and filter on `raw:0` to find the calm
+  hours (GH-3833)
+- **Breaking**: `wind_direction_gust_max` of `metno/frost` 10 minutes is removed. It read
+  `max(wind_from_direction_of_gust PT10M)`, Frost's "Varying wind direction last 10 minutes. Upper
+  limit", not the gust's direction, and Frost lists that element at `PT30M` and `PT1M` only: the
+  request got 412 at 12 of 12 stations. A request for the name is refused; nothing replaces it
+  (GH-3833)
 - **Breaking**: `stations`, `values` and `history` of `dwd/observation` and `dwd/derived` skip a
   directory of DWD's server that is missing (404) or empty and answer with the other periods and
   a `file-skipped` warning that names it. A 404 raised `FileNotFoundError` (a 500, a traceback);

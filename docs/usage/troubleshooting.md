@@ -41,6 +41,10 @@ The usual reasons:
   Leave the parameter out, or ask for another station or window. Where the warning says it is of the periods asked
   for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
   maintenance page) is not named: its values may be missing for that, which a later request may clear.
+- **Dates are left out because they are of another series.** The answer carries an `other-window-left-out` warning
+  (`metno/frost` daily and monthly precipitation): the source holds values for those dates, in its 18-18 UTC series, and
+  the parameter is the 06-06 UTC series, so the dates have no row rather than a sum of another window. The source is not
+  missing them, and the answer is not partial for a failure: do not try again.
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
   would not parse): their values may be missing from an answer that is otherwise whole. Try again later. Only the

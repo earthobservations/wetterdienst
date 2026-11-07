@@ -11,6 +11,7 @@ from polars.testing import assert_frame_equal
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 OSLO_BLINDERN = "SN18700"
 UTC = ZoneInfo("UTC")
@@ -292,3 +293,155 @@ def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None
     )
     assert df["value"].to_list() == [None]
     assert df["quality_flags"].to_list() == ["2,raw:-3"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_is_the_06_06_sum() -> None:
+    """The daily precipitation of Oslo/Blindern is the 06-06 UTC sum, not the 18-18 UTC one (GH-3832).
+
+    Frost answers two series for a date, `PT18H` and `PT6H`, and the first was kept. On 2023-08-07 they are 61.7 and
+    9.5 mm, and the sum of the hourly values stamped 2023-08-06 07:00 to 2023-08-07 06:00 is 9.5 (the 18-18 sum, stamps
+    19:00 to 18:00, is 61.7); on 2023-08-08 they are 6.5 and 57.2.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2023, 8, 6, tzinfo=UTC),
+            end=dt.datetime(2023, 8, 8, tzinfo=UTC),
+        )
+        .filter_by_station_id(OSLO_BLINDERN)
+        .values()
+        .all()
+        .df
+    )
+    assert df["timestamp"].to_list() == [dt.datetime(2023, 8, d, tzinfo=UTC) for d in (6, 7, 8)]
+    assert df["value"].to_list() == [pytest.approx(3.6), pytest.approx(9.5), pytest.approx(57.2)]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_monthly_precipitation_is_the_06_06_sum() -> None:
+    """The monthly precipitation of Ullensvang is the sum from 06 UTC on the last day of the month before (GH-3832).
+
+    SN4460 has both series for 2020: 95, 126 and 123.5 mm for January to March in the `PT6H` one, 96.3, 128.8 and
+    119.4 in the `PT18H` one, which was returned.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("monthly", "data", "precipitation_amount")],
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 3, 1, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN4460")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [pytest.approx(95.0), pytest.approx(126.0), pytest.approx(123.5)]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_wind_direction_of_a_calm_is_null() -> None:
+    """The wind direction 0 beside a speed of 0 is a calm and comes back null, the 0 in the flags (GH-3833).
+
+    SN99840 (Svalbard lufthavn) has a direction of 0 and a speed of 0 at 2025-06-12 00:00, a calm at 10 m (quality code
+    0, controlled): Frost writes north as 360. It was returned as 0.0. The request holds the whole dataset, so the
+    speed is there to be read.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            start=dt.datetime(2025, 6, 12, 0, tzinfo=UTC),
+            end=dt.datetime(2025, 6, 12, 0, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN99840")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list()[0].endswith("raw:0")
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_dates_of_the_18_18_series_only_are_told() -> None:
+    """The daily precipitation of SN85380 from 2015-09 on has no 06-06 series, and the answer says so (GH-3832).
+
+    The last `PT6H` date of SN85380 is 2015-09-01; its `PT18H` series goes on to 2020-03 (692 dates, 315 of them in
+    2018). January 2018 had 31 readings of the 18-18 series (26.5 mm) and none of the 06-06 one: the answer was empty
+    and said that the source has no values. It is empty now and says that the source has values of another series, and
+    a longer window that holds rows says how many dates it leaves out, never nothing.
+    """
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2018, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2018, 1, 31, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN85380")
+        .values()
+        .all()
+        .df
+    )
+    assert df.is_empty()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["parameter"] == "daily/data/precipitation_amount"
+    assert warning["stations"] == ["SN85380"]
+    assert "on 31 dates that are not in the answer (SN85380 31)" in warning["message"]
+    assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
+
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2015, 8, 1, tzinfo=UTC),
+            end=dt.datetime(2018, 12, 31, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN85380")
+        .values()
+        .all()
+        .df
+    )
+    assert df.height > 0
+    assert df["timestamp"].max() <= dt.datetime(2015, 9, 1, tzinfo=UTC)
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["stations"] == ["SN85380"]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("hour", "other"),
+    [
+        pytest.param(dt.datetime(2024, 1, 10, 12, tzinfo=UTC), "a bearing of 41", id="bearing"),
+        pytest.param(
+            dt.datetime(2025, 1, 10, 9, tzinfo=UTC), "a bearing of 257 beside a speed of 0", id="bearing-beside-0"
+        ),
+        pytest.param(dt.datetime(2025, 1, 10, 7, tzinfo=UTC), "a 0 beside a speed of 0, another calm", id="both-calm"),
+        pytest.param(
+            dt.datetime(2025, 1, 10, 3, tzinfo=UTC), "a 0 beside a speed of 0.1, a reading", id="0-beside-wind"
+        ),
+    ],
+)
+def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour: dt.datetime, other: str) -> None:
+    """The calm of the first height of SN99460 stays a calm, whatever the other height says (GH-3833).
+
+    SN99460 answers the wind at 10 m and 2 m. The direction of 10 m is 0 beside a speed of 0 (quality code 0,
+    controlled) in each of these hours of January 2024 and 2025, and 2 m has what the id says. The core keeps the first
+    row that has a value, so the hour read the value of 2 m beside a speed of 0, and `other` is what it read. Hours
+    of 2024 and 2025 are used: the quality codes of those of 2026 were still 5 when they were read.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            start=hour,
+            end=hour,
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN99460")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [None], other
+    assert df["quality_flags"].to_list()[0].endswith("raw:0")
