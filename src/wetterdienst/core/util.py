@@ -465,6 +465,25 @@ def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) 
     )
 
 
+def walk_was_done_at(
+    station_id: str,
+    *,
+    stations_by_id: dict[str, dict],
+    counts: dict,
+    param_dict: dict,
+    dropped_for_elevation: dict,
+    valid_group: bool = True,
+) -> bool:
+    """Whether `collection_is_done` held for the station: what is still in reach shrinks with its distance.
+
+    For `EstimateLeftOut.forget_since`, which asks it of the stations the walk read once the answer was complete and
+    passed over for want of rows. `valid_group` is the interpolation's other condition, that four stations surround
+    the point, which the stations the walk used have settled and which a station without rows cannot change.
+    """
+    in_reach = parameters_still_in_reach(counts, stations_by_id[station_id]["distance"])
+    return valid_group and collection_is_done(param_dict, dropped_for_elevation.keys() & in_reach)
+
+
 def report_elevation_exclusions(
     df: pl.DataFrame,
     param_dict: dict,

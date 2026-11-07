@@ -344,12 +344,17 @@ _TWELVE = [f"{number:05d}" for number in range(44, 56)]
 
 
 def _serving_stations(
-    monkeypatch: pytest.MonkeyPatch, *, losing: set[str] = frozenset(), rejecting: set[str] = frozenset()
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    losing: set[str] = frozenset(),
+    rejecting: set[str] = frozenset(),
+    without_rows: set[str] = frozenset(),
 ) -> list[str]:
     """Have each station answer three monthly readings, give the stations read in order.
 
     A station in `losing` lets a file go on the way; one in `rejecting` reads 1000 degrees for the first month, which
-    the range check (hard by default) makes null.
+    the range check (hard by default) makes null; one in `without_rows` answers no row at all, as a station does whose
+    file was lost, and the walk passes it over.
     """
     read: list[str] = []
 
@@ -357,6 +362,8 @@ def _serving_stations(
         read.append(station_id)
         if station_id in losing:
             note_skipped_download()
+        if station_id in without_rows:
+            return pl.DataFrame()
         dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
         name = next(parameter.name_original for parameter in dataset if parameter.name == "temperature_air_mean_2m")
         return pl.DataFrame(
@@ -429,6 +436,108 @@ def test_the_station_the_walk_stops_at_is_not_counted(
     taken = result.df.get_column("taken_station_id" if estimate == "summarize" else "taken_station_ids")
     assert last not in {*taken.explode().to_list()} if estimate == "interpolate" else last not in taken.to_list()
     assert _summary() == []
+
+
+@pytest.mark.parametrize("estimate", ESTIMATES)
+def test_a_station_passed_over_after_the_walk_was_done_is_not_counted(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    estimate: str,
+) -> None:
+    """The station the clean walk stops at loses its file and has no row: it is passed over, and the next one stops it.
+
+    The walk never hands such a station to the estimate, so it is not the station it breaks on, yet the answer is the
+    clean one and the station could not have changed it.
+    """
+    _twelve_stations(dwd, monkeypatch)
+    clean = _serving_stations(monkeypatch)
+    begin_response()
+    clean_df = getattr(_dwd_request(), estimate)(_DWD_POINT).df
+    last = clean[-1]
+    assert last != _TWELVE[-1], "the walk read every station: there is no station it stopped at"
+
+    read = _serving_stations(monkeypatch, losing={last}, without_rows={last})
+    begin_response()
+    df = getattr(_dwd_request(), estimate)(_DWD_POINT).df
+
+    assert read[: len(clean)] == clean
+    assert len(read) == len(clean) + 1, "the walk read one more station to stop"
+    assert df.equals(clean_df)
+    assert _summary() == []
+
+
+@pytest.mark.parametrize("estimate", ESTIMATES)
+def test_a_station_passed_over_after_the_last_used_one_is_not_counted_where_the_walk_runs_out(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    estimate: str,
+) -> None:
+    """Every station after the last one the answer is made of loses its file: the walk ends and none is counted."""
+    _twelve_stations(dwd, monkeypatch)
+    clean = _serving_stations(monkeypatch)
+    begin_response()
+    clean_df = getattr(_dwd_request(), estimate)(_DWD_POINT).df
+    rest = set(_TWELVE) - set(clean[:-1])
+    assert rest, "the answer is made of every station but the one it stopped at"
+
+    read = _serving_stations(monkeypatch, losing=rest, without_rows=rest)
+    begin_response()
+    df = getattr(_dwd_request(), estimate)(_DWD_POINT).df
+
+    assert sorted(read) == _TWELVE, "the walk ran out of stations"
+    assert df.equals(clean_df)
+    assert _summary() == []
+
+
+@pytest.mark.parametrize("estimate", ESTIMATES)
+def test_a_station_passed_over_before_the_walk_was_done_stays_counted(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    estimate: str,
+) -> None:
+    """The first station loses its file and has no row: the answer was not complete, and it may have completed it."""
+    _twelve_stations(dwd, monkeypatch)
+    clean = _serving_stations(monkeypatch)
+    getattr(_dwd_request(), estimate)(_DWD_POINT)
+    first = clean[0]
+
+    read = _serving_stations(monkeypatch, losing={first}, without_rows={first})
+    begin_response()
+    getattr(_dwd_request(), estimate)(_DWD_POINT)
+
+    (warning,) = _summary()
+    assert warning["stations"] == [first]
+    # the station the walk stopped at is not one of the stations read
+    assert f"at 1 of the {len(read) - 1} stations it read." in warning["message"]
+
+
+def test_an_interpolation_that_never_had_four_stations_around_the_point_was_never_done(
+    dwd: _Dwd,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Twelve stations at one place surround nothing: the walk reads them all, and a lost file of the last counts.
+
+    The stations of the parameter are enough, but no four of them surround the point, which the walk is not done
+    without, so a station without rows at its end was not read after the answer was complete.
+    """
+    dwd.stations = _TWELVE
+    dwd.server.default = [
+        *(f"stundenwerte_KL_{station}_19700101_20241231_hist.zip" for station in _TWELVE),
+        "KL_Beschreibung_Stationen.txt",
+    ]
+    dwd.local = Settings(cache_disable=True)
+    read = _serving_stations(monkeypatch)
+    _dwd_request().interpolate(_DWD_POINT)
+    assert sorted(read) == _TWELVE, "the walk stopped: four stations surround the point"
+    last = read[-1]
+
+    _serving_stations(monkeypatch, losing={last}, without_rows={last})
+    begin_response()
+    _dwd_request().interpolate(_DWD_POINT)
+
+    (warning,) = _summary()
+    assert warning["stations"] == [last]
+    assert "at 1 of the 12 stations it read." in warning["message"]
 
 
 def test_a_station_the_walk_used_is_counted_and_the_one_it_stopped_at_is_not(
@@ -693,5 +802,38 @@ def test_the_advice_for_a_file_does_not_promise_that_one_that_would_not_parse_co
     left_out.warn()
 
     (warning,) = recorded_warnings()
-    assert "may be back later, so try again; a file that would not parse stays as it is." in warning["message"]
+    assert (
+        "may be back later, so try again; a refused download or a file that would not parse mostly stays as it is."
+        in (warning["message"])
+    )
     assert "Try again later." not in warning["message"]
+
+
+def test_forget_since_leaves_out_the_stations_read_since_the_mark_that_the_walk_was_done_for() -> None:
+    """A station read before the mark stays; of those after it, those the walk was done at are out, the rest stay."""
+    left_out = EstimateLeftOut()
+    for station in ("A", "B", "C", "D"):
+        left_out.collected(station)
+        left_out.skipped(station, whole_request=False)
+    left_out.collected("E")
+    left_out.skipped("E", whole_request=False)
+    begin_response()
+
+    # `mark` was taken after B: C, D and E were read since. The walk was done at D and E, not at C
+    left_out.forget_since(2, lambda station: station in {"D", "E"})
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A", "B", "C"]
+    assert "at 3 of the 3 stations it read." in warning["message"]
+
+
+def test_the_mark_is_the_number_of_stations_read() -> None:
+    """`mark` counts the stations read, and one forgotten is not counted."""
+    left_out = EstimateLeftOut()
+    assert left_out.mark() == 0
+    left_out.collected("A")
+    left_out.collected("B")
+    assert left_out.mark() == 2
+    left_out.forget("B")
+    assert left_out.mark() == 1

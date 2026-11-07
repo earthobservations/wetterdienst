@@ -338,8 +338,8 @@ what the answer is missing:
   - a file the provider could not use (the cases of `file-skipped`: a refused or failed download, a file withdrawn
     since the listing, a maintenance page, a file that would not parse, a directory found empty). The values of the
     station may be missing from the estimate. The cause is not known to the walk, so the advice is for each: a failed
-    download, a withdrawn file, a maintenance page and an empty directory may be back later, so try again; a file that
-    would not parse stays as it is;
+    download, a withdrawn file, a maintenance page and an empty directory may be back later, so try again; a refused
+    download (too large, too slow) or a file that would not parse mostly stays as it is;
   - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
     the source holds values for them, nothing is missing there, and they are not read because a value of another
     window would be wrong under the parameter's name;
@@ -350,8 +350,9 @@ what the answer is missing:
 
   The causes are told in the one warning, since a caller of an estimate asks one question of it, is it made from all
   that the source holds, and a values request, which asks more, keeps its codes. A station is counted once whatever the
-  number of causes. A station that the walk read to find that it was done and did not use, because it had enough nearer
-  ones, is not counted, nor is one it never read. Only the providers listed below tell the first two causes to the
+  number of causes. A station that the walk read once it was done and did not use, because it had enough nearer
+  ones, is not counted, whether it came back with rows or, as a station whose file was lost does, with none, nor is one
+  it never read. Only the providers listed below tell the first two causes to the
   walk, so an estimate without the warning is no proof that every file was read. It is told next to what the lookup of
   the stations says, which `file-skipped` (a directory of `dwd/observation` or `dwd/derived` found empty, below) still
   tells without a station: the two state different facts. In Python it is a log line at level `WARNING`, and

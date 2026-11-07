@@ -92,7 +92,7 @@ from wetterdienst.util.response_warnings import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from contextlib import AbstractContextManager
 
     import polars as pl
@@ -478,7 +478,9 @@ class EstimateLeftOut:
     that were affected, the first ten.
 
     The estimate stops at the first station it reads that it does not need (`collection_is_done`), and that station was
-    read all the same: `forget` leaves it out, as the answer is not made of it.
+    read all the same: `forget` leaves it out, as the answer is not made of it. So is a station read after the answer
+    was complete that the walk passed over for want of rows (the usual shape of a lost file), which never reaches the
+    estimate: `mark` and `forget_since` leave out those of the stations read since the last one the estimate used.
     """
 
     def __init__(self) -> None:
@@ -512,6 +514,23 @@ class EstimateLeftOut:
         """Note that a hard plausibility check made `count` values of the station null, `by_check` for each check."""
         if count > 0:
             self._rejected[station_id] = (count, dict(by_check))
+
+    def mark(self) -> int:
+        """Give the number of stations read so far, for `forget_since`."""
+        return len(self._collected)
+
+    def forget_since(self, mark: int, is_done: Callable[[str], bool]) -> None:
+        """Leave out each station read since `mark` for which the estimate was done, as it was at that station.
+
+        The walk hands the estimate the stations that have rows. One that has none is read and passed over, and stands
+        between the last station the estimate used (`mark` was taken after it) and the one it stopped at, or the end of
+        the walk. Where `is_done` holds for such a station, as it does for the one the walk stopped at, the walk would
+        have stopped there had it had rows, and its loss is none to the answer. A station passed over before that
+        stays counted: the answer was not complete, and it may have been the one to complete it.
+        """
+        for station in list(self._collected)[mark:]:
+            if is_done(station):
+                self.forget(station)
 
     def forget(self, station_id: str) -> None:
         """Leave out the station the walk read and the estimate stopped at, unused: it lost the answer nothing."""
@@ -558,7 +577,8 @@ class EstimateLeftOut:
                 "a maintenance page, a file that would not parse, or a directory found empty) was left out at "
                 f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
                 "missing from the estimate. A failed download, a withdrawn file, a maintenance page and an empty "
-                "directory may be back later, so try again; a file that would not parse stays as it is."
+                "directory may be back later, so try again; a refused download or a file that would not parse mostly "
+                "stays as it is."
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
 

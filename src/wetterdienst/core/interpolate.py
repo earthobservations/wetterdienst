@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import math
-from functools import lru_cache
+from functools import lru_cache, partial
 from itertools import combinations
 from queue import Queue
 from typing import TYPE_CHECKING, cast
@@ -36,6 +36,7 @@ from wetterdienst.core.util import (
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
+    walk_was_done_at,
     widest_station_distance,
     zero_elevation_is_unknown,
 )
@@ -238,6 +239,9 @@ def request_stations(
     # what its walk leaves out at the stations it reads is told once, as one warning, when the walk is over (GH-3848)
     left_out = EstimateLeftOut()
     values._left_out_of_estimate = left_out  # noqa: SLF001
+
+    # the stations read up to the last one the walk used (`EstimateLeftOut.forget_since`)
+    used = 0
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),
@@ -256,9 +260,8 @@ def request_stations(
             )
             and valid_station_groups_exists
         ):
-            # read to find that the walk is done, and not used: it lost the answer nothing
-            left_out.forget(station["station_id"])
             break
+        used = left_out.mark()
         if result_df.drop_nulls("value").is_empty():
             continue
         if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
@@ -293,6 +296,18 @@ def request_stations(
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
             if placements is not None:
                 placements[station["station_id"]] = place_station(station, elevation)
+    # the station the walk stopped at, and those it passed over for want of rows once it was done, lost nothing
+    left_out.forget_since(
+        used,
+        partial(
+            walk_was_done_at,
+            stations_by_id=stations_by_id,
+            counts=counts,
+            param_dict=param_dict,
+            dropped_for_elevation=dropped_for_elevation,
+            valid_group=has_valid_station_group(stations_dict, utm_x, utm_y),
+        ),
+    )
     left_out.warn()
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 

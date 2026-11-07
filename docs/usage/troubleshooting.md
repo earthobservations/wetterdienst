@@ -68,7 +68,7 @@ The usual reasons:
   `source-data-left-out` warning with the number of the stations it read that lost something, and the causes: a file
   the provider could not use (a refused download, a maintenance page, a file that would not parse, a directory found
   empty), whose values may be missing from the estimate (a download, a page or a directory may be back later, try
-  again; a file that would not parse stays as it is); dates of another series of the source (`metno/frost`, as
+  again; a refused download or a file that would not parse mostly stays as it is); dates of another series of the source (`metno/frost`, as
   `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
   again; and values a hard plausibility check rejected, which the estimate does not use. It is one warning, whatever the
   number of stations or causes, and an estimate tells neither `file-skipped` nor `other-window-left-out` of a station.
