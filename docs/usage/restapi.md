@@ -331,7 +331,8 @@ what the answer is missing:
   monthly precipitation sum, 06-06 UTC (the parameter) and 18-18 UTC, and a date that only the 18-18 series has would be
   a sum of another window under the parameter's name; it keeps two of the daily maximum and minimum temperature, 18-18
   UTC (the parameter) and the calendar day, and a date that only the calendar-day series has would be an extreme of
-  another window. They are no missing data, so this is not
+  another window; it keeps two of the daily and monthly mean temperature, the calendar day (the parameter) and 06-06
+  UTC, and a date that only the 06-06 series has would be a mean of another window. They are no missing data, so this is not
   `parameter-without-rows`, which is not told of a parameter this one names (a parameter asked for by its name, or any
   parameter of a dataset asked for whole). It carries `parameter` (`resolution/dataset/parameter`) and `stations` (the
   first ten); its message gives the number of dates at each station and says which series was left out. One for each

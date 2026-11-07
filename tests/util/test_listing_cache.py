@@ -12,6 +12,7 @@ import signal
 import sqlite3
 import stat
 import threading
+import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -48,6 +49,33 @@ def _listing(prefix: str = "http://example.com/") -> list[dict]:
         {"name": f"{prefix}stundenwerte_TU_00044_akt.zip", "size": None, "type": "file"},
         {"name": f"{prefix}sub/", "size": None, "type": "directory"},
     ]
+
+
+#: How long a test waits for a thread it has told to stop, and for a thing it waits for that is not there.
+_JOIN_TIMEOUT = 10.0
+
+
+def _stop_workers(stop: threading.Event, workers: list[threading.Thread]) -> list[threading.Thread]:
+    """Tell `workers` to stop, wait for them a while, and return the ones that did not end.
+
+    Meant for a `finally`: a test that is interrupted (the hang guard of GH-3723 raises in the main thread) must
+    not leave threads that write flat out for the rest of the session, which failed the tests after it and filled
+    the disk of a runner (GH-3860). The workers of these tests are daemons for the same reason.
+    """
+    stop.set()
+    for worker in workers:
+        worker.join(timeout=_JOIN_TIMEOUT)
+    return [worker for worker in workers if worker.is_alive()]
+
+
+def _wait_for(condition: Callable[[], bool]) -> bool:
+    """Poll `condition` for `_JOIN_TIMEOUT` seconds; whether it became true."""
+    deadline = time.monotonic() + _JOIN_TIMEOUT
+    while not condition():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.005)
+    return True
 
 
 @pytest.fixture
@@ -255,7 +283,7 @@ def test_the_deferred_closes_can_be_drained_by_two_threads_at_once(monkeypatch: 
     """Two threads that both see the list not empty: the second must not fail on the pop."""
     connections = [sqlite3.connect(":memory:", check_same_thread=False) for _ in range(50)]
     monkeypatch.setattr(listing_cache, "_deferred_closes", list(connections))
-    barrier = threading.Barrier(4)
+    barrier = threading.Barrier(4, timeout=_JOIN_TIMEOUT)
     errors: list[BaseException] = []
 
     def drain() -> None:
@@ -266,12 +294,13 @@ def test_the_deferred_closes_can_be_drained_by_two_threads_at_once(monkeypatch: 
         except BaseException as error:  # noqa: BLE001
             errors.append(error)
 
-    threads = [threading.Thread(target=drain) for _ in range(4)]
+    threads = [threading.Thread(target=drain, daemon=True) for _ in range(4)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join()
+        thread.join(timeout=_JOIN_TIMEOUT)
 
+    assert not any(thread.is_alive() for thread in threads)
     assert errors == []
     assert listing_cache._deferred_closes == []  # noqa: SLF001
 
@@ -421,7 +450,7 @@ def test_make_private_dir_is_idempotent_and_tolerates_a_race(tmp_path: Path) -> 
     """Make private dir is idempotent and tolerates a race."""
     target = tmp_path / "a" / "b" / "c"
     errors: list[BaseException] = []
-    barrier = threading.Barrier(8)
+    barrier = threading.Barrier(8, timeout=_JOIN_TIMEOUT)
 
     def make() -> None:
         barrier.wait()
@@ -430,12 +459,13 @@ def test_make_private_dir_is_idempotent_and_tolerates_a_race(tmp_path: Path) -> 
         except BaseException as error:  # noqa: BLE001
             errors.append(error)
 
-    threads = [threading.Thread(target=make) for _ in range(8)]
+    threads = [threading.Thread(target=make, daemon=True) for _ in range(8)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join()
+        thread.join(timeout=_JOIN_TIMEOUT)
 
+    assert not any(thread.is_alive() for thread in threads)
     assert errors == []
     assert target.is_dir()
 
@@ -504,7 +534,7 @@ def test_every_thread_has_a_connection_of_its_own(store: ListingStore) -> None:
     """Every thread has a connection of its own."""
     store.set("key", _listing(), None)
     seen: dict[int, sqlite3.Connection] = {}
-    barrier = threading.Barrier(4)
+    barrier = threading.Barrier(4, timeout=_JOIN_TIMEOUT)
 
     def use() -> None:
         barrier.wait()
@@ -512,12 +542,13 @@ def test_every_thread_has_a_connection_of_its_own(store: ListingStore) -> None:
         seen[threading.get_ident()] = store._handle().conn  # noqa: SLF001
         barrier.wait()  # all alive at once, so no thread's connection is dropped for another's
 
-    threads = [threading.Thread(target=use) for _ in range(4)]
+    threads = [threading.Thread(target=use, daemon=True) for _ in range(4)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join()
+        thread.join(timeout=_JOIN_TIMEOUT)
 
+    assert not any(thread.is_alive() for thread in threads)
     assert len({id(connection) for connection in seen.values()}) == 4
     assert store._handle().conn not in seen.values()  # noqa: SLF001
 
@@ -530,9 +561,10 @@ def test_the_connection_of_a_thread_that_ended_is_closed(store: ListingStore) ->
         store.get("key")
         connections.append(store._handle().conn)  # noqa: SLF001
 
-    thread = threading.Thread(target=use)
+    thread = threading.Thread(target=use, daemon=True)
     thread.start()
-    thread.join()
+    thread.join(timeout=_JOIN_TIMEOUT)
+    assert not thread.is_alive()
     gc.collect()  # not needed by CPython, which frees a thread's locals as it ends; other interpreters may
 
     (connection,) = connections
@@ -554,28 +586,33 @@ def test_close_closes_every_thread_s_connection_and_the_store_goes_on(store: Lis
         done.set()
         release.wait()
 
-    thread = threading.Thread(target=use)
+    thread = threading.Thread(target=use, daemon=True)
     thread.start()
-    done.wait()
-    main = store._handle().conn  # noqa: SLF001
+    try:
+        assert done.wait(timeout=_JOIN_TIMEOUT)
+        main = store._handle().conn  # noqa: SLF001
 
-    store.close()
+        store.close()
 
-    for connection in (*opened, main):
-        with pytest.raises(sqlite3.ProgrammingError):
-            connection.execute("SELECT 1")
-    assert store.get("key") == _listing(), "a closed store opens a new connection when it is used again"
-    release.set()
-    thread.join()
+        for connection in (*opened, main):
+            with pytest.raises(sqlite3.ProgrammingError):
+                connection.execute("SELECT 1")
+        assert store.get("key") == _listing(), "a closed store opens a new connection when it is used again"
+    finally:
+        release.set()
+        thread.join(timeout=_JOIN_TIMEOUT)
+    assert not thread.is_alive()
 
 
-def _fork_children(count: int, child: Callable[[], bool]) -> list[int]:
-    """Fork `count` children that each run `child`, die after 30 s, and report; return their exit codes.
+def _fork_children(count: int, child: Callable[[], bool], children: list[int] | None = None) -> list[int]:
+    """Fork `count` children that each run `child`, die after 30 s, and report; return their pids.
+
+    The pids are also appended to `children` as they are made, if it is given.
 
     The children are made while the caller's other threads are inside SQLite, which is when a mutex of
     SQLite's is held at the instant of the fork. They are waited for by whoever calls this.
     """
-    children = []
+    children = [] if children is None else children  # a caller that cleans up gives its own list
     for _ in range(count):
         pid = os.fork()
         if pid == 0:  # pragma: no cover - the child
@@ -590,6 +627,33 @@ def _fork_children(count: int, child: Callable[[], bool]) -> list[int]:
                 os._exit(status)
         children.append(pid)
     return children
+
+
+def _reap_children(children: list[int]) -> list[int]:
+    """Wait for the children `_fork_children` made and return their exit codes.
+
+    Each pid leaves `children` as soon as it is reaped, so that a `finally` that calls `_kill_children` after an
+    interruption partway through never signals a pid that is gone, and may be another process's by now.
+    """
+    statuses = []
+    while children:
+        _, status = os.waitpid(children[0], 0)
+        children.pop(0)
+        statuses.append(os.waitstatus_to_exitcode(status))
+    return statuses
+
+
+def _kill_children(children: list[int]) -> None:
+    """Kill and reap the children that are not reaped yet; for a `finally`, so that nothing is left running.
+
+    A child that is still there after a failure would otherwise run on, with its parent's store open, until its
+    alarm of 30 s. Each pid leaves `children` before it is signalled, so none is signalled twice.
+    """
+    while children:
+        pid = children.pop(0)
+        with contextlib.suppress(ChildProcessError, ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
 
 
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="needs fork")
@@ -617,19 +681,21 @@ def test_a_child_forked_while_a_thread_writes_can_use_the_cache(tmp_path: Path) 
         store.set("child", _listing("http://child/"), None)
         return store.get("parent") == _listing() and store.get("child") is not None
 
-    hammering = threading.Thread(target=hammer)
+    hammering = threading.Thread(target=hammer, daemon=True)
+    children: list[int] = []
+    survivors: list[threading.Thread] = []
     hammering.start()
-    started.wait()
     try:
-        children = _fork_children(5, child)
+        assert started.wait(timeout=_JOIN_TIMEOUT)
+        _fork_children(5, child, children)
         # stopped once the forks are made: it would starve the children of the write lock
-        stop.set()
-        hammering.join()
-        statuses = [os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]) for pid in children]
+        survivors = _stop_workers(stop, [hammering])
+        statuses = _reap_children(children)
     finally:
-        stop.set()
-        hammering.join()
+        _stop_workers(stop, [hammering])
+        _kill_children(children)
 
+    assert survivors == []
     assert statuses == [0] * 5
     assert store.get("child") == _listing("http://child/")
     assert store.get("parent") == _listing()
@@ -663,24 +729,26 @@ def test_a_child_forked_while_connections_are_closed_does_not_hang(tmp_path: Pat
         other.set("key", _listing(), None)
         return other.get("key") == _listing()
 
-    threads = [threading.Thread(target=use), threading.Thread(target=close)]
+    threads = [threading.Thread(target=use, daemon=True), threading.Thread(target=close, daemon=True)]
+    children: list[int] = []
     for thread in threads:
         thread.start()
-    started.wait()
     try:
-        children = _fork_children(8, child)
+        assert started.wait(timeout=_JOIN_TIMEOUT)
+        _fork_children(8, child, children)
+        survivors = _stop_workers(stop, threads)
+        statuses = _reap_children(children)
     finally:
-        stop.set()
-        for thread in threads:
-            thread.join()
-    statuses = [os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]) for pid in children]
+        _stop_workers(stop, threads)
+        _kill_children(children)
 
+    assert survivors == []
     assert statuses == [0] * 8
     store.close()
 
 
-def test_close_waits_for_the_statement_another_thread_is_running(store: ListingStore) -> None:
-    """Closing a connection under a running statement crashes CPython; `close()` takes the connection's lock."""
+def test_close_never_closes_a_connection_under_the_statement_another_thread_is_running(store: ListingStore) -> None:
+    """Closing a connection under a running statement crashes CPython; `close()` leaves it to the thread."""
     stop = threading.Event()
     started = threading.Event()
     errors: list[BaseException] = []
@@ -697,17 +765,73 @@ def test_close_waits_for_the_statement_another_thread_is_running(store: ListingS
         except BaseException as error:  # noqa: BLE001
             errors.append(error)
 
-    workers = [threading.Thread(target=work) for _ in range(2)]
+    workers = [threading.Thread(target=work, daemon=True) for _ in range(2)]
     for worker in workers:
         worker.start()
-    started.wait()
-    for _ in range(5):
-        store.close()
-    stop.set()
-    for worker in workers:
-        worker.join()
+    try:
+        assert started.wait(timeout=_JOIN_TIMEOUT)
+        for _ in range(5):
+            store.close()
+    finally:
+        survivors = _stop_workers(stop, workers)
 
+    assert survivors == []
     assert errors == []
+
+
+def test_close_does_not_wait_for_a_statement_that_waits_for_the_write_lock(store: ListingStore) -> None:
+    """A thread that waits for the write lock holds its connection as long as that takes; `close()` must not (GH-3860).
+
+    Two threads that write flat out starve each other: one asks for the lock again after 1, 2, 5, ... 100 ms, while
+    the other takes it over and over, and a `close()` that waited for the one that asks was stuck for as long.
+    Here the lock is held by a connection of the test, so the wait is as long as the test wants.
+    """
+    ready = threading.Event()
+    go = threading.Event()
+    errors: list[BaseException] = []
+    seen: list[listing_cache._Connection] = []
+
+    def write() -> None:
+        try:
+            store.get("key")
+            seen.append(store._handle())  # noqa: SLF001
+            ready.set()
+            go.wait(timeout=_JOIN_TIMEOUT)
+            store.set("key", _listing(), None)
+        except BaseException as error:  # noqa: BLE001
+            errors.append(error)
+
+    writer = threading.Thread(target=write, daemon=True)
+    closer = threading.Thread(target=store.close, daemon=True)
+    holder = sqlite3.connect(store.path, isolation_level=None)
+    writer.start()
+    try:
+        assert ready.wait(timeout=_JOIN_TIMEOUT)
+        (handle,) = seen
+        connection = handle.conn
+        holder.execute("BEGIN IMMEDIATE")  # the write lock of the file
+        go.set()
+        assert _wait_for(handle.lock.locked), "the writer is inside its statement, waiting for the write lock"
+        closer.start()
+        closer.join(timeout=_JOIN_TIMEOUT / 2)
+        closed_while_the_statement_waited = not closer.is_alive()
+        assert writer.is_alive(), "the statement is still waiting for the lock"
+    finally:
+        if holder.in_transaction:
+            holder.execute("ROLLBACK")
+        holder.close()
+        started = [thread for thread in (writer, closer) if thread.ident is not None]
+        for thread in started:
+            thread.join(timeout=_JOIN_TIMEOUT)
+        survivors = [thread for thread in started if thread.is_alive()]
+
+    assert closed_while_the_statement_waited, "close() waited for the statement that waited for the write lock"
+    assert survivors == []
+    assert errors == [], "the statement that was running when close() came is done, not failed"
+    assert handle.conn is None, "closed by its thread, as soon as its statement was done"
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
+    assert store.get("key") == _listing(), "the statement completed, and the store goes on with a new connection"
 
 
 @pytest.mark.slow

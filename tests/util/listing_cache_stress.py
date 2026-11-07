@@ -126,18 +126,26 @@ def stress(  # noqa: C901
         context.Process(target=run_worker, args=(str(path), worker, threads, iterations, barrier, results), daemon=True)
         for worker in range(processes)
     ]
-    for process in workers:
-        process.start()
     problems: list[str] = []
     written: dict[tuple[int, int], int] = {}
-    for _ in workers:
-        worker, counts, errors = results.get(timeout=300)
-        problems.extend(errors)
-        written.update({(worker, thread): count for thread, count in counts.items()})
-    for process in workers:
-        process.join(timeout=60)
-        if process.exitcode != 0:
-            problems.append(f"a worker exited with {process.exitcode}")
+    try:
+        for process in workers:
+            process.start()
+        for _ in workers:
+            worker, counts, errors = results.get(timeout=300)
+            problems.extend(errors)
+            written.update({(worker, thread): count for thread, count in counts.items()})
+        for process in workers:
+            process.join(timeout=60)
+            if process.exitcode != 0:
+                problems.append(f"a worker exited with {process.exitcode}")
+    finally:
+        # a worker that is still there (the result did not come in time, or the caller was interrupted) must not run
+        # on writing into the directory after this returns (GH-3860)
+        for process in workers:
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=10)
 
     store = ListingStore(path)
     try:

@@ -135,7 +135,8 @@ def note_left_out(parameter: str, count: int, because: str) -> None:
     """Tell that the provider left `count` dates of `parameter` out of the station being collected: another window's.
 
     For a source that holds more than one series of a parameter that differ in the window they sum or extremise
-    (Frost's `PT6H` and `PT18H` precipitation, `PT0H` and `PT18H` temperature extremes) and returns one. A date that
+    (Frost's `PT6H` and `PT18H` precipitation, `PT0H` and `PT18H` temperature extremes, `PT0H` and `PT6H` mean
+    temperature) and returns one. A date that
     only the other series has is left out, as a value of the other window under this parameter's name would be wrong,
     and the answer then has no row for it although the source has values: `OTHER_WINDOW_LEFT_OUT` says so once the
     walk is over (`ParameterRows.warn`), which is the difference to a parameter the source holds nothing of
