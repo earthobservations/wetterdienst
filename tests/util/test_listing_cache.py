@@ -605,7 +605,9 @@ def test_close_closes_every_thread_s_connection_and_the_store_goes_on(store: Lis
 
 
 def _fork_children(count: int, child: Callable[[], bool], children: list[int] | None = None) -> list[int]:
-    """Fork `count` children that each run `child`, die after 30 s, and report; return their exit codes.
+    """Fork `count` children that each run `child`, die after 30 s, and report; return their pids.
+
+    The pids are also appended to `children` as they are made, if it is given.
 
     The children are made while the caller's other threads are inside SQLite, which is when a mutex of
     SQLite's is held at the instant of the fork. They are waited for by whoever calls this.
