@@ -232,28 +232,36 @@ for (const size of SIZES) {
         expect(await barTexts(page)).toEqual([...names(DEFAULT_ORDER.slice(0, 4)), en.header.menu])
       })
 
-      test('reaches each button by Tab in the order of the list, and none is hidden under the preview or the bars when it is focused', async ({ page, baseURL }) => {
+      test('reaches each button by Tab in the order of the list, and by Shift+Tab back, and none is hidden under the preview or the bars when it is focused', async ({ page, baseURL }) => {
         await open(page, baseURL!, '/settings', { mode })
-        await move(page, 'forecast', 'up').focus()
-        const order: string[] = []
-        for (let stop = 0; stop < 10; stop++) {
-          const state = await page.evaluate(() => {
-            const el = document.activeElement as HTMLElement
-            const box = el.getBoundingClientRect()
-            // sampled at the middle and the corners of the button: the element there must be the button
-            const points = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([x, y]) => document.elementFromPoint(box.left + box.width * x!, box.top + box.height * y!))
-            return {
-              label: el.getAttribute('aria-label'),
-              visible: box.top >= 0 && box.bottom <= window.innerHeight,
-              obscured: points.filter(point => point !== el && !el.contains(point)).length,
-            }
-          })
-          order.push(state.label!)
-          expect(state.visible, state.label!).toBe(true)
-          expect(state.obscured, `${state.label} is covered`).toBe(0)
-          await page.keyboard.press('Tab')
+        // what the focused element is, and whether anything stands over it: sampled at the middle and the corners
+        const look = () => page.evaluate(() => {
+          const el = document.activeElement as HTMLElement
+          const box = el.getBoundingClientRect()
+          const points = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([x, y]) => document.elementFromPoint(box.left + box.width * x!, box.top + box.height * y!))
+          return {
+            label: el.getAttribute('aria-label'),
+            visible: box.top >= 0 && box.bottom <= window.innerHeight,
+            obscured: points.filter(point => point !== el && !el.contains(point)).length,
+          }
+        })
+        const walk = async (key: 'Tab' | 'Shift+Tab', stops: number) => {
+          const labels: string[] = []
+          for (let stop = 0; stop < stops; stop++) {
+            const state = await look()
+            labels.push(state.label!)
+            expect(state.visible, state.label!).toBe(true)
+            expect(state.obscured, `${state.label} is covered (${key})`).toBe(0)
+            if (stop < stops - 1)
+              await page.keyboard.press(key)
+          }
+          return labels
         }
-        expect(order).toEqual(DEFAULT_ORDER.flatMap(tool => [`Move ${NAMES[tool]} up`, `Move ${NAMES[tool]} down`]))
+        const forward = DEFAULT_ORDER.flatMap(tool => [`Move ${NAMES[tool]} up`, `Move ${NAMES[tool]} down`])
+        await move(page, 'forecast', 'up').focus()
+        expect(await walk('Tab', 10)).toEqual(forward)
+        // back up the list, from the last button: the preview that stays under the header is what a button would be under
+        expect(await walk('Shift+Tab', 10)).toEqual([...forward].reverse())
       })
 
       test('puts the default back by "Reset the bar", and says so', async ({ page, baseURL }) => {
@@ -352,6 +360,16 @@ test.describe('the Menu, on a phone', () => {
     await expect(page.getByRole('heading', { level: 2, name: en.settings.bar.title })).toBeFocused()
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     await expect(chooser(page)).toBeInViewport()
+  })
+
+  test('scrolls to the chooser, with the focus on its heading, where the address `/settings#bar` is opened afresh', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings#bar')
+    await expect(page.getByRole('heading', { level: 2, name: en.settings.bar.title })).toBeFocused()
+    await expect(page.getByRole('heading', { level: 2, name: en.settings.bar.title })).toBeInViewport()
+    // clear of the header that stands over the top of the page
+    const heading = (await page.getByRole('heading', { level: 2, name: en.settings.bar.title }).boundingBox())!
+    const header = (await page.getByRole('banner').boundingBox())!
+    expect(heading.y).toBeGreaterThanOrEqual(header.y + header.height)
   })
 
   test('is reached from the settings page as well: the chooser is a card of it', async ({ page, baseURL }) => {
