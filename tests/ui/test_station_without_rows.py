@@ -203,6 +203,95 @@ def test_what_narrowed_any_dataset_of_the_request_is_named(monkeypatch: pytest.M
     assert warning["message"].endswith(" Try another run.")
 
 
+def _told_without_a_window(**kwargs: Any) -> Any:  # noqa: ANN401
+    """Read the values of two stations named by id for a request with no dates, and give the warning of `CODE`."""
+    begin_response()
+    request = DwdObservationRequest(parameters=kwargs.pop("parameters", [PARAMETER]), **kwargs)
+    request.filter_by_station_id(["00001", "00002"]).values().all()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
+    return warning
+
+
+def test_periods_without_a_window_still_narrow_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`periods` over no dates narrows the request: the message says so and does not claim the source has nothing."""
+    _serving(monkeypatch, s00002=_nothing)
+
+    warning = _told_without_a_window(periods="recent")
+
+    assert warning["message"] == (
+        "No rows for station 00002 in the periods asked for (recent). The source holds no values of it there, or "
+        "every value was null and left out (`drop_nulls`). Try without `periods`."
+    )
+
+
+def test_a_run_without_a_window_has_a_phrase_and_no_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A forecast run (MOSMIX, DMO, SWSMOS give `(phrase, None)`) is named, with no hint to add and none to fail on."""
+    _serving(monkeypatch, s00002=_nothing)
+    monkeypatch.setattr(
+        DwdObservationRequest, "_narrowed_by", lambda _self, _dataset: [("the run issued 2026-11-07 00 UTC", None)]
+    )
+
+    warning = _told_without_a_window()
+
+    assert warning["message"] == (
+        "No rows for station 00002 in the run issued 2026-11-07 00 UTC. The source holds no values of it there, or "
+        "every value was null and left out (`drop_nulls`)."
+    )
+    # and with a window
+    assert _told(["00001", "00002"])[0]["message"].endswith(
+        "in the run issued 2026-11-07 00 UTC. The source holds no values of it there, or every value was null and "
+        "left out (`drop_nulls`)."
+    )
+
+
+def test_two_phrases_are_joined_with_and_in_and_their_hints_with_or(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request narrowed in two ways says both, once each, and what to ask instead for each that has a hint."""
+    _serving(monkeypatch, s00002=_nothing)
+    monkeypatch.setattr(
+        DwdObservationRequest,
+        "_narrowed_by",
+        lambda _self, dataset: (
+            [("the periods asked for (recent)", "try without `periods`")]
+            if dataset.name == "climate_summary"
+            else [
+                ("the run issued 2026-11-07 00 UTC", None),
+                ("the lead time asked for (short)", "try the other `lead_time`"),
+            ]
+        ),
+    )
+
+    (warning,) = _told(["00001", "00002"], parameters=[PARAMETER, "daily/more_precip/precipitation_amount"])
+
+    assert warning["message"].startswith(
+        "No rows for station 00002 from 2020-05-01 to 2020-05-31 in the periods asked for (recent) and in the run "
+        "issued 2026-11-07 00 UTC and in the lead time asked for (short). "
+    )
+    assert warning["message"].endswith(" Try without `periods` or try the other `lead_time`.")
+
+
+def test_the_periods_of_several_datasets_are_one_phrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Datasets narrowed to other sets of periods are not told one after the other: the periods are named once."""
+    _serving(monkeypatch, s00002=_nothing)
+    monkeypatch.setattr(
+        DwdObservationRequest,
+        "_narrowed_by",
+        lambda _self, dataset: [
+            (
+                "the periods asked for (recent)"
+                if dataset.name == "climate_summary"
+                else "the periods asked for (historical, now)",
+                "try without `periods`",
+            )
+        ],
+    )
+
+    (warning,) = _told(["00001", "00002"], parameters=[PARAMETER, "daily/more_precip/precipitation_amount"])
+
+    assert warning["message"].count("the periods asked for") == 1
+    assert "in the periods asked for (historical, recent, now). " in warning["message"]
+    assert warning["message"].endswith(" Try without `periods`.")
+
+
 def test_a_request_with_no_window_has_no_there(monkeypatch: pytest.MonkeyPatch) -> None:
     """Nothing is referred to without a window, and no period narrows what is read."""
     _serving(monkeypatch, s00002=_nothing)
@@ -390,6 +479,10 @@ def test_a_station_skip_empty_leaves_out_for_nulls_is_named_by_station_skipped_a
 
     assert warning["stations"] == ["00003"]
     assert any(w["code"] == "station-skipped" and "00002" in w["message"] for w in recorded_warnings())
+    # a station with a reading is `station-skipped`'s, so the one named had none, and nothing was null and dropped
+    assert warning["message"] == (
+        "No rows for station 00003 from 2020-05-01 to 2020-05-31. The source holds no values of it there."
+    )
 
 
 def test_a_file_that_serves_every_station_covers_the_stations_read(monkeypatch: pytest.MonkeyPatch) -> None:

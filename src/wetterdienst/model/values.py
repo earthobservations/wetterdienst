@@ -495,7 +495,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             self.sr.end,
             enabled=self._warn_without_rows,
             asked=asked,
-            nulls_dropped=self.sr.options.drop_nulls_effective,
+            # `skip_empty` tells a station with a reading, all null, by `station-skipped` (`_leave_out_emptied`)
+            nulls_dropped=self.sr.options.drop_nulls_effective and not self.sr.options.skip_empty,
         )
         # mapping of original to humanized parameter names is always the same
         hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None

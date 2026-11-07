@@ -49,8 +49,8 @@ out are those, so it does not repeat `file-skipped`. Which stations it names:
 
 A request that names its stations by id (`stations=`, `filter_by_station_id`) has a third warning,
 `station-without-rows` (GH-3828): the ids that returned no rows while other stations of the request did.
-Its message names the window and what narrowed the request, as `parameter-without-rows` does, and does not say that
-the other stations have rows: those another warning explains, or `sql_values` later, may leave none.
+Its message names the window and what narrowed the request, as `parameter-without-rows` does, and does not say what
+the other stations have: at least one returned rows, but `sql_values` may cut them all away afterwards.
 
 - It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
   ranked walk stops early), after a walk read to its end, so that a station never read is never named.
@@ -70,8 +70,10 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import re
 from typing import TYPE_CHECKING
 
+from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
@@ -95,6 +97,9 @@ log = logging.getLogger(__name__)
 
 #: how many stations the warning lists; a request for a whole network that holds none of a parameter has hundreds
 MAX_STATIONS_LISTED = 10
+
+#: the phrase of `_narrowed_by` that names the periods asked for, of which each dataset of a request may give a set
+_PERIODS_PHRASE = re.compile(r"the periods asked for \((.+)\)")
 
 
 def _window(start: dt.datetime | None, end: dt.datetime | None) -> str:
@@ -235,9 +240,10 @@ class ParameterRows:
         dropped (`station-skipped`), or whose values were left out for another window (`other-window-left-out`); an id
         the network has no station for was never in the walk (`unknown-station`).
 
-        The message says nothing of the other stations (those another warning explains, or `sql_values`, which cuts
-        rows afterwards, may leave none of them with rows in the answer), but what narrowed the request
-        (`periods`, a run, a lead time) as `parameter-without-rows` does, since the values may be in what it left out.
+        The message says nothing of the other stations (`sql_values`, which cuts rows afterwards, may leave none of them
+        with rows in the answer), but what narrowed the request (`periods`, a run, a lead time) as
+        `parameter-without-rows` does, since the values may be in what it left out. `there` refers to the window or to
+        what narrowed the request, so a request with neither says none.
         """
         if self._asked is None or not self._returned:
             return
@@ -253,7 +259,7 @@ class ParameterRows:
         window = _window(self._start, self._end)
         phrases, hints = self._narrowing()
         narrow = f" in {' and in '.join(phrases)}" if phrases else ""
-        why = f"The source holds no values of {'them' if many else 'it'}{' there' if window else ''}"
+        why = f"The source holds no values of {'them' if many else 'it'}{' there' if window or phrases else ''}"
         if self._nulls_dropped:
             why += f", or {'all of them were' if many else 'every value was'} null and left out (`drop_nulls`)"
         advice = f" {' or '.join(hints).capitalize()}." if hints else ""
@@ -265,8 +271,12 @@ class ParameterRows:
         )
 
     def _narrowing(self) -> tuple[list[str], list[str]]:
-        """Give what narrowed the request for any of its datasets, as phrases and hints, each once (`_narrowed_by`)."""
+        """Give what narrowed the request for any of its datasets, as phrases and hints, each once (`_narrowed_by`).
+
+        The periods that datasets were each narrowed to are one phrase, naming all of them.
+        """
         phrases: dict[str, None] = {}
+        periods: set[Period] = set()
         hints: dict[str, None] = {}
         seen: set[tuple[str, str]] = set()
         for parameter in self._request.parameters:
@@ -277,9 +287,18 @@ class ParameterRows:
                 continue
             seen.add(key)
             for phrase, hint in self._request._narrowed_by(parameter.dataset):  # noqa: SLF001
+                if match := _PERIODS_PHRASE.fullmatch(phrase):
+                    periods.update(Period(name) for name in match.group(1).split(", "))
+                    phrase = "the periods asked for"
                 phrases[phrase] = None
                 if hint:
                     hints[hint] = None
+        if "the periods asked for" in phrases:
+            named = ", ".join(period.value for period in sorted(periods))
+            phrases = {
+                (f"the periods asked for ({named})" if phrase == "the periods asked for" else phrase): None
+                for phrase in phrases
+            }
         return list(phrases), list(hints)
 
     def _warn_left_out(self) -> None:
