@@ -5,6 +5,23 @@ const { t, locale, setLocale } = useI18n()
 useHead({ title: () => t('settings.title') })
 const colorMode = useColorMode()
 const { settings, reset } = useSettings()
+const route = useRoute()
+
+// the Menu's sheet links to the chooser of the phone's bar (`/settings#bar`): the page scrolls to it, and the focus
+// goes to its heading, so that a keyboard and a screen reader are where the page has taken the eyes (WCAG 2.4.3). The
+// scroll is made here as well as by the router, which does not make it on a first load of the address, as the page is
+// drawn after the browser looked for the anchor
+const barHeading = useTemplateRef<HTMLElement>('barHeading')
+function focusBar() {
+  if (route.hash !== '#bar')
+    return
+  nextTick(() => {
+    barHeading.value?.scrollIntoView({ block: 'start' })
+    barHeading.value?.focus({ preventScroll: true })
+  })
+}
+onMounted(focusBar)
+watch(() => route.hash, focusBar)
 
 const languageItems = languageSelectItems()
 const selectedLanguage = computed({
@@ -99,6 +116,20 @@ function unitItems(units: readonly string[]) {
             @click="colorMode.preference = opt.value"
           />
         </UFieldGroup>
+      </UCard>
+
+      <!-- The tools of the phone's tab bar -->
+      <!-- not clipped: the preview of the bar stays in view (`position: sticky`) while the rows are dragged under it -->
+      <UCard id="bar" :ui="{ root: 'overflow-visible' }">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-sliders-horizontal" class="text-primary-500 shrink-0" />
+            <h2 ref="barHeading" tabindex="-1" class="text-lg font-bold outline-none">
+              {{ t('settings.bar.title') }}
+            </h2>
+          </div>
+        </template>
+        <TabBarChooser />
       </UCard>
 
       <!-- Display & data -->

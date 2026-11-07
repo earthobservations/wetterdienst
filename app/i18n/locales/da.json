@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Masse pr. volumen",
     "unitSignificantWeather": "Signifikant vejr",
     "unitTurbidity": "Turbiditet",
-    "unitWindScale": "Vindskala"
+    "unitWindScale": "Vindskala",
+    "bar": {
+      "title": "Tilpas bjælken",
+      "hint": "På en telefon viser bjælken nederst på skærmen fire værktøjer og Menuen. Vælg hvilke fire. De andre bliver i Menuen.",
+      "preview": "Forhåndsvisning",
+      "previewLabel": "Forhåndsvisning af bjælken: {tools}, Menu",
+      "menuOnly": "Kun i Menuen: {tools}",
+      "inBar": "I bjælken",
+      "inMenu": "Kun i Menuen",
+      "instructions": "Træk et værktøj i dets håndtag, eller brug pileknapperne på dets række. Der er altid fire værktøjer i bjælken: når et kommer ind, går et andet ud.",
+      "moveUp": "Flyt {tool} op",
+      "moveDown": "Flyt {tool} ned",
+      "reset": "Nulstil bjælken",
+      "reorderedBar": "{tool} står nu på plads {position} af {total} i bjælken.",
+      "reorderedMenu": "{tool} står nu på plads {position} af {total} i Menuen.",
+      "enteredBar": "{tool} er nu i bjælken, på plads {position} af {total}. {other} er nu kun i Menuen.",
+      "leftBar": "{tool} er nu kun i Menuen. {other} er nu i bjælken, på plads {position} af {total}.",
+      "resetDone": "Bjælken er tilbage til standard: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Grader Celsius (°C)",

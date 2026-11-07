@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Mass pro Volumen",
     "unitSignificantWeather": "Signifikant Wieder",
     "unitTurbidity": "Tribheet",
-    "unitWindScale": "Wandskala"
+    "unitWindScale": "Wandskala",
+    "bar": {
+      "title": "Läischt upassen",
+      "hint": "Um Smartphone weist d'Läischt ënnen um Bildschierm véier Instrumenter an d'Menü. Wiel aus, wéi véier. Déi aner bleiwen am Menü.",
+      "preview": "Virschau",
+      "previewLabel": "Virschau vun der Läischt: {tools}, Menü",
+      "menuOnly": "Nëmmen am Menü: {tools}",
+      "inBar": "An der Läischt",
+      "inMenu": "Nëmmen am Menü",
+      "instructions": "Zitt en Instrument um Grëff, oder benotz d'Pfeil-Knäppercher an senger Zeil. Véier Instrumenter sinn ëmmer an der Läischt: wann een erakënnt, geet een aneren eraus.",
+      "moveUp": "{tool} no uewen réckelen",
+      "moveDown": "{tool} no ënnen réckelen",
+      "reset": "Läischt zrécksetzen",
+      "reorderedBar": "{tool} steet elo op Plaz {position} vu {total} an der Läischt.",
+      "reorderedMenu": "{tool} steet elo op Plaz {position} vu {total} am Menü.",
+      "enteredBar": "{tool} ass elo an der Läischt, op Plaz {position} vu {total}. {other} ass elo nëmmen nach am Menü.",
+      "leftBar": "{tool} ass elo nëmmen nach am Menü. {other} ass elo an der Läischt, op Plaz {position} vu {total}.",
+      "resetDone": "D'Läischt ass erëm wéi um Ufank: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

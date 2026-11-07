@@ -137,3 +137,19 @@ describe('the tiles of the tools (GH-3650)', () => {
       expect(distance(hue(token('color-tile-map')), hue(token(`color-tile-${other}`))), other).toBeGreaterThanOrEqual(40)
   })
 })
+
+describe('the arrow buttons of the phone bar\'s chooser (GH-3846)', () => {
+  // their edge is the muted text colour, on the row's raised background (1.4.11: 3:1)
+  it('has the muted text colour as its edge', () => {
+    expect(/\.bar-move \{[^}]*border: 1px solid var\(--ui-text-muted\)/.test(css)).toBe(true)
+  })
+
+  it.each([
+    ['light, on the row', ink(600), ink(100)],
+    ['light, on the button\'s own fill', ink(600), WHITE],
+    ['dark, on the row', ink(400), darkToken('ui-bg-elevated')],
+    ['dark, on the button\'s own fill', ink(400), darkToken('ui-bg')],
+  ])('clears 3:1 against what it lies on, %s', (_where, edge, ground) => {
+    expect(contrast(edge, ground)).toBeGreaterThanOrEqual(3)
+  })
+})

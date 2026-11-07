@@ -402,7 +402,9 @@ test.describe('the map tool on a phone', () => {
     await expect(page).toHaveURL(/\/map$/)
     await expect(menu).toHaveAttribute('aria-current', 'true')
     await bar.getByRole('link', { name: en.nav.history }).click()
-    await expect(page).toHaveURL(/\/history/)
+    // the history page writes its default query into the address a moment after it opens (`router.replace`): a Back
+    // before that is followed by the page's own navigation to /history, so it is waited for
+    await expect(page).toHaveURL(/\/history\?provider=dwd/)
     await expect(menu).not.toHaveAttribute('aria-current', 'true')
     await expect(bar.getByRole('link', { name: en.nav.history })).toHaveAttribute('aria-current', 'page')
     await page.goBack()
