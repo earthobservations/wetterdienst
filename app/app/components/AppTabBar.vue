@@ -1,20 +1,41 @@
 <script setup lang="ts">
-import { EXTERNAL, inSection, PROJECT, REFERENCE, SHEET_ONLY_TOOLS, TAB_BAR_TOOLS, TOOLS } from '~/utils/sections'
+import { EXTERNAL, inSection, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
 
 // The navigation of the narrow layout (GH-3518): four tools as tabs at the foot of the window, where a thumb
 // reaches them, and a fifth that opens the rest (the home page, the tools, the reference, the project,
 // the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the bar holds four tools and
-// the Menu, the four it had before the map, and the map is in the sheet, which lists all five tools in the order of
-// the header. While one is on the map the Menu's tab is marked as the page one is on (`aria-current`, which a screen
-// reader says, and the bar over it), since the sheet is where it is. The
-// sheet is a dialog: the focus stays in it, Escape closes it and gives the focus back to its tab, and the
-// page behind it is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2).
+// the Menu; which four is the reader's choice (GH-3846, `useTabBar`), Forecast, Explorer, Stripes and History until
+// they choose, and the sheet lists all five tools in the order of the header, with the link to the chooser. The tab of
+// the page one is on is marked (`aria-current="page"`); where the page is one that has no tab but is in the sheet (a
+// tool the reader left out of the bar, the reference and the project's pages, the settings) the Menu's tab is marked
+// instead (`aria-current="true"`, which a screen reader says, and the bar over it), since the sheet is where it is
+// (GH-3851). The home page and the legal pages mark nothing. The sheet is a dialog: the focus stays in it, Escape
+// closes it and gives the focus back to its tab, and the page behind it is hidden from a screen reader while it is
+// open (WCAG 2.1.2, 2.4.3, 4.1.2).
 //
 // In a window too low for two bars and a page between them (a phone on its side, 400 % zoom) the bar stops being
 // fixed and stands under the header (main.css, `.app-tabbar`), so it never covers what it would scroll over.
 const { t } = useI18n()
 const route = useRoute()
 const open = ref(false)
+
+// A sheet gives the focus back to its tab when it closes. On the way to the chooser of the bar (`/settings#bar`) the
+// settings page takes the focus to the chooser's heading, which the tab would then take back, so the sheet is told to
+// leave it where it is, once, when the link takes the reader somewhere else than where the reader already is.
+const toChooser = ref(false)
+function openChooser(event: MouseEvent) {
+  // a click that opens the link elsewhere (a new tab, a new window, a download) leaves this page and its sheet as they are
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
+    return
+  toChooser.value = route.path !== '/settings' || route.hash !== '#bar'
+  open.value = false
+}
+function keepFocus(event: Event) {
+  if (toChooser.value) {
+    event.preventDefault()
+    toChooser.value = false
+  }
+}
 
 watch(() => route.path, () => {
   open.value = false
@@ -28,14 +49,16 @@ watch(wide, (isWide) => {
 })
 
 const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ to }, route.path)
-// the page is one of a tool that has no tab (the map): the Menu is where it is found
-const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to)))
+const { barTools, menuTools } = useTabBar()
+// the page is one that has no tab and is found in the sheet: a tool that is not in the bar, the reference, the project
+// and the settings. The home page and the legal pages are not among them.
+const inSheet = computed(() => [...menuTools.value, ...REFERENCE, ...PROJECT].some(section => isCurrent(section.to)))
 </script>
 
 <template>
   <nav :aria-label="t('shell.mainNav')" class="app-tabbar lg:hidden" data-print="hide">
     <ul class="grid h-full grid-cols-5">
-      <li v-for="tool in TAB_BAR_TOOLS" :key="tool.key">
+      <li v-for="tool in barTools" :key="tool.key">
         <NuxtLink :to="tool.to" class="tabbar-item" :aria-current="isCurrent(tool.to) ? 'page' : undefined">
           <ToolTile :tile="tool.tile" :icon="tool.icon" size="1.625rem" />
           <span class="tabbar-label">{{ t(tool.label) }}</span>
@@ -61,6 +84,7 @@ const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to))
 
   <UModal
     v-model:open="open"
+    :content="{ onCloseAutoFocus: keepFocus }"
     :title="t('header.menu')"
     :ui="{
       content: 'menu-sheet max-w-none sm:max-w-lg w-full sm:w-[calc(100vw-2rem)] top-auto bottom-0 sm:bottom-auto sm:top-1/2 left-0 sm:left-1/2 translate-x-0 sm:-translate-x-1/2 translate-y-0 sm:-translate-y-1/2 rounded-b-none sm:rounded-b-2xl max-h-[min(88dvh,44rem)]',
@@ -94,6 +118,12 @@ const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to))
               <NuxtLink :to="tool.to" class="sheet-link" :aria-current="isCurrent(tool.to) ? 'page' : undefined" @click="open = false">
                 <ToolTile :tile="tool.tile" :icon="tool.icon" size="2rem" />
                 {{ t(tool.label) }}
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink to="/settings#bar" class="sheet-link" @click="openChooser">
+                <UIcon name="i-ph-sliders-horizontal" class="size-5 shrink-0 text-muted" />
+                {{ t('settings.bar.title') }}
               </NuxtLink>
             </li>
           </ul>

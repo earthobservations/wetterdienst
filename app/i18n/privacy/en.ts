@@ -9,7 +9,7 @@ import type { PrivacyPolicy } from './de'
 
 export const privacy: PrivacyPolicy = {
   title: 'Privacy policy',
-  updated: 'Last updated: 2 November 2026',
+  updated: 'Last updated: 7 November 2026',
   binding: 'This is a translation. The German version (Datenschutzerklärung) is the legally binding one.',
   intro: 'This policy describes which personal data is processed when you visit wetterdienst.eobs.org and when you use the REST API and the MCP server of Wetterdienst. There are no user accounts, no registration, no analytics or tracking services and no advertising.',
   controller: {
@@ -50,7 +50,7 @@ export const privacy: PrivacyPolicy = {
       ],
       items: [
         'Cookie wd_lang: stores the language of the interface. Lifetime 365 days, path /, SameSite=Lax.',
-        'localStorage wd_settings: your display settings (parameter names, units and the display of the climate stripes).',
+        'localStorage wd_settings: your display settings (parameter names, units, the display of the climate stripes and which tools are in the tab bar of the phone layout).',
         'localStorage meteogram.view: whether the meteogram is shown as a chart, in its compact view or as a table. A value stored earlier under meteogram.compact is taken over once and deleted.',
         'localStorage wd-place: the weather station of "Ask the weather" (its number, name, position and region), chosen on the home page or named by a link you opened. The entry itself stays in your browser. The station\'s number and position are in the requests for the answers (see "Log data"), and its number is in the address of the page (place=) once chosen.',
         'localStorage nuxt-color-mode: the colour scheme you chose (light, dark or system).',

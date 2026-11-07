@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { EXTERNAL, inSection, MAP_TOOL, PROJECT, REFERENCE, sectionOf, SECTIONS, SHEET_ONLY_TOOLS, TAB_BAR_TOOLS, TOOLS } from '../../app/utils/sections'
+import { EXTERNAL, inSection, MAP_TOOL, PROJECT, REFERENCE, sectionOf, SECTIONS, TOOLS } from '../../app/utils/sections'
+import { barKeys, DEFAULT_TOOL_ORDER, menuKeys } from '../../app/utils/tab-bar'
 
 // The places of the app as the navigation shows them (GH-3518): one list for the header, the tab bar, the menu sheet,
 // the search, the footer and the head of each page.
@@ -19,12 +20,12 @@ describe('the sections', () => {
     expect(MAP_TOOL.tile).toBe('map')
   })
 
-  it('keep the four tools it had in the tab bar of the narrow layout, and the map in the menu', () => {
-    // five tools and the Menu are six items, more than a tab bar holds (GH-3650)
-    expect(TAB_BAR_TOOLS.map(tool => tool.key)).toEqual(['forecast', 'explorer', 'stripes', 'history'])
-    expect(SHEET_ONLY_TOOLS.map(tool => tool.key)).toEqual(['map'])
+  it('are in the tab bar of the narrow layout as the reader chose, with the four it had before the map as the default', () => {
+    // five tools and the Menu are six items, more than a tab bar holds (GH-3650); which four is a choice (GH-3846)
+    expect(barKeys(DEFAULT_TOOL_ORDER)).toEqual(['forecast', 'explorer', 'stripes', 'history'])
+    expect(menuKeys(DEFAULT_TOOL_ORDER)).toEqual(['map'])
     // every tool is one or the other, so that none is lost from the narrow layout
-    expect([...TAB_BAR_TOOLS, ...SHEET_ONLY_TOOLS].map(tool => tool.key).sort()).toEqual(TOOLS.map(tool => tool.key).sort())
+    expect([...barKeys(DEFAULT_TOOL_ORDER), ...menuKeys(DEFAULT_TOOL_ORDER)].sort()).toEqual(TOOLS.map(tool => tool.key).sort())
   })
 
   it('are each a page of the app', () => {

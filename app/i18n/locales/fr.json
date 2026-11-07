@@ -282,7 +282,25 @@
     "unitMassPerVolume": "Masse par volume",
     "unitSignificantWeather": "Temps significatif",
     "unitTurbidity": "Turbidité",
-    "unitWindScale": "Échelle de vent"
+    "unitWindScale": "Échelle de vent",
+    "bar": {
+      "title": "Personnaliser la barre",
+      "hint": "Sur un téléphone, la barre en bas de l'écran affiche quatre outils et le Menu. Choisis lesquels. Les autres restent dans le Menu.",
+      "preview": "Aperçu",
+      "previewLabel": "Aperçu de la barre : {tools}, Menu",
+      "menuOnly": "Seulement dans le Menu : {tools}",
+      "inBar": "Dans la barre",
+      "inMenu": "Seulement dans le Menu",
+      "instructions": "Fais glisser un outil par sa poignée, ou appuie sur les boutons fléchés de sa ligne. Quatre outils sont toujours dans la barre : quand l'un entre, un autre sort.",
+      "moveUp": "Monter {tool}",
+      "moveDown": "Descendre {tool}",
+      "reset": "Réinitialiser la barre",
+      "reorderedBar": "{tool} est maintenant à la place {position} sur {total} dans la barre.",
+      "reorderedMenu": "{tool} est maintenant à la place {position} sur {total} dans le Menu.",
+      "enteredBar": "{tool} est maintenant dans la barre, à la place {position} sur {total}. {other} est maintenant seulement dans le Menu.",
+      "leftBar": "{tool} est maintenant seulement dans le Menu. {other} est maintenant dans la barre, à la place {position} sur {total}.",
+      "resetDone": "La barre est revenue à son état d'origine : {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Degrés Celsius (°C)",
