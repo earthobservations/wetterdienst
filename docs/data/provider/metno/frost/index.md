@@ -223,22 +223,40 @@ Together at least 65 dates of the maximum and 68 of the minimum are no longer re
 2,651,296 station-days that both series are valid for. No station of the list loses its series: all 683 have `PT18H`.
 The answer's warning counts both kinds for the window asked.
 
-### Other elements with several series
+## The two series of the daily and monthly mean temperature
 
-Of the other elements the provider reads, these have more than one offset at a station (Frost's time-series listing of
-2026-11-07, which also holds closed stations that the station list does not):
+`mean(air_temperature P1D)` and `mean(air_temperature P1M)` have two series by `timeOffset` at most stations: `PT0H`, the
+calendar day (the hourly readings stamped 00:00 to 23:00), and `PT6H`, the 06-06 UTC mean. Frost's table of standard offsets
+does not list them, and says "For cases not listed above, PT0H is always the preferred offset when multiple offsets are
+returned". Frost answers both, `PT0H` first, and the core kept the first row of a date: the calendar day wherever `PT0H` has a
+date, and the 06-06 UTC mean on a date it lacks. One parameter was in two windows, along a station's series
+([#3855](https://github.com/earthobservations/wetterdienst/issues/3855)).
 
-| element | offsets | stations with both | what is returned |
-|---|---|---|---|
-| `mean(air_temperature P1D)` | `PT0H`, `PT6H` | 1,063 of 1,695 (7 have `PT6H` only, so 1,070 have a `PT6H` series; 1 has `PT18H` only); 609 of the 1,138 of the station list, none with `PT6H` only | `PT0H`, the calendar day (00-00 UTC) the description says: it sorts first. **On the days that only `PT6H` has it is that one** (06-06 UTC): 3,694 days at 11 stations of the station list were found (SN25830 2,966, SN27270 603, SN92750 84), counted for the stations whose `PT6H` validity goes beyond the `PT0H` one; the other stations were not read, so it is a lower bound |
-| `mean(air_temperature P1M)` | `PT0H`, `PT6H` | 1,054 of 1,316 (5 have `PT6H` only, so 1,059 have a `PT6H` series); 605 of the 650 of the station list, none with `PT6H` only | `PT0H`; on the months that only `PT6H` has it is that one: 192 months at 14 stations of the station list (SN25830 75, SN55000 54, SN99754 17, SN18269 16, SN34130 15; same limit) |
+**Decided on 2026-11-07, as for the precipitation sums and the temperature extremes: the mean is the calendar day alone.** Only
+the rows of `PT0H` are returned. A date that only `PT6H` (or `PT18H`) has is not returned in any window, and the answer says
+so with an `other-window-left-out` warning, never as "the source has no values". A station that has no `PT0H` series returns no
+mean (none of the station list is without it). There is no option for the old series.
 
-Frost's table prefers `PT0H` for them ("For cases not listed above, PT0H is always the preferred offset when multiple
-offsets are returned"), so the mean is the calendar day except on those days. That is not changed here: the maintainer's
-decision of 2026-11-07 is about the maximum and minimum, and the daily and monthly means keep their rows as they come.
+Counted from the readings Frost had on 2026-11-07, for the stations of the station list (Frost's `/sources` catalogue; a
+station of Frost's listing that is not in it answers `unknown-station`):
 
-Every other element has one offset (the monthly and annual temperature extremes `PT18H`; the daily snow depth, its
-monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`).
+| element | stations with both series | days or months that only `PT6H` has |
+|---|---|---|
+| `mean(air_temperature P1D)` | 609 of the 1,138 with a daily mean (Frost's listing: 1,063 of 1,695; 7 stations have `PT6H` only and 1 has `PT18H` only, none of them in the station list) | **at least 3,694 days at 11 stations** (SN25830 2,966, SN27270 603, SN92750 84, SN20301 6, SN26900 12, SN26060 10, SN73550 4, SN27316 3, SN27214 2, SN27318 2, SN67280 2): read for the stations whose `PT6H` validity goes beyond the `PT0H` one, which reproduces the figure of the issue, and 11 of the days are 2026-11-07 itself. A lower bound: the days that `PT6H` has inside the validity of `PT0H` were not read for the other 598 stations |
+| `mean(air_temperature P1M)` | 605 of the 650 with a monthly mean | **901 months at 179 stations**: 97 outside the validity of `PT0H` at 14 stations (SN25830 72, SN99754 10, SN55000 4) and 804 gaps inside it at 172 (SN56420 84, SN55000 50, SN92350 32, SN27450 26, SN31680 21); 10 of them are November 2026. This is every station, all years |
+
+The issue gave 192 months at 14 stations; the 14 stations are right and the months with a reading outside the validity of
+`PT0H` are 97. The monthly count shows what the daily lower bound leaves out: 804 of the 901 months are gaps inside the
+validity, so the days that only `PT6H` has are many more than 3,694. Reading the daily series of all 609 stations (about 1,300
+requests of 40-year windows at 1.1 s, which Frost answers at about eight a minute) was not done.
+
+Where both exist the values differ. Months: 101,633 of 131,739 (77 %), by 1 degC or more in 1,697; median 0.2 degC where they
+differ, largest 13.3. Days at the 11 stations: 56,657 of 58,152 (97 %), 32,200 by 1 degC or more; median 1.1 degC, largest 13.6
+SN25830 on
+2020-01-01: -2.2 (`PT0H`) and -3.8 (`PT6H`); on 1993-11-16 only `PT6H` has a value, -9.8, which was returned and is not now.
+
+Every other element has one offset except the ones above (the monthly and annual temperature extremes `PT18H`; the daily snow
+depth, its monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`).
 
 ## The code -1 of the precipitation sums
 
@@ -260,12 +278,62 @@ had "no values". What wetterdienst returns now:
 |---|---|---|---|
 | `6_hours/data/precipitation_amount` | `0.0` | `null` | Frost states it. The year is ours: Frost states no date limit, and we depart from it on data grounds (below) |
 | `hourly/data/precipitation_amount` | `0.0` | `null` | **our reading**: Frost's table does not list `sum(precipitation_amount PT1H)`, only `sum_over_undefined_period(precipitation_amount PT1H)`. Evidence below |
-| `daily/data/precipitation_amount` | `null` | `null` | Frost states `0.0` mm. Left as it was (`rejected:range,raw:-1`) until [#3820](https://github.com/earthobservations/wetterdienst/issues/3820) has measured it: at stations that read periodically, once a week, the `-1` also marks a day that was not read |
+| `daily/data/precipitation_amount` | `0.0` | `0.0` | Frost states it ("converted to 0.0 mm"), and the value is read at every station and in every year: no cut-off year. **One exception**: SN81930 (Storstilla) up to and including 1993 is `null`, where the `-1` is a day nobody read the gauge on ([below](#the-daily--1-and-the-weekly-reader)) |
 | `10_minutes`, `monthly`, `annual` precipitation | `null` | `null` | Frost states nothing for them and none of the readings is `-1` (10-minute, annual), or none since 1954 (monthly): below the range, as before |
 
 The code stays in `quality_flags` as the last token, after Frost's quality code (`2,raw:-1`), for the `0.0` and for the
-`null` before 1982 alike, so `raw:-1` is the filter that finds every one of them. A `0` of Frost is a `0.0` and stays
-one.
+`null` before 1982 (and the `null` of the weekly reader's unread days) alike, so `raw:-1` is the filter that finds every
+one of them. A `0` of Frost is a `0.0` and stays one.
+
+Only the daily sum of the 06-06 series is decided this way for the days. The monthly sum (305 `-1`, none since 1954), the
+10-minute and the annual sum, and every other element keep the `null` of the range check, as before: a `-1` of a
+temperature is a temperature.
+
+### The daily `-1` and the weekly reader
+
+The daily sum (`sum(precipitation_amount P1D)`, the 06-06 UTC series that is returned) has `-1` on 13,869 of its 8,940,078
+rows (0.16 %), measured on 2026-11-07 over every station of the station list that has a daily series and all years
+([#3820](https://github.com/earthobservations/wetterdienst/issues/3820)). The 18-18 series (`PT18H`) has none in 3,598,222
+rows and is not returned. Most of it is two stations and a new series:
+
+| group | days | stations | when | what the evidence says |
+|---|---:|---:|---|---|
+| SN99700 Bjørnøya (radiosonde) | 11,174 | 1 | 1895-07 to 1956-12 | a dry day: 1 mm or more on 25.6 % of its days (1930-56) against 25.3 % at SN99710 beside it and 24.6 % at SN99720 Hopen |
+| **SN81930 Storstilla, up to 1993** | **1,860** | **1** | **1987-12 to 1993-11** | **a day nobody read the gauge on** |
+| SN81930, from 1994 | 150 | 1 | 1994-01 to 2008-05 | dry-like (neighbours 18.9 % wet) |
+| the WMO series Frost lists since 2026-11-03 | 597 | 202 | 2026-11-04 to 07 | a dry day: both 12-hourly halves are `-1` in 472 of 472 days that have both |
+| isolated `-1` | 88 | 39 | 2006-10 to 2018-07 | mostly dry (neighbours wet on 9.4 %); 55 are on the first of a month |
+
+**Returned as Frost states: `0.0` with `raw:-1`, at every station and in every year**, but for SN81930 up to and including
+1993. Where a `-1` has a 12-hourly half, it is as dry as a daily `0` (485 of 485 days).
+
+**The exception.** SN81930 is a weekly reader: a reading every 7th day (17.5 mm, then 32.5 mm, between runs of eight `-1` in
+1990), and the days between are `-1`. The `-1` is the filler of a day nobody read, and the week's rain sits in the next
+reading. The neighbours (75 to 100 km away, 450 to 550 m lower, so a baseline and no measurement of the same sky) are wet on
+48.0 % of those days, as on 49.2 % of all days of the station: the `-1` says nothing about the weather. A reading after a run
+of `-1` follows the run's total of the neighbours (Spearman 0.63) and not the day's (0.28). Those days are `null` with
+`raw:-1`, and have no row by default. From 1994 the station writes rows on its reading day only and its few `-1` are
+dry-like, and `0.0`.
+
+**The rule that finds such a station.** In a calendar year, a median gap of 4 days or more between the readings and at least
+half of the rows `-1`. It selects exactly SN81930 for 1987 to 1993 (7 station-years, 1,860 `-1`) of every station and year,
+and nothing else. The live tests hold it: `test_metno_frost_the_weekly_reader_rule_finds_storstilla_and_no_other_station_of_its_controls`
+reads SN81930 and four stations that could be taken for it, and `test_metno_frost_every_weekly_reader_of_the_catalogue_is_named_by_the_reader`
+reads the daily sum of every station of the station list (about 1,000 requests of up to the whole span of a station, more than an hour, so only with `FROST_WEEKLY_READER_SWEEP=1`)
+and fails for a station-year the rule finds that the reader does not name, so that a new weekly reader shows up as a failing
+test. The 58 stations with a median gap of 4 days or more in some year (monthly readers, mostly) write no `-1` but SN81930
+and SN30320 (8 days, 2013 to 2016).
+
+**Not covered.** The census names these so that they are not found again as a surprise: SN17150 Rygge 2006-10-08 has rain
+beside it, and the first-of-the-month `-1` (on 2015-05-01 five stations of 498 have one, among them SN30320) look like an
+artefact of the month boundary of the source. They are 0.06 % and 0.4 % of the `-1` and are `0.0`. The WMO series is four
+days old: it is worth looking at again when it is a month old.
+
+**What it does to a caller.** `drop_nulls=False` keeps the unread days of Storstilla; the default drops them. A `0.0` that
+carries `raw:-1` is no null to `drop_nulls` and is not judged by the checks (a code of the source), as the 6-hourly one
+is ([below](#checks-do-not-see-the-code)). Bjørnøya's daily precipitation
+of 1895 to 1956 had about half of its days dropped, and has them as `0.0` now. A series stored from the old reader holds
+`null` (`rejected:range,raw:-1`) for every `-1`: read it anew, and filter on `raw:-1` to find the former nulls.
 
 ### Why `null` before 1982
 

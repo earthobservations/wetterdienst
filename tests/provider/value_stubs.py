@@ -2045,8 +2045,9 @@ def _metno_frost_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_null
 
 def _metno_frost_daily_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `sum(precipitation_amount P1D)`, SN1193400, 2026-11-03 to 11-06 as Frost wrote it (stamped 06:00, the offset
-    # PT6H): a day of rain, one of 0.2 mm, then two days of -1. Frost states 0.0 mm for it, and it is not read
-    # here (GH-3820): the range check nulls it, `rejected:range,raw:-1`, as it always did
+    # PT6H): a day of rain, one of 0.2 mm, then two days of -1. Frost states 0.0 mm for it ("converted to 0.0 mm" in
+    # its data clarifications, https://frost.met.no/dataclarifications.html), and the 12-hourly halves of a -1 of these
+    # WMO stations are both -1 in 472 of 472 days (GH-3820)
     return _metno_frost_precipitation(
         monkeypatch,
         drop_nulls,
@@ -2059,6 +2060,34 @@ def _metno_frost_daily_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls
             ("2026-11-06T06:00:00.000Z", -1, 2),
         ],
         window=(_day(2026, 11, 3), _day(2026, 11, 6)),
+    )
+
+
+def _metno_frost_daily_precipitation_weekly_reader(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # `sum(precipitation_amount P1D)`, SN81930 (Storstilla), written after its 1990 (a reading each 7th day, the days
+    # between are -1: eight -1, 17.5, eight -1, 32.5), a weekly reader whose -1 up to and including 1993 is a day
+    # nobody read the gauge on, so that the week's rain sits in the next reading: null, with the code kept. The -1 of
+    # 1994 on is dry-like and 0.0 (GH-3820)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("daily", "P1D", "PT6H"),
+        station="SN81930",
+        readings=[
+            ("1990-03-01T06:00:00.000Z", -1, 2),
+            ("1990-03-02T06:00:00.000Z", -1, 2),
+            ("1990-03-03T06:00:00.000Z", -1, 2),
+            ("1990-03-04T06:00:00.000Z", -1, 2),
+            ("1990-03-05T06:00:00.000Z", -1, 2),
+            ("1990-03-06T06:00:00.000Z", -1, 2),
+            ("1990-03-07T06:00:00.000Z", 17.5, 2),
+            ("1990-03-08T06:00:00.000Z", -1, 2),
+            ("1990-03-09T06:00:00.000Z", -1, 2),
+        ],
+        window=(_day(1990, 3, 1), _day(1990, 3, 9)),
     )
 
 
@@ -3045,10 +3074,17 @@ STUBS = [
         "metno/frost daily/data (precipitation)",
         _metno_frost_daily_precipitation,
         reading=("precipitation_amount", 1.0),
-        # the daily -1 is not read (GH-3820): the range check rejects it, and the code is kept in the flags
+        # the daily -1 is a sum of zero, as Frost states (GH-3820)
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost daily/data (precipitation, weekly reader)",
+        _metno_frost_daily_precipitation_weekly_reader,
+        reading=("precipitation_amount", 17.5),
+        # the -1 of a day nobody read is no value: null, with the code in the flags (GH-3820)
         sentinels=(("precipitation_amount", -1.0),),
         tokens=(("precipitation_amount", "-1", None),),
-        verdicts=(("precipitation_amount", "-1", "range"),),
     ),
     ValueStub(
         "knmi/observation daily/data",

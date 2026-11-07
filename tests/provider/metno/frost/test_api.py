@@ -3,6 +3,8 @@
 """Tests for MET Norway Frost API provider."""
 
 import datetime as dt
+import json
+import os
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -10,7 +12,10 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
+from tests.provider.metno.frost.weekly_readers import unread_station_years
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
+from wetterdienst.util.network import download_file
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 OSLO_BLINDERN = "SN18700"
@@ -233,8 +238,8 @@ def test_metno_frost_values_daily_answer_without_a_quality_code_is_read() -> Non
     """The daily precipitation of Skien on 2015-05-01 has no `qualityCode` and is read (GH-3748).
 
     Frost leaves the key out of the observation; selecting the column raised a `ColumnNotFoundError`. The value is -1,
-    which Frost states as 0.0 mm and which is not read for the daily sum yet (GH-3820): null, as the range check made it
-    before, with the code in the flags and no quality code in front of it.
+    which Frost states as 0.0 mm and reads as 0.0 (GH-3820), as the range check made it null before: the code is in the
+    flags with no quality code in front of it.
     """
     df = (
         MetnoFrostRequest(
@@ -248,8 +253,8 @@ def test_metno_frost_values_daily_answer_without_a_quality_code_is_read() -> Non
         .all()
         .df
     )
-    assert df["value"].to_list() == [None]
-    assert df["quality_flags"].to_list() == ["rejected:range,raw:-1"]
+    assert df["value"].to_list() == [0.0]
+    assert df["quality_flags"].to_list() == ["raw:-1"]
 
 
 @pytest.mark.remote
@@ -545,3 +550,309 @@ def test_metno_frost_values_daily_temperature_extreme_of_a_gap_date_is_left_out_
             assert warning["parameter"] == f"daily/data/{parameter}"
             assert warning["stations"] == ["SN60850"]
             assert "on 1 date that is not in the answer (SN60850 1)" in warning["message"]
+
+
+def _daily(
+    station: str, first: dt.datetime, last: dt.datetime, parameter: str = "precipitation_amount"
+) -> pl.DataFrame:
+    """Give the daily rows of `station` for `parameter`, null rows kept."""
+    return (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", parameter)],
+            start=first,
+            end=last,
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id(station)
+        .values()
+        .all()
+        .df.sort("timestamp")
+    )
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_minus_one_of_bjornoya_is_a_dry_day() -> None:
+    """The daily `-1` of Bjornoya in 1955 is 0.0 with the code, where it was null (GH-3820).
+
+    SN99700 has 11,174 of the 13,869 daily `-1`, from 1895 to 1956, a dry day by climatology (1 mm or more on 25.6 % of
+    its days against 25.3 % at the station beside it). Frost states `-1` as 0.0 mm. 1955-01-01 is `-1` (quality 2),
+    01-02 is 1.0 mm.
+    """
+    # the station starts on 1956-09-01 in Frost's list: the window runs past it (one that ends before it is not read)
+    df = _daily("SN99700", dt.datetime(1955, 1, 1, tzinfo=UTC), dt.datetime(1957, 1, 1, tzinfo=UTC)).head(3)
+    assert df["value"].to_list() == [0.0, 1.0, 0.0]
+    assert df["quality_flags"].to_list() == ["2,raw:-1", "2", "2,raw:-1"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_minus_one_of_storstilla_is_unread_up_to_1993() -> None:
+    """The daily `-1` of SN81930 up to 1993 is a day nobody read: null with the code; from 1994 it is 0.0 (GH-3820).
+
+    SN81930 is a weekly reader: in March 1990 the days 1 to 5 and 7 to 11 are `-1` and 03-06 is 31.5 mm (the week's
+    rain).
+    From 1994 it writes rows on its reading day, and the `-1` of 1994-03-01 (quality 7) is a dry day, 0.0 with the code
+    and without `suspect:source` (a code of the source is not judged), where the reading of 1994-03-07 (7.0, quality 7)
+    is `suspect:source`.
+    """
+    df = _daily("SN81930", dt.datetime(1990, 3, 4, tzinfo=UTC), dt.datetime(1990, 3, 7, tzinfo=UTC))
+    assert df["value"].to_list() == [None, None, 31.5, None]
+    assert df["quality_flags"].to_list() == ["0,raw:-1", "0,raw:-1", "0", "0,raw:-1"]
+    # the default drops the unread days: only the week's reading is left
+    default = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(1990, 3, 4, tzinfo=UTC),
+            end=dt.datetime(1990, 3, 7, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN81930")
+        .values()
+        .all()
+        .df
+    )
+    assert default["value"].to_list() == [31.5]
+    df = _daily("SN81930", dt.datetime(1994, 3, 1, tzinfo=UTC), dt.datetime(1994, 3, 7, tzinfo=UTC))
+    assert df["value"].to_list() == [0.0, 0.0, 0.0, 0.0, 7.0]
+    assert df["quality_flags"].to_list() == ["7,raw:-1"] * 4 + ["7,suspect:source"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_minus_one_of_a_wmo_station_of_2026_is_a_dry_day() -> None:
+    """The daily `-1` of SN1193400, a WMO station Frost lists since 2026-11-03, is 0.0 (GH-3820).
+
+    The series starts on 2026-11-04 (0.2 mm), and 2026-11-05 to 07 are `-1` (quality 2), a dry day: both 12-hourly
+    halves are `-1` in 472 of 472 days of such stations. These series are new: if Frost rolls its archive over, the
+    dates here are the first to go.
+    """
+    df = _daily("SN1193400", dt.datetime(2026, 11, 4, tzinfo=UTC), dt.datetime(2026, 11, 6, tzinfo=UTC))
+    assert df["value"].to_list() == [pytest.approx(0.2), 0.0, 0.0]
+    assert df["quality_flags"].to_list() == ["2", "2,raw:-1", "2,raw:-1"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_mean_temperature_is_the_calendar_day_and_leaves_pt6h_only_dates_out() -> None:
+    """The daily mean of SN25830 is the `PT0H` series; 1993-11-16 to 19 have `PT6H` only and are told (GH-3855).
+
+    SN25830 has 8,868 days of `PT0H` and 11,771 of `PT6H`: 2,966 days have `PT6H` only, the earlier ones among
+    them. 2020-01-01 has both, -2.2 (`PT0H`, quality 6) and -3.8 (`PT6H`), and 2020-01-02 -1.1 and -2.0. 1993-11-16 has
+    -9.8 in `PT6H` and nothing in `PT0H`: the reader returned it, a mean of another window, and does not now.
+    """
+    df = _daily(
+        "SN25830", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 3, tzinfo=UTC), "temperature_air_mean_2m"
+    )
+    assert df["value"].to_list() == [pytest.approx(-2.2), pytest.approx(-1.1), pytest.approx(-6.1)]
+
+    begin_response()
+    df = _daily(
+        "SN25830",
+        dt.datetime(1993, 11, 14, tzinfo=UTC),
+        dt.datetime(1993, 11, 19, tzinfo=UTC),
+        "temperature_air_mean_2m",
+    )
+    assert df.is_empty()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["parameter"] == "daily/data/temperature_air_mean_2m"
+    assert warning["stations"] == ["SN25830"]
+    assert "on 4 dates that are not in the answer (SN25830 4)" in warning["message"]
+    assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
+    # one date of the same window is the same answer: the date does not depend on the window
+    begin_response()
+    df = _daily(
+        "SN25830",
+        dt.datetime(1993, 11, 16, tzinfo=UTC),
+        dt.datetime(1993, 11, 16, tzinfo=UTC),
+        "temperature_air_mean_2m",
+    )
+    assert df.is_empty()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert "on 1 date that is not in the answer (SN25830 1)" in warning["message"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_monthly_mean_temperature_is_the_calendar_month_and_leaves_pt6h_only_months_out() -> None:
+    """The monthly mean of SN56420 is the `PT0H` series; 1994-02 has `PT6H` only (-1.1) and is told (GH-3855).
+
+    SN56420 has 84 months with `PT6H` only (1994-02 to 2005-09 among them) and 293 of `PT0H`. 2012-01 has both, 2.6
+    (`PT0H`) and 2.7 (`PT6H`).
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("monthly", "data", "temperature_air_mean_2m")],
+            start=dt.datetime(2012, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2012, 2, 1, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN56420")
+        .values()
+        .all()
+        .df.sort("timestamp")
+    )
+    assert df["value"].to_list() == [pytest.approx(2.6), pytest.approx(2.9)]
+
+    begin_response()
+    df = (
+        MetnoFrostRequest(
+            parameters=[("monthly", "data", "temperature_air_mean_2m")],
+            start=dt.datetime(1994, 2, 1, tzinfo=UTC),
+            end=dt.datetime(1994, 2, 1, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN56420")
+        .values()
+        .all()
+        .df
+    )
+    assert df.is_empty()
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "other-window-left-out"]
+    assert warning["parameter"] == "monthly/data/temperature_air_mean_2m"
+    assert "on 1 date that is not in the answer (SN56420 1)" in warning["message"]
+
+
+def _daily_sum_rows(station: str, first_year: int, last_year: int) -> pl.DataFrame:
+    """Give the rows of the daily sum of `station` as the reader hands them out, null rows kept (`drop_nulls=False`)."""
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(first_year, 1, 1, tzinfo=UTC),
+            end=dt.datetime(last_year, 12, 31, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id(station)
+        .values()
+        .all()
+        .df
+    )
+    return df.select(
+        pl.lit(station).alias("station_id"),
+        pl.col("timestamp").dt.date().alias("date"),
+        "value",
+        "quality_flags",
+    )
+
+
+@pytest.mark.remote
+def test_metno_frost_the_weekly_reader_rule_finds_storstilla_and_no_other_station_of_its_controls() -> None:
+    """The rule that finds a weekly reader gives SN81930 for 1987 to 1993, and none of four look-alike stations.
+
+    A median gap between the readings of 4 days or more and at least half of the rows `-1`, in a calendar year (the
+    census of 2026-11-07 gave exactly these 7 station-years of every station and year, GH-3820). The controls are the
+    ones that look like it: Bjornoya (a `-1` on 47 % of its days to 1956, read daily), Rygge and Skien-Elstrom (isolated
+    `-1`, the second reading once a month from 2015) and Vangsnes (a monthly reader with no `-1`). The years the reader
+    names (`_UNREAD_DAYS_THROUGH`) are the years the rule finds, so a new weekly reader that is found is named there.
+    """
+    from wetterdienst.provider.metno.frost.api import _UNREAD_DAYS_THROUGH  # noqa: PLC0415
+
+    storstilla = _daily_sum_rows("SN81930", 1987, 2009)
+    controls = [
+        _daily_sum_rows("SN99700", 1950, 1956),
+        _daily_sum_rows("SN17150", 2005, 2007),
+        _daily_sum_rows("SN30320", 2013, 2017),
+        _daily_sum_rows("SN53101", 1996, 2001),
+    ]
+    found = unread_station_years(pl.concat([storstilla, *controls]))
+    assert found == {("SN81930", year) for year in range(1987, 1994)}
+    assert {station: max(year for s, year in found if s == station) for station in {s for s, _ in found}} == (
+        _UNREAD_DAYS_THROUGH
+    )
+    # and the reader does what it says: null up to 1993 (no value), 0.0 from 1994, all with the code
+    minus_one = storstilla.filter(pl.col("quality_flags").str.ends_with("raw:-1"))
+    assert minus_one.filter(pl.col("date").dt.year() <= 1993)["value"].null_count() == 1860
+    assert minus_one.filter(pl.col("date").dt.year() <= 1993).height == 1860
+    assert minus_one.filter(pl.col("date").dt.year() >= 1994)["value"].to_list() == [0.0] * 150
+
+
+SWEEP = "FROST_WEEKLY_READER_SWEEP"
+
+
+@pytest.mark.remote
+@pytest.mark.slow
+@pytest.mark.skipif(
+    not os.environ.get(SWEEP),
+    reason=f"the sweep reads every station: set {SWEEP}=1 (or a number n: the first n and SN81930)",
+)
+def test_metno_frost_every_weekly_reader_of_the_catalogue_is_named_by_the_reader() -> None:
+    """The rule that finds a weekly reader gives the station-years the reader names, over every station of the list.
+
+    One request for the whole span of each station of the station list that has a daily precipitation series (the
+    series the reader returns: `timeoffsets=PT6H`), about 1,000 requests at 1.05 s, as the census of 2026-11-07 read
+    them. A station-year the rule finds that `_UNREAD_DAYS_THROUGH` does not name is a new weekly reader whose `-1` the
+    reader returns as a dry day (or a name that no longer is one): add it there, with the year, and to the docs
+    (GH-3820).
+    """
+    import time  # noqa: PLC0415
+    from urllib.parse import quote  # noqa: PLC0415
+
+    from aiohttp import encode_basic_auth  # noqa: PLC0415
+
+    from wetterdienst.provider.metno.frost.api import _UNREAD_DAYS_THROUGH  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    settings = Settings()
+    client_id, secret = settings.auth.metno_frost
+    client_kwargs = {
+        **settings.fsspec_client_kwargs,
+        "headers": {"Authorization": encode_basic_auth(client_id.get_secret_value(), secret.get_secret_value())},
+    }
+
+    def get(url: str) -> dict | None:
+        time.sleep(1.05)
+        file = download_file(
+            url=url,
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs=client_kwargs,
+            cache_disable=True,
+            use_certifi=settings.use_certifi,
+        )
+        if file.status in (404, 412):
+            return None
+        file.raise_if_exception()
+        return json.loads(file.content.read())
+
+    element = quote("sum(precipitation_amount P1D)")
+    listing = get(
+        "https://frost.met.no/observations/availableTimeSeries/v0.jsonld"
+        f"?elements={element}&timeresolutions=P1D&timeoffsets=PT6H"
+    )
+    in_listing = {series["sourceId"].split(":")[0] for series in listing["data"]}
+    catalogue = set(
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 1, 2, tzinfo=UTC),
+        )
+        .all()
+        .df["station_id"]
+        .to_list()
+    )
+    stations = sorted(in_listing & catalogue)
+    assert len(stations) > 900
+    limit = int(os.environ[SWEEP])
+    if limit > 1:
+        # a trial of the test itself: the first stations and the one weekly reader
+        stations = [*stations[:limit], "SN81930"]
+    frames = []
+    for station in stations:
+        answer = get(
+            "https://frost.met.no/observations/v0.jsonld"
+            f"?sources={station}&elements={element}&timeresolutions=P1D&timeoffsets=PT6H"
+            f"&referencetime=1874-01-01/{dt.datetime.now(UTC).date() + dt.timedelta(days=2)}"
+        )
+        if answer is None:
+            continue
+        rows = [
+            (observation["value"], row["referenceTime"][:10])
+            for row in answer["data"]
+            for observation in row["observations"]
+            if observation.get("value") is not None
+        ]
+        if rows:
+            frames.append(
+                pl.DataFrame({"value": [float(v) for v, _ in rows], "date": [d for _, d in rows]}).select(
+                    pl.lit(station).alias("station_id"),
+                    pl.col("date").str.to_date(),
+                    "value",
+                    pl.when(pl.col("value") == -1).then(pl.lit("raw:-1")).alias("quality_flags"),
+                )
+            )
+    found = unread_station_years(pl.concat(frames))
+    # every station-year the rule finds is one the reader names, and every station the reader names is found
+    assert {(station, year) for station, year in found if year > _UNREAD_DAYS_THROUGH.get(station, 0)} == set()
+    assert {station for station, _ in found} == set(_UNREAD_DAYS_THROUGH)

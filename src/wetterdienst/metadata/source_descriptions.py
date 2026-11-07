@@ -3948,11 +3948,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "mean(air_temperature P1D)"): (
             "Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula "
-            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). Frost "
-            "also has a 06-06 UTC series (PT6H), at 1,063 stations of its listing that have both and 7 that have "
-            "PT6H only; on "
-            "the days that only it has, which are rare (at least 3,694 days at 11 stations of the station list "
-            "were found: a lower bound), that one is returned."
+            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). Only "
+            "the calendar-day series is returned (`timeOffset` PT0H: the hourly readings stamped 00:00 to 23:00); "
+            "Frost also has a 06-06 UTC series (PT6H), at 1,063 stations of its listing that have both, which is "
+            "left out, and a station that has no PT0H series returns no values. A date that only PT6H has is not "
+            "returned and the answer says so (at least 3,694 days at 11 stations of the station list: a lower "
+            "bound) (GH-3855)."
         ),
         ("daily", "data", "mean(relative_humidity P1D)"): "Daily mean relative humidity.",
         ("daily", "data", "mean(surface_air_pressure P1D)"): (
@@ -3980,8 +3981,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sum(precipitation_amount P1D)"): (
             "Daily precipitation sum (between 06-06 UTC). Only this series is returned (`timeOffset` PT6H, the day "
             "from 06 UTC of the previous date); Frost also has the 18-18 UTC sum (PT18H). Code -1 means no "
-            "precipitation (Frost's data clarifications, 0.0 mm); it is returned as null for now, as at stations that "
-            "read periodically it also marks a day not read (GH-3820)."
+            "precipitation (Frost's data clarifications, 0.0 mm) and is returned as 0.0 with `raw:-1`, at "
+            "every station and in every year but one: SN81930 (Storstilla) up to and including 1993, a weekly reader "
+            "whose -1 marks a day nobody read the gauge on, is null with `raw:-1` (GH-3820)."
         ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
@@ -4047,7 +4049,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions."
         ),
         ("monthly", "data", "mean(air_temperature P1M)"): (
-            "Monthly mean temperature. The mean is an arithmetic mean of daily values."
+            "Monthly mean temperature. The mean is an arithmetic mean of daily values. Only the calendar-month "
+            "series is returned (`timeOffset` PT0H); Frost also has a 06-06 UTC series (PT6H), which is left out, "
+            "and a month that only it has is not returned and the answer says so (901 months at 179 stations of the "
+            "station list) (GH-3855)."
         ),
         ("monthly", "data", "mean(cloud_area_fraction P1M)"): (
             "Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC)."
