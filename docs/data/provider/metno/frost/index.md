@@ -78,7 +78,8 @@ not made by asking Frost for `timeoffsets`, because the request holds every elem
   precipitation, the snow depth and the mean temperature of the `PT6H` series (not the calendar day the description
   says), and none of the other 9 elements: no maximum or minimum temperature, no wind speed, humidity or pressure;
 - `timeoffsets=default` takes Frost's table for each element (100 rows there) and so also moves `max` and
-  `min(air_temperature P1D)` from `PT0H` to `PT18H`, which is a change of its own (below).
+  `min(air_temperature P1D)` from `PT0H` to `PT18H`, which the reader now does for those two on the rows of the
+  answer, with the dates it leaves out told ([below](#the-two-series-of-the-daily-maximum-and-minimum-temperature)).
 
 A date that only the 18-18 series has is not returned: it would be a sum of another window under this one's name. The
 answer says so, with an `other-window-left-out` warning that names the parameter, the stations and the number of dates
@@ -147,27 +148,97 @@ The two largest blocks that a caller meets: SN85380 returns 06-06 sums up to 201
 2020-03, with the warning, where it returned the 18-18 sums; SN12648 has nothing from 2017-07 to 2018-05-02 and its 06-06
 sums from 2018-05-03 on.
 
+## The two series of the daily maximum and minimum temperature
+
+`max(air_temperature P1D)` and `min(air_temperature P1D)` have the same two series by `timeOffset` as the precipitation
+sums, and Frost's table of preferred offsets names the one to take
+([data clarifications](https://frost.met.no/dataclarifications.html), "Standard time offsets"). A series is named here
+by the 24 hours it ends: the 24 hours ending 18 UTC of the date are "18-18 UTC" (`PT18H`, as for the precipitation sum
+above), and the series Frost files as the calendar day is `PT0H`:
+
+| element | offset | window | Frost's table of preferred offsets |
+|---|---|---|---|
+| `max(air_temperature P1D)` | `PT18H` | the 24 hours ending 18 UTC of the date: the hourly readings stamped `D-1` 19:00 to `D` 18:00 | preferred: "Standard sampling period for temperature extremes is 19-18 UTC" |
+| `max(air_temperature P1D)` | `PT0H` | the series Frost files as the calendar day: the hourly readings stamped `D` 00:00 to 23:00 | |
+| `min(air_temperature P1D)` | `PT18H`, `PT0H` | the same | preferred: the same words |
+
+Frost's "19-18 UTC" names the hourly stamps 19:00 to 18:00 and so the 24 hours ending 18 UTC (19:00 to 18:00 of stamps is
+not 23 hours; `PT0H` is named by its stamps only, 00:00 to 23:00, as the hours it ends are another reading of them). The concepts page says what `timeOffset` means ("If timeOffset != PT0H, the observation represents the last
+24 hr, at the time after midnight equal to timeOffset"). The windows were read off the data on 2026-11-07: the maximum of
+the hourly `max(air_temperature PT1H)` stamped `D-1` 19:00 to `D` 18:00 equals the `PT18H` value on 16 of 16 days at
+SN18700 and at SN50540 (2026-10-20 to 11-04), and the stamps `D` 00:00 to 23:00 equal the `PT0H` value on the same 16;
+the same holds for the minimum and `min(air_temperature PT1H)`. The two windows are 5 hours apart in the hourly stamps.
+
+Frost answers both series for a date when no `timeoffsets` is asked for, `PT0H` before `PT18H` (the offsets sort as
+text), and the core keeps the first row of a reading. So a station that has both returned the calendar day where its
+`PT0H` series has a date, and the 18-18 window on every date that only `PT18H` has: before the `PT0H` series began (at
+362 of the 550 stations of the station list that have both a maximum, and at 358 of the 545 a minimum, `PT18H` is the
+older series; 1,834,176 station-days of the maximum and 2,098,007 of the minimum have `PT18H` only) and wherever `PT0H`
+has a gap. The window of one parameter changed along the series of a station, and from station to station: 133 and 138
+stations of the station list have `PT18H` only.
+
+The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation sums: only `PT18H` is returned.
+All three readers (the batch, the single parameter and the time series discovery) keep the rows of `PT18H` of these two
+elements and leave out the others, chosen on the `timeOffset` of each row, not by `timeoffsets`. So the answer does not
+depend on the window asked for, and a station without a `PT18H` series returns no extremes (Frost's listing has 9 such
+stations for the maximum, with `PT0H` only, and 9 for the minimum, with `PT6H` only; none of them is in the station
+list, whose 683 stations of each element all have `PT18H`: 550 with both series and 133 with `PT18H` only for the maximum,
+545 and 138 for the minimum). A date that only another series has is not returned, and the answer says so with an
+`other-window-left-out` warning (the same code as for the precipitation, with the dates at each station, and never
+`parameter-without-rows`). SN60850 has no `PT18H` value on 2022-09-27: a request of that day returns nothing and
+says so, as does one of 2022-09-20 to 09-30, which returns the dates that have it.
+
+### What changes
+
+Counted from the readings Frost had on 2026-11-07, for the stations of the station list (Frost's `/sources` catalogue,
+see above: a station of the time-series listing that is not in it answers `unknown-station` with or without this
+change). Frost's listing has the maximum at 1,133 stations (579 with both series, 545 with `PT18H` only, 9 with `PT0H`
+only) and the minimum at 1,161 (574, 578 and 9 with `PT6H` only); the station list has 683 stations of each, **550 and
+545 with both**, 133 and 138 with `PT18H` only and none without it. Their values were read in nine years (1960, 1970,
+1980, 2000, 2010, 2015, 2020, 2022 and 2024, the whole year each, every station of the list that has both and is active
+in it: 818,561 station-days of the maximum and 807,673 of the minimum). The overlap of the two series is recent: no
+date of 1960, 1970 or 1980 has both, about 300 station-days of each have in 2000 and about 1,600 in 2010.
+
+| | station-days | with both series | the value differs | by 1 degC or more | median, 90th percentile, largest |
+|---|---|---|---|---|---|
+| maximum | 818,561 at 523 stations | 605,968 (74.0 %) at 512 stations | 165,731 (27.3 % of those) at 512 stations | 66,347 | 0.7, 2.6, 19.3 degC |
+| minimum | 807,673 at 518 stations | 605,939 (75.0 %) at 512 stations | 248,362 (41.0 % of those) at 512 stations | 107,832 | 0.8, 2.7, 17.4 degC |
+
+The percentages are of the station-days that have both series, in the nine years read. In 2024 alone the maximum differs
+on 29.7 % of them (50,856 of 171,403) and the minimum on 45.2 % (77,396 of 171,376). A series stored from the old reader
+holds the calendar day on those dates and does not join the new one.
+
+The dates that are not returned any more, in any window, are of two kinds, counted apart:
+
+- **Outside the validity of the `PT18H` series, all years**, from the time-series listing and the readings of those
+  stretches: the maximum has 17 dates at 17 stations and the minimum 16 at 15 (34 and 33 days are valid for `PT0H` only,
+  and Frost holds no value for the others; SN27780 has 2 of the minimum, every other station 1). SN18701 has 1, 2016-01-09
+  (the validity says 2016-01-09 to 12; the reading is of the first only).
+- **A gap inside the validity of the `PT18H` series**, in the nine years read: the maximum 50 dates at 33 stations (48 of
+  them inside the validity, 2 outside it) and the minimum 53 at 35 (52 and 1; SN60850 4 and 5, SN26840 3 and 2, the others
+  2 or fewer). The other years were not read, so this is a lower bound; the 2 and 1 that lie outside the validity are the
+  same dates as the first kind.
+
+Together at least 65 dates of the maximum and 68 of the minimum are no longer returned, against 2,673,078 and
+2,651,296 station-days that both series are valid for. No station of the list loses its series: all 683 have `PT18H`.
+The answer's warning counts both kinds for the window asked.
+
 ### Other elements with several series
 
-Of the elements the provider reads, these have more than one offset at a station (Frost's time-series listing of
-2026-11-07, which also holds closed stations that the station list does not; stations with both). Nothing is changed for
-them here:
+Of the other elements the provider reads, these have more than one offset at a station (Frost's time-series listing of
+2026-11-07, which also holds closed stations that the station list does not):
 
 | element | offsets | stations with both | what is returned |
 |---|---|---|---|
-| `mean(air_temperature P1D)` | `PT0H`, `PT6H` | 1,063 of 1,695 (7 have `PT6H` only, 1 `PT18H` only) | `PT0H`, the calendar day (00-00 UTC) the description says: it sorts first; `PT6H` or `PT18H` at the 8 stations that have no other |
-| `max(air_temperature P1D)` | `PT0H`, `PT18H` | 579 of 1,133 (545 have `PT18H` only) | `PT0H` where both exist, `PT18H` where it is the only one |
-| `min(air_temperature P1D)` | `PT0H`, `PT18H` | 574 of 1,161 (578 have `PT18H` only, 9 `PT6H` only) | as the maximum |
-| `mean(air_temperature P1M)` | `PT0H`, `PT6H` | 1,054 of 1,316 (5 have `PT6H` only) | `PT0H`; `PT6H` at the 5 stations that have no other |
+| `mean(air_temperature P1D)` | `PT0H`, `PT6H` | 1,063 of 1,695 (7 have `PT6H` only, so 1,070 have a `PT6H` series; 1 has `PT18H` only); 609 of the 1,138 of the station list, none with `PT6H` only | `PT0H`, the calendar day (00-00 UTC) the description says: it sorts first. **On the days that only `PT6H` has it is that one** (06-06 UTC): 3,694 days at 11 stations of the station list were found (SN25830 2,966, SN27270 603, SN92750 84), counted for the stations whose `PT6H` validity goes beyond the `PT0H` one; the other stations were not read, so it is a lower bound |
+| `mean(air_temperature P1M)` | `PT0H`, `PT6H` | 1,054 of 1,316 (5 have `PT6H` only, so 1,059 have a `PT6H` series); 605 of the 650 of the station list, none with `PT6H` only | `PT0H`; on the months that only `PT6H` has it is that one: 192 months at 14 stations of the station list (SN25830 75, SN55000 54, SN99754 17, SN18269 16, SN34130 15; same limit) |
+
+Frost's table prefers `PT0H` for them ("For cases not listed above, PT0H is always the preferred offset when multiple
+offsets are returned"), so the mean is the calendar day except on those days. That is not changed here: the maintainer's
+decision of 2026-11-07 is about the maximum and minimum, and the daily and monthly means keep their rows as they come.
 
 Every other element has one offset (the monthly and annual temperature extremes `PT18H`; the daily snow depth, its
-monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`). The temperature extremes of a station that has both come back as the calendar day,
-and those of a station that has `PT18H` only as the 19-18 UTC window, which Frost names its standard ("Standard sampling
-period for temperature extremes is 19-18 UTC"). Read in 2024 at the 448 and 449 stations that have both open through
-the year, the two differ on 47,342 of 157,948 days of the maximum (30.0 %, 20,122 by 1 degC or more, median 0.8, 90th
-percentile 2.7, largest 16.1) and on 71,795 of 158,242 of the minimum (45.4 %, 32,422 by 1 degC or more, median 0.8, 90th
-percentile 2.7, largest 15.6). The maintainer has decided that the daily maximum and minimum are the 19-18 UTC series where a station has it; that is
-a change of its own, and the table above is what they return until it lands.
+monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`).
 
 ## The code -1 of the precipitation sums
 

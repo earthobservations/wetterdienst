@@ -3,8 +3,9 @@ import { inSection, TOOLS } from '~/utils/sections'
 
 // The header of every page but the widget (GH-3518). In the frame of the pages, so the logo stands over the left
 // edge of each page's title. From 64 rem (1024 px at the default text size, wider when the reader has set a larger
-// one) it carries the four tools as tabs and the reference as a disclosure; below that the tools are in the tab bar
-// at the foot of the window (AppTabBar.vue) and the header keeps the logo, the search and the settings.
+// one) it carries the five tools as tabs and the reference as a disclosure; below that four of the tools are in the
+// tab bar at the foot of the window (AppTabBar.vue), the map in its menu, and the header keeps the logo, the search
+// and the settings.
 const { t } = useI18n()
 const route = useRoute()
 // the search is labelled from 80 rem, where the header has room for the word; in rem, so that a reader who has set

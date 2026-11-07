@@ -53,8 +53,8 @@ you need is what tells us what to build next. Hand in an issue or a PR.
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
   endpoint, so LLM agents can query the data as tools
-- A web app with a map-based explorer, forecasts, climate stripes, a glossary and an overview of the
-  providers, at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- A web app with a map-based explorer, a station map, forecasts, climate stripes, a glossary and an
+  overview of the providers, at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 
 ## Setup
 

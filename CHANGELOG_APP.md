@@ -16,6 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-07
+
+### Added
+
+- `[Map]` A fifth tool, the station map (`/map`, violet tile): DWD's forecast stations or measuring
+  stations (by resolution and dataset) as dots, with a panel (a sheet under the map on a phone) that
+  finds a station by name or number. Pick a station or any point for its forecast, its climate
+  stripes, and links to its measurements in the Explorer and its history, chosen already. The
+  station offered is the nearest within 100 km, one that still reports (its end within 90 days of
+  its list's newest) before a closed one (shown with its years); a click on a dot is that station.
+  Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
+  it on a station, not yet a town (GH-3650, GH-3791). All eleven locales; all but `en`
+  machine-made, none read by a native speaker. The app of this release is paired with the backend
+  0.184.0, which it was run against, so release the backend first
+
+### Changed
+
+- `[Navigation]` On a phone the tab bar stays as it was, four tools and the Menu, and the map is in
+  the Menu's sheet (which lists all five tools); the Menu's tab is marked while you are on the map.
+  The header of a wide screen shows all five tools (GH-3650)
+
 ## [0.44.0] - 2026-11-03
 
 ### Added
@@ -1818,7 +1839,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...HEAD
+[0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0

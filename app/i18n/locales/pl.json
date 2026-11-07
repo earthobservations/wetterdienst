@@ -151,7 +151,8 @@
       "providers": "Krajowe służby meteorologiczne stojące za danymi: kraj, licencja, wymagane podanie źródła i to, co oferuje każda z nich.",
       "glossary": "Co mierzy każdy parametr pogodowy i klimatyczny oraz w jakiej jednostce zwracane są jego wartości, z wyszukiwaniem po nazwie i wielkości.",
       "about": "O projekcie open source Wetterdienst i osobach, które go utrzymują.",
-      "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę."
+      "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę.",
+      "map": "Mapa stacji Niemieckiej Służby Meteorologicznej: wybierz stację lub dowolny punkt, aby zobaczyć jego prognozę, paski klimatyczne i pomiary."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Dostawcy",
     "api": "API",
     "glossary": "Słownik",
-    "support": "Wsparcie"
+    "support": "Wsparcie",
+    "map": "Mapa"
   },
   "shell": {
     "skipToContent": "Przejdź do treści",
@@ -216,7 +218,9 @@
       "docs": "Jak używać biblioteki Python, wiersza poleceń i API",
       "github": "Kod, zgłoszenia i pull requesty",
       "pypi": "Zainstaluj bibliotekę Python przez pip"
-    }
+    },
+    "stationsMap": "Stacja na mapie",
+    "stationOnMap": "Pokaż stację {id} na mapie"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Wyśrodkuj na wybranej stacji",
     "centerSelectedPlural": "Wyśrodkuj na wybranych stacjach",
     "markersNotShown": "Nie udało się pokazać stacji na mapie. Odśwież stronę, aby spróbować ponownie."
+  },
+  "mapTool": {
+    "title": "Mapa stacji",
+    "subtitle": "Wybierz stację lub dowolny punkt na mapie, aby zobaczyć jego prognozę, paski klimatyczne i pomiary.",
+    "aboutButton": "O mapie",
+    "about1": "Mapa pokazuje stacje Niemieckiej Służby Meteorologicznej (DWD): punkty, dla których tworzy ona prognozę, albo stacje, które mierzą, dla rozdzielczości i zbioru danych wybranych nad mapą. Każda z nich to punkt; panel znajduje stację po nazwie i wyświetla stacje w pobliżu środka mapy.",
+    "about2": "Wybierz stację albo kliknij dowolny punkt na mapie: panel pokazuje prognozę i paski klimatyczne najbliższej stacji, która je ma, oraz otwiera pomiary w Eksploratorze i historię stacji z już wybraną stacją. Z klawiatury przesuwaj mapę strzałkami, przybliżaj plusem i minusem, a potem wybierz miejsce w jej środku.",
+    "panelTitle": "Stacje",
+    "layers": "Warstwa",
+    "layerForecast": "Stacje prognoz",
+    "layerMeasured": "Pomiary DWD",
+    "mapLabel": "Mapa stacji: {layer}",
+    "count": "Pokazane stacje: {shown}",
+    "loadingStations": "Ładowanie stacji …",
+    "stationsFailed": "Nie udało się załadować stacji",
+    "noStations": "Ten zbiór danych nie ma stacji z pozycją.",
+    "zoomIn": "Przybliż",
+    "zoomOut": "Oddal",
+    "search": "Znajdź stację",
+    "searchPlaceholder": "Nazwa lub numer stacji",
+    "nearCentre": "Stacje w pobliżu środka mapy",
+    "results": "Wyniki",
+    "noResults": "Żadna stacja nie pasuje do tego wyszukiwania.",
+    "pickCentre": "Wybierz środek mapy",
+    "pickCentreHint": "Wybiera miejsce w środku mapy, które przesuwają strzałki.",
+    "back": "Wróć do stacji",
+    "chosen": "Wybrano: {name}",
+    "pickedPlace": "Punkt na mapie, {distance} od tej stacji",
+    "elevation": "{value} m n.p.m.",
+    "at": "{name}, {distance} stąd",
+    "noneNearby": "Brak stacji w promieniu {distance}.",
+    "noStationNear": "Brak stacji w promieniu {distance} od tego punktu.",
+    "openForecast": "Otwórz prognozę",
+    "openStripes": "Otwórz paski klimatyczne",
+    "openExplorer": "Otwórz pomiary w Eksploratorze",
+    "openHistory": "Otwórz historię stacji",
+    "since": "od {year}",
+    "period": "od {from} do {to}",
+    "stripesFigure": "Paski klimatyczne: {name}",
+    "stripesNone": "Brak pasków klimatycznych dla tej stacji.",
+    "stationNotFound": "Na tej mapie nie ma stacji {id}."
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",

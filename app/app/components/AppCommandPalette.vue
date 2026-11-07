@@ -5,11 +5,11 @@ import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Tile } from '~/utils/sections'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { filterGroups } from '~/utils/palette'
-import { EXTERNAL, HOME, LEGAL, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
+import { EXTERNAL, HOME, LEGAL, MAP_TOOL, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
 
 // The command palette of the search (GH-3518), inside the dialog of AppSearch.vue. One field that goes to every page
 // (each with the line that says what it is for), to a provider's page, to the forecast of a station found by its
-// name, and that changes the theme or the language.
+// name or to the map opened on it (GH-3650), and that changes the theme or the language.
 //
 // The WAI-ARIA combobox pattern with a listbox popup: the field is the combobox and keeps the focus; the arrow keys
 // move the active option (`aria-activedescendant`), Enter takes it, and a click takes the one under the pointer. The
@@ -144,6 +144,19 @@ const groups = computed<PaletteGroup[]>(() => {
         to: `/meteogram?station=${station.station_id}`,
       })),
     },
+    // the same stations, opened on the map: the map takes a forecast station of its address (`?station=`)
+    {
+      id: 'stations-map',
+      label: t('shell.stationsMap'),
+      items: stations.value.map(station => ({
+        id: `station-map-${station.station_id}`,
+        label: station.name ?? station.station_id,
+        description: t('shell.stationOnMap', { id: station.station_id }),
+        icon: MAP_TOOL.icon,
+        tile: MAP_TOOL.tile,
+        to: `${MAP_TOOL.to}?station=${station.station_id}`,
+      })),
+    },
     { id: 'reference', label: t('shell.reference'), items: REFERENCE.map(section => page(section)) },
     {
       id: 'providers',
@@ -197,14 +210,14 @@ const groups = computed<PaletteGroup[]>(() => {
 })
 
 // the stations are the backend's matches already; everything else is matched here
+const STATION_GROUPS = ['stations', 'stations-map']
 const shown = computed(() => {
   // the places are the backend's matches, as they are
   if (placeMode.value)
     return groups.value.filter(group => group.items.length)
-  const stationGroup = groups.value.find(group => group.id === 'stations')!
-  const filtered = filterGroups(groups.value.filter(group => group.id !== 'stations'), query.value)
-  if (stationGroup.items.length)
-    filtered.splice(1, 0, stationGroup)
+  const stationGroups = groups.value.filter(group => STATION_GROUPS.includes(group.id) && group.items.length)
+  const filtered = filterGroups(groups.value.filter(group => !STATION_GROUPS.includes(group.id)), query.value)
+  filtered.splice(1, 0, ...stationGroups)
   return filtered
 })
 const flat = computed(() => shown.value.flatMap(group => group.items))
