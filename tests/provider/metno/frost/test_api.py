@@ -623,7 +623,7 @@ def test_metno_frost_values_daily_precipitation_minus_one_of_a_wmo_station_of_20
     minus_one = df.filter(pl.col("quality_flags").str.ends_with("raw:-1"))
     assert minus_one.height >= 1
     assert minus_one["value"].to_list() == [0.0] * minus_one.height
-    assert df.filter(~pl.col("quality_flags").str.ends_with("raw:-1"))["value"].min() >= 0
+    assert (df.filter(~pl.col("quality_flags").str.ends_with("raw:-1"))["value"] >= 0).all()
 
 
 @pytest.mark.remote

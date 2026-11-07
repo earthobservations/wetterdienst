@@ -94,8 +94,9 @@ Types of changes:
   `raw:-1` in `quality_flags` at every station and in every year. It was null (`rejected:range`):
   13,869 days, 11,174 of them Bjornoya's up to 1956. One exception: SN81930 (Storstilla) up to and
   including 1993, a weekly reader whose `-1` is a day nobody read, stays null with `raw:-1`. The
-  monthly sum and other elements are unchanged. A stored series has nulls where there are zeros:
-  read it anew, and filter on `raw:-1` to find the former nulls (GH-3820)
+  monthly sum and other elements are unchanged. A day that also has a reading under another stamp
+  (four WMO stations) returns that reading, where it was null. A stored series has nulls where
+  there are zeros: read it anew, and filter on `raw:-1` to find the former nulls (GH-3820)
 - **Breaking**: `metno/frost` daily and monthly `temperature_air_mean_2m` is the calendar series
   (`PT0H`: the day, the hourly readings stamped 00:00 to 23:00; the calendar month) alone. It
   returned the 06 UTC-offset mean (`PT6H`) on a date `PT0H` lacks, so the window changed along a

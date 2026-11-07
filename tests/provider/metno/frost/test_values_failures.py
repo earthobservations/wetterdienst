@@ -2493,3 +2493,75 @@ def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
     assert df["value"].to_list() == [pytest.approx(0.1), 0.0, pytest.approx(0.1)]
     assert df["quality_flags"].to_list() == [None, "raw:-1", None]
+
+
+def test_metno_frost_a_reading_beats_the_minus_one_of_another_series_of_the_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the discovery, which reads each `timeseriesids` apart, leaves out a `-1` for a reading of another.
+
+    The `-1` of series 0 is stamped 00:00 and the 0.1 of series 1 10:00 of the same date (GH-3820).
+    """
+    answers = {
+        "0": _offset_answer(DAILY_SUM, [("2026-11-07T00:00:00.000Z", "PT6H", -1.0)]),
+        "1": _offset_answer(DAILY_SUM, [("2026-11-07T10:00:00.000Z", "PT6H", 0.1)]),
+    }
+    available = {
+        "data": [
+            {
+                "validFrom": "2026-11-01T00:00:00Z",
+                "timeOffset": "PT6H",
+                "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN644700:0&timeseriesids={ts}",
+            }
+            for ts in answers
+        ]
+    }
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, available)
+        if "timeseriesids=" in url:
+            return _ok(url, answers[url.split("timeseriesids=")[1].split("&", maxsplit=1)[0]])
+        return _failed(url, 404)
+
+    values, seen = _values(
+        monkeypatch,
+        observations,
+        [("daily", "data", "precipitation_amount")],
+        start=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        end=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
+        options={"drop_nulls": False},
+        station="SN644700",
+    )
+    df = values.all().df
+    assert sum("timeseriesids=" in url for url in seen) == 2
+    assert df["value"].to_list() == [pytest.approx(0.1)]
+    assert df["quality_flags"].to_list() == [None]
+
+
+def test_metno_frost_a_reading_beats_a_minus_one_of_the_daily_sum_alone() -> None:
+    """Test that the `-1` of another parameter, or of a sub-daily sum, beside a reading of its day is kept (GH-3820)."""
+    day = dt.datetime(2026, 11, 7, tzinfo=dt.UTC)
+    parameters = [
+        "sum(precipitation_amount P1D)",
+        "sum(precipitation_amount P1D)",
+        "surface_snow_thickness",
+        "surface_snow_thickness",
+        "sum(precipitation_amount PT6H)",
+        "sum(precipitation_amount PT6H)",
+    ]
+    given = pl.DataFrame(
+        {
+            "parameter": parameters,
+            "timestamp": [day] * 6,
+            "value": [0.0, 0.1, 0.0, 3.0, 0.0, 1.0],
+            "quality_flags": ["raw:-1", None] * 3,
+        }
+    )
+    kept = frost_api._a_reading_beats_a_minus_one(given)  # noqa: SLF001
+    # only the daily sum's `-1` goes: the snow depth's and the 6-hourly sum's stay beside their readings
+    assert kept["parameter"].to_list() == parameters[1:]
+    assert kept["value"].to_list() == [0.1, 0.0, 3.0, 0.0, 1.0]
+    # a `-1` alone, and a `-1` beside a `-1`, stay
+    alone = given.head(1).vstack(given.head(1))
+    assert frost_api._a_reading_beats_a_minus_one(alone).height == 2  # noqa: SLF001

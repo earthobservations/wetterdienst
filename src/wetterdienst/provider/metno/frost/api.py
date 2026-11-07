@@ -852,9 +852,10 @@ def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
     A few stations of the WMO series Frost lists since 2026-11-03 write several rows for one date, stamped at different
     times (SN644700: on 2026-11-07 eight rows of `-1` from 00:00 to 08:00 and five of 0.1 from 10:00 to 16:00). The
     stamp is cut to the day, and the core keeps the first row of a reading that has a value
-    (`merge_duplicate_readings`): a `-1` that was null lost to the reading, and as the 0.0 it is now, one that comes
-    first would win it (GH-3820). The reading is the day's, so the rows of `-1` of such a day are left out. A day
-    with `-1` alone, and a `-1` beside another `-1`, are as they were.
+    (`merge_duplicate_readings`): in 0.184.0 the `-1` was not decoded, a `-1` that came first won the merge as `-1.0`
+    and the range check, which runs after it, made the day null (`rejected:range,raw:-1`); as the 0.0 it is now, it
+    would stand and the reading be lost (GH-3820). The reading is the day's, so the rows of `-1` of such a day are left
+    out. A day with `-1` alone, and a `-1` beside another `-1`, are as they were.
     """
     minus_one = (
         (pl.col("parameter") == _DAILY_PRECIPITATION_SUM)
@@ -1266,6 +1267,9 @@ class MetnoFrostValues(TimeseriesValues):
                 frames.append(frame)
 
         kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+        # the series of one station are read apart: a `-1` of one can come first to a reading of another (idempotent)
+        if not kept.is_empty():
+            kept = _a_reading_beats_a_minus_one(kept)
         # a date is left out when no series of the station returned it
         left_out = [frame for frame in left_outs if not frame.is_empty()]
         if left_out:
