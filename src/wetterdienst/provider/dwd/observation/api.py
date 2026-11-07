@@ -40,12 +40,16 @@ from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
+    EmptyListingError,
     _build_url_from_dataset_and_period,
     _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata,
     _create_file_index_for_dwd_server,
     _meta_data_url,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
+    directory_of,
+    remembering_empty_directories,
+    warn_skipped_listings,
 )
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
@@ -67,14 +71,14 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
-from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
+from wetterdienst.util.response_warnings import FILE_SKIPPED, note_skipped_download, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
 
-    from wetterdienst.model.result import HistoryResult, StationsResult
+    from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -102,6 +106,11 @@ def _is_value_column(column: str) -> bool:
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
+    @remembering_empty_directories
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
+        yield from super().query()
+
     def _zero_direction_is_no_bearing(self) -> pl.Expr:
         """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
 
@@ -125,11 +134,18 @@ class DwdObservationValues(TimeseriesValues):
         periods_and_date_ranges: list[tuple[Period, list[str] | None]] = []
         for period in sorted(cast("set[Period]", stations.periods)):
             if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(
-                    station_id,
-                    dataset,
-                    settings,
-                )
+                try:
+                    date_ranges = self._get_historical_date_ranges(
+                        station_id,
+                        dataset,
+                        settings,
+                    )
+                except EmptyListingError as e:
+                    # the directory came back empty or missing: the period has no file to read. The lookup of the
+                    # stations tells the directory (`file-skipped`), and this tells the station
+                    log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
+                    note_skipped_download()
+                    continue
                 periods_and_date_ranges.append((period, date_ranges))
             else:
                 periods_and_date_ranges.append((period, None))
@@ -142,9 +158,13 @@ class DwdObservationValues(TimeseriesValues):
         for dataset in datasets:
             for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
                 if period in dataset.periods:
-                    urls += create_file_list_for_climate_observations(
-                        station_id, dataset, period, settings, date_ranges
-                    ).to_list()
+                    try:
+                        urls += create_file_list_for_climate_observations(
+                            station_id, dataset, period, settings, date_ranges
+                        ).to_list()
+                    except EmptyListingError:
+                        # as the collection skips the period; the files ahead are only a head start
+                        continue
         return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
 
     def _collect_station_parameter_or_dataset(
@@ -175,13 +195,19 @@ class DwdObservationValues(TimeseriesValues):
                 continue
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
             log.info(f"Acquiring observation data for {dataset_identifier}.")
-            remote_files = create_file_list_for_climate_observations(
-                station_id,
-                dataset,
-                period,
-                settings,
-                date_ranges,
-            )
+            try:
+                remote_files = create_file_list_for_climate_observations(
+                    station_id,
+                    dataset,
+                    period,
+                    settings,
+                    date_ranges,
+                )
+            except EmptyListingError as e:
+                # as above: the directory has no file to read, and the station is named by `file-skipped`
+                log.info(f"No files listed at {e.url} for {dataset_identifier}. Period will be skipped.")
+                note_skipped_download()
+                continue
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
@@ -362,19 +388,28 @@ class DwdObservationHistory(TimeseriesHistory):
     A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
     began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
     answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
-    the answer is partial, and `query` ends with a `file-skipped` warning that names the stations and the directory.
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the directory, once for each.
     Which directory is read depends on the dataset, and the warning names the one that was listed (the path below
     `observations_germany/`): the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the
     `historical` directory of most others, the directory of the dataset itself for the solar datasets, which have no
-    period directories, and the `recent` directory of an urban dataset without one. The station lookup that comes
-    first lists some of these too and fails with a 500 of the REST API where they are empty (#3819): the `historical`
-    directory, and the `meta_data` directory of the 1 minute precipitation. A history has no `periods`, so REST and the
-    command line reach the warning for the 5 and 10 minute datasets that are not urban, through `meta_data`.
+    period directories, and the `recent` directory of an urban dataset without one. Where the history read the directory
+    the warning names the stations that asked for the dataset.
+
+    The lookup of the stations lists directories first: the `historical` one of the dataset (and its `recent` and `now`
+    ones), and the `meta_data` directory of the 1 minute precipitation. A directory of those that comes back empty is
+    skipped there, for every request (`DwdObservationRequest._all`, #3819): the stations of the other periods are
+    answered, and a `file-skipped` warning names the directory, the dataset and the periods skipped, with no station,
+    since the lookup does not know one. So a history of a station found in `recent` whose `historical` directory is
+    empty is told twice, by the lookup and here with the stations whose history was not read. A history reads
+    `historical` (a low resolution) or `meta_data` (1, 5 and 10 minutes) only, so an empty `recent` directory loses the
+    stations that only it lists and no history of the others. Everything else is raised: a connection that cannot be
+    made (`NoInternetError`), a reset, a timeout or a 5xx (`DownloadError`).
     """
 
     #: the stations whose history was not read for want of a listing, by the directory that came back empty
     _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
 
+    @remembering_empty_directories
     def query(self) -> Iterator[HistoryResult]:
         """Query the history of the stations, and tell the stations whose dataset has no listing once all are read."""
         self._unlisted = {}
@@ -436,8 +471,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS
                     else _build_url_from_dataset_and_period(dataset, Period.HISTORICAL)
                 )
-                directory = f"`{url.split('observations_germany/')[-1]}`"
-                self._unlisted.setdefault(directory, []).append(station_id)
+                self._unlisted.setdefault(directory_of(url), []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):
@@ -951,6 +985,7 @@ class DwdObservationRequest(TimeseriesRequest):
         log.info(f"Acquiring field information from {description_file_url}")
         return read_description(description_file_url, language=language)
 
+    @remembering_empty_directories
     def _all(self) -> pl.LazyFrame:
         """:return:"""
         from typing import cast  # noqa: PLC0415
@@ -971,13 +1006,22 @@ class DwdObservationRequest(TimeseriesRequest):
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; iterating the set directly left the winner
             # to the set's own iteration order, which varies from one interpreter run to the next
+            skipped: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 try:
-                    df = create_meta_index_for_climate_observations(dataset, period, settings)
-                except MetaFileNotFoundError:
-                    log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                    try:
+                        df = create_meta_index_for_climate_observations(dataset, period, settings)
+                    except MetaFileNotFoundError:
+                        log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                        continue
+                    file_index = create_file_index_for_climate_observations(dataset, period, settings)
+                except EmptyListingError as e:
+                    # a directory that came back empty or missing costs the stations that only it lists, which the
+                    # warning below says: the answer is partial, not an error. A connection that cannot be made or a
+                    # failing server is raised by the listing, and is not this
+                    log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
+                    skipped.setdefault(directory_of(e.url), []).append(period)
                     continue
-                file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
                     other=file_index_ids.lazy(),
@@ -990,6 +1034,7 @@ class DwdObservationRequest(TimeseriesRequest):
                 file_ids.update(file_index_ids.get_column("station_id"))
                 listed_ids.update(df.get_column("station_id"))
                 stations.append(df.lazy())
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(

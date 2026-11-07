@@ -1416,6 +1416,8 @@ def test_a_directory_that_is_not_there_is_an_answer(monkeypatch: pytest.MonkeyPa
         raise FileNotFoundError(msg)
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
+    # the page of the directory, read to tell an empty one from one that is not there, is a 404 as well
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", find)
 
     assert list_remote_files_fsspec("https://example.com/none/", Settings(cache_dir=tmp_path)) == []
 
@@ -1529,6 +1531,8 @@ def test_a_listing_of_a_directory_that_is_not_there_is_still_empty(
         raise FileNotFoundError
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
+    # the page of the directory, read to tell an empty one from one that is not there, is a 404 as well
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", find)
 
     assert list_remote_files_fsspec("https://example.com/gone/", Settings(cache_dir=tmp_path)) == []
 
@@ -4830,8 +4834,13 @@ def test_a_listing_asks_again_for_a_handshake_the_server_fumbled(
             raise failure
         return []
 
+    def not_found(_self: object, _url: str, **_kwargs: object) -> bytes:
+        raise FileNotFoundError
+
     monkeypatch.setattr(HTTPFileSystem, "find", flaky)
     monkeypatch.setattr(HTTPFileSystem, "ls", flaky)
+    # a listing with no file reads the page of the directory, a 404 here
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", not_found)
 
     with stamina.set_testing(True, attempts=3):
         assert function("https://example.com/tls/", Settings(cache_dir=tmp_path)) == []
