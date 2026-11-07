@@ -233,7 +233,8 @@ class ListingStore:
     def close(self) -> None:
         """Close the connection of every thread, each when its statement is done.
 
-        A connection that is idle is closed before this returns; one that is running a statement is left
+        A connection that is idle is closed before this returns (while a fork is pending, or the gate is busy,
+        right after it: `_close` puts the close off rather than wait); one that is running a statement is left
         to that statement, which is never waited for (it may be waiting for the write lock), and is
         closed by its thread as soon as the statement is done. The store opens a new one on its next use.
         """

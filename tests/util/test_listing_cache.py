@@ -604,13 +604,13 @@ def test_close_closes_every_thread_s_connection_and_the_store_goes_on(store: Lis
     assert not thread.is_alive()
 
 
-def _fork_children(count: int, child: Callable[[], bool]) -> list[int]:
+def _fork_children(count: int, child: Callable[[], bool], children: list[int] | None = None) -> list[int]:
     """Fork `count` children that each run `child`, die after 30 s, and report; return their exit codes.
 
     The children are made while the caller's other threads are inside SQLite, which is when a mutex of
     SQLite's is held at the instant of the fork. They are waited for by whoever calls this.
     """
-    children = []
+    children = [] if children is None else children  # a caller that cleans up gives its own list
     for _ in range(count):
         pid = os.fork()
         if pid == 0:  # pragma: no cover - the child
@@ -630,19 +630,25 @@ def _fork_children(count: int, child: Callable[[], bool]) -> list[int]:
 def _reap_children(children: list[int]) -> list[int]:
     """Wait for the children `_fork_children` made and return their exit codes.
 
-    A child that is still there when this is called after a failure is killed: it would otherwise run on, with its
-    parent's store open, until its alarm of 30 s.
+    Each pid leaves `children` as soon as it is reaped, so that a `finally` that calls `_kill_children` after an
+    interruption partway through never signals a pid that is gone, and may be another process's by now.
     """
     statuses = []
-    for pid in children:
-        _, status = os.waitpid(pid, 0)
+    while children:
+        _, status = os.waitpid(children[0], 0)
+        children.pop(0)
         statuses.append(os.waitstatus_to_exitcode(status))
     return statuses
 
 
 def _kill_children(children: list[int]) -> None:
-    """Kill and reap the children that are not reaped yet; for a `finally`, so that nothing is left running."""
-    for pid in children:
+    """Kill and reap the children that are not reaped yet; for a `finally`, so that nothing is left running.
+
+    A child that is still there after a failure would otherwise run on, with its parent's store open, until its
+    alarm of 30 s. Each pid leaves `children` before it is signalled, so none is signalled twice.
+    """
+    while children:
+        pid = children.pop(0)
         with contextlib.suppress(ChildProcessError, ProcessLookupError):
             os.kill(pid, signal.SIGKILL)
             os.waitpid(pid, 0)
@@ -679,11 +685,10 @@ def test_a_child_forked_while_a_thread_writes_can_use_the_cache(tmp_path: Path) 
     hammering.start()
     try:
         assert started.wait(timeout=_JOIN_TIMEOUT)
-        children = _fork_children(5, child)
+        _fork_children(5, child, children)
         # stopped once the forks are made: it would starve the children of the write lock
         survivors = _stop_workers(stop, [hammering])
         statuses = _reap_children(children)
-        children = []
     finally:
         _stop_workers(stop, [hammering])
         _kill_children(children)
@@ -728,10 +733,9 @@ def test_a_child_forked_while_connections_are_closed_does_not_hang(tmp_path: Pat
         thread.start()
     try:
         assert started.wait(timeout=_JOIN_TIMEOUT)
-        children = _fork_children(8, child)
+        _fork_children(8, child, children)
         survivors = _stop_workers(stop, threads)
         statuses = _reap_children(children)
-        children = []
     finally:
         _stop_workers(stop, threads)
         _kill_children(children)
