@@ -62,6 +62,15 @@ The options are `--kind` (required), `--station` or `--name` (with `--name-thres
 `--show-title`, `--show-years`, `--show-data-availability`, `--format` (`png`, `jpg`, `svg` or `pdf`), `--dpi` and
 `--target`; the [command line reference](cli.md) has them with their defaults. The image needs the `plotting` extra.
 
+A `--station` that no station has is a 404 over REST and a usage error on the command line, and so is a `--name`
+that matches nothing. Where the lookup of the stations went without a directory of DWD's server (the stripes list
+their stations from `annual/kl/historical` for the temperature and `annual/more_precip/historical` for the
+precipitation) that came back empty or missing, or lists files and no description of its stations, a station may exist
+and be listed only there. That is a 502 of the REST API whose `detail` names the directory, and exit 1 with the same
+sentence on the command line. An empty or missing directory says nothing of its stations, so any `--station` the
+lookup does not find gets it; a directory with files and no description names its stations in its file names, so only
+an id among them does. Try again later.
+
 ## REST API
 
 When the [REST API](restapi.md) is running, the same functionality is available via three

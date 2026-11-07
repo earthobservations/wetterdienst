@@ -4470,7 +4470,7 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
         to_dict=lambda: {"stations": stations},
         values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
     )
-    request = SimpleNamespace(filter_by_station_id=lambda _station: result)
+    request = SimpleNamespace(filter_by_station_id=lambda _station: result, _gaps_that_may_list=lambda _station: {})
     monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
 
 
