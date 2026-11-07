@@ -4,7 +4,7 @@ import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
 import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
-import { stripeYears } from '~/utils/stripes'
+import { COLOR_MAPS, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale, localeProperties } = useI18n()
@@ -143,16 +143,7 @@ const plotSummary = computed(() => {
   const years = stripeRows.value
   if (!years.length)
     return undefined
-  const lowest = years.reduce((low, year) => year.value < low.value ? year : low)
-  const highest = years.reduce((high, year) => year.value > high.value ? year : high)
-  return `${t('stripes.summary', {
-    from: Math.min(...years.map(year => year.year)),
-    to: Math.max(...years.map(year => year.year)),
-    min: formatValue(lowest.value),
-    minYear: lowest.year,
-    max: formatValue(highest.value),
-    maxYear: highest.year,
-  })} ${t('common.chartTableHint')}`
+  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${t('common.chartTableHint')}`
 })
 const tableColumns = computed(() => [
   t('stripes.table.year'),
@@ -176,28 +167,6 @@ useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotCont
 // what it fetched. Failed: why the newest could not fetch the values, told in the chart area
 let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
-
-// Color maps
-const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
-  temperature: [
-    [0, 'rgb(5,48,97)'],
-    [0.2, 'rgb(33,102,172)'],
-    [0.4, 'rgb(146,197,222)'],
-    [0.5, 'rgb(247,247,247)'],
-    [0.6, 'rgb(253,219,199)'],
-    [0.8, 'rgb(239,138,98)'],
-    [1, 'rgb(178,24,43)'],
-  ],
-  precipitation: [
-    [0, 'rgb(84,48,5)'],
-    [0.2, 'rgb(140,81,10)'],
-    [0.4, 'rgb(191,129,45)'],
-    [0.5, 'rgb(246,232,195)'],
-    [0.6, 'rgb(199,234,229)'],
-    [0.8, 'rgb(90,180,172)'],
-    [1, 'rgb(1,102,94)'],
-  ],
-}
 
 async function fetchAndPlotStripes() {
   if (!selectedStation.value)

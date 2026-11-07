@@ -151,7 +151,8 @@
       "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",
       "glossary": "Was jeder Wetter- und Klimaparameter misst und in welcher Einheit seine Werte kommen, durchsuchbar nach Name und Größe.",
       "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
-      "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden."
+      "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden.",
+      "map": "Eine Karte der Stationen des Deutschen Wetterdienstes: Wähle eine Station oder einen beliebigen Punkt und sieh Vorhersage, Klimastreifen und Messwerte dazu."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Anbieter",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Unterstützen"
+    "support": "Unterstützen",
+    "map": "Karte"
   },
   "shell": {
     "skipToContent": "Zum Inhalt springen",
@@ -216,7 +218,9 @@
       "docs": "Die Python-Bibliothek, die Kommandozeile und die API nutzen",
       "github": "Der Code, die Issues und die Pull Requests",
       "pypi": "Die Python-Bibliothek mit pip installieren"
-    }
+    },
+    "stationsMap": "Station auf der Karte",
+    "stationOnMap": "Station {id} auf der Karte zeigen"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,46 @@
     "centerSelected": "Auf gewählte Station zentrieren",
     "centerSelectedPlural": "Auf gewählte Stationen zentrieren",
     "markersNotShown": "Die Stationen konnten nicht auf der Karte angezeigt werden. Bitte die Seite neu laden."
+  },
+  "mapTool": {
+    "title": "Stationskarte",
+    "subtitle": "Wähle eine Station oder einen beliebigen Punkt auf der Karte und sieh Vorhersage, Klimastreifen und Messwerte dazu.",
+    "aboutButton": "Über die Karte",
+    "about1": "Die Karte zeigt die Stationen des Deutschen Wetterdienstes (DWD): die Punkte, für die er vorhersagt, oder die Stationen, die messen, für die Auflösung und den Datensatz, die du über der Karte wählst. Jede ist ein Punkt; das Feld daneben findet eine Station nach ihrem Namen und listet die Stationen in der Mitte der Karte auf.",
+    "about2": "Wähle eine Station oder klicke auf einen beliebigen Punkt der Karte: Das Feld zeigt Vorhersage und Klimastreifen der nächsten Station, die sie hat, und öffnet die Messwerte im Explorer und den Stationsverlauf mit dieser Station schon gewählt. Mit der Tastatur bewegst du die Karte mit den Pfeiltasten, zoomst mit Plus und Minus und wählst dann den Ort in ihrer Mitte.",
+    "panelTitle": "Stationen",
+    "layers": "Ebene",
+    "layerForecast": "Vorhersage-Stationen",
+    "layerMeasured": "DWD-Messwerte",
+    "mapLabel": "Stationskarte: {layer}",
+    "count": "Angezeigte Stationen: {shown}",
+    "loadingStations": "Stationen werden geladen …",
+    "stationsFailed": "Die Stationen konnten nicht geladen werden",
+    "noStations": "Dieser Datensatz hat keine Stationen mit Position.",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "search": "Station finden",
+    "searchPlaceholder": "Name oder Nummer einer Station",
+    "nearCentre": "Stationen in der Mitte der Karte",
+    "results": "Treffer",
+    "noResults": "Keine Station passt zu dieser Suche.",
+    "pickCentre": "Mitte der Karte wählen",
+    "pickCentreHint": "Wählt den Ort in der Mitte der Karte, den die Pfeiltasten verschieben.",
+    "back": "Zurück zu den Stationen",
+    "chosen": "{name} gewählt",
+    "pickedPlace": "Ein Punkt auf der Karte, {distance} von dieser Station entfernt",
+    "elevation": "{value} m über dem Meeresspiegel",
+    "at": "{name}, {distance} entfernt",
+    "noneNearby": "Keine Station im Umkreis von {distance}.",
+    "openForecast": "Vorhersage öffnen",
+    "openStripes": "Klimastreifen öffnen",
+    "openExplorer": "Messwerte im Explorer öffnen",
+    "openHistory": "Stationsverlauf öffnen",
+    "since": "seit {year}",
+    "period": "{from} bis {to}",
+    "stripesFigure": "Klimastreifen von {name}",
+    "stripesNone": "Keine Klimastreifen für diese Station.",
+    "stationNotFound": "Es gibt keine Station {id} auf dieser Karte."
   },
   "dataViewer": {
     "loadingValues": "Werte werden geladen …",

@@ -4,6 +4,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 
 const props = defineProps<{
   stations: any[]
@@ -277,8 +278,8 @@ watch([
         @ready="onMapReady"
       >
         <LTileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="&copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors"
+          :url="OSM_TILES"
+          :attribution="OSM_ATTRIBUTION"
           layer-type="base"
           name="OpenStreetMap"
         />

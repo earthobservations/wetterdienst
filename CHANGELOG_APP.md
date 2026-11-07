@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Map]` A fifth tool, the station map, with a violet tile of its own (`/map`): DWD's forecast
+  stations or the stations that measure (by resolution and dataset) as dots on a map, chosen by
+  chips over it, with a panel beside it (a sheet under it on a phone) that finds a station by name
+  or number and lists the ones near the centre of the map. Pick a station, or click any point on
+  the map, and the panel shows its forecast as day rows and its climate stripes, and opens its
+  measurements in the Explorer and its station history with the station already chosen, each at the
+  nearest station that has them within 100 km. By keyboard, the arrow keys move the map and "Pick
+  the centre of the map" picks the place at its centre. What is shown is in the address, and the
+  search (Ctrl/Cmd K) lists the map and opens it on a station. The map's tiles are
+  OpenStreetMap's, as the station pickers have them. All eleven locales; all but en and de are
+  machine-made and not reviewed by a native speaker (GH-3650)
+
+### Changed
+
+- `[Navigation]` On a phone the tab bar has the map in a tab and the station history in the Menu's
+  sheet (which lists all five tools), so that it keeps four tools and the Menu; the Menu's tab is
+  marked while you are on the history. The header of a wide screen shows all five tools (GH-3650)
+
 ## [0.44.0] - 2026-11-03
 
 ### Added

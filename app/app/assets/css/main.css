@@ -5,8 +5,9 @@
    Four tiles, one frame (GH-3518)
 
    The logo is four rounded tiles: a sun (yellow), rain (blue), wind (teal) and a thermometer (coral) on navy. The
-   app has four tools, and each takes one tile as its mark: the forecast the sun, the explorer the rain, the station
-   history the wind and the climate stripes the thermometer (`app/utils/sections.ts`). Those four colours appear
+   app's tools each take one tile as their mark: the forecast the sun, the explorer the rain, the station
+   history the wind and the climate stripes the thermometer (`app/utils/sections.ts`); the map, the fifth tool, has
+   a violet of its own (GH-3650). Those five colours appear
    only there, as tiles, so that a colour always says which tool a page is; everything else is navy ink on paper,
    with the logo's blue as the one colour of action (links, the primary button, the focus ring).
 
@@ -115,6 +116,13 @@
   --color-tile-wind: #2bb3a3;
   --color-tile-heat: #f0543c;
   --color-tile-navy: #17335f;
+  /* The fifth tile, the map's (GH-3650): a violet, hue 262, in the widest gap of the colour wheel between the rain's
+     blue (217) and the thermometer's coral (7), and far from the four for red-green colour blindness too. By day it
+     is violet-600 with a white glyph (5.7:1; 5.3:1 against the paper, 5.7:1 against a card); at night that fill would
+     be 2.8:1 against a card, so the tile takes a lighter violet with the navy glyph the sun and the wind have (5.3:1;
+     4.8:1 against a card). Held to those ratios by `tests/unit/button-contrast.test.ts`. */
+  --color-tile-map: #7c3aed;
+  --color-tile-map-night: #9a79f8;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -498,10 +506,12 @@
   overflow-wrap: anywhere;
   max-width: 100%;
 }
-.tabbar-item[aria-current="page"] {
+.tabbar-item[aria-current="page"],
+.tabbar-item[data-current] {
   color: var(--ui-text-highlighted);
 }
-.tabbar-item[aria-current="page"]::before {
+.tabbar-item[aria-current="page"]::before,
+.tabbar-item[data-current]::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -677,6 +687,14 @@
 .tile-heat {
   --tile-fill: var(--color-tile-heat);
   --tile-glyph: #ffffff;
+}
+.tile-map {
+  --tile-fill: var(--color-tile-map);
+  --tile-glyph: #ffffff;
+}
+.dark .tile-map {
+  --tile-fill: var(--color-tile-map-night);
+  --tile-glyph: var(--color-ink-950);
 }
 .tile-navy {
   --tile-fill: var(--color-tile-navy);

@@ -271,17 +271,17 @@ describe('index Page', () => {
     expect(text).not.toContain('Andreas Motl')
   })
 
-  it('puts the questions of "Ask the weather" under the four tools, before the description of the data', async () => {
+  it('puts the questions of "Ask the weather" under the five tools, before the description of the data', async () => {
     const wrapper = await mountHome()
     const headings = wrapper.findAll('h1, h2').map(heading => heading.text())
     const ask = headings.indexOf('Ask the weather')
     expect(ask).toBeGreaterThan(0)
-    // the page's own title and the four tools come first, the description of the data after the questions
+    // the page's own title and the five tools come first, the description of the data after the questions
     expect(headings[0]).toBe('Wetterdienst')
     expect(ask).toBeLessThan(headings.indexOf('What data you get'))
     expect(wrapper.findAll('[data-testid="questions"] button')).toHaveLength(4)
-    // the four tools of the hero are still there, each a link to its tool
+    // the five tools of the hero are still there, each a link to its tool
     const tools = wrapper.findAll('.home-tasks a').map(link => link.attributes('href'))
-    expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/history'])
+    expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/history', '/map'])
   })
 })

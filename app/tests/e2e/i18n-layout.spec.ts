@@ -15,7 +15,7 @@ import { mockBackend } from './accessibility/mock-backend'
 // Each page is loaded once and measured at every width.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
   // the narrowest window with the tools in the header (64 rem), where their names are tightest (GH-3518)

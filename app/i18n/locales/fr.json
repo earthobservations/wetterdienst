@@ -151,7 +151,8 @@
       "providers": "Les services météorologiques nationaux derrière les données : pays, licence, mention de la source à indiquer et ce que chacun propose.",
       "glossary": "Ce que mesure chaque paramètre météorologique et climatique et l'unité de ses valeurs, avec recherche par nom et par grandeur.",
       "about": "À propos du projet open source Wetterdienst et des personnes qui le maintiennent.",
-      "support": "Soutenir Wetterdienst : signaler un problème, contribuer du code ou faire un don."
+      "support": "Soutenir Wetterdienst : signaler un problème, contribuer du code ou faire un don.",
+      "map": "Une carte des stations du Service météorologique allemand : choisis une station ou un point quelconque pour voir ses prévisions, ses bandes climatiques et ses mesures."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Fournisseurs",
     "api": "API",
     "glossary": "Glossaire",
-    "support": "Aide"
+    "support": "Aide",
+    "map": "Carte"
   },
   "shell": {
     "skipToContent": "Aller au contenu",
@@ -216,7 +218,9 @@
       "docs": "Utiliser la bibliothèque Python, la ligne de commande et l'API",
       "github": "Le code, les tickets et les pull requests",
       "pypi": "Installer la bibliothèque Python avec pip"
-    }
+    },
+    "stationsMap": "Station sur la carte",
+    "stationOnMap": "Afficher la station {id} sur la carte"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,46 @@
     "centerSelected": "Centrer sur la station sélectionnée",
     "centerSelectedPlural": "Centrer sur les stations sélectionnées",
     "markersNotShown": "Impossible d'afficher les stations sur la carte. Recharge la page pour réessayer."
+  },
+  "mapTool": {
+    "title": "Carte des stations",
+    "subtitle": "Choisis une station ou un point quelconque de la carte pour voir ses prévisions, ses bandes climatiques et ses mesures.",
+    "aboutButton": "À propos de la carte",
+    "about1": "La carte montre les stations du Service météorologique allemand (DWD) : les points pour lesquels il fait ses prévisions, ou les stations qui mesurent, pour la résolution et le jeu de données que tu choisis au-dessus de la carte. Chacune est un point ; le panneau trouve une station par son nom et liste celles qui sont proches du centre de la carte.",
+    "about2": "Choisis une station, ou clique sur un point quelconque de la carte : le panneau montre les prévisions et les bandes climatiques de la station la plus proche qui les a, et ouvre les mesures dans l'Explorateur et l'historique de la station avec cette station déjà choisie. Au clavier, déplace la carte avec les flèches, zoome avec plus et moins, puis choisis le lieu situé à son centre.",
+    "panelTitle": "Stations",
+    "layers": "Couche",
+    "layerForecast": "Stations de prévision",
+    "layerMeasured": "Mesures du DWD",
+    "mapLabel": "Carte des stations : {layer}",
+    "count": "Stations affichées : {shown}",
+    "loadingStations": "Chargement des stations …",
+    "stationsFailed": "Les stations n'ont pas pu être chargées",
+    "noStations": "Ce jeu de données n'a aucune station avec une position.",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "search": "Trouver une station",
+    "searchPlaceholder": "Nom ou numéro d'une station",
+    "nearCentre": "Stations proches du centre de la carte",
+    "results": "Résultats",
+    "noResults": "Aucune station ne correspond à cette recherche.",
+    "pickCentre": "Choisir le centre de la carte",
+    "pickCentreHint": "Choisit le lieu situé au centre de la carte, que les flèches déplacent.",
+    "back": "Retour aux stations",
+    "chosen": "{name} choisie",
+    "pickedPlace": "Un point de la carte, à {distance} de cette station",
+    "elevation": "{value} m d'altitude",
+    "at": "{name}, à {distance}",
+    "noneNearby": "Aucune station dans un rayon de {distance}.",
+    "openForecast": "Ouvrir les prévisions",
+    "openStripes": "Ouvrir les bandes climatiques",
+    "openExplorer": "Ouvrir les mesures dans l'Explorateur",
+    "openHistory": "Ouvrir l'historique de la station",
+    "since": "depuis {year}",
+    "period": "de {from} à {to}",
+    "stripesFigure": "Bandes climatiques de {name}",
+    "stripesNone": "Pas de bandes climatiques pour cette station.",
+    "stationNotFound": "Il n'y a pas de station {id} sur cette carte."
   },
   "dataViewer": {
     "loadingValues": "Chargement des valeurs …",

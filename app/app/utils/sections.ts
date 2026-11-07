@@ -2,11 +2,12 @@
 // narrow layout, the search, the footer and each page's own header read them from here, so a page is named, marked
 // and grouped the same way wherever it appears.
 //
-// Three groups: the four tools, which work on data and each take one tile of the logo (main.css, `.tile-*`); the
-// reference, which explains the data; and the project, which is about the people and the software behind it.
+// Three groups: the tools, which work on data and each take a tile (main.css, `.tile-*`): the four tiles of the logo
+// and, for the map, a violet of its own; the reference, which explains the data; and the project, which is about the
+// people and the software behind it.
 
 export type SectionGroup = 'tools' | 'reference' | 'project'
-export type Tile = 'sun' | 'rain' | 'wind' | 'heat' | 'navy'
+export type Tile = 'sun' | 'rain' | 'wind' | 'heat' | 'map' | 'navy'
 
 export interface Section {
   key: string
@@ -26,7 +27,21 @@ export const TOOLS: Section[] = [
   { key: 'explorer', to: '/explorer', group: 'tools', label: 'nav.explorer', description: 'home.explorerDesc', icon: 'i-ph-compass-fill', tile: 'rain' },
   { key: 'stripes', to: '/stripes', group: 'tools', label: 'nav.stripes', description: 'home.stripesDesc', icon: 'i-ph-thermometer-simple-fill', tile: 'heat' },
   { key: 'history', to: '/history', group: 'tools', label: 'nav.history', description: 'history.subtitle', icon: 'i-ph-clock-counter-clockwise-fill', tile: 'wind' },
+  { key: 'map', to: '/map', group: 'tools', label: 'nav.map', description: 'mapTool.subtitle', icon: 'i-ph-map-trifold-fill', tile: 'map' },
 ]
+
+/** The map, which the search opens on a station (`/map?station=`) */
+export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
+
+/**
+ * The tools that have a tab in the bar of the narrow layout (GH-3650). Five tools and the Menu are six items, more than
+ * a tab bar should hold, so the bar keeps four tools and the Menu, and the station history, the tool that is asked
+ * for least, is in the Menu's sheet with the rest. The header of the wide layout shows all of `TOOLS`.
+ */
+export const TAB_BAR_TOOLS: Section[] = TOOLS.filter(tool => tool.key !== 'history')
+
+/** The tools that are in the Menu's sheet and not in the tab bar: a page of one of them is the Menu's page */
+export const SHEET_ONLY_TOOLS: Section[] = TOOLS.filter(tool => !TAB_BAR_TOOLS.includes(tool))
 
 export const REFERENCE: Section[] = [
   { key: 'providers', to: '/providers', group: 'reference', label: 'nav.providers', description: 'providers.subtitle', icon: 'i-ph-buildings' },

@@ -1,0 +1,216 @@
+import type { Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { expect, test } from '@playwright/test'
+import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+
+// The map tool (GH-3650), by its main path in a browser: open the map, pick a place, read what the panel shows of it
+// and follow its links; the layers; the search of the header opening the map on a station; and the phone's navigation
+// with the history in the Menu. The backend is the accessibility spec's mock, so nothing here reaches a provider, and
+// the map's tiles are answered with a pixel.
+
+const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
+
+async function open(page: Page, baseURL: string, path = '/map', handlers = {}, title = en.mapTool.title) {
+  await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL }])
+  const backend = await mockBackend(page, baseURL, handlers)
+  await page.goto(path)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(title)
+  return backend
+}
+
+/** The middle of the map: with the mock's forecast points, the nearest of them is Berlin-Tempelhof */
+async function clickMapCentre(page: Page) {
+  const map = page.getByRole('application', { name: /^Station map/ })
+  await expect(map).toBeVisible()
+  await expect(page.getByTestId('map-count')).toBeVisible()
+  // the dots are drawn on canvas tiles, which come after the count
+  await expect(map.locator('canvas').first()).toBeAttached()
+  const box = (await map.boundingBox())!
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
+
+test.describe('the map tool on a wide screen', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('is the fifth tool of the header, with its violet tile, and marks itself as the page one is on', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map')
+    const nav = page.getByRole('navigation', { name: en.shell.mainNav })
+    const links = nav.getByRole('link')
+    await expect(links.filter({ hasText: en.nav.map })).toHaveAttribute('aria-current', 'page')
+    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.nav.map])
+    await expect(page.locator('.page-header .tile-map')).toBeVisible()
+  })
+
+  test('shows the forecast stations, the panel beside the map and the chips over it', async ({ page, baseURL }) => {
+    const backend = await open(page, baseURL!)
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 4')
+    const panel = page.getByTestId('map-panel')
+    const stage = page.getByTestId('map-stage')
+    const [panelBox, stageBox] = [await panel.boundingBox(), await stage.boundingBox()]
+    // the panel is on the left of the map, the two side by side
+    expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(stageBox!.x)
+    expect(Math.abs(panelBox!.y - stageBox!.y)).toBeLessThan(2)
+    await expect(page.getByRole('button', { name: en.mapTool.layerForecast })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: en.mapTool.layerMeasured })).toHaveAttribute('aria-pressed', 'false')
+    // the stations near the centre, by name
+    await expect(panel.getByRole('button', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('picks a place by a click on the map, shows what there is at it, and leads into the explorer and the history, filled in', async ({ page, baseURL }) => {
+    const backend = await open(page, baseURL!)
+    await clickMapCentre(page)
+    const panel = page.getByTestId('map-panel')
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('BERLIN-TEMPELHOF')
+    await expect(page.getByTestId('map-place')).toContainText('from this station')
+    await expect(page).toHaveURL(/\/map\?station=10384&lat=/)
+
+    // the forecast, as day rows
+    const forecast = page.getByTestId('map-card-forecast')
+    await expect(forecast.getByTestId('day-rows').getByRole('listitem').first()).toBeVisible()
+    await expect(forecast.getByRole('link', { name: en.mapTool.openForecast })).toHaveAttribute('href', '/meteogram?station=10384')
+
+    // the stripes are at the nearest station that has them, which the card names with its distance
+    const stripes = page.getByTestId('map-card-stripes')
+    await expect(stripes).toContainText(/Neuhaus am Rennweg, \d+ km away/)
+    await expect(stripes.getByRole('link', { name: en.mapTool.openStripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=00096')
+    const measured = page.getByTestId('map-card-measured')
+    await expect(measured).toContainText(/Artern, \d+ km away/)
+    // a station that has stopped says for how long it measured
+    await expect(measured).toContainText('1991 to 2018')
+    const explorer = measured.getByRole('link', { name: en.mapTool.openExplorer })
+    await expect(explorer).toHaveAttribute('href', /stations=00198/)
+    await expect(measured.getByRole('link', { name: en.mapTool.openHistory })).toHaveAttribute('href', /stations=00198/)
+
+    // the explorer opens with the station chosen
+    await explorer.click()
+    await expect(page).toHaveURL(/\/explorer\?.*stations=00198/)
+    await expect(page.getByText('Artern').first()).toBeVisible()
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('shows the climate stripes of a station that has them', async ({ page, baseURL }) => {
+    // Donaueschingen measures and has stripes: the layer of the measurements shows its own station
+    await open(page, baseURL!, '/map?layer=measured&station=00011')
+    const stripes = page.getByTestId('map-card-stripes')
+    await expect(stripes.getByRole('img', { name: /^Climate stripes of Donaueschingen/ })).toBeVisible()
+    await expect(stripes.getByRole('link', { name: en.mapTool.openStripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=00011')
+    await expect(stripes.locator('figcaption')).toContainText('From 1955 to 2024.')
+  })
+
+  test('shows the measuring stations of a resolution and a dataset when the chip is pressed', async ({ page, baseURL }) => {
+    await open(page, baseURL!)
+    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
+    await expect(page.getByRole('button', { name: en.mapTool.layerMeasured })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 12')
+    await expect(page).toHaveURL(/\/map\?layer=measured$/)
+    await expect(page.getByTestId('map-resolution')).toBeVisible()
+    await expect(page.getByTestId('map-dataset')).toBeVisible()
+    await expect(page.getByTestId('map-panel').getByRole('button', { name: /Neuhaus am Rennweg|Aue|Arkona/ }).first()).toBeVisible()
+  })
+
+  test('tells a failing station list in the page and loads it again on Retry', async ({ page, baseURL }) => {
+    let failing = true
+    await open(page, baseURL!, '/map', {
+      stations: (url: URL) => {
+        if (failing && url.searchParams.get('network') === 'mosmix')
+          return new ApiFailure(500, 'The forecast stations are not available')
+        return { stations: [{ station_id: '10384', name: 'BERLIN-TEMPELHOF', region: null, latitude: 52.47, longitude: 13.4, elevation: 49 }] }
+      },
+    })
+    const failure = page.getByTestId('map-failure')
+    await expect(failure).toContainText(en.mapTool.stationsFailed)
+    await expect(failure).toContainText('The forecast stations are not available')
+    failing = false
+    await failure.getByRole('button', { name: en.common.retry }).click()
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 1')
+    await expect(failure).toHaveCount(0)
+  })
+
+  test('is opened on a station by the header\'s search (Ctrl+K), which lists the map among the tools', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/', {}, 'Wetterdienst')
+    await page.keyboard.press('Control+K')
+    const dialog = page.getByRole('dialog')
+    const input = dialog.getByRole('combobox')
+    await expect(dialog.getByRole('option', { name: new RegExp(`^${en.nav.map}`) })).toBeVisible()
+    await input.fill('hamburg')
+    const option = dialog.getByRole('option', { name: /Show station 10147 on the map/ })
+    await expect(option).toBeVisible()
+    await option.click()
+    await expect(page).toHaveURL(/\/map\?station=10147/)
+    await expect(page.getByTestId('map-panel').getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await expect(page.getByTestId('map-announcement')).toHaveText('HAMBURG-FUHLSBUETTEL chosen')
+  })
+
+  test('is used by the keyboard alone: the list, the focus on the station, Back, and the centre of the map', async ({ page, baseURL }) => {
+    await open(page, baseURL!)
+    const panel = page.getByTestId('map-panel')
+    const item = panel.getByRole('button', { name: /MUENCHEN-STADT/ })
+    await item.focus()
+    await page.keyboard.press('Enter')
+    const heading = panel.getByRole('heading', { level: 2 })
+    await expect(heading).toHaveText('MUENCHEN-STADT')
+    await expect(heading).toBeFocused()
+    await page.getByTestId('map-back').focus()
+    await page.keyboard.press('Enter')
+    await expect(panel.getByRole('button', { name: /MUENCHEN-STADT/ })).toBeFocused()
+    // the map takes the arrow keys, which move its centre; the panel then picks the place at it
+    const map = page.getByRole('application', { name: /^Station map/ })
+    await map.focus()
+    for (let press = 0; press < 12; press++)
+      await page.keyboard.press('ArrowRight')
+    await panel.getByTestId('map-pick-centre').focus()
+    await page.keyboard.press('Enter')
+    // the place at the centre is picked, and the focus goes to the name of the station nearest to it
+    await expect(heading).toBeFocused()
+    await expect(heading).toHaveText(/BERLIN-TEMPELHOF|MUENCHEN-STADT/)
+    await expect(page.getByTestId('map-place')).toBeVisible()
+    await expect(page).toHaveURL(/lat=/)
+  })
+})
+
+test.describe('the map tool on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('has the map first and the panel under it as a sheet, and the Menu holds the history', async ({ page, baseURL }) => {
+    await open(page, baseURL!)
+    const stage = await page.getByTestId('map-stage').boundingBox()
+    const panel = await page.getByTestId('map-panel').boundingBox()
+    expect(stage!.y + stage!.height).toBeGreaterThan(panel!.y - 12)
+    expect(panel!.y).toBeGreaterThan(stage!.y)
+    expect(Math.abs(stage!.x - panel!.x)).toBeLessThan(2)
+    // the keyboard meets the chips, the map and the panel in the order the window shows them
+    const order = await page.evaluate(() => [...document.querySelectorAll('[data-testid="map-layer-forecast"], [role="application"], [data-testid="map-panel"] input')].map(element => element.getAttribute('data-testid') ?? element.getAttribute('role') ?? 'search'))
+    expect(order).toEqual(['map-layer-forecast', 'application', 'search'])
+
+    const bar = page.getByRole('navigation', { name: en.shell.mainNav }).first()
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.map, en.header.menu])
+  })
+
+  test('puts the map in a tab, and the history in the Menu, where whoever looks for it finds it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map')
+    const bar = page.locator('.app-tabbar')
+    await expect(bar.getByRole('link', { name: en.nav.map })).toHaveAttribute('aria-current', 'page')
+    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveCount(0)
+    await expect(bar.getByRole('link')).toHaveCount(4)
+    await bar.getByRole('button', { name: en.header.menu }).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    const history = sheet.getByRole('link', { name: en.nav.history })
+    await expect(history).toBeVisible()
+    await history.click()
+    await expect(page).toHaveURL(/\/history/)
+    // the page is the history's, which has no tab: the Menu's tab is the one marked
+    await expect(bar.getByRole('button', { name: en.header.menu })).toHaveAttribute('data-current', '')
+    await expect(bar.locator('[aria-current="page"]')).toHaveCount(0)
+  })
+
+  test('has no page that scrolls sideways, the chips included', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured&station=00011')
+    await expect(page.getByTestId('map-station-name')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    const chips = await page.locator('.map-chips').boundingBox()
+    expect(chips!.x + chips!.width).toBeLessThanOrEqual(390)
+  })
+})
