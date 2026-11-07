@@ -448,13 +448,12 @@ what the answer is missing:
   The MCP tools give the same text, the command line exits 1 with it, and Python raises
   `StationListingIncompleteError`, an `UpstreamError`. A station that is not found where every directory was listed
   is still the 404, and a name given to `stripes` that matches no station too: a name is the caller's input, not a gap
-  in a listing. A history with the warning is not
-  cached (below). Only a listing that is missing, an index page with no link, or a directory with files and no
-  description of its stations is told this way. A connection that cannot be
-  made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that is no index of a directory (a
-  CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never a `file-skipped` and never
-  "no data". No empty listing is kept in our listing cache, a year directory of a tree included
-  (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
+  in a listing. A history with the warning is not cached (below). Only a listing that is missing, an index page with
+  no link or a link to itself only, or a directory with files and no description of its stations is told this way.
+  A connection that cannot be made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that
+  is no index of a directory (a CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never
+  a `file-skipped` and never "no data". No empty listing is kept in our listing cache, a year directory of a tree
+  included (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
   written by an older version that holds an empty listing is read as a miss. A directory found empty is listed once
   by a lookup and once by a walk (a walk over a hundred stations asked for it, five GETs at a time, at each station and
   again for the fetch-ahead): a lookup or a walk remembers it for its own length and no longer, in Python as over REST,

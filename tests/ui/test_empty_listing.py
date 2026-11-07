@@ -1659,3 +1659,23 @@ def test_rest_a_cache_that_cannot_drop_the_listing_leaves_the_skip_a_200_with_th
 
     assert response.status_code == 200, response.text
     assert [warning["message"] for warning in _skipped(response.json())] == [_NO_DESCRIPTION_WARNING]
+
+
+def test_python_the_one_minute_precipitation_skipped_for_the_daily_description_may_hold_any_station(
+    dwd: _Dwd,
+) -> None:
+    """The 1 minute `historical` stations take their region from the daily `more_precip` description.
+
+    With that directory listing files and no description, the period is skipped for the directory, and the ids its
+    files carry are the daily stations', not the 1 minute ones the skip hides: any id may be one of them.
+    """
+    daily = "climate/daily/more_precip/historical/"
+    _without_description(dwd, daily, ["tageswerte_RR_00123_19700101_20241231_hist.zip"])
+    request = _request("1_minute/precipitation")
+
+    with patch.object(metaindex, "_create_meta_index_for_1minute_historical_precipitation", return_value=_MINUTE_1):
+        request.all()
+
+    assert request._lookup_gaps() == {f"`{daily}`": ListingGap(NO_DESCRIPTION)}  # noqa: SLF001
+    # 00044 is a 1 minute station that is not among the daily files: the 404 would say it does not exist
+    assert request._gaps_that_may_list("00044") == {f"`{daily}`": NO_DESCRIPTION}  # noqa: SLF001

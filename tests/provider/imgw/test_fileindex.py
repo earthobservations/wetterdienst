@@ -119,7 +119,11 @@ def test_an_outage_page_for_the_dataset_directory_is_an_error_not_no_files(
         _list(server, tmp_path)
 
 
-@pytest.mark.parametrize("link", ["/data/", "@BASE@/data/"], ids=["relative", "absolute"])
+@pytest.mark.parametrize(
+    "link",
+    ["/data/", "@BASE@/data/", "", "./", ".", "?retry=1"],
+    ids=["root-relative", "absolute", "empty", "dot-slash", "dot", "query"],
+)
 def test_an_outage_page_that_links_to_itself_is_an_error_not_no_files(
     server: NginxLike, tmp_path: Path, link: str
 ) -> None:

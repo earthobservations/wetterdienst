@@ -317,8 +317,21 @@ def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
 
 #: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
 #: (the relative link and the absolute one, which the test completes with the address of the server)
-_SELF_LINK = b'<html><head><title>503</title></head><body>Unavailable <a href="/x/">retry</a></body></html>'
-_SELF_LINK_ABSOLUTE = b'<html><head><title>503</title></head><body><a href="@BASE@/x/">retry</a></body></html>'
+_SELF_LINKS = [
+    pytest.param("/x/", id="root-relative"),
+    pytest.param("@BASE@/x/", id="absolute"),
+    pytest.param("", id="empty"),
+    pytest.param("./", id="dot-slash"),
+    pytest.param(".", id="dot"),
+    pytest.param("?retry=1", id="query"),
+    pytest.param("#", id="fragment"),
+]
+
+
+def _outage_page_linking_to(link: str, base: str) -> bytes:
+    """Write an outage page with a `retry` link to `link`, where `@BASE@` is the address of the server."""
+    page = f'<html><head><title>503</title></head><body>Unavailable <a href="{link}">retry</a></body></html>'
+    return page.replace("@BASE@", base).encode()
 
 
 @pytest.mark.parametrize(
@@ -332,18 +345,12 @@ _SELF_LINK_ABSOLUTE = b'<html><head><title>503</title></head><body><a href="@BAS
             b"<html><head><title>Index of services - maintenance</title></head><body></body></html>",
             id="index-of-a-word",
         ),
-        pytest.param("text/html", _SELF_LINK, id="self-link"),
-        pytest.param("text/html", _SELF_LINK_ABSOLUTE, id="self-link-absolute"),
     ],
 )
 def test_a_directory_page_that_is_no_index_is_a_download_error_not_no_entries(
     server: NginxLike, entries: Callable[[str], list[dict]], content_type: str, body: bytes
 ) -> None:
-    """`list_remote_directory_fsspec` answered `[]` for an outage page that came with a 200: now a `DownloadError`.
-
-    Also for a page that links to its own URL, which fsspec lists as that directory and which is no more an index.
-    """
-    body = body.replace(b"@BASE@", server.base.encode())
+    """`list_remote_directory_fsspec` answered `[]` for an outage page that came with a 200: now a `DownloadError`."""
     server.pages["/x/"] = (content_type, body)
     server.pages["/x"] = (content_type, body)
 
@@ -351,12 +358,16 @@ def test_a_directory_page_that_is_no_index_is_a_download_error_not_no_entries(
         entries("/x/")
 
 
-@pytest.mark.parametrize("body", [_SELF_LINK, _SELF_LINK_ABSOLUTE], ids=["relative", "absolute"])
-def test_the_listing_of_an_outage_page_with_a_self_link_is_not_kept(
-    server: NginxLike, entries: Callable[[str], list[dict]], body: bytes
+@pytest.mark.parametrize("link", _SELF_LINKS)
+def test_an_outage_page_that_links_to_itself_is_a_download_error_not_the_directory_as_an_entry(
+    server: NginxLike, entries: Callable[[str], list[dict]], link: str
 ) -> None:
-    """The self-link is an entry the cache would keep: once the server is back the directory is listed at once."""
-    body = body.replace(b"@BASE@", server.base.encode())
+    """A link of the page to its own URL, however it is written, lists as that directory and is no more an index.
+
+    fsspec joins the link to the URL as it stands (`./` is `/x/./`, `.` is `/x/.`), so the entries are compared by host
+    and normalised path. The listing is not kept: once the server is back the directory is listed at once.
+    """
+    body = _outage_page_linking_to(link, server.base)
     server.pages["/x/"] = ("text/html", body)
     server.pages["/x"] = ("text/html", body)
     for _ in range(2):
@@ -367,6 +378,47 @@ def test_the_listing_of_an_outage_page_with_a_self_link_is_not_kept(
     server.directories["/x/"] = [_ZIP]
 
     assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
+
+
+_APACHE_SORT_LINKS = (
+    '<a href="?C=N;O=D">Name</a><a href="?C=M;O=A">Last modified</a><a href="?C=S;O=A">Size</a>'
+    '<a href="/">Parent Directory</a>'
+)
+
+
+def test_an_apache_index_of_an_empty_directory_has_no_entries(
+    server: NginxLike, entries: Callable[[str], list[dict]]
+) -> None:
+    """Its sort links (`?C=N;O=D`) are the directory itself: a real `Index of` page with nothing else lists nothing."""
+    page = (
+        "text/html",
+        (
+            f"<html><head><title>Index of /x</title></head><body><h1>Index of /x</h1>{_APACHE_SORT_LINKS}</body></html>"
+        ).encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    assert entries("/x/") == []
+
+
+def test_an_apache_index_with_a_file_keeps_its_entries_sort_links_included(
+    server: NginxLike, entries: Callable[[str], list[dict]]
+) -> None:
+    """The sort links do not make a listing with a file one that lists nothing: it is left as fsspec gave it."""
+    page = (
+        "text/html",
+        (
+            f"<html><head><title>Index of /x</title></head><body><h1>Index of /x</h1>{_APACHE_SORT_LINKS}"
+            f'<a href="{_ZIP}">{_ZIP}</a></body></html>'
+        ).encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    names = [entry["name"] for entry in entries("/x/")]
+
+    assert f"{server.base}/x/{_ZIP}" in names
 
 
 def test_a_real_index_that_links_to_itself_has_no_entries(
@@ -496,3 +548,28 @@ def test_a_cache_that_cannot_be_opened_to_drop_a_listing_is_no_failure(
         )
 
     assert [record for record in caplog.records if "Could not open the listings cache" in record.getMessage()]
+
+
+@pytest.mark.parametrize(
+    ("names", "url", "nothing"),
+    [
+        pytest.param([], "https://h/x/", True, id="no-entry"),
+        pytest.param(
+            ["https://h/x/", "https://h/x/./", "https://h/x/.", "https://h/x/?C=N;O=D"],
+            "https://h/x/",
+            True,
+            id="itself",
+        ),
+        pytest.param(["https://other/x/"], "https://h/x/", False, id="another-host"),
+        pytest.param(["https://h/x/", "https://h/x/file.zip"], "https://h/x/", False, id="a-file-as-well"),
+        pytest.param(["https://h/x/.."], "https://h/x/", False, id="the-parent"),
+        pytest.param(["https://h/x/sub/"], "https://h/x/", False, id="a-subdirectory"),
+        pytest.param(["https://h/x"], "https://h/x", False, id="no-slash-names-maybe-a-file"),
+        pytest.param([], "https://h/x", False, id="no-slash-no-entry"),
+    ],
+)
+def test_a_listing_lists_nothing_where_every_entry_is_the_directory_itself(
+    names: list[str], url: str, *, nothing: bool
+) -> None:
+    """What `_lists_nothing` takes for the directory and what it does not (host, normalised path, a URL with a `/`)."""
+    assert network._lists_nothing(url, [{"name": name} for name in names]) is nothing  # noqa: SLF001

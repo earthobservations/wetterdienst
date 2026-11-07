@@ -68,11 +68,16 @@ def create_meta_index_for_climate_observations(
     # If no region column available, take the region from daily historical
     # precipitation
     if cond1:
-        mdp = _create_meta_index_for_climate_observations(
-            DwdObservationMetadata["daily"]["precipitation_more"],
-            Period.HISTORICAL,
-            settings=settings,
-        )
+        try:
+            mdp = _create_meta_index_for_climate_observations(
+                DwdObservationMetadata["daily"]["precipitation_more"],
+                Period.HISTORICAL,
+                settings=settings,
+            )
+        except DescriptionFileMissingError as e:
+            # the ids its files carry are those of the daily stations, not of the 1 minute ones the skip hides: the
+            # period is skipped for the daily directory, and any id may be one of its stations (GH-3834)
+            raise DescriptionFileMissingError(e.url, e.what) from e
         meta_index = meta_index.join(
             other=mdp.select(["station_id", "region"]),
             on=["station_id"],

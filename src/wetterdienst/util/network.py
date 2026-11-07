@@ -14,6 +14,7 @@ import ipaddress
 import json
 import logging
 import os
+import posixpath
 import re
 import shutil
 import sqlite3
@@ -2736,14 +2737,30 @@ def _read_page(fs: HTTPFileSystem, url: str) -> bytes | None:
         return None
 
 
+def _is_the_same_directory(name: str, url: str) -> bool:
+    """Tell whether an entry that fsspec made of a link is the directory `url` itself, by host and normalised path.
+
+    fsspec joins a relative link to the URL without resolving it: `href=""` and `href="/x/"` and the absolute URL come
+    out as `/x/`, `href="./"` as `/x/./` and `href="."` as `/x/.`, and `href="?C=N;O=D"` (an Apache index's sort link)
+    as `/x/?C=N;O=D`. All of those are the directory: the path is normalised (`posixpath.normpath`, which drops the
+    `.` and the trailing `/`) and the query and the fragment are not compared. A link to a `..`, a file or a
+    subdirectory is another path and is not.
+    """
+    entry_url, own_url = urlsplit(name), urlsplit(url)
+    return entry_url.netloc == own_url.netloc and posixpath.normpath(entry_url.path) == posixpath.normpath(own_url.path)
+
+
 def _lists_nothing(url: str, entries: list[dict]) -> bool:
     """Tell whether the listing of a directory (a URL ending in `/`) holds no entry but, at most, the URL itself.
 
     fsspec keeps a link of the page to itself as an entry, so an outage page with a `retry` link to its own URL lists
-    as that one directory (the relative link and the absolute one alike), as `list_remote_files_fsspec` sees for the
-    files (`found == [url]`).
+    as that one directory, however the link is written (`""`, `/x/`, `./`, `.`, the absolute URL: see
+    `_is_the_same_directory`), as `list_remote_files_fsspec` sees for the files (`found == [url]`). The sort links
+    of an Apache index are the directory too, so an Apache index of an empty directory lists nothing; one that holds
+    a file or a directory has that entry as well, which is not the URL, and is left as it is. A URL that does not end
+    in `/` may name a file and is never taken for one that lists nothing.
     """
-    return url.endswith("/") and all(entry["name"].rstrip("/") == url.rstrip("/") for entry in entries)
+    return url.endswith("/") and all(_is_the_same_directory(entry["name"], url) for entry in entries)
 
 
 def _drop_cached_listing(fs: HTTPFileSystem, url: str) -> None:
