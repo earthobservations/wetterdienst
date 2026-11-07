@@ -677,6 +677,15 @@ watch(selected, (station) => {
   font-weight: 600;
   line-height: 1.15;
   text-align: center;
+  /* a long word (Verwachtingsstations) breaks rather than spill out of its chip */
+  overflow-wrap: anywhere;
+}
+/* on the narrowest screens the two layers stand one over the other, so that the words of a long language fit */
+@media (max-width: 23.99rem) {
+  .map-segments {
+    flex-direction: column;
+    border-radius: 1.25rem;
+  }
 }
 .map-segment:hover {
   background: var(--ui-bg-elevated);

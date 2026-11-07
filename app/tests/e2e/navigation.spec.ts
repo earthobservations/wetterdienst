@@ -211,8 +211,10 @@ test.describe('the search', () => {
     await page.keyboard.press('Control+k')
     const dialog = page.getByRole('dialog', { name: en.shell.search })
     await page.keyboard.type('berlin')
-    const station = dialog.getByRole('option', { name: /BERLIN-TEMPELHOF/ })
+    // the station is offered twice: its forecast, and the map opened on it (GH-3650)
+    const station = dialog.getByRole('option', { name: /BERLIN-TEMPELHOF.*Forecast for/ })
     await expect(station).toBeVisible()
+    await expect(dialog.getByRole('option', { name: /BERLIN-TEMPELHOF.*on the map/ })).toBeVisible()
     // the station is the first of its group, after the tools: walked to by keys, taken by Enter
     for (let step = 0; step < 10 && await station.getAttribute('aria-selected') !== 'true'; step++)
       await page.keyboard.press('ArrowDown')

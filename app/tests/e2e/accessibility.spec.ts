@@ -118,6 +118,13 @@ async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
 }
 
+/** The one station with climate stripes that the map tool's states have within reach of Berlin (the mock's are in the south and west) */
+const STRIPES_NEAR_BERLIN: Handlers = {
+  'stripes/stations': () => ({
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: null }],
+  }),
+}
+
 const STATES: State[] = [
   {
     page: 'explorer',
@@ -522,6 +529,7 @@ const STATES: State[] = [
     page: 'map',
     state: 'station-picked',
     path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
     reach: async (page) => {
       await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
       await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
@@ -554,9 +562,11 @@ const STATES: State[] = [
     page: 'map',
     state: 'phone-station-picked',
     path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
     viewport: { width: 390, height: 844 },
     reach: async (page) => {
       await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
       await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
     },
   },
