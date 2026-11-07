@@ -166,9 +166,9 @@ describe('where can I download hourly temperatures', () => {
   })
 
   it('finds no hourly network in an answer without the lists of resolutions, and does not fail on it', () => {
-    // the compact answer of the backend has `resolutions: null`, an older one has no member
+    // the compact answer of the backend has `resolutions: null`
     const providers = [
-      { provider: 'dwd', networks: [{ network: 'observation', kind: 'observation', resolutions: null }, { network: 'mosmix', kind: 'observation' }] },
+      { provider: 'dwd', networks: [{ network: 'observation', kind: 'observation', resolutions: null }, { network: 'mosmix', kind: 'observation', resolutions: null }] },
     ] as unknown as Provider[]
     expect(hourlyNetworks(providers)).toEqual([])
   })

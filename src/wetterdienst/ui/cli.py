@@ -1389,10 +1389,13 @@ def _renamed_to(command: click.Command, option: str) -> str | None:
         for opt in (*param.opts, *param.secondary_opts)
     }
     # only a mistyped option gets here, so only a mistyped option waits for the table of what was renamed to import
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, ProvidersRequest
 
+    # `providers` never had `--dataset`, so it is no old name of its `--datasets`
+    never = ProvidersRequest.never_renamed if command.name == "providers" else frozenset()
+    name = option.removeprefix("--")
     # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
-    plural = f"{option}s" if option.removeprefix("--") in RENAMED_REQUEST_PARAMETERS else None
+    plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name not in never else None
     candidates = (option.replace("_", "-"), plural)
     return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
 

@@ -477,8 +477,8 @@ export interface NetworkExtent {
 
 /**
  * A network of a provider, as `GET /api/providers?datasets=true` lists it: standalone ones (`radar`, `alerts`) have an
- * empty list. The backend's compact answer (`datasets=false`, which is to become its default) has `null` and a
- * backend before it none, so the app asks with `datasets=true` and reads a missing list as an empty one.
+ * empty list. The backend's compact answer (`datasets=false`, which is to become its default) has `null`, so the app
+ * asks with `datasets=true` and reads a missing list as an empty one.
  */
 export interface ProviderNetwork {
   network: string
@@ -493,7 +493,7 @@ export interface ProviderNetwork {
   date_required: boolean
   /** How many parameters the network has in all of its datasets */
   parameters: number
-  resolutions?: ProviderResolution[] | null
+  resolutions: ProviderResolution[] | null
 }
 
 /** A provider of data, as `GET /api/providers` lists it */

@@ -1709,8 +1709,9 @@ def providers(
     networks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,
     `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.
     Each network also lists its resolutions and datasets, with how many parameters each has (a dataset whose
-    stations are fewer than its network's has an `extent` of its own): pass `datasets=false` for a short answer
-    without them, which is all a question about a licence or about the providers that reach a place needs.
+    stations are fewer than its network's has an `extent` of its own, and one without has its network's): pass
+    `datasets=false` for a short answer without them, which is all a question about a licence or about the
+    providers that reach a place needs.
     Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a
     network, and `auth` checks whether its credentials are accepted.
     """

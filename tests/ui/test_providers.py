@@ -555,6 +555,12 @@ def test_dataset_is_not_a_renamed_parameter_of_providers(client: TestClient) -> 
                 await mcp.call_tool(tool, arguments)
             return str(error.value)
 
+    cli_refused = CliRunner().invoke(cli, ["about", "providers", "--dataset=true"])
+    assert cli_refused.exit_code == 2
+    assert "renamed" not in cli_refused.output
+    assert "No such option" in cli_refused.output
+    assert "renamed to --datasets" in CliRunner().invoke(cli, ["about", "coverage", "--dataset=kl"]).output
+
     message = asyncio.run(call("providers", {"dataset": "true"}))
     assert "renamed" not in message
     assert "is not an argument of providers" in message
