@@ -1180,8 +1180,285 @@ def test_metno_frost_decodes_sentinels() -> None:
     assert values[4] is None
     assert values[5] is None
     assert values[6] == 4.0
-    # no unique wind direction is null, and the 0 beside it stays what Frost wrote
+    # no unique wind direction is null, and the 0 stays what Frost wrote where no speed is beside it to make it a calm
     assert values[7] is None
     assert values[8] == 0.0
     # -1 and -3 mean nothing special anywhere else, and a temperature may legitimately be negative
     assert values[9:] == [-1.0, -3.0]
+
+
+# --- the 06-06 series of the precipitation sums, the calm of the wind direction, a removed parameter ----------
+
+
+def _offset_answer(element: str, readings: list[tuple[str, str, float]]) -> dict:
+    """Give Frost's answer for one element that has several series by `timeOffset`: (reference time, offset, value).
+
+    Frost answers every series of the element when no `timeoffsets` is asked for, `PT18H` before `PT6H` for the same
+    `referenceTime` (SN50540, 2026-10-29: 4.0 and 22.3).
+    """
+    return {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": time,
+                "observations": [
+                    {"elementId": element, "value": value, "timeOffset": offset}
+                    for stamp, offset, value in readings
+                    if stamp == time
+                ],
+            }
+            for time in dict.fromkeys(time for time, _, _ in readings)
+        ],
+    }
+
+
+def _answered_by(path: str, answer: dict, available: dict) -> Callable[[str], File]:
+    """Give the stub of the upstream that serves ``answer`` to the reader ``path`` reaches."""
+
+    def observations(url: str) -> File:
+        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
+        if "availableTimeSeries" in url:
+            return _ok(url, available)
+        if "timeseriesids=" in url:
+            return _ok(url, answer)
+        if path == "batch" or (path == "single" and not batched):
+            return _ok(url, answer)
+        return _failed(url, 404)
+
+    return observations
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+@pytest.mark.parametrize(
+    ("element", "resolution", "stamps", "end"),
+    [
+        pytest.param(
+            "sum(precipitation_amount P1D)",
+            "daily",
+            ["2026-10-28T00:00:00.000Z", "2026-10-29T00:00:00.000Z"],
+            dt.datetime(2026, 10, 29, tzinfo=dt.UTC),
+            id="P1D",
+        ),
+        pytest.param(
+            "sum(precipitation_amount P1M)",
+            "monthly",
+            ["2020-01-01T00:00:00.000Z", "2020-02-01T00:00:00.000Z"],
+            dt.datetime(2020, 2, 1, tzinfo=dt.UTC),
+            id="P1M",
+        ),
+    ],
+)
+def test_metno_frost_precipitation_sum_is_the_series_of_the_standard_offset_by_every_reader(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    element: str,
+    resolution: str,
+    stamps: list[str],
+    end: dt.datetime,
+) -> None:
+    """Test that the daily and monthly precipitation sum is the `PT6H` series, whichever Frost answers first (GH-3832).
+
+    Frost answers both series of the sum for a date, `PT18H` (18-18 UTC) and `PT6H` (06-06 UTC): "Standard sampling
+    period for precipitation is 07-06 UTC" (https://frost.met.no/dataclarifications.html). The core kept the first row
+    of a reading, `PT18H`, so the sum of another window came back under a description of 06-06 (SN50540, 2026-10-29:
+    4.0 for 22.3). All three readers choose the rows of the standard offset; the order of the answer is no part of it.
+    """
+    # the 18-18 sum before the 06-06 sum on the first date, as Frost answers it, and after it on the second
+    readings = [
+        (stamps[0], "PT18H", 4.0),
+        (stamps[0], "PT6H", 22.3),
+        (stamps[1], "PT6H", 1.6),
+        (stamps[1], "PT18H", 0.1),
+    ]
+    available = {
+        "data": [
+            {
+                "validFrom": "1940-01-01T00:00:00Z",
+                "timeOffset": offset,
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
+                f"&timeoffsets={offset}",
+            }
+            for offset in ("PT18H", "PT6H")
+        ]
+    }
+    observations = _answered_by(path, _offset_answer(element, readings), available)
+    requested = [(resolution, "data", "precipitation_amount")]
+    if path == "single":
+        requested.append((resolution, "data", "temperature_air_mean_2m"))
+    start = dt.datetime.fromisoformat(stamps[0])
+    values, seen = _values(monkeypatch, observations, requested, start=start, end=end)
+    df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
+    assert df["value"].to_list() == [22.3, 1.6]
+    if path == "discovery":
+        # the two series of the listing have one time series id: the series of the other offset is not asked for again
+        assert sum("timeseriesids=" in url for url in seen) == 1
+
+
+def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_is_not_returned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a date with only an 18-18 sum has no value, rather than that sum under the name of the 06-06 sum.
+
+    The `PT18H` series reaches a day before the `PT6H` one at 350 of the stations that have both (562 such dates at 198
+    stations in the nine years sampled, GH-3832), and two stations have no `PT6H` series at all (SN10000 in July 1998,
+    SN59680 in April 2005). Frost's own `timeoffsets=default` would return the 18-18 sum there.
+    """
+    answer = _offset_answer(
+        "sum(precipitation_amount P1D)",
+        [
+            ("2020-01-01T00:00:00.000Z", "PT18H", 5.0),
+            ("2020-01-02T00:00:00.000Z", "PT18H", 7.0),
+            ("2020-01-02T00:00:00.000Z", "PT6H", 6.0),
+        ],
+    )
+    values, _ = _values(
+        monkeypatch, lambda url: _ok(url, answer), [("daily", "data", "precipitation_amount")], start=START, end=END
+    )
+    df = values.all().df
+    assert df["timestamp"].to_list() == [END]
+    assert df["value"].to_list() == [6.0]
+
+
+def test_metno_frost_only_the_precipitation_sums_choose_an_offset() -> None:
+    """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832).
+
+    `max(air_temperature P1D)` has `PT0H` and `PT18H` at 579 stations. Which of them to return is not decided here, so
+    what comes back of it is what came back.
+    """
+    given = pl.DataFrame(
+        {
+            "elementId": ["max(air_temperature P1D)"] * 2 + ["sum(precipitation_amount P1D)"] * 3,
+            "timeOffset": ["PT0H", "PT18H", "PT18H", "PT6H", None],
+            "value": [1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    )
+    assert frost_api._keep_standard_offset(given)["value"].to_list() == [1.0, 2.0, 4.0, 5.0]  # noqa: SLF001
+    assert frost_api._keep_standard_offset(given.drop("timeOffset")).height == 5  # noqa: SLF001
+
+
+def _wind(readings: list[tuple[str, str, float, int]]) -> pl.DataFrame:
+    """Give the frame a reader hands to `_decode_sentinels`: (parameter, height of its sensor, value, hour)."""
+    return pl.DataFrame(
+        {
+            "parameter": [parameter for parameter, _, _, _ in readings],
+            "timestamp": [dt.datetime(2020, 1, 1, hour, tzinfo=dt.UTC) for _, _, _, hour in readings],
+            "value": [value for _, _, value, _ in readings],
+            "quality_flags": ["0"] * len(readings),
+            frost_api._LEVEL: [level for _, level, _, _ in readings],  # noqa: SLF001
+        },
+    )
+
+
+def test_metno_frost_wind_direction_of_a_calm_is_null_and_a_0_beside_a_wind_stays() -> None:
+    """Test that a direction of 0 beside a speed of 0 is null with `raw:0`, and beside a speed above 0 stays (GH-3833).
+
+    Frost writes north as 360 ("360 degrees is north") and a calm as 0: the 0 stands beside a speed of 0 in 359 of 372
+    readings at the foreign stations and in 1,014 of 1,068 at 20 Norwegian ones. As everywhere else (`calm`), a calm has
+    no direction, and a 0 beside a wind that blows may be a north and stays.
+    """
+    given = _wind(
+        [
+            ("wind_from_direction", "10", 0.0, 0),
+            ("wind_speed", "10", 0.0, 0),
+            ("wind_from_direction", "10", 0.0, 1),
+            ("wind_speed", "10", 2.1, 1),
+            ("wind_from_direction", "10", 360.0, 2),
+            ("wind_speed", "10", 0.0, 2),
+            ("wind_from_direction", "10", 90.0, 3),
+            ("wind_speed", "10", 0.0, 3),
+        ]
+    )
+    decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
+    direction = decoded.filter(pl.col("parameter") == "wind_from_direction").sort("timestamp")
+    assert direction["value"].to_list() == [None, 0.0, 360.0, 90.0]
+    assert direction["quality_flags"].to_list() == ["0,raw:0", "0", "0", "0"]
+    # the speed is not touched, and no helper column is left on the frame
+    assert decoded.filter(pl.col("parameter") == "wind_speed")["value"].to_list() == [0.0, 2.1, 0.0, 0.0]
+    assert decoded.columns == ["parameter", "timestamp", "value", "quality_flags"]
+
+
+def test_metno_frost_wind_direction_without_a_speed_beside_stays_as_it_is() -> None:
+    """Test that a direction of 0 whose speed is not in the frame stays, as in the single and discovery readers."""
+    decoded = frost_api._decode_sentinels(  # noqa: SLF001
+        _wind([("wind_from_direction", "10", 0.0, 0), ("wind_from_direction", "10", 0.0, 1)])
+    )
+    assert decoded["value"].to_list() == [0.0, 0.0]
+    assert decoded["quality_flags"].to_list() == ["0", "0"]
+
+
+def test_metno_frost_calm_is_judged_by_the_speed_of_the_height_of_the_direction() -> None:
+    """Test that a direction takes the speed of its own height: 71 stations have the wind at several heights (GH-3833).
+
+    SN99460 answers a speed and a direction at 10 m and again at 2 m for every hour. A calm at 2 m is no calm at 10 m,
+    and a direction at a height that has no speed of its own has none beside it, whatever another height measures.
+    """
+    given = _wind(
+        [
+            ("wind_from_direction", "10", 0.0, 0),
+            ("wind_speed", "10", 1.4, 0),
+            ("wind_from_direction", "2", 0.0, 0),
+            ("wind_speed", "2", 0.0, 0),
+            # a direction at 5 m, a speed of 0 at 10 m only
+            ("wind_from_direction", "5", 0.0, 1),
+            ("wind_speed", "10", 0.0, 1),
+        ]
+    )
+    decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
+    direction = decoded.filter(pl.col("parameter") == "wind_from_direction")
+    assert direction["value"].to_list() == [0.0, None, 0.0]
+    assert direction["quality_flags"].to_list() == ["0", "0,raw:0", "0"]
+
+
+def test_metno_frost_batch_reads_a_calm_from_the_dataset_it_asks_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request for the wind direction alone asks for the whole dataset, so the speed is there (GH-3833).
+
+    The direction of 0 at 00:00 is beside a speed of 0 and is dropped as the null it is; the one at 01:00 is beside 3.1
+    m/s and stays.
+    """
+    level = {"levelType": "height_above_ground", "value": 10}
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-01T0{hour}:00:00.000Z",
+                "observations": [
+                    {"elementId": "wind_speed", "value": speed, "qualityCode": 0, "level": level},
+                    {"elementId": "wind_from_direction", "value": 0, "qualityCode": 0, "level": level},
+                ],
+            }
+            for hour, speed in enumerate([0.0, 3.1])
+        ],
+    }
+    values, seen = _values(
+        monkeypatch,
+        lambda url: _ok(url, payload),
+        [("hourly", "data", "wind_direction_mean_last_10min")],
+        start=START,
+        end=START + dt.timedelta(hours=1),
+    )
+    df = values.all().df
+    assert "wind_speed" in seen[1].split("elements=")[1].split("&")[0]
+    assert df["parameter"].to_list() == ["wind_direction_mean_last_10min"]
+    assert df["timestamp"].to_list() == [START + dt.timedelta(hours=1)]
+    assert df["value"].to_list() == [0.0]
+
+
+def test_metno_frost_has_no_direction_of_the_gust() -> None:
+    """Test that `wind_direction_gust_max` is refused for the 10-minute data (GH-3833).
+
+    It read `max(wind_from_direction_of_gust PT10M)`, which Frost describes as "Varying wind direction last 10 minutes.
+    Upper limit", not the direction of the gust. Frost lists that element at PT30M (119 series) and PT1M (5) only; the
+    listing for PT10M answers 404 "No data found", and a request 412 at 12 of 12 stations (4 of which return the
+    10-minute gust speed).
+    """
+    with pytest.raises(InvalidParameterError):
+        MetnoFrostRequest(parameters=[("10_minutes", "data", "wind_direction_gust_max")], start=START, end=END)
+    names = {
+        parameter.name
+        for resolution in MetnoFrostRequest.metadata
+        if resolution.name == "10_minutes"
+        for dataset in resolution.datasets
+        for parameter in dataset.parameters
+    }
+    assert "wind_direction_gust_max" not in names
+    assert "wind_gust_max" in names

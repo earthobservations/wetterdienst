@@ -18,7 +18,7 @@
 | {term}`temperature_air_mean_2m` | mean(air_temperature P1D) | Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). | degree_celsius |
 | {term}`temperature_air_max_2m` | max(air_temperature P1D) | Highest recorded air temperature per 24 hours | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1D) | Lowest recorded air temperature per 24 hours | degree_celsius |
-| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). Code -1 means no precipitation (Frost's data clarifications, 0.0 mm); it is returned as null for now, as at stations that read periodically it also marks a day not read (GH-3820). | millimeter |
+| {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). Only this series is returned (`timeOffset` PT6H, the day from 06 UTC of the previous date); Frost also has the 18-18 UTC sum (PT18H). Code -1 means no precipitation (Frost's data clarifications, 0.0 mm); it is returned as null for now, as at stations that read periodically it also marks a day not read (GH-3820). | millimeter |
 | {term}`wind_speed_mean` | mean(wind_speed P1D) | Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1D) | Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`humidity_relative_mean` | mean(relative_humidity P1D) | Daily mean relative humidity. | percent |
@@ -29,6 +29,11 @@
 | {term}`sunshine_duration` | sum(duration_of_sunshine P1D) | Number of hours of sunshine over the last 24 hours. | hour |
 
 ## Notes
+
+The daily precipitation sum is the 06-06 UTC series: the date `D` is the sum from `D-1` 06 UTC to `D` 06 UTC. Frost keeps
+a second series of it, 18-18 UTC, at 987 of its 2,334 stations, and the reader used to return that one where there is
+one. See the section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
+of the Frost page, which also says what is not decided for the temperature extremes.
 
 Frost states that `-1` of the daily precipitation sum is 0.0 mm. It is returned as `null` (`rejected:range,raw:-1`) for
 now, as it was: at stations that read periodically it also marks a day that was not read

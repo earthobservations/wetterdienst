@@ -19,7 +19,7 @@
 | {term}`temperature_dew_point_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
 | {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
 | {term}`wind_speed_mean_last_10min` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |
-| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. | degree |
+| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 requested without the speed. | degree |
 | {term}`pressure_air_sea_level` | air_pressure_at_sea_level | Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site` | surface_air_pressure | Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | cloud_area_fraction | Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null. | one_eighth |
@@ -35,6 +35,13 @@ section [The code -1 of the precipitation sums](index.md) of the Frost page for 
 
 The `-3` of `wind_direction_mean_last_10min` ("No unique wind direction is given when winds are weak") and of `snow_depth`
 ("Not possible to measure snowdepth") is `null` with `raw:-3`; the `-1` of `snow_depth` ("Zero snowdepth or partial snow
-cover") is `0.0` with `raw:-1`, and a `0` ("Snowdepth less than 0.5 cm") stays `0.0`. A `0` of the wind direction stays
-`0.0`, though Frost writes a calm as 0. See the section [The other coded values](index.md) of the Frost page for the
-evidence.
+cover") is `0.0` with `raw:-1`, and a `0` ("Snowdepth less than 0.5 cm") stays `0.0`. See the section
+[The other coded values](index.md) of the Frost page for the evidence.
+
+A `0` of `wind_direction_mean_last_10min` is a calm where the wind speed of the same time and height is 0: it is `null`
+with `raw:0`, as for every provider that writes a calm ([Special values](../../../special_values.md#wind)). Frost writes
+north as 360. A `0` beside a speed above 0 stays `0.0`. The speed is read from the answer, which holds the whole dataset
+whatever parameters were asked for, so it is there for a request of the direction alone; the one case without it is a
+batch that Frost answers with a 404, when each parameter is asked for by itself and a `0` stays `0.0`. At a station with
+the wind at two heights (71 have a speed at more than one, 10 m and 2 m among them) a direction is held against the speed
+of its own height; with no speed at that height it stays.

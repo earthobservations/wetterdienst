@@ -292,3 +292,70 @@ def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None
     )
     assert df["value"].to_list() == [None]
     assert df["quality_flags"].to_list() == ["2,raw:-3"]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_daily_precipitation_is_the_06_06_sum() -> None:
+    """The daily precipitation of Oslo/Blindern is the 06-06 UTC sum, not the 18-18 UTC one (GH-3832).
+
+    Frost answers two series for a date, `PT18H` and `PT6H`, and the first was kept. On 2023-08-07 they are 61.7 and
+    9.5 mm, and the sum of the hourly values stamped 2023-08-06 07:00 to 2023-08-07 06:00 is 9.5 (the 18-18 sum, stamps
+    19:00 to 18:00, is 61.7); on 2023-08-08 they are 6.5 and 57.2.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(2023, 8, 6, tzinfo=UTC),
+            end=dt.datetime(2023, 8, 8, tzinfo=UTC),
+        )
+        .filter_by_station_id(OSLO_BLINDERN)
+        .values()
+        .all()
+        .df
+    )
+    assert df["timestamp"].to_list() == [dt.datetime(2023, 8, d, tzinfo=UTC) for d in (6, 7, 8)]
+    assert df["value"].to_list() == [pytest.approx(3.6), pytest.approx(9.5), pytest.approx(57.2)]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_monthly_precipitation_is_the_06_06_sum() -> None:
+    """The monthly precipitation of Ullensvang is the sum from 06 UTC on the last day of the month before (GH-3832).
+
+    SN4460 has both series for 2020: 95, 126 and 123.5 mm for January to March in the `PT6H` one, 96.3, 128.8 and
+    119.4 in the `PT18H` one, which was returned.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("monthly", "data", "precipitation_amount")],
+            start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+            end=dt.datetime(2020, 3, 1, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN4460")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [pytest.approx(95.0), pytest.approx(126.0), pytest.approx(123.5)]
+
+
+@pytest.mark.remote
+def test_metno_frost_values_wind_direction_of_a_calm_is_null() -> None:
+    """The wind direction 0 beside a speed of 0 is a calm and comes back null, the 0 in the flags (GH-3833).
+
+    SN99840 (Svalbard lufthavn) has a direction of 0 and a speed of 0 at 2026-01-10 02:00, a calm at 10 m: Frost writes
+    north as 360. It was returned as 0.0. The request holds the whole dataset, so the speed is there to be read.
+    """
+    df = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            start=dt.datetime(2026, 1, 10, 2, tzinfo=UTC),
+            end=dt.datetime(2026, 1, 10, 2, tzinfo=UTC),
+            options={"drop_nulls": False},
+        )
+        .filter_by_station_id("SN99840")
+        .values()
+        .all()
+        .df
+    )
+    assert df["value"].to_list() == [None]
+    assert df["quality_flags"].to_list()[0].endswith("raw:0")

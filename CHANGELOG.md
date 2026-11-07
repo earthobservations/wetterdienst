@@ -55,6 +55,22 @@ Types of changes:
   and a `url`, which OpenAPI 3.1 makes mutually exclusive, so a strict validator or client
   generator no longer refuses it. `info.license` is `{"name": "MIT", "identifier": "MIT"}`; the
   link to `LICENSE.md` is gone from it (GH-3824)
+- **Breaking**: `metno/frost` daily and monthly `precipitation_amount` is the 06-06 UTC sum
+  (`PT6H`, Frost's standard), as its description says. Frost also has an 18-18 UTC series (`PT18H`)
+  at 987 and 964 stations, answers both, and the first was kept: SN50540 on 2026-10-29 gave 4.0
+  for 22.3. In the sample the value differs on 58 % of the dates and 68 % of the months at those
+  stations (median 1.6 mm), and a date that only the 18-18 series has is no longer returned. A
+  stored series does not join the new one: read it anew, there is no option for the old one. The
+  daily maximum and minimum temperature, which also have two series, are unchanged (GH-3832)
+- **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
+  `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
+  other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read
+  without its speed. Filter on `raw:0` to find the calm hours (GH-3833)
+- **Breaking**: `wind_direction_gust_max` of `metno/frost` 10 minutes is removed. It read
+  `max(wind_from_direction_of_gust PT10M)`, Frost's "Varying wind direction last 10 minutes. Upper
+  limit", not the gust's direction, and Frost lists that element at `PT30M` and `PT1M` only: the
+  request got 412 at 12 of 12 stations. A request for the name is refused; nothing replaces it
+  (GH-3833)
 
 ## [0.184.0] - 2026-11-06
 
