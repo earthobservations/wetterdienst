@@ -30,7 +30,7 @@ Types of changes:
 - `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool, `get_providers`)
   takes `datasets` (`--datasets`), true by default, so the answer is as before. `datasets=false`
   leaves out the `resolutions` of each network (null) and keeps everything else, the number of
-  `parameters` among it: 19 kB for every provider where the answer was 34 kB (42 kB where 109 kB
+  `parameters` among it: 20 kB for every provider where the answer was 34 kB (44 kB where 109 kB
   with `pretty`). The default will become false in a later release, before 1.0: pass
   `datasets=true` where you read `resolutions`. The field descriptions (OpenAPI, MCP, `--help`)
   and the docs now say that `attribution` is the credit line to cite and `copyright` the rights

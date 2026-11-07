@@ -683,7 +683,7 @@ information), and its networks with their `kind`, `extent`, source `url`, whethe
 how many parameters they have (`parameters`), and the resolutions and datasets they offer, with how many parameters each
 has (`dwd/radar` and `dwd/alerts` have an empty list). `datasets=false` leaves the resolutions and datasets out
 (`resolutions` is then null and everything else stays), which is all that a question about a licence or about which
-providers reach a place needs, and an answer about half the size: 19 kB for every provider where the full one is 34 kB.
+providers reach a place needs, and an answer about 40 % shorter: 20 kB for every provider where the full one is 34 kB.
 `datasets` is true for now and becomes false in a later release, before 1.0, so pass `datasets=true` where you read
 `resolutions`. `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
 answers at once, and `auth` checks whether credentials are accepted.
