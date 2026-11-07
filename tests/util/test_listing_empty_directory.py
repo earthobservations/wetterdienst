@@ -170,6 +170,140 @@ def test_a_page_that_is_no_index_is_a_download_error_not_an_empty_directory(
         listing("/x/")
 
 
+#: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
+#: (the relative link and the absolute one, which the test completes with the address of the server)
+_SELF_LINKS = [
+    pytest.param("/x/", id="root-relative"),
+    pytest.param("@BASE@/x/", id="absolute"),
+    pytest.param("", id="empty"),
+    pytest.param("./", id="dot-slash"),
+    pytest.param(".", id="dot"),
+    pytest.param("?retry=1", id="query"),
+    pytest.param("#", id="fragment"),
+]
+
+
+def _outage_page_linking_to(link: str, base: str) -> bytes:
+    """Write an outage page with a `retry` link to `link`, where `@BASE@` is the address of the server."""
+    page = f'<html><head><title>503</title></head><body>Unavailable <a href="{link}">retry</a></body></html>'
+    return page.replace("@BASE@", base).encode()
+
+
+@pytest.mark.parametrize("link", _SELF_LINKS)
+def test_an_outage_page_that_links_to_itself_is_not_kept_as_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str
+) -> None:
+    """The listing of an outage page with a link to itself is dropped, so the directory is listed once it is back.
+
+    It is a `DownloadError` while the server is down, as it was. But fsspec had stored the listing of the page (the
+    URL itself) before `find` looked at it, and once the server answered again the directory read as empty for the
+    12 hours of `CacheExpiry.METAINDEX` (GH-3861). The link is compared as `_is_the_same_directory` does, so every
+    spelling of it is the directory.
+    """
+    page = ("text/html", _outage_page_linking_to(link, server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    for _ in range(2):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            listing("/x/")
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+@pytest.mark.parametrize("link", ["/x/", "./"])
+def test_the_url_without_the_slash_is_listed_once_the_server_is_back_too(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str, *, redirect: bool
+) -> None:
+    """Fsspec stored the listing of `/x` as well as that of `/x/` (and of `/x/./.` for a link to `./`)."""
+    page = ("text/html", _outage_page_linking_to(link, server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x") == ([f"{server.base}/x/{_ZIP}"] if redirect else [])
+
+
+def test_a_real_index_that_links_to_itself_is_an_empty_directory_and_not_kept(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """The control: an `Index of` page that links to itself is `[]`, and the directory is listed once it is filled."""
+    page = ("text/html", b'<html><head><title>Index of /x/</title></head><body><a href="/x/">refresh</a></body></html>')
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    assert listing("/x/") == []
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+@pytest.mark.parametrize("link", ["/x/", "./", "."])
+def test_a_real_index_that_links_to_itself_in_any_spelling_is_an_empty_directory_and_not_kept(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str
+) -> None:
+    """A link to `./` sends fsspec's walk into the recursion limit, which is no reason to answer anything but `[]`."""
+    page = (
+        "text/html",
+        f'<html><head><title>Index of /x/</title></head><body><a href="{link}">refresh</a></body></html>'.encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    assert listing("/x/") == []
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+def test_a_page_that_links_to_dot_slash_and_to_a_file_is_not_taken_for_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """Only a page that lists nothing but itself is read as a self-link: with a file as well it is no empty directory.
+
+    fsspec's walk never ends on the `./` link whatever else the page holds, which is older than GH-3861 and is left as
+    it was (a `RecursionError`); what must not happen is the directory read as `[]` with its file left out.
+    """
+    page = (
+        "text/html",
+        (
+            '<html><head><title>Index of /x/</title></head><body><a href="./">refresh</a>'
+            f'<a href="{_ZIP}">z</a></body></html>'
+        ).encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    with pytest.raises(RecursionError):
+        listing("/x/")
+
+
+def test_the_cache_drop_of_a_self_link_listing_is_best_effort(
+    server: NginxLike, listing: Callable[[str], list[str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cache that cannot be written (busy, read-only) is a log line: the outage is still the `DownloadError`."""
+
+    def refuse(_self: object, _key: str) -> None:
+        message = "database is locked"
+        raise sqlite3.OperationalError(message)
+
+    monkeypatch.setattr(network.FileDirCache, "__delitem__", refuse)
+    page = ("text/html", _outage_page_linking_to("/x/", server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+
 @pytest.mark.parametrize(
     ("content_type", "body"),
     [
@@ -313,25 +447,6 @@ def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
         )
 
     return listed
-
-
-#: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
-#: (the relative link and the absolute one, which the test completes with the address of the server)
-_SELF_LINKS = [
-    pytest.param("/x/", id="root-relative"),
-    pytest.param("@BASE@/x/", id="absolute"),
-    pytest.param("", id="empty"),
-    pytest.param("./", id="dot-slash"),
-    pytest.param(".", id="dot"),
-    pytest.param("?retry=1", id="query"),
-    pytest.param("#", id="fragment"),
-]
-
-
-def _outage_page_linking_to(link: str, base: str) -> bytes:
-    """Write an outage page with a `retry` link to `link`, where `@BASE@` is the address of the server."""
-    page = f'<html><head><title>503</title></head><body>Unavailable <a href="{link}">retry</a></body></html>'
-    return page.replace("@BASE@", base).encode()
 
 
 @pytest.mark.parametrize(
