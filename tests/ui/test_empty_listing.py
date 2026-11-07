@@ -47,10 +47,16 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import metaindex as derived_metaindex
 from wetterdienst.provider.dwd.observation import DwdObservationRequest, api, fileindex, metaindex
-from wetterdienst.provider.dwd.observation.fileindex import DescriptionFileMissingError, EmptyListingError
+from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
+    NO_DESCRIPTION,
+    DescriptionFileMissingError,
+    EmptyListingError,
+)
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -1440,7 +1446,7 @@ def test_python_a_lookup_that_skips_nothing_has_no_gaps_even_after_one_that_did(
     dwd.set(empty=(_MONTHLY_HISTORICAL,))
     request = _request()
     request.all()
-    assert request._lookup_gaps() == {f"`{_MONTHLY_HISTORICAL}`": "its listing came back empty or missing"}  # noqa: SLF001
+    assert request._lookup_gaps() == {f"`{_MONTHLY_HISTORICAL}`": ListingGap(EMPTY_LISTING)}  # noqa: SLF001
 
     dwd.server.directories[dwd._path(_MONTHLY_HISTORICAL)] = _FILES  # noqa: SLF001
     request.all()
@@ -1489,7 +1495,7 @@ def test_python_the_derived_lookup_records_the_directory_it_went_without(dwd: _D
     request.all()
 
     assert request._lookup_gaps() == {  # noqa: SLF001
-        "`derived_germany/climate/hourly/duett/radiation_global/historical/`": "its listing came back empty or missing"
+        "`derived_germany/climate/hourly/duett/radiation_global/historical/`": ListingGap(EMPTY_LISTING)
     }
 
 
@@ -1535,3 +1541,121 @@ def test_rest_ndjson_values_of_a_period_without_a_description_tell_it(client: Te
     assert "file-skipped" in response.headers["X-Wetterdienst-Warnings"]
     lines = [json.loads(line) for line in response.text.splitlines()]
     assert any(warning["code"] == "file-skipped" for warning in lines[-1]["end"]["warnings"])
+
+
+# --- what a skipped directory can tell: its ids, or nothing (GH-3834) ------------------------------------------------
+
+
+def test_python_an_undescribed_directory_records_the_stations_its_files_name(dwd: _Dwd) -> None:
+    """The files carry the station ids, which the gap keeps, so an id that is not among them is no gap's business."""
+    _without_description(
+        dwd, files=["stundenwerte_KL_00044_19700101_20241231_hist.zip", "stundenwerte_KL_123_x_hist.zip"]
+    )
+    request = _request()
+
+    request.all()
+
+    assert request._lookup_gaps() == {  # noqa: SLF001
+        f"`{_MONTHLY_HISTORICAL}`": ListingGap(NO_DESCRIPTION, frozenset({"00044", "00123"}))
+    }
+    assert request._gaps_that_may_list("44") == {f"`{_MONTHLY_HISTORICAL}`": NO_DESCRIPTION}  # noqa: SLF001
+    assert request._gaps_that_may_list("00123") == {f"`{_MONTHLY_HISTORICAL}`": NO_DESCRIPTION}  # noqa: SLF001
+    assert request._gaps_that_may_list("09999") == {}  # noqa: SLF001
+
+
+def test_python_an_empty_directory_may_hold_any_station(dwd: _Dwd) -> None:
+    """Nothing says which stations an empty or missing directory holds: every id may be one."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+    request = _request()
+
+    request.all()
+
+    assert request._lookup_gaps() == {f"`{_MONTHLY_HISTORICAL}`": ListingGap(EMPTY_LISTING)}  # noqa: SLF001
+    assert request._gaps_that_may_list("09999") == {f"`{_MONTHLY_HISTORICAL}`": EMPTY_LISTING}  # noqa: SLF001
+
+
+def test_python_the_extreme_wind_without_a_description_records_the_stations_its_files_name(dwd: _Dwd) -> None:
+    """The wind files name their stations too, whichever of the two descriptions is missing."""
+    dwd.server.directories[dwd._path(_WIND_HISTORICAL)] = [*_WIND_FILES, _FX6]  # noqa: SLF001
+    request = _request(_WIND)
+
+    request.all()
+
+    assert request._lookup_gaps()[f"`{_WIND_HISTORICAL}`"] == ListingGap(  # noqa: SLF001
+        NO_DESCRIPTION, frozenset({"00044"})
+    )
+
+
+@pytest.mark.parametrize("route", ["summarize", "interpolate"])
+def test_rest_a_station_the_undescribed_directory_does_not_name_is_the_404_it_was(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """An id that is not in the file names of the directory without a description is unknown: the usual 404."""
+    _only_the_skipped_directory_lists_00044(dwd, "undescribed")
+
+    response = client.get(
+        f"/api/v1/{route}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "09999",
+            "timestamp": "2020-01-01",
+            **_ESTIMATE,
+        },
+    )
+
+    assert response.status_code == 404, response.text
+    assert "no station found for 09999" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("route", ["stripes/values", "stripes/image"])
+def test_rest_a_stripes_station_the_undescribed_directory_does_not_name_is_the_404_it_was(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """The same for the stripes, whose lookup is the `annual` directory."""
+    _without_description(dwd, _ANNUAL_HISTORICAL)
+
+    response = client.get(f"/api/v1/{route}", params={"kind": "temperature", "station": "09999"})
+
+    assert response.status_code == 404, response.text
+
+
+def test_rest_an_undescribed_directory_that_names_the_station_is_the_502(client: TestClient, dwd: _Dwd) -> None:
+    """The control: the same directory, an id among its file names (padded or not), is the 502."""
+    _only_the_skipped_directory_lists_00044(dwd, "undescribed")
+
+    for station in ("00044", "44"):
+        response = client.get(
+            "/api/v1/summarize",
+            params={
+                "provider": "dwd",
+                "network": "observation",
+                "station": station,
+                "timestamp": "2020-01-01",
+                **_ESTIMATE,
+            },
+        )
+        assert response.status_code == 502, response.text
+
+
+def test_rest_a_cache_that_cannot_drop_the_listing_leaves_the_skip_a_200_with_the_warning(
+    client: TestClient, dwd: _Dwd, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`ListingStore.delete` raising (busy, read-only) is no 500: the period is skipped and the warning is told."""
+    import sqlite3  # noqa: PLC0415
+
+    from wetterdienst.util.listing_cache import ListingStore  # noqa: PLC0415
+
+    def busy(_store: object, _key: object) -> bool:
+        msg = "database is locked"
+        raise sqlite3.OperationalError(msg)
+
+    monkeypatch.setattr(ListingStore, "delete", busy)
+    _without_description(dwd)
+
+    response = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert [warning["message"] for warning in _skipped(response.json())] == [_NO_DESCRIPTION_WARNING]

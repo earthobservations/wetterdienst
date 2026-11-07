@@ -80,7 +80,9 @@ A station id that no station has is a `StationNotFoundError` (a 404 over REST). 
 the lookup of the stations can go without a directory of DWD's server that came back empty or missing, or has no
 description of its stations: a station that only it lists is then not found, and the id may be one. That is a
 `StationListingIncompleteError` (an `UpstreamError`, a 502 over REST, exit 1 on the command line) that names the
-directory; try again later.
+directory; try again later. An empty or missing directory says nothing of its stations, so any id the lookup does not
+find gets it; a directory with files and no description names its stations in its file names, so only an id among
+them does, and any other id is the usual `StationNotFoundError`.
 
 Instead of a latlon you may alternatively use an existing station id for which to
 interpolate values in a manner of getting a more complete dataset:

@@ -18,6 +18,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     _build_url_from_dataset_and_period,
     _create_file_index_for_dwd_server,
     forget_description_missing,
+    station_ids_of_files,
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
 from wetterdienst.util.archive import open_zip
@@ -105,6 +106,7 @@ def _create_meta_index_for_climate_observations(
     if dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL:
         df_files = df_files.filter(pl.col("url").str.split("/").list.get(-2) != "2022")
     # Find the one meta file from the files listed on the server
+    names = df_files.select("filename").collect(background=False).get_column("filename").to_list()
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     df_files = df_files.collect(background=False)
     if not isinstance(df_files, pl.DataFrame):
@@ -112,7 +114,7 @@ def _create_meta_index_for_climate_observations(
         raise TypeError(msg)
     if df_files.is_empty():
         forget_description_missing(url, settings, CacheExpiry.METAINDEX)
-        raise DescriptionFileMissingError(url)
+        raise DescriptionFileMissingError(url, station_ids=station_ids_of_files(names))
     meta_file = df_files.get_column("url").to_list()[0]
     file = download_file(
         url=meta_file,
@@ -225,6 +227,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     dataset = DwdObservationMetadata.subdaily.wind_extreme
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
+    names = df_files.select("filename").collect(background=False).get_column("filename").to_list()
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     # Find the one meta file of each of the two series from the files listed on the server. A directory that lists
     # files and no description of one of them is a period the lookup goes without (GH-3834), as for any other dataset
@@ -238,7 +241,7 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
             raise TypeError(msg)
         if df_series.is_empty():
             forget_description_missing(url, settings, CacheExpiry.TWELVE_HOURS)
-            raise DescriptionFileMissingError(url, f"{series.upper()} meta file")
+            raise DescriptionFileMissingError(url, f"{series.upper()} meta file", station_ids_of_files(names))
         meta_files[series] = df_series.get_column("url").to_list()[0]
     meta_file_fx3, meta_file_fx6 = meta_files["fx3"], meta_files["fx6"]
     file_fx3 = download_file(

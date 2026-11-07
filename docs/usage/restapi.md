@@ -439,14 +439,18 @@ what the answer is missing:
   not read (`history`); the two state different facts and both are kept. A station that only the skipped release lists
   is not found, and `interpolate`, `summarize`, `stripes/values` and `stripes/image` with such a `station` have no
   answer to put a warning in: an error answer has no `warnings`. They answer a 502 of the kind `upstream-failed`
-  whose `detail` names the directory and why it was skipped (`No station found for 00044. The lookup of the stations
+  whose `detail` names the directory and why it was skipped (``No station found for 00044. The lookup of the stations
   went without the directory `climate/monthly/kl/historical/` (its listing came back empty or missing), so a station
-  that only it lists is not found, and this may be one. Try again later.`), not the 404 that says the station does
-  not exist (#3834); the same 502 answers a station that no listing has, while a directory was skipped, since it
-  is not known to be unknown. The MCP tools give the same text, the command line exits 1 with it, and Python raises
+  that only it lists is not found, and this may be one. Try again later.``), not the 404 that says the station does
+  not exist (#3834). What a skipped directory can say decides which id gets it: an empty or missing directory says
+  nothing of the stations it holds, so every id the lookup does not find is the 502; a directory that lists files and
+  no description names its stations in its file names, so only an id among them is, and any other id is the usual 404.
+  The MCP tools give the same text, the command line exits 1 with it, and Python raises
   `StationListingIncompleteError`, an `UpstreamError`. A station that is not found where every directory was listed
-  is still the 404, and a name given to `stripes` that matches no station too. A history with the warning is not
-  cached (below). Only a listing that is missing or an index page with no link is told this way. A connection that cannot be
+  is still the 404, and a name given to `stripes` that matches no station too: a name is the caller's input, not a gap
+  in a listing. A history with the warning is not
+  cached (below). Only a listing that is missing, an index page with no link, or a directory with files and no
+  description of its stations is told this way. A connection that cannot be
   made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that is no index of a directory (a
   CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never a `file-skipped` and never
   "no data". No empty listing is kept in our listing cache, a year directory of a tree included

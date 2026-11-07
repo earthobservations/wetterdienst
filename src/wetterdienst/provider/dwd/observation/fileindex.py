@@ -201,18 +201,27 @@ class DescriptionFileMissingError(MetaFileNotFoundError):
     A `MetaFileNotFoundError`, as it was raised before, with the message it had; it says which directory (`url`).
     The lookups of `dwd/observation` skip the period as they skip an empty directory, and say so with `file-skipped`.
     The listing of the directory is dropped from the listings cache when this is raised (`forget_description_missing`),
-    since DWD uploads the description after the files and the listing is no answer to keep for 12 hours.
+    since DWD uploads the description after the files and the listing is no answer to keep for 12 hours. The files
+    carry the ids of their stations, which are `station_ids`: a station that is not among them is not one the
+    directory would have listed.
     """
 
-    def __init__(self, url: str, what: str = "meta file") -> None:
-        """Keep the URL of the directory and what was missing in it, and say what the function always said."""
+    def __init__(self, url: str, what: str = "meta file", station_ids: frozenset[str] = frozenset()) -> None:
+        """Keep the URL of the directory, what was missing in it and the stations its files name."""
         super().__init__(f"No {what} was found amongst the files at {url}.")
         self.url = url
         self.what = what
+        self.station_ids = station_ids
 
     def __reduce__(self) -> tuple:
-        """Rebuild from the url and what was missing, as the constructor takes them, with the attributes set since."""
-        return type(self), (self.url, self.what), self.__dict__
+        """Rebuild from the url, what was missing and the stations, with the attributes set since."""
+        return type(self), (self.url, self.what, self.station_ids), self.__dict__
+
+
+def station_ids_of_files(filenames: list[str]) -> frozenset[str]:
+    """Give the station ids that the names of the files of a directory carry, padded as the file index pads them."""
+    ids = (re.search(STATION_ID_REGEX, name) for name in filenames)
+    return frozenset(match.group(1).zfill(5) for match in ids if match and match.group(1).zfill(5) != "00000")
 
 
 def forget_description_missing(url: str, settings: Settings, ttl: CacheExpiry) -> None:

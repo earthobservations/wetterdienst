@@ -30,6 +30,7 @@ from wetterdienst.model.history import (
     _NameHistory,
     _ParameterHistory,
 )
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
@@ -999,7 +1000,7 @@ class DwdObservationRequest(TimeseriesRequest):
                 datasets.append(parameter.dataset)
         stations = []
         # the directories this lookup went without, for a station that is not found (`_lookup_gaps`)
-        gaps: dict[str, str] = {}
+        gaps: dict[str, ListingGap] = {}
         self._gaps_of_lookup = gaps
         for dataset in datasets:
             file_ids: set[str] = set()
@@ -1023,7 +1024,8 @@ class DwdObservationRequest(TimeseriesRequest):
                         url = getattr(e, "url", None) or _build_url_from_dataset_and_period(dataset, period)
                         log.info("No meta file found at %s for %s/%s, skipping.", url, dataset.name, period.name)
                         undescribed.setdefault(directory := directory_of(url), []).append(period)
-                        gaps[directory] = NO_DESCRIPTION
+                        # the files name the stations the directory would have listed, if the error says them
+                        gaps[directory] = ListingGap(NO_DESCRIPTION, getattr(e, "station_ids", None) or None)
                         continue
                     file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 except EmptyListingError as e:
@@ -1032,7 +1034,7 @@ class DwdObservationRequest(TimeseriesRequest):
                     # failing server is raised by the listing, and is not this
                     log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
                     skipped.setdefault(directory := directory_of(e.url), []).append(period)
-                    gaps[directory] = EMPTY_LISTING
+                    gaps[directory] = ListingGap(EMPTY_LISTING)
                     continue
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(

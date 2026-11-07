@@ -67,7 +67,8 @@ The usual reasons:
 - **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
   directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
   with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
-  404 for the same station means every directory was listed and none has it.
+  404 for the same station means every directory was listed and none has it, or the directory that was skipped lists
+  files and names the stations of its files, and this is not one.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source

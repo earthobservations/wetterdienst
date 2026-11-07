@@ -119,6 +119,21 @@ def test_an_outage_page_for_the_dataset_directory_is_an_error_not_no_files(
         _list(server, tmp_path)
 
 
+@pytest.mark.parametrize("link", ["/data/", "@BASE@/data/"], ids=["relative", "absolute"])
+def test_an_outage_page_that_links_to_itself_is_an_error_not_no_files(
+    server: NginxLike, tmp_path: Path, link: str
+) -> None:
+    """The page lists as the one directory it links to (itself): the first listing, and the second from the cache."""
+    page = f'<html><head><title>503</title></head><body>Try <a href="{link}">again</a></body></html>'
+    body = page.replace("@BASE@", server.base).encode()
+    server.pages["/data/"] = ("text/html", body)
+    server.pages["/data"] = ("text/html", body)
+
+    for _ in range(2):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            _list(server, tmp_path)
+
+
 def test_an_outage_page_for_a_period_folder_is_an_error_not_the_files_of_the_others(
     server: NginxLike, tmp_path: Path
 ) -> None:

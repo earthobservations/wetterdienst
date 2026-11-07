@@ -2442,7 +2442,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # list is not taken for an unknown station
     found = stations.to_dict()["stations"]
     if not found:
-        if stripes.station and (gaps := request._lookup_gaps()):  # noqa: SLF001
+        if stripes.station and (gaps := request._gaps_that_may_list(stripes.station)):  # noqa: SLF001
             # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
             raise StationListingIncompleteError(stripes.station, gaps)
         parameter = "station_id" if stripes.station else "name"

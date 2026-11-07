@@ -17,6 +17,8 @@ answers that way.
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,6 +27,8 @@ from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util import network
+from wetterdienst.util.listing_cache import ListingStore
 from wetterdienst.util.network import (
     HTTPFileSystem,
     forget_remote_listing,
@@ -311,6 +315,12 @@ def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
     return listed
 
 
+#: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
+#: (the relative link and the absolute one, which the test completes with the address of the server)
+_SELF_LINK = b'<html><head><title>503</title></head><body>Unavailable <a href="/x/">retry</a></body></html>'
+_SELF_LINK_ABSOLUTE = b'<html><head><title>503</title></head><body><a href="@BASE@/x/">retry</a></body></html>'
+
+
 @pytest.mark.parametrize(
     ("content_type", "body"),
     [
@@ -322,17 +332,52 @@ def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
             b"<html><head><title>Index of services - maintenance</title></head><body></body></html>",
             id="index-of-a-word",
         ),
+        pytest.param("text/html", _SELF_LINK, id="self-link"),
+        pytest.param("text/html", _SELF_LINK_ABSOLUTE, id="self-link-absolute"),
     ],
 )
 def test_a_directory_page_that_is_no_index_is_a_download_error_not_no_entries(
     server: NginxLike, entries: Callable[[str], list[dict]], content_type: str, body: bytes
 ) -> None:
-    """`list_remote_directory_fsspec` answered `[]` for an outage page that came with a 200: now a `DownloadError`."""
+    """`list_remote_directory_fsspec` answered `[]` for an outage page that came with a 200: now a `DownloadError`.
+
+    Also for a page that links to its own URL, which fsspec lists as that directory and which is no more an index.
+    """
+    body = body.replace(b"@BASE@", server.base.encode())
     server.pages["/x/"] = (content_type, body)
     server.pages["/x"] = (content_type, body)
 
     with pytest.raises(DownloadError, match="not the index page of a directory"):
         entries("/x/")
+
+
+@pytest.mark.parametrize("body", [_SELF_LINK, _SELF_LINK_ABSOLUTE], ids=["relative", "absolute"])
+def test_the_listing_of_an_outage_page_with_a_self_link_is_not_kept(
+    server: NginxLike, entries: Callable[[str], list[dict]], body: bytes
+) -> None:
+    """The self-link is an entry the cache would keep: once the server is back the directory is listed at once."""
+    body = body.replace(b"@BASE@", server.base.encode())
+    server.pages["/x/"] = ("text/html", body)
+    server.pages["/x"] = ("text/html", body)
+    for _ in range(2):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            entries("/x/")
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
+
+
+def test_a_real_index_that_links_to_itself_has_no_entries(
+    server: NginxLike, entries: Callable[[str], list[dict]]
+) -> None:
+    """The self-link is no entry of a page that is an index: `[]`, not the directory as its own entry."""
+    page = ("text/html", b'<html><head><title>Index of /x/</title></head><body><a href="/x/">refresh</a></body></html>')
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    assert entries("/x/") == []
 
 
 def test_a_real_index_with_no_link_has_no_entries(
@@ -397,3 +442,57 @@ def test_forgetting_a_listing_that_is_not_kept_is_nothing(server: NginxLike, tmp
     forget_remote_listing(url, Settings(cache_dir=str(tmp_path / "cache")), CacheExpiry.METAINDEX)
     forget_remote_listing(url, Settings(cache_disable=True), CacheExpiry.METAINDEX)
     forget_remote_listing(url, Settings(cache_dir=str(tmp_path / "cache")), CacheExpiry.NO_CACHE)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        sqlite3.OperationalError("database is locked"),
+        sqlite3.OperationalError("attempt to write a readonly database"),
+        OSError("disk"),
+    ],
+    ids=["busy", "read-only", "os"],
+)
+def test_a_cache_that_cannot_drop_a_listing_is_told_in_the_log_and_is_no_failure(
+    server: NginxLike,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+) -> None:
+    """`ListingStore.delete` can raise (busy, read-only): the forget is best effort, so it is a log line, not a 500."""
+    settings = Settings(cache_dir=str(tmp_path / "cache"))
+    url = f"{server.base}/half/"
+    server.directories["/half/"] = [_ZIP]
+    list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX)
+
+    def failing(_store: object, _key: object) -> bool:
+        raise error
+
+    monkeypatch.setattr(ListingStore, "delete", failing)
+
+    with caplog.at_level(logging.WARNING):
+        forget_remote_listing(url, settings, CacheExpiry.METAINDEX)
+
+    assert [
+        record.getMessage() for record in caplog.records if "Could not drop the cached listing" in record.getMessage()
+    ]
+
+
+def test_a_cache_that_cannot_be_opened_to_drop_a_listing_is_no_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The filesystem that holds the cache may fail to be built (a directory that cannot be made): told, not raised."""
+
+    def failing(*_args: object, **_kwargs: object) -> None:
+        msg = "read-only file system"
+        raise OSError(msg)
+
+    monkeypatch.setattr(network, "HTTPFileSystem", failing)
+
+    with caplog.at_level(logging.WARNING):
+        forget_remote_listing(
+            "https://example.com/x/", Settings(cache_dir=str(tmp_path / "cache")), CacheExpiry.METAINDEX
+        )
+
+    assert [record for record in caplog.records if "Could not open the listings cache" in record.getMessage()]
