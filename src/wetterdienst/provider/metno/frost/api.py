@@ -544,13 +544,15 @@ _STANDARD_OFFSET = {
     "max(air_temperature P1D)": "PT18H",
     "min(air_temperature P1D)": "PT18H",
 }
-# the series each standard offset is not, as the `other-window-left-out` warning names it
+# the series a standard offset is not, as the `other-window-left-out` warning names them: the precipitation's is
+# `PT18H`; the extremes' is `PT0H` at the stations that have both, or `PT6H` at the 9 minimum stations of Frost's
+# listing that have only that, and the clause is no more than that
 _OTHER_SERIES = {
     "PT6H": "18-18 UTC series (`timeOffset` PT18H)",
-    "PT18H": "calendar-day series (`timeOffset` PT0H)",
+    "PT18H": "other series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00, or PT6H)",
 }
 # what the `other-window-left-out` warning says of the dates that only the other series has, by element: the windows
-# are the 24 hours ending at the offset (06-06, 18-18 UTC), the calendar day for `PT0H`
+# are the 24 hours ending at the offset (06-06, 18-18 UTC)
 _LEFT_OUT_BECAUSE = {
     element: (
         f"these dates have a value in Frost's {_OTHER_SERIES[offset]} only, and this parameter is the "

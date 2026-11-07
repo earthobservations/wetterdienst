@@ -451,12 +451,12 @@ def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour
 def test_metno_frost_values_daily_temperature_extremes_are_the_18_18_series_of_oslo_blindern_2016() -> None:
     """The daily maximum and minimum of SN18701 (Oslo, Blindern) from 2016-01-13 on are the 18-18 UTC series (GH-3843).
 
-    SN18701 has `PT0H` (00-24 UTC) from 2016-01-09 and `PT18H` (the 24 hours ending 18 UTC, Frost's standard for
-    temperature extremes)
-    from 2016-01-13: the reader returned the calendar day wherever `PT0H` had a row (-4.6, -7.9, -8.5, -6.9 for the
-    maximum of 2016-01-13 to 16), and the 18-18 window nowhere else of a series that goes on to 2023. They are -3.5,
-    -7.9, -9.4 and -6.9 now (-10.5, -14.2, -16.2, -12.2 for the minimum). 2016-01-09 has the calendar-day value only
-    (-7.2 and -10.1): it is not returned, and the answer says so for both parameters.
+    SN18701 has `PT0H` (the series Frost files as the calendar day) from 2016-01-09 and `PT18H` (the 24 hours ending
+    18 UTC, Frost's standard for temperature extremes) from 2016-01-13: the reader returned the calendar day wherever
+    `PT0H` had a row (-4.6, -7.9, -8.5, -6.9 for the maximum of 2016-01-13 to 16), and the 18-18 window nowhere else of
+    a series that goes on to 2023. They are -3.5, -7.9, -9.4 and -6.9 now (-10.5, -14.2, -16.2, -12.2 for the
+    minimum). 2016-01-09 has the calendar-day value only (-7.2 and -10.1): it is not returned, and the answer says so
+    for both parameters.
     """
     begin_response()
     df = (
@@ -483,7 +483,10 @@ def test_metno_frost_values_daily_temperature_extremes_are_the_18_18_series_of_o
     for warning in told.values():
         assert warning["stations"] == ["SN18701"]
         assert "on 1 date that is not in the answer (SN18701 1)" in warning["message"]
-        assert "calendar-day series (`timeOffset` PT0H) only" in warning["message"]
+        assert (
+            "other series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00, or PT6H) only"
+            in (warning["message"])
+        )
     assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
 
 

@@ -3934,9 +3934,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "max(air_temperature P1D)"): (
             "Highest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
             "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
-            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the calendar-day (00-24 UTC) "
-            "series (PT0H), which is left out, and a station that has no PT18H series returns no values "
-            "(GH-3843)."
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
         ),
         ("daily", "data", "max(wind_speed P1D)"): (
             "Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do "
@@ -3949,7 +3949,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "mean(air_temperature P1D)"): (
             "Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula "
             "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). Frost "
-            "also has a 06-06 UTC series (PT6H), at 1,063 stations that have both and 7 that have PT6H only; on "
+            "also has a 06-06 UTC series (PT6H), at 1,063 stations of its listing that have both and 7 that have "
+            "PT6H only; on "
             "the days that only it has, which are rare (at least 3,694 days at 11 stations of the station list "
             "were found: a lower bound), that one is returned."
         ),
@@ -3971,9 +3972,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "min(air_temperature P1D)"): (
             "Lowest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
             "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
-            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the calendar-day (00-24 UTC) "
-            "series (PT0H), which is left out, and a station that has no PT18H series returns no values "
-            "(GH-3843)."
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
         ),
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
         ("daily", "data", "sum(precipitation_amount P1D)"): (

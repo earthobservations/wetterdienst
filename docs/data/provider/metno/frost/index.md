@@ -154,16 +154,16 @@ sums from 2018-05-03 on.
 sums, and Frost's table of preferred offsets names the one to take
 ([data clarifications](https://frost.met.no/dataclarifications.html), "Standard time offsets"). A series is named here
 by the 24 hours it ends: the 24 hours ending 18 UTC of the date are "18-18 UTC" (`PT18H`, as for the precipitation sum
-above), and the calendar day is `PT0H`:
+above), and the series Frost files as the calendar day is `PT0H`:
 
 | element | offset | window | Frost's table of preferred offsets |
 |---|---|---|---|
 | `max(air_temperature P1D)` | `PT18H` | the 24 hours ending 18 UTC of the date: the hourly readings stamped `D-1` 19:00 to `D` 18:00 | preferred: "Standard sampling period for temperature extremes is 19-18 UTC" |
-| `max(air_temperature P1D)` | `PT0H` | the calendar day: the hourly readings stamped `D` 00:00 to 23:00 | |
+| `max(air_temperature P1D)` | `PT0H` | the series Frost files as the calendar day: the hourly readings stamped `D` 00:00 to 23:00 | |
 | `min(air_temperature P1D)` | `PT18H`, `PT0H` | the same | preferred: the same words |
 
 Frost's "19-18 UTC" names the hourly stamps 19:00 to 18:00 and so the 24 hours ending 18 UTC (19:00 to 18:00 of stamps is
-not 23 hours). The concepts page says what `timeOffset` means ("If timeOffset != PT0H, the observation represents the last
+not 23 hours; `PT0H` is named by its stamps only, 00:00 to 23:00, as the hours it ends are another reading of them). The concepts page says what `timeOffset` means ("If timeOffset != PT0H, the observation represents the last
 24 hr, at the time after midnight equal to timeOffset"). The windows were read off the data on 2026-11-07: the maximum of
 the hourly `max(air_temperature PT1H)` stamped `D-1` 19:00 to `D` 18:00 equals the `PT18H` value on 16 of 16 days at
 SN18700 and at SN50540 (2026-10-20 to 11-04), and the stamps `D` 00:00 to 23:00 equal the `PT0H` value on the same 16;

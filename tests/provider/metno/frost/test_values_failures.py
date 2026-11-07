@@ -1327,8 +1327,8 @@ def test_metno_frost_only_the_sums_and_the_daily_extremes_choose_an_offset() -> 
     """Test that the rows of any other element are kept, as are those of an answer without an offset (GH-3832, GH-3843).
 
     The precipitation sums and the daily extremes keep their standard series alone. The daily mean has `PT0H` and
-    `PT6H` at 1,070 stations and is not chosen here: its rows are kept as they come, and the core returns the first of a
-    date.
+    `PT6H` at 1,063 stations of Frost's listing and is not chosen here: its rows are kept as they come, and the core
+    returns the first of a date.
     """
     given = pl.DataFrame(
         {
@@ -1740,7 +1740,8 @@ def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_ar
 
     Of the catalogue's 550 stations with both series of the daily maximum, 17 have a date that only `PT0H` has outside
     the validity of `PT18H` (17 dates in all years) and the nine years read have 50 gaps inside it. Those dates are not
-    returned (a value of the 00-24 window under the name of the 18-18 one) and are never "the source has no values".
+    returned (a value of the calendar-day series under the name of the 18-18 one) and are never "the source has no
+    values".
     """
     readings = [
         (EXTREME_STAMPS[0], "PT0H", 5.0),
@@ -1754,7 +1755,10 @@ def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_ar
     assert warning["parameter"] == f"daily/data/{name}"
     assert warning["stations"] == ["SN18700"]
     assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
-    assert "calendar-day series (`timeOffset` PT0H) only" in warning["message"]
+    assert (
+        "other series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00, or PT6H) only"
+        in (warning["message"])
+    )
     assert "18-18 UTC series (`timeOffset` PT18H)" in warning["message"]
     assert [w for w in _told("parameter-without-rows") if w["parameter"] in ("daily/data", f"daily/data/{name}")] == []
 
@@ -1809,6 +1813,24 @@ def test_metno_frost_daily_temperature_extremes_are_chosen_each_for_itself(monke
     assert df["value"].to_list() == [6.0]
     (warning,) = _told("other-window-left-out")
     assert warning["parameter"] == "daily/data/temperature_air_min_2m"
+
+
+@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
+def test_metno_frost_daily_temperature_extreme_left_out_of_another_offset_does_not_name_the_calendar_day(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Test that the warning does not call a `PT6H` row the calendar-day series (GH-3843).
+
+    9 stations of Frost's listing have a daily minimum of `PT6H` only (none is in the station list). The row is left
+    out as any other offset's is, and the warning names the series it is no more than "another" one.
+    """
+    readings = [(EXTREME_STAMPS[0], "PT6H", 1.0), (EXTREME_STAMPS[1], "PT6H", 2.0)]
+    df = _extreme_values(monkeypatch, path, "min(air_temperature P1D)", "temperature_air_min_2m", readings)
+    assert df.is_empty()
+    (warning,) = _told("other-window-left-out")
+    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
+    assert "or PT6H) only" in warning["message"]
+    assert "calendar-day series" not in warning["message"]
 
 
 def _discovery_by_query(
