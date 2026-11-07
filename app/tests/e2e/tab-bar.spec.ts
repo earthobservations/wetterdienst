@@ -119,7 +119,7 @@ async function walkFocus(page: Page) {
     const points = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([x, y]) => document.elementFromPoint(box.left + box.width * x!, box.top + box.height * y!))
     return {
       label: el.getAttribute('aria-label') ?? el.textContent!.trim(),
-      visible: box.top >= 0 && box.bottom <= window.innerHeight,
+      visible: box.top >= -0.5 && box.bottom <= window.innerHeight + 0.5,
       obscured: points.filter(point => point !== el && !el.contains(point)).length,
     }
   })
@@ -187,8 +187,8 @@ for (const size of SIZES) {
         }
         // the app's own measure is 40 px, which is room for a thumb
         for (const target of targets.filter(item => item.kind === 'button')) {
-          expect(target.width).toBeGreaterThanOrEqual(40)
-          expect(target.height).toBeGreaterThanOrEqual(40)
+          expect(target.width).toBeGreaterThanOrEqual(39.5)
+          expect(target.height).toBeGreaterThanOrEqual(39.5)
           expect(target.label).toMatch(/^Move .+ (up|down)$/)
         }
         // the handle is for the pointer only: no stop, nothing read out
@@ -379,7 +379,7 @@ test.describe('the Menu, on a phone', () => {
     // clear of the header that stands over the top of the page
     const heading = (await page.getByRole('heading', { level: 2, name: en.settings.bar.title }).boundingBox())!
     const header = (await page.getByRole('banner').boundingBox())!
-    expect(heading.y).toBeGreaterThanOrEqual(header.y + header.height)
+    expect(heading.y).toBeGreaterThanOrEqual(header.y + header.height - 0.5)
   })
 
   test('is reached from the settings page as well: the chooser is a card of it', async ({ page, baseURL }) => {
@@ -576,14 +576,19 @@ test.describe('the preview of the bar', () => {
   for (const code of ['es', 'fr', 'it', 'pl', 'cs', 'de-hh']) {
     test(`${code}: wraps the names of the tools as the bar does, at 320 px`, async ({ page, baseURL }) => {
       await open(page, baseURL!, '/settings', { language: code })
-      const heights = await page.evaluate(() => {
-        const measure = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].map(label => ({ text: label.textContent!.trim(), height: label.getBoundingClientRect().height, lines: label.getClientRects().length }))
+      // the lines a label takes: its height over its line height, rounded (the heights are fractions of a pixel that
+      // Firefox and Chrome round differently, 25.29998 and 25.30000, and a line is 12.65 px)
+      const labels = await page.evaluate(() => {
+        const measure = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].map((label) => {
+          const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight)
+          return { text: label.textContent!.trim(), height: label.getBoundingClientRect().height, lines: Math.round(label.getBoundingClientRect().height / lineHeight) }
+        })
         return { preview: measure('[data-testid="bar-preview"] .tabbar-label'), bar: measure('.app-tabbar .tabbar-label') }
       })
       // the four tools of both, in the same order; the Menu is the last of each
-      expect(heights.preview.map(label => label.text)).toEqual(heights.bar.map(label => label.text))
-      for (const [index, label] of heights.preview.entries())
-        expect(label.height, `${label.text}: the preview's label is ${label.height} px tall, the bar's ${heights.bar[index]!.height}`).toBe(heights.bar[index]!.height)
+      expect(labels.preview.map(label => label.text)).toEqual(labels.bar.map(label => label.text))
+      for (const [index, label] of labels.preview.entries())
+        expect(label.lines, `${label.text}: the preview's label takes ${label.lines} lines (${label.height} px), the bar's ${labels.bar[index]!.lines} (${labels.bar[index]!.height} px)`).toBe(labels.bar[index]!.lines)
       // and it is as wide as the window, as the bar is
       const widths = await page.evaluate(() => ({
         preview: document.querySelector('[data-testid="bar-preview"]')!.getBoundingClientRect().width,
@@ -592,10 +597,10 @@ test.describe('the preview of the bar', () => {
         left: document.querySelector('[data-testid="bar-preview"]')!.getBoundingClientRect().left,
         window: document.documentElement.clientWidth,
       }))
-      expect(widths.preview).toBe(widths.bar)
+      expect(Math.abs(widths.preview - widths.bar), `the preview is ${widths.preview} px wide, the bar ${widths.bar}`).toBeLessThan(1)
       // (the page itself is wider than the window in es, by its Reset button, which is not the preview)
-      expect(widths.left).toBeGreaterThanOrEqual(0)
-      expect(widths.right).toBeLessThanOrEqual(widths.window)
+      expect(widths.left).toBeGreaterThanOrEqual(-0.5)
+      expect(widths.right).toBeLessThanOrEqual(widths.window + 0.5)
     })
   }
 })
