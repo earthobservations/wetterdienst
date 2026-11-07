@@ -36,7 +36,7 @@ class ResponseWarning(TypedDict):
     #: `other-window-left-out`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`)
+    #: `other-window-left-out`, `station-without-rows`)
     stations: NotRequired[list[str]]
 
 
@@ -74,6 +74,10 @@ REJECTED_BY_PLAUSIBILITY_MESSAGE = (
 
 #: the code of the warning that names a requested parameter the source holds no values for, at any station asked about
 PARAMETER_WITHOUT_ROWS = "parameter-without-rows"
+
+#: the code of the warning that names the stations a request asked for by id (`stations=`) that returned no rows while
+#: other stations of it did (GH-3828): the answer holds none of their rows, which `values` alone does not say
+STATION_WITHOUT_ROWS = "station-without-rows"
 
 #: the code of the warning that names the stations whose file the provider let go (`note_skipped_download`), so that a
 #: partial answer can be told from a whole one
