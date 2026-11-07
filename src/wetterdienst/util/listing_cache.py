@@ -9,9 +9,12 @@ Several threads and several processes use one file at once:
 
 * **One connection per thread**, never used by two threads at once: `sqlite3` connections are not
   meant to be, and a connection per thread needs no lock around the statements. A thread's connection
-  is closed when the thread ends. `close()` from another thread waits for the statement that thread is
-  running (a per-connection lock), because closing a connection under a running statement crashes
-  CPython. They are opened with `check_same_thread=False` for this.
+  is closed when the thread ends. `close()` from another thread never closes a connection under the
+  statement that thread is running (a per-connection lock), which crashes CPython, and never waits for
+  it either: a statement can wait for the write lock for as long as the busy timeout, and while another
+  thread writes flat out it can wait for that long and longer, so `close()` marks the connection and
+  the thread that is using it closes it when its statement is done (GH-3860). They are opened with
+  `check_same_thread=False` for this.
 * **WAL and a busy timeout**: readers do not block the writer, and a writer waits for another
   writer (60 s) instead of failing with `database is locked`. Every write is one transaction that
   takes the write lock at its start (`BEGIN IMMEDIATE`), so no transaction ever has to upgrade
@@ -230,7 +233,9 @@ class ListingStore:
     def close(self) -> None:
         """Close the connection of every thread, each when its statement is done.
 
-        The store opens a new one on its next use.
+        A connection that is idle is closed before this returns; one that is running a statement is left
+        to that statement, which is never waited for (it may be waiting for the write lock), and is
+        closed by its thread as soon as the statement is done. The store opens a new one on its next use.
         """
         self._local = threading.local()
         with self._handles_lock:
@@ -355,21 +360,25 @@ class ListingStore:
     def _use(self) -> Iterator[sqlite3.Connection]:
         """Lend the connection of this thread, opened on its first use, for one operation.
 
-        The lock of the connection is what lets `close()` of another thread wait for the operation.
+        The lock of the connection is what keeps `close()` of another thread from closing it under the
+        operation: `close()` marks a connection it finds locked, and the operation closes it when it is done.
         """
         with _inside_sqlite(), _SERIALIZE:
             while True:
                 handle = self._handle()
-                with handle.lock:
-                    conn = handle.conn
-                    if conn is not None:
-                        yield conn
-                        return
+                try:
+                    with handle.lock:
+                        conn = handle.conn
+                        if conn is not None and not handle.closing:
+                            yield conn
+                            return
+                finally:
+                    handle.close_if_asked()
                 # closed by `close()` between taking the handle and its lock: take a new one
 
     def _handle(self) -> _Connection:
         handle = getattr(self._local, "handle", None)
-        if handle is None or handle.conn is None:
+        if handle is None or handle.conn is None or handle.closing:
             handle = _Connection(self._open())
             with self._handles_lock:
                 self._handles.add(handle)
@@ -424,21 +433,39 @@ class _Connection:
     close it.
     """
 
-    __slots__ = ("__weakref__", "_finalizer", "conn", "lock")
+    __slots__ = ("__weakref__", "_finalizer", "closing", "conn", "lock")
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn: sqlite3.Connection | None = conn
         self.lock = threading.Lock()
+        #: Set by `close()`: no operation starts on this connection any more, and whoever holds its lock
+        #: closes it as it lets go (`close_if_asked`)
+        self.closing = False
         self._finalizer = weakref.finalize(self, _close, conn, os.getpid())
         # not at interpreter exit: closing a daemon thread's connection from the main thread could
         # be under a statement, which crashes CPython. SQLite recovers an unclosed WAL by itself.
         self._finalizer.atexit = False
 
     def close(self) -> None:
-        """Close the connection once nothing is running on it."""
-        with self.lock:
+        """Close the connection now if nothing is running on it; otherwise as soon as that is done. Never waits.
+
+        Waiting for the lock is what this does not do: the statement that holds it can be waiting for the write
+        lock of a thread that never stops writing, and then so would this (GH-3860). `closing` is set before the
+        lock is tried, and read by the thread that holds the lock after it let go of it, so one of the two sees
+        the other: either the lock is free and this closes, or the holder has not let go yet and will close.
+        """
+        self.closing = True
+        self.close_if_asked()
+
+    def close_if_asked(self) -> None:
+        """Close the connection if `close()` was called on it and nothing is running on it; never waits."""
+        if not self.closing or not self.lock.acquire(blocking=False):
+            return
+        try:
             self.conn = None
             self._finalizer()
+        finally:
+            self.lock.release()
 
     def close_in_child(self) -> None:
         """Close the connection in a forked child, unless the thread that used it held its lock at the fork.

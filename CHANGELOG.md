@@ -51,6 +51,10 @@ Types of changes:
 
 ### Fixed
 
+- `FileDirCache.close()` (and `ListingStore.close()`) no longer waits for a statement another
+  thread is running. That statement can be waiting for the cache's write lock while another thread writes
+  flat out, and `close()` waited as long, a second or more with two threads. An idle connection is
+  closed before it returns, a busy one by its thread as soon as the statement is done (GH-3860)
 - **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
   `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
   merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
