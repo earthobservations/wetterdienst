@@ -106,3 +106,30 @@ LONG_LANGUAGES.forEach((language) => {
     })
   }
 })
+
+// The header with five tools (GH-3650) in every language the app has: Italian and French were the tightest, at 1024 and
+// 1280 px (the settings button ended at 1033 and 1310 px with the fifth tab), where the header holds the search too.
+// The page is measured as it first comes, with the typeface not yet there, which is the narrower of its two faces' margins.
+const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
+test.describe('the header', () => {
+  for (const language of ALL_LANGUAGES) {
+    test(`holds the five tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await mockBackend(page, baseURL!)
+      await page.goto('/history')
+      await expect(page.locator('header .nav-tab').first()).toBeVisible({ timeout: 30_000 })
+      for (const width of [1024, 1280]) {
+        await page.setViewportSize({ width, height: 800 })
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        const sizes = await page.evaluate(() => {
+          const header = document.querySelector('header.app-header')!
+          const last = [...header.querySelectorAll('button, a')].pop()!
+          return { header: header.scrollWidth - header.clientWidth, page: document.documentElement.scrollWidth - document.documentElement.clientWidth, right: last.getBoundingClientRect().right, window: window.innerWidth }
+        })
+        expect(sizes.header, `the header in ${language} at ${width} px`).toBeLessThanOrEqual(0)
+        expect(sizes.page, `the page in ${language} at ${width} px`).toBeLessThanOrEqual(0)
+        expect(sizes.right, `the last control of the header in ${language} at ${width} px`).toBeLessThanOrEqual(sizes.window)
+      }
+    })
+  }
+})

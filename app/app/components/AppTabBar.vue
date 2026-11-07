@@ -5,7 +5,8 @@ import { EXTERNAL, inSection, PROJECT, REFERENCE, SHEET_ONLY_TOOLS, TAB_BAR_TOOL
 // reaches them, and a fifth that opens the rest (the home page, the tools, the reference, the project,
 // the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the station history, the
 // tool asked for least, has no tab: it is in the sheet, which lists all five tools in the order of the header, and
-// while one is on the history the Menu's tab is marked as the page one is on, since the sheet is where it is. The
+// while one is on the history the Menu's tab is marked as the page one is on (`aria-current`, which a screen reader says,
+// and the bar over it), since the sheet is where it is. The
 // sheet is a dialog: the focus stays in it, Escape closes it and gives the focus back to its tab, and the
 // page behind it is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2).
 //
@@ -48,7 +49,7 @@ const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to))
           :aria-label="t('header.menu')"
           aria-haspopup="dialog"
           :aria-expanded="open"
-          :data-current="inSheet ? '' : undefined"
+          :aria-current="inSheet ? 'true' : undefined"
           @click="open = true"
         >
           <span class="tile tile-navy" style="--tile-size: 1.625rem" aria-hidden="true"><UIcon name="i-ph-dots-three-outline-fill" /></span>

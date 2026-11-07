@@ -802,6 +802,7 @@
     "elevation": "{value} m over havet",
     "at": "{name}, {distance} væk",
     "noneNearby": "Ingen station inden for {distance}.",
+    "noStationNear": "Ingen station inden for {distance} af det punkt.",
     "openForecast": "Åbn udsigten",
     "openStripes": "Åbn klimastriberne",
     "openExplorer": "Åbn målingerne i Udforskeren",

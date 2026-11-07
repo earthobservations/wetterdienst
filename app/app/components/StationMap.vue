@@ -152,14 +152,6 @@ function emitView() {
   emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom() })
 }
 
-/** The centre of the view, which the panel's "Pick the centre of the map" picks as a place */
-function centre(): Point | null {
-  const point = map?.getCenter()
-  return point ? { latitude: point.lat, longitude: point.lng } : null
-}
-
-defineExpose({ centre })
-
 onMounted(() => {
   if (!container.value)
     return

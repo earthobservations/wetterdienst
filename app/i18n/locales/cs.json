@@ -802,6 +802,7 @@
     "elevation": "{value} m n. m.",
     "at": "{name}, {distance} odtud",
     "noneNearby": "Žádná stanice do {distance}.",
+    "noStationNear": "Žádná stanice do {distance} od tohoto bodu.",
     "openForecast": "Otevřít předpověď",
     "openStripes": "Otevřít klimatické pruhy",
     "openExplorer": "Otevřít měření v Průzkumníku",

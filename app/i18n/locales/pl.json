@@ -802,6 +802,7 @@
     "elevation": "{value} m n.p.m.",
     "at": "{name}, {distance} stąd",
     "noneNearby": "Brak stacji w promieniu {distance}.",
+    "noStationNear": "Brak stacji w promieniu {distance} od tego punktu.",
     "openForecast": "Otwórz prognozę",
     "openStripes": "Otwórz paski klimatyczne",
     "openExplorer": "Otwórz pomiary w Eksploratorze",

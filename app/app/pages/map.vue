@@ -15,15 +15,17 @@ import {
   formatPosition,
   historyLink,
   HOME_VIEW,
+  isReporting,
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
-  nearestWithin,
   REACH_KM,
   SAME_PLACE_KM,
   searchStations,
   stateFromQuery,
   stateToQuery,
+  stationAt,
+  stationFor,
   STRIPES_KIND,
   stripesLink,
 } from '~/utils/map-tool'
@@ -33,6 +35,11 @@ import {
 // map and, for the station or the place picked, shows its forecast, its climate stripes, its measurements and its
 // history, each at the nearest station that has them. Two layers: the forecast's points (DWD MOSMIX) and the stations
 // that measure (DWD's observations, by resolution and dataset).
+//
+// The station the tool picks for a place is the nearest one within 100 km, a station that is still reporting before one
+// that has stopped (`isReporting`), and the one under a click on its dot is that station, whatever it is. A change of
+// layer or dataset picks again by the position of the place, never by the number of the station, which is another
+// station in another layer.
 //
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
@@ -74,8 +81,7 @@ const forecast = useStationList(() => 'forecast', async () =>
 // the stations that have climate stripes, which the panel asks the nearest of; no layer of the map
 const stripes = useStationList(() => STRIPES_KIND, async () =>
   ((await $fetch<StripesStationsResponse>('/api/stripes/stations', { query: { kind: STRIPES_KIND }, ...RETRY_TRANSIENT })).stations ?? [])
-    // the stripes' stations carry no elevation
-    .map(station => ({ ...station, elevation: null })))
+    .map(station => ({ ...station, elevation: station.elevation ?? null })))
 const measured = useStationList(() => `${source.value.resolution}/${source.value.dataset}`, async () =>
   (await $fetch<{ stations: Station[] }>('/api/stations', {
     query: { ...MEASURED_NETWORK, parameters: `${source.value.resolution}/${source.value.dataset}`, all: 'true' },
@@ -88,7 +94,7 @@ const stations = computed(() => current.value.stations.value)
 const listStatus = computed(() => current.value.status.value)
 const listFailure = computed(() => current.value.error.value ? describeFetchError(current.value.error.value) : '')
 
-watch([layer, () => `${source.value.resolution}/${source.value.dataset}`], () => void current.value.ensure(), { immediate: true })
+const sourceKey = computed(() => `${source.value.resolution}/${source.value.dataset}`)
 
 // ---- the chips ------------------------------------------------------------------------------------------------
 
@@ -98,25 +104,21 @@ const layerItems = computed(() => [
 ])
 const layerLabel = computed(() => layerItems.value.find(item => item.value === layer.value)!.label)
 
-// the resolutions and datasets DWD's observations have, asked of the backend once the measurements are wanted
+// the resolutions and datasets DWD's observations have, asked of the backend once the measurements are wanted; a request
+// that failed is asked again at the next visit of the layer
 const coverage = shallowRef<ProviderNetworkCoverageResponse | null>(null)
-let coverageAsked = false
-async function loadCoverage() {
-  if (coverageAsked)
-    return
-  coverageAsked = true
-  try {
-    coverage.value = await $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: MEASURED_NETWORK, ...RETRY_TRANSIENT })
-  }
-  catch {
-    // the chips then offer the one source shown, which still works; asked for again at the next visit of the layer
-    coverageAsked = false
-  }
+let coverageRequest: Promise<void> | null = null
+function loadCoverage() {
+  coverageRequest ??= $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: MEASURED_NETWORK, ...RETRY_TRANSIENT })
+    .then((answer) => {
+      coverage.value = answer
+    })
+    .catch(() => {
+      // the chips then offer the one source shown, which still works
+      coverageRequest = null
+    })
+  return coverageRequest
 }
-watch(layer, (shown) => {
-  if (shown === 'measured')
-    void loadCoverage()
-}, { immediate: true })
 
 const resolutionItems = computed(() => {
   const resolutions = Object.keys(coverage.value ?? {})
@@ -138,6 +140,32 @@ function datasetFor(resolution: string, wanted: string): string {
     return wanted
   return datasets.includes(DEFAULT_MEASURED.dataset) ? DEFAULT_MEASURED.dataset : datasets[0]!
 }
+/** A source of the address that DWD has: a resolution it has, and a dataset of it, which a hand-edited address may not name */
+function validSource(wanted: MeasuredSource): MeasuredSource {
+  if (!coverage.value)
+    return wanted
+  if (!Object.keys(coverage.value).includes(wanted.resolution))
+    return { ...DEFAULT_MEASURED }
+  return { resolution: wanted.resolution, dataset: datasetFor(wanted.resolution, wanted.dataset) }
+}
+
+/** Asks for the list of the layer shown; for the measurements, once the source is known to be one that DWD has */
+async function ensureCurrent() {
+  if (layer.value === 'measured') {
+    await loadCoverage()
+    if (layer.value !== 'measured')
+      return
+    const valid = validSource(source.value)
+    if (valid.resolution !== source.value.resolution || valid.dataset !== source.value.dataset) {
+      // the watch asks again, for the source that exists
+      source.value = valid
+      return
+    }
+  }
+  void current.value.ensure()
+}
+watch([layer, sourceKey], ensureCurrent, { immediate: true })
+
 const resolutionChoice = computed({
   get: () => source.value.resolution,
   set: (resolution: string) => {
@@ -169,6 +197,8 @@ const selected = computed<PlacedStation | null>(() => selectedId.value ? station
 const place = computed(() => anchor.value && selected.value && distanceKm(anchor.value, selected.value) > SAME_PLACE_KM ? anchor.value : null)
 /** The number of a station of the address that the layer does not have, told in the panel */
 const unknownStation = ref<string | null>(null)
+/** A point that the layer has no station within reach of, told in the panel */
+const noStationNear = ref(false)
 
 // the panel and its heading are in the page's loop over its two parts, where a template ref would be a list of them
 const detailHeading = ref<HTMLElement | null>(null)
@@ -180,11 +210,30 @@ function setPanel(element: unknown) {
   panel.value = element as HTMLElement | null
 }
 const announcement = ref('')
+const reach = computed(() => formatDistance(REACH_KM, locale.value))
+
+/** Counts the picks from outside the map that it is to move to; the map moves once for each, as soon as the station is there */
+const recentre = ref(0)
+/** The station the address opened the page with, or a pick from outside, waits to be announced and moved to until its station is there */
+let fromAddress = Boolean(selectedId.value)
+/** The view was changed under a pick: the list that arrives has the station for the place of it picked again */
+let reselect = false
+
+const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
+/** The view shown: the number of a station is a number in the list of one view, and no other's */
+const viewKey = computed(() => keyOf(layer.value, source.value))
+/** The view the station picked was picked in */
+let pickedIn = viewKey.value
+
+/** Which stations of the layer shown have stopped: only the measuring ones do */
+const reporting = computed(() => layer.value === 'measured' ? (station: PlacedStation) => isReporting(station, source.value.resolution) : undefined)
 
 function choose(station: PlacedStation, options: { point?: Point, focus?: boolean } = {}) {
   selectedId.value = station.station_id
+  pickedIn = viewKey.value
   anchor.value = options.point ?? { latitude: station.latitude, longitude: station.longitude }
   unknownStation.value = null
+  noStationNear.value = false
   announcement.value = t('mapTool.chosen', { name: station.name ?? station.station_id })
   void nextTick(() => {
     if (options.focus)
@@ -197,26 +246,49 @@ function choose(station: PlacedStation, options: { point?: Point, focus?: boolea
   })
 }
 
-/** A click on the map: the station nearest to it; a click on a dot is that station, with no place apart */
+/** A point that has no station within reach: nothing is picked, the point is kept, and the panel says so */
+function tellNoStationNear(point: Point) {
+  selectedId.value = null
+  pickedIn = viewKey.value
+  anchor.value = point
+  unknownStation.value = null
+  noStationNear.value = true
+  announcement.value = t('mapTool.noStationNear', { distance: reach.value })
+}
+
+/**
+ * A pick at a point (a click on the map, the centre of the map): the station on its dot where the point is on one,
+ * whatever its status, else the station for the place (`stationFor`), which has to be within reach.
+ */
+function pickAt(point: Point, tolerance: number, focus = false) {
+  const hit = stationAt(stations.value, point, tolerance)
+  if (hit)
+    return choose(hit, { focus })
+  const found = stationFor(stations.value, point, reporting.value)
+  if (found)
+    choose(found.station, { point, focus })
+  else
+    tellNoStationNear(point)
+}
+
+/** A click on the map; how far from it a dot under the pointer can be is the twelve pixels the map measured */
 function onPick(point: Point & { tolerance: number }) {
-  const [nearest] = nearestStations(stations.value, point, 1)
-  if (!nearest)
-    return
-  choose(nearest.station, { point: nearest.distance <= point.tolerance ? undefined : { latitude: point.latitude, longitude: point.longitude } })
+  pickAt(point, point.tolerance)
 }
 
 /** The place at the centre of the map, as a click there would pick it: the keyboard's way to a place */
 function pickCentre() {
-  const point = { latitude: view.value.latitude, longitude: view.value.longitude }
-  const [nearest] = nearestStations(stations.value, point, 1)
-  if (nearest)
-    choose(nearest.station, { point: nearest.distance <= SAME_PLACE_KM ? undefined : point, focus: true })
+  pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true)
 }
 
 function back() {
   const id = selectedId.value
   selectedId.value = null
   anchor.value = null
+  reselect = false
+  fromAddress = false
+  unknownStation.value = null
+  noStationNear.value = false
   announcement.value = ''
   void nextTick(() => {
     // the focus goes back to the station in the list it came from, else to the search
@@ -225,71 +297,105 @@ function back() {
   })
 }
 
-// A list that has arrived: the station of the address is in it, or, where the layer has just been changed, the nearest
-// station of the new layer takes its place; a station the layer does not have is dropped, and the panel says so
-watch(stations, (list) => {
-  if (!list.length || !selectedId.value)
-    return
-  if (list.some(station => station.station_id === selectedId.value))
-    return
-  const [nearest] = anchor.value ? nearestStations(list, anchor.value, 1) : []
-  if (nearest) {
-    selectedId.value = nearest.station.station_id
+/** The station of a new view for the place picked, picked again by its position: the same station where it is under the place */
+function pickAgain(list: PlacedStation[]) {
+  const point = anchor.value!
+  const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
+  if (!found)
+    return tellNoStationNear(point)
+  selectedId.value = found.station_id
+  pickedIn = viewKey.value
+  unknownStation.value = null
+  noStationNear.value = false
+  // told, as a station that the reader chose is: it is another station than the one in the heading before
+  announcement.value = t('mapTool.chosen', { name: found.name ?? found.station_id })
+}
+
+// A change of layer or dataset, and the list that comes after it. The number of a station is the number in the list of
+// one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the numbers are
+// two stations), so a pick is never taken to another view by its number: it is picked again in the new list for the
+// place it was at. A list that has arrived with no change under it holds the station of the address, or the panel
+// says there is none.
+watch([viewKey, stations], ([key, list], [previousKey]) => {
+  if (key !== previousKey && (selectedId.value || anchor.value) && pickedIn !== key) {
+    // with no place to go by (the address named a station and its list has not come) there is nothing to pick again
+    reselect = Boolean(anchor.value)
+    selectedId.value = null
+    noStationNear.value = false
+    fromAddress = false
   }
-  else {
+  if (!list.length)
+    return
+  if (reselect) {
+    reselect = false
+    return pickAgain(list)
+  }
+  if (selectedId.value && !list.some(station => station.station_id === selectedId.value)) {
     unknownStation.value = selectedId.value
     selectedId.value = null
     anchor.value = null
+    fromAddress = false
   }
 })
 
 // ---- the nearest station of each kind, for the panel ------------------------------------------------------------
 
-// the lists the panel needs, beside the one shown, asked for once a station is picked
+// the lists the panel needs, beside the one shown, asked for once a station is picked; the station is a place, which the
+// panel is about from then on (the station of an address has none until the list brings it)
 watch(selected, (station) => {
   if (!station)
     return
+  if (!anchor.value)
+    anchor.value = { latitude: station.latitude, longitude: station.longitude }
+  if (fromAddress) {
+    fromAddress = false
+    recentre.value++
+    announcement.value = t('mapTool.chosen', { name: stationName(station) })
+  }
   void forecast.ensure()
   void stripes.ensure()
   void measured.ensure()
 }, { immediate: true })
+watch(sourceKey, () => {
+  if (selected.value)
+    void measured.ensure()
+})
 
-/** The nearest station of a list to the point the panel is about; the station itself for the layer it is of */
-function nearestOf(list: PlacedStation[], isShown: boolean) {
+/**
+ * The station of a card: the station picked, for the layer it is of, and for the others the nearest within reach of
+ * the place (`stationFor`), with its distance from the place, none where it is under half a kilometre.
+ */
+function cardFor(list: PlacedStation[], isShown: boolean, running?: (station: PlacedStation) => boolean) {
   if (!selected.value)
     return null
-  if (isShown)
-    return { station: selected.value, distance: 0 }
-  return nearestWithin(list, anchor.value ?? selected.value)
+  const point = anchor.value ?? selected.value
+  if (isShown) {
+    const distance = distanceKm(point, selected.value)
+    return { station: selected.value, distance: distance > SAME_PLACE_KM ? distance : 0 }
+  }
+  return stationFor(list, point, running)
 }
-const forecastPoint = computed(() => nearestOf(forecast.stations.value, layer.value === 'forecast'))
-const stripesPoint = computed(() => nearestOf(stripes.stations.value, false))
-const measuredPoint = computed(() => nearestOf(measured.stations.value, layer.value === 'measured'))
+const forecastPoint = computed(() => cardFor(forecast.stations.value, layer.value === 'forecast'))
+const stripesPoint = computed(() => cardFor(stripes.stations.value, false, station => isReporting(station, 'annual')))
+const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', station => isReporting(station, source.value.resolution)))
 
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
-/** How long a station has measured: since its first year, or from it to its last where it has stopped */
+/** How long a station has measured: since its first year while it reports, from it to its last year once it has stopped */
 function measuredFor(station: Station) {
   const year = (timestamp?: string | null) => timestamp ? new Date(timestamp).getUTCFullYear() : null
   const from = year(station.start_timestamp)
-  const to = year(station.end_timestamp)
   if (from === null)
     return null
-  return to === null ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to })
+  return isReporting(station, source.value.resolution) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to: year(station.end_timestamp) })
 }
 function stationName(station: Station) {
   return station.name ?? station.station_id
 }
-const reach = computed(() => formatDistance(REACH_KM, locale.value))
 
 // ---- the address follows what is shown, and what the address says from outside is taken ---------------------------
 
 const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: place.value }))
 const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
-
-/** Counts the picks from outside the map that it is to move to; the map moves once for each, as soon as the station is there */
-const recentre = ref(selectedId.value ? 1 : 0)
-/** The station the address opened the page with, or a pick from outside, waits to be announced until the station is there */
-let announceWhenFound = Boolean(selectedId.value)
 
 watch(state, (shown) => {
   // the keys that are the map's are replaced, any other the address has stays
@@ -301,29 +407,23 @@ watch(state, (shown) => {
 })
 
 // An address that names another map than the one shown, from outside the page (the header's search while the map is
-// open, a link): the page takes it. What the page wrote itself names what it shows already.
+// open, a link): the page takes it. What the page wrote itself names what it shows already. Its station is a station
+// of the layer it names.
 watch(() => route.query, (query) => {
   const named = stateFromQuery(query)
   if (queryOf(named) === queryOf(state.value))
     return
   layer.value = named.layer
   source.value = named.source
+  pickedIn = keyOf(named.layer, named.source)
+  reselect = false
+  noStationNear.value = false
   if (named.stationId !== selectedId.value) {
     selectedId.value = named.stationId
     unknownStation.value = null
-    if (named.stationId)
-      recentre.value++
-    announceWhenFound = Boolean(named.stationId)
+    fromAddress = Boolean(named.stationId)
   }
   anchor.value = named.place
-})
-
-// told to a screen reader once its station is there, as a pick in the panel is
-watch(selected, (station) => {
-  if (station && announceWhenFound) {
-    announceWhenFound = false
-    announcement.value = t('mapTool.chosen', { name: stationName(station) })
-  }
 })
 </script>
 
@@ -391,7 +491,7 @@ watch(selected, (station) => {
                     {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, locale) }) }}
                   </p>
                   <MapForecast :station="forecastPoint.station" />
-                  <UButton :to="forecastLink(forecastPoint.station.station_id)" :label="t('mapTool.openForecast')" trailing-icon="i-ph-arrow-right" variant="link" class="px-0" />
+                  <UButton :to="forecastLink(forecastPoint.station.station_id)" :label="t('mapTool.openForecast')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                 </template>
                 <p v-else-if="forecast.status.value === 'pending' || forecast.status.value === 'idle'" class="map-card-note" role="status">
                   {{ t('common.loading') }}
@@ -418,7 +518,7 @@ watch(selected, (station) => {
                     {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, locale) }) }}
                   </p>
                   <MapStripes :station-id="stripesPoint.station.station_id" :station-name="stationName(stripesPoint.station)" />
-                  <UButton :to="stripesLink(stripesPoint.station.station_id)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="px-0" />
+                  <UButton :to="stripesLink(stripesPoint.station.station_id)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                 </template>
                 <p v-else-if="stripes.status.value === 'pending' || stripes.status.value === 'idle'" class="map-card-note" role="status">
                   {{ t('common.loading') }}
@@ -450,8 +550,8 @@ watch(selected, (station) => {
                     {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, locale) }) }}
                   </p>
                   <div class="flex flex-col items-start">
-                    <UButton :to="measurementsLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openExplorer')" trailing-icon="i-ph-arrow-right" variant="link" class="px-0" />
-                    <UButton :to="historyLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openHistory')" trailing-icon="i-ph-arrow-right" variant="link" class="px-0" />
+                    <UButton :to="measurementsLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openExplorer')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
+                    <UButton :to="historyLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openHistory')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                   </div>
                 </template>
                 <p v-else-if="measured.status.value === 'pending' || measured.status.value === 'idle'" class="map-card-note" role="status">
@@ -476,6 +576,12 @@ watch(selected, (station) => {
               </h2>
               <p v-if="unknownStation" class="text-sm text-warning" role="status" data-testid="map-unknown">
                 {{ t('mapTool.stationNotFound', { id: unknownStation }) }}
+              </p>
+              <p v-if="noStationNear" class="text-sm text-warning" role="status" data-testid="map-none-near">
+                {{ t('mapTool.noStationNear', { distance: reach }) }}
+              </p>
+              <p v-if="listStatus === 'success'" class="text-sm text-muted sm:hidden" data-testid="map-count-panel">
+                {{ countLabel }}
               </p>
               <UInput
                 id="map-search"
@@ -559,8 +665,9 @@ watch(selected, (station) => {
                   <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" size="sm" class="map-select" data-testid="map-resolution" />
                   <USelect v-model="datasetChoice" :items="datasetItems" :aria-label="t('parameterSelection.datasetLabel')" size="sm" class="map-select" data-testid="map-dataset" />
                 </template>
-                <span v-if="listStatus === 'success'" class="map-status" data-testid="map-count">{{ countLabel }}</span>
-                <span v-else-if="listStatus === 'pending'" class="map-status" role="status">
+                <!-- on a phone the count is in the panel, and the chips take less of the map -->
+                <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
+                <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
                   <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
                   {{ t('mapTool.loadingStations') }}
                 </span>
@@ -617,7 +724,7 @@ watch(selected, (station) => {
 .map-stage {
   position: relative;
   isolation: isolate;
-  height: clamp(20rem, 58dvh, 34rem);
+  height: clamp(22rem, 64dvh, 36rem);
 }
 @media (min-width: 72rem) {
   .map-stage {
@@ -645,14 +752,29 @@ watch(selected, (station) => {
   /* the map is dragged where there is no chip */
   pointer-events: none;
 }
-.map-chips > * {
-  pointer-events: auto;
-}
 .map-chips-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+  /* the row is as wide as the map and its empty space is the map's: only what is in it takes the pointer */
+  pointer-events: none;
+}
+.map-chips-row > *,
+.map-failure {
+  pointer-events: auto;
+}
+/* a link of a card breaks onto a second line where its words are longer than the card (320 px, the longer languages) */
+.map-link.map-link {
+  padding-inline: 0;
+  white-space: normal;
+  text-align: start;
+}
+/* the label of a button is a `truncate` span, which keeps one line */
+.map-link.map-link .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
 }
 .map-segments {
   display: inline-flex;
@@ -702,7 +824,10 @@ watch(selected, (station) => {
   color: var(--color-ink-950);
 }
 .map-select {
-  min-width: 8rem;
+  /* the two choices share a row where it is narrow, and share what is left of it */
+  flex: 1 1 7rem;
+  min-width: 0;
+  max-width: 11rem;
   box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
 }
 .map-status {
@@ -716,6 +841,13 @@ watch(selected, (station) => {
   font-size: 0.8125rem;
   box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
   font-variant-numeric: tabular-nums;
+}
+/* on a phone the count is in the panel, and the chips take less of the map (not a utility class: this rule is not in a
+   layer, so a utility could not hide what it sets) */
+@media (max-width: 39.99rem) {
+  .map-count {
+    display: none;
+  }
 }
 .map-failure {
   max-width: 28rem;

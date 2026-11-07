@@ -802,6 +802,7 @@
     "elevation": "{value} m iwwer dem Mieresspigel",
     "at": "{name}, {distance} ewech",
     "noneNearby": "Keng Statioun bannent {distance}.",
+    "noStationNear": "Keng Statioun bannent {distance} ëm dee Punkt.",
     "openForecast": "D'Prognos opmaachen",
     "openStripes": "D'Klimasträifen opmaachen",
     "openExplorer": "D'Miessungen am Explorer opmaachen",

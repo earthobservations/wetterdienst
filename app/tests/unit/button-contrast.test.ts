@@ -124,7 +124,7 @@ describe('the tiles of the tools (GH-3650)', () => {
     return (sector * 60 + 360) % 360
   }
 
-  it('is in the gap of the colour wheel the issue names, between the rain\'s blue and the thermometer\'s coral (hue 260 to 280), by day and at night', () => {
+  it('is in the gap of the colour wheel the issue names, between the rain\'s blue and the thermometer\'s coral (hue 250 to 280: violet-600 is 262, the lighter violet of the night 256), by day and at night', () => {
     for (const fill of [token('color-tile-map'), token('color-tile-map-night')]) {
       expect(hue(fill)).toBeGreaterThanOrEqual(250)
       expect(hue(fill)).toBeLessThanOrEqual(280)

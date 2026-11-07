@@ -288,6 +288,8 @@ export interface StripesStation {
   region: string
   latitude: number
   longitude: number
+  /** Null or left out where the station has none */
+  elevation?: number | null
   start_timestamp: string | null
   end_timestamp: string | null
 }

@@ -50,13 +50,13 @@ describe('the tab bar of the narrow layout', () => {
   it('marks the tab of the page one is on, and the Menu where the page is the station history', async () => {
     const onMap = await mountBar('/map')
     expect(onMap.find('a[href="/map"]').attributes('aria-current')).toBe('page')
-    expect(menuButton(onMap).attributes('data-current')).toBeUndefined()
+    expect(menuButton(onMap).attributes('aria-current')).toBeUndefined()
     expect(onMap.findAll('[aria-current="page"]')).toHaveLength(1)
   })
 
   it('marks the Menu as the page one is on while the page is the station history, which has no tab', async () => {
     const wrapper = await mountBar('/history')
-    expect(menuButton(wrapper).attributes('data-current')).toBeDefined()
+    expect(menuButton(wrapper).attributes('aria-current')).toBe('true')
     // no link of the bar is the page
     expect(wrapper.findAll('[aria-current="page"]')).toHaveLength(0)
   })
@@ -64,7 +64,7 @@ describe('the tab bar of the narrow layout', () => {
   it('does not mark the Menu on a page that has a tab, or on none', async () => {
     for (const route of ['/explorer', '/providers', '/']) {
       const wrapper = await mountBar(route)
-      expect(menuButton(wrapper).attributes('data-current'), route).toBeUndefined()
+      expect(menuButton(wrapper).attributes('aria-current'), route).toBeUndefined()
     }
   })
 })

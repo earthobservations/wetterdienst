@@ -18,17 +18,14 @@ Types of changes:
 
 ### Added
 
-- `[Map]` A fifth tool, the station map, with a violet tile of its own (`/map`): DWD's forecast
-  stations or the stations that measure (by resolution and dataset) as dots on a map, chosen by
-  chips over it, with a panel beside it (a sheet under it on a phone) that finds a station by name
-  or number and lists the ones near the centre of the map. Pick a station, or click any point on
-  the map, and the panel shows its forecast as day rows and its climate stripes, and opens its
-  measurements in the Explorer and its station history with the station already chosen, each at the
-  nearest station that has them within 100 km. By keyboard, the arrow keys move the map and "Pick
-  the centre of the map" picks the place at its centre. What is shown is in the address, and the
-  search (Ctrl/Cmd K) lists the map and opens it on a station. The map's tiles are
-  OpenStreetMap's, as the station pickers have them. All eleven locales; all but en and de are
-  machine-made and not reviewed by a native speaker (GH-3650)
+- `[Map]` A fifth tool, the station map (`/map`, violet tile): DWD's forecast stations or measuring
+  stations (by resolution and dataset) as dots, with a panel (a sheet under the map on a phone) that
+  finds a station by name or number. Pick a station or any point for its forecast, its climate
+  stripes, and links to its measurements in the Explorer and its history, chosen already. The
+  station offered is the nearest within 100 km, one that still reports before a closed one (shown
+  with its years); a dot is that station whatever it is. Layers keep the place, not the number.
+  The address holds the map, and the search (Ctrl/Cmd K) opens it on a station, not yet on a town
+  (GH-3650, GH-3791). All eleven locales; all but `en` machine-made, none read by a native speaker
 
 ### Changed
 

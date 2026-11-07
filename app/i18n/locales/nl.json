@@ -802,6 +802,7 @@
     "elevation": "{value} m boven zeeniveau",
     "at": "{name}, {distance} verderop",
     "noneNearby": "Geen station binnen {distance}.",
+    "noStationNear": "Geen station binnen {distance} van dat punt.",
     "openForecast": "De verwachting openen",
     "openStripes": "De klimaatstrepen openen",
     "openExplorer": "De metingen openen in de Verkenner",

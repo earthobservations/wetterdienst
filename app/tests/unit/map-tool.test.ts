@@ -6,14 +6,18 @@ import {
   formatDistance,
   formatPosition,
   historyLink,
+  isReporting,
   measurementsLink,
   nearestStations,
   nearestWithin,
   placed,
   REACH_KM,
+  reportingToleranceDays,
   searchStations,
   stateFromQuery,
   stateToQuery,
+  stationAt,
+  stationFor,
   stripesLink,
 } from '../../app/utils/map-tool'
 
@@ -185,5 +189,67 @@ describe('the address of the map', () => {
   it('is the default layer where the address names one there is none of', () => {
     expect(stateFromQuery({ layer: 'satellite' }).layer).toBe('forecast')
     expect(stateFromQuery({ layer: ['measured', 'forecast'] }).layer).toBe('measured')
+  })
+})
+
+describe('whether a station is still reporting', () => {
+  // a running station of the REST API has an end: the day of its last value
+  const now = Date.parse('2026-11-07T12:00:00+00:00')
+  const ended = (end: string | null) => ({ end_timestamp: end })
+
+  it('is so for a station with no end, and for one whose end is a few days ago', () => {
+    expect(isReporting(ended(null), 'daily', now)).toBe(true)
+    expect(isReporting(ended('2026-11-06T00:00:00+00:00'), 'daily', now)).toBe(true)
+    expect(isReporting(ended('2026-10-31T00:00:00+00:00'), 'hourly', now)).toBe(true)
+  })
+
+  it('is not so for a station whose end is weeks, months or years ago', () => {
+    expect(isReporting(ended('2026-10-20T00:00:00+00:00'), 'daily', now)).toBe(false)
+    expect(isReporting(ended('2018-12-31T00:00:00+00:00'), 'daily', now)).toBe(false)
+  })
+
+  it('has a tolerance that follows the resolution: the last month and the last year of a monthly and an annual station are behind', () => {
+    expect(reportingToleranceDays('10_minutes')).toBeLessThan(reportingToleranceDays('monthly'))
+    expect(reportingToleranceDays('monthly')).toBeLessThan(reportingToleranceDays('annual'))
+    // the end of last month, and of last year, as the real lists have them
+    expect(isReporting(ended('2026-09-30T00:00:00+00:00'), 'monthly', now)).toBe(true)
+    expect(isReporting(ended('2025-12-31T00:00:00+00:00'), 'annual', now)).toBe(true)
+    expect(isReporting(ended('2025-12-31T00:00:00+00:00'), 'daily', now)).toBe(false)
+    expect(isReporting(ended('2024-12-31T00:00:00+00:00'), 'annual', now)).toBe(false)
+  })
+
+  it('says nothing against a station whose end is no date', () => {
+    expect(isReporting(ended('soon'), 'daily', now)).toBe(true)
+  })
+})
+
+describe('the station picked for a place', () => {
+  const running = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2026-11-06T00:00:00+00:00' })
+  const closed = (id: string, latitude: number, longitude: number) => ({ ...station(id, id, latitude, longitude), end_timestamp: '2001-12-31T00:00:00+00:00' })
+  const live = (entry: { end_timestamp?: string }) => entry.end_timestamp !== '2001-12-31T00:00:00+00:00'
+  const here = { latitude: 53.5, longitude: 10 }
+  const list = placed([closed('near-closed', 53.51, 10), running('far-running', 53.9, 10), running('too-far', 50, 10)])
+
+  it('is the nearest that is still reporting within reach, though a closed one is nearer', () => {
+    expect(stationFor(list, here, live)!.station.station_id).toBe('far-running')
+  })
+
+  it('is the nearest closed one where none that reports is within reach', () => {
+    const found = stationFor(placed([closed('near-closed', 53.51, 10), running('too-far', 50, 10)]), here, live)
+    expect(found!.station.station_id).toBe('near-closed')
+  })
+
+  it('is the nearest of all where no rule says which are running', () => {
+    expect(stationFor(list, here)!.station.station_id).toBe('near-closed')
+  })
+
+  it('is none beyond reach, whatever the rule', () => {
+    expect(stationFor(placed([running('too-far', 50, 10)]), here, live)).toBeNull()
+    expect(stationFor(placed([running('too-far', 50, 10)]), here)).toBeNull()
+  })
+
+  it('is the station a point is on, within the tolerance, whatever its status, and none farther', () => {
+    expect(stationAt(list, { latitude: 53.5105, longitude: 10 }, 0.5)!.station_id).toBe('near-closed')
+    expect(stationAt(list, here, 0.5)).toBeNull()
   })
 })

@@ -406,13 +406,16 @@
 /* A tab of the header: the tool's tile and name. The tab of the page one is on is bolder, and carries a bar on the
    header's lower edge (navy by day, the sun by night). The bold name takes no more room than the plain one, so the
    tabs do not move when the page changes: the bold width is reserved by an invisible copy (`data-text`). */
+/* five tools and the reference in the header: a tab is a little narrower below 90 rem than above it, so that the longer
+   languages (Italian and French, GH-3650) still fit at 1024 and 1280 px, where the header holds the search's word too */
 .nav-tab {
+  --nav-tab-pad: 0.5rem;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4375rem;
   height: 2.5rem;
-  padding-inline: 0.625rem;
+  padding-inline: var(--nav-tab-pad);
   border-radius: calc(var(--ui-radius) * 2);
   color: var(--ui-text-toned);
   font-weight: 500;
@@ -420,6 +423,12 @@
   transition:
     background-color 150ms,
     color 150ms;
+}
+@media (min-width: 90rem) {
+  .nav-tab {
+    --nav-tab-pad: 0.625rem;
+    gap: 0.5rem;
+  }
 }
 .nav-tab:hover {
   background: var(--ui-bg-elevated);
@@ -434,7 +443,7 @@
 .nav-tab[data-current]::after {
   content: "";
   position: absolute;
-  inset-inline: 0.625rem;
+  inset-inline: var(--nav-tab-pad);
   bottom: calc((var(--header-height) - 2.5rem) / -2 - 1px);
   height: 3px;
   border-radius: 3px 3px 0 0;
@@ -507,11 +516,11 @@
   max-width: 100%;
 }
 .tabbar-item[aria-current="page"],
-.tabbar-item[data-current] {
+.tabbar-item[aria-current="true"] {
   color: var(--ui-text-highlighted);
 }
 .tabbar-item[aria-current="page"]::before,
-.tabbar-item[data-current]::before {
+.tabbar-item[aria-current="true"]::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -719,6 +728,7 @@
     border: 2px solid ButtonText;
   }
   [aria-current="page"],
+  [aria-current="true"],
   [data-current] {
     text-decoration: underline;
     text-decoration-thickness: 2px;

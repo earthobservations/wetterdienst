@@ -802,6 +802,7 @@
     "elevation": "{value} m über dem Meeresspiegel",
     "at": "{name}, {distance} entfernt",
     "noneNearby": "Keine Station im Umkreis von {distance}.",
+    "noStationNear": "Keine Station im Umkreis von {distance} um diesen Punkt.",
     "openForecast": "Vorhersage öffnen",
     "openStripes": "Klimastreifen öffnen",
     "openExplorer": "Messwerte im Explorer öffnen",

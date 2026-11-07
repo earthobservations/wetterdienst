@@ -11,6 +11,13 @@ import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 
+/** The one station with climate stripes that these tests have within reach of Berlin */
+const STRIPES_NEAR = {
+  'stripes/stations': () => ({
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: null }],
+  }),
+}
+
 async function open(page: Page, baseURL: string, path = '/map', handlers = {}, title = en.mapTool.title) {
   await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL }])
   const backend = await mockBackend(page, baseURL, handlers)
@@ -19,7 +26,30 @@ async function open(page: Page, baseURL: string, path = '/map', handlers = {}, t
   return backend
 }
 
-/** The middle of the map: with the mock's forecast points, the nearest of them is Berlin-Tempelhof */
+/** The zoom the map is at, from the tiles it asks for */
+async function zoomOf(page: Page) {
+  return page.evaluate(() => {
+    const zooms = [...document.querySelectorAll<HTMLImageElement>('.station-map-tiles img.leaflet-tile')]
+      .map(tile => Number(/\/(\d+)\/\d+\/\d+\.png/.exec(tile.src)?.[1]))
+      .filter(zoom => !Number.isNaN(zoom))
+    return zooms.length ? Math.max(...zooms) : null
+  })
+}
+
+/**
+ * Where a position is on the map at its opening view (the centre of Germany at zoom 6), in pixels from the middle of
+ * the map: Web Mercator, 256 px tiles
+ */
+function offsetAtOpening(latitude: number, longitude: number) {
+  const scale = 256 * 2 ** 6
+  const mercator = (degrees: number) => Math.log(Math.tan(Math.PI / 4 + degrees * Math.PI / 360))
+  return {
+    x: (longitude - 10.4) * scale / 360,
+    y: -(mercator(latitude) - mercator(51.2)) * scale / (2 * Math.PI),
+  }
+}
+
+/** The middle of the map: at its opening view no station of the mock is within 100 km of it */
 async function clickMapCentre(page: Page) {
   const map = page.getByRole('application', { name: /^Station map/ })
   await expect(map).toBeVisible()
@@ -59,35 +89,49 @@ test.describe('the map tool on a wide screen', () => {
   })
 
   test('picks a place by a click on the map, shows what there is at it, and leads into the explorer and the history, filled in', async ({ page, baseURL }) => {
-    const backend = await open(page, baseURL!)
-    await clickMapCentre(page)
+    const backend = await open(page, baseURL!, '/map?station=10384', STRIPES_NEAR)
+    // the map has moved to Berlin-Tempelhof (zoom 8): back to the list, then a click some way beside its dot
+    await expect.poll(() => zoomOf(page)).toBe(8)
+    await page.getByTestId('map-back').click()
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    await page.mouse.click(box.x + box.width / 2 + 40, box.y + box.height / 2 + 25)
     const panel = page.getByTestId('map-panel')
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('BERLIN-TEMPELHOF')
     await expect(page.getByTestId('map-place')).toContainText('from this station')
     await expect(page).toHaveURL(/\/map\?station=10384&lat=/)
 
-    // the forecast, as day rows
+    // the forecast, as day rows, of the station the place is nearest to, which the card says is some way from the place
     const forecast = page.getByTestId('map-card-forecast')
     await expect(forecast.getByTestId('day-rows').getByRole('listitem').first()).toBeVisible()
+    await expect(forecast).toContainText(/BERLIN-TEMPELHOF, \d+ km away/)
     await expect(forecast.getByRole('link', { name: en.mapTool.openForecast })).toHaveAttribute('href', '/meteogram?station=10384')
 
     // the stripes are at the nearest station that has them, which the card names with its distance
     const stripes = page.getByTestId('map-card-stripes')
-    await expect(stripes).toContainText(/Neuhaus am Rennweg, \d+ km away/)
-    await expect(stripes.getByRole('link', { name: en.mapTool.openStripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=00096')
+    await expect(stripes).toContainText(/Angermünde, \d+ km away/)
+    await expect(stripes.getByRole('link', { name: en.mapTool.openStripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=00131')
+    // the measurements are at the nearest station that still reports within 100 km (the mock's has no end), not at
+    // Artern, which stopped in 2018 and is farther
     const measured = page.getByTestId('map-card-measured')
-    await expect(measured).toContainText(/Artern, \d+ km away/)
-    // a station that has stopped says for how long it measured
-    await expect(measured).toContainText('1991 to 2018')
+    await expect(measured).toContainText(/Angermünde, \d+ km away/)
+    await expect(measured).toContainText('since 1991')
     const explorer = measured.getByRole('link', { name: en.mapTool.openExplorer })
-    await expect(explorer).toHaveAttribute('href', /stations=00198/)
-    await expect(measured.getByRole('link', { name: en.mapTool.openHistory })).toHaveAttribute('href', /stations=00198/)
+    await expect(explorer).toHaveAttribute('href', /stations=00131/)
+    await expect(measured.getByRole('link', { name: en.mapTool.openHistory })).toHaveAttribute('href', /stations=00131/)
 
     // the explorer opens with the station chosen
     await explorer.click()
-    await expect(page).toHaveURL(/\/explorer\?.*stations=00198/)
-    await expect(page.getByText('Artern').first()).toBeVisible()
+    await expect(page).toHaveURL(/\/explorer\?.*stations=00131/)
+    await expect(page.getByText('Angermünde').first()).toBeVisible()
     expect(backend.unanswered).toEqual([])
+  })
+
+  test('picks no station for a click with none within 100 km, and says so', async ({ page, baseURL }) => {
+    await open(page, baseURL!)
+    await clickMapCentre(page)
+    await expect(page.getByTestId('map-none-near')).toHaveText('No station within 100 km of that point.')
+    await expect(page.getByTestId('map-station-name')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/map$/)
   })
 
   test('shows the climate stripes of a station that has them', async ({ page, baseURL }) => {
@@ -155,18 +199,107 @@ test.describe('the map tool on a wide screen', () => {
     await page.getByTestId('map-back').focus()
     await page.keyboard.press('Enter')
     await expect(panel.getByRole('button', { name: /MUENCHEN-STADT/ })).toBeFocused()
-    // the map takes the arrow keys, which move its centre; the panel then picks the place at it
+  })
+
+  test('is used by the keyboard alone: the arrow keys move the map and the panel picks the place at its centre', async ({ page, baseURL }) => {
+    // opened on Munich, the map is at zoom 8 with it at the middle; back to the list, as a reader of the keys would
+    await open(page, baseURL!, '/map?station=10865')
+    await expect.poll(() => zoomOf(page)).toBe(8)
+    const panel = page.getByTestId('map-panel')
+    await page.getByTestId('map-back').click()
     const map = page.getByRole('application', { name: /^Station map/ })
     await map.focus()
-    for (let press = 0; press < 12; press++)
+    for (let press = 0; press < 3; press++)
       await page.keyboard.press('ArrowRight')
+    // the map pans with an animation, and tells the page where it is when that has ended
+    await page.waitForTimeout(800)
     await panel.getByTestId('map-pick-centre').focus()
     await page.keyboard.press('Enter')
-    // the place at the centre is picked, and the focus goes to the name of the station nearest to it
+    // the place at the centre, now beside Munich, is picked, and the focus goes to the name of the station nearest to it
+    const heading = panel.getByRole('heading', { level: 2 })
+    await expect(heading).toHaveText('MUENCHEN-STADT')
     await expect(heading).toBeFocused()
-    await expect(heading).toHaveText(/BERLIN-TEMPELHOF|MUENCHEN-STADT/)
     await expect(page.getByTestId('map-place')).toBeVisible()
     await expect(page).toHaveURL(/lat=/)
+  })
+})
+
+test.describe('the map tool: what a pick moves, and what a click reaches', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('opens at the zoom of the country, and moves to the station of the address, once, at the zoom of a town', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await open(page, baseURL!, '/map?station=10865')
+    // the map has moved to Munich: zoom 8 at the least, and its dot is at the middle of the map, where a click on it is that station
+    await expect.poll(() => zoomOf(page)).toBe(8)
+    const map = page.getByRole('application', { name: /^Station map/ })
+    const box = (await map.boundingBox())!
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+    await expect(page.getByTestId('map-station-name')).toHaveText('MUENCHEN-STADT')
+    // a click on the dot is the station itself, with no place apart: the click tolerance is a dot's width, not a distance
+    await expect(page.getByTestId('map-place')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/map\?station=10865$/)
+  })
+
+  test('is not moved by a station that is not there: the map keeps its zoom for the next click', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?station=99999')
+    await expect(page.getByTestId('map-unknown')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    // a click on the dot of Berlin-Tempelhof
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const at = offsetAtOpening(52.47, 13.4)
+    await page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
+    await expect(page.getByTestId('map-station-name')).toHaveText('BERLIN-TEMPELHOF')
+    // the map did not jump to a pick that was never made
+    await page.waitForTimeout(600)
+    expect(await zoomOf(page)).toBe(6)
+  })
+
+  test('lets a click through the empty space of the chips to the map', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    const hit = await page.evaluate(() => {
+      const row = document.querySelector('.map-chips-row')!.getBoundingClientRect()
+      // the right end of the row, past its last chip
+      const at = document.elementFromPoint(row.right - 12, row.top + row.height / 2)
+      return { onRow: Boolean(at?.closest('.map-chips')), inMap: Boolean(at?.closest('.leaflet-container')) }
+    })
+    expect(hit).toEqual({ onRow: false, inMap: true })
+    // and a chip is still a chip
+    await page.getByTestId('map-layer-forecast').click()
+    await expect(page.getByTestId('map-layer-forecast')).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+test.describe('the map tool at 320 px', () => {
+  test.use({ viewport: { width: 320, height: 700 } })
+
+  // the longer languages: a link of a card that did not wrap pushed the page sideways (Open the measurements in the Explorer)
+  for (const language of ['en', 'de', 'de-hh', 'lb', 'nl', 'pl', 'cs', 'it', 'fr']) {
+    test(`does not scroll sideways with a station picked, in ${language}`, async ({ page, baseURL }) => {
+      await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await mockBackend(page, baseURL!, STRIPES_NEAR)
+      await page.goto('/map?station=10384&lat=52.9&lon=13.0')
+      await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+      await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      const sizes = await page.evaluate(() => ({ page: document.documentElement.scrollWidth - document.documentElement.clientWidth, links: [...document.querySelectorAll('.map-card a')].filter(link => link.getBoundingClientRect().right > document.documentElement.clientWidth).length }))
+      expect(sizes).toEqual({ page: 0, links: 0 })
+    })
+  }
+
+  test('leaves most of the map to the map on the measurements layer, where the chips take the most', async ({ page, baseURL }) => {
+    await page.context().addCookies([{ name: 'wd_lang', value: 'nl', url: baseURL! }])
+    await mockBackend(page, baseURL!)
+    await page.goto('/map?layer=measured')
+    await expect(page.getByTestId('map-resolution')).toBeVisible()
+    const [chips, stage] = await Promise.all([page.locator('.map-chips').boundingBox(), page.getByTestId('map-stage').boundingBox()])
+    expect(chips!.height / stage!.height).toBeLessThan(0.4)
+    expect(chips!.x + chips!.width).toBeLessThanOrEqual(320)
+    // the count is in the panel, not over the map
+    await expect(page.getByTestId('map-count')).toBeHidden()
+    await expect(page.getByTestId('map-count-panel')).toBeVisible()
   })
 })
 
@@ -201,7 +334,7 @@ test.describe('the map tool on a phone', () => {
     await history.click()
     await expect(page).toHaveURL(/\/history/)
     // the page is the history's, which has no tab: the Menu's tab is the one marked
-    await expect(bar.getByRole('button', { name: en.header.menu })).toHaveAttribute('data-current', '')
+    await expect(bar.getByRole('button', { name: en.header.menu })).toHaveAttribute('aria-current', 'true')
     await expect(bar.locator('[aria-current="page"]')).toHaveCount(0)
   })
 

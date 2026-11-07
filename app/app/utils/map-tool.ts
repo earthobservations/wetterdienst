@@ -103,6 +103,63 @@ export function nearestWithin(stations: PlacedStation[], point: Point, reach = R
   return nearest && nearest.distance <= reach ? nearest : null
 }
 
+const DAY_MS = 86_400_000
+
+/**
+ * How many days behind a station may be and still be reporting, by resolution. The REST API gives every station an
+ * `end_timestamp`, a running one too: it is the day (or month, or year) of its last value, which is some days behind
+ * today, so a station is not running only where it is null. A daily or finer station is a few days behind (the newest
+ * files are a day or two old: ten days is far more than that and far fewer than the weeks since a station that
+ * stopped); a monthly one is up to two months behind (its last value is the end of the last month the files hold);
+ * an annual one up to over a year (the end of the last year, which a new year's files replace some weeks into it).
+ */
+export function reportingToleranceDays(resolution: string): number {
+  if (resolution === 'monthly')
+    return 70
+  if (resolution === 'annual' || resolution === 'multi_annual')
+    return 450
+  return 10
+}
+
+/**
+ * Whether a station is still reporting: it has no end, or its end is within the tolerance of its resolution.
+ *
+ * @example
+ * isReporting({ end_timestamp: '2026-11-05T00:00:00+00:00' }, 'daily', Date.parse('2026-11-07')) // true
+ * isReporting({ end_timestamp: '2018-12-31T00:00:00+00:00' }, 'daily', Date.parse('2026-11-07')) // false
+ */
+export function isReporting(station: Pick<Station, 'end_timestamp'>, resolution: string, now: number = Date.now()): boolean {
+  if (!station.end_timestamp)
+    return true
+  const end = Date.parse(station.end_timestamp)
+  // an end that is no date says nothing against the station
+  return Number.isNaN(end) || now - end <= reportingToleranceDays(resolution) * DAY_MS
+}
+
+/**
+ * The station the tool picks for a point (a click on the map that is not on a dot, the centre of the map, the place a
+ * layer is changed at, the station of another kind near a station): the nearest one within `reach` kilometres, a
+ * reporting one before a closed one where `reporting` says which are, so that the nearest closed station is only
+ * offered when no reporting one is in reach. A station that is picked directly (a click on its dot) is the station
+ * itself, whatever it is.
+ *
+ * @returns The station and its distance, or null where none is within reach
+ */
+export function stationFor(stations: PlacedStation[], point: Point, reporting?: (station: PlacedStation) => boolean, reach = REACH_KM): { station: PlacedStation, distance: number } | null {
+  if (reporting) {
+    const running = nearestWithin(stations.filter(reporting), point, reach)
+    if (running)
+      return running
+  }
+  return nearestWithin(stations, point, reach)
+}
+
+/** The station a point is on, within `tolerance` kilometres of it, or null: the nearest, whatever its status */
+export function stationAt(stations: PlacedStation[], point: Point, tolerance: number): PlacedStation | null {
+  const [nearest] = nearestStations(stations, point, 1)
+  return nearest && nearest.distance <= tolerance ? nearest.station : null
+}
+
 /**
  * The stations whose name or id holds every word of a query, case and accents aside, the ones whose name starts
  * with it first. At most `limit`.

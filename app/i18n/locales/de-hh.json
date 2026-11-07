@@ -802,6 +802,7 @@
     "elevation": "{value} m över Seehööch",
     "at": "{name}, {distance} af",
     "noneNearby": "Keen Station binnen {distance}.",
+    "noStationNear": "Keen Station binnen {distance} üm den Punkt.",
     "openForecast": "Utsicht opmaken",
     "openStripes": "Klimastrepen opmaken",
     "openExplorer": "Meetweerten in den Explorer opmaken",

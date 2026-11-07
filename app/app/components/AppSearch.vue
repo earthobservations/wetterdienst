@@ -39,12 +39,12 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     :aria-expanded="open"
     aria-keyshortcuts="Control+K Meta+K"
     class="rounded-full"
-    :class="props.labelled ? 'ps-3 pe-2 min-w-40 justify-start text-muted' : ''"
+    :class="props.labelled ? 'ps-3 pe-2 min-w-32 justify-start text-muted' : ''"
     @click="open = true"
   >
     <template v-if="props.labelled">
       <span class="flex-1 text-start">{{ t('shell.search') }}</span>
-      <span class="hidden xl:inline-flex items-center gap-0.5" aria-hidden="true">
+      <span class="hidden min-[90rem]:inline-flex items-center gap-0.5" aria-hidden="true">
         <UKbd v-for="key in shortcut" :key="key" :value="key" size="sm" />
       </span>
     </template>

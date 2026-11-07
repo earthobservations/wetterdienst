@@ -802,6 +802,7 @@
     "elevation": "{value} m sul livello del mare",
     "at": "{name}, a {distance}",
     "noneNearby": "Nessuna stazione entro {distance}.",
+    "noStationNear": "Nessuna stazione entro {distance} da quel punto.",
     "openForecast": "Apri le previsioni",
     "openStripes": "Apri le strisce climatiche",
     "openExplorer": "Apri le misurazioni nell'Esploratore",

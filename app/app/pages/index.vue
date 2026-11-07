@@ -134,7 +134,8 @@ const dataKinds = computed(() => [
           {{ t('home.tasksTitle') }}
         </h2>
         <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <li v-for="task in tasks" :key="task.key">
+          <!-- five cards in two columns: the last stands alone in its row, so it is the width of the two, which reads as meant -->
+          <li v-for="task in tasks" :key="task.key" class="sm:[&:last-child:nth-child(odd)]:col-span-2">
             <NuxtLink :to="task.to" class="tool-card group">
               <ToolTile :tile="task.tile" :icon="task.icon" size="3rem" />
               <span class="tool-card-title">
