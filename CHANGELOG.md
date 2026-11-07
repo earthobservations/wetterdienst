@@ -123,7 +123,8 @@ Types of changes:
   `unknown-station` (GH-3847, GH-3864). To list the stations in service, keep the rows whose
   `end_timestamp` is null, or give a `timestamp`: a search by `rank`, distance or box with a window
   leaves out stations closed before it. The first call reads a 13 MB list of series (about 30 s,
-  cached a week); if Frost fails it, `DownloadError` or `NoInternetError`. 58 stations stay out
+  cached a week); if Frost fails it, `DownloadError` or `NoInternetError`. 58 stations with data
+  are in no Frost list and stay out
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

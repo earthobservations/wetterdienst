@@ -1455,8 +1455,6 @@ class MetnoFrostRequest(TimeseriesRequest):
         # outage, which swallowed would read as a network without stations (GH-2599). A failed
         # connection (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
-        if isinstance(file.content, Exception):
-            return pl.LazyFrame()
 
         df = _listing_rows(file, settings, CacheExpiry.METAINDEX, client_kwargs)
         if df.is_empty():

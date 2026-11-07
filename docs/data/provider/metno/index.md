@@ -49,7 +49,7 @@ abuse that "will result in a permanent ban". The library's User-Agent is `wetter
 the application and carries no contact. Frost itself identifies the caller by the client ID, so the Frost terms ask for
 no User-Agent; an operator who wants to give a contact sets `fsspec_client_kwargs` (see
 [settings](../../../usage/settings.md)). Wetterdienst keeps what it downloads from Frost for five minutes (the
-availability listing for an hour) the station list for twelve hours and the listing of series the dates of the stations are read from for a week; it does not read Frost's cache headers, so
+availability listing for an hour), the station list for twelve hours and the listing of series the dates of the stations are read from for a week; it does not read Frost's cache headers, so
 these limits are its own.
 
 ```{toctree}

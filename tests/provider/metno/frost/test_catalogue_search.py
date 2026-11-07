@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.provider.metno.frost.catalogue_rows import Upstream, is_series_listing, is_sources_listing, ok
@@ -24,9 +25,6 @@ from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.ui import restapi
 from wetterdienst.util.network import File
-
-if TYPE_CHECKING:
-    import pytest
 
 UTC = dt.UTC
 AUTH = {"metno_frost": ("stub-client", "stub-secret")}
@@ -197,3 +195,21 @@ def test_the_same_request_for_a_window_that_holds_both_is_refused_by_the_limit(m
     )
 
     assert response.status_code == 400
+
+
+@pytest.mark.parametrize("estimate", ["interpolate", "summarize"])
+def test_an_estimate_never_asks_for_a_station_that_closed_before_the_window(
+    monkeypatch: pytest.MonkeyPatch, estimate: str
+) -> None:
+    """Test that `interpolate` and `summarize` at SN18702's position for October 2026 ask Frost for SN18700 alone.
+
+    The library estimates reach `filter_by_rank` with the station list they hold already (`df_all`), which the hook
+    narrows to the window as well: a hook that only a list built by the rank itself passes through leaves the closed
+    stations to be asked (24 stations, 15 of them closed, around Oslo on 2026-11-07).
+    """
+    asked = _serve_observations(monkeypatch)
+
+    getattr(_request(**OCTOBER_2026), estimate)((59.9427, 10.72))
+
+    assert asked
+    assert set(asked) == {"SN18700"}

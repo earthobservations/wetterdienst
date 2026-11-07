@@ -1200,7 +1200,8 @@ class TimeseriesRequest:
         Rank is defined by distance to the requested point. The resulting
         ``StationsResult.df`` holds **all** stations with a position sorted by
         distance, not just ``rank`` rows; a station without a latitude or longitude
-        has no distance and is left out. Because we cannot know upfront which
+        has no distance and is left out (a provider whose end timestamps are exact may cut the list to the stations
+        with a record in the window first, see ``_stations_to_search``). Because we cannot know upfront which
         stations actually carry data for the request, the ``rank`` limit is applied
         lazily while collecting values. Value collection walks the distance-sorted
         stations and stops once ``rank`` stations that returned anything have been
