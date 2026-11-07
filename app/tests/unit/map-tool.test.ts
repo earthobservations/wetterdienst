@@ -1,24 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clickReach,
   DEFAULT_MEASURED,
   distanceKm,
+  DOT_SLOP_PX,
+  dotRadius,
   forecastLink,
   formatDistance,
   formatPosition,
   historyLink,
-  isReporting,
+  LIST_RUNNING_WITHIN_DAYS,
   measurementsLink,
   nearestStations,
   nearestWithin,
   placed,
   REACH_KM,
-  reportingToleranceDays,
+  REPORTING_WITHIN_DAYS,
+  reportingRule,
   searchStations,
   stateFromQuery,
   stateToQuery,
   stationAt,
   stationFor,
   stripesLink,
+  TAP_RADIUS_PX,
 } from '../../app/utils/map-tool'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
@@ -193,33 +198,98 @@ describe('the address of the map', () => {
 })
 
 describe('whether a station is still reporting', () => {
-  // a running station of the REST API has an end: the day of its last value
+  // the REST API gives a running station an end too: the day of its last value, some way behind today, by dataset
   const now = Date.parse('2026-11-07T12:00:00+00:00')
-  const ended = (end: string | null) => ({ end_timestamp: end })
+  const DAY = 86_400_000
+  /** A station that ended `days` before `now` (null for none) */
+  const endedAgo = (days: number | null) => ({ end_timestamp: days === null ? null : new Date(now - days * DAY).toISOString() })
+  /** The stations of a list whose newest end is `newest` days ago, and the others `behind` days before that */
+  const listOf = (newest: number, ...behind: number[]) => [endedAgo(newest), ...behind.map(days => endedAgo(newest + days))]
 
-  it('is so for a station with no end, and for one whose end is a few days ago', () => {
-    expect(isReporting(ended(null), 'daily', now)).toBe(true)
-    expect(isReporting(ended('2026-11-06T00:00:00+00:00'), 'daily', now)).toBe(true)
-    expect(isReporting(ended('2026-10-31T00:00:00+00:00'), 'hourly', now)).toBe(true)
+  it('compares a station with the newest end of its own list, so that each dataset sets its own clock: solar radiation is 38 days behind and still running', () => {
+    const solar = listOf(38, 0, 0, 5, 400, 2000)
+    const reporting = reportingRule(solar, now)
+    expect(solar.map(reporting)).toEqual([true, true, true, true, false, false])
   })
 
-  it('is not so for a station whose end is weeks, months or years ago', () => {
-    expect(isReporting(ended('2026-10-20T00:00:00+00:00'), 'daily', now)).toBe(false)
-    expect(isReporting(ended('2018-12-31T00:00:00+00:00'), 'daily', now)).toBe(false)
+  it('reads a list that is only a day or two behind the same way', () => {
+    const daily = listOf(2, 0, 3, 30, 800)
+    expect(daily.map(reportingRule(daily, now))).toEqual([true, true, true, true, false])
   })
 
-  it('has a tolerance that follows the resolution: the last month and the last year of a monthly and an annual station are behind', () => {
-    expect(reportingToleranceDays('10_minutes')).toBeLessThan(reportingToleranceDays('monthly'))
-    expect(reportingToleranceDays('monthly')).toBeLessThan(reportingToleranceDays('annual'))
-    // the end of last month, and of last year, as the real lists have them
-    expect(isReporting(ended('2026-09-30T00:00:00+00:00'), 'monthly', now)).toBe(true)
-    expect(isReporting(ended('2025-12-31T00:00:00+00:00'), 'annual', now)).toBe(true)
-    expect(isReporting(ended('2025-12-31T00:00:00+00:00'), 'daily', now)).toBe(false)
-    expect(isReporting(ended('2024-12-31T00:00:00+00:00'), 'annual', now)).toBe(false)
+  it('has a tolerance of 90 days behind the newest end: 90 reads as reporting, 91 as stopped', () => {
+    const list = listOf(2, 89, 90, 91, 92)
+    expect(list.map(reportingRule(list, now))).toEqual([true, true, true, false, false])
+    expect(REPORTING_WITHIN_DAYS).toBe(90)
   })
 
-  it('says nothing against a station whose end is no date', () => {
-    expect(isReporting(ended('soon'), 'daily', now)).toBe(true)
+  it('does not make a running station a closed one for being a publication behind: the stations of a list are up to a month apart', () => {
+    // hourly wind: 276 stations at the newest end, 17 up to 30 days before it, and all running
+    const wind = listOf(2, 0, 0, 12, 20, 30, 45)
+    expect(wind.every(reportingRule(wind, now))).toBe(true)
+  })
+
+  it('keeps a list that is long behind running, where it is behind as a whole: snow water equivalent 215 days after the winter, an annual list 311', () => {
+    const snow = listOf(215, 0, 20, 60, 400)
+    expect(snow.map(reportingRule(snow, now))).toEqual([true, true, true, true, false])
+    const annual = listOf(311, 0, 0, 365, 730)
+    expect(annual.map(reportingRule(annual, now))).toEqual([true, true, true, false, false])
+  })
+
+  it('reads a list that has stopped as a whole as all closed: its newest end is more than 450 days ago', () => {
+    const running = listOf(450, 0, 10)
+    expect(running.every(reportingRule(running, now))).toBe(true)
+    const stopped = listOf(451, 0, 10)
+    expect(stopped.some(reportingRule(stopped, now))).toBe(false)
+    // the weather phenomena that end in 2011, and the annual ones that end in 2024
+    const phenomena = [{ end_timestamp: '2011-12-31T00:00:00+00:00' }, { end_timestamp: '2011-12-31T00:00:00+00:00' }]
+    expect(phenomena.some(reportingRule(phenomena, now))).toBe(false)
+    expect(REPORTING_WITHIN_DAYS).toBeLessThan(LIST_RUNNING_WITHIN_DAYS)
+    expect(LIST_RUNNING_WITHIN_DAYS).toBe(450)
+  })
+
+  it('takes the newest end as no later than today: an end that is ahead of the clock does not make the running ones closed', () => {
+    const ahead = [endedAgo(-200), endedAgo(3), endedAgo(10)]
+    expect(ahead.map(reportingRule(ahead, now))).toEqual([true, true, true])
+  })
+
+  it('says a station with no end is not reporting, and nor is a list of none: its status is not known', () => {
+    const list = [endedAgo(1), endedAgo(null), { end_timestamp: 'soon' }]
+    expect(list.map(reportingRule(list, now))).toEqual([true, false, false])
+    const none = [endedAgo(null), endedAgo(null)]
+    expect(none.some(reportingRule(none, now))).toBe(false)
+    expect(reportingRule([], now)({ end_timestamp: '2026-11-01T00:00:00+00:00' })).toBe(false)
+  })
+
+  it('reads today from the clock it is given', () => {
+    const list = listOf(2, 0)
+    const later = now + 449 * DAY
+    // the same list 449 days on: its newest end is 451 days old, and the list has stopped
+    expect(list.some(reportingRule(list, later))).toBe(false)
+    expect(list.every(reportingRule(list, now))).toBe(true)
+  })
+})
+
+describe('what a click reaches', () => {
+  it('is the dot as drawn and a little more, not a circle of twelve pixels: at the opening zoom a dot is 2.75 px, and the click reaches 4.75', () => {
+    expect(dotRadius(6)).toBe(2.75)
+    expect(DOT_SLOP_PX).toBe(2)
+    expect(clickReach(6, false).dot).toBe(4.75)
+    expect(clickReach(6, false).dot).toBeLessThan(12)
+    expect(clickReach(10, false).dot).toBe(7)
+  })
+
+  it('follows the radius the dots are drawn with at each zoom', () => {
+    expect([2, 4, 5, 6, 7, 8, 9, 14].map(zoom => dotRadius(zoom))).toEqual([1.75, 1.75, 2.75, 2.75, 3.75, 3.75, 5, 5])
+    expect([2, 6, 8, 12].map(zoom => clickReach(zoom, false).dot)).toEqual([3.75, 4.75, 5.75, 7])
+  })
+
+  it('has a ring for a tap of a finger, and none for a mouse', () => {
+    expect(clickReach(6, false).tap).toBe(0)
+    expect(clickReach(6, true).tap).toBe(12)
+    expect(clickReach(6, true).tap).toBe(TAP_RADIUS_PX)
+    // the ring is never narrower than the dot's own reach
+    expect(clickReach(14, true).tap).toBeGreaterThanOrEqual(clickReach(14, true).dot)
   })
 })
 

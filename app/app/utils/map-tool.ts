@@ -50,6 +50,28 @@ export const HOME_VIEW = { latitude: 51.2, longitude: 10.4, zoom: 6 }
 /** A place picked on the map that is no more than this far from the station nearest to it is taken for the station itself */
 export const SAME_PLACE_KM = 0.5
 
+/** The radius of a station's dot in pixels, by zoom: points at the scale of a continent, discs at the scale of a town */
+export function dotRadius(zoom: number): number {
+  return zoom < 5 ? 1.75 : zoom < 7 ? 2.75 : zoom < 9 ? 3.75 : 5
+}
+
+/** How far outside its drawn edge a click still is on a dot, in pixels: the pointer's own width */
+export const DOT_SLOP_PX = 2
+
+/** How far a finger's tap reaches, in pixels, which a dot cannot be as small as: a tap in the ring beside a dot prefers a station that reports */
+export const TAP_RADIUS_PX = 12
+
+/**
+ * What a click at a zoom reaches, in pixels from it: a dot under it (its drawn radius and a little more, so that a click
+ * on empty map at the opening zoom, where a 12 px circle would be 18 km across and take three in four clicks for one on a
+ * dot, is not one), and, for a finger (a coarse pointer), the wider ring a tap has, which is no hit on a dot but
+ * the reach in which the station for the tap is chosen with the reporting ones first.
+ */
+export function clickReach(zoom: number, coarse: boolean): { dot: number, tap: number } {
+  const dot = dotRadius(zoom) + DOT_SLOP_PX
+  return { dot, tap: coarse ? Math.max(TAP_RADIUS_PX, dot) : 0 }
+}
+
 const EARTH_RADIUS_KM = 6371.0088
 
 /**
@@ -106,34 +128,53 @@ export function nearestWithin(stations: PlacedStation[], point: Point, reach = R
 const DAY_MS = 86_400_000
 
 /**
- * How many days behind a station may be and still be reporting, by resolution. The REST API gives every station an
- * `end_timestamp`, a running one too: it is the day (or month, or year) of its last value, which is some days behind
- * today, so a station is not running only where it is null. A daily or finer station is a few days behind (the newest
- * files are a day or two old: ten days is far more than that and far fewer than the weeks since a station that
- * stopped); a monthly one is up to two months behind (its last value is the end of the last month the files hold);
- * an annual one up to over a year (the end of the last year, which a new year's files replace some weeks into it).
+ * How far behind the newest end of its list a station may be and still be reporting, in days. The REST API gives
+ * every station an `end_timestamp`, a running one too: the day (or month, or year) of its last value. How far behind
+ * today that is depends on the dataset, not on the resolution: the daily climate summary is a day or two behind, the
+ * solar radiation 38 days, the snow water equivalent 215 days (it is measured in winter), the annual datasets 311
+ * (the end of last year), and the stations of one list are up to a month apart (the monthly precipitation, the
+ * hourly wind). So a station is compared with the newest end of the list it is in, which is the clock of that
+ * dataset, and the tolerance is generous: a station that stopped within 90 days of it still reads as reporting
+ * (a little harm), where one that is running and a publication behind must never read as closed (the harm of
+ * the fixed tolerance by resolution it replaces). Measured on the 38 observation lists of 2026-11-07 (the PR's
+ * table): 90 days takes in the whole running cluster of every list.
  */
-export function reportingToleranceDays(resolution: string): number {
-  if (resolution === 'monthly')
-    return 70
-  if (resolution === 'annual' || resolution === 'multi_annual')
-    return 450
-  return 10
-}
+export const REPORTING_WITHIN_DAYS = 90
 
 /**
- * Whether a station is still reporting: it has no end, or its end is within the tolerance of its resolution.
+ * How far behind today the newest end of a list may be for the list to be running at all, in days. A list whose newest
+ * end is older than this has stopped as a whole (the annual weather phenomena end in 2024), and every station of it
+ * reads as closed; the lists that are only behind (the snow water equivalent in summer, 215 days; the annual
+ * datasets, 311, and up to 365 before the new year's files) are within it.
+ */
+export const LIST_RUNNING_WITHIN_DAYS = 450
+
+/** Whether a station of a list is still reporting, as `reportingRule` decides it for the list */
+export type ReportingRule = (station: Pick<Station, 'end_timestamp'>) => boolean
+
+/**
+ * The rule of whether a station is still reporting, for the list it is in: its end is within `REPORTING_WITHIN_DAYS`
+ * of the newest end of the list (that end taken at most as late as `now`), and the list is running
+ * (`LIST_RUNNING_WITHIN_DAYS`). A station with no end, or one that is no date, is not reporting: its status is not
+ * known, and a station of a layer that has none (the forecast's points) is not asked.
  *
  * @example
- * isReporting({ end_timestamp: '2026-11-05T00:00:00+00:00' }, 'daily', Date.parse('2026-11-07')) // true
- * isReporting({ end_timestamp: '2018-12-31T00:00:00+00:00' }, 'daily', Date.parse('2026-11-07')) // false
+ * const reporting = reportingRule(stations) // the stations of dwd/observation daily/solar
+ * stations.filter(reporting) // the 41 of the 56 that are running, though the newest end is 38 days ago
  */
-export function isReporting(station: Pick<Station, 'end_timestamp'>, resolution: string, now: number = Date.now()): boolean {
-  if (!station.end_timestamp)
-    return true
-  const end = Date.parse(station.end_timestamp)
-  // an end that is no date says nothing against the station
-  return Number.isNaN(end) || now - end <= reportingToleranceDays(resolution) * DAY_MS
+export function reportingRule(stations: Array<Pick<Station, 'end_timestamp'>>, now: number = Date.now()): ReportingRule {
+  let newest = Number.NEGATIVE_INFINITY
+  for (const station of stations) {
+    const end = station.end_timestamp ? Date.parse(station.end_timestamp) : Number.NaN
+    if (end > newest)
+      newest = end
+  }
+  const clock = Math.min(newest, now)
+  const running = Number.isFinite(clock) && now - clock <= LIST_RUNNING_WITHIN_DAYS * DAY_MS
+  return (station) => {
+    const end = station.end_timestamp ? Date.parse(station.end_timestamp) : Number.NaN
+    return running && !Number.isNaN(end) && clock - end <= REPORTING_WITHIN_DAYS * DAY_MS
+  }
 }
 
 /**
@@ -145,7 +186,7 @@ export function isReporting(station: Pick<Station, 'end_timestamp'>, resolution:
  *
  * @returns The station and its distance, or null where none is within reach
  */
-export function stationFor(stations: PlacedStation[], point: Point, reporting?: (station: PlacedStation) => boolean, reach = REACH_KM): { station: PlacedStation, distance: number } | null {
+export function stationFor(stations: PlacedStation[], point: Point, reporting?: ReportingRule, reach = REACH_KM): { station: PlacedStation, distance: number } | null {
   if (reporting) {
     const running = nearestWithin(stations.filter(reporting), point, reach)
     if (running)

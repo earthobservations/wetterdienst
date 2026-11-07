@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
-// Luxembourgish and Czech. A string longer than its button, tab or table header either pushes the
+// Luxembourgish, Czech and Low German (which had no overflow on any page, with or without the map's). A string longer than its button, tab or table header either pushes the
 // page sideways or spills out of its box, and that shows nowhere except in a browser, in the
 // language that is too long. No screenshots: an element is an offender when its content is wider
 // than it is (`scrollWidth > clientWidth`) and it does not scroll or truncate on purpose, and a
@@ -14,7 +14,7 @@ import { mockBackend } from './accessibility/mock-backend'
 //
 // Each page is loaded once and measured at every width.
 
-const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl'] as const
+const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh'] as const
 const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },

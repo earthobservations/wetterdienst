@@ -14,7 +14,7 @@ const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.
 /** The one station with climate stripes that these tests have within reach of Berlin */
 const STRIPES_NEAR = {
   'stripes/stations': () => ({
-    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: null }],
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00` }],
   }),
 }
 
@@ -257,6 +257,26 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     expect(await zoomOf(page)).toBe(6)
   })
 
+  test('picks the station whose dot is clicked, and for a click beside a dot at the opening zoom the one that reports, not the closed dot a circle of twelve pixels would have taken', async ({ page, baseURL }) => {
+    // Artern stopped in 2018; Neuhaus am Rennweg, about 97 km from it, reports
+    await open(page, baseURL!, '/map?layer=measured')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const map = page.getByRole('application', { name: /^Station map/ })
+    const box = (await map.boundingBox())!
+    const artern = offsetAtOpening(51.3745, 11.2915)
+    // a click on the dot of Artern is Artern, closed as it is
+    await page.mouse.click(box.x + box.width / 2 + artern.x, box.y + box.height / 2 + artern.y)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
+    await page.getByTestId('map-back').click()
+    // a click 9 px beside it (the dot is 2.75 px across, and the click reaches 4.75): 14 km from Artern, 85 km from Neuhaus
+    const beside = offsetAtOpening(51.25, 11.15)
+    expect(Math.hypot(beside.x - artern.x, beside.y - artern.y)).toBeGreaterThan(8)
+    await page.mouse.click(box.x + box.width / 2 + beside.x, box.y + box.height / 2 + beside.y)
+    await expect(page.getByTestId('map-station-name')).toHaveText('Neuhaus am Rennweg')
+    await expect(page.getByTestId('map-place')).toBeVisible()
+  })
+
   test('lets a click through the empty space of the chips to the map', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?layer=measured')
     await expect(page.getByTestId('map-count')).toBeVisible()
@@ -316,26 +336,49 @@ test.describe('the map tool on a phone', () => {
     // the keyboard meets the chips, the map and the panel in the order the window shows them
     const order = await page.evaluate(() => [...document.querySelectorAll('[data-testid="map-layer-forecast"], [role="application"], [data-testid="map-panel"] input')].map(element => element.getAttribute('data-testid') ?? element.getAttribute('role') ?? 'search'))
     expect(order).toEqual(['map-layer-forecast', 'application', 'search'])
-
-    const bar = page.getByRole('navigation', { name: en.shell.mainNav }).first()
-    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.map, en.header.menu])
   })
 
-  test('puts the map in a tab, and the history in the Menu, where whoever looks for it finds it', async ({ page, baseURL }) => {
+  test('has the four tools it had before the map and the Menu in the bar, the map in the Menu, and the Menu marked on the map', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map')
     const bar = page.locator('.app-tabbar')
-    await expect(bar.getByRole('link', { name: en.nav.map })).toHaveAttribute('aria-current', 'page')
-    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveCount(0)
-    await expect(bar.getByRole('link')).toHaveCount(4)
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.header.menu])
+    await expect(bar.getByRole('link', { name: en.nav.map })).toHaveCount(0)
+    // the page is the map's, which has no tab: the Menu's tab is the one marked, for the eye and for a screen reader
+    const menu = bar.getByRole('button', { name: en.header.menu })
+    await expect(menu).toHaveAttribute('aria-current', 'true')
+    await expect(bar.locator('[aria-current="page"]')).toHaveCount(0)
+    // and it stays so after a pick that changes the address
+    await page.goto('/map?station=10384&lat=52.9&lon=13.0')
+    await expect(page.getByTestId('map-station-name')).toBeVisible()
+    await expect(menu).toHaveAttribute('aria-current', 'true')
+    await page.getByTestId('map-layer-measured').click()
+    await expect(page).toHaveURL(/layer=measured/)
+    await expect(menu).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('is found from the Menu, where the map is a link of the sheet that opens it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/history', {}, en.history.title)
+    const bar = page.locator('.app-tabbar')
+    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveAttribute('aria-current', 'page')
+    await expect(bar.getByRole('button', { name: en.header.menu })).not.toHaveAttribute('aria-current', 'true')
     await bar.getByRole('button', { name: en.header.menu }).click()
     const sheet = page.getByRole('dialog', { name: en.header.menu })
-    const history = sheet.getByRole('link', { name: en.nav.history })
-    await expect(history).toBeVisible()
-    await history.click()
-    await expect(page).toHaveURL(/\/history/)
-    // the page is the history's, which has no tab: the Menu's tab is the one marked
-    await expect(bar.getByRole('button', { name: en.header.menu })).toHaveAttribute('aria-current', 'true')
-    await expect(bar.locator('[aria-current="page"]')).toHaveCount(0)
+    await sheet.getByRole('link', { name: en.nav.map }).click()
+    await expect(page).toHaveURL(/\/map$/)
+    await expect(page.getByTestId('map-panel')).toBeVisible()
+  })
+
+  test('is found from the home page, whose fifth card is the map, and from the search, which opens it on a station', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/', {}, 'Wetterdienst')
+    await page.locator('.home-tasks').getByRole('link', { name: en.mapTool.title }).click()
+    await expect(page).toHaveURL(/\/map$/)
+    await page.goto('/')
+    await page.getByRole('button', { name: en.shell.search, exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('combobox').fill('hamburg')
+    await dialog.getByRole('option', { name: /Show station 10147 on the map/ }).click()
+    await expect(page).toHaveURL(/\/map\?station=10147/)
+    await expect(page.getByTestId('map-station-name')).toHaveText('HAMBURG-FUHLSBUETTEL')
   })
 
   test('has no page that scrolls sideways, the chips included', async ({ page, baseURL }) => {

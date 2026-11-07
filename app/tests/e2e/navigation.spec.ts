@@ -25,7 +25,7 @@ test.describe('the wide header', () => {
   test('names the tools as tabs and marks the one of the page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/stripes')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
-    for (const key of ['meteogram', 'explorer', 'stripes', 'history'])
+    for (const key of ['meteogram', 'explorer', 'stripes', 'history', 'map'])
       await expect(nav.getByRole('link', { name: en.nav[key], exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: en.nav.stripes, exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1)
@@ -250,6 +250,8 @@ test.describe('the narrow layout', () => {
     const box = await bar.boundingBox()
     expect(box!.y + box!.height).toBeGreaterThan(844 - 2)
     await expect(bar.getByRole('link', { name: en.nav.meteogram })).toHaveAttribute('aria-current', 'page')
+    // four tools and the Menu, as before the map (GH-3650), which is in the Menu's sheet
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.header.menu])
     // the page keeps the bar's height free at its foot, so its last line is not under the bar
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     const last = page.getByRole('link', { name: en.footer.licenses })

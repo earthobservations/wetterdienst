@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
-import type { MapLayer, MapState, MeasuredSource, PlacedStation, Point } from '~/utils/map-tool'
+import type { MapLayer, MapState, MeasuredSource, PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
@@ -15,11 +15,11 @@ import {
   formatPosition,
   historyLink,
   HOME_VIEW,
-  isReporting,
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
   REACH_KM,
+  reportingRule,
   SAME_PLACE_KM,
   searchStations,
   stateFromQuery,
@@ -37,7 +37,8 @@ import {
 // that measure (DWD's observations, by resolution and dataset).
 //
 // The station the tool picks for a place is the nearest one within 100 km, a station that is still reporting before one
-// that has stopped (`isReporting`), and the one under a click on its dot is that station, whatever it is. A change of
+// that has stopped (`reportingRule`: against the newest end of its own list), and the one under a click on its dot is
+// that station, whatever it is. A change of
 // layer or dataset picks again by the position of the place, never by the number of the station, which is another
 // station in another layer.
 //
@@ -73,6 +74,12 @@ const source = ref<MeasuredSource>(initial.source)
 const selectedId = ref<string | null>(initial.stationId)
 /** The point the panel is about: the station picked, or the place picked on the map */
 const anchor = ref<Point | null>(initial.place)
+
+const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
+/** The view shown: the number of a station is a number in the list of one view, and no other's */
+const viewKey = computed(() => keyOf(layer.value, source.value))
+/** The view the station picked was picked in */
+let pickedIn = viewKey.value
 
 // ---- the lists of stations ------------------------------------------------------------------------------------
 
@@ -149,20 +156,28 @@ function validSource(wanted: MeasuredSource): MeasuredSource {
   return { resolution: wanted.resolution, dataset: datasetFor(wanted.resolution, wanted.dataset) }
 }
 
-/** Asks for the list of the layer shown; for the measurements, once the source is known to be one that DWD has */
+/**
+ * Asks for the list of the measuring stations once the source is known to be one that DWD has: a hand-edited address may
+ * name a resolution or a dataset that does not exist, which is replaced (the station of the address, picked in the
+ * view as it was written, stays picked in the view as it is made right), and no request is made for it.
+ */
+async function ensureMeasured() {
+  await loadCoverage()
+  const valid = validSource(source.value)
+  if (valid.resolution === source.value.resolution && valid.dataset === source.value.dataset)
+    return measured.ensure()
+  const pickedHere = pickedIn === viewKey.value
+  // the watch of the source asks again, for the source that exists
+  source.value = valid
+  if (pickedHere)
+    pickedIn = viewKey.value
+}
+
+/** Asks for the list of the layer shown */
 async function ensureCurrent() {
-  if (layer.value === 'measured') {
-    await loadCoverage()
-    if (layer.value !== 'measured')
-      return
-    const valid = validSource(source.value)
-    if (valid.resolution !== source.value.resolution || valid.dataset !== source.value.dataset) {
-      // the watch asks again, for the source that exists
-      source.value = valid
-      return
-    }
-  }
-  void current.value.ensure()
+  if (layer.value === 'measured')
+    return ensureMeasured()
+  void forecast.ensure()
 }
 watch([layer, sourceKey], ensureCurrent, { immediate: true })
 
@@ -219,14 +234,8 @@ let fromAddress = Boolean(selectedId.value)
 /** The view was changed under a pick: the list that arrives has the station for the place of it picked again */
 let reselect = false
 
-const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
-/** The view shown: the number of a station is a number in the list of one view, and no other's */
-const viewKey = computed(() => keyOf(layer.value, source.value))
-/** The view the station picked was picked in */
-let pickedIn = viewKey.value
-
-/** Which stations of the layer shown have stopped: only the measuring ones do */
-const reporting = computed(() => layer.value === 'measured' ? (station: PlacedStation) => isReporting(station, source.value.resolution) : undefined)
+/** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
+const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
 
 function choose(station: PlacedStation, options: { point?: Point, focus?: boolean } = {}) {
   selectedId.value = station.station_id
@@ -260,10 +269,17 @@ function tellNoStationNear(point: Point) {
  * A pick at a point (a click on the map, the centre of the map): the station on its dot where the point is on one,
  * whatever its status, else the station for the place (`stationFor`), which has to be within reach.
  */
-function pickAt(point: Point, tolerance: number, focus = false) {
+function pickAt(point: Point, tolerance: number, focus = false, tap = 0) {
+  // nothing to pick from, and no word of there being none, until the list has come
+  if (listStatus.value !== 'success')
+    return
   const hit = stationAt(stations.value, point, tolerance)
   if (hit)
     return choose(hit, { focus })
+  // a tap of a finger (a coarse pointer) has a wider ring than a dot, and in it a station that reports is preferred
+  const touched = tap > tolerance ? stationFor(stations.value, point, reporting.value, tap) : null
+  if (touched)
+    return choose(touched.station, { point, focus })
   const found = stationFor(stations.value, point, reporting.value)
   if (found)
     choose(found.station, { point, focus })
@@ -271,9 +287,12 @@ function pickAt(point: Point, tolerance: number, focus = false) {
     tellNoStationNear(point)
 }
 
-/** A click on the map; how far from it a dot under the pointer can be is the twelve pixels the map measured */
-function onPick(point: Point & { tolerance: number }) {
-  pickAt(point, point.tolerance)
+/**
+ * A click on the map. `tolerance` is how far from it a dot under the pointer can be (the dot as drawn, and a little
+ * more), `tap` how far a station can be for a finger (none for a mouse), both measured by the map, in kilometres.
+ */
+function onPick(point: Point & { tolerance: number, tap?: number }) {
+  pickAt(point, point.tolerance, false, point.tap ?? 0)
 }
 
 /** The place at the centre of the map, as a click there would pick it: the keyboard's way to a place */
@@ -324,6 +343,9 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
     noStationNear.value = false
     fromAddress = false
   }
+  // the notice of a station that the view before did not have is not about this one
+  if (key !== previousKey)
+    unknownStation.value = null
   if (!list.length)
     return
   if (reselect) {
@@ -354,18 +376,18 @@ watch(selected, (station) => {
   }
   void forecast.ensure()
   void stripes.ensure()
-  void measured.ensure()
+  void ensureMeasured()
 }, { immediate: true })
 watch(sourceKey, () => {
   if (selected.value)
-    void measured.ensure()
+    void ensureMeasured()
 })
 
 /**
  * The station of a card: the station picked, for the layer it is of, and for the others the nearest within reach of
  * the place (`stationFor`), with its distance from the place, none where it is under half a kilometre.
  */
-function cardFor(list: PlacedStation[], isShown: boolean, running?: (station: PlacedStation) => boolean) {
+function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule) {
   if (!selected.value)
     return null
   const point = anchor.value ?? selected.value
@@ -376,17 +398,23 @@ function cardFor(list: PlacedStation[], isShown: boolean, running?: (station: Pl
   return stationFor(list, point, running)
 }
 const forecastPoint = computed(() => cardFor(forecast.stations.value, layer.value === 'forecast'))
-const stripesPoint = computed(() => cardFor(stripes.stations.value, false, station => isReporting(station, 'annual')))
-const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', station => isReporting(station, source.value.resolution)))
+const stripesRule = computed(() => reportingRule(stripes.stations.value))
+const measuredRule = computed(() => reportingRule(measured.stations.value))
+const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value))
+const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value))
 
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
-/** How long a station has measured: since its first year while it reports, from it to its last year once it has stopped */
+/**
+ * How long a station has measured: since its first year while it reports, from it to its last year once it has
+ * stopped; nothing where it has no end, which says nothing of whether it has stopped.
+ */
 function measuredFor(station: Station) {
   const year = (timestamp?: string | null) => timestamp ? new Date(timestamp).getUTCFullYear() : null
   const from = year(station.start_timestamp)
-  if (from === null)
+  const to = year(station.end_timestamp)
+  if (from === null || to === null)
     return null
-  return isReporting(station, source.value.resolution) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to: year(station.end_timestamp) })
+  return measuredRule.value(station) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to })
 }
 function stationName(station: Station) {
   return station.name ?? station.station_id
@@ -415,12 +443,16 @@ watch(() => route.query, (query) => {
     return
   layer.value = named.layer
   source.value = named.source
-  pickedIn = keyOf(named.layer, named.source)
+  const namedKey = keyOf(named.layer, named.source)
+  // the number of a station in another view is another station, so it is a new pick as well
+  const newPick = named.stationId !== selectedId.value || namedKey !== pickedIn
+  pickedIn = namedKey
   reselect = false
   noStationNear.value = false
-  if (named.stationId !== selectedId.value) {
+  if (newPick) {
     selectedId.value = named.stationId
     unknownStation.value = null
+    announcement.value = ''
     fromAddress = Boolean(named.stationId)
   }
   anchor.value = named.place

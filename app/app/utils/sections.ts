@@ -34,11 +34,13 @@ export const TOOLS: Section[] = [
 export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
 
 /**
- * The tools that have a tab in the bar of the narrow layout (GH-3650). Five tools and the Menu are six items, more than
- * a tab bar should hold, so the bar keeps four tools and the Menu, and the station history, the tool that is asked
- * for least, is in the Menu's sheet with the rest. The header of the wide layout shows all of `TOOLS`.
+ * The tools that have a tab in the bar of the narrow layout. Five tools and the Menu are six items, more than a tab
+ * bar should hold (GH-3650), so the bar holds four tools and the Menu: the four there were before the map, which
+ * changes nothing for a reader who knows the bar, and the map, the newest tool, is in the Menu's sheet. The header of
+ * the wide layout shows all of `TOOLS`. (The four are a default: a reader choosing their own is a change of its own,
+ * which would replace this list with the saved choice.)
  */
-export const TAB_BAR_TOOLS: Section[] = TOOLS.filter(tool => tool.key !== 'history')
+export const TAB_BAR_TOOLS: Section[] = TOOLS.filter(tool => tool.key !== 'map')
 
 /** The tools that are in the Menu's sheet and not in the tab bar: a page of one of them is the Menu's page */
 export const SHEET_ONLY_TOOLS: Section[] = TOOLS.filter(tool => !TAB_BAR_TOOLS.includes(tool))

@@ -19,10 +19,10 @@ describe('the sections', () => {
     expect(MAP_TOOL.tile).toBe('map')
   })
 
-  it('keep four tools in the tab bar of the narrow layout, the history in the menu', () => {
+  it('keep the four tools it had in the tab bar of the narrow layout, and the map in the menu', () => {
     // five tools and the Menu are six items, more than a tab bar holds (GH-3650)
-    expect(TAB_BAR_TOOLS.map(tool => tool.key)).toEqual(['forecast', 'explorer', 'stripes', 'map'])
-    expect(SHEET_ONLY_TOOLS.map(tool => tool.key)).toEqual(['history'])
+    expect(TAB_BAR_TOOLS.map(tool => tool.key)).toEqual(['forecast', 'explorer', 'stripes', 'history'])
+    expect(SHEET_ONLY_TOOLS.map(tool => tool.key)).toEqual(['map'])
     // every tool is one or the other, so that none is lost from the narrow layout
     expect([...TAB_BAR_TOOLS, ...SHEET_ONLY_TOOLS].map(tool => tool.key).sort()).toEqual(TOOLS.map(tool => tool.key).sort())
   })

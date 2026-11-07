@@ -3,10 +3,10 @@ import { EXTERNAL, inSection, PROJECT, REFERENCE, SHEET_ONLY_TOOLS, TAB_BAR_TOOL
 
 // The navigation of the narrow layout (GH-3518): four tools as tabs at the foot of the window, where a thumb
 // reaches them, and a fifth that opens the rest (the home page, the tools, the reference, the project,
-// the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the station history, the
-// tool asked for least, has no tab: it is in the sheet, which lists all five tools in the order of the header, and
-// while one is on the history the Menu's tab is marked as the page one is on (`aria-current`, which a screen reader says,
-// and the bar over it), since the sheet is where it is. The
+// the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the bar holds four tools and
+// the Menu, the four it had before the map, and the map is in the sheet, which lists all five tools in the order of
+// the header. While one is on the map the Menu's tab is marked as the page one is on (`aria-current`, which a screen
+// reader says, and the bar over it), since the sheet is where it is. The
 // sheet is a dialog: the focus stays in it, Escape closes it and gives the focus back to its tab, and the
 // page behind it is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2).
 //
@@ -28,7 +28,7 @@ watch(wide, (isWide) => {
 })
 
 const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ to }, route.path)
-// the page is one of a tool that has no tab: the Menu is where it is found
+// the page is one of a tool that has no tab (the map): the Menu is where it is found
 const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to)))
 </script>
 

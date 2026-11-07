@@ -122,7 +122,7 @@ async function mapWithStations(page: Page) {
 /** The one station with climate stripes that the map tool's states have within reach of Berlin (the mock's are in the south and west) */
 const STRIPES_NEAR_BERLIN: Handlers = {
   'stripes/stations': () => ({
-    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: null }],
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00` }],
   }),
 }
 

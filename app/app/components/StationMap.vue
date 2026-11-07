@@ -3,7 +3,7 @@ import type { PlacedStation, Point } from '~/utils/map-tool'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
-import { HOME_VIEW } from '~/utils/map-tool'
+import { clickReach, dotRadius, HOME_VIEW } from '~/utils/map-tool'
 
 // The map of the map tool (GH-3650), from the design of #3580. Stations are dots drawn on canvas tiles rather than
 // markers: a station is no stop of the keyboard, so Tab does not walk through the thousands of the forecast's points,
@@ -26,8 +26,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  /** A click on the map, and how far from it a dot under the pointer can be (twelve pixels), in kilometres */
-  pick: [point: Point & { tolerance: number }]
+  /**
+   * A click on the map, how far from it a dot under the pointer can be (`tolerance`: the dot as drawn and a little more)
+   * and, for a finger, how far a station can be for a tap (`tap`; none for a mouse), in kilometres
+   */
+  pick: [point: Point & { tolerance: number, tap: number }]
   /** The view of the map after each move: its centre, which the panel lists the nearest stations of, and its zoom */
   view: [view: Point & { zoom: number }]
 }>()
@@ -41,6 +44,8 @@ let link: L.Polyline | null = null
 
 const { t } = useI18n()
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+// a finger is a wider pointer than a mouse, and taps a wider ring
+const coarsePointer = useMediaQuery('(pointer: coarse)')
 
 // The map is a light surface in both colour schemes (main.css), so its marks are one set of colours: the station
 // dots in the brand's dark blue with a halo of the map's own tone (5.7:1 against it), and the one chosen in the sun's
@@ -48,11 +53,6 @@ const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 const DOT = { fill: '#2358a8', halo: '#ffffff' }
 const NAVY = '#17335f'
 const SUN = '#ffc93c'
-
-/** The radius of a dot, by zoom: points at the scale of a continent, discs at the scale of a town */
-function radius(zoom: number) {
-  return zoom < 5 ? 1.75 : zoom < 7 ? 2.75 : zoom < 9 ? 3.75 : 5
-}
 
 const DotLayer = L.GridLayer.extend({
   createTile(this: L.GridLayer, coords: L.Coords) {
@@ -68,7 +68,7 @@ const DotLayer = L.GridLayer.extend({
     if (!context || !owner)
       return tile
     context.scale(ratio, ratio)
-    const r = radius(coords.z)
+    const r = dotRadius(coords.z)
     const origin = L.point(coords.x * size.x, coords.y * size.y)
     // the tile's box in degrees, a dot's width wider: a cheap test before a projection
     const pad = r + 2
@@ -174,8 +174,10 @@ onMounted(() => {
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
   map.on('click', (event) => {
     const owner = map!
-    const beside = owner.containerPointToLatLng(owner.latLngToContainerPoint(event.latlng).add([12, 0]))
-    emit('pick', { latitude: event.latlng.lat, longitude: event.latlng.lng, tolerance: owner.distance(event.latlng, beside) / 1000 })
+    const reach = clickReach(owner.getZoom(), coarsePointer.value)
+    // pixels to kilometres at the place clicked
+    const kilometres = (pixels: number) => pixels === 0 ? 0 : owner.distance(event.latlng, owner.containerPointToLatLng(owner.latLngToContainerPoint(event.latlng).add([pixels, 0]))) / 1000
+    emit('pick', { latitude: event.latlng.lat, longitude: event.latlng.lng, tolerance: kilometres(reach.dot), tap: kilometres(reach.tap) })
   })
   map.on('moveend', emitView)
   drawSelection()

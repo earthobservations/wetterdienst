@@ -22,16 +22,17 @@ Types of changes:
   stations (by resolution and dataset) as dots, with a panel (a sheet under the map on a phone) that
   finds a station by name or number. Pick a station or any point for its forecast, its climate
   stripes, and links to its measurements in the Explorer and its history, chosen already. The
-  station offered is the nearest within 100 km, one that still reports before a closed one (shown
-  with its years); a dot is that station whatever it is. Layers keep the place, not the number.
-  The address holds the map, and the search (Ctrl/Cmd K) opens it on a station, not yet on a town
+  station offered is the nearest within 100 km, one that still reports (its end within 90 days of
+  its list's newest) before a closed one (shown with its years); a click on a dot is that station.
+  Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
+  it on a station, not yet a town
   (GH-3650, GH-3791). All eleven locales; all but `en` machine-made, none read by a native speaker
 
 ### Changed
 
-- `[Navigation]` On a phone the tab bar has the map in a tab and the station history in the Menu's
-  sheet (which lists all five tools), so that it keeps four tools and the Menu; the Menu's tab is
-  marked while you are on the history. The header of a wide screen shows all five tools (GH-3650)
+- `[Navigation]` On a phone the tab bar stays as it was, four tools and the Menu, and the map is in
+  the Menu's sheet (which lists all five tools); the Menu's tab is marked while you are on the map.
+  The header of a wide screen shows all five tools (GH-3650)
 
 ## [0.44.0] - 2026-11-03
 
