@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { setResponseStatus } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProviderPage from '~/pages/providers/[provider].vue'
@@ -30,6 +30,19 @@ afterEach(() => {
 })
 
 describe('provider Page', () => {
+  it('asks the backend for the datasets of each network, which its compact answer leaves out', async () => {
+    const queries: Array<Record<string, unknown>> = []
+    served = (event) => {
+      queries.push(getQuery(event))
+      return providersResponse()
+    }
+    const wrapper = await mountProvider('dwd')
+
+    expect(queries).toEqual([{ datasets: 'true' }])
+    // and shows them: the resolutions of the network come from that answer
+    expect(wrapper.text()).toContain('Climate summary')
+  })
+
   it('names the provider, in English and in its own words, with its country', async () => {
     const wrapper = await mountProvider('dwd')
     const text = wrapper.text()

@@ -1640,17 +1640,26 @@ def coverage(
     shell_complete=_complete_provider,
     help="Only this provider. Without it, every provider. Example: dwd",
 )
+@_bool_opt(
+    "--datasets",
+    default=False,
+    help="Also list the resolutions and datasets of each network, with their number of parameters. Without it, "
+    "the answer has the number of parameters of each network only. Default: false",
+)
 @debug_opt
 def providers(
     provider: str,
+    datasets: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
-    its data under (`license`, null where it states none), the credit line to give (`attribution`), and its
-    networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
-    offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
+    its data under (`license`, null where it states none), the credit line to cite (`attribution`; the `copyright`
+    of a network is the rights holder's notice, for information), and its networks with their `kind`, `extent`,
+    source `url`, whether they need credentials and their number of parameters. With `--datasets` each network also
+    lists its resolutions and datasets. Nothing is downloaded and no credential is read. `about coverage` lists the
+    parameters of a network.
     """
     from wetterdienst.ui.core import ProvidersRequest
     from wetterdienst.ui.providers import get_providers
@@ -1658,9 +1667,9 @@ def providers(
     _apply_log_level(debug=debug)
     begin_response()
 
-    request = ProvidersRequest.model_validate({"provider": provider})
+    request = ProvidersRequest.model_validate({"provider": provider, "datasets": datasets})
     try:
-        answer = get_providers(request.provider)
+        answer = get_providers(request.provider, datasets=request.datasets)
     except ApiNotFoundError as e:
         msg = f"{e} List them with: wetterdienst about providers"
         raise click.UsageError(msg) from e

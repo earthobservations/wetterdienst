@@ -345,6 +345,7 @@ but the strings in `quality_flags` gain a token, and the stuck-sensor check keep
 | `wetterdienst alerts --target` wrote JSON whatever the name: `--target=feed.txt` or a name without an extension exited 0, `--target=x.csv` without `--format` wrote JSON, and `--format=geojson --target=x.json` wrote GeoJSON to a `.json` | the extension decides the format (`.json`, `.geojson`, `.csv`), and `--if-exists` and `--with-metadata` are accepted as for `stations`: `--target=feed.txt`, a name without an extension and `--format=geojson --target=x.json` exit 2; `--target=x.csv` writes CSV. Name the file after the format you want, or leave `--target` out and redirect stdout | 0.184.0, GH-3706 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
 | a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.183.0, as under [Failures](#failures) |
+| `wetterdienst about providers` listed the resolutions and datasets of every network | the compact answer: per network its `kind`, `extent`, `url`, `copyright` and number of `parameters`, no `resolutions`; `--datasets` brings the lists back, `about coverage` lists the parameters | unreleased, GH-3536 |
 
 ## REST API
 
@@ -383,6 +384,7 @@ to change.
 | timestamps in history, alerts, issues and stripes as `...T00:00:00+00:00` | ISO 8601 UTC to the microsecond, `...T00:00:00.000000+00:00`, in JSON, GeoJSON and CSV | 0.155.0, GH-2633 |
 | `/api/coverage` probed credentials and listed `valid` | downloads nothing and answers at once; `valid` is gone from the listing: read `configured`, and `GET /api/auth` per network for whether the credentials are accepted. `valid` there is `true`, `false` or `null` for unknown | 0.147.0 (GH-2564), 0.155.0 (GH-2641) |
 | the `/api/issues`, `/api/alerts` and `/api/stripes/*` answers had no `metadata` block (not marked Breaking) | they carry it; the MCP tools `alerts` and `stripes_*` answer `{"result": ...}` as `stations` does: read the answer from `result` | 0.158.0, GH-3059 |
+| `/api/providers` (`/api/v1/providers`) answered every network with its `resolutions`, each with its datasets and their numbers of parameters (34 kB for every provider, 109 kB pretty-printed) | the compact answer (19 kB, 42 kB pretty-printed): the `resolutions` of a network are left out (the member is absent, not empty), `parameters` of the network, its `extent`, `url`, `copyright`, and the `license` and `attribution` of the provider stay. A client that reads `network["resolutions"]` passes `datasets=true`, which gives the answer as before; one that needs the parameters of a network reads `/api/coverage`. `attribution` is the credit line to cite, `copyright` the rights holder's notice, for information: the values are unchanged | unreleased, GH-3536 |
 | `with_stations=true` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) listed every station of the request, and `df_stations` every dataset of a station with any row | only the stations that have rows, one entry for each resolution and dataset that has rows (a merged wide row, which names no dataset, lists each of its datasets), also after `sql_values`, `filtered_by_date` or `filtered_by_sql`; no rows is `"stations": []`. A lookup of a requested station without rows, `{s["station_id"]: s for s in answer["stations"]}[asked]`, raises `KeyError` and nothing warns. Compare the ids the answer names (`metadata.request.stations.ids`, up to 100, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`; in Python read `result.stations.df` | unreleased, GH-3818 |
 
 ## MCP
@@ -396,6 +398,7 @@ arguments are the query parameters. In addition:
 | an argument a tool does not take was dropped, and the call answered as if it had not been given | refused with the names of the ones it takes | 0.142.0, GH-2479 |
 | `stations` with `lead_time`, `issue` | a tool error | 0.157.0, GH-3056 |
 | `summarize` with `use_nearby_station_distance` | refused | 0.158.0, GH-3077 |
+| `providers` listed the resolutions and datasets of every network | the compact answer; pass `datasets=true` for them (see the REST row above) | unreleased, GH-3536 |
 | the endpoint kept a session | stateless: no `mcp-session-id`, no `initialize` needed before `tools/list` or `tools/call`; `DELETE` and the `GET` that opens a stream answer 405. A client that depended on being given a session id has to stop | 0.159.0, GH-3088 |
 | `/mcp` | `/mcp/v1` is the endpoint to configure; `/mcp` stays as an alias of the current version | 0.158.0, GH-3074 (nothing to change) |
 

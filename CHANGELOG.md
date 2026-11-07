@@ -48,6 +48,14 @@ Types of changes:
   unless the call passes them; 6.3.1 honours them. wetterdienst works the size out itself and was
   not affected, except through a `kaleido.start_sync_server()` you started, where its images go
   through `to_image`. Upgrade plotly where an older one is pinned (GH-3829)
+- **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
+  `get_providers`) answers the compact form by default: each network has its `kind`, `extent`,
+  `url`, `copyright` and number of `parameters`, and the `resolutions` with their datasets are left
+  out, which cuts the answer for every provider from 34 kB to 19 kB. To get the lists as before
+  pass `datasets=true` (`--datasets`, `datasets=True`); `coverage` lists the parameters. The field
+  descriptions (OpenAPI, MCP, `--help`) and the docs now say that `attribution` is the credit line
+  to cite and `copyright` the rights holder's notice, shown for information; the values are
+  unchanged (GH-3536)
 
 ### Fixed
 

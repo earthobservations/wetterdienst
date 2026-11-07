@@ -475,7 +475,11 @@ export interface NetworkExtent {
   bbox: [number, number, number, number]
 }
 
-/** A network of a provider, as `GET /api/providers` lists it: standalone ones (`radar`, `alerts`) have no resolutions */
+/**
+ * A network of a provider, as `GET /api/providers?datasets=true` lists it: standalone ones (`radar`, `alerts`) have no
+ * resolutions. The backend leaves `resolutions` out of the compact answer, which is its default, so the app always
+ * asks with `datasets=true`.
+ */
 export interface ProviderNetwork {
   network: string
   kind: NetworkKind

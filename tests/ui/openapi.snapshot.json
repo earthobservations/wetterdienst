@@ -1053,7 +1053,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:\n`scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the\nresolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer\nthan its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded\nand no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`\nchecks whether its credentials are accepted.",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nThe answer is compact. With `datasets=true` each network also lists its resolutions and datasets, with how many\nparameters each has; a dataset whose stations are fewer than its network's has an `extent` of its own.\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1073,6 +1073,18 @@
               "title": "Provider"
             },
             "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
+          },
+          {
+            "name": "datasets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also list the resolutions and datasets of each network, with the number of parameters of each. Off by default: the answer then has the number of parameters of each network only, and is a good deal shorter. `coverage` lists the parameters.",
+              "default": false,
+              "title": "Datasets"
+            },
+            "description": "Also list the resolutions and datasets of each network, with the number of parameters of each. Off by default: the answer then has the number of parameters of each network only, and is a good deal shorter. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -6172,7 +6184,7 @@
               }
             ],
             "title": "Attribution",
-            "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
+            "description": "The credit line to cite when the data is used, in the provider's own words where it states one; null where the provider states none or asks for none. `copyright` of each network is the rights holder's notice, shown for information."
           },
           "networks": {
             "items": {
@@ -6252,7 +6264,8 @@
           },
           "copyright": {
             "type": "string",
-            "title": "Copyright"
+            "title": "Copyright",
+            "description": "The rights holder's notice, shown for information. The credit line to cite is `attribution` of the provider."
           },
           "auth": {
             "type": "boolean",
@@ -6274,7 +6287,8 @@
               "$ref": "#/components/schemas/ProviderResolution"
             },
             "type": "array",
-            "title": "Resolutions"
+            "title": "Resolutions",
+            "description": "The resolutions of the network, each with its datasets and their numbers of parameters. Only with `datasets=true`, else left out of the answer; empty for a network that has none (`dwd/radar`, `dwd/alerts`)."
           }
         },
         "additionalProperties": false,
@@ -6287,8 +6301,7 @@
           "copyright",
           "auth",
           "date_required",
-          "parameters",
-          "resolutions"
+          "parameters"
         ],
         "title": "ProviderNetwork",
         "description": "A network of a provider, with what it offers."
@@ -6585,7 +6598,7 @@
           },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's notice, shown for information."
           },
           "producer": {
             "$ref": "#/components/schemas/_Producer"
