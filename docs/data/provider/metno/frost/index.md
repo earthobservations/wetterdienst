@@ -273,12 +273,14 @@ always code 2. Measured on 2026-11-07
   precipitation at about 450 to 630 stations.
 
 A value of an open window is partial, and as the day's maximum, minimum, sum or mean it would be wrong. **Decided on
-2026-11-07: a daily value is left out and a monthly value is returned and marked.**
+2026-11-07: a daily value is left out, and a monthly value is returned and marked; the maintainer added the annual value
+to the monthly rule as a safeguard.**
 
 | resolution | the window of the value closes at | what is returned | what is told |
 |---|---|---|---|
 | daily | the date `D` + the offset: `PT18H` (the extremes) 18 UTC, `PT6H` (the precipitation sum) 06 UTC; `PT0H` (the mean, and every other daily element) the end of `D` | the value is **left out** until the window has closed | `window-not-closed`: how many values were left out, at which stations, and when the earliest window closes |
 | monthly | the last day `L` of the month + the offset: `PT18H` 18 UTC of `L`, `PT6H` 06 UTC of `L`; `PT0H` (the calendar month) the end of `L` | the value is **returned** with `completeness:Incomplete` as the last token of its `quality_flags` before `raw:` (`2,completeness:Incomplete`) | `window-not-closed`: the same, and that the values are marked |
+| annual | the same around 31 December: `PT18H` 18 UTC, `PT6H` 06 UTC, `PT0H` (the calendar year) the end of the year | as monthly: **returned** with `completeness:Incomplete` | as monthly |
 
 The rule has no parameters other than the stamp, the series and the time. The stamp is the date (or the month) the value
 is stamped at, and a series stamped off midnight is the date of its stamp. The series is the row's own `timeOffset`, or
@@ -297,16 +299,21 @@ out by every reader, and the next request after the closing time returns it.
   with `PT0H` the calendar day, which is what the pressure, humidity, wind and sunshine are. The daily snow depth
   (`surface_snow_thickness`) is the reading of an instant, stamped at its time, and has no window.
 - **A date left out as open is told once**, as open, and not again as `other-window-left-out` for the other series.
-- **Closed does not mean final.** Frost may publish the last readings of a window late, and a value of a closed window is
-  not marked as complete: only an open window is told. A value that is served after its window has closed can still be
-  corrected at the source.
-- **The annual value is not covered.** The decision names the daily and the monthly series. Frost did not serve the
-  current year of the annual mean, maximum and precipitation sum at SN18700 and SN50540 on 2026-11-07 (the last year
-  returned was 2025), so there was no open annual value to mark; other stations were not read.
+- **Closed does not mean final.** There is no grace period: a window is closed at its closing time, and the answer is
+  not held back or marked after it. Frost may publish the last readings of a window late, and corrects values in its
+  normal quality control cycle (`qualityCode` 1: "controlled and corrected"), so a value of a closed window can still
+  change, and it is not marked as complete: only an open window is told.
+- **The annual value** follows the monthly rule as a safeguard (the maintainer's decision of 2026-11-07, after the
+  measurement): the current year is returned with `completeness:Incomplete` and the `window-not-closed` warning until the
+  end of 31 December (`PT0H`), or 06 UTC (`PT6H`) or 18 UTC (`PT18H`) of it. Frost did not serve the current year of the
+  annual mean, maximum and precipitation sum at SN18700 and SN50540 on 2026-11-07 (the last year returned was 2025), so
+  the rule had no value to mark there; other stations were not read. Frost's documentation says "ReferenceTime and
+  timeOffset for annual data follow the same conventions as for seasonal and monthly data" (concepts, case 2.5), so
+  the closing time is that of the monthly rule around the last day of the year.
 
 The token `completeness` is the one the Environment Agency's hydrology readings already have (`Incomplete`: based on
-incomplete data); Frost writes only `Incomplete`, never `Complete`. To keep the closed months alone, filter
-`quality_flags` for the token; to keep the month so far, ask for a request window that ends before the current month.
+incomplete data); Frost writes only `Incomplete`, never `Complete`. To keep the closed periods alone, filter
+`quality_flags` for the token; to keep the current month or year out, ask for a request window that ends before it.
 
 ## The code -1 of the precipitation sums
 

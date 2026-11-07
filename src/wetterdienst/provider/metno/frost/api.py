@@ -523,6 +523,10 @@ _DAILY_PRECIPITATION_SUM = "sum(precipitation_amount P1D)"
 _UNREAD_DAYS_THROUGH = {"SN81930": 1993}
 _DAILY = "daily"
 _MONTHLY = "monthly"
+_ANNUAL = "annual"
+# the resolutions whose value is the aggregate of a window that can be open at the request (GH-3856), and the length of
+# the period the stamp starts, by resolution: the daily value is left out while it is open, the others are marked
+_PERIODS = {_DAILY: "1d", _MONTHLY: "1mo", _ANNUAL: "1y"}
 
 # Frost keeps several series of an element at a station that differ in `timeOffset` only ("Sometimes multiple
 # timeseries are available at the same station, with the only difference being the timeOffset value",
@@ -778,7 +782,7 @@ def _stamp_days(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
 
 
 def _stamp_keys(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
-    """Cut the stamps to what names the period of a value: the day of a daily one, the month of a monthly one.
+    """Cut the stamps to what names the period of a value: the day of a daily one, the month, the year.
 
     The frame the station returns has its daily stamps cut to the day (`_stamp_days`), so every comparison of its dates
     with those of another frame of the same answer is made on this key, and not on the raw `referenceTime`, which a
@@ -787,8 +791,8 @@ def _stamp_keys(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
     """
     if resolution == _DAILY:
         return _stamp_days(df, resolution)
-    if resolution == _MONTHLY:
-        return df.with_columns(pl.col("timestamp").dt.truncate("1mo"))
+    if resolution in _PERIODS:
+        return df.with_columns(pl.col("timestamp").dt.truncate(_PERIODS[resolution]))
     return df
 
 
@@ -800,37 +804,39 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _served_at(file: File) -> datetime:
-    """Give the time the answer in hand is of: the request time, or when its copy was made if that was before.
+def _served_at(file: File, asked_at: datetime) -> datetime:
+    """Give the time the answer in hand is of: when it was asked for, or when its copy was made if that was before.
 
-    An answer is cached for five minutes (`CacheExpiry.FIVE_MINUTES`), so one read after a window closed may have been
-    fetched before: Frost's state at 17:57 is no final value of a window that closes at 18:00, whoever reads it at
-    18:01. A copy that has no time (the cache is off, a download that is stubbed) is of the time of the request.
+    ``asked_at`` is `_now` taken before the download began. An answer is cached for five minutes
+    (`CacheExpiry.FIVE_MINUTES`), so one read after a window closed may have been fetched before: Frost's state at 17:57
+    is no final value of a window that closes at 18:00, whoever reads it at 18:01. A copy that has no time (the cache is
+    off, a save was skipped, a download that is stubbed) is of the time the download began, and not of the time it
+    ended: a window that closes while the answer is on its way is not closed in it.
     """
-    now = _now()
     if file.cached_at is None:
-        return now
-    return min(now, datetime.fromtimestamp(file.cached_at, UTC))
+        return asked_at
+    return min(asked_at, datetime.fromtimestamp(file.cached_at, UTC))
 
 
 def _closes(df: pl.DataFrame, resolution: str) -> pl.Expr:
-    """Give, for each observation of a daily or a monthly element, the time the window of its value closes (GH-3856).
+    """Give, for each observation of a daily, monthly or annual element, the time its value's window closes (GH-3856).
 
     The window is the one `timeOffset` names ("If timeOffset != PT0H, the observation represents the last 24 hr, at the
     time after midnight equal to timeOffset", https://frost.met.no/concepts2.html). Daily, the value of the date ``D``:
     ``PT0H`` the calendar day, closing at the end of ``D``, any other offset at ``D`` + the offset (`PT6H`: 06 UTC of
     ``D``, `PT18H`: 18 UTC). Monthly, the same around the last day of the month: ``PT0H`` closes at the end of the
-    month, ``PT6H`` at 06 UTC and ``PT18H`` at 18 UTC of its last day. The date or the month is the key of the stamp
-    (`_stamp_keys`). The offset is the row's own, or the one the element names (`_STANDARD_OFFSET`) where the row gives
-    none, or `PT0H`.
+    month, ``PT6H`` at 06 UTC and ``PT18H`` at 18 UTC of its last day. Annual, around the last day of the year (31
+    December): Frost has annual data "follow the same conventions as for seasonal and monthly data". The date, month
+    or year is the key of the stamp (`_stamp_keys`). The offset is the row's own, or the one the element names
+    (`_STANDARD_OFFSET`) where the row gives none, or `PT0H`.
 
     Null for an instantaneous element (`_INSTANTANEOUS`: the daily snow depth is the reading of an instant, which is
     over when it is read) and for any other resolution: no window.
     """
-    if resolution not in (_DAILY, _MONTHLY):
+    if resolution not in _PERIODS:
         return pl.lit(None, dtype=pl.Datetime("us", "UTC"))
-    key = pl.col("referenceTime").dt.truncate("1d" if resolution == _DAILY else "1mo")
-    last_day = key if resolution == _DAILY else key.dt.offset_by("1mo").dt.offset_by("-1d")
+    key = pl.col("referenceTime").dt.truncate(_PERIODS[resolution])
+    last_day = key if resolution == _DAILY else key.dt.offset_by(_PERIODS[resolution]).dt.offset_by("-1d")
     offset = pl.col("timeOffset") if "timeOffset" in df.columns else pl.lit(None, dtype=pl.String)
     standard = pl.col("elementId").replace_strict(_STANDARD_OFFSET, default=None, return_dtype=pl.String)
     hours = (
@@ -922,9 +928,9 @@ def _tell_open_window(
     """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
 
     ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
-    time the window `closes`, one row for each. A daily value is left out of the answer and a monthly one is returned
-    (marked, `_OPEN`), so the warning says which. A value the core cuts off (beyond the window of the request) is not
-    counted. The warning is `window-not-closed`.
+    time the window `closes`, one row for each. A daily value is left out of the answer and a monthly or annual one is
+    returned (marked, `_OPEN`), so the warning says which. A value the core cuts off (beyond the window of the request)
+    is not counted. The warning is `window-not-closed`.
     """
     if open_window.is_empty():
         return
@@ -932,7 +938,7 @@ def _tell_open_window(
     summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
     for parameter, count, closes in summary.iter_rows():
         if parameter in names:
-            note_open_window(names[parameter], count, closes, returned=resolution == _MONTHLY)
+            note_open_window(names[parameter], count, closes, returned=resolution != _DAILY)
 
 
 def _no_open_window() -> pl.DataFrame:
@@ -983,14 +989,14 @@ def _read_observations(
     ``df`` has one row per observation (`elementId`, `referenceTime`, `value`, `timeOffset`, ...), ``parameter`` is
     the expression of the name the rows are given, ``resolution`` the name of the resolution they were asked for and
     ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
-    The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of the
-    answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly one, which stays and has
-    `completeness:Incomplete` in its quality flags.
+    The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
+    the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
+    and has `completeness:Incomplete` in its quality flags.
     """
     left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
     open_window = _no_open_window()
-    if not df.is_empty() and resolution in (_DAILY, _MONTHLY):
+    if not df.is_empty() and resolution in _PERIODS:
         df = df.with_columns(_closes(df, resolution).alias(_CLOSES))
         is_open = (pl.col(_CLOSES) > served_at).fill_null(value=False)
         open_window = (
@@ -1178,6 +1184,7 @@ class MetnoFrostValues(TimeseriesValues):
             time_resolution=dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
+        asked_at = _now()
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -1222,7 +1229,9 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        read = _read_observations(df, pl.col("elementId"), dataset.resolution.name, station_id, _served_at(file))
+        read = _read_observations(
+            df, pl.col("elementId"), dataset.resolution.name, station_id, _served_at(file, asked_at)
+        )
         # the batch holds the whole dataset: what is told is of the parameters asked for
         asked = {
             parameter.name_original: _full_name(parameter)
@@ -1284,6 +1293,7 @@ class MetnoFrostValues(TimeseriesValues):
             time_resolution=parameter.dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
+        asked_at = _now()
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -1332,7 +1342,7 @@ class MetnoFrostValues(TimeseriesValues):
             pl.lit(parameter.name_original, dtype=pl.String),
             parameter.dataset.resolution.name,
             station_id,
-            _served_at(file),
+            _served_at(file, asked_at),
         )
         _tell_not_returned(
             read,
@@ -1427,6 +1437,7 @@ class MetnoFrostValues(TimeseriesValues):
                 continue
             asked.add(obs_url)
             log.info(f"Acquiring data from {obs_url}")
+            asked_at = _now()
             obs_file = download_file(
                 url=obs_url,
                 cache_dir=settings.cache_dir,
@@ -1461,7 +1472,7 @@ class MetnoFrostValues(TimeseriesValues):
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             read = _read_observations(
-                df, pl.lit(element, dtype=pl.String), resolution_name, station_id, _served_at(obs_file)
+                df, pl.lit(element, dtype=pl.String), resolution_name, station_id, _served_at(obs_file, asked_at)
             )
             left_outs.append(read.left_out)
             open_windows.append(read.open_window)

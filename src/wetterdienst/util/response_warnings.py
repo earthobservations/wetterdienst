@@ -91,10 +91,10 @@ FILE_SKIPPED = "file-skipped"
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 
 #: the code of the warning that counts the values whose window had not closed when the request was served (GH-3856):
-#: Frost serves the daily and the monthly value of a period that is still going on and marks nothing, so a value of a
-#: day is left out (`note_open_window`, `returned` false) and one of the month is returned, marked
-#: `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the window has
-#: closed
+#: Frost serves the daily, monthly and annual value of a period that is still going on and marks nothing, so a
+#: value of a day is left out (`note_open_window`, `returned` false) and one of the month or the year is returned,
+#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the
+#: window has closed
 WINDOW_NOT_CLOSED = "window-not-closed"
 
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
