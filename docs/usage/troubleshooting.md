@@ -50,6 +50,9 @@ The usual reasons:
   would not parse): their values may be missing from an answer that is otherwise whole. Try again later. Only the
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
   `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
+  A `file-skipped` of `dwd/observation` or `dwd/derived` that names a directory and no station says that DWD's
+  server listed it empty or not at all: the stations only it lists are not in the answer (a stations list, values or a
+  history), and a later request finds them once DWD has filled it again.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source

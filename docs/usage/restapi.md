@@ -384,18 +384,33 @@ what the answer is missing:
   candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
   it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
-  The `history` of `dwd/observation` tells it too, for a directory that is missing on the server (a 404) while it
-  was read for the history: no station of it can be read, and the answer is partial.
-  It carries the `stations` that asked for the dataset (the first ten), and its message names the directory that was
-  listed: the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the `historical` directory of
-  most others, the dataset's own directory for the solar datasets, which have no periods. The station lookup that comes
-  first lists the `historical` directories too, and the `meta_data` directory of the 1 minute precipitation, and fails
-  with a 500 when one is missing, before a history begins (an older problem, [#3819](https://github.com/earthobservations/wetterdienst/issues/3819));
-  a history has no `periods`, so REST and the command line reach the warning for the 5 and 10 minute datasets that are
-  not urban. A directory that is there but really empty is not told yet: the answer is thin, with no warning (the
-  `meta_data` of the 1 minute precipitation is a 500 there, #3819). A station with no
-  file in a listing that is there (one that only has `recent` data) has no history of it, which is the source's
-  answer, and no warning.
+  `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
+  (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
+  first: the lookup goes on without it and the answer is partial, a 200 and not an error (#3819). The warning has no
+  `stations`. It names the directory that was listed, the dataset and the periods that were skipped for it (`the
+  historical stations of daily/climate_summary were not looked up`): what is certain is that a station that only that
+  release lists is not in the answer, and its values or history are not read. What the directory was read for is not
+  always the period's own (the 1 minute precipitation reads the daily `more_precip` directory for the region of its
+  `historical` stations), so the period named is the one skipped. A dataset whose one directory is empty (the solar
+  datasets list the same for every period) answers no station. `values` and `history` say the rest at the stations they
+  read: a station found in another period whose `historical` file list is empty is named by `file-skipped` as for any
+  file the provider let go (`values`), or by a second warning of the directory that lists the stations whose history was
+  not read (`history`); the two state different facts and both are kept. A station that only the skipped release lists
+  is not found: `interpolate`, `summarize` and `stripes` with such a `station` answer a 404 `no station found for
+  <id>` that says nothing of the directory (a station only `historical` lists, with `historical` empty: held for
+  `interpolate` and `summarize` by a test, seen for `stripes` in the review of #3830;
+  [#3834](https://github.com/earthobservations/wetterdienst/issues/3834)). A history with the warning is not cached
+  (below). Only a listing that is missing or an index page with no link is told this way. A connection that cannot be
+  made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that is no index of a directory (a
+  CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never a `file-skipped` and never
+  "no data". No empty listing is kept in our listing cache, a year directory of a tree included
+  (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
+  written by an older version that holds an empty listing is read as a miss. A directory found empty is listed once
+  by a lookup and once by a walk (a walk over a hundred stations asked for it, five GETs at a time, at each station and
+  again for the fetch-ahead): a lookup or a walk remembers it for its own length and no longer, in Python as over REST,
+  so the next request asks again and nothing is kept in a context between calls. `describe_fields` stays an error. A
+  station with no file in a listing that is there (one that only has `recent` data) has no history of it, which is the
+  source's answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -962,7 +977,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history whose `meta_data` listing (5 and 10 minute datasets, not urban) came back empty or missing is a `file-skipped` warning, so that answer is not kept; a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history that met a directory whose listing came back empty or missing, in the lookup of its stations or in the history itself, is a `file-skipped` warning on a 200, so that answer is not kept and carries no `ETag`; the empty or missing listing is not kept in the listing cache either, so the next request lists the directory again (a listing with files is kept for twelve hours; nginx lists an empty directory as itself, which `list_remote_files_fsspec` turns into no file, and no empty listing is kept, a subdirectory's included); a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
