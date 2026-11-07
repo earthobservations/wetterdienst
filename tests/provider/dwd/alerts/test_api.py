@@ -8,6 +8,7 @@ import datetime as dt
 import io
 import json
 import zipfile
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -31,6 +32,9 @@ from wetterdienst.provider.dwd.alerts.api import _SCHEMA
 
 from .stubs import CAP_MUL, CAP_MUL_LANGUAGES, serve_snapshot
 from .test_parser import CAP_XML
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 UTC = ZoneInfo("UTC")
 _URL = "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/snapshot.zip"
@@ -467,3 +471,31 @@ def test_query_live_mul_snapshot() -> None:
         assert [t["language"] for t in alert["translations"]] == CAP_MUL_LANGUAGES[1:]
         for translation in alert["translations"]:
             assert set(translation) <= {"language", "event", "headline", "description", "instruction"}
+
+
+def test_resolve_snapshot_a_200_page_that_is_no_index_is_a_download_error_not_no_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A listing that is an outage page with a 200 is told as one (a `DownloadError`), not as no snapshot at all.
+
+    Both are a 502 over REST, but the second said "no weather-alerts snapshot listed" for an outage (GH-3834). A real
+    index with no link is still the directory without a snapshot.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import api  # noqa: PLC0415
+
+    with serving() as server:
+        monkeypatch.setattr(api, "DWD_ALERTS_BASE_URL", f"{server.base}/weather/alerts/cap")
+        directory = "/weather/alerts/cap/COMMUNEUNION_DWD_STAT/"
+        server.pages[directory] = ("application/json", b'{"error": "unavailable"}')
+        server.pages[directory.rstrip("/")] = ("application/json", b'{"error": "unavailable"}')
+        request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00", settings=Settings(cache_dir=str(tmp_path)))
+
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            request._resolve_snapshot()  # noqa: SLF001
+
+        server.pages.clear()
+        server.directories[directory] = []
+        with pytest.raises(MetaFileNotFoundError, match="no weather-alerts snapshot listed at"):
+            request._resolve_snapshot()  # noqa: SLF001
