@@ -247,7 +247,7 @@ def _draw(
         for name, value in (
             ("plotlyjs", defaults.plotlyjs),
             ("mathjax", defaults.mathjax),
-            ("headers", getattr(defaults, "headers", None)),  # plotly 6.2 has none
+            ("headers", getattr(defaults, "headers", None)),  # plotly before 6.8 has none
         )
         if value
     }
