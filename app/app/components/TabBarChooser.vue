@@ -29,7 +29,7 @@ const names = (keys: readonly string[]) => keys.map(name).join(', ')
 
 // The tool that is being dragged and the place it would be dropped on. The list that is drawn stays `order`; `shown`
 // is what it would be after a drop, which the preview draws.
-const drag = ref<{ key: string, pointerId: number, target: number } | null>(null)
+const drag = ref<{ key: string, pointerId: number, target: number, y: number } | null>(null)
 const shown = computed(() => drag.value
   ? moveTool(order.value, order.value.indexOf(drag.value.key), drag.value.target)
   : order.value)
@@ -100,13 +100,23 @@ function onPointerDown(event: PointerEvent, key: string) {
   const handle = event.currentTarget as HTMLElement
   handle.setPointerCapture(event.pointerId)
   event.preventDefault()
-  drag.value = { key, pointerId: event.pointerId, target: order.value.indexOf(key) }
+  drag.value = { key, pointerId: event.pointerId, target: order.value.indexOf(key), y: event.clientY }
 }
 
 function onPointerMove(event: PointerEvent) {
-  if (drag.value?.pointerId === event.pointerId)
+  if (drag.value?.pointerId === event.pointerId) {
+    drag.value.y = event.clientY
     drag.value.target = slotAt(event.clientY, rowRects())
+  }
 }
+
+// A scroll under a pointer that is held still (a wheel, a trackpad) moves the rows and not the pointer, so no pointer
+// event says that the place it is over has changed: the place is found again from where the pointer was last, or the
+// preview would show a drop other than the one the release makes
+useEventListener('scroll', () => {
+  if (drag.value)
+    drag.value.target = slotAt(drag.value.y, rowRects())
+}, { passive: true, capture: true })
 
 function onPointerUp(event: PointerEvent) {
   const current = drag.value
@@ -137,7 +147,12 @@ useEventListener('keydown', (event: KeyboardEvent) => {
       {{ t('settings.bar.hint') }}
     </p>
 
-    <!-- stays in view under the header while the list is scrolled or dragged, so the result is always seen -->
+    <p class="text-sm">
+      {{ t('settings.bar.instructions') }}
+    </p>
+
+    <!-- stays in view under the header while the list is scrolled or dragged, so the result is always seen; only the
+         lists pass under it, and it has an edge of its own -->
     <div class="bar-sticky">
       <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
         {{ t('settings.bar.preview') }}
@@ -169,10 +184,6 @@ useEventListener('keydown', (event: KeyboardEvent) => {
       </p>
     </div>
 
-    <p class="text-sm">
-      {{ t('settings.bar.instructions') }}
-    </p>
-
     <div v-for="group in groups" :key="group.id" :class="group.id === 'menu' ? 'bar-line' : undefined" :data-testid="`bar-group-${group.id}`">
       <h3 :id="`bar-heading-${group.id}`" class="mb-2 text-sm font-semibold">
         {{ group.label }}
@@ -201,7 +212,7 @@ useEventListener('keydown', (event: KeyboardEvent) => {
             <UIcon name="i-ph-dots-six-vertical-bold" class="size-5" />
           </span>
           <ToolTile :tile="byKey(key).tile" :icon="byKey(key).icon" size="2rem" />
-          <span class="min-w-0 flex-1 break-words font-semibold">{{ name(key) }}</span>
+          <span class="min-w-0 flex-1 hyphens-auto break-words font-semibold">{{ name(key) }}</span>
           <button
             type="button"
             class="bar-move"
@@ -233,6 +244,7 @@ useEventListener('keydown', (event: KeyboardEvent) => {
         color="neutral"
         variant="outline"
         size="sm"
+        class="bar-reset"
         data-testid="bar-reset"
         @click="reset"
       />

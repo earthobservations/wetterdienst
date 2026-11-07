@@ -589,19 +589,26 @@
   top: var(--header-height);
   z-index: 5;
   margin-inline: -0.25rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+  /* an edge of its own: what passes under it (a row's border, a line of text) does not read as part of it */
+  border-bottom: 1px solid var(--ui-border-accented);
   background: var(--ui-bg);
+  box-shadow: 0 0.5rem 0.5rem -0.375rem color-mix(in oklab, var(--ui-text-highlighted) 12%, transparent);
 }
 /* a focused button is scrolled clear of what stands over it (WCAG 2.4.11): the header and this preview */
-.bar-move {
+.bar-move,
+.bar-reset {
   scroll-margin-top: calc(var(--header-height) + 9rem);
 }
 /* too low a window: the header is not fixed, and a preview that stood on would cover half of what is left */
 @media (max-height: 30rem) {
   .bar-sticky {
     position: static;
+    border-bottom: 0;
+    box-shadow: none;
   }
-  .bar-move {
+  .bar-move,
+  .bar-reset {
     scroll-margin-top: 0;
   }
 }
@@ -620,6 +627,22 @@
 .bar-preview-item[data-moving] {
   background: var(--ui-bg-elevated);
   color: var(--ui-text-highlighted);
+}
+/* On a phone the preview is as wide as the window, as the bar it shows is: in the card it is 64 px narrower, and the
+   names of the tools that fit the bar (Pronóstico, Explorador) would break in it. It reaches out of the card's padding and
+   the page's gutter, and has no sides, like the bar; the caption and the line under it keep the card's inset. */
+@media (width < 40rem) {
+  .bar-sticky {
+    margin-inline: calc(-1rem - var(--frame-gutter));
+    padding-inline: 0;
+  }
+  .bar-sticky > :not(.bar-preview) {
+    padding-inline: calc(1rem + var(--frame-gutter));
+  }
+  .bar-preview {
+    border-inline: 0;
+    border-radius: 0;
+  }
 }
 .bar-line {
   padding-top: 1rem;
@@ -682,7 +705,8 @@
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  border: 1px solid var(--ui-border-accented);
+  /* the muted text colour: 3:1 or more on the row's raised background, light and dark (1.4.11; button-contrast.test.ts) */
+  border: 1px solid var(--ui-text-muted);
   border-radius: calc(var(--ui-radius) * 2);
   background: var(--ui-bg);
   color: var(--ui-text-highlighted);

@@ -217,4 +217,35 @@ describe('the tab bar of the narrow layout', () => {
       }
     })
   })
+
+  describe('the link to the chooser of the bar', () => {
+    async function openSheet(route: string) {
+      const wrapper = await mountBar(route)
+      await menuButton(wrapper).trigger('click')
+      await vi.waitFor(() => expect(document.body.querySelector('[role="dialog"]')).not.toBeNull())
+      const link = document.body.querySelector<HTMLAnchorElement>('[role="dialog"] a[href="/settings#bar"]')!
+      return { wrapper, link }
+    }
+    const click = (link: HTMLElement, init: MouseEventInit = {}) => link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...init }))
+
+    it('closes the sheet on a plain click', async () => {
+      const { wrapper, link } = await openSheet('/history')
+      click(link)
+      await vi.waitFor(() => expect(menuButton(wrapper).attributes('aria-expanded')).toBe('false'))
+    })
+
+    it.each([
+      ['Ctrl', { ctrlKey: true }],
+      ['Cmd', { metaKey: true }],
+      ['Shift', { shiftKey: true }],
+      ['Alt', { altKey: true }],
+      ['the middle button', { button: 1 }],
+    ])('leaves the sheet open on %s-click, which opens the link elsewhere and not here', async (_name, init) => {
+      const { wrapper, link } = await openSheet('/history')
+      click(link, init)
+      await wrapper.vm.$nextTick()
+      expect(menuButton(wrapper).attributes('aria-expanded')).toBe('true')
+      expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+    })
+  })
 })

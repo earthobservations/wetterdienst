@@ -162,4 +162,12 @@ describe('settings Page', () => {
     await wrapper.vm.$nextTick()
     expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
   })
+
+  it('takes the focus to the heading when the address changes to `#bar` on the page it is already on', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings' })
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).not.toBe(wrapper.find('#bar h2').element)
+    await useRouter().push('/settings#bar')
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
+  })
 })

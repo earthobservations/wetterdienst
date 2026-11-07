@@ -285,6 +285,55 @@ describe('the chooser of the tools in the phone bar', () => {
       expect(stored()).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
     })
 
+    it('ignores the cancel and the lost capture of another pointer while one drags', async () => {
+      const wrapper = await mountChooser()
+      layOut(wrapper)
+      await handle(wrapper, 'map').trigger('pointerdown', pointer(11, middle(4)))
+      await handle(wrapper, 'map').trigger('pointermove', pointer(11, middle(1)))
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
+      // a second finger that the browser takes for a gesture, and a capture another pointer lost, are not this drag's
+      await handle(wrapper, 'map').trigger('pointercancel', pointer(12, middle(1)))
+      await handle(wrapper, 'map').trigger('lostpointercapture', pointer(12, middle(1)))
+      expect(wrapper.find('li[data-tool="map"]').attributes('data-dragging')).toBeDefined()
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
+      await handle(wrapper, 'map').trigger('pointerup', pointer(11, middle(1)))
+      expect(stored()).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+    })
+
+    it('finds the place under a pointer that is held still again when the page scrolls, so the preview is the drop', async () => {
+      const wrapper = await mountChooser()
+      // the rows as before, moved up by `scrolled` pixels: a wheel turned with the pointer where it was
+      let scrolled = 0
+      wrapper.findAll('li[data-row]').forEach((row, index) => {
+        vi.spyOn(row.element, 'getBoundingClientRect').mockImplementation(() => {
+          const top = index * 64 + (index >= 4 ? 24 : 0) - scrolled
+          return { top, bottom: top + 56, left: 0, right: 300, width: 300, height: 56, x: 0, y: top, toJSON: () => ({}) }
+        })
+      })
+      await handle(wrapper, 'map').trigger('pointerdown', pointer(13, middle(4)))
+      await handle(wrapper, 'map').trigger('pointermove', pointer(13, middle(1)))
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
+      scrolled = 128
+      window.dispatchEvent(new Event('scroll'))
+      await wrapper.vm.$nextTick()
+      // the pointer is now over the fourth row: the fourth place of the bar, which History held
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Map'])
+      expect(wrapper.find('li[data-tool="history"]').attributes('data-drop')).toBe('before')
+      // and the release, with no move, makes the move the preview showed
+      await handle(wrapper, 'map').trigger('pointerup', pointer(13, middle(1)))
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'map'])
+    })
+
+    it('does not look for a place on a scroll where nothing is dragged', async () => {
+      const wrapper = await mountChooser()
+      layOut(wrapper)
+      window.dispatchEvent(new Event('scroll'))
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-drop]').exists()).toBe(false)
+      expect(wrapper.find('[data-dragging]').exists()).toBe(false)
+    })
+
     it('holds the pointer on the handle for the drag, so that it keeps moving wherever the pointer goes', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)

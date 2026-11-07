@@ -36,9 +36,9 @@ Types of changes:
 
 ### Fixed
 
-- `[Settings]` The app starts in a browser that refuses access to its storage (the setting that
-  blocks it): it showed an error page. The settings now hold for the visit and are the defaults at
-  the next (GH-3846)
+- `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
+  Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
+  the settings hold for the visit and are the defaults at the next (GH-3846)
 
 ## [0.45.0] - 2026-11-07
 

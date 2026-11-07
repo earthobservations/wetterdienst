@@ -23,7 +23,10 @@ const open = ref(false)
 // settings page takes the focus to the chooser's heading, which the tab would then take back, so the sheet is told to
 // leave it where it is, once, when the link takes the reader somewhere else than where the reader already is.
 const toChooser = ref(false)
-function openChooser() {
+function openChooser(event: MouseEvent) {
+  // a click that opens the link elsewhere (a new tab, a new window, a download) leaves this page and its sheet as they are
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
+    return
   toChooser.value = route.path !== '/settings' || route.hash !== '#bar'
   open.value = false
 }

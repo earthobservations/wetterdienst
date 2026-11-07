@@ -107,6 +107,43 @@ async function drag(page: Page, tool: string, target: string, { drop = true, bel
     await page.mouse.up()
 }
 
+/**
+ * Walks the focus over the buttons of the list and the Reset button by Tab, and back by Shift+Tab: in the order of the
+ * list, each one in the window and with nothing standing over it (sampled at the middle and the corners), which is what
+ * the preview that stays under the header would be, for a button that was scrolled to from below
+ */
+async function walkFocus(page: Page) {
+  const look = () => page.evaluate(() => {
+    const el = document.activeElement as HTMLElement
+    const box = el.getBoundingClientRect()
+    const points = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([x, y]) => document.elementFromPoint(box.left + box.width * x!, box.top + box.height * y!))
+    return {
+      label: el.getAttribute('aria-label') ?? el.textContent!.trim(),
+      visible: box.top >= 0 && box.bottom <= window.innerHeight,
+      obscured: points.filter(point => point !== el && !el.contains(point)).length,
+    }
+  })
+  const walk = async (key: 'Tab' | 'Shift+Tab', stops: number) => {
+    const labels: string[] = []
+    for (let stop = 0; stop < stops; stop++) {
+      const state = await look()
+      labels.push(state.label)
+      expect(state.visible, state.label).toBe(true)
+      expect(state.obscured, `${state.label} is covered (${key})`).toBe(0)
+      if (stop < stops - 1)
+        await page.keyboard.press(key)
+    }
+    return labels
+  }
+  const forward = [...DEFAULT_ORDER.flatMap(tool => [`Move ${NAMES[tool]} up`, `Move ${NAMES[tool]} down`]), en.settings.bar.reset]
+  await move(page, 'forecast', 'up').focus()
+  expect(await walk('Tab', forward.length)).toEqual(forward)
+  // one stop past the list, and back: Reset is then scrolled to from below, which is where the preview would cover it
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Shift+Tab')
+  expect(await walk('Shift+Tab', forward.length)).toEqual([...forward].reverse())
+}
+
 const SIZES = [
   { width: 390, height: 844 },
   { width: 320, height: 640 },
@@ -232,36 +269,9 @@ for (const size of SIZES) {
         expect(await barTexts(page)).toEqual([...names(DEFAULT_ORDER.slice(0, 4)), en.header.menu])
       })
 
-      test('reaches each button by Tab in the order of the list, and by Shift+Tab back, and none is hidden under the preview or the bars when it is focused', async ({ page, baseURL }) => {
+      test('reaches each button and Reset by Tab in the order of the list, and by Shift+Tab back, and none is hidden under the preview or the bars when it is focused', async ({ page, baseURL }) => {
         await open(page, baseURL!, '/settings', { mode })
-        // what the focused element is, and whether anything stands over it: sampled at the middle and the corners
-        const look = () => page.evaluate(() => {
-          const el = document.activeElement as HTMLElement
-          const box = el.getBoundingClientRect()
-          const points = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([x, y]) => document.elementFromPoint(box.left + box.width * x!, box.top + box.height * y!))
-          return {
-            label: el.getAttribute('aria-label'),
-            visible: box.top >= 0 && box.bottom <= window.innerHeight,
-            obscured: points.filter(point => point !== el && !el.contains(point)).length,
-          }
-        })
-        const walk = async (key: 'Tab' | 'Shift+Tab', stops: number) => {
-          const labels: string[] = []
-          for (let stop = 0; stop < stops; stop++) {
-            const state = await look()
-            labels.push(state.label!)
-            expect(state.visible, state.label!).toBe(true)
-            expect(state.obscured, `${state.label} is covered (${key})`).toBe(0)
-            if (stop < stops - 1)
-              await page.keyboard.press(key)
-          }
-          return labels
-        }
-        const forward = DEFAULT_ORDER.flatMap(tool => [`Move ${NAMES[tool]} up`, `Move ${NAMES[tool]} down`])
-        await move(page, 'forecast', 'up').focus()
-        expect(await walk('Tab', 10)).toEqual(forward)
-        // back up the list, from the last button: the preview that stays under the header is what a button would be under
-        expect(await walk('Shift+Tab', 10)).toEqual([...forward].reverse())
+        await walkFocus(page)
       })
 
       test('puts the default back by "Reset the bar", and says so', async ({ page, baseURL }) => {
@@ -521,6 +531,22 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
   })
 })
 
+test.describe('every page, with the browser\'s storage blocked', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  // measured on main with localStorage throwing: `/` and `/meteogram` opened, the pages that read the settings did not
+  for (const route of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/map', '/glossary', '/providers', '/api', '/about', '/support', '/settings']) {
+    test(`opens ${route}, with the bar and no error`, async ({ page, baseURL }) => {
+      const errors: string[] = []
+      page.on('pageerror', error => errors.push(error.message))
+      await open(page, baseURL!, route, { blockedStorage: true })
+      await expect(bar(page)).toBeVisible()
+      expect(await barTexts(page)).toEqual([...names(DEFAULT_ORDER.slice(0, 4)), en.header.menu])
+      expect(errors).toEqual([])
+    })
+  }
+})
+
 test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
 
@@ -530,5 +556,104 @@ test.describe('the wide header', () => {
     await expect(header.getByRole('link')).toHaveText(['meteogram', 'explorer', 'stripes', 'history', 'map'].map(key => en.nav[key]))
     await expect(bar(page)).toBeHidden()
     await expect(chooser(page)).toBeVisible()
+  })
+})
+
+test.describe('a low phone, 320 x 568', () => {
+  test.use({ viewport: { width: 320, height: 568 } })
+
+  test('keeps the focus of every button and of Reset clear of the preview, forwards and back', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    await walkFocus(page)
+  })
+})
+
+test.describe('the preview of the bar', () => {
+  test.use({ viewport: { width: 320, height: 640 } })
+
+  // the names that the bar shows whole (Pronóstico, Explorador, Franjas climáticas) are not broken in the preview: its
+  // labels wrap exactly as the bar's, so each is as tall as the one of the same tool in the bar at the foot
+  for (const code of ['es', 'fr', 'it', 'pl', 'cs', 'de-hh']) {
+    test(`${code}: wraps the names of the tools as the bar does, at 320 px`, async ({ page, baseURL }) => {
+      await open(page, baseURL!, '/settings', { language: code })
+      const heights = await page.evaluate(() => {
+        const measure = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].map(label => ({ text: label.textContent!.trim(), height: label.getBoundingClientRect().height, lines: label.getClientRects().length }))
+        return { preview: measure('[data-testid="bar-preview"] .tabbar-label'), bar: measure('.app-tabbar .tabbar-label') }
+      })
+      // the four tools of both, in the same order; the Menu is the last of each
+      expect(heights.preview.map(label => label.text)).toEqual(heights.bar.map(label => label.text))
+      for (const [index, label] of heights.preview.entries())
+        expect(label.height, `${label.text}: the preview's label is ${label.height} px tall, the bar's ${heights.bar[index]!.height}`).toBe(heights.bar[index]!.height)
+      // and it is as wide as the window, as the bar is
+      const widths = await page.evaluate(() => ({
+        preview: document.querySelector('[data-testid="bar-preview"]')!.getBoundingClientRect().width,
+        bar: document.querySelector('.app-tabbar')!.getBoundingClientRect().width,
+        right: document.querySelector('[data-testid="bar-preview"]')!.getBoundingClientRect().right,
+        left: document.querySelector('[data-testid="bar-preview"]')!.getBoundingClientRect().left,
+        window: document.documentElement.clientWidth,
+      }))
+      expect(widths.preview).toBe(widths.bar)
+      // (the page itself is wider than the window in es, by its Reset button, which is not the preview)
+      expect(widths.left).toBeGreaterThanOrEqual(0)
+      expect(widths.right).toBeLessThanOrEqual(widths.window)
+    })
+  }
+})
+
+test.describe('the link to the chooser, in a browser', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('takes the focus to the heading from the settings page itself, where only the address changes', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    await menuTab(page).click()
+    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.settings.bar.title }).click()
+    await expect(page).toHaveURL(/\/settings#bar$/)
+    await expect(page.getByRole('heading', { level: 2, name: en.settings.bar.title })).toBeFocused()
+  })
+
+  test('gives the focus back to the Menu tab where the reader is at the chooser already and nothing changes', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings#bar')
+    await menuTab(page).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    await sheet.getByRole('link', { name: en.settings.bar.title }).click()
+    await expect(sheet).toBeHidden()
+    await expect(menuTab(page)).toBeFocused()
+  })
+
+  test('leaves the sheet and the focus alone on a Ctrl-click, which opens the link in a tab of its own', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/history')
+    await menuTab(page).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    const link = sheet.getByRole('link', { name: en.settings.bar.title })
+    await link.focus()
+    await link.click({ modifiers: ['Control'] })
+    await expect(sheet).toBeVisible()
+    await expect(page).toHaveURL(/\/history/)
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY')
+  })
+})
+
+test.describe('a scroll while a tool is dragged', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('is followed by the preview, which is the drop that the release makes', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    await showList(page)
+    const from = await middle(handle(page, 'map'))
+    const to = await middle(row(page, 'explorer'))
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 10 })
+    expect(await previewTexts(page)).toEqual(names(['forecast', 'map', 'explorer', 'stripes']))
+    // the wheel turns with the pointer where it is: the rows move, the pointer does not
+    await page.mouse.wheel(0, 130)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100)
+    // the scroll may take a moment to arrive; the preview follows it
+    await expect.poll(() => previewTexts(page)).not.toEqual(names(['forecast', 'map', 'explorer', 'stripes']))
+    await page.waitForTimeout(300)
+    const shown = await previewTexts(page)
+    await page.mouse.up()
+    const stored_ = (await stored(page)) as string[]
+    expect(stored_.slice(0, 4).map(tool => NAMES[tool])).toEqual(shown)
   })
 })
