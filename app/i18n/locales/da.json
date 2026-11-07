@@ -151,7 +151,8 @@
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
       "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
-      "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner."
+      "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner.",
+      "map": "Et kort over stationerne hos Tysklands vejrtjeneste: vælg en station eller et vilkårligt punkt og se dens udsigt, klimastriber og målinger."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
-    "support": "Support"
+    "support": "Support",
+    "map": "Kort"
   },
   "shell": {
     "skipToContent": "Gå til indhold",
@@ -216,7 +218,9 @@
       "docs": "Brug Python-biblioteket, kommandolinjen og API'et",
       "github": "Koden, issues og pull requests",
       "pypi": "Installer Python-biblioteket med pip"
-    }
+    },
+    "stationsMap": "Station på kortet",
+    "stationOnMap": "Vis station {id} på kortet"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Centrér på den valgte station",
     "centerSelectedPlural": "Centrér på de valgte stationer",
     "markersNotShown": "Stationerne kunne ikke vises på kortet. Genindlæs siden for at prøve igen."
+  },
+  "mapTool": {
+    "title": "Stationskort",
+    "subtitle": "Vælg en station eller et vilkårligt punkt på kortet og se dens udsigt, klimastriber og målinger.",
+    "aboutButton": "Om kortet",
+    "about1": "Kortet viser stationerne hos Tysklands vejrtjeneste (DWD): punkterne, den laver udsigt for, eller stationerne, der måler, for den opløsning og det datasæt, du vælger over kortet. Hver er et punkt; panelet finder en station på dens navn og viser stationerne nær kortets midte.",
+    "about2": "Vælg en station, eller klik på et vilkårligt punkt på kortet: panelet viser udsigten og klimastriberne fra den nærmeste station, der har dem, og åbner målingerne i Udforskeren og stationens historik med den station allerede valgt. Med tastaturet flytter du kortet med piletasterne, zoomer med plus og minus og vælger så stedet i dets midte.",
+    "panelTitle": "Stationer",
+    "layers": "Lag",
+    "layerForecast": "Udsigtsstationer",
+    "layerMeasured": "DWD-målinger",
+    "mapLabel": "Stationskort: {layer}",
+    "count": "Viste stationer: {shown}",
+    "loadingStations": "Indlæser stationer …",
+    "stationsFailed": "Stationerne kunne ikke indlæses",
+    "noStations": "Dette datasæt har ingen stationer med en position.",
+    "zoomIn": "Zoom ind",
+    "zoomOut": "Zoom ud",
+    "search": "Find en station",
+    "searchPlaceholder": "Navn eller nummer på en station",
+    "nearCentre": "Stationer nær kortets midte",
+    "results": "Resultater",
+    "noResults": "Ingen station passer til denne søgning.",
+    "pickCentre": "Vælg kortets midte",
+    "pickCentreHint": "Vælger stedet i kortets midte, som piletasterne flytter.",
+    "back": "Tilbage til stationerne",
+    "chosen": "{name} valgt",
+    "pickedPlace": "Et punkt på kortet, {distance} fra denne station",
+    "elevation": "{value} m over havet",
+    "at": "{name}, {distance} væk",
+    "noneNearby": "Ingen station inden for {distance}.",
+    "noStationNear": "Ingen station inden for {distance} af det punkt.",
+    "openForecast": "Åbn udsigten",
+    "openStripes": "Åbn klimastriberne",
+    "openExplorer": "Åbn målingerne i Udforskeren",
+    "openHistory": "Åbn stationens historik",
+    "since": "siden {year}",
+    "period": "{from} til {to}",
+    "stripesFigure": "Klimastriber for {name}",
+    "stripesNone": "Ingen klimastriber for denne station.",
+    "stationNotFound": "Der er ingen station {id} på dette kort."
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

@@ -151,7 +151,8 @@
       "providers": "Los servicios meteorológicos nacionales detrás de los datos: país, licencia, la atribución que debe indicarse y lo que ofrece cada uno.",
       "glossary": "Qué mide cada parámetro meteorológico y climático y en qué unidad se devuelven sus valores, con búsqueda por nombre y magnitud.",
       "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
-      "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar."
+      "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar.",
+      "map": "Un mapa de las estaciones del Servicio Meteorológico Alemán: elige una estación o un punto cualquiera para ver su pronóstico, sus franjas climáticas y sus mediciones."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
-    "support": "Ayuda"
+    "support": "Ayuda",
+    "map": "Mapa"
   },
   "shell": {
     "skipToContent": "Saltar al contenido",
@@ -216,7 +218,9 @@
       "docs": "Cómo usar la biblioteca de Python, la línea de comandos y la API",
       "github": "El código, las incidencias y las pull requests",
       "pypi": "Instalar la biblioteca de Python con pip"
-    }
+    },
+    "stationsMap": "Estación en el mapa",
+    "stationOnMap": "Mostrar la estación {id} en el mapa"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Centrar en la estación seleccionada",
     "centerSelectedPlural": "Centrar en las estaciones seleccionadas",
     "markersNotShown": "No se pudieron mostrar las estaciones en el mapa. Vuelve a cargar la página para intentarlo de nuevo."
+  },
+  "mapTool": {
+    "title": "Mapa de estaciones",
+    "subtitle": "Elige una estación o un punto cualquiera del mapa para ver su pronóstico, sus franjas climáticas y sus mediciones.",
+    "aboutButton": "Sobre el mapa",
+    "about1": "El mapa muestra las estaciones del Servicio Meteorológico Alemán (DWD): los puntos para los que hace su pronóstico, o las estaciones que miden, para la resolución y el conjunto de datos que eliges sobre el mapa. Cada una es un punto; el panel encuentra una estación por su nombre y enumera las que están cerca del centro del mapa.",
+    "about2": "Elige una estación o haz clic en un punto cualquiera del mapa: el panel muestra el pronóstico y las franjas climáticas de la estación más cercana que las tiene, y abre las mediciones en el Explorador y el historial de la estación con esa estación ya elegida. Con el teclado, mueve el mapa con las flechas, acércalo con más y menos, y elige después el lugar de su centro.",
+    "panelTitle": "Estaciones",
+    "layers": "Capa",
+    "layerForecast": "Estaciones de pronóstico",
+    "layerMeasured": "Mediciones del DWD",
+    "mapLabel": "Mapa de estaciones: {layer}",
+    "count": "Estaciones mostradas: {shown}",
+    "loadingStations": "Cargando estaciones …",
+    "stationsFailed": "No se pudieron cargar las estaciones",
+    "noStations": "Este conjunto de datos no tiene estaciones con posición.",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "search": "Buscar una estación",
+    "searchPlaceholder": "Nombre o número de una estación",
+    "nearCentre": "Estaciones cerca del centro del mapa",
+    "results": "Resultados",
+    "noResults": "Ninguna estación coincide con esta búsqueda.",
+    "pickCentre": "Elegir el centro del mapa",
+    "pickCentreHint": "Elige el lugar del centro del mapa, que las flechas mueven.",
+    "back": "Volver a las estaciones",
+    "chosen": "{name} elegida",
+    "pickedPlace": "Un punto del mapa, a {distance} de esta estación",
+    "elevation": "{value} m sobre el nivel del mar",
+    "at": "{name}, a {distance}",
+    "noneNearby": "Ninguna estación en {distance} a la redonda.",
+    "noStationNear": "Ninguna estación en {distance} a la redonda de ese punto.",
+    "openForecast": "Abrir el pronóstico",
+    "openStripes": "Abrir las franjas climáticas",
+    "openExplorer": "Abrir las mediciones en el Explorador",
+    "openHistory": "Abrir el historial de la estación",
+    "since": "desde {year}",
+    "period": "de {from} a {to}",
+    "stripesFigure": "Franjas climáticas de {name}",
+    "stripesNone": "No hay franjas climáticas para esta estación.",
+    "stationNotFound": "No hay ninguna estación {id} en este mapa."
   },
   "dataViewer": {
     "loadingValues": "Cargando valores …",

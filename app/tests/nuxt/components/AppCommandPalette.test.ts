@@ -1,4 +1,4 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
@@ -7,6 +7,10 @@ import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { providersResponse } from '../fixtures/providers'
 
 // The command palette of the search (GH-3518): the ARIA combobox with a listbox, its keys, and what it finds.
+
+// where a choice of the palette goes: the router is not asked to load the page
+const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn() }))
+mockNuxtImport('navigateTo', () => navigateTo)
 
 registerEndpoint('/api/providers', () => providersResponse())
 const stationQueries: string[] = []
@@ -46,6 +50,7 @@ afterEach(() => {
   stationQueries.length = 0
   stationNetworks.length = 0
   failStations = false
+  navigateTo.mockClear()
 })
 
 describe('the command palette', () => {
@@ -84,6 +89,31 @@ describe('the command palette', () => {
       expect(text, label).toContain(label)
     expect(text).toContain('See a multi-day forecast for your location.')
     expect(text).toContain('Who runs this site, and how to reach them')
+  })
+
+  it('lists the map among the tools, with the line that says what it is for, and opens it', async () => {
+    const wrapper = await mountPalette()
+    const tools = wrapper.findAll('[role="group"]').find(group => group.text().includes('Climate stripes'))!
+    const map = tools.findAll('[role="option"]').find(option => option.text().startsWith('Map'))!
+    expect(map.text()).toContain('Pick a station or any point on the map for its forecast, climate stripes and measurements.')
+    await map.trigger('click')
+    expect(navigateTo).toHaveBeenCalledWith('/map')
+  })
+
+  it('finds a station by name and offers to open the map on it, beside its forecast', async () => {
+    // real timers: Vue ignores a click whose time stamp is earlier than the moment its handler was attached, which a
+    // clock that was faked and then restored makes of every click after it
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
+    const groups = wrapper.findAll('[role="group"]')
+    const onMap = groups.find(group => group.text().includes('Show station 10384 on the map'))!
+    // a group of its own, named for what it does, right after the forecast of the station
+    expect(wrapper.find(`[id="${onMap.attributes('aria-labelledby')}"]`).text()).toBe('Station on the map')
+    expect(groups.indexOf(onMap)).toBe(groups.findIndex(group => group.text().includes('Forecast for station 10384')) + 1)
+    await onMap.find('[role="option"]').trigger('click')
+    expect(navigateTo).toHaveBeenCalledWith('/map?station=10384')
   })
 
   it('moves the active option with the arrow keys, round the ends', async () => {

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
-// Luxembourgish and Czech. A string longer than its button, tab or table header either pushes the
+// Luxembourgish, Czech and Low German (which had no overflow on any page, with or without the map's). A string longer than its button, tab or table header either pushes the
 // page sideways or spills out of its box, and that shows nowhere except in a browser, in the
 // language that is too long. No screenshots: an element is an offender when its content is wider
 // than it is (`scrollWidth > clientWidth`) and it does not scroll or truncate on purpose, and a
@@ -14,8 +14,8 @@ import { mockBackend } from './accessibility/mock-backend'
 //
 // Each page is loaded once and measured at every width.
 
-const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh'] as const
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
   // the narrowest window with the tools in the header (64 rem), where their names are tightest (GH-3518)
@@ -102,6 +102,33 @@ LONG_LANGUAGES.forEach((language) => {
         await page.setViewportSize({ width: viewport.width, height: viewport.height })
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
         expect(await offendersOf(page), `the ${view} view in ${language} on a ${viewport.name} (${viewport.width}px)`).toEqual([])
+      }
+    })
+  }
+})
+
+// The header with five tools (GH-3650) in every language the app has: Italian and French were the tightest, at 1024 and
+// 1280 px (the settings button ended at 1033 and 1310 px with the fifth tab), where the header holds the search too.
+// The page is measured as it first comes, with the typeface not yet there, which is the narrower of its two faces' margins.
+const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
+test.describe('the header', () => {
+  for (const language of ALL_LANGUAGES) {
+    test(`holds the five tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await mockBackend(page, baseURL!)
+      await page.goto('/history')
+      await expect(page.locator('header .nav-tab').first()).toBeVisible({ timeout: 30_000 })
+      for (const width of [1024, 1280]) {
+        await page.setViewportSize({ width, height: 800 })
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        const sizes = await page.evaluate(() => {
+          const header = document.querySelector('header.app-header')!
+          const last = [...header.querySelectorAll('button, a')].pop()!
+          return { header: header.scrollWidth - header.clientWidth, page: document.documentElement.scrollWidth - document.documentElement.clientWidth, right: last.getBoundingClientRect().right, window: window.innerWidth }
+        })
+        expect(sizes.header, `the header in ${language} at ${width} px`).toBeLessThanOrEqual(0)
+        expect(sizes.page, `the page in ${language} at ${width} px`).toBeLessThanOrEqual(0)
+        expect(sizes.right, `the last control of the header in ${language} at ${width} px`).toBeLessThanOrEqual(sizes.window)
       }
     })
   }

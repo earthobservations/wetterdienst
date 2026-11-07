@@ -32,6 +32,7 @@ export const SEO_ROUTES: readonly SeoRoute[] = [
   { path: '/meteogram', title: 'meteogram.title', description: 'seo.pages.meteogram' },
   { path: '/stripes', title: 'stripes.title', description: 'seo.pages.stripes' },
   { path: '/history', title: 'history.title', description: 'seo.pages.history' },
+  { path: '/map', title: 'mapTool.title', description: 'seo.pages.map' },
   { path: '/api', title: 'api.title', description: 'seo.pages.api' },
   { path: '/providers', title: 'providers.title', description: 'seo.pages.providers' },
   { path: '/glossary', title: 'glossary.title', description: 'seo.pages.glossary' },

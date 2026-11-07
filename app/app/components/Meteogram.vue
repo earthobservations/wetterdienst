@@ -17,6 +17,11 @@ const props = defineProps<{
   stationName?: string | null
   stationCoords?: { latitude: number | null, longitude: number | null } | null
   widget?: boolean
+  /**
+   * The day rows alone, with no chart and no controls: the forecast in the map's panel (GH-3650). The view is not
+   * the reader's to choose and nothing is remembered or written to the address.
+   */
+  daysOnly?: boolean
 }>()
 
 const { t, locale, localeProperties } = useI18n()
@@ -40,7 +45,7 @@ const { theme, isDark } = useChartTheme()
 
 // The forecast is shown as the chart, as the compact overview (day cards) or as the table of its values: one
 // choice, remembered in local storage and written to the URL (`?view=table`), so that a link opens the view.
-const view = ref<MeteogramView>('chart')
+const view = ref<MeteogramView>(props.daysOnly ? 'compact' : 'chart')
 const compact = computed(() => view.value === 'compact')
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
@@ -105,6 +110,9 @@ function storedView(): MeteogramView | null {
 // On mount try to restore user preference and auto-enable compact on small screens,
 // with URL params taking precedence over localStorage.
 onMounted(() => {
+  // the day rows and nothing else: no preference to restore, and no link to write
+  if (props.daysOnly)
+    return
   if (typeof window !== 'undefined') {
     const stored = storedView()
     // the widget has no control to leave the table with: it shows the chart or the day cards
@@ -2249,6 +2257,25 @@ watch(
         <ValuesTable v-if="chartTable" full :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
         <UEmpty v-else icon="i-ph-table" :title="t('meteogram.chart.noData')" />
       </div>
+
+      <!-- in the map's panel, one row a day: the day, its weather, its rain and its temperatures -->
+      <ul v-else-if="daysOnly" class="divide-y divide-default" data-testid="day-rows">
+        <li v-for="(d, idx) in compactDays" :key="idx" class="grid grid-cols-[minmax(4.5rem,auto)_2rem_1fr_auto] items-center gap-x-3 py-2">
+          <span class="text-sm" :class="d.isToday ? 'font-bold text-highlighted' : 'text-toned'">
+            {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
+            <span class="block text-xs font-normal text-muted tabular-nums">{{ d.dayMonth }}</span>
+          </span>
+          <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+          <span class="text-2xl leading-none select-none" aria-hidden="true">{{ WEATHER_SYMBOLS[d.kind] }}</span>
+          <span class="text-sm text-toned">
+            <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
+            <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums">
+              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
+            </span>
+          </span>
+          <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
+        </li>
+      </ul>
 
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
