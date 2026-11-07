@@ -233,3 +233,11 @@ except (ConfigurationError, UpstreamError) as error:
     assert_type(error, ConfigurationError | UpstreamError)
 except WetterdienstError as error:
     assert_type(error, WetterdienstError)
+
+
+# a name the package does not have is an error where it is written: the package reads `Options` and `Settings` lazily at
+# run time (GH-3809) and must not tell a checker, through a module `__getattr__`, that every name exists
+import wetterdienst  # noqa: E402
+from wetterdienst import Setings  # noqa: E402, F401  # ty: ignore[unresolved-import]
+
+wetterdienst.nope  # noqa: B018  # ty: ignore[unresolved-attribute]

@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.183.0"
+version = "0.184.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -445,6 +445,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
 "examples/*" = ["T20", "INP001"]
+# the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
+# load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
+"src/wetterdienst/ui/cli.py" = ["PLC0415"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]
