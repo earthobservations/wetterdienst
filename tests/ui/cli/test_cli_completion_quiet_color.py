@@ -119,8 +119,9 @@ def _offered(line: str) -> list[str]:
 def test_a_real_completion_offers_the_commands_and_the_options_and_is_quick() -> None:
     """A TAB is a process that imports the command line, answers and ends: with no network, in seconds (GH-3134).
 
-    Measured on a laptop it is 0.6 to 1.0 s, nearly all of it the import of `wetterdienst.ui.cli`; the bound is
-    generous so that a loaded runner does not fail it, and a completion that fetched anything would not meet it.
+    Measured on a laptop it was 0.6 to 1.0 s, nearly all of it the import of `wetterdienst.ui.cli`, and is 0.07 s
+    since GH-3809 (`tests/ui/cli/test_cli_imports.py` holds what is imported); the bound is generous so that a loaded
+    runner does not fail it, and a completion that fetched anything would not meet it.
     """
     started = time.perf_counter()
     commands = _offered("wetterdienst va")

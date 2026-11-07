@@ -2,13 +2,14 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Package for accessing weather data from various APIs."""
 
+import importlib
 from dataclasses import dataclass
 from email.utils import getaddresses
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import metadata as package_metadata  # `wetterdienst.metadata` is a subpackage
 from pathlib import Path
 from textwrap import dedent
-from typing import TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
@@ -22,8 +23,41 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.options import Options
-from wetterdienst.settings import Settings
+
+if TYPE_CHECKING:
+    from wetterdienst.options import Options
+    from wetterdienst.settings import Settings
+else:
+    # `Options` and `Settings` are pydantic models, and importing them imports pydantic-settings and polars, which
+    # `import wetterdienst` does not need to pay for: the command line's `--help`, `--version` and shell completion
+    # import this package and little else (GH-3809). They are read from their modules when asked for, so `from
+    # wetterdienst import Settings` and `wetterdienst.Settings` are what they were, and so are the submodules that
+    # `import wetterdienst` used to leave as attributes (`wetterdienst.settings.Settings`).
+    #
+    # Not cached in the module: every access reads the name from its module, so a `mock.patch` of
+    # `wetterdienst.settings.Settings` reaches `wetterdienst.Settings` for as long as it lasts, and a reload of
+    # `wetterdienst.settings` is seen (an import made at the top keeps the object it found, and neither is). An access
+    # costs a `sys.modules` lookup. And not for a type checker, which reads a `__getattr__` as "every name exists":
+    # `from wetterdienst import Setings` is an error to it, and `tests/typed_caller.py` holds it to that.
+    _LAZY_NAMES = {"Options": "wetterdienst.options", "Settings": "wetterdienst.settings"}
+    _LAZY_SUBMODULES = ("model", "options", "settings", "ui")
+
+    def __getattr__(name: str) -> Any:  # noqa: ANN401
+        """Give `Options` and `Settings` and the submodules that are not imported with the package."""
+        if name in _LAZY_NAMES or name in _LAZY_SUBMODULES:
+            # what `import wetterdienst` imported before, and so its modules (`wetterdienst.model.plausibility`)
+            options = importlib.import_module(f"{__name__}.options")
+            settings = importlib.import_module(f"{__name__}.settings")
+            if name in _LAZY_NAMES:
+                return getattr(options if name == "Options" else settings, name)
+            return importlib.import_module(f"{__name__}.{name}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
+
+    def __dir__() -> list[str]:
+        """List what is imported lazily too, as `dir(wetterdienst)` always had it."""
+        return sorted({*globals(), *_LAZY_NAMES, *_LAZY_SUBMODULES})
+
 
 __appname__ = "wetterdienst"
 __version__ = boot.get_version(__appname__)
@@ -98,6 +132,8 @@ class Info:
         malformed `WD_*` setting then stopped with a traceback, before the server could refuse it
         by its variable (GH-2335).
         """
+        from wetterdienst.settings import Settings  # noqa: PLC0415
+
         return Settings().cache_dir
 
     def __str__(self) -> str:
