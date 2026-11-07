@@ -36,6 +36,7 @@ from wetterdienst.util.network import (
     File,
     as_outage,
     download_file,
+    drop_cached_file,
     raise_if_credential_rejected,
     read_refusal,
 )
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
     from io import BytesIO
 
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.options import Options
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +55,11 @@ _FROST_STAMP = "%Y-%m-%dT%H:%M:%S%.fZ"
 # the seconds a read of the series listing may stall for (the answer takes about 30 s in all, the server computing
 # the first 8 of them before it sends)
 _SERIES_TIMEOUT = 120
+# how long the list of the series is kept: a week, where the sources are kept for twelve hours. A start is history and
+# an end changes only when a series closes, so a list that is old costs a station that closed since a place in the
+# searches of a window (the walk asks it and finds nothing), and a station that opened since keeps the dates of its
+# source (the fallback of a station with no declared series). The 30 s it takes are paid once a week
+_SERIES_EXPIRY = CacheExpiry.ONE_WEEK
 
 _MetnoFrostMetadataSpec = {
     "name_short": "MetNo Frost",
@@ -1335,6 +1342,39 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
     return None
 
 
+def _listing_rows(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> pl.DataFrame:
+    """Give the rows of `data` of a listing that Frost answered with a 200, and drop it from the cache if it is none.
+
+    A body that is no JSON (a page of a proxy or a CDN) or has no `data` is a `DownloadError`, which names the file and
+    has the polars error as its cause. Either is dropped from the cache first, as `download_file` holds a 200 for the
+    whole `ttl`, and the next request would read the same page back for hours. A listing with no row is returned as
+    an empty frame, which the caller decides on (and drops, for the cache holds that for as long).
+    """
+    try:
+        listing = pl.read_json(cast("BytesIO", file.content))
+    except pl.exceptions.PolarsError as error:
+        _drop_listing(file, settings, ttl, client_kwargs)
+        msg = "the answer is not a JSON listing"
+        raise DownloadError(file.url.split("?", maxsplit=1)[0], msg) from error
+    if "data" not in listing.columns:
+        _drop_listing(file, settings, ttl, client_kwargs)
+        msg = "the answer has no `data`"
+        raise DownloadError(file.url.split("?", maxsplit=1)[0], msg)
+    return listing.select(pl.col("data").explode(empty_as_null=True)).drop_nulls()
+
+
+def _drop_listing(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
+    """Drop the cached copy of a listing that is no good, with the arguments it was downloaded with."""
+    drop_cached_file(
+        file.url,
+        settings.cache_dir,
+        ttl,
+        client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+
+
 class MetnoFrostRequest(TimeseriesRequest):
     """Request class for MET Norway Frost API."""
 
@@ -1374,6 +1414,25 @@ class MetnoFrostRequest(TimeseriesRequest):
             )
             raise CredentialMissingError(msg)
 
+    def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
+        """Narrow a search by place to the stations with a record in the window, where there is one (GH-3847).
+
+        The end of a station is that of its last declared series, which Frost sets once every one of them has closed:
+        it does not lag a station that is still reporting (that one has no end), so a station that ended before the
+        window is neither counted nor asked for. Without it a request by distance or box counted the 78 closed stations
+        of 25 km around Oslo against `WD_RESTAPI_MAX_STATIONS`, and a rank asked each closed station before the first in
+        service three times. Without a window the whole list is searched, closed stations included. A search by id,
+        by name (which applies the window itself) or by SQL is not narrowed.
+        """
+        from wetterdienst.model.request import limit_to_window  # noqa: PLC0415
+
+        return limit_to_window(
+            df_all,
+            cast("datetime | None", self.start),
+            cast("datetime | None", self.end),
+            cast("Options", self.options).station_window_end_buffer,
+        )
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         client_kwargs = {**settings.fsspec_client_kwargs}
@@ -1399,10 +1458,11 @@ class MetnoFrostRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
 
-        df = pl.read_json(file.content)
-        df = df.select(pl.col("data").explode(empty_as_null=True)).drop_nulls()
+        df = _listing_rows(file, settings, CacheExpiry.METAINDEX, client_kwargs)
         if df.is_empty():
-            # `{"data": []}` is a list without a source, a column of nulls that cannot be unnested
+            # `{"data": []}` is a list without a source, a column of nulls that cannot be unnested. Frost has 4,179, so
+            # it is not kept for twelve hours as the network without a station it would read as
+            _drop_listing(file, settings, CacheExpiry.METAINDEX, client_kwargs)
             return pl.LazyFrame()
         df = df.unnest("data")
         # geometry.coordinates: [longitude, latitude, elevation?]. 52 of the 4179 sources (2026-11-07) have
@@ -1460,9 +1520,9 @@ class MetnoFrostRequest(TimeseriesRequest):
         - `end_timestamp` is the latest `validTo` of a declared series, and null if any declared series is open.
 
         A station with no declared series keeps the span the source gives it. A series of a station that is no source
-        of the list (58 on 2026-11-07) is dropped with it. The listing is asked as the catalogue is, and its failure
-        is raised as the catalogue's is: read as no series, every station would keep the source's span and the
-        catalogue would be wrong without a word.
+        of the list (58 on 2026-11-07) is dropped with it. The listing is asked as the catalogue is (kept for a week,
+        `_SERIES_EXPIRY`), and its failure is raised as the catalogue's is: read as no series, every station would keep
+        the source's span and the catalogue would be wrong without a word.
         """
         declared = [
             (parameter.name_original, resolution.name_original)
@@ -1486,20 +1546,20 @@ class MetnoFrostRequest(TimeseriesRequest):
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.METAINDEX,
+            ttl=_SERIES_EXPIRY,
             client_kwargs=series_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
         _raise_if_rejected(file)
         file.raise_if_exception()
-        series = pl.read_json(cast("BytesIO", file.content))  # not an exception: raised above
-        if "data" in series.columns:
-            series = series.select(pl.col("data").explode(empty_as_null=True)).drop_nulls()
-        if "data" not in series.columns or series.is_empty():
-            # the sources of the list are there, so series are: an answer without any is not a station without data
+        series = _listing_rows(file, settings, _SERIES_EXPIRY, series_kwargs)
+        if series.is_empty():
+            # the sources of the list are there, so series are: an answer without any is not a station without data,
+            # and is not kept for a week
+            _drop_listing(file, settings, _SERIES_EXPIRY, series_kwargs)
             msg = "Frost listed no time series for the elements the network declares"
-            raise DownloadError(url, msg)
+            raise DownloadError(url.split("?", maxsplit=1)[0], msg)
         series = series.unnest("data")
         if "validTo" not in series.columns:
             series = series.with_columns(pl.lit(None, dtype=pl.String).alias("validTo"))

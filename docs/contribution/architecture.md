@@ -198,7 +198,7 @@ client of its own; it passes the four things it reads from the `Settings` of the
 | `post_file(url, ...)` | a `File` for a POST, never cached (the token endpoints) |
 
 **Caching.** `CacheExpiry` (`wetterdienst.metadata.cache`) is the time to live a caller asks for: `NO_CACHE`,
-`FIVE_SECONDS` to `TWELVE_HOURS`, `INFINITE`, and the aliases `FILEINDEX` (five minutes, for listings) and `METAINDEX`
+`FIVE_SECONDS` to `ONE_WEEK`, `INFINITE`, and the aliases `FILEINDEX` (five minutes, for listings) and `METAINDEX`
 (twelve hours, for station catalogues). `NetworkFilesystemManager` keeps one filesystem per thread and per combination of
 cache directory, expiry and client arguments. With a cache it is fsspec's `WholeFileCacheFileSystem` over the HTTP
 filesystem (`_LockedWholeFileCacheFileSystem`), in a directory of `cache_dir/fsspec` per expiry and per credential

@@ -1030,6 +1030,16 @@ class TimeseriesRequest:
         finally:
             _SELECTING.reset(token)
 
+    def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
+        """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
+
+        All of them, whatever the window: a provider whose `end_timestamp` is exact, which never says a station still
+        reporting has ended, narrows them to the stations with a record in the window (`limit_to_window`), so that a
+        station that closed before it is neither counted nor asked for. Where the end lags a station that is still
+        reporting, as most indexes do, a station is kept for the walk to ask and skip.
+        """
+        return df_all
+
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """Filter stations by station_id.
 
@@ -1225,8 +1235,7 @@ class TimeseriesRequest:
         # `summarize` does, and not ranked by the distances its wrapped coordinates have (GH-3717)
         q_lat, q_lon = float(latlon[0]), float(latlon[1])
         require_location_in_range(q_lat, q_lon)
-        if df_all is None:
-            df_all = self._stations_to_select_among()
+        df_all = self._stations_to_search(self._stations_to_select_among() if df_all is None else df_all)
         latitudes = df_all.get_column("latitude").to_arrow()
         longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
@@ -1333,7 +1342,7 @@ class TimeseriesRequest:
             msg = "bbox bottom border should be smaller then top"
             raise InvalidBoundingBoxError(msg)
 
-        df_all = self._stations_to_select_among()
+        df_all = self._stations_to_search(self._stations_to_select_among())
 
         df = df_all.filter(
             pl.col("latitude").is_between(bottom, top, closed="both")

@@ -11,21 +11,30 @@ the real answers of 2026-11-07 (`catalogue_rows.py`), and every rule of the span
 from __future__ import annotations
 
 import datetime as dt
-import json
-from io import BytesIO
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 import polars as pl
 import pytest
 
-from tests.provider.metno.frost.catalogue_rows import EXPECTED, SERIES, SOURCES, is_series_listing, is_sources_listing
+from tests.provider.metno.frost.catalogue_rows import (
+    EXPECTED,
+    SERIES,
+    SOURCES,
+    Failure,
+    Upstream,
+    is_series_listing,
+    is_sources_listing,
+    ok,
+)
 from wetterdienst import Settings
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
-from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    from wetterdienst.util.network import File
 
 UTC = dt.UTC
 AUTH = {"metno_frost": ("stub-client", "stub-secret")}
@@ -34,53 +43,6 @@ FAILURES = [
     pytest.param(OSError("503 Service Unavailable"), 503, id="server-error"),
     pytest.param(FileNotFoundError("404 Not Found"), 404, id="not-found"),
 ]
-
-
-def _ok(url: str, payload: dict) -> File:
-    return File(url=url, content=BytesIO(json.dumps(payload).encode()), status=200)
-
-
-class Failure(NamedTuple):
-    """An answer that is no body: the exception a failed download stores, and its status."""
-
-    error: Exception
-    status: int
-
-
-class Upstream:
-    """The two requests of the catalogue, answered as given, and every request made to them kept."""
-
-    def __init__(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        *,
-        sources: dict | Failure | None = None,
-        series: dict | Failure | None = None,
-    ) -> None:
-        """Serve the rows of the stub, or the answer given for either request, and keep what is asked."""
-        self.calls: list[dict[str, Any]] = []
-        self._sources = SOURCES if sources is None else sources
-        self._series = SERIES if series is None else series
-        monkeypatch.setattr(frost_api, "download_file", self._download)
-
-    def _download(self, *, url: str, **kwargs: Any) -> File:  # noqa: ANN401
-        self.calls.append({"url": url, **kwargs})
-        for matches, answer in ((is_sources_listing, self._sources), (is_series_listing, self._series)):
-            if matches(url):
-                if isinstance(answer, Failure):
-                    return File(url=url, content=answer.error, status=answer.status)
-                return _ok(url, answer)
-        msg = f"the stub serves nothing for {url}"
-        raise AssertionError(msg)
-
-    def urls(self, matches: Any) -> list[str]:  # noqa: ANN401
-        """Give the requests that were made for the sources or the series."""
-        return [call["url"] for call in self.calls if matches(call["url"])]
-
-    def kwargs(self, matches: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Give the arguments of the one request made for the sources or the series."""
-        (call,) = (call for call in self.calls if matches(call["url"]))
-        return call
 
 
 def _request(**options: Any) -> MetnoFrostRequest:  # noqa: ANN401
@@ -163,10 +125,10 @@ def test_the_series_are_asked_over_the_declared_elements_and_resolutions_only(mo
     assert query["fields"] == ["sourceId,validFrom,validTo,timeResolution,elementId"]
 
 
-def test_the_series_listing_is_cached_like_the_catalogue_and_waits_for_the_server(
+def test_the_series_listing_is_kept_for_a_week_and_waits_for_the_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that the listing is kept as long as the sources are, and read with a timeout longer than the default.
+    """Test that the listing is kept for a week, the sources for twelve hours, and read with a longer timeout.
 
     The server takes about 30 s for it (2026-11-07), 8 of them before it sends, so a stall of the default 30 s between
     two reads is no outage. A timeout that the caller set higher stays.
@@ -177,7 +139,8 @@ def test_the_series_listing_is_cached_like_the_catalogue_and_waits_for_the_serve
 
     series = upstream.kwargs(is_series_listing)
     sources = upstream.kwargs(is_sources_listing)
-    assert series["ttl"] is sources["ttl"] is CacheExpiry.METAINDEX
+    assert sources["ttl"] is CacheExpiry.METAINDEX
+    assert series["ttl"] is CacheExpiry.ONE_WEEK
     assert series["client_kwargs"]["timeout"] == frost_api._SERIES_TIMEOUT  # noqa: SLF001
     assert sources["client_kwargs"]["timeout"] < frost_api._SERIES_TIMEOUT  # noqa: SLF001
     assert series["client_kwargs"]["headers"]["Authorization"] == sources["client_kwargs"]["headers"]["Authorization"]
@@ -286,7 +249,7 @@ def test_an_answer_with_no_series_at_all_is_raised(monkeypatch: pytest.MonkeyPat
     """Test that a 200 without a series is raised: with the sources there, series are, and none is a wrong answer."""
     Upstream(monkeypatch, series=body)
 
-    with pytest.raises(DownloadError, match="no time series"):
+    with pytest.raises(DownloadError, match=r"no time series|no `data`"):
         _catalogue()
 
 
@@ -341,7 +304,7 @@ def test_the_walk_asks_for_a_station_whose_data_begins_before_its_source_does(mo
         if is_sources_listing(url) or is_series_listing(url):
             return upstream._download(url=url, **kwargs)  # noqa: SLF001
         asked.append(url)
-        return _ok(url, observations)
+        return ok(url, observations)
 
     monkeypatch.setattr(frost_api, "download_file", download)
     request = _request(start=dt.datetime(1900, 1, 1, tzinfo=UTC), end=dt.datetime(1900, 1, 3, tzinfo=UTC))

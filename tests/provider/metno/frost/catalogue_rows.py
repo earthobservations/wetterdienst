@@ -28,8 +28,13 @@ from __future__ import annotations
 
 import json
 from io import BytesIO
+from typing import TYPE_CHECKING, Any, NamedTuple
 
+from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    import pytest
 
 SOURCES: dict = {
     "data": [
@@ -337,3 +342,46 @@ def series_of(station: str) -> dict:
     where the source stub of `test_values_failures.py` does, so the span of the station is the source's own.
     """
     return {"data": [{**row, "sourceId": f"{station}:0"} for row in SERIES["data"][:3]]}
+
+
+class Failure(NamedTuple):
+    """An answer that is no body: the exception a failed download stores, and its status."""
+
+    error: Exception
+    status: int
+
+
+class Upstream:
+    """The two requests of the catalogue, answered as given, and every request made to them kept."""
+
+    def __init__(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        sources: dict | Failure | None = None,
+        series: dict | Failure | None = None,
+    ) -> None:
+        """Serve the rows of the stub, or the answer given for either request, and keep what is asked."""
+        self.calls: list[dict[str, Any]] = []
+        self._sources = SOURCES if sources is None else sources
+        self._series = SERIES if series is None else series
+        monkeypatch.setattr(frost_api, "download_file", self._download)
+
+    def _download(self, *, url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        self.calls.append({"url": url, **kwargs})
+        for matches, answer in ((is_sources_listing, self._sources), (is_series_listing, self._series)):
+            if matches(url):
+                if isinstance(answer, Failure):
+                    return File(url=url, content=answer.error, status=answer.status)
+                return ok(url, answer)
+        msg = f"the stub serves nothing for {url}"
+        raise AssertionError(msg)
+
+    def urls(self, matches: Any) -> list[str]:  # noqa: ANN401
+        """Give the requests that were made for the sources or the series."""
+        return [call["url"] for call in self.calls if matches(call["url"])]
+
+    def kwargs(self, matches: Any) -> dict[str, Any]:  # noqa: ANN401
+        """Give the arguments of the one request made for the sources or the series."""
+        (call,) = (call for call in self.calls if matches(call["url"]))
+        return call

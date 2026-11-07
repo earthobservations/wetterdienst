@@ -118,12 +118,12 @@ Types of changes:
   series does not join the new one: read it anew (GH-3855)
 - **Breaking**: `metno/frost` `stations` lists the closed stations (4,179, where it listed the 2,234
   valid now), and a station starts and ends with its declared series, not with Frost's source
-  dates: data began before the source's `validFrom` at one current station in ten (SN99700, 1895
-  against 1956), and the end was null for 115 stations whose series had all ended. `values` of a
-  closed station was `unknown-station` (GH-3847, GH-3864). A search by `rank` or distance now
-  meets closed stations, which `values` passes over without data. The first `stations` call reads
-  a 13 MB list of series (about 30 s, cached 12 hours); if Frost fails it, `stations` raises a
-  `DownloadError` or `NoInternetError`. 58 stations with data are in no Frost list and stay out
+  dates: data began before `validFrom` at one current station in ten (SN99700, 1895 against 1956),
+  and the end was null for 115 whose series had all ended. `values` of a closed station was
+  `unknown-station` (GH-3847, GH-3864). To list the stations in service, keep the rows whose
+  `end_timestamp` is null, or give a `timestamp`: a search by `rank`, distance or box with a window
+  leaves out stations closed before it. The first call reads a 13 MB list of series (about 30 s,
+  cached a week); if Frost fails it, `DownloadError` or `NoInternetError`. 58 stations stay out
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

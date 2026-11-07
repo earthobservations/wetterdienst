@@ -35,7 +35,8 @@ The `start_timestamp` and `end_timestamp` of a station are those of its data, no
 source, which are not: data begins before the source's `validFrom` at one station in ten (SN99700's daily precipitation
 begins on 1895-07-07, the source on 1956-09-01), and the source's `validTo` is earlier than the end of the data at 1,156 of
 1,868 stations. They are read from one request of Frost's list of time series, for the elements and resolutions the dataset
-declares (about 71,000 series, 13 MB, which Frost takes about 30 s to answer), and kept for twelve hours with the list:
+declares (about 71,000 series, 13 MB, which Frost takes about 30 s to answer), and kept for a week, where the list of sources
+is kept for twelve hours:
 
 - the start is the earlier of the source's `validFrom` and the earliest `validFrom` of a declared series;
 - the end is the latest `validTo` of a declared series, and none if any declared series is still open (the end of the
@@ -43,15 +44,23 @@ declares (about 71,000 series, 13 MB, which Frost takes about 30 s to answer), a
   ones with a series that is open have none);
 - a station without a declared series (344 of the 4,179) keeps the dates of its source.
 
-The first request with an empty cache takes about 35 s (36.7 s on 2026-11-07, 30 of them for the series), the later ones are
-served from the cache: a REST API or MCP server with the default `WD_RESTAPI_TIMEOUT` of 60 s answers the first with a 504
-`request-timeout` only when Frost is slower than that, and the work goes on, so the next request finds the cache full.
+The two are out of step by design: a start is history and an end changes only when a series closes, so a list of series that
+is old costs a station that closed since a place in the searches of a window (it answers no data), and a station that opened
+since keeps the dates of its source. The first request with an empty cache takes about 35 s (36.7 s on 2026-11-07, 30 of
+them for the series), the later ones are served from the cache, which the series fill once a week: a REST API or MCP server
+with the default `WD_RESTAPI_TIMEOUT` of 60 s answers the first with a 504 `request-timeout` only when Frost is slower than
+that, and the work goes on, so the next request finds the cache full. An answer of Frost that is no list (a page of a proxy,
+no `data`, no series) is raised as a `DownloadError` and is not kept.
 
 If Frost does not answer that request, `stations` raises the `DownloadError` or `NoInternetError` of the failure and does
-not give a list with the dates of the sources. With a window, `filter_by_name` and the `stations` command, REST endpoint
-and MCP tool leave out the stations that began after it or ended before it, as for every provider; a search by rank,
-distance or bounding box selects among the whole list, closed stations included, and `values` asks Frost for each
-station found (a station that began after the window is skipped, one that ended before it answers no data).
+not give a list with the dates of the sources. With a window, `filter_by_name`, the `stations` command, REST endpoint and MCP tool, and a search by rank, distance or
+bounding box (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and `values` by point or box) leave out the stations
+that began after it or ended before it: the end is that of the last declared series, which Frost closes only when every one
+has ended, so it does not lag a station that is still reporting. A closed station is then not counted against
+`WD_RESTAPI_MAX_STATIONS` or the rows limit, and a rank does not ask Frost for it. Without a window the whole list is
+searched, closed stations included, with their dates (the values of Frost need a window, so this is the listing alone); a
+search by station id, name and SQL looks among the whole list (the name applies the window itself). To list the stations in
+service only, keep the rows whose `end_timestamp` is null, or give the listing a `timestamp`.
 
 ### Stations that cannot be reached
 
