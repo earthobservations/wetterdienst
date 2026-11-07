@@ -51,6 +51,10 @@ Types of changes:
   (72 of 9,255 readings at foreign stations), so `range: soft` no longer returns it: filter on
   `raw:-3`. The snow depth was `-3.0` cm in any window; none has been seen in about 150,000
   readings (Part of GH-3137)
+- The OpenAPI document served at `/openapi.json` no longer gives the licence both an `identifier`
+  and a `url`, which OpenAPI 3.1 makes mutually exclusive, so a strict validator or client
+  generator no longer refuses it. `info.license` is `{"name": "MIT", "identifier": "MIT"}`; the
+  link to `LICENSE.md` is gone from it (GH-3824)
 
 ## [0.184.0] - 2026-11-06
 
