@@ -36,7 +36,7 @@ class ResponseWarning(TypedDict):
     #: `other-window-left-out`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`, `station-without-rows`)
+    #: `other-window-left-out`, `station-without-rows`, `source-data-left-out`)
     stations: NotRequired[list[str]]
 
 
@@ -88,6 +88,13 @@ FILE_SKIPPED = "file-skipped"
 #: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one, its calendar-day temperature extreme beside the 18-18
 #: UTC one): no missing data, and no values of the parameter
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
+
+#: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
+#: (GH-3848): the stations it read whose file the provider let go (`note_skipped_download`) and those whose dates of
+#: another series were left out (`note_left_out`), counted by cause, in one warning for the answer. An estimate reads
+#: the stations around a point as candidates, so it tells neither `file-skipped` nor `other-window-left-out` of each
+#: station, nor `parameter-without-rows`, which a station without a parameter is the ordinary case of
+SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
 #: the request cannot tell where nothing is recorded (the library as a library)

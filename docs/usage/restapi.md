@@ -322,9 +322,30 @@ what the answer is missing:
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
   `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
-  source has values for that the answer leaves out because they are of another series, see below) and
-  `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are added as
-  more are told; a client reads the ones it knows.
+  source has values for that the answer leaves out because they are of another series, see below),
+  `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
+  below) and `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are
+  added as more are told; a client reads the ones it knows.
+
+  `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
+  warning for the answer, with the cause and how many of the stations read, never one for each station. They read the
+  stations around a point as candidates, nearest first, and stop when they have enough, so the walk of a values request
+  that tells `file-skipped` and `other-window-left-out` at its end does not apply to them, and neither of those two codes
+  is told by an estimate. It carries `stations` (the stations that were affected, in the order they were read, the first
+  ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies, with
+  the stations it affected: a file the provider could not use (the cases of `file-skipped`: a refused or failed
+  download, a file withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty;
+  the values of the station may be missing from the estimate, try again later), and dates of another series of the
+  source (the case of `other-window-left-out`, counted in dates for each parameter: the source holds values for them,
+  nothing is missing there, and they are not read because a value of another window would be wrong under the
+  parameter's name). Both causes are told in the one warning, since a caller of an estimate asks one question of it, is
+  it made from all that the source holds, and a values request, which asks two, keeps its two codes. A station that
+  the walk never read, because it had enough nearer ones, is not counted, and only the providers listed below tell the
+  two causes to the walk, so an estimate without the warning is no proof that every file was read. It is told next to
+  what the lookup of the stations says, which `file-skipped` (a directory of `dwd/observation` or `dwd/derived` found
+  empty, below) still tells without a station: the two state different facts. In Python it is a log line at level `WARNING`, and `recorded_warnings()` gives it after
+  `begin_response()`, as the REST API, the command line and the MCP tools do; the result of `interpolate()` and
+  `summarize()` holds no warnings.
 
   `other-window-left-out` says that the source holds values of a parameter on dates the answer has no row for, because
   the values are of another series than the one the parameter is: `metno/frost` keeps two series of the daily and the
@@ -368,8 +389,8 @@ what the answer is missing:
   `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
-  another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
-  `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
+  another warning already names (`parameter-ended`) is not told again, nor is `parameter-without-rows` told for
+  `interpolate` and `summarize`, for which a station without a parameter is the ordinary case. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
   than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
   `begin_response()`, as the REST API and the command line do.
 
@@ -418,9 +439,9 @@ what the answer is missing:
   Retry later: what is missing may well be there then, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
-  again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
-  candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
-  it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+  again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a
+  point as candidates and fall back to the next one, and tell the stations they read whose file was let go in one
+  `source-data-left-out` warning (above). The provider logs each file it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do

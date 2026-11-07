@@ -180,6 +180,21 @@ its own: `result.stations.to_csv()` or `result.stations.to_target(...)`, which h
 answer holds both, and so does the `stations` of the feature in its GeoJSON, which always lists them; the GeoJSON of
 the stations alone (`result.stations.to_geojson()`) has the properties of a station, not these two.
 
+### What the source left out
+
+An interpolation and a summary read the stations around the point nearest first, as candidates, and stop once they have
+enough. A station can lose something on the way: the provider lets a file go (a refused or failed download, a file
+withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty), so its values
+may be missing, or leaves out the dates of another series of the source (`metno/frost` keeps two series of a
+precipitation sum or a temperature extreme, and a date only the other one has would be a value of another window under
+the parameter's name). Neither is a station without a reading, and the estimate is made from the other stations and
+the other dates all the same. The answer says so once, with a `source-data-left-out` warning: how many of the stations
+read were affected, by which cause, and the first ten of them in `stations`. It is one warning however many stations or
+causes there are, and none is told for a station on its own. A file let go may be there later (try again), a date of
+another series never is. `values` tells the same two causes with `file-skipped` and `other-window-left-out`; the
+[response metadata](restapi.md#response-metadata) says what each code carries. In Python, read it with
+`begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a log line.
+
 ### Supported parameters
 
 Interpolation is only meaningful for parameters whose fields vary smoothly in space. Which

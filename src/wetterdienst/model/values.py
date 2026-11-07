@@ -30,7 +30,7 @@ from wetterdienst.model.judge import (
     to_requested,
 )
 from wetterdienst.model.metadata import group_parameters_by_dataset
-from wetterdienst.model.parameter_rows import ParameterRows
+from wetterdienst.model.parameter_rows import EstimateLeftOut, ParameterRows
 from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
 from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
@@ -344,8 +344,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
     #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
-    #: provider let go (`file-skipped`, GH-3552) are told by the same walk and so are left out there too
+    #: provider let go (`file-skipped`, GH-3552) and the dates left out for another series (`other-window-left-out`) are
+    #: told by the same walk and so are left out there too; the estimate tells them once (`_left_out_of_estimate`)
     _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
+    #: where an estimate (interpolation, summary) has the walk tell what it left out at each station it reads: the
+    #: stations whose file the provider let go and those whose dates of another series were left out, which the
+    #: estimate tells once as `source-data-left-out` when its walk is over (`EstimateLeftOut`, GH-3848)
+    _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -497,6 +502,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             asked=asked,
             # `skip_empty` tells a station with a reading, all null, by `station-skipped` (`_leave_out_emptied`)
             nulls_dropped=self.sr.options.drop_nulls_effective and not self.sr.options.skip_empty,
+            left_out=self._left_out_of_estimate,
         )
         # mapping of original to humanized parameter names is always the same
         hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None

@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once that source data was left out,
+  with a `source-data-left-out` warning: how many of the stations they read lost a file the
+  provider let go (a failed download, a directory found empty) or dates of another series (Frost),
+  and the cause of each. Before, neither `file-skipped` nor `other-window-left-out` reached an
+  estimate, which answered `warnings: []` over a station that had lost either. One warning per
+  answer, not per station, with up to 10 station ids (GH-3848)
 - A `station-without-rows` warning names the ids of `stations=` (REST, MCP, CLI, and
   `filter_by_station_id` in Python) that returned no rows while other named stations did. Before,
   `values` held the rows of the others and nothing said the rest was missing. It is not told for a

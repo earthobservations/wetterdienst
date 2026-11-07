@@ -42,6 +42,7 @@ from wetterdienst.core.util import (
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.parameter_rows import EstimateLeftOut
 from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
@@ -234,6 +235,9 @@ def request_stations(
     # the markers of its answer (GH-3554)
     values._count_missing_value_markers = False  # noqa: SLF001
     values._warn_without_rows = False  # noqa: SLF001
+    # what its walk leaves out at the stations it reads is told once, as one warning, when the walk is over (GH-3848)
+    left_out = EstimateLeftOut()
+    values._left_out_of_estimate = left_out  # noqa: SLF001
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),
@@ -287,6 +291,7 @@ def request_stations(
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
             if placements is not None:
                 placements[station["station_id"]] = place_station(station, elevation)
+    left_out.warn()
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
 

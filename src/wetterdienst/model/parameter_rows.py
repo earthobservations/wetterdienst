@@ -64,6 +64,11 @@ the other stations have: at least one returned rows, but `sql_values` may cut th
   if no station has it).
 - Nothing is told where every station is empty, which `parameter-without-rows` tells where it can, nor for an id the
   network has no station for (`unknown-station`).
+
+An estimate (`interpolate`, `summarize`) reads the stations around a point as candidates and none of the above applies
+to it: a station without a parameter is the ordinary case, and a walk that stops once it has enough stations never
+reaches `warn`. What its walk left out at the stations it read is told by `EstimateLeftOut`, as one
+`source-data-left-out` warning for the answer, with the cause and how many stations (GH-3848).
 """
 
 from __future__ import annotations
@@ -79,6 +84,7 @@ from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
     OTHER_WINDOW_LEFT_OUT,
     PARAMETER_WITHOUT_ROWS,
+    SOURCE_DATA_LEFT_OUT,
     STATION_WITHOUT_ROWS,
     collecting,
     warn_response,
@@ -126,12 +132,14 @@ class ParameterRows:
         enabled: bool = True,
         asked: Sequence[str] | None = None,
         nulls_dropped: bool = True,
+        left_out: EstimateLeftOut | None = None,
     ) -> None:
         """Hold the request's parameters and the window of the walk; `enabled` False reads nothing and says nothing.
 
         `asked` is the stations of a request that named them by id, in the order of the walk, and None for any other
         selection (`station-without-rows`); `nulls_dropped` is whether the answer leaves rows without a value out
-        (`drop_nulls` in the long shape), which a station named in it may have been emptied by.
+        (`drop_nulls` in the long shape), which a station named in it may have been emptied by. `left_out` is the
+        tally of an estimate, told what each station collected lets go, whether `enabled` or not.
         """
         self._request = request
         self._enabled = enabled
@@ -141,6 +149,7 @@ class ParameterRows:
         #: warning of (`explained`: `station-skipped`, `other-window-left-out`)
         self._asked = None if asked is None else list(asked)
         self._nulls_dropped = nulls_dropped
+        self._estimate = left_out
         self._returned: set[str] = set()
         self._explained: set[str] = set()
         #: the stations whose file the provider let go, in the order they came (a dict for the order): no evidence that
@@ -180,17 +189,23 @@ class ParameterRows:
                 self._skipped_all = True
             else:
                 self._skipped[station_id] = None
+            if self._estimate is not None:
+                self._estimate.skipped(station_id, whole_request=whole_request)
 
         def left_out(parameter: str, count: int, because: str) -> None:
             stations = self._left_out.setdefault(parameter, {})
             stations[station_id] = stations.get(station_id, 0) + count
             self._left_out_because[parameter] = because
+            if self._estimate is not None:
+                self._estimate.left_out(station_id, parameter, count)
             # the source has values there: `parameter-without-rows` must not say it has none, nor
             # `station-without-rows` that the station has no values of it: `other-window-left-out` says why
             self._named.add(parameter)
             self._explained.add(station_id)
 
         self._collected[station_id] = None
+        if self._estimate is not None:
+            self._estimate.collected(station_id)
         return collecting(skipped, self._named, left_out)
 
     def passed_over(self, station_id: str) -> None:
@@ -430,3 +445,87 @@ class ParameterRows:
             parameter=parameter,
             stations=listed,
         )
+
+
+class EstimateLeftOut:
+    """What the walk of an estimate left out at the stations it read, told as one warning for the answer (GH-3848).
+
+    `interpolate` and `summarize` read the stations around a point as candidates, nearest first, until they have enough,
+    and neither `file-skipped` nor `other-window-left-out` is told of a station there (`ParameterRows.warn` is reached
+    by a walk read to its end, which an estimate stops). The walk hands each station it reads to this (the
+    `ParameterRows` of `TimeseriesValues.query`, as `ParameterRows.collecting` is told by the provider) and the
+    estimate calls `warn` once the walk is over, so that the answer says that source data was left out, by which cause
+    and at how many stations, and never once for each station:
+
+    - `file-skipped`'s cause: the provider let a file go (a refused or failed download, a file withdrawn since the
+      listing, a maintenance page, a file that would not parse, a directory found empty), so the station's values may be
+      missing; a file that every station is read from (`whole_request`) is every station's.
+    - `other-window-left-out`'s: dates of a parameter that only another series of the source has, which are no missing
+      data and are left out so that a value of another window is not given under this parameter's name; counted in dates
+      for each parameter.
+
+    One warning holds both causes: a caller of an estimate asks one question of it (is the answer made from all that
+    the source holds?), and the warning is for that question; a values request, which has two questions (is it
+    partial? is it a series of another window?), keeps its two codes. It carries the stations that were affected, the
+    first ten.
+    """
+
+    def __init__(self) -> None:
+        """Start with nothing read."""
+        self._collected: dict[str, None] = {}
+        self._files: dict[str, None] = {}
+        self._files_of_all = False
+        #: the dates left out, by parameter (`resolution/dataset/parameter`) and then by station
+        self._dates: dict[str, dict[str, int]] = {}
+
+    def collected(self, station_id: str) -> None:
+        """Note that the walk reads the station, which a file that serves every station was let go for."""
+        self._collected[station_id] = None
+
+    def skipped(self, station_id: str, *, whole_request: bool) -> None:
+        """Note that the provider let a file go while the station was read."""
+        if whole_request:
+            self._files_of_all = True
+        else:
+            self._files[station_id] = None
+
+    def left_out(self, station_id: str, parameter: str, count: int) -> None:
+        """Note that the provider left `count` dates of `parameter` out of the station: they are of another series."""
+        stations = self._dates.setdefault(parameter, {})
+        stations[station_id] = stations.get(station_id, 0) + count
+
+    def warn(self) -> None:
+        """Tell, in one warning, what was left out and at how many of the stations read; nothing if nothing was."""
+        files = list(self._collected if self._files_of_all else self._files)
+        other = [station for station in self._collected if any(station in dates for dates in self._dates.values())]
+        affected = [station for station in self._collected if station in files or station in other]
+        if not affected:
+            return
+        read = len(self._collected)
+        sentences = [f"Source data was left out of this estimate at {len(affected)} of the {read} stations it read."]
+        if other:
+            dates = ", ".join(f"{sum(stations.values())} of {parameter}" for parameter, stations in self._dates.items())
+            sentences.append(
+                f"Dates of another series of the source were left out at {self._count(other)}: {dates}. "
+                "The source holds values for them, so nothing is missing there, but they are not read: a value of "
+                "another window would be wrong under the parameter's name."
+            )
+        if files:
+            sentences.append(
+                "A file the provider could not use (a refused or failed download, a file withdrawn since the listing, "
+                "a maintenance page, a file that would not parse, or a directory found empty) was left out at "
+                f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
+                "missing from the estimate. Try again later."
+            )
+        warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
+
+    @staticmethod
+    def _count(stations: list[str]) -> str:
+        """Give the number of stations and name them: all up to the limit, else the first ones."""
+        count = len(stations)
+        listed = ", ".join(stations[:MAX_STATIONS_LISTED])
+        if count == 1:
+            return f"1 station ({listed})"
+        if count <= MAX_STATIONS_LISTED:
+            return f"{count} stations ({listed})"
+        return f"{count} stations (the first {MAX_STATIONS_LISTED} of them {listed})"
