@@ -106,6 +106,20 @@ Types of changes:
   station's series: at least 3,694 days at 11 stations, 901 months at 179. Those dates are no
   longer returned, in any window, and an `other-window-left-out` warning tells them. A stored
   series does not join the new one: read it anew (GH-3855)
+- **Breaking**: `metno/frost` leaves out a daily value whose window has not closed at the request
+  (the date + the offset: `PT18H` extremes 18 UTC, `PT6H` sum 06 UTC, `PT0H` mean and the other
+  elements the end of the date) and tells it with a `window-not-closed` warning (how many, when the
+  earliest closes); Frost served such values unmarked (456 maxima 5 minutes before 18 UTC, 15 % of
+  the minima lower by 18:15). A monthly value of an open window (the current month, until the last
+  day + the offset) is returned with `completeness:Incomplete` in `quality_flags` and the same
+  warning. Ask again after the closing time, or end the window before the current month; the
+  daily snow depth has no window (GH-3856)
+- `metno/frost` `other-window-left-out` compares the dates of the series it left out with the
+  returned ones by day (month), not by raw stamp: a series stamped off midnight counted a date
+  twice, and a returned day was told as left out (GH-3865)
+- `metno/frost` monthly `precipitation_amount`'s `other-window-left-out` warning names its series
+  as months (from 06 UTC on the last day of the previous month to 06 UTC on the last day), not as
+  the daily 06-06 and 18-18 UTC windows (GH-3867)
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

@@ -29,7 +29,10 @@ It is not told where it would say what is not so:
 - a parameter another warning already names (`parameter-ended`);
 - a parameter whose values the provider left out because they are of another window (`note_left_out`): the source has
   them, and `other-window-left-out` says so, once, with the stations and the dates, for the dataset asked for whole
-  as for the parameter asked for by its name.
+  as for the parameter asked for by its name;
+- a parameter whose values the provider left out because their window had not closed when the request was served
+  (`note_open_window`, `returned` false): the source has them, and `window-not-closed` says so, once, with the
+  stations and the number of values.
 
 What it says is limited to what is known: the window, and what narrowed the request (`periods`, a run, a lead time,
 for the datasets they narrowed). It says nothing of the source being behind for a window that reaches the present:
@@ -58,8 +61,9 @@ the other stations have: at least one returned rows, but `sql_values` may cut th
 - A station is named when the answer holds none of its rows: the source holds no readings of it in the window (one that
   begins after the window too), or all of them were null and `drop_nulls` left them out (with `drop_nulls=False` the
   station has rows).
-- It leaves out the stations another warning explains, those of `file-skipped`, `station-skipped` and
-  `other-window-left-out` (the source holds values of them, of another series), and the ones with
+- It leaves out the stations another warning explains, those of `file-skipped`, `station-skipped`,
+  `other-window-left-out` (the source holds values of them, of another series) and `window-not-closed` (of a window
+  that had not closed, left out), and the ones with
   a row of any requested parameter (a parameter with no row at a station that has others is `parameter-without-rows`'s,
   if no station has it).
 - Nothing is told where every station is empty, which `parameter-without-rows` tells where it can, nor for an id the
@@ -80,6 +84,7 @@ from wetterdienst.util.response_warnings import (
     OTHER_WINDOW_LEFT_OUT,
     PARAMETER_WITHOUT_ROWS,
     STATION_WITHOUT_ROWS,
+    WINDOW_NOT_CLOSED,
     collecting,
     warn_response,
 )
@@ -162,6 +167,12 @@ class ParameterRows:
         #: (`resolution/dataset/parameter`) and then by station, and the clause that says which series it was
         self._left_out: dict[str, dict[str, int]] = {}
         self._left_out_because: dict[str, str] = {}
+        #: the values a provider found of a window that had not closed (`note_open_window`), by parameter and then by
+        #: station, the earliest time a window of them closes, and whether the provider returned them (marked) or left
+        #: them out
+        self._open: dict[str, dict[str, int]] = {}
+        self._open_closes: dict[str, dt.datetime] = {}
+        self._open_returned: dict[str, bool] = {}
 
     def examine(self, station_id: str, datasets: Iterator[DatasetModel] | list[DatasetModel]) -> None:
         """Note that the station is read for these datasets, which the station index lists it for."""
@@ -190,8 +201,18 @@ class ParameterRows:
             self._named.add(parameter)
             self._explained.add(station_id)
 
+        def open_window(parameter: str, count: int, closes: dt.datetime, returned: bool) -> None:  # noqa: FBT001
+            stations = self._open.setdefault(parameter, {})
+            stations[station_id] = stations.get(station_id, 0) + count
+            self._open_closes[parameter] = min(closes, self._open_closes.get(parameter, closes))
+            self._open_returned[parameter] = returned
+            if not returned:
+                # the source has values there, left out: no `parameter-without-rows`, no `station-without-rows`
+                self._named.add(parameter)
+                self._explained.add(station_id)
+
         self._collected[station_id] = None
-        return collecting(skipped, self._named, left_out)
+        return collecting(skipped, self._named, left_out, open_window)
 
     def passed_over(self, station_id: str) -> None:
         """Note that a rank walk passed the station over for the next one (an empty frame, or below the threshold).
@@ -225,6 +246,7 @@ class ParameterRows:
             return
         self._warn_skipped(rank_filled=rank_filled)
         self._warn_left_out()
+        self._warn_open_window()
         if not self._skipped_all:
             self._warn_without_rows()
         self._warn_stations_without_rows()
@@ -325,6 +347,39 @@ class ParameterRows:
                 stations=listed,
             )
 
+    def _warn_open_window(self) -> None:
+        """Tell, for each parameter whose values are of a window that had not closed, the stations and the values.
+
+        The source serves the value of a period that is still going on and marks nothing (`note_open_window`): it may
+        still change. A value left out is not missing at the source, and a value returned is marked in its
+        `quality_flags`. One warning for each parameter, with the stations (the first ten) and the values counted at
+        each, and the time the earliest of the windows closes (UTC).
+        """
+        for parameter, stations in self._open.items():
+            listed = list(stations)[:MAX_STATIONS_LISTED]
+            counts = ", ".join(f"{station} {stations[station]}" for station in listed)
+            more = f", and {len(stations) - len(listed)} more" if len(stations) > len(listed) else ""
+            total = sum(stations.values())
+            closes = self._open_closes[parameter].astimezone(dt.UTC)
+            when = f"{closes:%Y-%m-%d %H:%M} UTC"
+            if self._open_returned[parameter]:
+                message = (
+                    f"{total} {'value' if total == 1 else 'values'} of {parameter} ({counts}{more}) "
+                    f"{'is' if total == 1 else 'are'} of a window that had not closed when the request was served "
+                    f"(the earliest closes at {when}): {'it is' if total == 1 else 'they are'} in the answer, marked "
+                    "`completeness:Incomplete` in `quality_flags`, and may still change. The source does not mark "
+                    "them. Ask again once the window has closed for the final value."
+                )
+            else:
+                message = (
+                    f"{total} {'value' if total == 1 else 'values'} of {parameter} ({counts}{more}) "
+                    f"{'is' if total == 1 else 'are'} left out of the answer: the window had not closed when the "
+                    f"request was served (the earliest closes at {when}), so {'it is' if total == 1 else 'they are'} "
+                    "partial and may still change, and the source does not mark them. They are not missing at the "
+                    "source: ask again once the window has closed."
+                )
+            warn_response(log, WINDOW_NOT_CLOSED, message, parameter=parameter, stations=listed)
+
     def _warn_without_rows(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""
         request = self._request
@@ -352,7 +407,10 @@ class ParameterRows:
                 told_whole.add(key)
                 # a parameter of it that has values the answer left out (`other-window-left-out`) is a dataset the
                 # source holds values of
-                held_back = any(name.startswith(f"{key[0]}/{key[1]}/") for name in self._left_out)
+                held_back = any(
+                    name.startswith(f"{key[0]}/{key[1]}/")
+                    for name in (*self._left_out, *(name for name, back in self._open_returned.items() if not back))
+                )
                 if not held_back and not any(row[:2] == key for row in self._with_rows):
                     name = f"{key[0]}/{key[1]}"
                     self._tell(name, f"any parameter of {name}", stations, parameter.dataset)

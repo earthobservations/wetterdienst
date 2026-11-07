@@ -47,6 +47,13 @@ The usual reasons:
   and the parameter is the 06-06 UTC (the 18-18 UTC, the calendar-day) series, so the dates have no row rather than a value of another
   window. The source is not
   missing them, and the answer is not partial for a failure: do not try again.
+- **Values are left out, or marked incomplete, because their window has not closed.** The answer carries a
+  `window-not-closed` warning (`metno/frost`: the daily maximum and minimum temperature until 18 UTC of the date, the
+  precipitation sum until 06 UTC, the mean and every other daily element until the end of the date; the monthly values
+  until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
+  of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
+  The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
+  daily value, or end the window before the current month; the answer is not partial for a failure.
 - **A station you named has no rows while others do.** A `station-without-rows` warning lists the ids of `stations`
   that returned nothing in the window, in the order of the answer: the source holds no values of them there (the
   message names the `periods`, run or lead time that narrowed the request, which may hold them; a station whose dates

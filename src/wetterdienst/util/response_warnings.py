@@ -24,6 +24,7 @@ from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
+    from datetime import datetime
 
 
 class ResponseWarning(TypedDict):
@@ -33,10 +34,10 @@ class ResponseWarning(TypedDict):
     message: str
     #: what the warning is about, where it is about one parameter: `resolution/dataset/parameter`, or
     #: `resolution/dataset` for a whole dataset (`parameter-without-rows`); always `resolution/dataset/parameter` for
-    #: `other-window-left-out`
+    #: `other-window-left-out` and `window-not-closed`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`, `station-without-rows`)
+    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`)
     stations: NotRequired[list[str]]
 
 
@@ -89,6 +90,13 @@ FILE_SKIPPED = "file-skipped"
 #: UTC one): no missing data, and no values of the parameter
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 
+#: the code of the warning that counts the values whose window had not closed when the request was served (GH-3856):
+#: Frost serves the daily and the monthly value of a period that is still going on and marks nothing, so a value of a
+#: day is left out (`note_open_window`, `returned` false) and one of the month is returned, marked
+#: `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the window has
+#: closed
+WINDOW_NOT_CLOSED = "window-not-closed"
+
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
@@ -104,6 +112,11 @@ _SKIPPING: ContextVar[Callable[[bool], None] | None] = ContextVar("wetterdienst_
 #: what a provider tells when it leaves the rows of another window out of the station being collected
 #: (`note_left_out`), set like `_SKIPPING`
 _LEFT_OUT: ContextVar[Callable[[str, int, str], None] | None] = ContextVar("wetterdienst_left_out", default=None)
+#: what a provider tells when the station being collected has values of a window that had not closed
+#: (`note_open_window`), set like `_SKIPPING`
+_OPEN_WINDOW: ContextVar[Callable[[str, int, datetime, bool], None] | None] = ContextVar(
+    "wetterdienst_open_window", default=None
+)
 
 
 @contextmanager
@@ -111,6 +124,7 @@ def collecting(
     note: Callable[[bool], None],
     named: set[str] | None = None,
     left_out: Callable[[str, int, str], None] | None = None,
+    open_window: Callable[[str, int, datetime, bool], None] | None = None,
 ) -> Iterator[None]:
     """Have `note` told what a provider lets go while the block runs, which is the collection of one station.
 
@@ -118,14 +132,17 @@ def collecting(
     another warning has said of a parameter (`parameter-without-rows` after `parameter-ended`): the warnings of the
     request are not kept outside a response, but the log lines are written all the same, and would repeat. Both are
     the block's alone, so that walks that overlap (interleaved, or one in the other's collection) keep to their own.
-    `left_out` is told the rows of another window that the provider left out (`note_left_out`).
+    `left_out` is told the rows of another window that the provider left out (`note_left_out`), `open_window` the
+    values of a window that had not closed (`note_open_window`).
     """
     skipping = _SKIPPING.set(note)
     watching = _NAMED.set(named)
     leaving = _LEFT_OUT.set(left_out)
+    opening = _OPEN_WINDOW.set(open_window)
     try:
         yield
     finally:
+        _OPEN_WINDOW.reset(opening)
         _LEFT_OUT.reset(leaving)
         _NAMED.reset(watching)
         _SKIPPING.reset(skipping)
@@ -148,6 +165,23 @@ def note_left_out(parameter: str, count: int, because: str) -> None:
     note = _LEFT_OUT.get()
     if note is not None and count > 0:
         note(parameter, count, because)
+
+
+def note_open_window(parameter: str, count: int, closes: datetime, *, returned: bool) -> None:
+    """Tell that `count` values of `parameter` at the station being collected are of a window that had not closed.
+
+    For a source that serves the value of a period that is still going on and does not mark it (Frost: the day's
+    extreme, sum or mean before the window ends, the month so far): a daily value of it is a partial extreme, sum or
+    mean that comes back looking like the day's. ``returned`` is whether the provider handed the values over (marked in
+    their `quality_flags`) or left them out of the answer. `WINDOW_NOT_CLOSED` says so once the walk is over
+    (`ParameterRows.warn`), with the number of values and the time the earliest window closes, ``closes``, which is
+    UTC. A parameter whose values were left out is no "the source has no values" (`parameter-without-rows`).
+
+    ``parameter`` is `resolution/dataset/parameter`. Nothing happens outside the collection of a station.
+    """
+    note = _OPEN_WINDOW.get()
+    if note is not None and count > 0:
+        note(parameter, count, closes, returned)
 
 
 def note_skipped_download(*, whole_request: bool = False) -> None:
