@@ -40,6 +40,8 @@ from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
+    NO_DESCRIPTION,
     EmptyListingError,
     _build_url_from_dataset_and_period,
     _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata,
@@ -996,6 +998,9 @@ class DwdObservationRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel) and parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
         stations = []
+        # the directories this lookup went without, for a station that is not found (`_lookup_gaps`)
+        gaps: dict[str, str] = {}
+        self._gaps_of_lookup = gaps
         for dataset in datasets:
             file_ids: set[str] = set()
             listed_ids: set[str] = set()
@@ -1007,12 +1012,18 @@ class DwdObservationRequest(TimeseriesRequest):
             # of its descriptions. Period is orderable; iterating the set directly left the winner
             # to the set's own iteration order, which varies from one interpreter run to the next
             skipped: dict[str, list[Period]] = {}
+            undescribed: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 try:
                     try:
                         df = create_meta_index_for_climate_observations(dataset, period, settings)
-                    except MetaFileNotFoundError:
-                        log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                    except MetaFileNotFoundError as e:
+                        # files and no description of their stations: the period has no stations to look up, which the
+                        # warning below says, as it does for an empty directory (GH-3834)
+                        url = getattr(e, "url", None) or _build_url_from_dataset_and_period(dataset, period)
+                        log.info("No meta file found at %s for %s/%s, skipping.", url, dataset.name, period.name)
+                        undescribed.setdefault(directory := directory_of(url), []).append(period)
+                        gaps[directory] = NO_DESCRIPTION
                         continue
                     file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 except EmptyListingError as e:
@@ -1020,7 +1031,8 @@ class DwdObservationRequest(TimeseriesRequest):
                     # warning below says: the answer is partial, not an error. A connection that cannot be made or a
                     # failing server is raised by the listing, and is not this
                     log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
-                    skipped.setdefault(directory_of(e.url), []).append(period)
+                    skipped.setdefault(directory := directory_of(e.url), []).append(period)
+                    gaps[directory] = EMPTY_LISTING
                     continue
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
@@ -1035,6 +1047,7 @@ class DwdObservationRequest(TimeseriesRequest):
                 listed_ids.update(df.get_column("station_id"))
                 stations.append(df.lazy())
             warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", undescribed, NO_DESCRIPTION)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(

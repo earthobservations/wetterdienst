@@ -2723,10 +2723,40 @@ def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None,
         found = None
     if not url.endswith("/") or (found and found != [url]):
         return found, None
+    return found, _read_page(fs, url)
+
+
+def _read_page(fs: HTTPFileSystem, url: str) -> bytes | None:
+    """Read the page that stands for a directory (a URL ending in `/`); None for a 404 or a URL that is no directory."""
+    if not url.endswith("/"):
+        return None
     try:
-        return found, fs.cat_file(url)
+        return fs.cat_file(url)
     except FileNotFoundError:
-        return found, None
+        return None
+
+
+def _ls_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[dict], bytes | None]:
+    """List a directory, and read its page where it lists no entry, to tell an empty directory from a page that is none.
+
+    As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, which
+    costs one more GET for an empty directory. A directory that is not there raises `FileNotFoundError`, as it always
+    did, and a listing with entries reads no second page.
+    """
+    entries = fs.ls(url, detail=True)
+    return entries, None if entries else _read_page(fs, url)
+
+
+def _entries_or_empty_directory(url: str, entries: list[dict], page: bytes | None) -> list[dict]:
+    """Give the entries `ls` found at a URL, none where the page is that of an empty directory.
+
+    A directory that lists nothing is an index page with no link (nginx), or a 404 for the page. Any other 200 page, a
+    CDN's error page or a JSON error, is not an empty directory and must not read as "no entries": it is a
+    `DownloadError`, a 502, as for `list_remote_files_fsspec` (GH-3834). A listing with entries is left as it is.
+    """
+    if not entries:
+        _found_or_empty_directory(url, [], page)
+    return entries
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2782,6 +2812,28 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
     raise tls_failure
 
 
+def forget_remote_listing(url: str, settings: Settings, cache_expiry: CacheExpiry) -> None:
+    """Drop the listing of a directory from the listings cache, so that the next listing asks the server again.
+
+    For a listing that has files and is still no answer: a directory that holds the files of its stations but not the
+    description that goes with them, which DWD uploads next. Kept for the `cache_expiry` of its listing (12 hours for
+    the metadata), it would have every request skip the directory long after the server has it whole (GH-3834).
+    The `url` and the `cache_expiry` are those the directory was listed with. Nothing happens where no listing is kept
+    (the cache is disabled, or the listing is not in it).
+    """
+    if settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE:
+        return
+    fs = HTTPFileSystem(
+        use_listings_cache=True,
+        listings_expiry_time=cache_expiry.value,
+        listings_cache_location=settings.cache_dir,
+        client_kwargs=settings.fsspec_client_kwargs,
+        use_certifi=settings.use_certifi,
+    )
+    with contextlib.suppress(KeyError):
+        del fs.dircache[url]
+
+
 def list_remote_directory_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[dict]:
@@ -2803,7 +2855,9 @@ def list_remote_directory_fsspec(
         NoInternetError: If no connection could be made after three attempts, as for
             ``list_remote_files_fsspec`` (GH-2640).
         DownloadError: If the server answered badly or a TLS check failed, as for
-            ``list_remote_files_fsspec`` (GH-3004, GH-3099).
+            ``list_remote_files_fsspec`` (GH-3004, GH-3099), or if a URL ending in `/` lists no entry and its page is
+            no index of a directory (a CDN's error page answered with a 200, a JSON error), which is no empty
+            directory and must not read as no entries. An `Index of` page with no link is `[]` (GH-3834).
         FileNotFoundError: If the directory is not there. Unlike ``list_remote_files_fsspec``, this
             does not return no entries. A missing directory is asked for once.
 
@@ -2824,7 +2878,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     )
     failure: OSError
     try:
-        entries = fs.ls(url, detail=True)
+        entries, page = _ls_and_read_page(fs, url)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
@@ -2842,7 +2896,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     else:
-        return entries
+        return _entries_or_empty_directory(url, entries, page)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure

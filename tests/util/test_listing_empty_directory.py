@@ -25,7 +25,12 @@ from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.util.network import HTTPFileSystem, list_remote_directory_fsspec, list_remote_files_fsspec
+from wetterdienst.util.network import (
+    HTTPFileSystem,
+    forget_remote_listing,
+    list_remote_directory_fsspec,
+    list_remote_files_fsspec,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -288,3 +293,107 @@ def test_an_empty_listing_that_an_older_version_stored_is_a_miss(
 
     assert url not in cache
     assert listing("/old/") == [f"{server.base}/old/{_ZIP}"]
+
+
+# --- the listing of a directory's entries reads the page the same way (GH-3834) ------------------------------------
+
+
+@pytest.fixture
+def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
+    """List the entries of a path of the server as `imgw`, `dwd/dmo` and `dwd/alerts` do."""
+    settings = Settings(cache_dir=str(tmp_path / "cache"))
+
+    def listed(path: str) -> list[dict]:
+        return list_remote_directory_fsspec(
+            f"{server.base}{path}", settings=settings, cache_expiry=CacheExpiry.METAINDEX
+        )
+
+    return listed
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param("text/html", _CDN_PAGE.encode(), id="cdn-page"),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+        pytest.param("text/html", b"", id="empty-body"),
+        pytest.param(
+            "text/html",
+            b"<html><head><title>Index of services - maintenance</title></head><body></body></html>",
+            id="index-of-a-word",
+        ),
+    ],
+)
+def test_a_directory_page_that_is_no_index_is_a_download_error_not_no_entries(
+    server: NginxLike, entries: Callable[[str], list[dict]], content_type: str, body: bytes
+) -> None:
+    """`list_remote_directory_fsspec` answered `[]` for an outage page that came with a 200: now a `DownloadError`."""
+    server.pages["/x/"] = (content_type, body)
+    server.pages["/x"] = (content_type, body)
+
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        entries("/x/")
+
+
+def test_a_real_index_with_no_link_has_no_entries(
+    server: NginxLike, entries: Callable[[str], list[dict]], *, redirect: bool
+) -> None:
+    """The control: nginx's index page of an empty directory is `[]`, and the directory is listed once it is filled."""
+    if not redirect:
+        pytest.skip("a server that answers `/x` with a 404 has no empty directory: `ls` raises, as for a missing one")
+    server.directories["/x/"] = []
+    assert entries("/x/") == []
+
+    server.directories["/x/"] = [_ZIP]
+
+    assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
+
+
+@pytest.mark.usefixtures("server")
+def test_a_missing_directory_is_still_a_file_not_found_error(entries: Callable[[str], list[dict]]) -> None:
+    """A 404 is not "no entries" for this function, as its docstring says."""
+    with pytest.raises(FileNotFoundError):
+        entries("/missing/")
+
+
+def test_a_listing_with_entries_reads_no_second_page(server: NginxLike, entries: Callable[[str], list[dict]]) -> None:
+    """The page is read only where the listing is empty: a directory with entries costs the request it always did."""
+    server.directories["/full/"] = [_ZIP]
+
+    assert [entry["name"] for entry in entries("/full/")] == [f"{server.base}/full/{_ZIP}"]
+    assert server.requests == [("GET", "/full/")]
+
+
+def test_a_url_without_the_slash_is_left_as_it_is(server: NginxLike, entries: Callable[[str], list[dict]]) -> None:
+    """A URL that ends in no `/` may name a file: its page is not asked to be an index, as for the other listing."""
+    server.pages["/plain"] = ("application/json", b'{"ok": true}')
+
+    assert entries("/plain") == []
+
+
+# --- a listing that is dropped from the cache (GH-3834) ------------------------------------------------------------
+
+
+def test_a_listing_that_is_forgotten_is_asked_for_again(server: NginxLike, tmp_path: Path) -> None:
+    """The directory had files and no description: its listing is dropped, so the one DWD fills is seen at once."""
+    settings = Settings(cache_dir=str(tmp_path / "cache"))
+    url = f"{server.base}/half/"
+    server.directories["/half/"] = [_ZIP]
+    assert len(list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX)) == 1
+    server.directories["/half/"] = [_ZIP, "KL_Beschreibung_Stationen.txt"]
+
+    # the listing is kept: the control of what forgetting changes
+    assert len(list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX)) == 1
+
+    forget_remote_listing(url, settings, CacheExpiry.METAINDEX)
+
+    assert len(list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX)) == 2
+
+
+def test_forgetting_a_listing_that_is_not_kept_is_nothing(server: NginxLike, tmp_path: Path) -> None:
+    """A listing that was never made, or a disabled cache, is no error."""
+    url = f"{server.base}/never/"
+
+    forget_remote_listing(url, Settings(cache_dir=str(tmp_path / "cache")), CacheExpiry.METAINDEX)
+    forget_remote_listing(url, Settings(cache_disable=True), CacheExpiry.METAINDEX)
+    forget_remote_listing(url, Settings(cache_dir=str(tmp_path / "cache")), CacheExpiry.NO_CACHE)

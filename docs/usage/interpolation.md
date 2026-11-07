@@ -76,6 +76,12 @@ df = values.df
 df
 ```
 
+A station id that no station has is a `StationNotFoundError` (a 404 over REST). For `dwd/observation` and `dwd/derived`
+the lookup of the stations can go without a directory of DWD's server that came back empty or missing, or has no
+description of its stations: a station that only it lists is then not found, and the id may be one. That is a
+`StationListingIncompleteError` (an `UpstreamError`, a 502 over REST, exit 1 on the command line) that names the
+directory; try again later.
+
 Instead of a latlon you may alternatively use an existing station id for which to
 interpolate values in a manner of getting a more complete dataset:
 

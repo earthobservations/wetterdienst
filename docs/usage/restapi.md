@@ -62,7 +62,8 @@ What the endpoints share about which stations a request names:
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
   warning of the response's `metadata`, and in the server's log. The one reference station
-  of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404.
+  of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404 (a 502 for `dwd/observation` and
+  `dwd/derived` where a directory of the lookup was skipped, below).
 - **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
   `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
   exit means the request failed.
@@ -376,7 +377,11 @@ what the answer is missing:
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
-  first: the lookup goes on without it and the answer is partial, a 200 and not an error (#3819). The warning has no
+  first: the lookup goes on without it and the answer is partial, a 200 and not an error (#3819). So does a
+  `dwd/observation` directory that lists files and no description of its stations (for the extreme wind, none of its
+  FX3 or its FX6), which was skipped with a log line and nothing in the answer: the warning reads `The directory ...
+  lists no description of its stations` and the listing of that directory is not kept in the listing cache either, as
+  DWD uploads the description after the files (#3834). The warning has no
   `stations`. It names the directory that was listed, the dataset and the periods that were skipped for it (`the
   historical stations of daily/climate_summary were not looked up`): what is certain is that a station that only that
   release lists is not in the answer, and its values or history are not read. What the directory was read for is not
@@ -386,11 +391,16 @@ what the answer is missing:
   read: a station found in another period whose `historical` file list is empty is named by `file-skipped` as for any
   file the provider let go (`values`), or by a second warning of the directory that lists the stations whose history was
   not read (`history`); the two state different facts and both are kept. A station that only the skipped release lists
-  is not found: `interpolate`, `summarize` and `stripes` with such a `station` answer a 404 `no station found for
-  <id>` that says nothing of the directory (a station only `historical` lists, with `historical` empty: held for
-  `interpolate` and `summarize` by a test, seen for `stripes` in the review of #3830;
-  [#3834](https://github.com/earthobservations/wetterdienst/issues/3834)). A history with the warning is not cached
-  (below). Only a listing that is missing or an index page with no link is told this way. A connection that cannot be
+  is not found, and `interpolate`, `summarize`, `stripes/values` and `stripes/image` with such a `station` have no
+  answer to put a warning in: an error answer has no `warnings`. They answer a 502 of the kind `upstream-failed`
+  whose `detail` names the directory and why it was skipped (`No station found for 00044. The lookup of the stations
+  went without the directory `climate/monthly/kl/historical/` (its listing came back empty or missing), so a station
+  that only it lists is not found, and this may be one. Try again later.`), not the 404 that says the station does
+  not exist (#3834); the same 502 answers a station that no listing has, while a directory was skipped, since it
+  is not known to be unknown. The MCP tools give the same text, the command line exits 1 with it, and Python raises
+  `StationListingIncompleteError`, an `UpstreamError`. A station that is not found where every directory was listed
+  is still the 404, and a name given to `stripes` that matches no station too. A history with the warning is not
+  cached (below). Only a listing that is missing or an index page with no link is told this way. A connection that cannot be
   made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that is no index of a directory (a
   CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never a `file-skipped` and never
   "no data". No empty listing is kept in our listing cache, a year directory of a tree included
@@ -967,7 +977,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history that met a directory whose listing came back empty or missing, in the lookup of its stations or in the history itself, is a `file-skipped` warning on a 200, so that answer is not kept and carries no `ETag`; the empty or missing listing is not kept in the listing cache either, so the next request lists the directory again (a listing with files is kept for twelve hours; nginx lists an empty directory as itself, which `list_remote_files_fsspec` turns into no file, and no empty listing is kept, a subdirectory's included); a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history that met a directory whose listing came back empty or missing, or that lists no description of its stations, in the lookup of its stations or in the history itself, is a `file-skipped` warning on a 200, so that answer is not kept and carries no `ETag`; the empty or missing listing, and the listing of a directory with no description, is not kept in the listing cache either, so the next request lists the directory again (a listing with files is kept for twelve hours; nginx lists an empty directory as itself, which `list_remote_files_fsspec` turns into no file, and no empty listing is kept, a subdirectory's included); a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |

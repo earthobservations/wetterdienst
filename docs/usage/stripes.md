@@ -62,6 +62,11 @@ The options are `--kind` (required), `--station` or `--name` (with `--name-thres
 `--show-title`, `--show-years`, `--show-data-availability`, `--format` (`png`, `jpg`, `svg` or `pdf`), `--dpi` and
 `--target`; the [command line reference](cli.md) has them with their defaults. The image needs the `plotting` extra.
 
+A `--station` that no station has is a 404 over REST and a usage error on the command line. Where the lookup of the
+stations went without a directory of DWD's server that came back empty or missing (the stripes list their stations
+from `annual/kl/historical`), the station may exist and be listed only there: that is a 502 of the REST API whose
+`detail` names the directory, and exit 1 with the same sentence on the command line. Try again later.
+
 ## REST API
 
 When the [REST API](restapi.md) is running, the same functionality is available via three

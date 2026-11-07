@@ -39,6 +39,14 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
+  of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
+  warning names the directory (it was a log line, and a history of it was cached). The extreme
+  wind without its FX3 or FX6 description was a 500 and is the same. `interpolate`, `summarize`,
+  `stripes/values` and `stripes/image` of a station that only a skipped directory lists answer a
+  502 that names it (`StationListingIncompleteError` in Python, an `UpstreamError`), not a 404:
+  retry later. `list_remote_directory_fsspec` raises `DownloadError` (502) for a 200 page that is
+  no index, as `list_remote_files_fsspec` does, where `imgw` read it as no files (GH-3834)
 - **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
   `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
   merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
