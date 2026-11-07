@@ -4,20 +4,13 @@ import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
-import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
+import { meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError } from '~/utils/request-error'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
-// Auto-composed MOSMIX parameters – user never configures these
-const MOSMIX = {
-  provider: 'dwd',
-  network: 'mosmix',
-  resolution: 'hourly',
-  dataset: 'large',
-  // Core meteogram parameters: temperature, wind, cloud cover, precipitation, significant weather, pressure, dew point, wind gusts, max temp, min temp
-  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
-}
+// Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
+const MOSMIX = MOSMIX_METEOGRAM
 
 const { t } = useI18n()
 
@@ -121,13 +114,7 @@ async function fetchMeteogram(station: Station) {
   failure.value = null
   values.value = []
 
-  const rawParams: Record<string, string> = {
-    provider: MOSMIX.provider,
-    network: MOSMIX.network,
-    parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
-    stations: station.station_id,
-    ...METEOGRAM_VALUES_SETTINGS,
-  }
+  const rawParams = meteogramValuesQuery(station.station_id)
   if (selectedIssue.value)
     rawParams.issue = selectedIssue.value
   const params = new URLSearchParams(rawParams)

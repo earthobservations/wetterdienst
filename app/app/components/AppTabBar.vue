@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { EXTERNAL, inSection, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
+import { EXTERNAL, inSection, PROJECT, REFERENCE, SHEET_ONLY_TOOLS, TAB_BAR_TOOLS, TOOLS } from '~/utils/sections'
 
-// The navigation of the narrow layout (GH-3518): the four tools as tabs at the foot of the window, where a thumb
-// reaches them, and a fifth that opens the rest (the home page, the reference, the project, the settings) in a
-// sheet. The sheet is a dialog: the focus stays in it, Escape closes it and gives the focus back to its tab, and the
+// The navigation of the narrow layout (GH-3518): four tools as tabs at the foot of the window, where a thumb
+// reaches them, and a fifth that opens the rest (the home page, the tools, the reference, the project,
+// the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the bar holds four tools and
+// the Menu, the four it had before the map, and the map is in the sheet, which lists all five tools in the order of
+// the header. While one is on the map the Menu's tab is marked as the page one is on (`aria-current`, which a screen
+// reader says, and the bar over it), since the sheet is where it is. The
+// sheet is a dialog: the focus stays in it, Escape closes it and gives the focus back to its tab, and the
 // page behind it is hidden from a screen reader while it is open (WCAG 2.1.2, 2.4.3, 4.1.2).
 //
 // In a window too low for two bars and a page between them (a phone on its side, 400 % zoom) the bar stops being
@@ -24,12 +28,14 @@ watch(wide, (isWide) => {
 })
 
 const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ to }, route.path)
+// the page is one of a tool that has no tab (the map): the Menu is where it is found
+const inSheet = computed(() => SHEET_ONLY_TOOLS.some(tool => isCurrent(tool.to)))
 </script>
 
 <template>
   <nav :aria-label="t('shell.mainNav')" class="app-tabbar lg:hidden" data-print="hide">
     <ul class="grid h-full grid-cols-5">
-      <li v-for="tool in TOOLS" :key="tool.key">
+      <li v-for="tool in TAB_BAR_TOOLS" :key="tool.key">
         <NuxtLink :to="tool.to" class="tabbar-item" :aria-current="isCurrent(tool.to) ? 'page' : undefined">
           <ToolTile :tile="tool.tile" :icon="tool.icon" size="1.625rem" />
           <span class="tabbar-label">{{ t(tool.label) }}</span>
@@ -43,6 +49,7 @@ const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ 
           :aria-label="t('header.menu')"
           aria-haspopup="dialog"
           :aria-expanded="open"
+          :aria-current="inSheet ? 'true' : undefined"
           @click="open = true"
         >
           <span class="tile tile-navy" style="--tile-size: 1.625rem" aria-hidden="true"><UIcon name="i-ph-dots-three-outline-fill" /></span>

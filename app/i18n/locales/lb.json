@@ -151,7 +151,8 @@
       "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
       "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
-      "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend."
+      "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
+      "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ënnerstëtzung"
+    "support": "Ënnerstëtzung",
+    "map": "Kaart"
   },
   "shell": {
     "skipToContent": "Op den Inhalt sprangen",
@@ -216,7 +218,9 @@
       "docs": "D'Python-Bibliothéik, d'Kommandozeil an d'API notzen",
       "github": "De Code, d'Issues an d'Pull Requests",
       "pypi": "D'Python-Bibliothéik mat pip installéieren"
-    }
+    },
+    "stationsMap": "Statioun op der Kaart",
+    "stationOnMap": "Statioun {id} op der Kaart weisen"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Op déi ausgewielte Statioun zentréieren",
     "centerSelectedPlural": "Op déi ausgewielte Statiounen zentréieren",
     "markersNotShown": "D'Statioune konnten net op der Kaart gewise ginn. Luet d'Säit nei fir et nach eng Kéier ze probéieren."
+  },
+  "mapTool": {
+    "title": "Statiounskaart",
+    "subtitle": "Wiel eng Statioun oder e beléiwege Punkt op der Kaart a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou.",
+    "aboutButton": "Iwwer d'Kaart",
+    "about1": "D'Kaart weist d'Statioune vum Däitsche Wiederdéngscht (DWD): d'Punkten, fir déi en d'Prognos mécht, oder d'Statioune, déi moossen, fir d'Opléisung an den Datesaz, déi du iwwer der Kaart wiels. Jidderee ass e Punkt; de Panel fënnt eng Statioun no hirem Numm a lëscht d'Statioune bei der Mëtt vun der Kaart op.",
+    "about2": "Wiel eng Statioun oder klick op e beléiwege Punkt op der Kaart: De Panel weist d'Prognos an d'Klimasträifen vun der nootster Statioun, déi se huet, an mécht d'Miessungen am Explorer an d'Statioune-Historique op, mat där Statioun scho gewielt. Mat der Tastatur beweegs du d'Kaart mat de Feilen, zoomst mat Plus a Minus a wiels dann d'Plaz an hirer Mëtt.",
+    "panelTitle": "Statioune",
+    "layers": "Schicht",
+    "layerForecast": "Prognosstatioune",
+    "layerMeasured": "DWD-Miessungen",
+    "mapLabel": "Statiounskaart: {layer}",
+    "count": "Gewisen Statioune: {shown}",
+    "loadingStations": "Statioune lueden …",
+    "stationsFailed": "D'Statioune konnten net geluede ginn",
+    "noStations": "Dësen Datesaz huet keng Statioune mat enger Positioun.",
+    "zoomIn": "Vergréisseren",
+    "zoomOut": "Verklengeren",
+    "search": "Eng Statioun fannen",
+    "searchPlaceholder": "Numm oder Nummer vun enger Statioun",
+    "nearCentre": "Statioune bei der Mëtt vun der Kaart",
+    "results": "Resultater",
+    "noResults": "Keng Statioun passt zu dëser Sich.",
+    "pickCentre": "D'Mëtt vun der Kaart wielen",
+    "pickCentreHint": "Dëst wielt d'Plaz an der Mëtt vun der Kaart, déi d'Feile verréckelen.",
+    "back": "Zréck bei d'Statioune",
+    "chosen": "{name} gewielt",
+    "pickedPlace": "E Punkt op der Kaart, {distance} vun dëser Statioun ewech",
+    "elevation": "{value} m iwwer dem Mieresspigel",
+    "at": "{name}, {distance} ewech",
+    "noneNearby": "Keng Statioun bannent {distance}.",
+    "noStationNear": "Keng Statioun bannent {distance} ëm dee Punkt.",
+    "openForecast": "D'Prognos opmaachen",
+    "openStripes": "D'Klimasträifen opmaachen",
+    "openExplorer": "D'Miessungen am Explorer opmaachen",
+    "openHistory": "D'Statioune-Historique opmaachen",
+    "since": "zënter {year}",
+    "period": "vun {from} bis {to}",
+    "stripesFigure": "Klimasträifen vu(n) {name}",
+    "stripesNone": "Keng Klimasträifen fir dës Statioun.",
+    "stationNotFound": "Et gëtt keng Statioun {id} op dëser Kaart."
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

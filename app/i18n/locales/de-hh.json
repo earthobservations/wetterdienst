@@ -151,7 +151,8 @@
       "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",
       "glossary": "Wat elk Wedder- un Klimaparameter meet un in wecke Eenheit sien Weerten torüchkamen, mit Söök na Naam un Grött.",
       "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
-      "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend."
+      "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend.",
+      "map": "Een Kaart vun de Stationen vun den Düütschen Wedderdeenst: Söök di een Station oder een Punkt ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
-    "support": "Ünnerstütten"
+    "support": "Ünnerstütten",
+    "map": "Kaart"
   },
   "shell": {
     "skipToContent": "Na'n Inholt springen",
@@ -216,7 +218,9 @@
       "docs": "De Python-Bibliothek, de Kommandozeil un de API bruken",
       "github": "De Code, de Issues un de Pull Requests",
       "pypi": "De Python-Bibliothek mit pip installeren"
-    }
+    },
+    "stationsMap": "Station op de Kaart",
+    "stationOnMap": "Station {id} op de Kaart wiesen"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Op utsöchte Station zentreren",
     "centerSelectedPlural": "Op utsöchte Stationen zentreren",
     "markersNotShown": "De Stationen leten sik nich op de Kaart wiesen. Laad de Siet noch eenmal nee."
+  },
+  "mapTool": {
+    "title": "Stationskaart",
+    "subtitle": "Söök di een Station oder een Punkt op de Kaart ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an.",
+    "aboutButton": "Över de Kaart",
+    "about1": "De Kaart wiest de Stationen vun den Düütschen Wedderdeenst (DWD): de Punkten, för de he vörhersüggt, oder de Stationen, de meet, för de Oplösung un den Datensatz, de du över de Kaart utsöchst. Elkeen is een Punkt; dat Feld daneven findt een Station na ehren Naam un list de Stationen in de Midd vun de Kaart op.",
+    "about2": "Söök di een Station ut oder klick op een Punkt op de Kaart: Dat Feld wiest Utsicht un Klimastrepen vun de neegste Station, de se hett, un maakt de Meetweerten in den Explorer un de Stationschronik op, mit de Station al utsöcht. Mit de Tastatur bewegst du de Kaart mit de Pielentasten, zoomst mit Plus un Minus un söchst denn den Oort in ehr Midd ut.",
+    "panelTitle": "Stationen",
+    "layers": "Ebene",
+    "layerForecast": "Utsicht-Stationen",
+    "layerMeasured": "DWD-Meetweerten",
+    "mapLabel": "Stationskaart: {layer}",
+    "count": "Wiest Stationen: {shown}",
+    "loadingStations": "Stationen laadt …",
+    "stationsFailed": "De Stationen kunnen nich laadt warrn",
+    "noStations": "Disse Datensatz hett keen Stationen mit Positschoon.",
+    "zoomIn": "Grötter maken",
+    "zoomOut": "Lütter maken",
+    "search": "Station finnen",
+    "searchPlaceholder": "Naam oder Nummer vun een Station",
+    "nearCentre": "Stationen in de Midd vun de Kaart",
+    "results": "Resultaten",
+    "noResults": "Keen Station passt to disse Söök.",
+    "pickCentre": "Midd vun de Kaart utsöken",
+    "pickCentreHint": "Söcht den Oort in de Midd vun de Kaart ut, den de Pielentasten verschuuvt.",
+    "back": "Torüch to de Stationen",
+    "chosen": "{name} utsöcht",
+    "pickedPlace": "Een Punkt op de Kaart, {distance} vun disse Station af",
+    "elevation": "{value} m över Seehööch",
+    "at": "{name}, {distance} af",
+    "noneNearby": "Keen Station binnen {distance}.",
+    "noStationNear": "Keen Station binnen {distance} üm den Punkt.",
+    "openForecast": "Utsicht opmaken",
+    "openStripes": "Klimastrepen opmaken",
+    "openExplorer": "Meetweerten in den Explorer opmaken",
+    "openHistory": "Stationschronik opmaken",
+    "since": "sied {year}",
+    "period": "{from} bit {to}",
+    "stripesFigure": "Klimastrepen vun {name}",
+    "stripesNone": "Keen Klimastrepen för disse Station.",
+    "stationNotFound": "Dat gifft keen Station {id} op disse Kaart."
   },
   "dataViewer": {
     "loadingValues": "Weerten warrt laadt …",

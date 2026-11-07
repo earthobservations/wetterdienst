@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, wetBulbApprox } from '../../app/utils/meteogram'
+import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramValuesQuery, meteogramView, meteogramViewFromQuery, MOSMIX_METEOGRAM, wetBulbApprox } from '../../app/utils/meteogram'
 import { parameters } from '../../i18n/glossary/en'
 
 describe('findNearestIndex', () => {
@@ -302,5 +302,13 @@ describe('meteogramViewFromQuery', () => {
     [{ station: '10384' }, null],
   ])('reads %j as %s', (query, expected) => {
     expect(meteogramViewFromQuery(query)).toBe(expected)
+  })
+})
+
+describe('the request of a meteogram', () => {
+  it('asks DWD MOSMIX for the station, each series of the chart under its dataset, in the layout the meteogram reads', () => {
+    const query = meteogramValuesQuery('10147')
+    expect(query).toMatchObject({ provider: 'dwd', network: 'mosmix', stations: '10147', shape: 'long' })
+    expect(query.parameters!.split(',')).toEqual(MOSMIX_METEOGRAM.parameters.map(parameter => `hourly/large/${parameter}`))
   })
 })

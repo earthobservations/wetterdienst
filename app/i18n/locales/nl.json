@@ -151,7 +151,8 @@
       "providers": "De nationale weerdiensten achter de data: land, licentie, de bronvermelding en wat ieder aanbiedt.",
       "glossary": "Wat elke weer- en klimaatparameter meet en in welke eenheid de waarden terugkomen, doorzoekbaar op naam en grootheid.",
       "about": "Over het open-sourceproject Wetterdienst en de mensen die het onderhouden.",
-      "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer."
+      "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer.",
+      "map": "Een kaart van de stations van de Duitse weerdienst: kies een station of een willekeurig punt voor de verwachting, de klimaatstrepen en de metingen."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
-    "support": "Ondersteuning"
+    "support": "Ondersteuning",
+    "map": "Kaart"
   },
   "shell": {
     "skipToContent": "Naar de inhoud",
@@ -216,7 +218,9 @@
       "docs": "De Python-bibliotheek, de opdrachtregel en de API gebruiken",
       "github": "De code, de issues en de pull requests",
       "pypi": "De Python-bibliotheek installeren met pip"
-    }
+    },
+    "stationsMap": "Station op de kaart",
+    "stationOnMap": "Station {id} op de kaart tonen"
   },
   "header": {
     "github": "GitHub",
@@ -767,6 +771,47 @@
     "centerSelected": "Centreren op het geselecteerde station",
     "centerSelectedPlural": "Centreren op de geselecteerde stations",
     "markersNotShown": "De stations konden niet op de kaart worden getoond. Laad de pagina opnieuw om het nog eens te proberen."
+  },
+  "mapTool": {
+    "title": "Stationskaart",
+    "subtitle": "Kies een station of een willekeurig punt op de kaart voor de verwachting, de klimaatstrepen en de metingen.",
+    "aboutButton": "Over de kaart",
+    "about1": "De kaart toont de stations van de Duitse weerdienst (DWD): de punten waarvoor de dienst verwachtingen maakt, of de stations die meten, voor de resolutie en de dataset die je boven de kaart kiest. Elk is een punt; het paneel vindt een station op naam en toont de stations bij het midden van de kaart.",
+    "about2": "Kies een station of klik op een willekeurig punt op de kaart: het paneel toont de verwachting en de klimaatstrepen van het dichtstbijzijnde station dat ze heeft, en opent de metingen in de Verkenner en de stationsgeschiedenis met dat station al gekozen. Met het toetsenbord verplaats je de kaart met de pijltjestoetsen, zoom je met plus en min, en kies je dan de plek in het midden.",
+    "panelTitle": "Stations",
+    "layers": "Laag",
+    "layerForecast": "Verwachtingsstations",
+    "layerMeasured": "DWD-metingen",
+    "mapLabel": "Stationskaart: {layer}",
+    "count": "Getoonde stations: {shown}",
+    "loadingStations": "Stations laden …",
+    "stationsFailed": "De stations konden niet worden geladen",
+    "noStations": "Deze dataset heeft geen stations met een positie.",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen",
+    "search": "Een station zoeken",
+    "searchPlaceholder": "Naam of nummer van een station",
+    "nearCentre": "Stations bij het midden van de kaart",
+    "results": "Resultaten",
+    "noResults": "Geen station past bij deze zoekopdracht.",
+    "pickCentre": "Het midden van de kaart kiezen",
+    "pickCentreHint": "Kiest de plek in het midden van de kaart, die de pijltjestoetsen verplaatsen.",
+    "back": "Terug naar de stations",
+    "chosen": "{name} gekozen",
+    "pickedPlace": "Een punt op de kaart, {distance} van dit station",
+    "elevation": "{value} m boven zeeniveau",
+    "at": "{name}, {distance} verderop",
+    "noneNearby": "Geen station binnen {distance}.",
+    "noStationNear": "Geen station binnen {distance} van dat punt.",
+    "openForecast": "De verwachting openen",
+    "openStripes": "De klimaatstrepen openen",
+    "openExplorer": "De metingen openen in de Verkenner",
+    "openHistory": "De stationsgeschiedenis openen",
+    "since": "sinds {year}",
+    "period": "{from} tot {to}",
+    "stripesFigure": "Klimaatstrepen van {name}",
+    "stripesNone": "Geen klimaatstrepen voor dit station.",
+    "stationNotFound": "Er is geen station {id} op deze kaart."
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",
