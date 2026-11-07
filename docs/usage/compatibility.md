@@ -350,6 +350,14 @@ the `scope` of each network and, of one network, the extent of each dataset. The
 territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
 network, and `extent` from a dataset of `providers` that has its network's.
 
+Of the members above, `attribution` is the credit line to cite, and `copyright` is the rights holder's notice, shown
+for information (DWD's `attribution` is "Source: Deutscher Wetterdienst", its `copyright` "© Deutscher Wetterdienst
+(DWD), Climate Data Center (CDC)"); the descriptions in the OpenAPI document, the MCP tools and `--help` say so, and
+the values are unchanged. `GET /api/providers` takes `datasets` (`--datasets`, `datasets` of `get_providers`), true
+for now: each network lists its `resolutions` with the number of parameters of each dataset. `datasets=false` gives the
+compact answer, in which `resolutions` is null and everything else stays. The default becomes false in a later release,
+before 1.0 (see [Migrating](migrating.md#rest-api)), and from 1.0 it is the default that stays.
+
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with
 `with_metadata=True`, of a `RadarResult` and of a `DwdWeatherAlertResult`): `null` where the source states none or the library does not read

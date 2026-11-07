@@ -193,12 +193,12 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 </NuxtLink>
               </p>
 
-              <template v-if="network.resolutions.length">
+              <template v-if="network.resolutions?.length">
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                   {{ t('providers.parametersCount', { count: network.parameters }) }}
                 </p>
                 <dl class="grid grid-cols-1 sm:grid-cols-[minmax(8rem,12rem)_1fr] gap-x-4 gap-y-2 text-sm">
-                  <template v-for="resolution in network.resolutions" :key="resolution.name">
+                  <template v-for="resolution in network.resolutions ?? []" :key="resolution.name">
                     <dt class="font-medium">
                       {{ resolutionLabel(resolution.name) }}
                     </dt>
