@@ -967,8 +967,13 @@ def _pages_with_python() -> list[Path]:
 @pytest.mark.remote
 @pytest.mark.slow
 @pytest.mark.parametrize("path", _pages_with_python(), ids=lambda path: path.relative_to(ROOT).as_posix())
-def test_python_samples_run(path: Path) -> None:
-    """Every Python block of a page runs, in order and in one namespace, and a table it prints is the table it shows."""
+def test_python_samples_run(path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every Python block of a page runs, in order and in one namespace, and a table it prints is the table it shows.
+
+    The samples run in a temporary directory, as the commands do: the ones that export write ``dwd.csv`` and
+    ``alerts.csv`` to the working directory, which would otherwise be the repository (GH-3822).
+    """
+    monkeypatch.chdir(tmp_path)
     _run_page(path)
 
 
