@@ -85,7 +85,8 @@ FILE_SKIPPED = "file-skipped"
 
 #: the code of the warning that names the parameters whose rows of another window the provider left out of the answer
 #: (`note_left_out`): the source holds values for those dates, but of a series that is not the one the parameter is
-#: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one): no missing data, and no values of the parameter
+#: (Frost's 18-18 UTC precipitation beside the 06-06 UTC one, its calendar-day temperature extreme beside the 18-18
+#: UTC one): no missing data, and no values of the parameter
 OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
@@ -133,11 +134,12 @@ def collecting(
 def note_left_out(parameter: str, count: int, because: str) -> None:
     """Tell that the provider left `count` dates of `parameter` out of the station being collected: another window's.
 
-    For a source that holds more than one series of a parameter that differ in the window they sum (Frost's `PT6H` and
-    `PT18H` precipitation) and returns one. A date that only the other series has is left out, as a value of the other
-    window under this parameter's name would be wrong, and the answer then has no row for it although the source has
-    values: `OTHER_WINDOW_LEFT_OUT` says so once the walk is over (`ParameterRows.warn`), which is the difference to a
-    parameter the source holds nothing of (`parameter-without-rows`, which does not name a parameter this was told of).
+    For a source that holds more than one series of a parameter that differ in the window they sum or extremise
+    (Frost's `PT6H` and `PT18H` precipitation, `PT0H` and `PT18H` temperature extremes) and returns one. A date that
+    only the other series has is left out, as a value of the other window under this parameter's name would be wrong,
+    and the answer then has no row for it although the source has values: `OTHER_WINDOW_LEFT_OUT` says so once the
+    walk is over (`ParameterRows.warn`), which is the difference to a parameter the source holds nothing of
+    (`parameter-without-rows`, which does not name a parameter this was told of).
 
     ``parameter`` is `resolution/dataset/parameter`, ``because`` says which series was left out and which one is
     returned, as a clause of the warning. Nothing happens outside the collection of a station.

@@ -529,19 +529,35 @@ _DAILY = "daily"
 # sum of another window under this one's name; the answer says so (`other-window-left-out`, `_tell_left_out`), and it is
 # no "the source has no values" (`parameter-without-rows`), as the source has them.
 #
-# Not touched here: `max` and `min(air_temperature P1D)` have `PT0H` and `PT18H` at 579 and 574 stations of Frost's
-# listing, and the table prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18 UTC"). `PT0H`
-# sorts first, and is what comes back where both exist, `PT18H` where it is the only one. The maintainer has decided
-# 19-18 UTC where a station has it, in a change of its own.
+# The daily `max` and `min(air_temperature P1D)` are chosen the same way (GH-3843): they have `PT0H` (the calendar
+# day, the hourly readings stamped 00:00 to 23:00) and `PT18H` at 579 and 574 stations of Frost's listing (550 and 545
+# of the catalogue's), and the table prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18
+# UTC": the 24 hours ending 18 UTC, the hourly readings stamped `D-1` 19:00 to `D` 18:00). `PT0H` sorts first, so a
+# station with both returned the calendar day, where its `PT18H` series had a date that `PT0H` had not (before `PT0H`
+# began, 1.8 million station-days) the 18-18 window: the window of one parameter changed along the series, and from
+# station to station. The maintainer decided on 2026-11-07 that the extremes are strict, like the precipitation: only
+# `PT18H` is returned, a station without that series returns no extremes, and a date that only the other series has is
+# left out and told, so that the answer does not depend on the window asked for.
 _STANDARD_OFFSET = {
     "sum(precipitation_amount P1D)": "PT6H",
     "sum(precipitation_amount P1M)": "PT6H",
+    "max(air_temperature P1D)": "PT18H",
+    "min(air_temperature P1D)": "PT18H",
 }
-# what the `other-window-left-out` warning says of the dates that only the other series has, by element
+# the series a standard offset is not, as the `other-window-left-out` warning names them: the precipitation's is
+# `PT18H`; the extremes' is `PT0H` at the stations that have both, or `PT6H` at the 9 minimum stations of Frost's
+# listing that have only that, and the clause is no more than that
+_OTHER_SERIES = {
+    "PT6H": "18-18 UTC series (`timeOffset` PT18H)",
+    "PT18H": "other series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00, or PT6H)",
+}
+# what the `other-window-left-out` warning says of the dates that only the other series has, by element: the windows
+# are the 24 hours ending at the offset (06-06, 18-18 UTC)
 _LEFT_OUT_BECAUSE = {
     element: (
-        "these dates have a value in Frost's 18-18 UTC series (`timeOffset` PT18H) only, and this parameter is the "
-        f"06-06 UTC series (`timeOffset` {offset}), the one Frost names its standard"
+        f"these dates have a value in Frost's {_OTHER_SERIES[offset]} only, and this parameter is the "
+        f"{'06-06' if offset == 'PT6H' else '18-18'} UTC series (`timeOffset` {offset}), the one Frost names its "
+        "standard"
     )
     for element, offset in _STANDARD_OFFSET.items()
 }

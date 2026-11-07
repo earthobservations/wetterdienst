@@ -3931,7 +3931,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "data", "min(air_temperature P1Y)"): "Lowest recorded air temperature per year",
         ("annual", "data", "sum(precipitation_amount P1Y)"): "Annual precipitation sum.",
-        ("daily", "data", "max(air_temperature P1D)"): "Highest recorded air temperature per 24 hours",
+        ("daily", "data", "max(air_temperature P1D)"): (
+            "Highest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
+            "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
+        ),
         ("daily", "data", "max(wind_speed P1D)"): (
             "Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do "
             "not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available)."
@@ -3942,7 +3948,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "mean(air_temperature P1D)"): (
             "Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula "
-            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC)."
+            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). Frost "
+            "also has a 06-06 UTC series (PT6H), at 1,063 stations of its listing that have both and 7 that have "
+            "PT6H only; on "
+            "the days that only it has, which are rare (at least 3,694 days at 11 stations of the station list "
+            "were found: a lower bound), that one is returned."
         ),
         ("daily", "data", "mean(relative_humidity P1D)"): "Daily mean relative humidity.",
         ("daily", "data", "mean(surface_air_pressure P1D)"): (
@@ -3959,7 +3969,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not "
             "exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available)."
         ),
-        ("daily", "data", "min(air_temperature P1D)"): "Lowest recorded air temperature per 24 hours",
+        ("daily", "data", "min(air_temperature P1D)"): (
+            "Lowest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
+            "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
+        ),
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
         ("daily", "data", "sum(precipitation_amount P1D)"): (
             "Daily precipitation sum (between 06-06 UTC). Only this series is returned (`timeOffset` PT6H, the day "

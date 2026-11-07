@@ -42,8 +42,10 @@ The usual reasons:
   for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
   maintenance page) is not named: its values may be missing for that, which a later request may clear.
 - **Dates are left out because they are of another series.** The answer carries an `other-window-left-out` warning
-  (`metno/frost` daily and monthly precipitation): the source holds values for those dates, in its 18-18 UTC series, and
-  the parameter is the 06-06 UTC series, so the dates have no row rather than a sum of another window. The source is not
+  (`metno/frost` daily and monthly precipitation, daily maximum and minimum temperature): the source holds values for
+  those dates, in its other series (18-18 UTC for the precipitation, the calendar day for the temperature extremes),
+  and the parameter is the 06-06 UTC (the 18-18 UTC) series, so the dates have no row rather than a value of another
+  window. The source is not
   missing them, and the answer is not partial for a failure: do not try again.
 - **A station you named has no rows while others do.** A `station-without-rows` warning lists the ids of `stations`
   that returned nothing in the window, in the order of the answer: the source holds no values of them there (the
