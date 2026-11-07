@@ -365,19 +365,26 @@ what the answer is missing:
   catalogue's and not the order they were asked in, the first ten if there are more; the message then gives their
   number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name, `sql` and `all` have
   empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`,
-  `summarize` and `stripes` read stations as candidates or one station and do not tell it. It says what the answer
-  holds: a station has no rows when the source holds no readings of it in the window (a station the index says begins
-  after the window included), or when all its readings were null and `drop_nulls` (the default) left them out, which
-  `missing-value-marker` and `rejected-by-plausibility` count; with `drop_nulls=false` such a station has rows and is
-  not named. A station with a row of any requested parameter has rows, even if another parameter has none (that is
+  `summarize` and `stripes` read stations as candidates or one station and do not tell it.
+
+  A station has no rows when the source holds no values of it in the window (a station the index says begins after
+  the window included), or, in the long shape with `drop_nulls` (the default), when all its values were null and
+  left out: with `drop_nulls=false`, and in the wide shape, which never drops a null row, such a station has rows
+  and is not named, and the message does not offer that reason. A null that the source marked is counted by
+  `missing-value-marker` or `rejected-by-plausibility`; a null with no `raw:` token is counted by none. The message
+  gives the window and, as `parameter-without-rows` does, what narrowed the request (`periods`, a run, a lead time,
+  for any of its datasets) with what to ask instead, since the values may be in what was left out. It does not say
+  what the other stations have: a station that another warning explains, or a clause of `sql_values` that cuts rows
+  afterwards, may leave none of them with rows in the answer, and the stations named had none before it either.
+  A station with a row of any requested parameter has rows, even if another parameter has none (that is
   `parameter-without-rows`). It is not told when no named station has rows (`parameter-without-rows` is, where it
   can be), for an id the network has no station for (`unknown-station` names it), for a station `file-skipped`
-  names, or for one `skip_empty` dropped (`station-skipped`); `parameter-ended` names a parameter, not a station,
-  and does not keep a station from being named. It is raised once the walk has read every station, so a
-  stream that the client stops, a walk that fails and a rank that ends early name none; a limit (`max_rows`,
-  `max_stream_rows`) refuses the request before any station is read. A streamed answer (`ndjson`) carries it in the
-  `end` line, and a streamed CSV, which has no place for warnings, not at all. The rows `sql_values` cuts away
-  afterwards are not counted.
+  names (a file that serves every station is every station read's; a station the index says begins after the window
+  was not read and is still named), or for one `skip_empty` dropped (`station-skipped`); `parameter-ended` names a
+  parameter, not a station, and does not keep a station from being named. It is raised once the walk has read every
+  station, so a stream that the client stops, a walk that fails and a rank that ends early name none; a limit
+  (`max_rows`, `max_stream_rows`) refuses the request before any station is read. A streamed answer (`ndjson`)
+  carries it in the `end` line, and a streamed CSV, which has no place for warnings, not at all.
 
   `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
   listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file

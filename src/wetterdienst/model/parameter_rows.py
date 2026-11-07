@@ -46,6 +46,8 @@ out are those, so it does not repeat `file-skipped`. Which stations it names:
 
 A request that names its stations by id (`stations=`, `filter_by_station_id`) has a third warning,
 `station-without-rows` (GH-3828): the ids that returned no rows while other stations of the request did.
+Its message names the window and what narrowed the request, as `parameter-without-rows` does, and does not say that
+the other stations have rows: those another warning explains, or `sql_values` later, may leave none.
 
 - It is told for that selection alone (a point, a box, a name or a rank has empty stations as the ordinary case, and a
   ranked walk stops early), after a walk read to its end, so that a station never read is never named.
@@ -113,11 +115,13 @@ class ParameterRows:
         *,
         enabled: bool = True,
         asked: Sequence[str] | None = None,
+        nulls_dropped: bool = True,
     ) -> None:
         """Hold the request's parameters and the window of the walk; `enabled` False reads nothing and says nothing.
 
         `asked` is the stations of a request that named them by id, in the order of the walk, and None for any other
-        selection (`station-without-rows`).
+        selection (`station-without-rows`); `nulls_dropped` is whether the answer leaves rows without a value out
+        (`drop_nulls` in the long shape), which a station named in it may have been emptied by.
         """
         self._request = request
         self._enabled = enabled
@@ -126,6 +130,7 @@ class ParameterRows:
         #: the stations the request named by id, and those the walk handed to the answer (`returned`) or told another
         #: warning of (`explained`: `station-skipped`)
         self._asked = None if asked is None else list(asked)
+        self._nulls_dropped = nulls_dropped
         self._returned: set[str] = set()
         self._explained: set[str] = set()
         #: the stations whose file the provider let go, in the order they came (a dict for the order): no evidence that
@@ -201,7 +206,7 @@ class ParameterRows:
         self._warn_stations_without_rows()
 
     def _warn_stations_without_rows(self) -> None:
-        """Tell the stations named by id that have no rows in the answer, once the others do (GH-3828).
+        """Tell the stations named by id that have no rows in the answer, once others have (GH-3828).
 
         Only an explicit list of ids: for a point, a box, a name or a rank an empty station is the ordinary case and a
         ranked walk stops early. Only after a walk read to its end (`warn` is not reached otherwise), so a station
@@ -209,6 +214,10 @@ class ParameterRows:
         (a station that has rows of one parameter and none of another has rows, and is not named). Left out are the
         stations another warning already explains: the file of which was let go (`file-skipped`), and one `skip_empty`
         dropped (`station-skipped`); an id the network has no station for was never in the walk (`unknown-station`).
+
+        The message says nothing of the other stations (those another warning explains, or `sql_values`, which cuts
+        rows afterwards, may leave none of them with rows in the answer), but what narrowed the request
+        (`periods`, a run, a lead time) as `parameter-without-rows` does, since the values may be in what it left out.
         """
         if self._asked is None or not self._returned:
             return
@@ -221,14 +230,37 @@ class ParameterRows:
         if not stations:
             return
         many = len(stations) > 1
+        window = _window(self._start, self._end)
+        phrases, hints = self._narrowing()
+        narrow = f" in {' and in '.join(phrases)}" if phrases else ""
+        why = f"The source holds no values of {'them' if many else 'it'}{' there' if window else ''}"
+        if self._nulls_dropped:
+            why += f", or {'all of them were' if many else 'every value was'} null and left out (`drop_nulls`)"
+        advice = f" {' or '.join(hints).capitalize()}." if hints else ""
         warn_response(
             log,
             STATION_WITHOUT_ROWS,
-            f"No rows for {self._where(stations)}{_window(self._start, self._end)}, while the other stations named in "
-            f"`stations` have rows: the source holds no readings of {'them' if many else 'it'} there, or "
-            f"{'all of them were' if many else 'every reading was'} null and left out (`drop_nulls`).",
+            f"No rows for {self._where(stations)}{window}{narrow}. {why}.{advice}",
             stations=stations[:MAX_STATIONS_LISTED],
         )
+
+    def _narrowing(self) -> tuple[list[str], list[str]]:
+        """Give what narrowed the request for any of its datasets, as phrases and hints, each once (`_narrowed_by`)."""
+        phrases: dict[str, None] = {}
+        hints: dict[str, None] = {}
+        seen: set[tuple[str, str]] = set()
+        for parameter in self._request.parameters:
+            if not isinstance(parameter, ParameterModel):
+                continue
+            key = (parameter.dataset.resolution.name, parameter.dataset.name)
+            if key in seen:
+                continue
+            seen.add(key)
+            for phrase, hint in self._request._narrowed_by(parameter.dataset):  # noqa: SLF001
+                phrases[phrase] = None
+                if hint:
+                    hints[hint] = None
+        return list(phrases), list(hints)
 
     def _warn_without_rows(self) -> None:
         """Tell each parameter and dataset of the request that no station read had a row of, once."""

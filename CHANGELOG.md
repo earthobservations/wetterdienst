@@ -23,7 +23,9 @@ Types of changes:
   `values` held the rows of the others and nothing said the rest was missing. It is not told for a
   point, box, name, `sql` or `rank`, nor where every station is empty (`parameter-without-rows`),
   nor for a station `file-skipped` or `station-skipped` names; a station whose readings are all
-  null has no rows unless `drop_nulls=False`. Up to 10 ids, then their number (GH-3828)
+  null has no rows in the long shape unless `drop_nulls=False` (the wide shape keeps them). The
+  message names the window and the `periods`, run or lead time that narrowed the request, and does
+  not say what the other stations have. Up to 10 ids, then their number (GH-3828)
 
 ### Changed
 

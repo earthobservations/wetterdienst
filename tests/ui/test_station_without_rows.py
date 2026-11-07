@@ -29,7 +29,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import begin_response, note_skipped_download, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -84,8 +84,8 @@ def test_an_empty_station_among_others_is_told_with_its_id(monkeypatch: pytest.M
     assert warning["stations"] == ["00002"]
     assert "parameter" not in warning
     assert warning["message"] == (
-        "No rows for station 00002 from 2020-05-01 to 2020-05-31, while the other stations named in `stations` have "
-        "rows: the source holds no readings of it there, or every reading was null and left out (`drop_nulls`)."
+        "No rows for station 00002 from 2020-05-01 to 2020-05-31. The source holds no values of it there, or every "
+        "value was null and left out (`drop_nulls`)."
     )
     assert _codes() == [CODE]
 
@@ -98,8 +98,38 @@ def test_several_empty_stations_are_one_warning_in_the_order_of_the_walk(monkeyp
 
     assert warning["stations"] == ["00002", "00004"]
     assert "stations 00002, 00004 " in warning["message"]
-    assert "every reading" not in warning["message"]
+    assert warning["message"].endswith(
+        "The source holds no values of them there, or all of them were null and left out (`drop_nulls`)."
+    )
+    assert "every value" not in warning["message"]
     assert "all of them were null" in warning["message"]
+
+
+def test_the_message_does_not_say_what_the_other_stations_have(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The others may have no rows left (another warning explains them, `sql_values` cuts them): it is not claimed."""
+    _serving(monkeypatch, s00002=_nothing)
+
+    (warning,) = _told(["00001", "00002"])
+
+    assert "other" not in warning["message"]
+    assert "while" not in warning["message"]
+
+
+def test_rows_that_sql_values_cuts_afterwards_do_not_change_what_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """00002 had no rows before the clause and is told whatever it leaves: the message is true, and says no more."""
+    _serving(monkeypatch, s00002=_nothing)
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+
+    cut = _rest("/api/values", stations="00001,00002,00003", timestamp="2020-05", sql_values="station_id = '00003'")
+    assert cut.status_code == 200, cut.text
+    (warning,) = cut.json()["metadata"]["warnings"]
+    assert warning["code"] == CODE
+    assert warning["stations"] == ["00002"]
+    assert "other" not in warning["message"]
+    # a clause that leaves no row of any station: the walk's warning is the same
+    none = _rest("/api/values", stations="00001,00002,00003", timestamp="2020-05", sql_values="value > 100")
+    assert none.status_code == 200, none.text
+    assert [w["stations"] for w in none.json()["metadata"]["warnings"] if w["code"] == CODE] == [["00002"]]
 
 
 def test_the_list_is_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -129,7 +159,85 @@ def test_a_station_the_window_precedes_is_named(monkeypatch: pytest.MonkeyPatch)
 
     (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
     assert warning["stations"] == ["00002", "00005"]
-    assert warning["message"].startswith("No rows for stations 00002, 00005 from 1935-05-01 to 1935-05-03,")
+    assert warning["message"].startswith("No rows for stations 00002, 00005 from 1935-05-01 to 1935-05-03.")
+
+
+# what narrowed the request, and what could have emptied the station
+
+
+def test_the_periods_asked_for_are_named_as_the_sibling_names_them(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`periods=recent` over a window of the historical period: the values may be in the other one, and it is said."""
+    _serving(monkeypatch, s00001=lambda df: df.with_columns(pl.col("timestamp").dt.replace(year=2010)))
+    request = DwdObservationRequest(
+        parameters=[PARAMETER], periods="recent", start="2010-05-01", end="2010-05-31 23:59:59"
+    )
+    begin_response()
+    request.filter_by_station_id(["00001", "00002"]).values().all()
+
+    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
+    assert warning["message"] == (
+        "No rows for station 00002 from 2010-05-01 to 2010-05-31 in the periods asked for (recent). The source holds "
+        "no values of it there, or every value was null and left out (`drop_nulls`). Try without `periods`."
+    )
+    # the same words as the sibling warning of the same request
+    _serving(monkeypatch, s00001=_nothing)
+    begin_response()
+    request.filter_by_station_id(["00001", "00002"]).values().all()
+    (sibling,) = [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"]
+    assert "in the periods asked for (recent)" in sibling["message"]
+    assert "Try without `periods`" in sibling["message"]
+
+
+def test_what_narrowed_any_dataset_of_the_request_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The phrases are joined over the request's datasets, as `parameter-without-rows` gives them for each."""
+    _serving(monkeypatch, s00002=_nothing)
+    monkeypatch.setattr(
+        DwdObservationRequest,
+        "_narrowed_by",
+        lambda _self, dataset: [("the run issued", "try another run")] if dataset.name == "precipitation_more" else [],
+    )
+
+    (warning,) = _told(["00001", "00002"], parameters=[PARAMETER, "daily/more_precip/precipitation_amount"])
+
+    assert "from 2020-05-01 to 2020-05-31 in the run issued. " in warning["message"]
+    assert warning["message"].endswith(" Try another run.")
+
+
+def test_a_request_with_no_window_has_no_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing is referred to without a window, and no period narrows what is read."""
+    _serving(monkeypatch, s00002=_nothing)
+    begin_response()
+    DwdObservationRequest(parameters=[PARAMETER]).filter_by_station_id(["00001", "00002"]).values().all()
+
+    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
+    assert warning["message"] == (
+        "No rows for station 00002. The source holds no values of it, or every value was null and left out "
+        "(`drop_nulls`)."
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [pytest.param({"drop_nulls": False}, id="drop_nulls false"), pytest.param({"shape": "wide"}, id="wide")],
+)
+def test_the_nulls_are_not_a_reason_where_none_are_dropped(
+    monkeypatch: pytest.MonkeyPatch, options: dict[str, Any]
+) -> None:
+    """Where the answer keeps its null rows (`drop_nulls=False`, the wide shape) the text does not offer that reason."""
+    _serving(monkeypatch, s00002=_nothing)
+
+    (warning,) = _told(["00001", "00002"], options=options)
+
+    assert warning["message"] == (
+        "No rows for station 00002 from 2020-05-01 to 2020-05-31. The source holds no values of it there."
+    )
+
+
+def test_readings_all_null_in_the_wide_shape_are_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Null rows are not dropped in the wide shape, so a station of nulls has rows there and is not named."""
+    _serving(monkeypatch, s00002=_nulls)
+
+    assert _told(["00001", "00002"], options={"shape": "wide"}) == []
 
 
 # when it is not told: every station empty, another selection
@@ -270,6 +378,48 @@ def test_a_station_that_skip_empty_dropped_is_named_by_station_skipped_alone(mon
 
     assert warning["stations"] == ["00003"]
     assert "station-skipped" in _codes()
+
+
+def test_a_station_skip_empty_leaves_out_for_nulls_is_named_by_station_skipped_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """All its readings are null and dropped, which `skip_empty` tells as it does a share below the threshold."""
+    _serving(monkeypatch, s00002=_nulls, s00003=_nothing)
+
+    (warning,) = _told(["00001", "00002", "00003"], options={"skip_empty": True, "skip_threshold": 0.05})
+
+    assert warning["stations"] == ["00003"]
+    assert any(w["code"] == "station-skipped" and "00002" in w["message"] for w in recorded_warnings())
+
+
+def test_a_file_that_serves_every_station_covers_the_stations_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole-request file let go is every collected station's: its emptiness is `file-skipped`'s, not told here."""
+
+    def lets_go(df: pl.DataFrame) -> pl.DataFrame:
+        note_skipped_download(whole_request=True)
+        return df
+
+    _serving(monkeypatch, s00001=lets_go, s00002=_nothing)
+
+    assert _told(["00001", "00002"]) == []
+    assert [w["stations"] for w in recorded_warnings() if w["code"] == "file-skipped"] == [["00001", "00002"]]
+
+
+def test_a_station_not_read_is_named_beside_a_whole_request_file_let_go(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The file covers the stations that were read; one the index says began after the window was never read."""
+
+    def lets_go(df: pl.DataFrame) -> pl.DataFrame:
+        note_skipped_download(whole_request=True)
+        return df.with_columns(pl.col("timestamp").dt.replace(year=1955))
+
+    _serving(monkeypatch, s00001=lets_go)
+    begin_response()
+    request = DwdObservationRequest(parameters=[PARAMETER], start="1955-05-01", end="1955-05-03")
+
+    request.filter_by_station_id(["00001", "00005"]).values().all()
+
+    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
+    assert warning["stations"] == ["00005"]
 
 
 def test_a_station_whose_file_was_let_go_is_named_by_file_skipped_alone(monkeypatch: pytest.MonkeyPatch) -> None:

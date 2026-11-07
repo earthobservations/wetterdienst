@@ -489,7 +489,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self.sr._stations_filter == StationsFilter.BY_STATION_ID  # noqa: SLF001
             else None
         )
-        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows, asked=asked)
+        rows = ParameterRows(
+            self.sr.request,
+            self.sr.start,
+            self.sr.end,
+            enabled=self._warn_without_rows,
+            asked=asked,
+            nulls_dropped=self.sr.options.drop_nulls_effective,
+        )
         # mapping of original to humanized parameter names is always the same
         hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None
         for position, ((station_id,), df_station_meta) in enumerate(groups):
