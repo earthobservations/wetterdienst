@@ -6,7 +6,7 @@ import { clearNuxtData } from '#app'
 import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
-import { providersResponse } from '../fixtures/providers'
+import { providersAnswer } from '../fixtures/providers'
 
 // Ask the weather (GH-3518): the suggestions of the home page as buttons that are pressed or not, the answer under
 // them with its live region, the chart and the way into the tool, and the place the questions are about. The
@@ -20,7 +20,18 @@ function record(event: H3Event, path: string) {
   requests.push({ path, query })
   return query
 }
-registerEndpoint('/api/providers', () => providersResponse())
+// the first request for the providers fails (a 404 is not retried) where a test asks it to, so that the
+// download question has to ask for them itself
+let failFirstProviders = false
+registerEndpoint('/api/providers', (event) => {
+  record(event, 'providers')
+  if (failFirstProviders) {
+    failFirstProviders = false
+    setResponseStatus(event, 404)
+    return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
+  }
+  return providersAnswer(event)
+})
 registerEndpoint('/api/stations', (event) => {
   const query = record(event, 'stations')
   return { stations: query.get('network') === 'mosmix' ? [KIEL_MOSMIX] : [] }
@@ -53,6 +64,7 @@ const asked = (path: string) => requests.filter(request => request.path === path
 
 beforeEach(() => {
   failValues = false
+  failFirstProviders = false
   usePlace().place.value = DEFAULT_PLACE
 })
 afterEach(() => {
@@ -130,6 +142,17 @@ describe('the suggestions', () => {
     expect(links[0]).toContain('provider=dwd')
     expect(links[0]).toContain('resolution=hourly')
     expect(links[0]).toContain('stations=02564')
+  })
+
+  it('ask for the datasets of each network themselves where the list of providers did not come, as the app does', async () => {
+    failFirstProviders = true
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'download').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature: [1-9]\d*\.$/))
+
+    // the compact answer has no resolutions to find an hourly one in: every request asked for them
+    expect(asked('providers').length).toBeGreaterThanOrEqual(2)
+    expect(asked('providers').map(request => request.query.get('datasets'))).toEqual(asked('providers').map(() => 'true'))
   })
 
   it('close when the one open is pressed again, and the link follows', async () => {

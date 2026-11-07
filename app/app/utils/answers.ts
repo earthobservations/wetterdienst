@@ -303,7 +303,7 @@ export interface TemperatureSource {
 /** The measurement networks of `providers` that publish an hourly resolution: the ones whose coverage to ask */
 export function hourlyNetworks(providers: Provider[]): Array<{ provider: Provider, network: string }> {
   return providers.flatMap(provider => provider.networks
-    .filter(network => network.kind === 'observation' && network.resolutions.some(resolution => resolution.name === 'hourly'))
+    .filter(network => network.kind === 'observation' && (network.resolutions ?? []).some(resolution => resolution.name === 'hourly'))
     .map(network => ({ provider, network: network.network })))
 }
 

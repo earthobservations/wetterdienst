@@ -232,7 +232,8 @@ class ResponseMetadata(BaseModel):
     )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
-        "none) and with which credit line (`attribution`).",
+        "none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's "
+        "notice, shown for information.",
     )
     producer: _Producer
     processing_note: str = Field(
