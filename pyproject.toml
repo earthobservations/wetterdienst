@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.183.0"
+version = "0.184.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -108,7 +108,7 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.14.4,<4",
     "certifi>=2026.10.19",  # drops the emSign ECC Root CA - G3 (GHSA-6q48-6c7w-9gw2, GH-3331)
-    "click>=8.2,<9",
+    "click>=8.3.2,<9",  # 8.2.0 breaks completion, 8.3.0 and 8.3.1 bare boolean options (GH-3826)
     "filelock>=3.30,<5",  # first release that honours fallback_to_soft=False (GH-3485)
     "fsspec[http]>=2026.6.0",
     "lxml>=4.9.1,<7",
@@ -445,6 +445,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 "tests/*" = ["S101"]
 "benchmarks/*" = ["T20", "INP001"]
 "examples/*" = ["T20", "INP001"]
+# the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
+# load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
+"src/wetterdienst/ui/cli.py" = ["PLC0415"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]

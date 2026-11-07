@@ -6842,7 +6842,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.183.0"
+version = "0.184.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -6992,7 +6992,7 @@ docs = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.4,<4" },
     { name = "certifi", specifier = ">=2026.10.19" },
-    { name = "click", specifier = ">=8.2,<9" },
+    { name = "click", specifier = ">=8.3.2,<9" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1.1.0,<2" },
     { name = "duckdb", marker = "extra == 'sql'", specifier = ">=1.1.0,<2" },
     { name = "eccodes", marker = "extra == 'bufr'", specifier = ">=1.7.1,<3" },

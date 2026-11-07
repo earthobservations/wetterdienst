@@ -16,6 +16,37 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- Command line: `--help`, `--version` and each shell completion (a TAB) start in about 0.07 s,
+  where they took about 0.7 s: they no longer import polars, pydantic or the providers, which a
+  command imports when it runs, and `values` refused for its options is told in 0.4 s, not 0.8 s.
+  A broken dependency now fails the command that needs it, not `--version`. `import wetterdienst`
+  and `wetterdienst.api` no longer import polars, pydantic-settings or the settings: `Settings`,
+  `Options` and the submodules `settings`, `options`, `model` and `ui` are imported when used,
+  and every way to name them still works. Gone: `wetterdienst.api.Settings` and
+  `wetterdienst.api.check_settings`. `wetterdienst.metadata.unit_type`, `.parameter_table`,
+  `.aliases` and `.renamed` and `wetterdienst.util.hosts` and `.response_warnings` were attribute
+  paths after a plain `import wetterdienst` and now raise `AttributeError` until something imports
+  them: `import wetterdienst.metadata.unit_type` works as ever. `import
+  wetterdienst.model.request` still imports polars and the settings, but no longer `measurement`
+  (sympy) and `pyarrow`, which a search by distance or by rank imports (GH-3809)
+
+### Fixed
+
+- **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
+  `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
+  merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
+  of the request, and `df_stations` every dataset of a station with any row, so a station that
+  returned nothing, that `sql_values`, `filtered_by_date` or `filtered_by_sql` took every row of, or
+  that a `rank` walk stopped before was there: looking one up now raises `KeyError`. No rows is an
+  empty list. To find a requested station with no rows, compare the ids the answer names
+  (`metadata.request.stations.ids`, padded as it pads them) with yours, or ask `stations` without
+  `timestamp`; in Python read `result.stations.df`. `history`, `interpolate` and `summarize` are
+  unchanged (GH-3818)
+
+## [0.184.0] - 2026-11-06
+
 ### Added
 
 - Command line: `--quiet`, beside `--debug` on every command that has it but `restapi`, logs the
@@ -97,6 +128,10 @@ Types of changes:
   images are drawn by our own call to Kaleido under a time limit (see Fixed), which needs
   `plotly.io.defaults.plotlyjs` (plotly 6.2.0) and a choreographer that kills the browser's process
   group (1.3.0, which kaleido 1.3.0 requires). Upgrade both where an older pair is pinned (GH-3723)
+- wetterdienst now requires `click>=8.3.2` (before `click>=8.2`). On 8.2.0, `--provider` and
+  `--network` complete nothing or the wrong candidates. On 8.3.0 and 8.3.1, every boolean option
+  given without a value (`--all`, `--pretty`, `--debug`, `--quiet`) is refused. Upgrade click where
+  an older one is pinned (GH-3826)
 - **Breaking**: `wetterdienst alerts --target` now decides the format by the extension (`.json`,
   `.geojson`, `.csv`) and takes `--if-exists` and `--with-metadata`. `--target=feed.txt` or a name
   without an extension, which exited 0 and wrote JSON, and `--format=geojson --target=x.json` now
@@ -157,12 +192,12 @@ Types of changes:
   `ExportRefusedError` that names no part of the target, and on the command line one line and
   exit 1 for `alerts` and `history` before the fetch. Before, each writer failed in its own way,
   with a traceback for `history`, and NetCDF wrote a file named `x` (GH-3814)
-- `history` of `dwd/observation` now tells a directory whose listing came back empty or missing
-  with a `file-skipped` warning naming the stations and the directory, so the REST API no longer
-  keeps that partial answer for an hour. REST and the command line reach it for the `meta_data`
-  of the 5 and 10 minute datasets (not urban); other empty directories still fail the station
-  lookup with a 500 (GH-3819). A station with no file in a listing that is there is the source's
-  answer and no warning (GH-3814)
+- `history` of `dwd/observation` now tells a directory missing on the server (a 404) with a
+  `file-skipped` warning naming the stations and the directory, so the REST API no longer keeps
+  that partial answer for an hour. REST and the command line reach it for the `meta_data` of the 5
+  and 10 minute datasets (not urban); elsewhere a missing directory still fails the station lookup
+  with a 500, and a directory that is there but empty is not told yet (GH-3819). A station with no
+  file in a listing that is there is the source's answer and no warning (GH-3814)
 - `filtered_by_date` and `filtered_by_sql` on an interpolated or summarized result now cut its
   `stations` to those its remaining rows were made from (`with_stations`, GeoJSON, `df_stations`,
   `counts.stations`): two rows from one station listed six stations, an empty result all of them
@@ -181,16 +216,6 @@ Types of changes:
   `ColumnNotFoundError`). A window over Frost's 100,000 observations is an
   `InvalidTimeIntervalError` that says to narrow it, where it was a `CredentialRejectedError`
   that blamed the client ID (GH-3748)
-- **Breaking**: `with_stations` of `values` (REST, MCP, `--with-stations`, `to_dict`, `to_json`) and
-  `df_stations` list the stations that have rows, for each resolution and dataset that has rows (a
-  merged wide row lists each of its datasets), as the GeoJSON does. The block listed every station
-  of the request, and `df_stations` every dataset of a station with any row, so a station that
-  returned nothing, that `sql_values`, `filtered_by_date` or `filtered_by_sql` took every row of, or
-  that a `rank` walk stopped before was there: looking one up now raises `KeyError`. No rows is an
-  empty list. To find a requested station with no rows, compare the ids the answer names
-  (`metadata.request.stations.ids`, padded as it pads them) with yours, or ask `stations` without
-  `timestamp`; in Python read `result.stations.df`. `history`, `interpolate` and `summarize` are
-  unchanged (GH-3818)
 
 ## [0.183.0] - 2026-11-03
 
@@ -7606,7 +7631,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...HEAD
+[0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0
 [0.183.0]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...v0.183.0
 [0.182.0]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...v0.182.0
 [0.181.0]: https://github.com/earthobservations/wetterdienst/compare/v0.180.0...v0.181.0
