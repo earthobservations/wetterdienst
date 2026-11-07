@@ -392,6 +392,28 @@ def _no_fetch_ahead_unless_asked_for(request: pytest.FixtureRequest) -> Generato
     TimeseriesValues._fetch_ahead = original  # type: ignore[method-assign]  # noqa: SLF001
 
 
+def _clear_auth_probes() -> None:
+    """Drop the credential probes of `get_auth`, if the module that holds them has been imported."""
+    core = sys.modules.get("wetterdienst.ui.core")
+    if core is not None:
+        core._auth_probes.clear()  # noqa: SLF001
+
+
+@pytest.fixture(autouse=True)
+def _forget_auth_probes() -> Generator[None]:
+    """Start and end every test with no answer of a credential probe kept, as `get_auth` reuses them for a minute.
+
+    Here and not in `tests/ui/conftest.py`, where it was (GH-3859): pytest 9 ties the autouse fixtures of a
+    sub-directory's conftest to the directory node it loaded the conftest for. A selection that names files of that
+    directory on both sides of a file outside it (`pytest tests/ui/a.py tests/b.py tests/ui/c.py`) gets a second node
+    for the directory, and the tests of `c.py` run without the fixture. Those of this root conftest reach every
+    test. The cache lives in a module a test may not have imported, and one that was not has nothing to clear.
+    """
+    _clear_auth_probes()
+    yield
+    _clear_auth_probes()
+
+
 def _is_local_address(address: object) -> bool:
     """Say whether a socket address points at this machine.
 
