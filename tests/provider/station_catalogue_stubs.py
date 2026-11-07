@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from tests.provider import station_data_index as data_index
+from tests.provider.metno.frost import catalogue_rows as frost_rows
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, Bbox, has_encoding_damage
 from wetterdienst import Settings
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
@@ -462,27 +463,19 @@ def _metoffice(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the list needs a client, so a stub of one is given; the names are those the list pads with a blank (GH-2654),
-    # the rest worded after it (ids with their `SN` prefix, the stamps as ISO text, the position as lon, lat)
-    def source(station_id: str, name: str, county: str, lon: float, lat: float, masl: int) -> dict[str, Any]:
-        return {
-            "id": station_id,
-            "name": name,
-            "validFrom": "2000-01-01T00:00:00.000Z",
-            "geometry": {"@type": "Point", "coordinates": [lon, lat]},
-            "county": county,
-            "countryCode": "NO",
-            "masl": masl,
-        }
-
-    catalogue = {
-        "data": [
-            source("SN18700", "OSLO - BLINDERN", "OSLO", 10.72, 59.94, 94),
-            source("SN46380", "KVANNDALEN ", "VESTLAND", 6.62, 60.88, 388),
-            source("SN46530", "VIVASSDALEN ", "VESTLAND", 6.4, 61.02, 54),
-        ]
-    }
-    _serve(monkeypatch, frost_api, {"sources/v0.jsonld": json.dumps(catalogue).encode("utf8")})
+    # the list needs a client, so a stub of one is given. The two requests of the catalogue are served with the rows of
+    # the real answers of 2026-11-07, cut to the stations that show a rule (`catalogue_rows.py`): the sources, which
+    # list the closed stations too (names padded with a blank, GH-2654; ids with their `SN` prefix; the stamps as ISO
+    # text; the position as lon, lat), and the declared series of every station, which the start and the end are read
+    # from (GH-3847, GH-3864)
+    _serve(
+        monkeypatch,
+        frost_api,
+        {
+            "sources/v0.jsonld": json.dumps(frost_rows.SOURCES).encode("utf8"),
+            "availableTimeSeries/v0.jsonld": json.dumps(frost_rows.SERIES).encode("utf8"),
+        },
+    )
     request = MetnoFrostRequest(
         parameters=[("hourly", "data")],
         settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
@@ -504,6 +497,14 @@ GHCN_NO_POSITION = Accepted(
     where=lambda row: (
         (row["name"] or "").startswith(("BOGUS ", "NAME AND LOC")) or (row["station_id"] or "").startswith("RUU71-")
     ),
+)
+# the rigs, ships and gliders of Frost's list (GH-2655)
+FROST_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "52 of the 4179 SensorSystem sources (2026-11-07, closed ones included) have no geometry and no position in any "
+    "other field: ships, rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), which move; "
+    "they stay in the list and no search picks them (GH-2655)",
+    where=lambda row: row["latitude"] is None and row["longitude"] is None,
 )
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
@@ -1674,6 +1675,17 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(MeteoFranceSynopRequest, ("subdaily", "data"))
 
 
+# the start and the end the reader must give each station of Frost's stub (GH-3847, GH-3864): the rules are in the
+# docstring of `catalogue_rows.py`, and no rule of the catalogue can tell a span read wrongly from one that is only
+# another
+FROST_EXPECTED: dict[str, dict[str, Any]] = {
+    station_id: {
+        "start_timestamp": dt.datetime.fromisoformat(start).replace(tzinfo=dt.UTC),
+        "end_timestamp": None if end is None else dt.datetime.fromisoformat(end).replace(tzinfo=dt.UTC),
+    }
+    for station_id, (start, end) in frost_rows.EXPECTED.items()
+}
+
 STUBS = [
     Stub("aemet/observation daily/data", _aemet),
     Stub("dmi/observation daily/data", _dmi),
@@ -1711,7 +1723,7 @@ STUBS = [
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
     Stub("knmi/observation daily/data", _knmi, expected=KNMI_EXPECTED),
-    Stub("metno/frost hourly/data", _metno_frost),
+    Stub("metno/frost hourly/data", _metno_frost, (FROST_NO_POSITION,), expected=FROST_EXPECTED),
     Stub("metoffice/observation daily/rain", _metoffice),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
     Stub(
