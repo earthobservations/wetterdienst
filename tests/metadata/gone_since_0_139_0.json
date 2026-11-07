@@ -540,6 +540,9 @@
    ]
   },
   "MetnoFrostMetadata": {
+   "10_minutes/data": [
+    "wind_direction_gust_max"
+   ],
    "annual/data": [
     "cloud_cover_total"
    ],

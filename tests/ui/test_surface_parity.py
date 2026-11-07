@@ -2282,6 +2282,45 @@ def test_a_file_let_go_is_not_told_again_as_a_parameter_without_rows(monkeypatch
     ]
 
 
+# the dates a provider leaves out for another window are told alike on every surface (GH-3832)
+
+_OTHER_WINDOW = "other-window-left-out"
+
+
+def _leaving_out(monkeypatch: pytest.MonkeyPatch, station: str, count: int) -> None:
+    """Have the provider answer nothing for `station` and tell that it left `count` dates of another window out."""
+    from wetterdienst.util.response_warnings import note_left_out  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if station_id == station:
+            note_left_out("daily/climate_summary/temperature_air_mean_2m", count, "these dates are of another series")
+            return pl.DataFrame()
+        return original(self, station_id, parameter_or_dataset)
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_dates_left_out_for_another_window_are_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header.
+
+    The parameter is not told as one the source holds no values for: it has them, of another window.
+    """
+    _leaving_out(monkeypatch, "00001", 3)
+
+    told = _surfaces(_FULL)
+
+    (warning,) = told["rest"]
+    assert warning["code"] == _OTHER_WINDOW
+    assert warning["parameter"] == "daily/climate_summary/temperature_air_mean_2m"
+    assert warning["stations"] == ["00001"]
+    assert "on 3 dates that are not in the answer (00001 3): these dates are of another series" in warning["message"]
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_FULL, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _OTHER_WINDOW
+
+
 def test_nothing_let_go_is_told_of_on_any_surface() -> None:
     """A request whose files were all read has no `file-skipped` warning on any surface."""
     assert _surfaces(_FULL) == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}

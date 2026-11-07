@@ -84,7 +84,9 @@ the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and
 ``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
 over this table), and the MET Norway Frost rows (GH-3137, read against the ``/elements`` answer with a client ID:
 39 of the 49 equal it, 1 up to a trailing blank and 2 up to a blank before the final stop, and the other 7 add what
-the reader returns for a code of the data clarifications or of the element's own text).
+the reader returns for a code of the data clarifications or of the element's own text; GH-3832 and GH-3833 added the
+series of the two precipitation sums that is returned and the calm of the wind direction, and removed the 10-minute
+``max(wind_from_direction_of_gust PT10M)``).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
@@ -3912,9 +3914,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "MetnoFrostMetadata": {
         ("10_minutes", "data", "max(air_temperature PT10M)"): "Highest recorded air temperature per ten minutes",
         ("10_minutes", "data", "max(relative_humidity PT10M)"): "Maximum relative humidity per 10 min",
-        ("10_minutes", "data", "max(wind_from_direction_of_gust PT10M)"): (
-            "Varying wind direction last 10 minutes. Upper limit"
-        ),
         ("10_minutes", "data", "max(wind_speed_of_gust PT10M)"): "Maximum wind gust for the last ten minutes",
         ("10_minutes", "data", "min(air_temperature PT10M)"): "Lowest recorded air temperature per ten minutes",
         ("10_minutes", "data", "min(relative_humidity PT10M)"): "Minimum relative humidity per 10 min",
@@ -3963,9 +3962,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "min(air_temperature P1D)"): "Lowest recorded air temperature per 24 hours",
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
         ("daily", "data", "sum(precipitation_amount P1D)"): (
-            "Daily precipitation sum (between 06-06 UTC). Code -1 means no precipitation (Frost's data "
-            "clarifications, 0.0 mm); it is returned as null for now, as at stations that read periodically it also "
-            "marks a day not read (GH-3820)."
+            "Daily precipitation sum (between 06-06 UTC). Only this series is returned (`timeOffset` PT6H, the day "
+            "from 06 UTC of the previous date); Frost also has the 18-18 UTC sum (PT18H). Code -1 means no "
+            "precipitation (Frost's data clarifications, 0.0 mm); it is returned as null for now, as at stations that "
+            "read periodically it also marks a day not read (GH-3820)."
         ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
@@ -4012,7 +4012,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as "
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
             "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
-            "clarifications), and is returned as null."
+            "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
+            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
+            "itself after a 404 of the whole dataset. At a station with the wind at two heights (10 m and 2 m) a calm "
+            "or a -3 of the first height is the answer for the hour, and the other height does not fill it."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "
@@ -4051,7 +4054,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "min(air_temperature P1M)"): "Lowest recorded air temperature per month",
         ("monthly", "data", "sum(duration_of_sunshine P1M)"): "Number of hours of sunshine over the last month.",
-        ("monthly", "data", "sum(precipitation_amount P1M)"): "Monthly precipitation sum.",
+        ("monthly", "data", "sum(precipitation_amount P1M)"): (
+            "Monthly precipitation sum. Only the series of `timeOffset` PT6H is returned: from 06 UTC on the last day "
+            "of the previous month to 06 UTC on the last day of the month; Frost also has the 18-18 UTC series "
+            "(PT18H)."
+        ),
     },
     # The parameter listing of the metobs API ("summary", e.g. "medelvärde 1 dygn, 1 gång/dygn, kl 00"), translated:
     # the first sentence and the statistic. What the listing leaves out comes from the CSV of each station (read
