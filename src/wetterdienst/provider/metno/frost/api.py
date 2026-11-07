@@ -10,7 +10,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import polars as pl
 from aiohttp import encode_basic_auth
@@ -42,9 +42,17 @@ from wetterdienst.util.network import (
 from wetterdienst.util.response_warnings import note_left_out, note_skipped_download
 
 if TYPE_CHECKING:
+    from io import BytesIO
+
     from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
+
+# how Frost writes a stamp of the sources and the series: `2026-11-07T00:00:00.000Z`
+_FROST_STAMP = "%Y-%m-%dT%H:%M:%S%.fZ"
+# the seconds a read of the series listing may stall for (the answer takes about 30 s in all, the server computing
+# the first 8 of them before it sends)
+_SERIES_TIMEOUT = 120
 
 _MetnoFrostMetadataSpec = {
     "name_short": "MetNo Frost",
@@ -75,7 +83,9 @@ _MetnoFrostMetadataSpec = {
         # is Limoges-Bellegarde). Frost serves observations for them (checked 2026-10-29, GH-3495), mostly with short
         # recent series (Limoges and De Kooy from 2026-10-26). The extent stays national and the box that of Norway,
         # because the network is Norway's; the live catalogue test excepts the foreign stations by their id pattern
-        # (`FROST_FOREIGN_WMO` in tests/provider/station_catalogue.py)
+        # (`FROST_FOREIGN_WMO` in tests/provider/station_catalogue.py). The list holds the closed stations as well
+        # (GH-3847), three of which lie off the box, two on the coast of Greenland and one in the Barents Sea beyond
+        # 32 E: the test excepts them by id (`FROST_OFF_THE_BOX`)
         "bbox": [-10.0, 55.0, 32.0, 81.0],
     },
     "timezone": "Europe/Oslo",
@@ -1331,7 +1341,18 @@ class MetnoFrostRequest(TimeseriesRequest):
     metadata = MetnoFrostMetadata
     _values = MetnoFrostValues
 
-    _sources_url = "https://frost.met.no/sources/v0.jsonld?types=SensorSystem&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl"
+    # `validtime` makes the list hold the stations that are closed as well: without it Frost answers the stations valid
+    # now only (2,234 of the 4,179 on 2026-11-07), and `ids=` of a closed station is a 404 either way (GH-3847)
+    _sources_url = (
+        "https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now"
+        "&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl"
+    )
+    # the series Frost lists for the elements and resolutions the network declares: one request for every station,
+    # 71,363 rows and 13.2 MB on 2026-11-07, about 30 s of which the server computes 8 and does not compress
+    _series_url = (
+        "https://frost.met.no/observations/availableTimeSeries/v0.jsonld"
+        "?elements={elements}&timeresolutions={time_resolutions}&fields=sourceId,validFrom,validTo,timeResolution,elementId"
+    )
 
     @classmethod
     def is_configured(cls) -> bool:  # noqa: D102
@@ -1384,7 +1405,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             # `{"data": []}` is a list without a source, a column of nulls that cannot be unnested
             return pl.LazyFrame()
         df = df.unnest("data")
-        # geometry.coordinates: [longitude, latitude, elevation?]. 24 of the 2235 sources (2026-10-19) have
+        # geometry.coordinates: [longitude, latitude, elevation?]. 52 of the 4179 sources (2026-11-07) have
         # no geometry and no position in any other field: ships, rigs and gliders (SN76999 SCARABEO 8,
         # SN20930 POLARSTERN, SN20957 SG644 GLIDER), which move. They stay in the list with a null position,
         # as the GHCN placeholders do (GH-2655): no distance search, interpolation or summary picks them
@@ -1406,13 +1427,12 @@ class MetnoFrostRequest(TimeseriesRequest):
         if "validTo" not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=pl.String).alias("validTo"))
         df = df.with_columns(
-            pl.col("validFrom")
-            .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .alias("start_timestamp"),
+            pl.col("validFrom").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_from"),
             # a station still in service has no validTo, which parses to null
-            pl.col("validTo").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us").alias("end_timestamp"),
+            pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_to"),
         )
-        df = df.rename({"id": "station_id", "name": "name", "county": "region", "countryCode": "country"})
+        df = self._with_series_bounds(df.rename({"id": "station_id"}), settings, client_kwargs)
+        df = df.rename({"name": "name", "county": "region", "countryCode": "country"})
         # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
         df = df.select(
             "station_id",
@@ -1426,3 +1446,89 @@ class MetnoFrostRequest(TimeseriesRequest):
         )
         # one catalogue for every dataset: the core copies it over the request's datasets
         return df.lazy()
+
+    def _with_series_bounds(self, df: pl.DataFrame, settings: Settings, client_kwargs: dict) -> pl.DataFrame:
+        """Give each station the start and the end of its declared series (GH-3864, GH-3847).
+
+        The source's own `validFrom` and `validTo` are not the span of the data: data begins before `validFrom` at
+        about one station in ten (SN99700, 1895-07-07 against a source from 1956), and the source's end is earlier
+        than the latest series' end at 1,156 of 1,868 stations. The span of the series the network declares is read
+        from one request, listing them for every station:
+
+        - `start_timestamp` is the earlier of the source's `validFrom` and the earliest `validFrom` of a declared
+          series;
+        - `end_timestamp` is the latest `validTo` of a declared series, and null if any declared series is open.
+
+        A station with no declared series keeps the span the source gives it. A series of a station that is no source
+        of the list (58 on 2026-11-07) is dropped with it. The listing is asked as the catalogue is, and its failure
+        is raised as the catalogue's is: read as no series, every station would keep the source's span and the
+        catalogue would be wrong without a word.
+        """
+        declared = [
+            (parameter.name_original, resolution.name_original)
+            for resolution in self.metadata
+            for dataset in resolution.datasets
+            for parameter in dataset.parameters
+        ]
+        elements = sorted({element for element, _ in declared})
+        resolutions = sorted({resolution for _, resolution in declared})
+        url = self._series_url.format(
+            elements=quote(",".join(elements), safe=",()"),
+            time_resolutions=",".join(resolutions),
+        )
+        # the answer takes about 30 s: a stall of the default 30 s between two reads is not an outage
+        timeout = client_kwargs.get("timeout")
+        series_kwargs = (
+            {**client_kwargs, "timeout": _SERIES_TIMEOUT}
+            if isinstance(timeout, int | float) and timeout < _SERIES_TIMEOUT
+            else client_kwargs
+        )
+        file = download_file(
+            url=url,
+            cache_dir=settings.cache_dir,
+            ttl=CacheExpiry.METAINDEX,
+            client_kwargs=series_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        _raise_if_rejected(file)
+        file.raise_if_exception()
+        series = pl.read_json(cast("BytesIO", file.content))  # not an exception: raised above
+        if "data" in series.columns:
+            series = series.select(pl.col("data").explode(empty_as_null=True)).drop_nulls()
+        if "data" not in series.columns or series.is_empty():
+            # the sources of the list are there, so series are: an answer without any is not a station without data
+            msg = "Frost listed no time series for the elements the network declares"
+            raise DownloadError(url, msg)
+        series = series.unnest("data")
+        if "validTo" not in series.columns:
+            series = series.with_columns(pl.lit(None, dtype=pl.String).alias("validTo"))
+        pairs = pl.DataFrame(declared, schema={"elementId": pl.String, "timeResolution": pl.String}, orient="row")
+        series = (
+            series.join(pairs, on=["elementId", "timeResolution"], how="semi")
+            .with_columns(
+                pl.col("validFrom").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_series_from"),
+                pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_series_to"),
+            )
+            # the listing names a series by its sensor system: `SN99700:0`, the station `SN99700`
+            .with_columns(pl.col("sourceId").str.split(":").list.first().alias("sourceId"))
+            .group_by("sourceId")
+            .agg(
+                pl.col("_series_from").min(),
+                # open if any series is open
+                pl.when(pl.col("_series_to").null_count() > 0)
+                .then(None)
+                .otherwise(pl.col("_series_to").max())
+                .alias("_series_to"),
+                pl.lit(value=True).alias("_has_series"),
+            )
+            .rename({"sourceId": "station_id"})
+        )
+        df = df.join(series, on="station_id", how="left", maintain_order="left")
+        return df.with_columns(
+            pl.min_horizontal("_source_from", "_series_from").alias("start_timestamp"),
+            pl.when(pl.col("_has_series").fill_null(value=False))
+            .then(pl.col("_series_to"))
+            .otherwise(pl.col("_source_to"))
+            .alias("end_timestamp"),
+        )

@@ -5,7 +5,7 @@ Norwegian Meteorological Institute (Meteorologisk institutt)
 ## Overview
 
 MET Norway publishes historical and recent observations from the Norwegian station network
-(~2200 stations) through its Frost API, covering 10-minute, hourly, 6-hourly (historical
+(~4,200 stations, the closed ones included) through its Frost API, covering 10-minute, hourly, 6-hourly (historical
 only), daily, monthly and annual resolution. Access requires free client credentials, which
 you can request at [frost.met.no](https://frost.met.no/auth/requestCredentials.html) and
 provide via the `WD_AUTH__METNO_FROST` environment variable.
@@ -49,7 +49,7 @@ abuse that "will result in a permanent ban". The library's User-Agent is `wetter
 the application and carries no contact. Frost itself identifies the caller by the client ID, so the Frost terms ask for
 no User-Agent; an operator who wants to give a contact sets `fsspec_client_kwargs` (see
 [settings](../../../usage/settings.md)). Wetterdienst keeps what it downloads from Frost for five minutes (the
-availability listing for an hour) and the station list for twelve hours; it does not read Frost's cache headers, so
+availability listing for an hour) and the station list, with the series listing its dates are read from, for twelve hours; it does not read Frost's cache headers, so
 these limits are its own.
 
 ```{toctree}
