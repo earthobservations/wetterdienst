@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-07
+
 ### Added
 
 - `[Map]` A fifth tool, the station map (`/map`, violet tile): DWD's forecast stations or measuring
@@ -26,7 +28,8 @@ Types of changes:
   its list's newest) before a closed one (shown with its years); a click on a dot is that station.
   Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
   it on a station, not yet a town (GH-3650, GH-3791). All eleven locales; all but `en`
-  machine-made, none read by a native speaker
+  machine-made, none read by a native speaker. The app of this release is paired with the backend
+  0.184.0, which it was run against, so release the backend first
 
 ### Changed
 
@@ -1836,7 +1839,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...HEAD
+[0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
