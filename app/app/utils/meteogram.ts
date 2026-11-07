@@ -288,3 +288,28 @@ export function meteogramViewFromQuery(query: Record<string, unknown>): Meteogra
     return 'chart'
   return null
 }
+
+/**
+ * The MOSMIX request of a meteogram, as the forecast page makes it, and the map's panel with it (GH-3650). The
+ * parameters are the series the chart and the day cards draw: temperature, dew point, wind, gusts, cloud cover by
+ * layer, precipitation, significant weather, pressure, and the day's maximum and minimum.
+ */
+export const MOSMIX_METEOGRAM = {
+  provider: 'dwd',
+  network: 'mosmix',
+  resolution: 'hourly',
+  dataset: 'large',
+  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
+} as const
+
+/** The query of `/api/values` for the meteogram of a MOSMIX station */
+export function meteogramValuesQuery(stationId: string): Record<string, string> {
+  const { provider, network, resolution, dataset, parameters } = MOSMIX_METEOGRAM
+  return {
+    provider,
+    network,
+    parameters: parameters.map(parameter => `${resolution}/${dataset}/${parameter}`).join(','),
+    stations: stationId,
+    ...METEOGRAM_VALUES_SETTINGS,
+  }
+}

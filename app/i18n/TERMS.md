@@ -175,6 +175,13 @@ meant to be understood, not to be the last word, and **a review by a native spea
   of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
   verdicts (calm, breezy, windy, stormy), which follows no official word list.
 
+- **Machine-made**: the strings of the map tool (`mapTool.*`, `nav.map`, `shell.stationsMap` and `shell.stationOnMap`,
+  `seo.pages.map`, GH-3650: the chips, the panel, the cards' notes and links, the about text) were written by a language
+  model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`
+  (`Utsicht-Stationen`, `Söök di … ut`, `opmaken`, `Pielentasten`, `Seehööch`); `lb` (`Prognosstatioune`, `Schicht`,
+  `Feilen` for the arrow keys, `ewech`); `pl` and `cs` (`Wybrano: {name}` and `Vybráno: {name}` for "chosen", `n.p.m.` and
+  `n. m.` for "above sea level"); and in every language the sentence of the about text that explains the keyboard.
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

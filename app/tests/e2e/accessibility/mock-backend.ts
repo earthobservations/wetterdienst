@@ -87,20 +87,26 @@ const OBSERVATION_COVERAGE = {
   },
 } satisfies ProviderNetworkCoverageResponse
 
+/**
+ * The end of a station that is running, as the REST API gives one: the day of its last value, two days ago, and no
+ * `null` (the map tool takes a station with no end for one whose status is not known)
+ */
+const RUNNING_END = new Date(Date.now() - 2 * 86_400_000).toISOString().replace(/T.*$/, 'T00:00:00+00:00')
+
 /** Daily climate summary of the stations the explorer, the history and the maps are shown with */
 export const STATIONS: Station[] = [
-  { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.9737, longitude: 8.5205, elevation: 680, start_timestamp: '1980-09-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00044', name: 'Großenkneten', region: 'Niedersachsen', latitude: 52.9336, longitude: 8.2370, elevation: 44, start_timestamp: '1971-03-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00071', name: 'Albstadt-Badkap', region: 'Baden-Württemberg', latitude: 48.2156, longitude: 8.9784, elevation: 759, start_timestamp: '1986-11-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00073', name: 'Aldersbach-Kriestorf', region: 'Bayern', latitude: 48.6159, longitude: 13.0506, elevation: 340, start_timestamp: '1964-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00091', name: 'Alfhausen', region: 'Niedersachsen', latitude: 52.4853, longitude: 7.9126, elevation: 65, start_timestamp: '1993-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00096', name: 'Neuhaus am Rennweg', region: 'Thüringen', latitude: 50.5063, longitude: 11.1283, elevation: 840, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00102', name: 'Leuchtturm Alte Weser', region: 'Niedersachsen', latitude: 53.8633, longitude: 8.1275, elevation: 3, start_timestamp: '1997-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00125', name: 'Andechs-Rothenfeld', region: 'Bayern', latitude: 47.9794, longitude: 11.1888, elevation: 680, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, elevation: 54, start_timestamp: '1991-03-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00183', name: 'Arkona', region: 'Mecklenburg-Vorpommern', latitude: 54.6791, longitude: 13.4343, elevation: 42, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: null },
+  { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.9737, longitude: 8.5205, elevation: 680, start_timestamp: '1980-09-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00044', name: 'Großenkneten', region: 'Niedersachsen', latitude: 52.9336, longitude: 8.2370, elevation: 44, start_timestamp: '1971-03-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00071', name: 'Albstadt-Badkap', region: 'Baden-Württemberg', latitude: 48.2156, longitude: 8.9784, elevation: 759, start_timestamp: '1986-11-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00073', name: 'Aldersbach-Kriestorf', region: 'Bayern', latitude: 48.6159, longitude: 13.0506, elevation: 340, start_timestamp: '1964-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00091', name: 'Alfhausen', region: 'Niedersachsen', latitude: 52.4853, longitude: 7.9126, elevation: 65, start_timestamp: '1993-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00096', name: 'Neuhaus am Rennweg', region: 'Thüringen', latitude: 50.5063, longitude: 11.1283, elevation: 840, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00102', name: 'Leuchtturm Alte Weser', region: 'Niedersachsen', latitude: 53.8633, longitude: 8.1275, elevation: 3, start_timestamp: '1997-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00125', name: 'Andechs-Rothenfeld', region: 'Bayern', latitude: 47.9794, longitude: 11.1888, elevation: 680, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, elevation: 54, start_timestamp: '1991-03-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00183', name: 'Arkona', region: 'Mecklenburg-Vorpommern', latitude: 54.6791, longitude: 13.4343, elevation: 42, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
   { station_id: '00198', name: 'Artern', region: 'Thüringen', latitude: 51.3745, longitude: 11.2915, elevation: 164, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: '2018-12-31T00:00:00+00:00' },
-  { station_id: '00205', name: 'Aue', region: 'Sachsen', latitude: 50.5919, longitude: 12.7095, elevation: 450, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: null },
+  { station_id: '00205', name: 'Aue', region: 'Sachsen', latitude: 50.5919, longitude: 12.7095, elevation: 450, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
 ]
 
 const MOSMIX_STATION: Station = {
@@ -128,7 +134,8 @@ const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => (
   latitude: station.latitude as number,
   longitude: station.longitude as number,
   start_timestamp: '1950-01-01T00:00:00+00:00',
-  end_timestamp: null,
+  // an annual list ends with the last year, as the real one does
+  end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00`,
 }))
 
 /** `GET /api/providers`: DWD with a licence, a credit line, a network with resolutions and a standalone one, and AEMET with a key and no terms */

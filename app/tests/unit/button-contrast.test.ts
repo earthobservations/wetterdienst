@@ -85,3 +85,55 @@ describe('text in the colours of the app', () => {
     expect(contrast(line, ground)).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe('the tiles of the tools (GH-3650)', () => {
+  // a tile is a mark beside a name that is always written, so it needs 3:1 as a non-text mark (WCAG 1.4.11) against what
+  // it lies on, and its glyph 4.5:1 on its fill (the glyph is a picture of the name, and so held to text's ratio)
+  const CARD = '#ffffff'
+  const PAPER = ink(50)
+  const NIGHT_CARD = darkToken('ui-bg')
+  const NIGHT_PAGE = ink(950)
+
+  it.each([
+    ['by day, on a card', token('color-tile-map'), CARD],
+    ['by day, on the paper', token('color-tile-map'), PAPER],
+    ['at night, on a card', token('color-tile-map-night'), NIGHT_CARD],
+    ['at night, on the page', token('color-tile-map-night'), NIGHT_PAGE],
+  ])('has a violet map tile that clears 3:1 against what it lies on, %s', (_where, fill, ground) => {
+    expect(contrast(fill, ground)).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each([
+    ['by day, white', token('color-tile-map'), WHITE],
+    ['at night, navy', token('color-tile-map-night'), ink(950)],
+  ])('has a glyph on the map tile that clears 4.5:1, %s', (_when, fill, glyph) => {
+    expect(contrast(glyph, fill)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('says in the stylesheet what the test holds: white on the day violet, navy on the night violet', () => {
+    expect(css).toMatch(/\.tile-map\s*\{[^}]*--tile-fill:\s*var\(--color-tile-map\)[^}]*--tile-glyph:\s*#ffffff/)
+    expect(css).toMatch(/\.dark \.tile-map\s*\{[^}]*--tile-fill:\s*var\(--color-tile-map-night\)[^}]*--tile-glyph:\s*var\(--color-ink-950\)/)
+  })
+
+  /** The hue of a colour, in degrees */
+  function hue(hex: string) {
+    const [r, g, b] = channels(hex).map(c => c! / 255) as [number, number, number]
+    const max = Math.max(r, g, b)
+    const delta = max - Math.min(r, g, b)
+    const sector = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4
+    return (sector * 60 + 360) % 360
+  }
+
+  it('is in the gap of the colour wheel the issue names, between the rain\'s blue and the thermometer\'s coral (hue 250 to 280: violet-600 is 262, the lighter violet of the night 256), by day and at night', () => {
+    for (const fill of [token('color-tile-map'), token('color-tile-map-night')]) {
+      expect(hue(fill)).toBeGreaterThanOrEqual(250)
+      expect(hue(fill)).toBeLessThanOrEqual(280)
+    }
+  })
+
+  it('is far from the other four tiles in hue, 40 degrees at the least', () => {
+    const distance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+    for (const other of ['sun', 'rain', 'wind', 'heat'])
+      expect(distance(hue(token('color-tile-map')), hue(token(`color-tile-${other}`))), other).toBeGreaterThanOrEqual(40)
+  })
+})
