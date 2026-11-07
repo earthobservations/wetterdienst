@@ -9,6 +9,10 @@ with a 500 and the command line with a traceback. `stations`, `values` and `hist
 with the rest and say with a `file-skipped` warning that the answer is partial, which keeps a history from being cached.
 A connection that cannot be made or a failing server is still an error and never a `file-skipped`.
 
+A directory that lists files and no description of its stations (the extreme wind: no FX3 or FX6) is skipped the same
+way (GH-3834), and a station that only a skipped directory lists, asked for by `interpolate`, `summarize` or the
+stripes, is a 502 that names the directory and no 404.
+
 The server is `tests/nginx_stub.py`, one that answers as nginx does, so the listings are fsspec's own (an empty
 directory is `[url]` there without the fix of `list_remote_files_fsspec`): every directory lists one station, 00044, and
 its description, and the ones a test names are empty or not there. Nothing here reaches the network.
@@ -33,21 +37,37 @@ from starlette.testclient import TestClient
 from tests.nginx_stub import NginxLike, serving
 from tests.provider.station_catalogue import assert_sound
 from wetterdienst import Settings
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import (
+    DownloadError,
+    MetaFileNotFoundError,
+    NoInternetError,
+    StationListingIncompleteError,
+    StationNotFoundError,
+    UpstreamError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.metadata.period import Period
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import metaindex as derived_metaindex
 from wetterdienst.provider.dwd.observation import DwdObservationRequest, api, fileindex, metaindex
-from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError
+from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
+    NO_DESCRIPTION,
+    DescriptionFileMissingError,
+    EmptyListingError,
+)
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.util.network import File, list_remote_files_fsspec
+from wetterdienst.util.network import File, forget_remote_listing, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from httpx2 import Response
 
 _DWD = "https://opendata.dwd.de"
 _OBSERVATIONS = "/climate_environment/CDC/observations_germany/"
@@ -204,7 +224,11 @@ def dwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[_Dwd]:
         def download_file(url: str, **_: object) -> File:
             return File(url=url, content=io.BytesIO(_description_for(url, state.stations)), status=200)
 
+        def forget(url: str, settings: Settings, cache_expiry: CacheExpiry) -> None:  # noqa: ARG001
+            forget_remote_listing(url.replace(_DWD, server.base), state.local, cache_expiry)
+
         monkeypatch.setattr(fileindex, "list_remote_files_fsspec", listing)
+        monkeypatch.setattr(fileindex, "forget_remote_listing", forget)
         monkeypatch.setattr(metaindex, "download_file", download_file)
         monkeypatch.setattr(derived_metaindex, "download_file", download_file)
         monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_history_zip(), status=200))
@@ -564,35 +588,6 @@ def test_a_values_request_of_an_empty_directory_for_the_period_asked_is_empty_wi
     body = response.json()
     assert body["values"] == []
     assert any("`climate/monthly/kl/historical/`" in warning["message"] for warning in _skipped(body))
-
-
-@pytest.mark.parametrize(
-    ("route", "extra"),
-    [
-        pytest.param("summarize", {"parameters": "monthly/climate_summary/temperature_air_mean_2m"}, id="summarize"),
-        pytest.param(
-            "interpolate", {"parameters": "monthly/climate_summary/temperature_air_mean_2m"}, id="interpolate"
-        ),
-    ],
-)
-def test_rest_a_station_only_the_skipped_directory_lists_is_a_404_that_says_nothing_of_it(
-    client: TestClient, dwd: _Dwd, route: str, extra: dict[str, str]
-) -> None:
-    """Known limit, tracked in #3834: the estimate asks for a station by id and does not hear of the warning.
-
-    00044 is listed by `historical` only (`recent` lists another station's file), and `historical` is empty.
-    """
-    dwd.server.directories[f"{_OBSERVATIONS}{_MONTHLY_RECENT}"] = ["stundenwerte_KL_00045_19700101_20241231_akt.zip"]
-    dwd.set(empty=(_MONTHLY_HISTORICAL,))
-
-    response = client.get(
-        f"/api/v1/{route}",
-        params={"provider": "dwd", "network": "observation", "station": "00044", "timestamp": "2020-01-01", **extra},
-    )
-
-    assert response.status_code == 404
-    assert "00044" in response.text
-    assert "historical" not in response.text
 
 
 # --- an outage is no empty directory --------------------------------------------------------------------------------
@@ -996,3 +991,671 @@ def test_the_error_of_an_empty_listing_keeps_its_message_and_survives_a_copy() -
         assert type(twin) is EmptyListingError
         assert twin.url == error.url
         assert str(twin) == str(error)
+
+
+# --- a period without a description file, and the extreme wind (GH-3834) -------------------------------------------
+
+#: the files of a directory whose description is not (yet) there
+_UNDESCRIBED = ["stundenwerte_KL_00044_19700101_20241231_hist.zip"]
+_ANNUAL_HISTORICAL = "climate/annual/kl/historical/"
+_WIND_HISTORICAL = "climate/subdaily/extreme_wind/historical/"
+_WIND = "subdaily/wind_extreme"
+_WIND_FILES = ["terminwerte_FX_00044_20100101_20201231_hist.zip"]
+_FX3 = "FX3_Beschreibung_Stationen.txt"
+_FX6 = "FX6_Beschreibung_Stationen.txt"
+_NO_DESCRIPTION_WARNING = (
+    "The directory `climate/monthly/kl/historical/` lists no description of its stations, so the historical stations "
+    "of monthly/climate_summary were not looked up, and a station that only that release lists is not in the answer, "
+    "which may be partial. Try again later."
+)
+
+
+def _without_description(dwd: _Dwd, directory: str = _MONTHLY_HISTORICAL, files: list[str] | None = None) -> None:
+    """Make a directory list files and no description."""
+    dwd.server.directories[dwd._path(directory)] = files if files is not None else _UNDESCRIBED  # noqa: SLF001
+
+
+def test_rest_stations_of_a_period_without_a_description_are_those_of_the_others_with_a_warning(
+    client: TestClient, dwd: _Dwd
+) -> None:
+    """The period was skipped with a log line and nothing in the answer; now `file-skipped` names the directory."""
+    _without_description(dwd)
+
+    response = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [station["station_id"] for station in body["stations"]] == ["00044"]
+    assert [warning["message"] for warning in _skipped(body)] == [_NO_DESCRIPTION_WARNING]
+    assert "Cache-Control" not in response.headers
+
+
+def test_rest_a_history_of_a_period_without_a_description_is_not_cached(client: TestClient, dwd: _Dwd) -> None:
+    """A partial answer carried `public, max-age=3600` and an `ETag`: with the warning it carries neither."""
+    _without_description(dwd)
+
+    response = client.get("/api/v1/history", params={**_PARAMS, "parameters": _MONTHLY})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [warning["message"] for warning in _skipped(body)] == [_NO_DESCRIPTION_WARNING]
+    assert "Cache-Control" not in response.headers
+    assert "ETag" not in response.headers
+
+
+def test_cli_stations_of_a_period_without_a_description_are_those_of_the_others_with_a_warning(dwd: _Dwd) -> None:
+    """The command line answers the stations of `recent`, exit 0, and the warning is in its metadata."""
+    _without_description(dwd)
+
+    exit_code, body, output = _cli("stations", _MONTHLY, "--all")
+
+    assert exit_code == 0, output
+    assert body is not None
+    assert [station["station_id"] for station in body["stations"]] == ["00044"]
+    assert [warning["message"] for warning in _skipped(body)] == [_NO_DESCRIPTION_WARNING]
+
+
+def test_rest_stations_of_a_dataset_whose_only_directory_has_no_description_are_none_with_a_warning(
+    client: TestClient, dwd: _Dwd
+) -> None:
+    """The solar datasets list one directory for every period: no station, and the warning says why."""
+    _without_description(dwd, "climate/hourly/solar/")
+
+    response = client.get(
+        "/api/v1/stations",
+        params={"provider": "dwd", "network": "observation", "parameters": "hourly/solar", "all": "true"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["stations"] == []
+    (skipped,) = _skipped(body)
+    assert "The directory `climate/hourly/solar/` lists no description of its stations" in skipped["message"]
+    assert "historical and recent stations of hourly/solar" in skipped["message"]
+
+
+def test_python_the_stations_of_a_period_without_a_description_log_and_record_the_warning(
+    dwd: _Dwd, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`all()` goes on without the period and warns once: a log line, and what a response records."""
+    _without_description(dwd)
+    begin_response()
+
+    with caplog.at_level(logging.WARNING):
+        stations = _request().all().df
+
+    assert stations.get_column("station_id").to_list() == ["00044"]
+    assert [warning["message"] for warning in recorded_warnings()] == [_NO_DESCRIPTION_WARNING]
+    assert [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING] == [
+        _NO_DESCRIPTION_WARNING
+    ]
+
+
+@pytest.mark.usefixtures("dwd")
+def test_python_a_mocked_meta_file_error_without_a_url_is_the_period_skipped_all_the_same() -> None:
+    """A `MetaFileNotFoundError` that names no directory (a caller's own, a mock) is told for the period's directory."""
+    begin_response()
+    with patch.object(api, "create_meta_index_for_climate_observations", side_effect=MetaFileNotFoundError("none")):
+        stations = _request().all().df
+
+    assert stations.is_empty()
+    assert sorted(warning["message"].split(" lists no")[0] for warning in recorded_warnings()) == [
+        "The directory `climate/monthly/kl/historical/`",
+        "The directory `climate/monthly/kl/recent/`",
+    ]
+
+
+def test_a_directory_that_gets_its_description_is_looked_up_at_once(client: TestClient, dwd: _Dwd) -> None:
+    """The listing of a directory with no description is not kept: DWD uploads it, the next request sees it.
+
+    A listing with files is kept for 12 hours, so the skip would have outlived the directory being whole.
+    """
+    _without_description(dwd)
+    first = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    )
+    assert _skipped(first.json())
+
+    dwd.server.directories[dwd._path(_MONTHLY_HISTORICAL)] = _FILES  # noqa: SLF001
+    second = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    )
+
+    assert _warnings(second.json()) == []
+    assert [station["station_id"] for station in second.json()["stations"]] == ["00044"]
+
+
+def test_a_directory_with_a_description_is_kept_in_the_listings_cache(client: TestClient, dwd: _Dwd) -> None:
+    """The control: a whole directory is listed once for the 12 hours, so the second request asks nothing of it."""
+    params = {"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    assert client.get("/api/v1/stations", params=params).status_code == 200
+    dwd.server.requests.clear()
+
+    assert client.get("/api/v1/stations", params=params).status_code == 200
+
+    assert [path for _, path in dwd.server.requests if "/monthly/kl/historical" in path] == []
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param([*_WIND_FILES, _FX6], id="no-fx3"),
+        pytest.param([*_WIND_FILES, _FX3], id="no-fx6"),
+        pytest.param(_WIND_FILES, id="neither"),
+    ],
+)
+def test_rest_stations_of_the_extreme_wind_without_a_description_of_a_series_skip_the_period(
+    client: TestClient, dwd: _Dwd, files: list[str]
+) -> None:
+    """The first of the two descriptions was indexed with `[0]` of nothing: an `IndexError`, a 500."""
+    dwd.server.directories[dwd._path(_WIND_HISTORICAL)] = files  # noqa: SLF001
+    dwd.server.directories[dwd._path(_WIND_HISTORICAL.replace("historical", "recent"))] = [  # noqa: SLF001
+        *_WIND_FILES,
+        _FX3,
+        _FX6,
+    ]
+
+    response = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _WIND, "all": "true"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [station["station_id"] for station in body["stations"]] == ["00044"]
+    (skipped,) = _skipped(body)
+    assert skipped["message"].startswith(
+        f"The directory `{_WIND_HISTORICAL}` lists no description of its stations, so the historical stations of "
+    )
+
+
+@pytest.mark.parametrize(("series", "files"), [("FX3", [*_WIND_FILES, _FX6]), ("FX6", [*_WIND_FILES, _FX3])])
+def test_the_extreme_wind_names_the_series_it_found_no_description_of(dwd: _Dwd, series: str, files: list[str]) -> None:
+    """The error says which of the two is missing, and the directory."""
+    dwd.server.directories[dwd._path(_WIND_HISTORICAL)] = files  # noqa: SLF001
+    settings = Settings(cache_disable=True)
+
+    with pytest.raises(DescriptionFileMissingError, match=rf"No {series} meta file was found amongst the files at"):
+        metaindex._create_meta_index_for_subdaily_extreme_wind(Period.HISTORICAL, settings)  # noqa: SLF001
+
+
+def test_the_extreme_wind_with_both_descriptions_is_looked_up_whole(client: TestClient, dwd: _Dwd) -> None:
+    """The control: with FX3 and FX6 listed, nothing is skipped and nothing is said."""
+    for period in ("historical", "recent"):
+        dwd.server.directories[dwd._path(_WIND_HISTORICAL.replace("historical", period))] = [  # noqa: SLF001
+            *_WIND_FILES,
+            _FX3,
+            _FX6,
+        ]
+
+    response = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _WIND, "all": "true"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [station["station_id"] for station in body["stations"]] == ["00044"]
+    assert _skipped(body) == []
+
+
+def test_the_error_of_a_missing_description_keeps_its_message_and_survives_a_copy() -> None:
+    """It is the `MetaFileNotFoundError` it was, with the message it had, and a copy or a pickle rebuilds it."""
+    error = DescriptionFileMissingError("https://opendata.dwd.de/x/")
+
+    assert isinstance(error, MetaFileNotFoundError)
+    assert isinstance(error, FileNotFoundError)
+    assert str(error) == "No meta file was found amongst the files at https://opendata.dwd.de/x/."
+    for twin in (copy.copy(error), pickle.loads(pickle.dumps(error))):  # noqa: S301
+        assert type(twin) is DescriptionFileMissingError
+        assert (twin.url, twin.what) == (error.url, error.what)
+        assert str(twin) == str(error)
+
+
+# --- a station that only a skipped directory lists is no 404 (GH-3834) ----------------------------------------------
+
+
+def _only_the_skipped_directory_lists_00044(dwd: _Dwd, how: str, directory: str = _MONTHLY_HISTORICAL) -> None:
+    """Make `directory` the only one that lists 00044, and empty, missing or without its description."""
+    recent = directory.replace("historical", "recent")
+    dwd.server.directories[dwd._path(recent)] = [  # noqa: SLF001
+        "stundenwerte_KL_00045_19700101_20241231_akt.zip",
+        "KL_Beschreibung_Stationen.txt",
+    ]
+    if how == "undescribed":
+        _without_description(dwd, directory)
+    else:
+        dwd.set(**{how: (directory,)})
+
+
+_HOWS = [
+    pytest.param("empty", "its listing came back empty or missing", id="empty"),
+    pytest.param("missing", "its listing came back empty or missing", id="missing"),
+    pytest.param("undescribed", "it lists no description of its stations", id="no-description"),
+]
+_ESTIMATE = {"parameters": "monthly/climate_summary/temperature_air_mean_2m"}
+
+
+def _names_the_directory(response: Response, reason: str, directory: str = _MONTHLY_HISTORICAL) -> None:
+    """Assert the answer is the 502 that says which directory the lookup went without."""
+    assert response.status_code == 502, response.text
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["type"] == "urn:wetterdienst:problem:upstream-failed"
+    assert body["detail"].startswith("No station found for 00044. The lookup of the stations went without ")
+    assert f"the directory `{directory}` ({reason})" in body["detail"]
+    assert "Try again later" in body["detail"]
+
+
+@pytest.mark.parametrize(("how", "reason"), _HOWS)
+@pytest.mark.parametrize("route", ["summarize", "interpolate"])
+def test_rest_a_station_only_the_skipped_directory_lists_is_a_502_that_names_it(
+    client: TestClient, dwd: _Dwd, route: str, how: str, reason: str
+) -> None:
+    """A 404 said the station does not exist, which it does: it is the 502 that names the directory (GH-3834)."""
+    _only_the_skipped_directory_lists_00044(dwd, how)
+
+    response = client.get(
+        f"/api/v1/{route}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "00044",
+            "timestamp": "2020-01-01",
+            **_ESTIMATE,
+        },
+    )
+
+    _names_the_directory(response, reason)
+
+
+@pytest.mark.parametrize(("how", "reason"), _HOWS)
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [
+        pytest.param("stripes/values", {}, id="stripes-values"),
+        pytest.param("stripes/image", {"format": "png"}, id="image"),
+    ],
+)
+def test_rest_a_stripes_station_only_the_skipped_directory_lists_is_a_502_that_names_it(
+    client: TestClient, dwd: _Dwd, route: str, extra: dict[str, str], how: str, reason: str
+) -> None:
+    """The stripes list their stations from `annual/kl/historical`: with it skipped the station is no 404 either."""
+    directory = _ANNUAL_HISTORICAL
+    if how == "undescribed":
+        _without_description(dwd, directory)
+    else:
+        dwd.set(**{how: (directory,)})
+
+    response = client.get(f"/api/v1/{route}", params={"kind": "temperature", "station": "00044", **extra})
+
+    _names_the_directory(response, reason, directory)
+
+
+@pytest.mark.parametrize("route", ["summarize", "interpolate"])
+def test_rest_a_station_that_does_not_exist_is_still_a_404_where_nothing_was_skipped(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """The control: every directory is listed, so a station nobody lists is unknown, and a 404."""
+    response = client.get(
+        f"/api/v1/{route}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "09999",
+            "timestamp": "2020-01-01",
+            **_ESTIMATE,
+        },
+    )
+
+    assert response.status_code == 404
+    assert "no station found for 09999" in response.json()["detail"]
+    assert dwd.asked
+
+
+@pytest.mark.usefixtures("dwd")
+def test_rest_a_stripes_station_that_does_not_exist_is_still_a_404_where_nothing_was_skipped(
+    client: TestClient,
+) -> None:
+    """The control for the stripes."""
+    response = client.get("/api/v1/stripes/values", params={"kind": "temperature", "station": "09999"})
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("route", ["summarize", "interpolate"])
+def test_rest_a_station_that_does_not_exist_is_a_502_when_a_directory_was_skipped_and_may_have_listed_it(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """A station that no listing has, with another directory skipped, is not known to be unknown: the 502 says so."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+
+    response = client.get(
+        f"/api/v1/{route}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "09999",
+            "timestamp": "2020-01-01",
+            **_ESTIMATE,
+        },
+    )
+
+    assert response.status_code == 502
+    assert "No station found for 09999." in response.json()["detail"]
+    assert f"`{_MONTHLY_HISTORICAL}`" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("command", ["interpolate", "summarize"])
+def test_cli_a_station_only_the_skipped_directory_lists_is_an_error_that_names_it(dwd: _Dwd, command: str) -> None:
+    """The command line exits 1 with the error, not the usage error of a station that is not there (exit 2)."""
+    _only_the_skipped_directory_lists_00044(dwd, "empty")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            command,
+            "--provider",
+            "dwd",
+            "--network",
+            "observation",
+            "--parameters",
+            "monthly/climate_summary/temperature_air_mean_2m",
+            "--station",
+            "00044",
+            "--timestamp",
+            "2020-01-01",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, StationListingIncompleteError)
+    assert f"the directory `{_MONTHLY_HISTORICAL}` (its listing came back empty or missing)" in str(result.exception)
+
+
+def test_cli_a_stripes_station_only_the_skipped_directory_lists_is_an_error_that_names_it(dwd: _Dwd) -> None:
+    """`stripes image` on the command line: the sentence, exit 1, and no usage error (exit 2) of a station not there."""
+    dwd.set(empty=(_ANNUAL_HISTORICAL,))
+
+    result = CliRunner().invoke(cli, ["stripes", "image", "--kind", "temperature", "--station", "00044"])
+
+    assert result.exit_code == 1
+    assert "No station found for 00044. The lookup of the stations went without" in result.output
+    assert f"the directory `{_ANNUAL_HISTORICAL}` (its listing came back empty or missing)" in result.output
+
+
+def test_mcp_a_station_only_the_skipped_directory_lists_is_a_tool_error_that_names_it(dwd: _Dwd) -> None:
+    """The MCP tool answers the REST API's 502 and its text: the directory is there for the agent to read."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _only_the_skipped_directory_lists_00044(dwd, "empty")
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(
+                "interpolate",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "station": "00044",
+                    "timestamp": "2020-01-01",
+                    **_ESTIMATE,
+                },
+            )
+
+    with pytest.raises(ToolError, match="HTTP error 502") as error:
+        asyncio.run(_call())
+    assert f"the directory `{_MONTHLY_HISTORICAL}` (its listing came back empty or missing)" in str(error.value)
+
+
+@pytest.mark.parametrize(("how", "reason"), _HOWS)
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+def test_python_a_station_only_the_skipped_directory_lists_is_an_upstream_error_that_names_it(
+    dwd: _Dwd, method: str, how: str, reason: str
+) -> None:
+    """The library raises it: an `UpstreamError`, not the `StationNotFoundError` that says it does not exist."""
+    _only_the_skipped_directory_lists_00044(dwd, how)
+
+    with pytest.raises(StationListingIncompleteError) as error:
+        getattr(_request(), method)("00044")
+
+    assert isinstance(error.value, UpstreamError)
+    assert not isinstance(error.value, StationNotFoundError)
+    assert error.value.station_id == "00044"
+    assert error.value.gaps == {f"`{_MONTHLY_HISTORICAL}`": reason}
+
+
+def test_python_a_station_that_a_skipped_directory_does_not_hide_is_found(dwd: _Dwd) -> None:
+    """The control: 00044 is listed by `recent`, so the skipped `historical` costs nothing and nothing is raised."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+
+    latitude, longitude, _ = _request()._get_position_by_station_id("00044")  # noqa: SLF001
+
+    assert (latitude, longitude) == (52.9336, 8.237)
+
+
+def test_python_a_lookup_that_skips_nothing_has_no_gaps_even_after_one_that_did(dwd: _Dwd) -> None:
+    """The gaps are those of the last lookup: the directory is filled again, and the next `all()` clears them."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+    request = _request()
+    request.all()
+    assert request._lookup_gaps() == {f"`{_MONTHLY_HISTORICAL}`": ListingGap(EMPTY_LISTING)}  # noqa: SLF001
+
+    dwd.server.directories[dwd._path(_MONTHLY_HISTORICAL)] = _FILES  # noqa: SLF001
+    request.all()
+
+    assert request._lookup_gaps() == {}  # noqa: SLF001
+
+
+def test_the_error_of_an_incomplete_listing_names_every_directory_and_survives_a_copy() -> None:
+    """Two directories are two clauses of one sentence, and a copy or a pickle rebuilds the error."""
+    error = StationListingIncompleteError("00044", {"`a/`": "its listing came back empty or missing", "`b/`": "x"})
+
+    assert str(error) == (
+        "No station found for 00044. The lookup of the stations went without the directory `a/` (its listing came "
+        "back empty or missing) and the directory `b/` (x), so a station that only it lists is not found, and this "
+        "may be one. Try again later."
+    )
+    for twin in (copy.copy(error), pickle.loads(pickle.dumps(error))):  # noqa: S301
+        assert type(twin) is StationListingIncompleteError
+        assert (twin.station_id, twin.gaps) == (error.station_id, error.gaps)
+        assert str(twin) == str(error)
+
+
+def test_the_listing_of_an_extreme_wind_directory_without_a_description_is_not_kept(
+    client: TestClient, dwd: _Dwd
+) -> None:
+    """The extreme wind is listed with its own expiry: the directory that gets its FX3 and FX6 is looked up at once."""
+    historical = dwd._path(_WIND_HISTORICAL)  # noqa: SLF001
+    recent = dwd._path(_WIND_HISTORICAL.replace("historical", "recent"))  # noqa: SLF001
+    dwd.server.directories[historical] = _WIND_FILES
+    dwd.server.directories[recent] = [*_WIND_FILES, _FX3, _FX6]
+    params = {"provider": "dwd", "network": "observation", "parameters": _WIND, "all": "true"}
+    assert _skipped(client.get("/api/v1/stations", params=params).json())
+
+    dwd.server.directories[historical] = [*_WIND_FILES, _FX3, _FX6]
+    second = client.get("/api/v1/stations", params=params)
+
+    assert _warnings(second.json()) == []
+
+
+def test_python_the_derived_lookup_records_the_directory_it_went_without(dwd: _Dwd) -> None:
+    """`dwd/derived` has the gaps of its lookup too, so its estimates name the directory as the observations do."""
+    directory = "derived_germany/climate/hourly/duett/radiation_global/historical/"
+    dwd.set(empty=(directory,))
+    request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], settings=Settings(cache_disable=True))
+
+    request.all()
+
+    assert request._lookup_gaps() == {  # noqa: SLF001
+        "`derived_germany/climate/hourly/duett/radiation_global/historical/`": ListingGap(EMPTY_LISTING)
+    }
+
+
+@pytest.mark.parametrize("how", ["empty", "undescribed"])
+def test_rest_ndjson_stations_of_a_skipped_directory_tell_it_in_the_head_and_the_end(
+    client: TestClient, dwd: _Dwd, how: str
+) -> None:
+    """The stream tells a skipped directory as the JSON answer does: in the headers, the head line and the end line."""
+    if how == "undescribed":
+        _without_description(dwd)
+    else:
+        dwd.set(empty=(_MONTHLY_HISTORICAL,))
+
+    response = client.get(
+        "/api/v1/stations",
+        params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true", "format": "ndjson"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Wetterdienst-Warnings"] == "file-skipped"
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert [warning["code"] for warning in lines[0]["metadata"]["warnings"]] == ["file-skipped"]
+    assert [warning["code"] for warning in lines[-1]["end"]["warnings"]] == ["file-skipped"]
+    assert "`climate/monthly/kl/historical/`" in lines[0]["metadata"]["warnings"][0]["message"]
+
+
+def test_rest_ndjson_values_of_a_period_without_a_description_tell_it(client: TestClient, dwd: _Dwd) -> None:
+    """The values of a station read the stations first: the stream carries the warning of the lookup too."""
+    _without_description(dwd)
+
+    response = client.get(
+        "/api/v1/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": _MONTHLY,
+            "stations": "00044",
+            "format": "ndjson",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert "file-skipped" in response.headers["X-Wetterdienst-Warnings"]
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert any(warning["code"] == "file-skipped" for warning in lines[-1]["end"]["warnings"])
+
+
+# --- what a skipped directory can tell: its ids, or nothing (GH-3834) ------------------------------------------------
+
+
+def test_python_an_undescribed_directory_records_the_stations_its_files_name(dwd: _Dwd) -> None:
+    """The files carry the station ids, which the gap keeps, so an id that is not among them is no gap's business."""
+    _without_description(
+        dwd, files=["stundenwerte_KL_00044_19700101_20241231_hist.zip", "stundenwerte_KL_123_x_hist.zip"]
+    )
+    request = _request()
+
+    request.all()
+
+    assert request._lookup_gaps() == {  # noqa: SLF001
+        f"`{_MONTHLY_HISTORICAL}`": ListingGap(NO_DESCRIPTION, frozenset({"00044", "00123"}))
+    }
+    assert request._gaps_that_may_list("44") == {f"`{_MONTHLY_HISTORICAL}`": NO_DESCRIPTION}  # noqa: SLF001
+    assert request._gaps_that_may_list("00123") == {f"`{_MONTHLY_HISTORICAL}`": NO_DESCRIPTION}  # noqa: SLF001
+    assert request._gaps_that_may_list("09999") == {}  # noqa: SLF001
+
+
+def test_python_an_empty_directory_may_hold_any_station(dwd: _Dwd) -> None:
+    """Nothing says which stations an empty or missing directory holds: every id may be one."""
+    dwd.set(empty=(_MONTHLY_HISTORICAL,))
+    request = _request()
+
+    request.all()
+
+    assert request._lookup_gaps() == {f"`{_MONTHLY_HISTORICAL}`": ListingGap(EMPTY_LISTING)}  # noqa: SLF001
+    assert request._gaps_that_may_list("09999") == {f"`{_MONTHLY_HISTORICAL}`": EMPTY_LISTING}  # noqa: SLF001
+
+
+def test_python_the_extreme_wind_without_a_description_records_the_stations_its_files_name(dwd: _Dwd) -> None:
+    """The wind files name their stations too, whichever of the two descriptions is missing."""
+    dwd.server.directories[dwd._path(_WIND_HISTORICAL)] = [*_WIND_FILES, _FX6]  # noqa: SLF001
+    request = _request(_WIND)
+
+    request.all()
+
+    assert request._lookup_gaps()[f"`{_WIND_HISTORICAL}`"] == ListingGap(  # noqa: SLF001
+        NO_DESCRIPTION, frozenset({"00044"})
+    )
+
+
+@pytest.mark.parametrize("route", ["summarize", "interpolate"])
+def test_rest_a_station_the_undescribed_directory_does_not_name_is_the_404_it_was(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """An id that is not in the file names of the directory without a description is unknown: the usual 404."""
+    _only_the_skipped_directory_lists_00044(dwd, "undescribed")
+
+    response = client.get(
+        f"/api/v1/{route}",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "station": "09999",
+            "timestamp": "2020-01-01",
+            **_ESTIMATE,
+        },
+    )
+
+    assert response.status_code == 404, response.text
+    assert "no station found for 09999" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("route", ["stripes/values", "stripes/image"])
+def test_rest_a_stripes_station_the_undescribed_directory_does_not_name_is_the_404_it_was(
+    client: TestClient, dwd: _Dwd, route: str
+) -> None:
+    """The same for the stripes, whose lookup is the `annual` directory."""
+    _without_description(dwd, _ANNUAL_HISTORICAL)
+
+    response = client.get(f"/api/v1/{route}", params={"kind": "temperature", "station": "09999"})
+
+    assert response.status_code == 404, response.text
+
+
+def test_rest_an_undescribed_directory_that_names_the_station_is_the_502(client: TestClient, dwd: _Dwd) -> None:
+    """The control: the same directory, an id among its file names (padded or not), is the 502."""
+    _only_the_skipped_directory_lists_00044(dwd, "undescribed")
+
+    for station in ("00044", "44"):
+        response = client.get(
+            "/api/v1/summarize",
+            params={
+                "provider": "dwd",
+                "network": "observation",
+                "station": station,
+                "timestamp": "2020-01-01",
+                **_ESTIMATE,
+            },
+        )
+        assert response.status_code == 502, response.text
+
+
+def test_rest_a_cache_that_cannot_drop_the_listing_leaves_the_skip_a_200_with_the_warning(
+    client: TestClient, dwd: _Dwd, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`ListingStore.delete` raising (busy, read-only) is no 500: the period is skipped and the warning is told."""
+    import sqlite3  # noqa: PLC0415
+
+    from wetterdienst.util.listing_cache import ListingStore  # noqa: PLC0415
+
+    def busy(_store: object, _key: object) -> bool:
+        msg = "database is locked"
+        raise sqlite3.OperationalError(msg)
+
+    monkeypatch.setattr(ListingStore, "delete", busy)
+    _without_description(dwd)
+
+    response = client.get(
+        "/api/v1/stations", params={"provider": "dwd", "network": "observation", "parameters": _MONTHLY, "all": "true"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert [warning["message"] for warning in _skipped(response.json())] == [_NO_DESCRIPTION_WARNING]

@@ -19,6 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
@@ -33,6 +34,7 @@ from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDe
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
 from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
     EmptyListingError,
     directory_of,
     remembering_empty_directories,
@@ -762,6 +764,9 @@ class DwdDerivedRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel) and parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
         stations = []
+        # the directories this lookup went without, for a station that is not found (`_lookup_gaps`)
+        gaps: dict[str, ListingGap] = {}
+        self._gaps_of_lookup = gaps
         for dataset in datasets:
             file_ids: set[str] = set()
             listed_ids: set[str] = set()
@@ -782,7 +787,8 @@ class DwdDerivedRequest(TimeseriesRequest):
                     # a directory that came back empty or missing costs the stations that only it lists, which the
                     # warning below says, as for `dwd/observation`; an outage is raised by the listing
                     log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
-                    skipped.setdefault(directory_of(e.url), []).append(period)
+                    skipped.setdefault(directory := directory_of(e.url), []).append(period)
+                    gaps[directory] = ListingGap(EMPTY_LISTING)
                     continue
                 if dataset not in TECHNICAL_DATASETS:
                     file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
