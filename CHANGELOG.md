@@ -61,14 +61,15 @@ Types of changes:
   generator no longer refuses it. `info.license` is `{"name": "MIT", "identifier": "MIT"}`; the
   link to `LICENSE.md` is gone from it (GH-3824)
 - **Breaking**: `metno/frost` daily and monthly `precipitation_amount` is the 06-06 UTC sum
-  (`PT6H`, Frost's standard), as its description says. Frost also has an 18-18 UTC series (`PT18H`)
-  at 987 and 964 stations, answers both, and the first was kept: SN50540 on 2026-10-29 gave 4.0
-  for 22.3. In the sample the value differs on 58 % of the dates and 68 % of the months at those
-  stations (median 1.6 mm). A date that only the 18-18 series has (2,139 days at 352 stations,
-  SN85380 692 from 2015-10; 1,292 months at 392) is no longer returned and is told by an
-  `other-window-left-out` warning, never as no values. A stored series does not join the new one:
-  read it anew, there is no option for the old one. The daily maximum and minimum temperature,
-  which also have two series, are unchanged (GH-3832)
+  (`PT6H`, Frost's standard), as its description says. Frost also has an 18-18 UTC series (`PT18H`),
+  answers both, and the first was kept: SN50540 on 2026-10-29 gave 4.0 for 22.3. At the stations
+  wetterdienst lists that have both (618 daily, 612 monthly) the value differs on 60 % of the dates
+  and 70 % of the months (median 1.6 and 1.4 mm). A date that only the 18-18 series has is no
+  longer returned and is told by an `other-window-left-out` warning, never as no values: 650
+  months at 176 stations, and at least 1,592 days at 271 (SN85380 692 from 2015-10, SN12648 302
+  in 2017-18; the daily gaps inside the 06-06 series are counted in nine years). A stored series
+  does not join the new one: read it anew. The daily maximum and minimum temperature, which also
+  have two series, are unchanged (GH-3832)
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

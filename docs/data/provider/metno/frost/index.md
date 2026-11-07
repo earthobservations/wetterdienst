@@ -91,49 +91,67 @@ at those dates, under the name of the 06-06 one.
 
 ### What changes
 
-Counted from the readings Frost had on 2026-11-07. Frost lists a `PT18H` series of the daily sum at 987 of its 2,334
-stations (and two more that have `PT18H` only), and of the monthly sum at 964 of 2,388; the other stations have the
-`PT6H` series only and nothing changes for them. The values first, at the stations and dates that have both series: the
-daily sum of every station that was active in nine years (1960, 1970, 1980, 1985, 1990, 2000, 2010, 2020 and 2024, the
-whole year each), and the monthly sum of every station, all years.
+Counted from the readings Frost had on 2026-11-07, for the stations that wetterdienst serves. Its list is Frost's
+catalogue of `SensorSystem` sources (`/sources`, 2,234 stations), which leaves out the closed ones that Frost's
+time-series listing still has: a station of the listing that is not in the catalogue answers `unknown-station` here, with
+or without this change, so nothing there reaches a caller. Of the 2,334 stations that have a daily precipitation series
+in Frost's listing 1,045 are in the catalogue, and of the 987 that have both series 618; of the 2,388 stations with a
+monthly series 785, and of the 964 with both 612. The other stations have the `PT6H` series only (and two daily ones
+`PT18H` only), and nothing changes for them. A figure that is Frost's and not the catalogue's is called so.
 
-| sum | station-dates in the sample | with both series | the value differs | by 1 mm or more |
+The values first, at the dates where both series exist: the daily sum of every catalogue station that was active in nine
+years (1960, 1970, 1980, 1985, 1990, 2000, 2010, 2020 and 2024, the whole year each), and the monthly sum of every
+catalogue station, all years.
+
+| sum | station-dates | with both series | the value differs | by 1 mm or more |
 |---|---|---|---|---|
-| daily | 2,206,547 at 2,048 stations | 744,221 (33.7 %) at 849 stations | 434,573 (58.4 % of those) at 843 stations | 270,871 |
-| monthly | 922,494 at 2,388 stations | 180,958 (19.6 %) at 963 stations | 122,231 (67.5 % of those) at 959 stations | 74,073 |
+| daily | 1,058,330 at 979 stations | 514,324 (48.6 %) at 569 stations | 306,101 (59.5 % of those) at 569 stations | 189,792 |
+| monthly | 317,875 at 785 stations | 110,203 (34.7 %) at 612 stations | 76,703 (69.6 % of those) at 612 stations | 44,977 |
 
-Where the two differ, the median difference is 1.6 mm for the daily sum (90th percentile 9.5, largest 321.5 mm) and 1.5 mm
+Where the two differ, the median difference is 1.6 mm for the daily sum (90th percentile 9.9, largest 321.5 mm) and 1.4 mm
 for the monthly sum (90th percentile 8.6, largest 317.3 mm). A series stored from the old reader holds the 18-18 sums at
 those stations and does not join the new one.
 
 #### The dates that are left out
 
-The dates that only the 18-18 series has, which are not returned any more (and are told, as above). They are of two
-kinds, and the first is counted over all years, from the listing of every time series (`availableTimeSeries`: the
-stretches in which a station's `PT18H` series is valid and its `PT6H` series is not), then the readings of those
-stretches:
+The dates that only the 18-18 series has are not returned any more, and are told (above). They are of two kinds, which
+are counted apart because the first is complete for all years and the second is complete only for the monthly sum. The
+figures are of catalogue stations.
 
-- **Outside the validity of the `PT6H` series, all years.** Daily: 2,139 dates at 352 stations. 338 of them lose one
-  date, the first of their 18-18 series (the day before their 06-06 series starts, at 334); 14 lose more, five of them
-  many: SN85380 692 dates from 2015-10 to 2020-03 (315 in 2018 and 301 in 2019; its last `PT6H` date is 2015-09-01),
-  SN55840 549 (1952-07 to 1953-12), SN12648 302 (2017-07 to 2018-05, a series that is still open), SN59580 128
-  (1961 to 1972) and SN69570 75 (1971 to 1977), then SN28360 23 and SN27470 16. The two stations with `PT18H` only have
-  one date each (SN10000 on 1998-07-21 and SN59680 on 2005-04-01). Monthly: 216 months at 181 stations, 173 of them the
-  first month of the series; SN55840 18, SN85380 9 and SN94280 6 are the largest.
-- **Inside the validity of the `PT6H` series, a gap of the 06-06 series.** Monthly, all years and every station: 1,076
-  months at 299 stations (SN55830 85, SN76450 57, SN8850 52, SN63705 50, SN99917 24), so that the monthly sum has 1,292
-  months at 392 stations that only the 18-18 series has. Daily, in the nine sampled years only: 470 dates at 163
-  stations (SN93140 82, SN99990 44, SN44554 20). The daily figure is a lower bound for all years, since the other years
-  were not read (the readings of both series of every station would be about 13 million), so at least 2,609 dates at
-  more than 352 stations.
+- **Outside the validity of the `PT6H` series, all years**, from the time-series listing (the stretches in which a
+  station's `PT18H` series is valid and its `PT6H` series is not) and the readings of those stretches. Daily: 1,178 dates
+  at 165 stations. 158 of them lose one date, the first of their 18-18 series; 7 lose more: SN85380 692 (2015-10 to
+  2020-03: 315 in 2018 and 301 in 2019; its last `PT6H` date is 2015-09-01), SN12648 302 (2017-07 to 2018-05: its 06-06
+  series starts on 2018-05-03 and is still open, so the gap comes before it), SN27470 16, SN10380 3, SN57770 3, SN73550 2
+  and SN94280 2. Monthly: 59 months at 43 stations, 38 of them the first month of the series, then SN85380 9, SN94280 6,
+  and SN46510, SN57770 and SN90800 2 each.
+- **Inside the validity of the `PT6H` series, a gap of the 06-06 series.** Monthly, all years: 591 months at 161 stations
+  (SN76450 57, SN63705 50, SN99917 24, SN60500 21, SN46510 18, SN44610 14). Daily, in the nine sampled years only: 414
+  dates at 131 stations (SN93140 82, SN99990 44, SN44554 20, SN29350 17, SN44610 13, SN44730 12). The other years were not
+  read (both series of every catalogue station would be several million rows), so the daily figure is a lower bound.
 
-The largest blocks are the ones a caller notices: SN85380 from 2015-10 and SN12648 from 2017-07 to 2018-05 return 06-06
-sums up to the day the 06-06 series ends and then nothing, with the warning, where they returned the 18-18 sums.
+| sum | outside the `PT6H` validity | a gap inside it | together |
+|---|---|---|---|
+| daily | 1,178 dates at 165 stations | at least 414 at 131 stations (nine years) | at least 1,592 dates at 271 stations |
+| monthly | 59 months at 43 stations | 591 at 161 stations (all years) | 650 months at 176 stations |
+
+The answer's warning counts both kinds, so its figure is the sum of the two for the window asked for: SN85380 is 698 for
+2012 to 2020 (692 from 2015-10 and 6 gaps in 2013 and 2014), 9 for 2013 to 2015, and SN12648 is 303 for 2015 to 2022 (the
+302 and 1 date on 2021-02-23).
+
+Frost's listing has more: 2,139 days at 352 stations outside the `PT6H` validity, 961 of them at stations that are not in
+the catalogue (SN55840 549 days, SN59580 128, SN69570 75, SN28360 23 and SN10000 1, 776 in all, and for the monthly sum
+SN55840 18 months). A caller never had those dates, and none of them is counted above.
+
+The two largest blocks that a caller meets: SN85380 returns 06-06 sums up to 2015-09-01 and then nothing from 2015-10 to
+2020-03, with the warning, where it returned the 18-18 sums; SN12648 has nothing from 2017-07 to 2018-05-02 and its 06-06
+sums from 2018-05-03 on.
 
 ### Other elements with several series
 
-Of the elements the provider reads, these have more than one offset at a station (series listed on 2026-11-07, stations
-with both). Nothing is changed for them here:
+Of the elements the provider reads, these have more than one offset at a station (Frost's time-series listing of
+2026-11-07, which also holds closed stations that the station list does not; stations with both). Nothing is changed for
+them here:
 
 | element | offsets | stations with both | what is returned |
 |---|---|---|---|

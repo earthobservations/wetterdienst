@@ -34,6 +34,6 @@
 The monthly precipitation sum is the series of `timeOffset` `PT6H`: the month `M`, stamped on its first day, is the sum
 from 06 UTC on the last day of the previous month to 06 UTC on the last day of `M` (Frost: "the value of February 2018
 has referenceTime = 2018-02-01T00:00 and is based on the period from 2018-01-31T06:00 to 2018-02-28T06:00"). Frost keeps
-an 18-18 UTC series of it too at 964 of its 2,388 stations, which the reader used to return where there is one. See the
+an 18-18 UTC series of it too at 964 of the 2,388 stations of its time-series listing (612 of them in the station list), which the reader used to return where there is one. See the
 section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
 of the Frost page.

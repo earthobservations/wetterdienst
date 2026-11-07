@@ -51,7 +51,11 @@ for an hour: the first height that has one. A calm of the first height is that v
 bearing of the other height does not fill it (the `calm-wind-direction` warning counts it); the same holds for a `-3` of
 the first height. A gap of the first height, a null with no code, is still filled from the other height, as every
 direction and every other parameter of such a station always was. Where the first height has a bearing it is the
-answer, whatever the other height says, a calm included. Read on 10 to 24 January 2026 at the 7 stations that have a
-direction at two heights (SN99460, SN76530, SN44300, SN26990, SN58070, SN99990 and SN38140), 78 hours had a calm at the
-first height; 33 of them would have been filled from the other height, 21 with a bearing above 0 and 12 with a 0 that
-stands beside a wind (SN99460 alone has 70 calm hours and 29 of those).
+answer, whatever the other height says, a calm included. "First" is the first row of the answer for the hour, not the
+height: the reader does not sort. Frost answered the 10 m row before the 2 m row in every one of the 2,195 two-height
+hours of the 7 stations that have both (SN99460, SN76530, SN44300, SN26990, SN58070, SN99990 and SN38140) between
+2026-01-10 and 2026-01-24, which is what has been seen, and a change of that order would change which height decides.
+In those 15 days 79 hours had a calm at the first height (SN99460 71, SN99990 4, SN44300 2 and SN26990 2); 34 of them
+would have been filled from the other height, 22 with a bearing above 0 and 12 with a 0 that stands beside a wind
+(SN99460 30). One of the 79, SN99460 2026-01-10 23:00, has a 10 m `0` with no `qualityCode`, which is read as the calm it
+stands for (the speed beside it is 0).

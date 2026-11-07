@@ -32,14 +32,17 @@ class ResponseWarning(TypedDict):
     code: str
     message: str
     #: what the warning is about, where it is about one parameter: `resolution/dataset/parameter`, or
-    #: `resolution/dataset` for a whole dataset (`parameter-without-rows`)
+    #: `resolution/dataset` for a whole dataset (`parameter-without-rows`); always `resolution/dataset/parameter` for
+    #: `other-window-left-out`
     parameter: NotRequired[str]
-    #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`)
+    #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
+    #: `other-window-left-out`)
     stations: NotRequired[list[str]]
 
 
 #: the attribute of the log record of a response warning, holding its code: what tells the line that qualifies the
-#: answer (a file the provider let go, readings a check rejected, a parameter without rows) from the log around it,
+#: answer (a file the provider let go, readings a check rejected, a parameter without rows, dates left out for another
+#: window) from the log around it,
 #: for a handler that lets only these and the errors through (`--quiet` of the command line, GH-3134)
 RESPONSE_WARNING_RECORD = "response_warning"
 

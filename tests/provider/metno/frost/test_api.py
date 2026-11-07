@@ -343,14 +343,15 @@ def test_metno_frost_values_monthly_precipitation_is_the_06_06_sum() -> None:
 def test_metno_frost_values_wind_direction_of_a_calm_is_null() -> None:
     """The wind direction 0 beside a speed of 0 is a calm and comes back null, the 0 in the flags (GH-3833).
 
-    SN99840 (Svalbard lufthavn) has a direction of 0 and a speed of 0 at 2026-01-10 02:00, a calm at 10 m: Frost writes
-    north as 360. It was returned as 0.0. The request holds the whole dataset, so the speed is there to be read.
+    SN99840 (Svalbard lufthavn) has a direction of 0 and a speed of 0 at 2025-06-12 00:00, a calm at 10 m (quality code
+    0, controlled): Frost writes north as 360. It was returned as 0.0. The request holds the whole dataset, so the
+    speed is there to be read.
     """
     df = (
         MetnoFrostRequest(
             parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
-            start=dt.datetime(2026, 1, 10, 2, tzinfo=UTC),
-            end=dt.datetime(2026, 1, 10, 2, tzinfo=UTC),
+            start=dt.datetime(2025, 6, 12, 0, tzinfo=UTC),
+            end=dt.datetime(2025, 6, 12, 0, tzinfo=UTC),
             options={"drop_nulls": False},
         )
         .filter_by_station_id("SN99840")
@@ -409,19 +410,32 @@ def test_metno_frost_values_daily_precipitation_dates_of_the_18_18_series_only_a
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize("hour", [0, 7, 13])
-def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour: int) -> None:
+@pytest.mark.parametrize(
+    ("hour", "other"),
+    [
+        pytest.param(dt.datetime(2024, 1, 10, 12, tzinfo=UTC), "a bearing of 41", id="bearing"),
+        pytest.param(
+            dt.datetime(2025, 1, 10, 9, tzinfo=UTC), "a bearing of 257 beside a speed of 0", id="bearing-beside-0"
+        ),
+        pytest.param(dt.datetime(2025, 1, 10, 7, tzinfo=UTC), "a 0 beside a speed of 0, another calm", id="both-calm"),
+        pytest.param(
+            dt.datetime(2025, 1, 10, 3, tzinfo=UTC), "a 0 beside a speed of 0.1, a reading", id="0-beside-wind"
+        ),
+    ],
+)
+def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour: dt.datetime, other: str) -> None:
     """The calm of the first height of SN99460 stays a calm, whatever the other height says (GH-3833).
 
-    SN99460 answers the wind at 10 m and 2 m. On 2026-01-10 the direction of 10 m is 0 beside a speed of 0 at 00:00
-    (2 m: 170), 07:00 (2 m: 0) and 13:00 (2 m: 256). The core keeps the first row that has a value, so the hour read
-    170.0, 0.0 and 256.0, beside a speed of 0.
+    SN99460 answers the wind at 10 m and 2 m. The direction of 10 m is 0 beside a speed of 0 (quality code 0,
+    controlled) in each of these hours of January 2024 and 2025, and 2 m has what the id says. The core keeps the first
+    row that has a value, so the hour read the value of 2 m beside a speed of 0, and `other` is what it read. Hours
+    of 2024 and 2025 are used: the quality codes of those of 2026 were still 5 when they were read.
     """
     df = (
         MetnoFrostRequest(
             parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
-            start=dt.datetime(2026, 1, 10, hour, tzinfo=UTC),
-            end=dt.datetime(2026, 1, 10, hour, tzinfo=UTC),
+            start=hour,
+            end=hour,
             options={"drop_nulls": False},
         )
         .filter_by_station_id("SN99460")
@@ -429,5 +443,5 @@ def test_metno_frost_values_wind_direction_of_a_calm_at_two_heights_is_null(hour
         .all()
         .df
     )
-    assert df["value"].to_list() == [None]
+    assert df["value"].to_list() == [None], other
     assert df["quality_flags"].to_list()[0].endswith("raw:0")

@@ -1303,8 +1303,8 @@ def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_
 ) -> None:
     """Test that a date with only an 18-18 sum has no value, rather than that sum under the name of the 06-06 sum.
 
-    2,139 days at 352 stations are of the 18-18 series only (338 of them the first day of that series, SN85380 692 from
-    2015-10 on), and two stations have no `PT6H` series at all (SN10000 and SN59680, one day each). Frost's own
+    At the stations of the list 1,178 days at 165 stations are of the 18-18 series only (158 of them the first day of
+    that series, SN85380 692 from 2015-10 on), and SN59680 has no `PT6H` series at all (one day). Frost's own
     `timeoffsets=default` would return the 18-18 sum there. The answer says so (GH-3832).
     """
     answer = _offset_answer(
@@ -1503,9 +1503,10 @@ def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
 ) -> None:
     """Test that a date that only the 18-18 series has is left out with a warning, never silently (GH-3832).
 
-    SN85380 has 698 such days from 2015-10 on: its last `PT6H` date is 2015-09-01, and the answer to a request from
-    2015-08 to 2018-12 had 2 rows and said nothing. The warning is `other-window-left-out`, with the parameter, the
-    station and the number of dates. A date beyond the window of the request is not counted.
+    SN85380 has 698 such days, 692 of them from 2015-10 on (its last `PT6H` date is 2015-09-01) and 6 gaps in 2013-14:
+    the answer to a request from 2015-08 to 2018-12 had 2 rows and said nothing. The warning is
+    `other-window-left-out`, with the parameter, the station and the number of dates. A date beyond the window of the
+    request is not counted.
     """
     readings = [
         (stamps[0], "PT18H", 4.0),
@@ -1686,3 +1687,150 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
     # the calm hours are counted, whichever height would have filled them
     (calm,) = _told("calm-wind-direction")
     assert calm["message"].startswith("3 wind directions were a calm")
+
+
+def test_metno_frost_a_gap_without_a_quality_code_is_filled_from_the_other_height(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a null at the first height that has no `qualityCode` is no code, and 2 m fills it (GH-3833).
+
+    The null has no flags at all, so the test of the first height for a code was null and dropped the later row: the
+    hour read null where `qualityCode: 0` made it 90.0. A calm without a `qualityCode` is a calm all the same.
+    """
+    wind = "wind_speed"
+    direction = "wind_from_direction"
+    hours = [
+        [(wind, 10, 1.0), (wind, 2, 1.0), (direction, 10, None), (direction, 2, 90)],
+        [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 170)],
+    ]
+    payload = _two_heights(hours)
+    for day in payload["data"]:
+        for observation in day["observations"]:
+            del observation["qualityCode"]
+    parameters = [
+        ("hourly", "data", "wind_direction_mean_last_10min"),
+        ("hourly", "data", "wind_speed_mean_last_10min"),
+    ]
+    values, _ = _values(
+        monkeypatch,
+        lambda url: _ok(url, payload),
+        parameters,
+        start=START,
+        end=START + dt.timedelta(hours=1),
+        options={"drop_nulls": False},
+    )
+    df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
+    assert df["value"].to_list() == [90.0, None]
+    assert df["quality_flags"].to_list() == [None, "raw:0"]
+
+
+def test_metno_frost_the_first_height_is_the_first_row_of_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that "first" is the order of Frost's rows, not the height: a change of that order is noticed (GH-3833).
+
+    Frost answered the 10 m rows before the 2 m rows at all 7 stations that have both, in 3 windows (2026-01, 2026-11,
+    2024-06). The reader does not sort by height. A calm that comes first is the hour whichever height it is, and a
+    bearing that comes first is the answer, a calm after it or not.
+    """
+    wind = "wind_speed"
+    direction = "wind_from_direction"
+    hours = [
+        # 2 m first: its calm is the hour, and the bearing of 10 m does not fill it
+        [(wind, 2, 0.0), (wind, 10, 3.0), (direction, 2, 0), (direction, 10, 90)],
+        # 2 m first, with a bearing: it is the answer, and the calm of 10 m is no matter
+        [(wind, 2, 3.0), (wind, 10, 0.0), (direction, 2, 45), (direction, 10, 0)],
+    ]
+    payload = _two_heights(hours)
+    parameters = [
+        ("hourly", "data", "wind_direction_mean_last_10min"),
+        ("hourly", "data", "wind_speed_mean_last_10min"),
+    ]
+    values, _ = _values(
+        monkeypatch,
+        lambda url: _ok(url, payload),
+        parameters,
+        start=START,
+        end=START + dt.timedelta(hours=1),
+        options={"drop_nulls": False},
+    )
+    df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
+    assert df["value"].to_list() == [None, 45.0]
+    assert [flag.split(",")[-1] for flag in df["quality_flags"].to_list()] == ["raw:0", "0"]
+
+
+def test_metno_frost_the_first_height_rule_is_the_wind_direction_s_alone() -> None:
+    """Test that the rows of any other parameter at one time all stay, a code first or not (GH-3833).
+
+    A cloud cover of 9 is a code too, and the next row of the same time is no other height of a wind direction.
+    """
+    given = pl.DataFrame(
+        {
+            "parameter": [
+                "cloud_area_fraction",
+                "cloud_area_fraction",
+                "surface_snow_thickness",
+                "surface_snow_thickness",
+            ],
+            "timestamp": [dt.datetime(2020, 1, 1, tzinfo=dt.UTC)] * 4,
+            "value": [9.0, 4.0, -3.0, 12.0],
+            "quality_flags": ["0"] * 4,
+        },
+    )
+    decoded = frost_api._decode_sentinels(given)  # noqa: SLF001
+    assert decoded["value"].to_list() == [None, 4.0, None, 12.0]
+    assert decoded["quality_flags"].to_list() == ["0,raw:9", "0", "0,raw:-3", "0"]
+
+
+def test_metno_frost_a_parameter_that_was_not_asked_for_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the dates left out of an element of the batch that the request did not name are not told (GH-3832).
+
+    The batch holds the whole dataset: the precipitation of a request for the temperature is read, and its 18-18 only
+    dates are no business of the caller.
+    """
+    answer = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": "2020-01-01T00:00:00.000Z",
+                "observations": [
+                    {"elementId": "mean(air_temperature P1D)", "value": 1.5, "timeOffset": "PT0H"},
+                    {"elementId": "sum(precipitation_amount P1D)", "value": 5.0, "timeOffset": "PT18H"},
+                ],
+            }
+        ]
+    }
+    values, _ = _values(
+        monkeypatch, lambda url: _ok(url, answer), [("daily", "data", "temperature_air_mean_2m")], start=START, end=END
+    )
+    begin_response()
+    assert values.all().df["value"].to_list() == [1.5]
+    assert _told("other-window-left-out") == []
+
+
+def test_metno_frost_a_date_is_counted_once_however_many_series_answer_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the discovery counts a date left out once, though two of its queries both return it (GH-3832).
+
+    SN85380 for 2013 to 2015 was told as 15 dates by the discovery and as the true 9 by the other readers: two queries
+    (the series of a station differ in their validity) answer the same rows, and the dates are joined, not summed.
+    """
+    answer = _offset_answer(
+        "sum(precipitation_amount P1D)",
+        [("2020-01-01T00:00:00.000Z", "PT18H", 5.0), ("2020-01-02T00:00:00.000Z", "PT18H", 7.0)],
+    )
+    available = {
+        "data": [
+            {
+                "validFrom": f"2020-01-01T{hour}:00:00Z",
+                "timeOffset": "PT18H",
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0&timeoffsets=PT18H",
+            }
+            for hour in ("00", "06")
+        ]
+    }
+    observations = _answered_by("discovery", answer, available)
+    values, seen = _values(monkeypatch, observations, [("daily", "data", "precipitation_amount")], start=START, end=END)
+    begin_response()
+    assert values.all().df.is_empty()
+    # two queries, as the series differ in their validity
+    assert sum("timeseriesids=" in url for url in seen) == 2
+    (warning,) = _told("other-window-left-out")
+    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]

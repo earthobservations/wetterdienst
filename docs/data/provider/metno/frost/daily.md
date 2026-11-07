@@ -31,7 +31,7 @@
 ## Notes
 
 The daily precipitation sum is the 06-06 UTC series: the date `D` is the sum from `D-1` 06 UTC to `D` 06 UTC. Frost keeps
-a second series of it, 18-18 UTC, at 987 of its 2,334 stations, and the reader used to return that one where there is
+a second series of it, 18-18 UTC, at 987 of the 2,334 stations of its time-series listing (618 of them in the station list), and the reader used to return that one where there is
 one. See the section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
 of the Frost page, which also says what the temperature extremes return.
 

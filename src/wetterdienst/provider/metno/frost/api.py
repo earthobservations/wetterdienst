@@ -529,10 +529,10 @@ _DAILY = "daily"
 # sum of another window under this one's name; the answer says so (`other-window-left-out`, `_tell_left_out`), and it is
 # no "the source has no values" (`parameter-without-rows`), as the source has them.
 #
-# Not touched here: `max` and `min(air_temperature P1D)` have `PT0H` and `PT18H` at 579 and 574 stations, and the table
-# prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18 UTC"). `PT0H` sorts first, and is what
-# comes back where both exist, `PT18H` where it is the only one. The maintainer has decided 19-18 UTC where a station
-# has it, in a change of its own.
+# Not touched here: `max` and `min(air_temperature P1D)` have `PT0H` and `PT18H` at 579 and 574 stations of Frost's
+# listing, and the table prefers `PT18H` ("Standard sampling period for temperature extremes is 19-18 UTC"). `PT0H`
+# sorts first, and is what comes back where both exist, `PT18H` where it is the only one. The maintainer has decided
+# 19-18 UTC where a station has it, in a change of its own.
 _STANDARD_OFFSET = {
     "sum(precipitation_amount P1D)": "PT6H",
     "sum(precipitation_amount P1M)": "PT6H",
@@ -795,10 +795,13 @@ def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
     code (a gap) is filled from the other height as it always was.
     """
     direction = pl.col("parameter") == _WIND_DIRECTION
-    coded = direction & pl.col("value").is_null() & pl.col("quality_flags").str.contains(RAW_TOKEN)
+    # a null with no `qualityCode` has no flags at all, which is no code (and not a null that drops the row)
+    coded = (direction & pl.col("value").is_null() & pl.col("quality_flags").str.contains(RAW_TOKEN)).fill_null(
+        value=False
+    )
     first_is_coded = coded.first().over("parameter", "timestamp")
     later = pl.int_range(pl.len()).over("parameter", "timestamp") > 0
-    return df.filter(~(direction & first_is_coded & later))
+    return df.filter(~(first_is_coded & later))
 
 
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
@@ -1177,7 +1180,9 @@ class MetnoFrostValues(TimeseriesValues):
         # a date is left out when no series of the station returned it
         left_out = [frame for frame in left_outs if not frame.is_empty()]
         if left_out:
-            _tell_left_out(pl.concat(left_out), kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date)
+            _tell_left_out(
+                pl.concat(left_out).unique(), kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date
+            )
         return kept
 
 
