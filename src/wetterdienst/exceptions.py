@@ -219,6 +219,36 @@ class DownloadError(UpstreamError):
         return f"Failed to download {self.url}: {self.reason}"
 
 
+class StationListingIncompleteError(UpstreamError):
+    """Raised when a station is not found while the lookup of the stations went without a listing of the provider.
+
+    `dwd/observation` and `dwd/derived` look the stations up in directories of DWD's server, and go on without one
+    that came back empty or missing, or that lists no description of its stations: the answer is partial, and says so
+    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) or the stripes ask for one station by its
+    id, and have no answer to put the warning in. A station that is not found then may be unknown, or one that only
+    the skipped directory lists: the request is valid, the cause is upstream, and a 404 would say that the station
+    does not exist. So it is this, a 502 over REST, which names the directories.
+
+    `station_id` is the id asked for, `gaps` the directories the lookup went without, each with the reason. Not a
+    `StationNotFoundError`: it is the provider's side that failed, and the same request can succeed once DWD has
+    filled the directory again. Raised only where a station is not found and a directory was skipped.
+    """
+
+    def __init__(self, station_id: str, gaps: dict[str, str]) -> None:
+        """Keep the id and the directories, and name them in the message."""
+        self.station_id = station_id
+        self.gaps = dict(gaps)
+        went_without = " and ".join(f"the directory {directory} ({reason})" for directory, reason in self.gaps.items())
+        super().__init__(
+            f"No station found for {station_id}. The lookup of the stations went without {went_without}, so a station "
+            "that only it lists is not found, and this may be one. Try again later."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the id and the directories, not from the message in `args`, so the error pickles."""
+        return type(self), (self.station_id, self.gaps), self.__dict__
+
+
 class MissingDependencyError(ConfigurationError, ImportError):
     """Raised when something needs an optional dependency that is not installed.
 

@@ -17,7 +17,8 @@ the place to look when a series has a jump that the weather does not explain.
   so a request for several datasets gives up to one history per station and dataset.
 - **A directory that came back empty.** DWD lists the files of a dataset in directories (`historical`, the
   `meta_data` of a 1, 5 and 10 minute dataset, the dataset's own directory for the solar datasets). If one comes back
-  empty or missing while the stations are looked up or the history read, the REST API, the MCP tool, the command line
+  empty or missing, or lists files and no description of its stations, while the stations are looked up or the
+  history read, the REST API, the MCP tool, the command line
   and Python answer with the histories of the datasets that are listed (a 200, exit 0) and `file-skipped` warnings
   that name the directory and the periods of the dataset that were skipped for it, and, where the history was to
   read it, the stations: the answer is partial and carries no cache header. Try again later. `stations` and `values`

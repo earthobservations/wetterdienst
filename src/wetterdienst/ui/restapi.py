@@ -42,6 +42,7 @@ from wetterdienst.exceptions import (
     MissingTimeIntervalError,
     NoInternetError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     UpstreamError,
     WetterdienstError,
 )
@@ -2236,11 +2237,15 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     defect, so it is an error with one.
     """
     status = failure_status(e)
-    if isinstance(e, (NoInternetError, DownloadError)):
+    if isinstance(e, (NoInternetError, DownloadError, StationListingIncompleteError)):
         log.warning(f"Failed to {what}: {e}")
     else:
         log.error(f"Failed to {what}.", exc_info=e)
     detail = {503: _UPSTREAM_UNREACHABLE, 504: _UPSTREAM_TIMED_OUT}.get(status, _UPSTREAM_FAILED)
+    if isinstance(e, StationListingIncompleteError):
+        # names the directories of DWD's public tree that the lookup went without, and the id the caller asked for:
+        # what a 404 hid, and what `file-skipped` tells an answer that has a place for it (GH-3834)
+        detail = str(e)
     kind = {503: ProblemKind.UPSTREAM_UNREACHABLE, 504: ProblemKind.UPSTREAM_TIMEOUT}.get(
         status, ProblemKind.UPSTREAM_FAILED
     )

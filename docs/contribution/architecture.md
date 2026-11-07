@@ -223,6 +223,7 @@ else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a 
 | the source answered badly: a 4xx or 5xx, a dropped connection, a body cut short, a timeout, a TLS failure, a refused redirect | `DownloadError(url, reason)`, the failure as `__cause__` | 502, 504 for a timeout |
 | the file is not there | a `File` with `status == 404`, whose `raise_if_exception()` raises a `DownloadError` like any other failure | 502 if raised |
 | the directory is not there | `[]` from `list_remote_files_fsspec`; a `FileNotFoundError` from `list_remote_directory_fsspec` | |
+| a 200 page that is no index of a directory, where a URL ending in `/` lists no file or entry (a CDN's error page, a JSON error) | `DownloadError` from both listings, never an empty list | 502 |
 
 Both errors are `UpstreamError`s. A download that fails is stored in `File.content` and raised by
 `File.raise_if_exception()`, which raises the stored `NoInternetError` as it is and wraps any other failure in a

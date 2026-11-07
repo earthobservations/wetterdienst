@@ -30,6 +30,7 @@ from wetterdienst.exceptions import (
     ProviderContractError,
     RequestError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     StationNotFoundError,
 )
 from wetterdienst.io.sql_filter import filter_by_sql
@@ -37,6 +38,7 @@ from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.listing_gap import ListingGap  # noqa: TC001, a return annotation of the hook below
 from wetterdienst.model.metadata import (
     CoverageDataset,
     CoverageParameter,
@@ -993,6 +995,29 @@ class TimeseriesRequest:
             _stations_filter=StationsFilter.ALL,
         )
 
+    def _lookup_gaps(self) -> dict[str, ListingGap]:
+        """Name the listings of the provider that the last lookup of the stations went without, with what they can say.
+
+        `dwd/observation` and `dwd/derived` look the stations up in directories and skip one that came back empty or
+        missing, or that lists no description (`file-skipped`): a station that only it lists is not in the answer. They
+        record them in `_all`, by directory, with the reason and the stations the directory can still name (the files of
+        a directory with no description carry their ids; an empty or missing one names none). Empty where the lookup
+        went without nothing, which is every other provider and every lookup that read all.
+        """
+        return dict(getattr(self, "_gaps_of_lookup", {}))
+
+    def _gaps_that_may_list(self, station_id: str) -> dict[str, str]:
+        """Give the directories the last lookup went without that a station may be listed in, with the reason.
+
+        A station asked for by its id and not found is perhaps one that only a skipped directory lists:
+        `_get_position_by_station_id` and the stripes raise `StationListingIncompleteError`, not `StationNotFoundError`.
+        Every skipped directory may hold it where it can name no station (an empty or missing one); one whose files
+        name their stations only where the id is among them. Empty where nothing says it may be there: the station is
+        unknown, and the usual 404.
+        """
+        station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
+        return {directory: gap.reason for directory, gap in self._lookup_gaps().items() if gap.may_list(station_id)}
+
     def _stations_to_select_among(self) -> pl.DataFrame:
         """Build the stations of the request that a filter or an estimate selects among.
 
@@ -1695,6 +1720,9 @@ class TimeseriesRequest:
 
         Raises:
             StationNotFoundError: Where the station is not listed.
+            StationListingIncompleteError: Where it is not listed and the lookup of the stations went without a listing
+                the station may be in (`dwd/observation`, `dwd/derived`: a directory that came back empty or missing,
+                or that lists no description), so that it is not known to be unknown.
             LocationOutOfRangeError: Where no row of the station gives both a latitude and a longitude.
 
         """
@@ -1703,6 +1731,9 @@ class TimeseriesRequest:
             df_all = self._stations_to_select_among()
         stations = df_all.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
+            if gaps := self._gaps_that_may_list(station_id):
+                # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
+                raise StationListingIncompleteError(station_id, gaps)
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
         located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()

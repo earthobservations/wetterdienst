@@ -14,6 +14,7 @@ import ipaddress
 import json
 import logging
 import os
+import posixpath
 import re
 import shutil
 import sqlite3
@@ -2723,10 +2724,89 @@ def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None,
         found = None
     if not url.endswith("/") or (found and found != [url]):
         return found, None
+    return found, _read_page(fs, url)
+
+
+def _read_page(fs: HTTPFileSystem, url: str) -> bytes | None:
+    """Read the page that stands for a directory (a URL ending in `/`); None for a 404 or a URL that is no directory."""
+    if not url.endswith("/"):
+        return None
     try:
-        return found, fs.cat_file(url)
+        return fs.cat_file(url)
     except FileNotFoundError:
-        return found, None
+        return None
+
+
+def _is_the_same_directory(name: str, url: str) -> bool:
+    """Tell whether an entry that fsspec made of a link is the directory `url` itself, by host and normalised path.
+
+    fsspec joins a relative link to the URL without resolving it: `href=""` and `href="/x/"` and the absolute URL come
+    out as `/x/`, `href="./"` as `/x/./` and `href="."` as `/x/.`, and `href="?C=N;O=D"` (an Apache index's sort link)
+    as `/x/?C=N;O=D`. All of those are the directory: the path is normalised (`posixpath.normpath`, which drops the
+    `.` and the trailing `/`) and the query and the fragment are not compared. A link to a `..`, a file or a
+    subdirectory is another path and is not.
+    """
+    entry_url, own_url = urlsplit(name), urlsplit(url)
+    return entry_url.netloc == own_url.netloc and posixpath.normpath(entry_url.path) == posixpath.normpath(own_url.path)
+
+
+def _lists_nothing(url: str, entries: list[dict]) -> bool:
+    """Tell whether the listing of a directory (a URL ending in `/`) holds no entry but, at most, the URL itself.
+
+    fsspec keeps a link of the page to itself as an entry, so an outage page with a `retry` link to its own URL lists
+    as that one directory, however the link is written (`""`, `/x/`, `./`, `.`, the absolute URL: see
+    `_is_the_same_directory`), as `list_remote_files_fsspec` sees for the files (`found == [url]`). The sort links
+    of an Apache index are the directory too, so an Apache index of an empty directory lists nothing; one that holds
+    a file or a directory has that entry as well, which is not the URL, and is left as it is. A URL that does not end
+    in `/` may name a file and is never taken for one that lists nothing.
+    """
+    return url.endswith("/") and all(_is_the_same_directory(entry["name"], url) for entry in entries)
+
+
+def _drop_cached_listing(fs: HTTPFileSystem, url: str) -> None:
+    """Drop the listing of a URL from the listings cache of a filesystem, as far as the cache lets it.
+
+    Best effort: the listing is gone, or it was not there (`KeyError`), or the cache cannot be written (a store that is
+    busy or read-only, `sqlite3.Error`, an `OSError`), which is told in the log and is no failure of the request, that
+    has its answer without the cache.
+    """
+    try:
+        del fs.dircache[url]
+    except KeyError:
+        pass
+    except (sqlite3.Error, OSError) as error:
+        log.warning(f"Could not drop the cached listing of {_without_url_secrets(url)}: {error!r}")
+
+
+def _ls_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[dict], bytes | None]:
+    """List a directory, and read its page where it lists nothing, to tell an empty directory from a page that is none.
+
+    As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, or none
+    but the URL itself, which costs one more GET for an empty directory. A listing of the URL itself is dropped from the
+    listings cache: it is what an outage page lists, and the directory the server has once it is back would be hidden
+    behind it for the `cache_expiry`. A directory that is not there raises `FileNotFoundError`, as it always did, and a
+    listing with entries reads no second page.
+    """
+    entries = fs.ls(url, detail=True)
+    if not _lists_nothing(url, entries):
+        return entries, None
+    if entries:
+        _drop_cached_listing(fs, url)
+    return entries, _read_page(fs, url)
+
+
+def _entries_or_empty_directory(url: str, entries: list[dict], page: bytes | None) -> list[dict]:
+    """Give the entries `ls` found at a URL, none where the page is that of an empty directory.
+
+    A directory that lists nothing (or itself alone) is an index page with no link (nginx), or a 404 for the page. Any
+    other 200 page, a CDN's error page or a JSON error, with a link to itself or none, is not an empty directory and
+    must not read as "no entries": it is a `DownloadError`, a 502, as for `list_remote_files_fsspec` (GH-3834). A
+    listing with entries is left as it is.
+    """
+    if not _lists_nothing(url, entries):
+        return entries
+    _found_or_empty_directory(url, [], page)
+    return []
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2782,6 +2862,32 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
     raise tls_failure
 
 
+def forget_remote_listing(url: str, settings: Settings, cache_expiry: CacheExpiry) -> None:
+    """Drop the listing of a directory from the listings cache, so that the next listing asks the server again.
+
+    For a listing that has files and is still no answer: a directory that holds the files of its stations but not the
+    description that goes with them, which DWD uploads next. Kept for the `cache_expiry` of its listing (12 hours for
+    the metadata), it would have every request skip the directory long after the server has it whole (GH-3834).
+    The `url` and the `cache_expiry` are those the directory was listed with. Nothing happens where no listing is kept
+    (the cache is disabled, or the listing is not in it). Best effort: a cache that cannot be opened or written (busy,
+    read-only) is told in the log, and the caller goes on, as it has its answer without it.
+    """
+    if settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE:
+        return
+    try:
+        fs = HTTPFileSystem(
+            use_listings_cache=True,
+            listings_expiry_time=cache_expiry.value,
+            listings_cache_location=settings.cache_dir,
+            client_kwargs=settings.fsspec_client_kwargs,
+            use_certifi=settings.use_certifi,
+        )
+    except (sqlite3.Error, OSError) as error:
+        log.warning(f"Could not open the listings cache to drop {_without_url_secrets(url)}: {error!r}")
+        return
+    _drop_cached_listing(fs, url)
+
+
 def list_remote_directory_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[dict]:
@@ -2803,7 +2909,9 @@ def list_remote_directory_fsspec(
         NoInternetError: If no connection could be made after three attempts, as for
             ``list_remote_files_fsspec`` (GH-2640).
         DownloadError: If the server answered badly or a TLS check failed, as for
-            ``list_remote_files_fsspec`` (GH-3004, GH-3099).
+            ``list_remote_files_fsspec`` (GH-3004, GH-3099), or if a URL ending in `/` lists no entry and its page is
+            no index of a directory (a CDN's error page answered with a 200, a JSON error), which is no empty
+            directory and must not read as no entries. An `Index of` page with no link is `[]` (GH-3834).
         FileNotFoundError: If the directory is not there. Unlike ``list_remote_files_fsspec``, this
             does not return no entries. A missing directory is asked for once.
 
@@ -2824,7 +2932,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     )
     failure: OSError
     try:
-        entries = fs.ls(url, detail=True)
+        entries, page = _ls_and_read_page(fs, url)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
@@ -2842,7 +2950,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
     else:
-        return entries
+        return _entries_or_empty_directory(url, entries, page)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure
