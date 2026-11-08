@@ -243,10 +243,10 @@ describe('what a label says', () => {
     expect(wrong).toEqual([])
   })
 
-  // A soil temperature of a cover or a texture ("Maximum soil temperature under grass (5 cm)") is the
+  // A soil temperature of a cover or a texture ("Maximum soil temperature, grass (5 cm)") is the
   // plain soil temperature with more words. Every locale has its word for the soil in it; in the
   // Romance languages, where the variant is the words of the plain one followed by the cover
-  // ("Température maximale du sol sous gazon"), the label also opens with them. A language that puts an
+  // ("Température maximale du sol, gazon"), the label also opens with them. A language that puts an
   // adjective before the noun (cs "Maximální teplota holé půdy", pl "...temperatura odkrytej gleby") is
   // held to the soil word only, as a correct label of it has no fixed opening.
   const SOIL: Record<string, RegExp> = {

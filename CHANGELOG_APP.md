@@ -39,6 +39,10 @@ Types of changes:
 - `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
   Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
   the settings hold for the visit and are the defaults at the next (GH-3846)
+- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
+  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages. "Under bare ground"
+  read as the soil below the ground's cover, and the translations (de "unter unbewachsenem Boden")
+  followed it; the label now says the soil with that cover (GH-3614)
 
 ## [0.45.0] - 2026-11-07
 
