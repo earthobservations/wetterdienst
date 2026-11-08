@@ -1110,7 +1110,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "large",
             "tg",
         ): "Minimum surface temperature at 5cm within the last 12 hours, given at the 06 UTC steps",
-        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tm"): (
+            "Mean temperature during the last 24 hours, given at the 06 UTC steps. Which 24 hours is not "
+            "stated: against the hourly TTT of the same run it fits the UTC day before the step's date (00 to "
+            "24 UTC, ending 6 hours before the step; 0.33 K, 10 stations, 100 values of the run of 2026-10-19) "
+            "better than the 24 hours ending at the step (0.55 K); unconfirmed by DWD"
+        ),
         ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
         ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",

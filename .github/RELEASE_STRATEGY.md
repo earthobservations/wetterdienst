@@ -161,7 +161,7 @@ the image"), so its release after this one is the next 0.x app version (after 0.
   links from `README.md` and `docs/usage/index.md` exist (#3130); the three contract checks exist (#3131):
   `tests/ui/test_openapi_baseline.py`, `tests/ui/cli/help.snapshot.txt`, `tests/baselines/test_baselines.py`.
   Both issues stay open until step 5 closes them with the tag.
-- [ ] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
+- [x] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
   the floor of Python are made and are on the page.
 - [ ] No pull request that changes a frozen surface is open or planned for the tag: the `ACCEPTED_BREAKS` of
   `tests/ui/openapi_diff.py` and `tests/baselines/{cli,surface,mcp,parameters}.py` are empty, apart from the one
@@ -358,14 +358,18 @@ released after step 3, never in the same PR as the backend.
   announced exception (a correction of data, an ended upstream source).
 - [ ] Announce: the release body is the text; link it from the places the project has (the issue trackers above).
 
-### Decisions the maintainer has to make first
+### Decisions made by the maintainer
 
-Not decided anywhere this checklist could read, and each changes a line above.
+Decided on 2026-11-08 and recorded on #2625 and #3137.
 
-- **The app number**: `docs/usage/compatibility.md` says the app stays 0.x. The examples of this file used
-  `app-v1.0.0` and are changed to 0.x here; if the app is to be 1.0 as well, step 6 and the compatibility page change.
-- **Whether a 0.x release goes between step 1 and step 2**: the page says the shims go "with the tag"; a release in
-  between would ship their removal as 0.x. This list assumes none.
+- **The app number**: the app stays 0.x, as `docs/usage/compatibility.md` says. Its release after the tag is the
+  next 0.x app version (step 6).
+- **A last 0.x release before the tag**: the remaining breaking items (#3536 step 2, the compact `providers` answer
+  by default, among them) go out in a last 0.x release. It runs live for a few days, and then step 2 makes
+  `1.0.0` from a clean changelog. The shims of step 1 were already removed in 0.173.0.
+- **`dwd/mosmix` `TM`**: if DWD has not answered by the tag which 24 hours `TM` covers,
+  `temperature_air_mean_2m_last_24h` keeps its name. Its description and `docs/data/time_reference.md` say the
+  window is unconfirmed, and which way the measurement points. An answer before the tag decides instead.
 
 ## Version Management
 
