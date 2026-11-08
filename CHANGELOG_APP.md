@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
+  eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
+  `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
+  and the plain `radiation_global_intensity` and `radiation_sky_short_wave_diffuse_intensity` are
+  gone (GH-3134). Needs the backend that serves the new names: release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
 ### Fixed
 
 - `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare

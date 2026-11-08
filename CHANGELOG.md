@@ -18,6 +18,14 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: the hourly means of `dwd/poi` and `nws/observation` carry `_mean` and their window.
+  POI's global, diffuse and direct irradiance (DWD: "(letzte Stunde)", W/m2, the energy of the hour
+  over 3600 s) are `radiation_global_intensity_mean`,
+  `radiation_sky_short_wave_diffuse_intensity_mean` and
+  `radiation_sky_short_wave_direct_perpendicular_intensity_mean`. NWS's `visibility` (the ASOS's
+  "running 10-minute harmonic mean") is `visibility_mean_last_10min`. Values and units are
+  unchanged; POI's old names are refused with the new one named, a request for NWS `visibility`
+  still selects the row. Use the new names to filter and key the result (Part of GH-3134)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour

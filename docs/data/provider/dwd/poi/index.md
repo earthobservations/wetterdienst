@@ -21,7 +21,7 @@ actually measured. About 970 of the catalogue's ~5600 stations report, in German
 Two of the file's 41 columns are not served: the 24-hour global and direct radiation. They are
 declared in W/m², which a 24-hour figure cannot be, and measured against the daily total the hourly
 column sums to they come out proportional with a factor of 1.573 — a real daily total in a unit
-that is neither J/cm², kJ/m² nor W/m². Sum `radiation_global_intensity` over a day for the daily
+that is neither J/cm², kJ/m² nor W/m². Sum `radiation_global_intensity_mean` over a day for the daily
 total, or take it from [Observation](../observation/index.md).
 
 Only the last day is served. Older values come from

@@ -1576,14 +1576,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "radiation_global_intensity",
-        "power_per_area",
-        "Global irradiance on a horizontal surface, reported as power rather than energy, where the source "
-        "states no statistic or a reading at one moment; the stated mean is "
-        "`radiation_global_intensity_mean`.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "radiation_global_intensity_mean",
         "power_per_area",
         "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy.",
@@ -1632,13 +1624,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "radiation_sky_short_wave_diffuse_intensity",
-        "power_per_area",
-        "Diffuse short-wave irradiance from the sky, reported as power, where the source states no statistic "
-        "or a reading at one moment; the stated mean is `radiation_sky_short_wave_diffuse_intensity_mean`.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "radiation_sky_short_wave_diffuse_intensity_mean",
         "power_per_area",
         "Mean diffuse short-wave irradiance from the sky over the period, reported as power.",
@@ -1654,12 +1639,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "radiation_sky_short_wave_direct_perpendicular_intensity",
+        "radiation_sky_short_wave_direct_perpendicular_intensity_mean",
         "power_per_area",
-        "Direct short-wave irradiance from the sun on a plane perpendicular to the sun's rays (direct normal "
-        "irradiance, what a pyrheliometer measures), reported as power. It is no component on a horizontal surface and "
-        "can exceed the global irradiance, most often with a clear sky and a low sun: multiply it by the cosine of "
-        "the solar zenith angle for that.",
+        "Mean direct short-wave irradiance from the sun on a plane perpendicular to the sun's rays (direct normal "
+        "irradiance, what a pyrheliometer measures) over the period, reported as power. It is no component on a "
+        "horizontal surface and can exceed the global irradiance, most often with a clear sky and a low sun: "
+        "multiply it by the cosine of the solar zenith angle for that.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -3175,6 +3160,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "visibility_mean",
         "length_medium",
         "Mean horizontal distance at which an object can still be made out, over the period.",
+        interpolation="heterogeneous",
+    ),
+    CanonicalParameter(
+        "visibility_mean_last_10min",
+        "length_medium",
+        "Mean horizontal distance at which an object can still be made out over the 10 minutes before the "
+        "timestamp, a window shorter than the dataset's own interval, not the mean over the interval that "
+        "`visibility_mean` is.",
         interpolation="heterogeneous",
     ),
     CanonicalParameter(
