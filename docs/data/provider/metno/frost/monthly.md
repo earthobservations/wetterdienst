@@ -38,3 +38,7 @@ an 18-18 UTC series of it too at 964 of the 2,388 stations of its time-series li
 section [The two series of the daily and monthly precipitation sum](index.md#the-two-series-of-the-daily-and-monthly-precipitation-sum)
 of the Frost page, which also says what the monthly mean temperature returns
 ([the two series of the mean](index.md#the-two-series-of-the-daily-and-monthly-mean-temperature)).
+
+At a station with several heights the monthly mean temperature and humidity are of 2 m and the mean and the maximum of the
+wind of 10 m, each where that height has a value, and otherwise of the nearest other height
+([Sensors at several heights](index.md#sensors-at-several-heights)). The mean and the maximum of a month are chosen apart.

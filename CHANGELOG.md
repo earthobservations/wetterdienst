@@ -160,6 +160,16 @@ Types of changes:
   station's series: at least 3,694 days at 11 stations, 901 months at 179. Those dates are no
   longer returned, in any window, and an `other-window-left-out` warning tells them. A stored
   series does not join the new one: read it anew (GH-3855)
+- **Breaking**: `metno/frost` serves a parameter that a station measures at several heights from
+  one: the standard height (2 m for `temperature_air_2m` and `humidity_relative`, 10 m for wind
+  speed, direction and `wind_gust_max`, the daily and monthly ones too) where it has a value, else
+  the nearest other. It was the first row of Frost's answer, the highest: 10 m for the temperature
+  in 83 % of the hours at 5 of 6 stations, 47 to 120 m for the platform gust in 96 %. Wind speed
+  and direction are one height: 10 m if it has both, else the nearest that has both (SN44300 since
+  June: 252 of 337 hours are the 2 m speed and bearing). A bearing stands beside a speed of
+  another height only where Frost never measured both at one height (SN92120, SN92130, SN49490).
+  Nothing to do for most callers; the other height cannot be asked for. Read a stored series
+  anew (GH-3844)
 - **Breaking**: `metno/frost` leaves out a daily value whose window has not closed at the request
   (the date + the offset: `PT18H` extremes 18 UTC, `PT6H` sum 06 UTC, `PT0H` mean and the other
   elements the end of the date) and tells it with a `window-not-closed` warning (how many, when the

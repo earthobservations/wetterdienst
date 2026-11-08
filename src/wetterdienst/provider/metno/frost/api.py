@@ -19,7 +19,6 @@ from wetterdienst.exceptions import CredentialMissingError, DownloadError, Inval
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import (
-    RAW_TOKEN,
     SPEED_BESIDE,
     Sentinel,
     calm,
@@ -450,9 +449,10 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
 #   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
 #   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
-#   may measure the wind at two heights (7 have a direction at both, the 10 m first): the core keeps the first row of a
-#   reading that has a value, so a calm or a -3 of the first height is what the hour is, and the rows of the other
-#   height are left out (`_first_height_decides_a_code`); a gap (a null with no code) is filled from the other height
+#   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
+#   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
+#   what the hour is, and the bearing of another height does not fill it; only where no height has both are they
+#   chosen apart
 # - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
 #   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
 #   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
@@ -645,6 +645,29 @@ _LEFT_OUT_BECAUSE = {element: _because(element, offset) for element, offset in _
 # the column that carries the height of a reading's sensor beside it: a station may measure the wind at 10 m and 2 m,
 # and the speed that tells a calm is the one of the direction's own level. Blank where Frost gives none
 _LEVEL = "__level"
+# the columns `_prefer_standard_height` works with: the height as a number, and the standard height of the element
+_HEIGHT = "__height"
+_STANDARD = "__standard"
+# the base names of the elements that Frost serves at several heights, and the height Frost names the standard of
+# each: `levels=default` "will exclude any data which is not measured at a standard level for each element"
+# (https://frost.met.no/concepts2.html, "Default level and timeoffset"). The heights are the ones it answers, read
+# 2026-11-08: 2 m for `air_temperature` (SN18700, SN17850, SN18950), `relative_humidity` (SN17850, SN99990) and the
+# daily `mean(air_temperature P1D)` (SN18210); 10 m for `wind_speed` (SN76530), `wind_from_direction` (SN44300), the
+# daily and monthly `max` and `mean(wind_speed)` (SN44300) and the 10 minute `wind_speed_of_gust` (SN76959, SN76960).
+# `levels=default` is not used alone for the wind: it drops the wind of the 36 of 67 stations whose 10 m series has no
+# data. The element ids that carry a name are the daily, monthly and 10 minute ones too (`mean(wind_speed P1D)`,
+# `max(wind_speed_of_gust PT10M)`). The other elements are at one height or none: the pressure at 2 m only, the dew
+# point, the radiation, the clouds, the sums and the snow depth with none
+_STANDARD_HEIGHT = {
+    "air_temperature": 2.0,
+    "relative_humidity": 2.0,
+    "wind_speed": 10.0,
+    "wind_speed_of_gust": 10.0,
+    "wind_from_direction": 10.0,
+}
+# the base name of an element id: `mean(wind_speed P1D)` and `max(wind_speed_of_gust PT10M)` have the name inside, the
+# hourly ones are the name
+_BASE_NAME = r"(?:^|\()([a-z_]+)(?:[ )]|$)"
 # the column that carries the time the window of an observation closes (`_closes`), and whether it had not closed when
 # the request was served (`_OPEN`, which `_decode_sentinels` writes as `completeness:Incomplete`)
 _CLOSES = "__closes"
@@ -1060,15 +1083,20 @@ def _read_observations(
     if df.is_empty():
         # every row was of another series, or of a window not closed: nothing to return, and what was left out is told
         return _Read(pl.DataFrame(), left_out, open_window)
+    # the height is chosen on what Frost answered, so after the offset and the open window (`closes` does not depend on
+    # the height, and a row left out must not stand for a reading of a height) and before the codes are decoded: the
+    # `-3` and the calm `0` of the height decide the hour, and `calm` finds the one height of a direction's speed
     frame = _stamp_days(
         _decode_sentinels(
-            df.select(
-                parameter.alias("parameter"),
-                pl.col("referenceTime").alias("timestamp"),
-                pl.col("value"),
-                _quality_flags(df),
-                _level(df),
-                *([pl.col(_OPEN)] if _OPEN in df.columns else []),
+            _prefer_standard_height(
+                df.select(
+                    parameter.alias("parameter"),
+                    pl.col("referenceTime").alias("timestamp"),
+                    pl.col("value"),
+                    _quality_flags(df),
+                    _level(df),
+                    *([pl.col(_OPEN)] if _OPEN in df.columns else []),
+                )
             ),
             station_id,
         ),
@@ -1097,23 +1125,76 @@ def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
     return df.filter(~(minus_one & reading.any().over("parameter", "timestamp")))
 
 
-def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
-    """Leave out the later rows of a wind direction whose first row is a code of the source (GH-3833).
+def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
+    """Keep, of an element that is measured at several heights, the readings of one height for each time (GH-3844).
 
-    A station that measures the wind at two heights answers a direction for each, the 10 m one first, and the core keeps
-    the first row of a reading that has a value (`merge_duplicate_readings`): a calm (or a "no unique direction", `-3`)
-    at the first height is null, so the bearing of the second height would fill it and the hour would read as a wind
-    that blows beside a speed of 0. The code is what the hour is, so the rows after it are left out. A null that is no
-    code (a gap) is filled from the other height as it always was.
+    ``df`` is the frame of `_read_observations` before the codes are decoded: `parameter`, `timestamp`, `value` and the
+    height of the sensor as text (`_LEVEL`), one row for each reading. Frost answers all heights of a station, 10 m
+    first, and the core keeps the first row of a reading that has a value (`merge_duplicate_readings`): the air
+    temperature came from 10 m in 83 % of the hours at 5 of 6 stations that have 2 m and 10 m, the 10 minute gust of
+    the platforms from 47 to 120 m in 96 %, and a gap at one height was filled from another with nothing to say so.
+
+    For each parameter and time the height kept is the standard one (`_STANDARD_HEIGHT`: 2 m for the temperature and
+    the humidity, 10 m for the wind speed, the gust and the direction) if it has a value, otherwise the height of the
+    other readings that has a value and is nearest to the standard one (the lower of two as near), and no other
+    height's reading stays. A reading "has a value" as Frost answers it, before the decoding: the `-3` and the `0` of
+    a wind direction are of the height, as the hour (GH-3833), and a null is a gap, which another height fills. A
+    time with no value at any height keeps all its rows.
+
+    The wind speed and the direction are a pair, of one height, so that a bearing never stands beside a speed of another
+    height. The height of a time's pair is, in this order:
+
+    1. the standard height (10 m), if it has both a speed and a direction;
+    2. else the height that has both and is nearest to the standard one (the lower of two as near): the speed and the
+       bearing are both of it, though the standard height has a speed;
+    3. else (no height has both: Frost never measured them at one height, as at SN92120 and SN92130 in 1992-02 to
+       1993-12, the speed at 2 m and the bearing at 10 m) each is chosen as any parameter is, the standard height
+       first. That is the one case in which a bearing stands beside a speed of another height, and it is served so
+       that no bearing is lost.
+
+    The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
+    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
+    readers that read a parameter by itself (after a 404 of the whole dataset, where no data was found) have no pair to
+    see, and choose the speed, or the direction, as any other parameter. The gust is no part of the pair.
+
+    A parameter that is not in `_STANDARD_HEIGHT`, and a frame without `_LEVEL`, are as they were.
     """
-    direction = pl.col("parameter") == _WIND_DIRECTION
-    # a null with no `qualityCode` has no flags at all, which is no code (and not a null that drops the row)
-    coded = (direction & pl.col("value").is_null() & pl.col("quality_flags").str.contains(RAW_TOKEN)).fill_null(
-        value=False
+    if _LEVEL not in df.columns or df.is_empty():
+        return df
+    keys = ["parameter", "timestamp"]
+    answered = pl.col("value").is_not_null()
+    distance = (pl.col(_HEIGHT) - pl.col(_STANDARD)).abs().fill_null(float("inf"))
+    nearest = pl.when(answered).then(distance).min().over(keys)
+    df = df.with_columns(
+        pl.col("parameter")
+        .str.extract(_BASE_NAME, 1)
+        .replace_strict(_STANDARD_HEIGHT, default=None, return_dtype=pl.Float64)
+        .alias(_STANDARD),
+        pl.col(_LEVEL).cast(pl.Float64, strict=False).alias(_HEIGHT),
+    ).with_columns(
+        pl.when(answered & (distance == nearest)).then(pl.col(_HEIGHT)).min().over(keys).alias("__chosen"),
+        answered.any().over(keys).alias("__answered"),
     )
-    first_is_coded = coded.first().over("parameter", "timestamp")
-    later = pl.int_range(pl.len()).over("parameter", "timestamp") > 0
-    return df.filter(~(first_is_coded & later))
+    # the heights that have both a speed and a direction at a time, and the one of them that is the pair's
+    is_speed = pl.col("parameter") == _WIND_SPEED
+    is_direction = pl.col("parameter") == _WIND_DIRECTION
+    at_height = ["timestamp", _HEIGHT]
+    both = (
+        (is_speed | is_direction)
+        & (is_speed & answered).any().over(at_height)
+        & (is_direction & answered).any().over(at_height)
+    )
+    nearest_pair = pl.when(both).then(distance).min().over("timestamp")
+    df = df.with_columns(
+        both.any().over("timestamp").alias("__paired"),
+        pl.when(both & (distance == nearest_pair)).then(pl.col(_HEIGHT)).min().over("timestamp").alias("__pair"),
+    )
+    paired = (is_speed | is_direction) & pl.col("__paired")
+    wanted = pl.when(paired).then(pl.col("__pair")).otherwise(pl.col("__chosen"))
+    decided = pl.col(_STANDARD).is_not_null() & (paired | pl.col("__answered"))
+    return df.filter(~decided | pl.col(_HEIGHT).eq_missing(wanted)).drop(
+        _HEIGHT, _STANDARD, "__chosen", "__answered", "__paired", "__pair"
+    )
 
 
 def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.DataFrame:
@@ -1153,7 +1234,7 @@ def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.Dat
         pl.when(pl.col(_OPEN)).then(pl.lit(_INCOMPLETE)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
     )
     decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, completeness=incomplete, raw=raw))
-    return _first_height_decides_a_code(decoded).drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
+    return decoded.drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
 
 
 class MetnoFrostValues(TimeseriesValues):
