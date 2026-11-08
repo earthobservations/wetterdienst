@@ -480,11 +480,13 @@ what the answer is missing:
   `source-data-left-out` warning (above). The provider logs each file it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
 
   A file of `dwd/observation` or `dwd/derived` that the file index listed and the server answers with a 404 is told as
-  withdrawn, and the listing of its directory is dropped from the listing cache (kept for 12 hours otherwise), so that
-  the retry the message advises lists the directory afresh and finds the file under the name DWD gave it at its annual
-  rollover (#3892). `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404
-  is a withdrawn run, a body that would not parse an unreadable one, a directory that lists no run a file the reader
-  cannot use, and an empty or missing one an empty directory.
+  withdrawn, and the listing of its directory is dropped from the listing cache (kept for 12 hours otherwise; a year
+  directory of the 1 and 5 minute precipitation too), so that the retry the message advises lists the directory afresh
+  and finds the file under the name DWD gave it at its annual rollover (#3892). It is dropped once for each directory
+  in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
+  `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
+  run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
+  no run a file the reader cannot use, and an empty or missing one an empty directory.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do

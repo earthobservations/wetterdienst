@@ -17,6 +17,7 @@ import pytest
 
 from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.derived import download as derived_download
 from wetterdienst.provider.dwd.derived.fileindex import create_file_list_for_climate_derived
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
 
     import polars as pl
 
-    from wetterdienst.metadata.cache import CacheExpiry
 
 _DWD = "https://opendata.dwd.de"
 _CDC = "/climate_environment/CDC/"
@@ -158,3 +158,70 @@ def test_a_file_that_is_served_keeps_its_listing(dwd: _Dwd) -> None:
     _observation_files(dwd)
 
     assert [request for request in dwd.server.requests if request[1].endswith("/")] == listings
+
+
+_YEAR_ROOT = f"{_CDC}observations_germany/climate/1_minute/precipitation/historical/"
+_YEAR_DIRECTORY = f"{_YEAR_ROOT}2024/"
+_YEAR_OLD = "1minutenwerte_nieder_00003_20240101_20240131_hist.zip"
+_YEAR_NEW = "1minutenwerte_nieder_00003_20240101_20240131_hist_v2.zip"
+
+
+def test_a_404_in_a_year_subdirectory_drops_its_listing(tmp_path: Path) -> None:
+    """The listing of a year of the 1 and 5 minute precipitation is kept under its URL without the `/`.
+
+    The index walks into the subdirectory, and fsspec stores it so. The drop removes both spellings of the directory,
+    or the listing of a year stayed for 12 hours.
+    """
+    with serving() as server:
+        settings = Settings(cache_dir=str(tmp_path / "cache"))
+        server.directories[_YEAR_ROOT] = ["2024/"]
+        server.directories[_YEAR_DIRECTORY] = [_YEAR_OLD]
+        server.files.add(f"{_YEAR_DIRECTORY}{_YEAR_OLD}")
+        ttl = CacheExpiry.TWELVE_HOURS
+        listed = list_remote_files_fsspec(f"{server.base}{_YEAR_ROOT}", settings, ttl)
+        assert listed == [f"{server.base}{_YEAR_DIRECTORY}{_YEAR_OLD}"]
+
+        server.directories[_YEAR_DIRECTORY] = [_YEAR_NEW]
+        server.files = {f"{_YEAR_DIRECTORY}{_YEAR_NEW}"}
+        # the control: the listing is cached
+        assert list_remote_files_fsspec(f"{server.base}{_YEAR_ROOT}", settings, ttl) == listed
+        fileindex.forget_listing_of_missing_file(f"{server.base}{_YEAR_DIRECTORY}{_YEAR_OLD}", settings, ttl)
+
+        listed = list_remote_files_fsspec(f"{server.base}{_YEAR_ROOT}", settings, ttl)
+        assert listed == [f"{server.base}{_YEAR_DIRECTORY}{_YEAR_NEW}"]
+
+
+@fileindex.remembering_empty_directories
+def _walk(stations: range, settings: Settings) -> None:
+    """List the files of each station and download them, as the walk of the values does."""
+    for station in stations:
+        files = create_file_list_for_climate_observations(
+            f"{station:05d}", DwdObservationMetadata.daily.climate_summary, Period.HISTORICAL, settings
+        )
+        with collecting(lambda *_: None):
+            observation_download.download_climate_observations_data(files, settings)
+
+
+def _listings(dwd: _Dwd) -> int:
+    return sum(
+        1 for method, path in dwd.server.requests if method == "GET" and path.split("?")[0] == _OBSERVATION_DIRECTORY
+    )
+
+
+def test_a_walk_over_files_that_stay_404_lists_the_directory_once_more_not_once_for_each(dwd: _Dwd) -> None:
+    """Many listed files that are gone cost one extra listing of the directory for the walk, not one for each.
+
+    A megabyte index page listed per missing file, by every request that shares the cache, was the cost of dropping it
+    at each 404. The drop is made once for a directory in the walk (a lookup or the walk of the values).
+    """
+    names = [f"tageswerte_KL_{station:05d}_19510101_20231231_hist.zip" for station in range(1, 7)]
+    dwd.server.directories[_OBSERVATION_DIRECTORY] = names  # none is served: every file is a 404
+    stations = range(1, 7)
+
+    _walk(stations, dwd.settings)
+    cold = _listings(dwd)
+    dwd.server.requests.clear()
+    _walk(stations, dwd.settings)
+
+    assert cold <= 2, "the first listing, and one after the drop"
+    assert _listings(dwd) <= 1, "the listing the drop left is the server's own and is kept"

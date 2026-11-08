@@ -285,10 +285,12 @@ class DwdSwsmosValues(TimeseriesValues):
             frame = pl.DataFrame()
             candidates, no_run = self._run_candidates(settings)
             # why the newest candidate, the run the request names, could not be used: what `file-skipped` tells if
-            # no candidate could (GH-3892). A 404 is a run withdrawn since the listing (it may be back), a body that
-            # arrived and could not be read is a run that would not parse (it heals where DWD was still writing it,
-            # as for `LATEST`, and does not for a pinned `issue`). The runs behind it are stand-ins for it: the next
-            # request lists again and asks for the then newest, so what met the newest is what a retry meets
+            # no candidate could (GH-3892). A 404 is a run withdrawn since the listing (it may be back), a zero-byte
+            # 200 is the first instant of a run being written (an empty body, as `dwd/poi` and `metno/frost` tell
+            # it), a body that arrived and could not be read is a run that would not parse (it heals where DWD was
+            # still writing it, as for `LATEST`, and does not for a pinned `issue`). The runs behind it are
+            # stand-ins for it: the next request lists again and asks for the then newest, so what met the newest
+            # is what a retry meets
             cause: SkipCause | None = None
             for url, ttl in candidates:
                 content = self._run_content(url, ttl, settings)
@@ -345,7 +347,13 @@ class DwdSwsmosValues(TimeseriesValues):
                     )
                     break
                 if cause is None:
-                    cause = SkipCause.WITHDRAWN if content is None else SkipCause.UNPARSEABLE
+                    cause = (
+                        SkipCause.WITHDRAWN
+                        if content is None
+                        else SkipCause.MAINTENANCE
+                        if not content
+                        else SkipCause.UNPARSEABLE
+                    )
             if frame.is_empty():
                 note_skipped_download(cause or cast("SkipCause", no_run), whole_request=True)
             self._run_frame_cache = frame

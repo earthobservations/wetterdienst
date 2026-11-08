@@ -60,11 +60,12 @@ Types of changes:
 ### Fixed
 
 - After DWD renames a historical file (the annual rollover), `dwd/observation` and `dwd/derived`
-  drop the cached listing of its directory on the 404 of the file it named, so the retry that
+  drop the cached listing of its directory (a year directory of the 1 and 5 minute precipitation
+  too) on the 404 of the file it named, once for each directory in a request, so the retry that
   `file-skipped` advises finds the new name at once, not when the 12-hour listing expires.
-  `dwd/swsmos` tells why its run could not be read (withdrawn, unreadable, nothing listed, or an
-  empty directory), not always "failed"; `source-data-left-out` names the cause of a file and
-  advises by it, in the words of `file-skipped` (GH-3892)
+  `dwd/swsmos` tells why its run could not be read (withdrawn, empty body, unreadable, no run
+  listed, or an empty directory), not always "failed"; `source-data-left-out` names the cause of
+  a file and advises by it, in the words of `file-skipped` (GH-3892)
 - The `file-skipped` warning names why a file was let go and advises by it: "Try again later" only
   for a failed download, a withdrawn file, an error page or empty body, or an empty directory. For
   a refused download (too large, too slow, an off-host redirect, a 400, 403 or 410) or a file that

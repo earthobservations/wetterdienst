@@ -1057,6 +1057,12 @@ def test_swsmos_tells_a_run_that_would_not_parse_as_unparseable(monkeypatch: pyt
     assert told == [(True, SkipCause.UNPARSEABLE)]
 
 
+def test_swsmos_tells_a_run_that_arrives_empty_as_an_empty_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A zero-byte 200 is a run still being written, told as `dwd/poi` and `metno/frost` tell an empty 200."""
+    told = _skip_causes(monkeypatch, [_NEWEST, _BEFORE], {_NEWEST: b"", _BEFORE: b""})
+    assert told == [(True, SkipCause.MAINTENANCE)]
+
+
 def test_swsmos_tells_a_pinned_run_that_would_not_parse_as_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
     """A pinned `issue` has one candidate, and a corrupt one stays so (the entry is held for twelve hours)."""
     told = _skip_causes(monkeypatch, [_NEWEST], {_NEWEST: _UNREADABLE}, issue=dt.datetime(2026, 7, 31, 8, tzinfo=UTC))
