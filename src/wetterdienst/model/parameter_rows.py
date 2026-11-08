@@ -533,7 +533,11 @@ class EstimateLeftOut:
                 self.forget(station)
 
     def forget(self, station_id: str) -> None:
-        """Leave out the station the walk read and the estimate stopped at, unused: it lost the answer nothing."""
+        """Leave out a station the walk read and the estimate did not use, as it lost the answer nothing.
+
+        That is the station the estimate stopped at, and, through `forget_since`, a station passed over for want of rows
+        once the answer was complete.
+        """
         self._collected.pop(station_id, None)
         self._files.pop(station_id, None)
         self._files_of_all.discard(station_id)

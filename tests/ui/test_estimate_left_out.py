@@ -25,6 +25,7 @@ import pytest
 from click.testing import CliRunner
 from starlette.testclient import TestClient
 
+from tests.provider.metno.frost.catalogue_rows import is_series_listing, series_of
 from tests.provider.metno.frost.test_values_failures import (
     SOURCES,
     _answered_by,
@@ -90,6 +91,9 @@ def frost(monkeypatch: pytest.MonkeyPatch) -> None:
     observations = _answered_by("batch", _offset_answer("sum(precipitation_amount P1D)", readings), available)
 
     def download(*, url: str, **_: object) -> File:
+        # the catalogue's request for the series of every station is served as the reader's own tests serve it
+        if is_series_listing(url):
+            return _ok(url, series_of("SN18700"))
         return _ok(url, SOURCES) if "/sources/" in url else observations(url)
 
     monkeypatch.setattr(frost_api, "download_file", download)
