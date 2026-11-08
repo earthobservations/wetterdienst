@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
+  are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
+  ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour
+  one. A 12-hour station's day is now its 21-09Z row and the 09-21Z row of the evening before, and a
+  24-hour row is the day where both kinds exist. A day with one half only is left out and told
+  (`other-window-left-out`). On 70 station-years the maximum changes on 95 % of days (1.6 degC, up
+  to 11.6), the minimum on 35 % (0.5, up to 13.1). `temperature_air_min_0_05m` is in no 09-21Z row
+  and keeps its 21-09Z day. A stored series does not join the new one: read it anew (Part of
+  GH-3137)
+
 ## [0.185.0] - 2026-11-08
 
 ### Added
