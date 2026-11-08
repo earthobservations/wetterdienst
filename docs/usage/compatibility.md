@@ -233,7 +233,9 @@ A request is asked more of when a parameter, or a member of a request body, take
 that is a break: a changed `default` (what an omitted parameter means), a tighter bound (a larger `minimum`,
 `minLength` or `minItems`, a smaller `maximum`, `maxLength` or `maxItems`, a bound where there was none), a `pattern`
 that was added or changed, and an enum that lost members. `tests/ui/openapi_diff.py` holds it. A looser bound or no
-pattern is an addition and passes.
+pattern is an addition and passes. A response is widened when a union gains an alternative (`array` that becomes
+`array | null`, a member that may now be `null`), and that is a break like any changed type, since a client generated
+from the document must handle the new alternative, where the same alternative of a request is an addition.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
 a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the

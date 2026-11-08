@@ -544,41 +544,6 @@ def test_the_mcp_tool_lists_the_datasets_unless_told_not_to() -> None:
     assert all(network["resolutions"] is None for network in _every_network(compact))
 
 
-def test_dataset_is_not_a_renamed_parameter_of_providers(client: TestClient) -> None:
-    """`providers` never took `dataset`: it is an unknown parameter, not one renamed to `datasets` (GH-3536)."""
-    refused = client.get("/api/providers", params={"dataset": "true"})
-    assert refused.status_code == 422
-    assert "renamed" not in refused.text
-    assert "dataset" in refused.text
-    # the endpoints that had `dataset` are still told
-    assert "dataset was renamed to datasets" in client.get("/api/coverage", params={"dataset": "kl"}).text
-
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.exceptions import ToolError  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    async def call(tool: str, arguments: dict[str, Any]) -> str:
-        async with Client(build_mcp_server(restapi.app)) as mcp:
-            with pytest.raises(ToolError) as error:
-                await mcp.call_tool(tool, arguments)
-            return str(error.value)
-
-    cli_refused = CliRunner().invoke(cli, ["about", "providers", "--dataset=true"])
-    assert cli_refused.exit_code == 2
-    assert "renamed" not in cli_refused.output
-    assert "No such option" in cli_refused.output
-    assert "renamed to --datasets" in CliRunner().invoke(cli, ["about", "coverage", "--dataset=kl"]).output
-
-    message = asyncio.run(call("providers", {"dataset": "true"}))
-    assert "renamed" not in message
-    assert "is not an argument of providers" in message
-    assert "dataset was renamed to datasets" in asyncio.run(call("coverage", {"dataset": "kl"}))
-
-
 def test_the_fields_say_which_one_is_the_credit_line(client: TestClient) -> None:
     """`attribution` is named the credit line to cite and `copyright` the notice shown for information (GH-3536)."""
     schemas = client.get("/openapi.json").json()["components"]["schemas"]

@@ -25,9 +25,13 @@ does, and when a parameter or a member of a request body takes **less** than it 
 - a `pattern` that was added or changed (which of two patterns is the tighter cannot be told);
 - an enum that dropped members, or one where there was none.
 
+A response may not become **more** than it was either: a client generated from the document handles each alternative
+of a union and no other, so a new alternative of a response (`array` that is now `array | null`, a member that may now
+be `null`) is a finding, where the same widening of what a request takes is an addition (GH-3869).
+
 Everything else is additive and passes: a new path, operation, optional parameter, member, status, enum member or
-media type, and a looser bound or no pattern. The by-convention rule of the compatibility policy is that a tighter
-default or bound is a break, and this is what holds it.
+media type, a new alternative of what a request takes, and a looser bound or no pattern. The by-convention rule of the
+compatibility policy is that a tighter default or bound is a break, and this is what holds it.
 
 Not compared: titles, descriptions, examples and formats, which describe more than they promise, the defaults and
 bounds of an answer, and what an answer means. A change of meaning is in the changelog, and the contract tests of the
@@ -42,7 +46,16 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    # GH-3536 (#3868), after 0.184.0: the schema says `resolutions` may be null, which a client typed from it must
+    # handle; the answer is null only for `datasets=false`, a parameter of the same change, so a caller that does not
+    # pass it (every caller of 0.184.0) is answered as before, with the list
+    "GET /api/v1/providers 200 application/json.providers[].networks[].resolutions: "
+    "null was added to the alternatives of the answer": (
+        "`resolutions` is null only for `datasets=false`, new in this release; the default answer, with the list, "
+        "is what 0.184.0 gave, so nothing a caller of 0.184.0 does is answered with null"
+    ),
+}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 
@@ -254,7 +267,12 @@ def _union(
     asked: bool,
     seen: frozenset[tuple[str, str]],
 ) -> list[str]:
-    """Find each alternative that was offered and is not any more; the others of a union are additions."""
+    """Find each alternative that was offered and is not any more, and in a response each that is new.
+
+    A request that may now be one more thing is a looser request, an addition. A response that may now be one more
+    thing (`array` that may be `null`, a string that may be an object) is a break: a client generated from the
+    document types the answer by its alternatives and must now handle the new one (GH-3869).
+    """
     found = []
     for alternative in old_alternatives:
         results = [_schema(old, new, where, alternative, c, asked=asked, seen=seen) for c in new_alternatives]
@@ -272,6 +290,15 @@ def _union(
             if len(same_type) == 1
             else [f"{where}: {_label(alternative)} is no longer one of the alternatives"]
         )
+    if not asked:
+        found += [
+            f"{where}: {_label(candidate)} was added to the alternatives of the answer"
+            for candidate in new_alternatives
+            if all(
+                _schema(old, new, where, alternative, candidate, asked=False, seen=seen)
+                for alternative in old_alternatives
+            )
+        ]
     return found
 
 

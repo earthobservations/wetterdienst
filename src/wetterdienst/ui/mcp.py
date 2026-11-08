@@ -302,8 +302,8 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     from wetterdienst.ui.core import (  # noqa: PLC0415
         REMOVED_REQUEST_PARAMETERS,
         RENAMED_REQUEST_PARAMETERS,
-        ProvidersRequest,
         join_names,
+        old_names_of_route,
         removed_parameter_message,
     )
 
@@ -319,11 +319,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
                 unknown = [name for name in arguments if name not in taken]
-                # a name the tool's request never had is no old name of one it has (`providers` never took `dataset`)
-                never = ProvidersRequest.never_renamed if tool.name == "providers" else frozenset()
-                renamed = [
-                    name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name not in never
-                ]
+                # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
+                had = old_names_of_route(tool.name)
+                renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
                 refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
                 removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
                 refused += [removed_parameter_message(name) for name in removed]
