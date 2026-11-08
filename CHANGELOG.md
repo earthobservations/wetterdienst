@@ -18,6 +18,14 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
+  `humidity_relative`: 808 station-months at 26 stations (1955 to 1997, almost all before 1991; the
+  854 of an ISD fit and a diurnal-phase test that agree under every variant, 46 of them shifted
+  before) of the plain "Stundenwerte in MEZ" periods are MEZ in the values and come back one hour
+  earlier, flagged `zone:mez`. The 13 stations of the 1973-01 to 1975-12 batch carry
+  `zone:mez-1973-75`: the shift is the 1 h of the clock, about 0.4 h of the recorder's lag stays.
+  Months only one method finds in MEZ stay as written. A stored series needs a re-read: add an hour
+  to flagged stamps for the old ones. The blocks are `mez_blocks.csv` (GH-3776)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour

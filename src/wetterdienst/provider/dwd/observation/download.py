@@ -15,6 +15,7 @@ from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.fileindex import forget_listing_of_missing_file
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.provider.dwd.observation.mez_blocks import mez_block_spans
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.network import File, download_files
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
@@ -84,16 +85,37 @@ MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
 #: days before it are at lag 0; Trier 1989-08: 28 of 31; Bremen 1990-11 to 1991-02: 77 of 120 days against 30, where
 #: 180 of 304 days of 1990-01 to 10 are at lag 0). Relative humidity has the same span (Frankfurt 98.4 %, Trier
 #: 96.3 % within 3 % of ISD's at lag -1).
-MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]] = {
-    station: dict.fromkeys(("tt_tu", "rf_tu"), (span,))
-    for station, span in {
-        "00963": (dt.datetime(1995, 2, 1, 0, tzinfo=dt.UTC), dt.datetime(1996, 5, 31, 23, tzinfo=dt.UTC)),
-        "03668": (dt.datetime(1986, 1, 1, 1, tzinfo=dt.UTC), dt.datetime(1988, 11, 1, 0, tzinfo=dt.UTC)),
-        "01420": (dt.datetime(1990, 5, 1, 1, tzinfo=dt.UTC), dt.datetime(1990, 6, 1, 0, tzinfo=dt.UTC)),
-        "05100": (dt.datetime(1989, 8, 1, 1, tzinfo=dt.UTC), dt.datetime(1989, 9, 1, 0, tzinfo=dt.UTC)),
-        "00691": (dt.datetime(1990, 11, 1, 1, tzinfo=dt.UTC), dt.datetime(1991, 3, 1, 0, tzinfo=dt.UTC)),
-    }.items()
+#:
+#: Where the values are analog and equal no report of ISD at any lag, a second method decides next to the fit of the
+#: offset to ISD's reports (GH-3776): the blocks of `mez_blocks.csv`, the months that both methods find in MEZ under
+#: every variant of the constants of the scan, are shifted like these. A block is whole UTC days, from the stamp 01 of
+#: its first day to the stamp 00 after its last (`mez_blocks.py` has the method and the columns of the table). They
+#: are flagged `zone:mez`, and those of the 1973-01 to 1975-12 batch `zone:mez-1973-75`: shifted by the 1 h of the
+#: clock, with the lag of the analog recorder (about 0.4 h at 8 of its 13 stations) left in the values. The same rule
+#: settles a stamp the shift moves onto one that is there: the row that was moved is kept. The blocks of the table lie
+#: outside the five above (a test holds it to that).
+_MEZ_COMPARED_WITH_ISD: dict[str, tuple[dt.datetime, dt.datetime]] = {
+    "00963": (dt.datetime(1995, 2, 1, 0, tzinfo=dt.UTC), dt.datetime(1996, 5, 31, 23, tzinfo=dt.UTC)),
+    "03668": (dt.datetime(1986, 1, 1, 1, tzinfo=dt.UTC), dt.datetime(1988, 11, 1, 0, tzinfo=dt.UTC)),
+    "01420": (dt.datetime(1990, 5, 1, 1, tzinfo=dt.UTC), dt.datetime(1990, 6, 1, 0, tzinfo=dt.UTC)),
+    "05100": (dt.datetime(1989, 8, 1, 1, tzinfo=dt.UTC), dt.datetime(1989, 9, 1, 0, tzinfo=dt.UTC)),
+    "00691": (dt.datetime(1990, 11, 1, 1, tzinfo=dt.UTC), dt.datetime(1991, 3, 1, 0, tzinfo=dt.UTC)),
 }
+
+
+def _by_comparison() -> dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]]:
+    spans: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = {
+        station: (span,) for station, span in _MEZ_COMPARED_WITH_ISD.items()
+    }
+    for station, blocks in mez_block_spans().items():
+        spans[station] = (*spans.get(station, ()), *blocks)
+    return {station: dict.fromkeys(("tt_tu", "rf_tu"), stamps) for station, stamps in spans.items()}
+
+
+MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]] = _by_comparison()
+
+#: the stamps of the 1973-01 to 1975-12 batch, by station: the rows of these are flagged `zone:mez-1973-75` (GH-3776)
+MEZ_BATCH_SPANS: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = mez_block_spans(batch=True)
 
 #: the datasets whose stamps are MEZ in some periods: hourly air temperature (GH-2709), hourly soil temperature
 #: (GH-3029)
