@@ -111,8 +111,8 @@ The labels of the parameters, resolutions and datasets (`glossary/<locale>.ts`) 
 - one English label has one translation;
 - an hour after a number is `h` (`u` in nl, `t` in da), with the English number;
 - a soil temperature of a cover or a texture has the word for the soil, and in fr, es and it it opens
-  with the words of the plain soil temperature, so that "Maximum soil temperature under grass" is not
-  "Maximum temperature under grass" (the other languages put an adjective before the noun, and a
+  with the words of the plain soil temperature, so that "Maximum soil temperature, grass" is not
+  "Maximum temperature, grass" (the other languages put an adjective before the noun, and a
   correct label of theirs has no fixed opening);
 - French sets a no-break space before a colon, as the catalog does.
 
