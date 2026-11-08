@@ -2474,6 +2474,16 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         # the oktas in percent (GH-3622); none of 68,107 hourly values of the climate data carries it, so it is made up
         ("mean_cloud_cover", "2020-02-14T03:00:00+00:00", 112.0),
         ("mean_cloud_cover", "2020-02-14T06:00:00+00:00", 90.0),
+        # the mean wind direction at minute 0 (GH-3762), which DMI publishes for Greenland and the Faroe Islands (04220,
+        # Aasiaat, read key-less 2026-11-08: 1006 records of 2025-11-20 to 2026-01-01, 58 of them 0, 2 of them 360, none
+        # without a value). No speed comes with minute 0, so a 0 is calm or north and stays 0.0 as DMI gives it, beside
+        # a mean wind speed of 0 (03:00) and of 4.1 (06:00) alike: the calm rule of GH-2794 reads `mean_wind_dir` alone.
+        # 360 stays 360. The rows of 06070 are the only station of this stub, so these are 04220's values at its hours
+        # (the 360, the 250 and the missing value are made up)
+        ("mean_wind_dir_min0", "2020-02-14T03:00:00+00:00", 0.0),
+        ("mean_wind_dir_min0", "2020-02-14T04:00:00+00:00", 360.0),
+        ("mean_wind_dir_min0", "2020-02-14T05:00:00+00:00", None),
+        ("mean_wind_dir_min0", "2020-02-14T06:00:00+00:00", 250.0),
     ]
     features = [
         {
