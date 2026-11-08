@@ -61,12 +61,13 @@ Types of changes:
 
 - A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
   URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
-  `list_remote_directory_fsspec` leave the link out. An outage page with such a link is a
-  `DownloadError` (before: it was kept as a file for `.`, `?retry=1` and `#`, and as an empty
-  listing for `/x/` and the absolute URL, so a directory that was down read as empty for 12 hours
-  after it was back and `dwd/observation` skipped the period; `./` was a `RecursionError` after
-  974 requests that also left fsspec's event loop spinning). An `Index of` page that links to
-  `./` and holds files lists them (GH-3861)
+  `list_remote_directory_fsspec` leave the link out, an Apache index's sort links (`?C=N;O=D`)
+  too, which were listed as files. An outage page with such a link is a `DownloadError` (before:
+  `/x/` and the absolute URL were kept as an empty listing, so a directory that was down read as
+  empty for 12 hours after it was back and `dwd/observation` skipped the period; `.`, `?retry=1`
+  and `#` came back as a file; `./` was a `RecursionError` after 974 requests that left fsspec's
+  event loop spinning). A listing an older release cached is read the same way. An `Index of`
+  page that links to `./` and holds files lists them (GH-3861)
 - `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
   warning, that source data was left out: how many of the stations they read lost a file the
   provider let go (a failed download, a directory found empty), dates of another series (Frost) or
