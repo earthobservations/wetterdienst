@@ -74,7 +74,7 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
-from wetterdienst.util.response_warnings import FILE_SKIPPED, note_skipped_download, warn_response
+from wetterdienst.util.response_warnings import FILE_SKIPPED, SkipCause, note_skipped_download, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -147,7 +147,7 @@ class DwdObservationValues(TimeseriesValues):
                     # the directory came back empty or missing: the period has no file to read. The lookup of the
                     # stations tells the directory (`file-skipped`), and this tells the station
                     log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
-                    note_skipped_download()
+                    note_skipped_download(SkipCause.EMPTY_DIRECTORY)
                     continue
                 periods_and_date_ranges.append((period, date_ranges))
             else:
@@ -209,7 +209,7 @@ class DwdObservationValues(TimeseriesValues):
             except EmptyListingError as e:
                 # as above: the directory has no file to read, and the station is named by `file-skipped`
                 log.info(f"No files listed at {e.url} for {dataset_identifier}. Period will be skipped.")
-                note_skipped_download()
+                note_skipped_download(SkipCause.EMPTY_DIRECTORY)
                 continue
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")

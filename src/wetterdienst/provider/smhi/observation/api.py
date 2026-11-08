@@ -22,8 +22,8 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
 from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
-from wetterdienst.util.network import as_outage, download_file, download_files
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.network import as_outage, download_file, download_files, skip_cause_of_failure
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -204,7 +204,7 @@ class SmhiObservationValues(TimeseriesValues):
                 if isinstance(failure, (NoInternetError, DownloadError)):
                     raise failure
                 if not isinstance(payload, FileNotFoundError):
-                    note_skipped_download()
+                    note_skipped_download(skip_cause_of_failure(payload))
                     log.warning(
                         f"Failed to fetch SMHI parameter {name_original} for station {station_id}: {payload}",
                     )
@@ -214,7 +214,7 @@ class SmhiObservationValues(TimeseriesValues):
             except Exception as exc:  # noqa: BLE001
                 # a single malformed CSV block shouldn't abort the whole (multi-station,
                 # multi-parameter) query -- skip it and keep going.
-                note_skipped_download()
+                note_skipped_download(SkipCause.UNPARSEABLE)
                 log.warning(
                     f"Failed to parse SMHI CSV for parameter {name_original} "
                     f"station {station_id} period {period}: {exc}",

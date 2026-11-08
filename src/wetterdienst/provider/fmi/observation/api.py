@@ -29,12 +29,13 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.fmi.observation.metadata import FmiObservationMetadata
 from wetterdienst.provider.fmi.observation.parser import (
+    extract_exception_codes,
     extract_exception_text,
     parse_fmi_observations,
     parse_fmi_stations,
 )
 from wetterdienst.util.network import download_file
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,6 +45,20 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.fmi.fi/wfs"
+
+#: the `exceptionCode`s of an OWS exception report that say the request is wrong (a missing or invalid parameter, an
+#: operation, option or version the server does not have): asked again, FMI answers the same. The others, which FMI
+#: uses for a rate limit and for failures of its own (`OperationProcessingFailed`, `NoApplicableCode`), may be gone
+_REQUEST_ERROR_CODES = frozenset(
+    {
+        "MissingParameterValue",
+        "InvalidParameterValue",
+        "OperationNotSupported",
+        "OptionNotSupported",
+        "VersionNegotiationFailed",
+        "InvalidUpdateSequence",
+    }
+)
 
 # The station catalogue does not vary by parameter, so a single stored query covers every
 # resolution/dataset (mirroring DMI).
@@ -182,7 +197,7 @@ class FmiObservationValues(TimeseriesValues):
         if file.status != 400:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(file.skip_cause)
             log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame()
         content = file.content.read()
@@ -190,7 +205,10 @@ class FmiObservationValues(TimeseriesValues):
         # an empty result is normally a station reporting no data; distinguish a genuine server
         # error (returned as an ExceptionReport with HTTP 200) so it is not silently swallowed.
         if df.is_empty() and b"ExceptionReport" in content:
-            note_skipped_download()
+            # a request the server turns down (a parameter or a query it does not have) is the same at the next
+            # request; any other exception, a rate limit or a failure of its own, may be gone
+            codes = set(extract_exception_codes(content))
+            note_skipped_download(SkipCause.REFUSED if codes & _REQUEST_ERROR_CODES else SkipCause.MAINTENANCE)
             log.warning(f"FMI returned an exception for station {station_id}: {extract_exception_text(content)}")
         return df
 

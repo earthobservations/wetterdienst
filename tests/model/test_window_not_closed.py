@@ -198,9 +198,9 @@ def test_the_hook_reaches_the_walk_that_is_collecting_and_no_other() -> None:
     told: list[tuple[str, int, dt.datetime, bool]] = []
     other: list[tuple[str, int, dt.datetime, bool]] = []
 
-    with collecting(lambda _: None, None, None, lambda *args: told.append(args)):
+    with collecting(lambda *_: None, None, None, lambda *args: told.append(args)):
         note_open_window("a", 1, CLOSES, returned=False)
-        with collecting(lambda _: None, None, None, lambda *args: other.append(args)):
+        with collecting(lambda *_: None, None, None, lambda *args: other.append(args)):
             note_open_window("b", 2, CLOSES, returned=True)
         note_open_window("c", 3, CLOSES, returned=False)
     note_open_window("d", 4, CLOSES, returned=False)
@@ -213,11 +213,11 @@ def test_the_hook_ignores_a_count_that_is_not_a_value_and_is_silent_outside_a_wa
     """A count of 0 or less is not noted; the library as a library has no walk and does not raise."""
     told: list[tuple[str, int, dt.datetime, bool]] = []
 
-    with collecting(lambda _: None, None, None, lambda *args: told.append(args)):
+    with collecting(lambda *_: None, None, None, lambda *args: told.append(args)):
         note_open_window("a", 0, CLOSES, returned=False)
         note_open_window("a", -2, CLOSES, returned=False)
     note_open_window("a", 3, CLOSES, returned=False)
-    with collecting(lambda _: None):
+    with collecting(lambda *_: None):
         note_open_window("a", 3, CLOSES, returned=False)
 
     assert told == []

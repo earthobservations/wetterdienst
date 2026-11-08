@@ -36,7 +36,7 @@ from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.util.archive import bunzip2
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -333,7 +333,7 @@ class DwdSwsmosValues(TimeseriesValues):
                     )
                     break
             if frame.is_empty():
-                note_skipped_download(whole_request=True)
+                note_skipped_download(SkipCause.FAILED, whole_request=True)
             self._run_frame_cache = frame
         return self._run_frame_cache
 

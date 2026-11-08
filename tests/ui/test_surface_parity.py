@@ -2015,14 +2015,14 @@ def test_a_window_of_a_day_or_of_minutes_is_written_as_such() -> None:
 
 def _letting_go(monkeypatch: pytest.MonkeyPatch, stations: set[str], *, whole_request: bool = False) -> None:
     """Have the source hold nothing of `sdk`, and the provider let go a file of each of `stations` on the way."""
-    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
 
     original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
 
     def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
         df = original(self, station_id, parameter_or_dataset)
         if station_id in stations:
-            note_skipped_download(whole_request=whole_request)
+            note_skipped_download(SkipCause.FAILED, whole_request=whole_request)
         return df.filter(pl.col("parameter") != "sdk")
 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
@@ -2047,10 +2047,10 @@ def test_a_file_that_every_station_is_read_from_silences_the_warning(monkeypatch
 
 def test_a_file_let_go_outside_the_collection_of_a_station_is_nothing() -> None:
     """The note is the collection's: a provider that calls it outside one (listing the stations) changes nothing."""
-    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
 
-    note_skipped_download()
-    note_skipped_download(whole_request=True)
+    note_skipped_download(SkipCause.FAILED)
+    note_skipped_download(SkipCause.FAILED, whole_request=True)
 
 
 def test_the_lead_time_that_was_asked_for_survives_a_replaced_or_copied_request() -> None:
