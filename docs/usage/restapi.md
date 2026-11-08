@@ -761,26 +761,25 @@ by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the co
 terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
 (`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice, shown for
 information), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-how many parameters they have (`parameters`), and the resolutions and datasets they offer, with how many parameters each
-has (`dwd/radar` and `dwd/alerts` have an empty list). `datasets=false` leaves the resolutions and datasets out
-(`resolutions` is then null and everything else stays), which is all that a question about a licence or about which
-providers reach a place needs, and an answer about 40 % shorter: 20 kB for every provider where the full one is 34 kB.
-`datasets` is true for now and becomes false in a later release, before 1.0, so pass `datasets=true` where you read
-`resolutions`. `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
+how many parameters they have (`parameters`). The answer is compact: `resolutions` of each network is null, which is all
+that a question about a licence or about which providers reach a place needs, and an answer about 40 % shorter: 20 kB
+for every provider where the full one is 34 kB. `datasets=true` lists the resolutions and datasets each network offers,
+with how many parameters each has (`dwd/radar` and `dwd/alerts` have an empty list); pass it where you read
+`resolutions` (it was the default up to 0.185.0). `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
 answers at once, and `auth` checks whether credentials are accepted.
 
 ```bash
-# Every provider, sorted by name.
+# Every provider, sorted by name, without the resolutions of their networks.
 http localhost:7890/api/providers
 
 # One provider.
 http localhost:7890/api/providers provider==dwd
 
-# Without the resolutions and datasets of each network.
-http localhost:7890/api/providers provider==dwd datasets==false
+# With the resolutions and datasets of each network.
+http localhost:7890/api/providers provider==dwd datasets==true
 ```
 
-The command line is `wetterdienst about providers [--provider dwd] [--datasets=false]` and the MCP tool is `providers`.
+The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`.
 
 ### Extent
 
@@ -1135,7 +1134,7 @@ from one is never taken as proof by another that is newer; the worst case is a 2
 
 **What a 304 saves** is the transfer of the body, not the work of making it: the answer is built to be tagged. Measured
 against a server on the loopback interface, a request that sends the tag is answered with 309 bytes where the 200 is
-73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 33,806 for `providers`
+73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 33,806 for `providers` with `datasets=true`
 and 129,018 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
 `max-age` saves the request itself. A `history` is read again to be tagged, so for it too the saving is the body.
 
