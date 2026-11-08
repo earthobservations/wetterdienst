@@ -2678,13 +2678,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_soil_mean_loamy_sand_0_05m",
         "temperature",
-        "Mean soil temperature at 0.05 m depth in loamy sand.",
+        "Mean soil temperature at 0.05 m depth in loamy sand without vegetation cover.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "temperature_soil_mean_loamy_silt_0_05m",
         "temperature",
-        "Mean soil temperature at 0.05 m depth in loamy silt.",
+        "Mean soil temperature at 0.05 m depth in loamy silt without vegetation cover.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

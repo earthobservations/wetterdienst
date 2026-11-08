@@ -32,8 +32,8 @@ Types of changes:
   cover" or "with a grass cover", where they said "under bare ground". The parameter names are
   unchanged (GH-3614)
 - The `glossary` and `coverage` descriptions of the soil temperatures of `dwd/derived` in loamy sand
-  and loamy silt say "at 0.05 m depth in loamy sand" (silt), where they said "under loamy sand".
-  The parameter names are unchanged (GH-3899)
+  and loamy silt say "at 0.05 m depth in loamy sand without vegetation cover" (silt), as DWD
+  describes them, where they said "under loamy sand". The parameter names are unchanged (GH-3899)
 
 ## [0.185.0] - 2026-11-08
 
