@@ -103,7 +103,8 @@ country, licence and credit line of a provider.
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
-does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes
+does not take is refused with the name of the one it takes where the tool had the old name
+(`station was renamed to stations`), and as an unknown argument where it never did. No tool takes
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
 Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the

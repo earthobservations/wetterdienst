@@ -649,9 +649,11 @@ learnt on one holds on the others:
   not). The underscored spellings of the command line,
   `--convert_units` and the like, are refused with an error naming the hyphenated one.
 - **A parameter that takes a list is plural.** `parameters`, `periods`, `stations` and `sections`,
-  and `resolutions` and `datasets` of `coverage`, take a list; `station`, `parameter`, `period`,
-  `resolution` and `dataset` for them are refused with an error naming the plural
-  (`station was renamed to stations`). A parameter of one value is singular: the one reference
+  and `resolutions` and `datasets` of `coverage`, take a list; `station` for `stations` is refused
+  with an error naming the plural (`station was renamed to stations`) on the routes that took it in
+  0.139.0 (`stations`, `values`, `history`). A name a route never had is no rename there but an
+  unknown parameter: `date` of `stations`, which takes a `timestamp` only, `parameter` of `values`.
+  A parameter of one value is singular: the one reference
   `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
   `parameter` text `glossary` looks for.
 - **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,

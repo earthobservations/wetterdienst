@@ -59,6 +59,16 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: a parameter renamed for 1.0 is told "was renamed" only on a route that had the old
+  name in 0.139.0, on REST, MCP and the command line alike. Before, `date` on `stations`,
+  `parameter` and `period` where `parameters` and `periods` were taken already, `resolution` and
+  `dataset` on `coverage`, `dataset` on `providers` and `--name_threshold` on `stations` were told
+  that, though those routes never took them; each is now an unknown parameter (the command line
+  says "Did you mean"): give the name the route takes. `stations` loses its hidden `--date`,
+  `--start-date` and `--end-date`, which only refused and still fail with exit code 2 (GH-3869)
+- **Breaking**: `providers[].networks[].resolutions` is `null` for `datasets=false` (new in this
+  release), and the OpenAPI document now says so (`array` or `null`). A client generated from the
+  document must handle `null`; with `datasets=true`, the default, the answer is as before (GH-3869)
 - The `file-skipped` warning names why a file was let go and advises by it: "Try again later" only
   for a failed download, a withdrawn file, an error page or empty body, or an empty directory. For
   a refused download (too large, too slow, an off-host redirect, a 400, 403 or 410) or a file that

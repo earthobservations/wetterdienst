@@ -373,6 +373,10 @@ coverage = [
 # replacement or a reason; regenerated from the tag `v0.139.0` (`git fetch --tags`) when a parameter of it is renamed,
 # removed or back, and a regeneration changes nothing otherwise
 "renames:baseline" = "uv run python -m tests.metadata.baseline_0_139_0"
+# the parameters of every REST route and the options of every command of release 0.139.0
+# (tests/ui/routes_0_139_0.json), which say which route had which old name and so which route is told one "was renamed";
+# regenerated from the tag, with `cloup`, which that release's command line imports, for the run
+"routes:baseline" = "uv run --with 'cloup==4.0.0' python -m tests.ui.routes_0_139_0"
 "contracts:snapshot" = [
     "openapi:snapshot",
     "cli:snapshot",

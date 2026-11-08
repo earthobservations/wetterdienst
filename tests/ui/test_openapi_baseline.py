@@ -244,6 +244,31 @@ def test_a_document_is_not_a_break_of_itself() -> None:
             "integer is no longer one of the alternatives",
             id="union-alternative",
         ),
+        # a client typed from the document handles each alternative of a response and no other (GH-3869)
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].append({"type": "string"}),
+            "string was added to the alternatives of the answer",
+            id="response-union-alternative-added",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(
+                tags={"anyOf": [_at(d, *_THINGS)["properties"]["tags"], {"type": "null"}]}
+            ),
+            "null was added to the alternatives of the answer",
+            id="response-array-became-nullable",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(id={"anyOf": [{"type": "string"}, {"type": "null"}]}),
+            "null was added to the alternatives of the answer",
+            id="response-member-became-nullable",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"]["tags"].update(
+                items={"anyOf": [{"$ref": "#/components/schemas/Tag"}, {"type": "string"}]}
+            ),
+            "string was added to the alternatives of the answer",
+            id="response-items-became-a-union",
+        ),
         pytest.param(
             lambda d: _at(d, "components", "schemas", "Tag")["properties"].pop("name"),
             "member name was removed",
@@ -352,7 +377,18 @@ def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
         pytest.param(lambda d: _at(d, *_THINGS)["properties"].update(extra={"type": "string"}), id="member"),
         pytest.param(lambda d: _at(d, *_THINGS)["required"].append("size"), id="member-now-required-in-a-response"),
         pytest.param(lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].append("c"), id="response-enum-member"),
-        pytest.param(lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].append({"type": "string"}), id="union"),
+        # what a request takes may be one more thing (the opposite of a response, which must not: GH-3869)
+        pytest.param(lambda d: _parameter(d, "size")["anyOf"].append({"type": "string"}), id="request-union"),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"].update(
+                ids={"anyOf": [_at(d, *_FILTER)["properties"]["ids"], {"type": "null"}]}
+            ),
+            id="request-body-array-became-nullable",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"][0].update(description="how many", minimum=0),
+            id="response-alternative-of-the-same-type",
+        ),
         pytest.param(
             lambda d: _at(d, *_THINGS)["properties"]["id"].update(
                 description="the id", title="Id", default="x", minLength=3, pattern="^a", examples=["abc"]
@@ -413,3 +449,44 @@ def test_an_approved_break_is_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(ACCEPTED_BREAKS, finding, "a reason")
 
     assert unaccepted([finding, "GET /x was removed"]) == ["GET /x was removed"]
+
+
+def _shared_document() -> dict[str, Any]:
+    """Build a document whose component `Shared` is a member of both the request body and the answer."""
+    document = _document()
+    document["components"]["schemas"]["Shared"] = {
+        "type": "object",
+        "properties": {"v": {"type": "integer"}, "w": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+    }
+    for name in ("Filter", "Things"):
+        _at(document, "components", "schemas", name)["properties"]["shared"] = {"$ref": "#/components/schemas/Shared"}
+    return document
+
+
+def _shared_changed(edit: Any) -> list[str]:  # noqa: ANN401
+    current = copy.deepcopy(_shared_document())
+    edit(current)
+    return breaking_changes(_shared_document(), current)
+
+
+def test_a_component_in_a_request_and_an_answer_is_judged_by_each_use() -> None:
+    """Widening a shared component is one finding, at the answer: a request that takes more is an addition (GH-3869)."""
+    nullable = {"anyOf": [{"type": "integer"}, {"type": "null"}]}
+
+    found = _shared_changed(lambda d: _at(d, "components", "schemas", "Shared")["properties"].update(v=nullable))
+
+    assert found == [
+        "GET /api/v1/things 200 application/json.shared.v: null was added to the alternatives of the answer"
+    ]
+
+
+def test_narrowing_a_component_in_a_request_and_an_answer_is_a_finding_at_both() -> None:
+    """A shared alternative that goes breaks the caller that sends it and the one that reads it (GH-3869)."""
+    found = _shared_changed(
+        lambda d: _at(d, "components", "schemas", "Shared")["properties"].update(w={"type": "string"})
+    )
+
+    assert found == [
+        "GET /api/v1/things 200 application/json.shared.w: null is no longer one of the alternatives",
+        "GET /api/v1/things: request body application/json.shared.w: null is no longer one of the alternatives",
+    ]
