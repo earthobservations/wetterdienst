@@ -38,6 +38,9 @@ _F = TypeVar("_F", bound=Callable[..., Any])
 #: the directories found empty by the lookup or the walk that is running (`remembering_empty_directories`), and none
 #: outside one: a context variable, so that concurrent requests do not share it
 _REMEMBERED: ContextVar[set[str] | None] = ContextVar("wetterdienst_empty_directories", default=None)
+#: the directories whose listing a 404 dropped in the lookup or the walk that is running: once is enough, as the
+#: listing made after it is the server's own (set and reset with `_REMEMBERED`)
+_DROPPED: ContextVar[set[str] | None] = ContextVar("wetterdienst_dropped_listings", default=None)
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -224,6 +227,26 @@ def station_ids_of_files(filenames: list[str]) -> frozenset[str]:
     return frozenset(match.group(1).zfill(5) for match in ids if match and match.group(1).zfill(5) != "00000")
 
 
+def forget_listing_of_missing_file(file_url: str, settings: Settings, ttl: CacheExpiry) -> None:
+    """Drop the listing of the directory that listed a file the server answered with a 404 (GH-3892).
+
+    The listing is kept for the `ttl` of the file index (12 hours), and a file it names that is gone has been
+    renamed or withdrawn since (DWD renames the historical files at the annual rollover). Kept, the listing has the
+    next request ask for the same name until it expires; dropped, the next request lists the directory afresh and
+    finds the file under its new name. `ttl` is the one the directory was listed with.
+    """
+    directory = file_url.rsplit("/", maxsplit=1)[0]
+    dropped = _DROPPED.get()
+    if dropped is not None:
+        if directory in dropped:
+            return
+        dropped.add(directory)
+    # the directory the index lists is kept under its URL with `/`, a subdirectory `find` walked into (a year of the
+    # 1- and 5-minute precipitation) under the one without (fsspec's `_walk` strips it)
+    for key in (f"{directory}/", directory):
+        forget_remote_listing(key, settings, ttl)
+
+
 def forget_description_missing(url: str, settings: Settings, ttl: CacheExpiry) -> None:
     """Drop the listing of a directory that has no description from the listings cache, as it is no answer to keep."""
     forget_remote_listing(url if url.endswith("/") else f"{url}/", settings, ttl)
@@ -289,15 +312,20 @@ def remembering_empty_directories(method: _F) -> _F:
             remembered = _REMEMBERED.get()
             if remembered is None:
                 remembered = set()
+            dropped = _DROPPED.get()
+            if dropped is None:
+                dropped = set()
             steps = method(*args, **kwargs)
             try:
                 while True:
                     token = _REMEMBERED.set(remembered)
+                    token_dropped = _DROPPED.set(dropped)
                     try:
                         item = next(steps)
                     except StopIteration:
                         return
                     finally:
+                        _DROPPED.reset(token_dropped)
                         _REMEMBERED.reset(token)
                     yield item
             finally:
@@ -315,9 +343,11 @@ def remembering_empty_directories(method: _F) -> _F:
         if _REMEMBERED.get() is not None:
             return method(*args, **kwargs)
         token = _REMEMBERED.set(set())
+        token_dropped = _DROPPED.set(set())
         try:
             return method(*args, **kwargs)
         finally:
+            _DROPPED.reset(token_dropped)
             _REMEMBERED.reset(token)
 
     return cast("_F", plain)

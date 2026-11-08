@@ -137,8 +137,13 @@ class DwdSwsmosValues(TimeseriesValues):
         # the model run of that frame, from the name of its file; `None` for the `LATEST` alias, which names none
         self._run_issued: dt.datetime | None = None
 
-    def _run_candidates(self, settings: Settings) -> list[tuple[str, CacheExpiry]]:
+    def _run_candidates(self, settings: Settings) -> tuple[list[tuple[str, CacheExpiry]], SkipCause | None]:
         """List the runs to try, newest first, with how long each may be answered from the cache.
+
+        With them, why the request is left without a run where the list is empty (a `SkipCause`, which
+        `file-skipped` words its advice by; `None` where there are runs): the directory came back empty or missing
+        (`EMPTY_DIRECTORY`, which may be filled again), or it lists files but no run, a restructure that stays as it
+        is and so one the reader cannot use (`UNPARSEABLE`, GH-3892).
 
         How long a run may be cached is a property of the URL, not of the request. A run named by
         its timestamp is that run for good; ``swsmos_LATEST...`` is a name whose content DWD
@@ -171,20 +176,20 @@ class DwdSwsmosValues(TimeseriesValues):
         """
         issue = cast("DwdSwsmosRequest", self.sr.request).issue
         if issue is not DwdForecastDate.LATEST:
-            return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
+            return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)], None
         names, runs = _list_runs(settings)
         if runs:
-            return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])]
+            return [(names[n], CacheExpiry.TWELVE_HOURS) for n in reversed(runs[-2:])], None
         if _LATEST_FILE in names:
             # nothing but the alias to go on. It is mutable, so it may only be held briefly: five
             # minutes is what `dwd/mosmix` holds its KML for, a bounded lag against an hourly cadence
-            return [(names[_LATEST_FILE], CacheExpiry.FIVE_MINUTES)]
+            return [(names[_LATEST_FILE], CacheExpiry.FIVE_MINUTES)], None
         # every other way a run can fail says so; this one used to answer every station with an
         # empty frame and no diagnostic at all. The listing is retried and re-raises, so an empty
         # one means the server genuinely named nothing -- a directory reorganised or the products
         # renamed, which is a provider restructure rather than a day with no data
         log.warning(f"No SWSMOS run listed within {_BASE_URL}/; the file names may have changed")
-        return []
+        return [], SkipCause.UNPARSEABLE if names else SkipCause.EMPTY_DIRECTORY
 
     def _run_content(self, url: str, ttl: CacheExpiry, settings: Settings) -> bytes | None:
         """Fetch one run, or say it could not be fetched.
@@ -278,7 +283,16 @@ class DwdSwsmosValues(TimeseriesValues):
         """
         if self._run_frame_cache is None:
             frame = pl.DataFrame()
-            for url, ttl in self._run_candidates(settings):
+            candidates, no_run = self._run_candidates(settings)
+            # why the newest candidate, the run the request names, could not be used: what `file-skipped` tells if
+            # no candidate could (GH-3892). A 404 is a run withdrawn since the listing (it may be back), a zero-byte
+            # 200 is the first instant of a run being written (an empty body, as `dwd/poi` and `metno/frost` tell
+            # it), a body that arrived and could not be read is a run that would not parse (it heals where DWD was
+            # still writing it, as for `LATEST`, and does not for a pinned `issue`). The runs behind it are
+            # stand-ins for it: the next request lists again and asks for the then newest, so what met the newest
+            # is what a retry meets
+            cause: SkipCause | None = None
+            for url, ttl in candidates:
                 content = self._run_content(url, ttl, settings)
                 df = _read_run(content, url) if content is not None else None
                 if content is not None and df is None and not settings.cache_disable:
@@ -332,8 +346,16 @@ class DwdSwsmosValues(TimeseriesValues):
                         dt.datetime.strptime(stamp.group(1), "%Y%m%d%H%M%S").replace(tzinfo=_UTC) if stamp else None
                     )
                     break
+                if cause is None:
+                    cause = (
+                        SkipCause.WITHDRAWN
+                        if content is None
+                        else SkipCause.MAINTENANCE
+                        if not content
+                        else SkipCause.UNPARSEABLE
+                    )
             if frame.is_empty():
-                note_skipped_download(SkipCause.FAILED, whole_request=True)
+                note_skipped_download(cause or cast("SkipCause", no_run), whole_request=True)
             self._run_frame_cache = frame
         return self._run_frame_cache
 

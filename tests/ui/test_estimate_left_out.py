@@ -45,10 +45,12 @@ from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
     SkipCause,
+    advise_on_skip_causes,
     begin_response,
     note_left_out,
     note_skipped_download,
     recorded_warnings,
+    tell_skip_causes,
 )
 
 if TYPE_CHECKING:
@@ -273,8 +275,8 @@ def test_an_estimate_tells_a_directory_found_empty(
     (warning,) = _summary()
     assert warning["stations"] == ["00044"]
     assert "Source data was left out of this estimate at 1 of the 1 stations it read." in warning["message"]
-    assert "a directory found empty) was left out at 1 station (00044)" in warning["message"]
-    assert "so try again" in warning["message"]
+    assert "was left out at 1 station (00044): the directory was found empty." in warning["message"]
+    assert warning["message"].endswith("Try again later.")
     # the lookup's warning names the directory and stays; the station is told by the summary and no `file-skipped`
     skipped = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
     assert [("stations" in w, _MONTHLY_HISTORICAL in w["message"]) for w in skipped] == [(False, True)]
@@ -643,9 +645,16 @@ def test_the_rejected_values_are_told_alike_on_every_surface(
 
 
 def _walk(
-    *, skipped: tuple[str, ...] = (), dates: dict[str, int] | None = None, read: tuple[str, ...] = ()
+    *,
+    skipped: tuple[str, ...] = (),
+    dates: dict[str, int] | None = None,
+    read: tuple[str, ...] = (),
+    cause: SkipCause = SkipCause.FAILED,
 ) -> EstimateLeftOut:
-    """Read the stations `read` (and those named in `skipped` and `dates`), as the walk of an estimate tells it."""
+    """Read the stations `read` (and those named in `skipped` and `dates`), as the walk of an estimate tells it.
+
+    The provider lets the file of each station of `skipped` go for `cause`.
+    """
     left_out = EstimateLeftOut()
     from wetterdienst.model.parameter_rows import ParameterRows  # noqa: PLC0415
 
@@ -654,7 +663,7 @@ def _walk(
     for station in dict.fromkeys([*read, *skipped, *(dates or {})]):
         with rows.collecting(station):
             if station in skipped:
-                note_skipped_download(SkipCause.FAILED)
+                note_skipped_download(cause)
             if dates and station in dates:
                 note_left_out(_FROST_NAME, dates[station], "these dates are of another series")
     return left_out
@@ -673,7 +682,7 @@ def test_both_causes_are_one_warning_that_counts_the_stations_of_each() -> None:
     message = warning["message"]
     assert "at 3 of the 5 stations it read." in message
     assert f"left out at 2 stations (B, C): 7 of {_FROST_NAME}." in message
-    assert "left out at 2 stations (A, B): the values of these stations may be missing" in message
+    assert "left out at 2 stations (A, B): the download failed. The values of these stations may be missing" in message
 
 
 def test_the_listing_of_stations_is_capped_and_the_count_is_whole() -> None:
@@ -695,7 +704,7 @@ def test_a_file_that_serves_every_station_is_every_stations() -> None:
     left_out = EstimateLeftOut()
     for station in ("A", "B", "C"):
         left_out.collected(station)
-    left_out.skipped("A", whole_request=True)
+    left_out.skipped("A", SkipCause.FAILED, whole_request=True)
     begin_response()
 
     left_out.warn()
@@ -720,7 +729,7 @@ def test_forget_leaves_a_station_out_of_every_cause() -> None:
     left_out = EstimateLeftOut()
     for station in ("A", "B", "C"):
         left_out.collected(station)
-    left_out.skipped("C", whole_request=False)
+    left_out.skipped("C", SkipCause.FAILED, whole_request=False)
     left_out.left_out("C", _FROST_NAME, 4)
     left_out.left_out("A", "daily/data/other", 1)
     left_out.left_out("C", "daily/data/other", 2)
@@ -746,7 +755,7 @@ def test_forget_of_the_only_station_of_a_cause_leaves_no_warning() -> None:
     left_out.collected("B")
     left_out.left_out("B", _FROST_NAME, 4)
     left_out.rejected("B", 1, {"range": 1})
-    left_out.skipped("B", whole_request=False)
+    left_out.skipped("B", SkipCause.FAILED, whole_request=False)
     begin_response()
 
     left_out.forget("B")
@@ -760,7 +769,7 @@ def test_forget_undoes_a_file_that_serves_every_station_only_where_that_station_
     left_out = EstimateLeftOut()
     for station in ("A", "B"):
         left_out.collected(station)
-    left_out.skipped("B", whole_request=True)
+    left_out.skipped("B", SkipCause.FAILED, whole_request=True)
     begin_response()
     left_out.forget("B")
     left_out.warn()
@@ -770,8 +779,8 @@ def test_forget_undoes_a_file_that_serves_every_station_only_where_that_station_
     left_out = EstimateLeftOut()
     for station in ("A", "B"):
         left_out.collected(station)
-    left_out.skipped("A", whole_request=True)
-    left_out.skipped("B", whole_request=True)
+    left_out.skipped("A", SkipCause.FAILED, whole_request=True)
+    left_out.skipped("B", SkipCause.FAILED, whole_request=True)
     left_out.forget("B")
     left_out.warn()
     (warning,) = recorded_warnings()
@@ -799,19 +808,88 @@ def test_the_rejected_values_are_summed_by_check_and_a_zero_is_no_cause() -> Non
     )
 
 
-def test_the_advice_for_a_file_does_not_promise_that_one_that_would_not_parse_comes_back() -> None:
-    """The cause is not known where the provider lets a file go: the advice is right for each of the causes."""
-    left_out = _walk(skipped=("A",))
+@pytest.mark.parametrize("cause", [cause for cause in SkipCause if cause.may_heal])
+def test_a_file_let_go_for_a_cause_that_can_heal_says_to_try_again_later(cause: SkipCause) -> None:
+    """The estimate words its file advice by the cause, as `file-skipped` does (GH-3892)."""
+    left_out = _walk(skipped=("A",), cause=cause)
     begin_response()
 
     left_out.warn()
 
     (warning,) = recorded_warnings()
+    assert f"left out at 1 station (A): {tell_skip_causes([cause])}. The values of this station" in warning["message"]
+    assert warning["message"].endswith(advise_on_skip_causes([cause]))
+    assert warning["message"].endswith(" Try again later.")
+    assert "report" not in warning["message"]
+
+
+@pytest.mark.parametrize("cause", [cause for cause in SkipCause if not cause.may_heal])
+def test_a_file_let_go_for_a_cause_that_stays_does_not_say_to_try_again_later(cause: SkipCause) -> None:
+    """A refusal or a file that would not parse is the same at the next request: the advice is to report it."""
+    left_out = _walk(skipped=("A",), cause=cause)
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    message = warning["message"]
+    assert f": {tell_skip_causes([cause])}. The values of this station" in message
+    assert message.endswith(advise_on_skip_causes([cause]))
+    assert "trying again will not help" in message
+    assert "Try again later" not in message
+    assert "may be back" not in message
+
+
+def test_the_causes_of_the_stations_named_are_told_and_those_of_a_forgotten_station_are_not() -> None:
+    """Each station's own cause is told, grouped as `file-skipped` groups them; a station left out takes its cause."""
+    left_out = EstimateLeftOut()
+    for station, cause in (("A", SkipCause.WITHDRAWN), ("B", SkipCause.UNPARSEABLE), ("C", SkipCause.REFUSED)):
+        left_out.collected(station)
+        left_out.skipped(station, cause, whole_request=False)
+    left_out.forget("C")
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A", "B"]
     assert (
-        "may be back later, so try again; a refused download or a file that would not parse mostly stays as it is, "
-        "and is worth reporting to the provider." in (warning["message"])
+        ": the file was gone or it would not parse. The values of these stations may be missing from the estimate. "
+        "A withdrawn file may be back later, so try again; a file that would not parse mostly stays as it is, and is "
+        "worth reporting to the provider." in warning["message"]
     )
-    assert "Try again later." not in warning["message"]
+    assert "refused" not in warning["message"]
+
+
+def test_the_cause_of_a_file_every_station_is_read_from_is_told_for_all_of_them() -> None:
+    """The file of the whole request is every station's: its cause is in the advice with the stations' own."""
+    left_out = EstimateLeftOut()
+    for station in ("A", "B"):
+        left_out.collected(station)
+    left_out.skipped("A", SkipCause.MAINTENANCE, whole_request=True)
+    left_out.skipped("B", SkipCause.FAILED, whole_request=False)
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert warning["stations"] == ["A", "B"]
+    assert ": the download failed or an error page or an empty body came in its place." in warning["message"]
+    assert warning["message"].endswith("Try again later.")
+
+
+def test_the_estimate_and_file_skipped_say_the_same_for_the_same_cause() -> None:
+    """Both warnings word the clause and the advice with the same helpers, so they cannot drift apart."""
+    for causes in ((SkipCause.REFUSED,), (SkipCause.WITHDRAWN, SkipCause.UNPARSEABLE), (SkipCause.EMPTY_DIRECTORY,)):
+        left_out = EstimateLeftOut()
+        for number, cause in enumerate(causes):
+            left_out.collected(str(number))
+            left_out.skipped(str(number), cause, whole_request=False)
+        begin_response()
+        left_out.warn()
+        (warning,) = recorded_warnings()
+        assert tell_skip_causes(causes) in warning["message"]
+        assert advise_on_skip_causes(causes) in warning["message"]
 
 
 def test_forget_since_leaves_out_the_stations_read_since_the_mark_that_the_walk_was_done_for() -> None:
@@ -819,9 +897,9 @@ def test_forget_since_leaves_out_the_stations_read_since_the_mark_that_the_walk_
     left_out = EstimateLeftOut()
     for station in ("A", "B", "C", "D"):
         left_out.collected(station)
-        left_out.skipped(station, whole_request=False)
+        left_out.skipped(station, SkipCause.FAILED, whole_request=False)
     left_out.collected("E")
-    left_out.skipped("E", whole_request=False)
+    left_out.skipped("E", SkipCause.FAILED, whole_request=False)
     begin_response()
 
     # `mark` was taken after B: C, D and E were read since. The walk was done at D and E, not at C
