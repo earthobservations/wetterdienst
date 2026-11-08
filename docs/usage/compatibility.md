@@ -221,8 +221,8 @@ Frozen:
 (`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.
 `tests/ui/openapi.baseline.json` is the document of the last release, and `tests/ui/test_openapi_baseline.py` fails
 when the served document no longer offers something the baseline did: a path, a method, an `operationId`, a parameter
-and its type, an enum member, a status, a media type, a header, a member of an answer and its type, or a request that
-asks for more. Additions pass. A break that is meant is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with
+and its type, an enum member of a parameter or a request body, a status, a media type, a header, a member of an answer
+and its type, or a request that asks for more. Additions pass. A break that is meant is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with
 its reason, together with a **Breaking** changelog entry; the baseline is refreshed in each release commit and
 `ACCEPTED_BREAKS` emptied. From 1.0.0 a break of `/api/v1` is not made: it is `/api/v2`, and `/api/v1` is served for
 at least two minor releases after `/api/v2` appears, announced by the `Deprecation` and `Sunset` headers (see
@@ -235,7 +235,12 @@ that is a break: a changed `default` (what an omitted parameter means), a tighte
 that was added or changed, and an enum that lost members. `tests/ui/openapi_diff.py` holds it. A looser bound or no
 pattern is an addition and passes. A response is widened when a union gains an alternative (`array` that becomes
 `array | null`, a member that may now be `null`), and that is a break like any changed type, since a client generated
-from the document must handle the new alternative, where the same alternative of a request is an addition.
+from the document must handle the new alternative, where the same alternative of a request is an addition. A response
+is narrowed when a union loses one (`number | null` that becomes `number`), and that is not a break, since a typed
+client already handles the case that no longer comes. An enum of a response that loses a member is no break either,
+where it is one for a request. A response enum that becomes a free string is a break, a type change for a typed client,
+while a new enum member stays allowed in a minor release, also when the document writes it as an alternative of its
+own.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
 a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
