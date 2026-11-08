@@ -694,7 +694,7 @@ class EstimateLeftOut:
                 f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
                 "missing from the estimate. A failed download, a withdrawn file, a maintenance page and an empty "
                 "directory may be back later, so try again; a refused download or a file that would not parse mostly "
-                "stays as it is."
+                "stays as it is, and is worth reporting to the provider."
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
 

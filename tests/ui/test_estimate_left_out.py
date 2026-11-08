@@ -808,8 +808,8 @@ def test_the_advice_for_a_file_does_not_promise_that_one_that_would_not_parse_co
 
     (warning,) = recorded_warnings()
     assert (
-        "may be back later, so try again; a refused download or a file that would not parse mostly stays as it is."
-        in (warning["message"])
+        "may be back later, so try again; a refused download or a file that would not parse mostly stays as it is, "
+        "and is worth reporting to the provider." in (warning["message"])
     )
     assert "Try again later." not in warning["message"]
 

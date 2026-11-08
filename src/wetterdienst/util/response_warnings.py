@@ -113,20 +113,23 @@ class SkipCause(Enum):
 
     Each member holds the clause the warning gives for it (`reason`), the noun of the grouped advice (`noun`, as
     `source-data-left-out` words it) and whether the cause can heal (`may_heal`): a download that failed, a file
-    withdrawn since the listing, a maintenance page and a directory found empty may be back, so asking again is worth
-    it; a download refused for its size, its time or an unannounced compression, and a file that would not parse,
-    mostly stay as they are, and a caller who retries them gets the same.
+    withdrawn since the listing, an error page or an empty body and a directory found empty may be back, so asking
+    again is worth it; a download refused (for its size, its time, an unannounced compression, an off-host redirect, or
+    a request the server turns down for good) and a file that would not parse mostly stay as they are, and a caller who
+    retries them gets the same.
     """
 
-    #: the download failed (a reset, a timeout, a 5xx, a 4xx answer)
+    #: the download failed (a reset, a timeout, a 5xx, a 408, 425 or 429)
     FAILED = ("the download failed", "a failed download", True)
     #: the file the listing named is not on the server (a 404)
     WITHDRAWN = ("the file was gone", "a withdrawn file", True)
-    #: a body that is no answer: a maintenance page, an exception report, an empty 200
-    MAINTENANCE = ("a maintenance page came in its place", "a maintenance page", True)
+    #: a body that is no answer: a maintenance or error page, a server-side exception report, an empty 200
+    MAINTENANCE = ("an error page or an empty body came in its place", "an error page or an empty answer", True)
     #: the directory that was to list the files came back empty or missing
     EMPTY_DIRECTORY = ("the directory was found empty", "an empty directory", True)
-    #: the download was refused: too large, too slow, or compressed while its name says it is not
+    #: the download was refused, and would be again: too large, too slow, compressed while its name says it is not, an
+    #: off-host redirect, or a request the server turns down for good (a 4xx other than 404, 408, 425 and 429, and an
+    #: exception report that names a request error)
     REFUSED = ("the download was refused", "a refused download", False)
     #: the file arrived and would not parse, or held what the reader cannot use
     UNPARSEABLE = ("it would not parse", "a file that would not parse", False)

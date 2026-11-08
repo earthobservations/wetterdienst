@@ -316,6 +316,10 @@ def test_frost_values_say_nothing_of_a_body_that_is_empty(monkeypatch: pytest.Mo
     begin_response()
     assert values.all().df.is_empty()
     assert _told() == []
+    (skipped,) = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
+    # an empty 200 is an error page or an empty body, a failed series a failed download
+    reason = "an error page or an empty body came in its place" if "empty" in case else "the download failed"
+    assert f": {reason}." in skipped["message"]
 
 
 @pytest.mark.parametrize("status", [404, 412])
@@ -471,6 +475,9 @@ def test_smhi_values_say_nothing_of_a_file_that_would_not_parse(monkeypatch: pyt
     begin_response()
     assert _smhi_request().values().all().df.is_empty()
     assert _told() == []
+    (skipped,) = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
+    assert ": it would not parse." in skipped["message"]
+    assert "try again" not in skipped["message"].lower()
 
 
 _POI_NO_ROWS = (
@@ -481,15 +488,25 @@ _POI_NO_ROWS = (
 
 
 @pytest.mark.parametrize(
-    ("file", "told"),
+    ("file", "told", "reason"),
     [
-        pytest.param(lambda url: File(url=url, content=FileNotFoundError(url), status=404), False, id="withdrawn"),
-        pytest.param(lambda url: File(url=url, content=BytesIO(b""), status=200), False, id="empty while rewritten"),
-        pytest.param(lambda url: File(url=url, content=BytesIO(_POI_NO_ROWS), status=200), True, id="no report"),
+        pytest.param(
+            lambda url: File(url=url, content=FileNotFoundError(url), status=404),
+            False,
+            "the file was gone",
+            id="withdrawn",
+        ),
+        pytest.param(
+            lambda url: File(url=url, content=BytesIO(b""), status=200),
+            False,
+            "an error page or an empty body came in its place",
+            id="empty while rewritten",
+        ),
+        pytest.param(lambda url: File(url=url, content=BytesIO(_POI_NO_ROWS), status=200), True, None, id="no report"),
     ],
 )
 def test_poi_values_say_nothing_of_a_report_that_was_withdrawn_or_empty(
-    monkeypatch: pytest.MonkeyPatch, file: Callable[[str], File], *, told: bool
+    monkeypatch: pytest.MonkeyPatch, file: Callable[[str], File], reason: str | None, *, told: bool
 ) -> None:
     """A report DWD withdrew since the catalogue was read, or is rewriting, is let go; one without a row is not."""
     import datetime as dt  # noqa: PLC0415
@@ -509,6 +526,8 @@ def test_poi_values_say_nothing_of_a_report_that_was_withdrawn_or_empty(
     begin_response()
     assert stations_result(request, "hourly", "data", "10147").values().all().df.is_empty()
     assert len(_told()) == (1 if told else 0)
+    skipped = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
+    assert [f": {reason}." in w["message"] for w in skipped] == ([] if reason is None else [True])
 
 
 def test_meteofrance_observation_says_nothing_of_a_period_file_the_portal_no_longer_has(
@@ -617,7 +636,8 @@ def test_wsv_values_say_nothing_of_a_series_with_no_unit_or_an_unhandled_one(
     with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         df = wsv_api.WsvPegelValues._collect_station_parameter_or_dataset(values, "0001", parameter)  # noqa: SLF001
 
-    assert bool(letting_go) is let_go
+    # a unit that is missing and one that is not handled are both a file the reader cannot use as it is
+    assert letting_go == ([SkipCause.UNPARSEABLE] if let_go else [])
     assert df.is_empty() is let_go
 
 
