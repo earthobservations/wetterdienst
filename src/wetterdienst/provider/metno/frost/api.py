@@ -972,7 +972,7 @@ def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
     `completeness:Incomplete` in `quality_flags`, which an estimate drops, so it is left out of an estimate and told as
     such (GH-3883); `values` still returns it.
     """
-    return resolution == _DAILY or estimate
+    return resolution == _DAILY or (estimate and resolution in _PERIODS)
 
 
 def _tell_not_returned(
@@ -1054,7 +1054,8 @@ def _read_observations(
         )
         df = df.with_columns(is_open.alias(_OPEN))
         if _leaves_open_out(resolution, estimate=estimate):
-            # a daily value of a window that has not closed is partial and looks like the day's: left out
+            # a daily value of a window that has not closed is partial and looks like the day's, and a monthly or annual
+            # one is partial and an estimate cannot carry its mark: left out
             df = df.filter(~pl.col(_OPEN))
     if df.is_empty():
         # every row was of another series, or of a window not closed: nothing to return, and what was left out is told

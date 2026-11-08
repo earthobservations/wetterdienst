@@ -655,11 +655,13 @@ class EstimateLeftOut:
         if open_:
             total = sum(sum(stations.values()) for stations in self._open.values())
             windows = ", ".join(f"{sum(stations.values())} for {window}" for window, stations in self._open.items())
+            one = total == 1
             sentences.append(
-                f"{total} {'value' if total == 1 else 'values'} at {self._count(open_)} "
-                f"{'was' if total == 1 else 'were'} of a window that had not closed yet ({windows}) and "
-                f"{'is' if total == 1 else 'are'} left out: {'it is' if total == 1 else 'they are'} partial and may "
-                "still change, and the source does not mark them. They are not missing at the source and come back "
+                f"{total} {'value' if one else 'values'} at {self._count(open_)} "
+                f"{'was' if one else 'were'} of a window that had not closed yet ({windows}) and "
+                f"{'is' if one else 'are'} left out: {'it is' if one else 'they are'} partial and may "
+                f"still change, and the source does not mark {'it' if one else 'them'}. "
+                f"{'It is' if one else 'They are'} not missing at the source and {'comes' if one else 'come'} back "
                 "once the window has closed."
             )
         if rejected:

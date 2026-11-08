@@ -198,7 +198,8 @@ is told for a station on its own. The station the walk reads to find that it is 
 A download, a page or a directory may be there later (try again); a refused download or a file that would not parse
 mostly is not, a date of another series never is, and a window that had not closed comes back once it has (ask
 again then, or end the window before the current period). `values` tells the first three causes with `file-skipped`,
-`other-window-left-out` and `window-not-closed`, and the fourth with `rejected-by-plausibility`; the [response metadata](restapi.md#response-metadata) says what each code carries. In
+`other-window-left-out` and `window-not-closed`, and the fourth with `rejected-by-plausibility`; the
+[response metadata](restapi.md#response-metadata) says what each code carries. In
 Python, read it with `begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a
 log line.
 

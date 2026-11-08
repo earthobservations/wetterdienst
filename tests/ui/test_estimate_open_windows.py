@@ -13,6 +13,7 @@ Nothing here reaches the network: Frost is served from stubs and the clock is `f
 from __future__ import annotations
 
 import datetime as dt
+import threading
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -239,8 +240,10 @@ def test_an_estimate_tells_the_values_of_an_open_window_it_left_out(
     assert (
         f"1 value at 1 station (SN18700) was of a window that had not closed yet (1 {for_}) and is left out" in message
     )
-    assert "partial and may still change" in message
-    assert "come back once the window has closed" in message
+    assert (
+        "it is partial and may still change, and the source does not mark it. "
+        "It is not missing at the source and comes back once the window has closed." in message
+    )
     # no other cause is told, and no code of a values request
     assert "Dates of another series" not in message
     assert "plausibility" not in message
@@ -313,6 +316,23 @@ def test_several_open_values_are_counted_by_what_the_window_is() -> None:
     assert (
         "4 values at 3 stations (A, B, C) were of a window that had not closed yet "
         "(2 for today, 1 for this month, 1 for this year) and are left out" in warning["message"]
+    )
+
+
+def test_the_sentence_for_several_open_values_is_in_the_plural() -> None:
+    """The tail of the sentence is inflected as its head is: one value is `it` and `comes`, two `they` and `come`."""
+    left_out = EstimateLeftOut()
+    left_out.collected("A")
+    left_out.open_window("A", "daily/data/x", 2)
+    begin_response()
+
+    left_out.warn()
+
+    (warning,) = recorded_warnings()
+    assert (
+        "2 values at 1 station (A) were of a window that had not closed yet (2 for today) and are left out: "
+        "they are partial and may still change, and the source does not mark them. "
+        "They are not missing at the source and come back once the window has closed." in warning["message"]
     )
 
 
@@ -571,3 +591,86 @@ def test_the_open_window_is_told_alike_on_every_surface(monkeypatch: pytest.Monk
     assert "was of a window that had not closed yet (1 for this month) and is left out" in warning["message"]
     assert told["cli"] == told["rest"] == told["mcp"] == told["library"]
     assert told["header"] == [{"code": SOURCE_DATA_LEFT_OUT}]
+
+
+# --- one request object reused: the leave-out belongs to the read, not to the object or the process -------------------
+
+
+def _values_rows(request: MetnoFrostRequest) -> tuple[list[float | None], list[str | None]]:
+    df = request.filter_by_station_id("SN18700").values().all().df.sort("timestamp")
+    return df["value"].to_list(), df["quality_flags"].to_list()
+
+
+def _summary_open(request: MetnoFrostRequest, series: Series) -> list[float | None]:
+    df = request.summarize(_FROST_POINT).df
+    return df.filter(pl.col("timestamp") == series.open_)["value"].to_list()
+
+
+MARKED = ([CLOSED_VALUE, OPEN_VALUE], [None, "completeness:Incomplete"])
+
+
+@pytest.mark.parametrize("series", SERIES_ONLY[1:])
+@pytest.mark.parametrize("order", ["estimate-first", "values-first"])
+def test_one_request_reused_for_an_estimate_and_for_values_keeps_each_to_its_own_rule(
+    monkeypatch: pytest.MonkeyPatch, series: Series, order: str
+) -> None:
+    """An estimate leaves the open month or year out, `values` of the same request returns it marked, in any order.
+
+    The flag that makes the reader leave it out is set for the estimate's own read: a flag that stuck (on the request,
+    the values or the module) would leave the value out of `values` after an estimate, or put it back into an estimate
+    after `values`.
+    """
+    _serve(monkeypatch, series)
+    request = _request(series)
+
+    if order == "estimate-first":
+        assert _summary_open(request, series) == [None]
+        assert _values_rows(request) == MARKED
+        assert _summary_open(request, series) == [None]
+    else:
+        assert _values_rows(request) == MARKED
+        assert _summary_open(request, series) == [None]
+        assert _values_rows(request) == MARKED
+
+
+@pytest.mark.parametrize("series", SERIES_ONLY[1:])
+def test_an_estimate_and_values_inside_the_download_at_once_keep_to_their_own_rule(
+    monkeypatch: pytest.MonkeyPatch, series: Series
+) -> None:
+    """Two threads of one request, an estimate and `values`, both inside the observations' download (a barrier)."""
+    _serve(monkeypatch, series)
+    served = frost_api.download_file
+    barrier = threading.Barrier(2, timeout=20)
+    inside: list[str] = []
+
+    def download(*, url: str, **kwargs: object) -> File:
+        if "observations/v0" in url and "/sources/" not in url and "availableTimeSeries" not in url:
+            inside.append(threading.current_thread().name)
+            barrier.wait()
+        return served(url=url, **kwargs)
+
+    monkeypatch.setattr(frost_api, "download_file", download)
+    request = _request(series)
+    out: dict[str, Any] = {}
+
+    def estimate() -> None:
+        begin_response()
+        out["estimate"] = _summary_open(request, series)
+        out["estimate_codes"] = _codes()
+
+    def values() -> None:
+        begin_response()
+        out["values"] = _values_rows(request)
+        out["values_codes"] = _codes()
+
+    threads = [threading.Thread(target=estimate, name="E"), threading.Thread(target=values, name="V")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(30)
+
+    assert sorted(inside) == ["E", "V"]
+    assert out["estimate"] == [None]
+    assert out["estimate_codes"] == [SOURCE_DATA_LEFT_OUT]
+    assert out["values"] == MARKED
+    assert out["values_codes"] == [CLOSED]

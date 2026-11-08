@@ -332,8 +332,8 @@ what the answer is missing:
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
   stations around a point as candidates, nearest first, and stop when they have enough, so the walk of a values request
   that tells `file-skipped`, `other-window-left-out` and `window-not-closed` at its end does not apply to them, and none
-  of them is told of a station by an estimate. It carries `stations` (the stations that were affected, in the order they were read, the
-  first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
+  of them is told of a station by an estimate. It carries `stations` (the stations that were affected, in the order
+  they were read, the first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
   with the stations it affected:
 
   - a file the provider could not use (the cases of `file-skipped`: a refused or failed download, a file withdrawn
@@ -379,8 +379,8 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is returned
-  with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
+  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is
+  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
   as a cause of `source-data-left-out`, above); the message says which, how many values at which
   stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
