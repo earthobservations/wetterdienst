@@ -323,6 +323,7 @@ what the answer is missing:
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
   `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
   source has values for that the answer leaves out because they are of another series, see below),
+  `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
   below) and `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are
   added as more are told; a client reads the ones it knows.
@@ -370,6 +371,14 @@ what the answer is missing:
   parameter of a dataset asked for whole). It carries `parameter` (`resolution/dataset/parameter`) and `stations` (the
   first ten); its message gives the number of dates at each station and says which series was left out. One for each
   parameter and request. The dates beyond the window of the request are not counted.
+
+  `window-not-closed` says that the source served values of a window that had not closed when the request was served,
+  and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
+  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly one is returned
+  with `completeness:Incomplete` as a token of its `quality_flags`; the message says which, how many values at which
+  stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
+  (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
+  window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
 
   `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
   asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`

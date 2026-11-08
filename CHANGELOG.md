@@ -136,6 +136,14 @@ Types of changes:
   station's series: at least 3,694 days at 11 stations, 901 months at 179. Those dates are no
   longer returned, in any window, and an `other-window-left-out` warning tells them. A stored
   series does not join the new one: read it anew (GH-3855)
+- **Breaking**: `metno/frost` leaves out a daily value whose window has not closed at the request
+  (the date + the offset: `PT18H` extremes 18 UTC, `PT6H` sum 06 UTC, `PT0H` mean and the other
+  elements the end of the date) and tells it with a `window-not-closed` warning (how many, when the
+  earliest closes); Frost served such values unmarked (456 maxima 5 minutes before 18 UTC, 15 % of
+  the minima lower by 18:15). A monthly or annual value of an open window (the current month or
+  year, until its last day + the offset) is returned with `completeness:Incomplete` in
+  `quality_flags` and the same warning. Ask again after the closing time, or end the window before
+  the current period; the daily snow depth has no window (GH-3856)
 - **Breaking**: `metno/frost` `stations` lists the closed stations (4,179, where it listed the 2,234
   valid now), and a station starts and ends with its declared series, not with Frost's source
   dates: data began before `validFrom` at one current station in ten (SN99700, 1895 against 1956),

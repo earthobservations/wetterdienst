@@ -1575,7 +1575,21 @@ def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
     assert warning["parameter"] == name
     assert warning["stations"] == ["SN18700"]
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
-    assert "18-18 UTC series (`timeOffset` PT18H) only" in warning["message"]
+    # the series are named by the window of the resolution: a month is no 06-06 window of a day (GH-3867)
+    if resolution == "daily":
+        assert "in Frost's 18-18 UTC series (`timeOffset` PT18H) only" in warning["message"]
+        assert "this parameter is the 06-06 UTC series (`timeOffset` PT6H)" in warning["message"]
+    else:
+        assert (
+            "in Frost's month series from 18 UTC on the last day of the previous month to 18 UTC on the last day of "
+            "the month (`timeOffset` PT18H) only" in warning["message"]
+        )
+        assert (
+            "this parameter is the month series from 06 UTC on the last day of the previous month to 06 UTC on the "
+            "last day of the month (`timeOffset` PT6H)" in warning["message"]
+        )
+        assert "06-06" not in warning["message"]
+        assert "18-18" not in warning["message"]
     # the source has values there: nothing says that it has none
     assert [w for w in _told("parameter-without-rows") if w["parameter"] in (resolution + "/data", name)] == []
 
