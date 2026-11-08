@@ -175,11 +175,23 @@ def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: Test
     observation = next(n for n in providers["dwd"]["networks"] if n["network"] == "observation")
     metadata = Wetterdienst.resolve("dwd", "observation").metadata
     assert [r["name"] for r in observation["resolutions"]] == [r.name for r in metadata]
-    assert observation["parameters"] == sum(len(d.parameters) for r in metadata for d in r.datasets)
+    # the quality flags are no parameters: the counts are those of the iteration, as `/api/coverage` lists them
+    listed_by_coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"}).json()
+    in_coverage = {
+        (resolution, dataset): len(body["parameters"])
+        for resolution, datasets in listed_by_coverage.items()
+        for dataset, body in datasets["datasets"].items()
+    }
+    assert observation["parameters"] == sum(in_coverage.values())
+    assert observation["parameters"] == sum(len(list(d)) for r in metadata for d in r.datasets)
+    assert observation["parameters"] < sum(len(d.parameters) for r in metadata for d in r.datasets)
     daily = next(r for r in observation["resolutions"] if r["name"] == "daily")
-    assert {"name": "climate_summary", "parameters": len(metadata["daily"]["climate_summary"].parameters)} in daily[
-        "datasets"
-    ]
+    assert {"name": "climate_summary", "parameters": in_coverage[("daily", "climate_summary")]} in daily["datasets"]
+    assert (
+        in_coverage[("daily", "climate_summary")]
+        == len(list(metadata["daily"]["climate_summary"]))
+        < len(metadata["daily"]["climate_summary"].parameters)
+    )
 
 
 def test_the_standalone_networks_of_dwd_are_listed_without_resolutions(client: TestClient) -> None:

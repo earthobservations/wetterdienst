@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from wetterdienst import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
-from wetterdienst.model.metadata import is_quality_flag
+from wetterdienst.model.metadata import ParameterModel, is_quality_flag
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.core import get_glossary
@@ -65,32 +65,28 @@ def test_the_glossary_is_the_union_of_the_declared_parameters() -> None:
     assert get_providers().metadata.counts.parameters == len(listed)
 
 
-def test_the_quality_flags_are_the_entries_marked_as_such() -> None:
-    """The mark of the table and the name `is_quality_flag` recognises single out the same entries."""
-    from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
-
-    marked = {parameter.name for parameter in PARAMETER_TABLE if parameter.quality_flag}
-    assert marked == QUALITY_NAMES
-    assert marked == {
-        parameter.name
-        for parameter in PARAMETER_TABLE
-        if is_quality_flag(ParameterModel(name=parameter.name, name_original="x", unit="dimensionless"))
-    }
+def test_the_quality_flags_are_the_six_marked_entries() -> None:
+    """The table marks the six quality names, and `is_quality_flag` reads the mark."""
+    assert {parameter.name for parameter in PARAMETER_TABLE if parameter.quality_flag} == QUALITY_NAMES
+    for name in QUALITY_NAMES:
+        assert is_quality_flag(ParameterModel(name=name, name_original="x", unit="dimensionless"))
+    assert not is_quality_flag(ParameterModel(name="temperature_air_mean_2m", name_original="x", unit="degree_celsius"))
 
 
-def test_rest_answers_the_union(client: TestClient) -> None:
-    """`/api/glossary` has one entry per offered parameter and the filters still work."""
-    response = client.get("/api/glossary")
+@pytest.mark.parametrize("path", ["/api/glossary", "/api/v1/glossary"])
+def test_rest_answers_the_union(client: TestClient, path: str) -> None:
+    """The glossary has one entry per offered parameter on the alias and on v1, and the filters still work."""
+    response = client.get(path)
     assert response.status_code == 200
     assert set(_names(response.json())) == _offered()
 
-    radiation = client.get("/api/glossary", params={"parameter": "radiation"}).json()
+    radiation = client.get(path, params={"parameter": "radiation"}).json()
     assert radiation
     assert all("radiation" in name for name in _names(radiation))
-    temperature = client.get("/api/glossary", params={"unit_type": "temperature"}).json()
+    temperature = client.get(path, params={"unit_type": "temperature"}).json()
     assert temperature
     assert {entry["unit_type"] for entry in temperature} == {"temperature"}
-    assert len(client.get("/api/glossary", params={"limit": 3}).json()) == 3
+    assert len(client.get(path, params={"limit": 3}).json()) == 3
 
 
 @pytest.mark.parametrize("name", sorted(QUALITY_NAMES))
@@ -98,10 +94,7 @@ def test_a_quality_name_is_found_like_any_unknown_name(client: TestClient, name:
     """Asked for by its name, a quality flag is a 200 with nothing in it, as for `not_a_parameter`."""
     response = client.get("/api/glossary", params={"parameter": name})
     assert response.status_code == 200
-    assert not set(_names(response.json())) & QUALITY_NAMES
-    assert [entry for entry in response.json() if entry["name"] == name] == []
-    if name == "quality":
-        assert response.json() == []
+    assert response.json() == []
 
 
 def test_cli_answers_the_union() -> None:

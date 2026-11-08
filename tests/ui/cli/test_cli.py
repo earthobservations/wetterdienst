@@ -502,7 +502,7 @@ def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
         result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
     assert result.exit_code == 0
     assert json.loads(result.output) == []
-    assert "No canonical parameter matches the given filters." in caplog.text
+    assert "No parameter matches the given filters." in caplog.text
 
 
 def test_cli_glossary_unknown_unit_type() -> None:

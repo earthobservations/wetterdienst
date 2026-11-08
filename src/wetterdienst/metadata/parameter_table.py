@@ -96,8 +96,8 @@ class CanonicalParameter:
     lapse_rate: float | None = None
     # a quality mark of the source, not a quantity: it is never requested and comes back in the
     # ``quality_flags`` column of the readings it qualifies, so the glossary, which lists what a request can
-    # ask for, leaves it out (docs/data/quality-flags.md tells what the columns hold). Set on exactly the
-    # entries whose name ``is_quality_flag`` (``model/metadata.py``) recognises; a test holds the two together
+    # ask for, leaves it out (docs/data/quality-flags.md tells what the columns hold). ``is_quality_flag``
+    # (``model/metadata.py``) reads it, so a dataset's iteration, the counts, ``coverage`` and the glossary agree
     quality_flag: bool = False
 
 

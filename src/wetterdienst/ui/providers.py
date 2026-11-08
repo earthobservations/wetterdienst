@@ -181,7 +181,7 @@ def _network(
             ProviderResolution(
                 name=resolution.name,
                 datasets=[
-                    ProviderDataset(name=dataset.name, parameters=len(dataset.parameters), extent=dataset.extent)
+                    ProviderDataset(name=dataset.name, parameters=len(list(dataset)), extent=dataset.extent)
                     for dataset in resolution
                 ],
             )
@@ -199,7 +199,7 @@ def _network(
             copyright=metadata.copyright,
             auth=metadata.auth,
             date_required=any(dataset.date_required for resolution in metadata for dataset in resolution.datasets),
-            parameters=sum(len(dataset.parameters) for resolution in metadata for dataset in resolution),
+            parameters=sum(len(list(dataset)) for resolution in metadata for dataset in resolution),
             resolutions=resolutions,
         ),
         metadata,

@@ -64,7 +64,9 @@ Types of changes:
   the quality flags of the sources (`quality`, `quality_3`, `quality_6`, `quality_general`,
   `quality_precipitation`, `quality_wind`) are no parameters and are left out, so a lookup of one
   is an empty list. They are the `quality_flags` column of the values: read the quality-flags page
-  of the docs, not the glossary. `CanonicalParameter.quality_flag` marks them (GH-3876)
+  of the docs, not the glossary. `CanonicalParameter.quality_flag` marks them. `providers` counts
+  the parameters of a dataset and of a network without them too, as `coverage` lists them
+  (dwd/observation 246, not 312) (GH-3876)
 - `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
   warning, that source data was left out: how many of the stations they read lost a file the
   provider let go (a failed download, a directory found empty), dates of another series (Frost) or
