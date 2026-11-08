@@ -195,9 +195,10 @@ reading, and the estimate is made from the other stations and the other values a
 with a `source-data-left-out` warning: how many of the stations read were affected, by which cause, and the first ten
 of them in `stations`. It is one warning however many stations or causes there are, a station is counted once, and none
 is told for a station on its own. The station the walk reads to find that it is done and does not use is not counted.
-A download, a page or a directory may be there later (try again); a refused download or a file that would not parse
-mostly is not, a date of another series never is, and a window that had not closed comes back once it has (ask
-again then, or end the window before the current period). `values` tells the first three causes with `file-skipped`
+The warning names the cause of a file and advises by it as `file-skipped` does: a download, a page or a directory may
+be there later (try again); a refused download or a file that would not parse mostly is not (a retry gets the same:
+report it to the provider). A date of another series never is there, and a window that had not closed comes back once
+it has (ask again then, or end the window before the current period). `values` tells the first three causes with `file-skipped`
 (which names the cause of each file and advises by it as this warning does), `other-window-left-out` and
 `window-not-closed`, and the fourth with `rejected-by-plausibility`; the
 [response metadata](restapi.md#response-metadata) says what each code carries. In

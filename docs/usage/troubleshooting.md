@@ -70,7 +70,9 @@ The usual reasons:
   and advises by it: try again later for a failed download, a withdrawn file, an error page or an empty body, or an empty directory;
   for a refused download or a file that would not parse a retry gets the same, so report it to the provider. Only the
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
-  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
+  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read. For a file of
+  `dwd/observation` or `dwd/derived` that DWD renamed (a 404 of a listed file) the retry is worth it at once: the
+  listing of the directory is dropped, so the next request finds the file under its new name.
   A `file-skipped` of `dwd/observation` or `dwd/derived` that names a directory and no station says that DWD's
   server listed it empty or not at all, or (`dwd/observation`) that it lists files and no description of its
   stations: the stations only it lists are not in the answer (a stations list, values or a history), and a later
@@ -78,8 +80,9 @@ The usual reasons:
 - **An estimate says that source data was left out.** The answer of `interpolate` or `summarize` carries one
   `source-data-left-out` warning with the number of the stations it read that lost something, and the causes: a file
   the provider could not use (a refused download, a maintenance page, a file that would not parse, a directory found
-  empty), whose values may be missing from the estimate (a download, a page or a directory may be back later, try
-  again; a refused download or a file that would not parse mostly stays as it is); dates of another series of the source (`metno/frost`, as
+  empty), whose values may be missing from the estimate (the message names the cause and advises as `file-skipped`
+  does: try again later for a download, a page or a directory that may be back; for a refused download or a file that
+  would not parse, a retry gets the same, so report it); dates of another series of the source (`metno/frost`, as
   `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
   again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
   `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask

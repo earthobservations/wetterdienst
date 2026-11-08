@@ -500,6 +500,8 @@ def test_swsmos_names_every_station_of_a_rank_walk_whose_run_could_not_be_fetche
     (warning,) = _told()
     assert warning["stations"] == ["A006", "B999", "C111"]
     assert warning["message"].startswith("A file that every station of the request is read from (stations A006, B999")
+    # the run is a 404, which is a file withdrawn, not a download that failed (GH-3892)
+    assert ": the file was gone." in warning["message"]
     # the run is not evidence that the source holds nothing
     assert _told("parameter-without-rows") == []
 

@@ -38,6 +38,7 @@ from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
+    SkipCause,
     begin_response,
     note_open_window,
     recorded_warnings,
@@ -358,7 +359,7 @@ def test_the_open_window_is_a_cause_beside_the_others_in_one_warning() -> None:
     left_out = EstimateLeftOut()
     for station in ("A", "B", "C"):
         left_out.collected(station)
-    left_out.skipped("A", whole_request=False)
+    left_out.skipped("A", SkipCause.FAILED, whole_request=False)
     left_out.open_window("B", "monthly/data/temperature_air_mean_2m", 2)
     left_out.rejected("B", 1, {"range": 1})
     begin_response()

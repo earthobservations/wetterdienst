@@ -211,7 +211,7 @@ class ParameterRows:
                 self._skipped[station_id] = None
                 self._skip_causes.setdefault(station_id, {})[cause] = None
             if self._estimate is not None:
-                self._estimate.skipped(station_id, whole_request=whole_request)
+                self._estimate.skipped(station_id, cause, whole_request=whole_request)
 
         def left_out(parameter: str, count: int, because: str) -> None:
             stations = self._left_out.setdefault(parameter, {})
@@ -568,9 +568,11 @@ class EstimateLeftOut:
     def __init__(self) -> None:
         """Start with nothing read."""
         self._collected: dict[str, None] = {}
-        self._files: dict[str, None] = {}
-        #: the stations that let go a file every station is read from: it is every station's while one of them stays
-        self._files_of_all: set[str] = set()
+        #: the stations that let go a file, and why (`SkipCause`, in the order they came), which the advice is worded by
+        self._files: dict[str, dict[SkipCause, None]] = {}
+        #: the stations that let go a file every station is read from, and why: it is every station's while one of
+        #: them stays
+        self._files_of_all: dict[str, dict[SkipCause, None]] = {}
         #: the dates left out, by parameter (`resolution/dataset/parameter`) and then by station
         self._dates: dict[str, dict[str, int]] = {}
         #: the values a hard check made null, by station: the count, and the count by check
@@ -583,12 +585,9 @@ class EstimateLeftOut:
         """Note that the walk reads the station, which a file that serves every station was let go for."""
         self._collected[station_id] = None
 
-    def skipped(self, station_id: str, *, whole_request: bool) -> None:
-        """Note that the provider let a file go while the station was read."""
-        if whole_request:
-            self._files_of_all.add(station_id)
-        else:
-            self._files[station_id] = None
+    def skipped(self, station_id: str, cause: SkipCause, *, whole_request: bool) -> None:
+        """Note that the provider let a file go while the station was read, and why."""
+        (self._files_of_all if whole_request else self._files).setdefault(station_id, {})[cause] = None
 
     def left_out(self, station_id: str, parameter: str, count: int) -> None:
         """Note that the provider left `count` dates of `parameter` out of the station: they are of another series."""
@@ -634,7 +633,7 @@ class EstimateLeftOut:
         """
         self._collected.pop(station_id, None)
         self._files.pop(station_id, None)
-        self._files_of_all.discard(station_id)
+        self._files_of_all.pop(station_id, None)
         self._rejected.pop(station_id, None)
         for stations in self._dates.values():
             stations.pop(station_id, None)
@@ -688,13 +687,15 @@ class EstimateLeftOut:
                 f"({tell_details(checks)}; a value several checks rejected is counted under each) and are not used."
             )
         if files:
+            # the causes of the stations named, and of the file every station is read from, as `file-skipped` has them
+            causes = [
+                *(cause for held in self._files_of_all.values() for cause in held),
+                *(cause for station in files for cause in self._files.get(station, ())),
+            ]
             sentences.append(
-                "A file the provider could not use (a refused or failed download, a file withdrawn since the listing, "
-                "a maintenance page, a file that would not parse, or a directory found empty) was left out at "
-                f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
-                "missing from the estimate. A failed download, a withdrawn file, a maintenance page and an empty "
-                "directory may be back later, so try again; a refused download or a file that would not parse mostly "
-                "stays as it is, and is worth reporting to the provider."
+                f"A file the provider could not use was left out at {self._count(files)}: {tell_skip_causes(causes)}. "
+                f"The values of {'these stations' if len(files) > 1 else 'this station'} may be missing from the "
+                f"estimate. {advise_on_skip_causes(causes)}"
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
 

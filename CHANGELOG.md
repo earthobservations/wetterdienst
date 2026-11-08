@@ -59,6 +59,13 @@ Types of changes:
 
 ### Fixed
 
+- After DWD renames a historical file (the annual rollover), `dwd/observation` and `dwd/derived`
+  drop the cached listing of its directory (a year directory of the 1 and 5 minute precipitation
+  too) on the 404 of the file it named, once for each directory in a request, so the retry that
+  `file-skipped` advises finds the new name at once, not when the 12-hour listing expires.
+  `dwd/swsmos` tells why its run could not be read (withdrawn, empty body, unreadable, no run
+  listed, or an empty directory), not always "failed"; `source-data-left-out` names the cause of
+  a file and advises by it, in the words of `file-skipped` (GH-3892)
 - **Breaking**: a parameter renamed for 1.0 is told "was renamed" only on a route that had the old
   name in 0.139.0, on REST, MCP and the command line alike. Before, `date` on `stations`,
   `parameter` and `period` where `parameters` and `periods` were taken already, `resolution` and

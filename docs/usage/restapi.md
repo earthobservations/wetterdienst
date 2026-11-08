@@ -338,10 +338,10 @@ what the answer is missing:
 
   - a file the provider could not use (the cases of `file-skipped`: a refused or failed download, a file withdrawn
     since the listing, a maintenance page, a file that would not parse, a directory found empty). The values of the
-    station may be missing from the estimate. The cause is not known to the walk, so the advice is for each: a failed
-    download, a withdrawn file, a maintenance page and an empty directory may be back later, so try again; a refused
-    download (too large, too slow) or a file that would not parse mostly stays as it is, and is worth reporting to the
-    provider;
+    station may be missing from the estimate. The message names the cause and advises by it, in the words of
+    `file-skipped` (below): try again later for a failed download, a withdrawn file, a maintenance page or an empty
+    directory; for a refused download (too large, too slow) or a file that would not parse, that retrying will not help
+    and that it is worth reporting to the provider; both, grouped, where both occurred;
   - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
     the source holds values for them, nothing is missing there, and they are not read because a value of another
     window would be wrong under the parameter's name;
@@ -478,6 +478,15 @@ what the answer is missing:
   again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a
   point as candidates and fall back to the next one, and tell the stations they read whose file was let go in one
   `source-data-left-out` warning (above). The provider logs each file it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+
+  A file of `dwd/observation` or `dwd/derived` that the file index listed and the server answers with a 404 is told as
+  withdrawn, and the listing of its directory is dropped from the listing cache (kept for 12 hours otherwise; a year
+  directory of the 1 and 5 minute precipitation too), so that the retry the message advises lists the directory afresh
+  and finds the file under the name DWD gave it at its annual rollover (#3892). It is dropped once for each directory
+  in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
+  `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
+  run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
+  no run a file the reader cannot use, and an empty or missing one an empty directory.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
