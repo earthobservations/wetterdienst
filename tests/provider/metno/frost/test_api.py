@@ -67,6 +67,69 @@ def test_metno_frost_stations() -> None:
 
 
 @pytest.mark.remote
+def test_metno_frost_stations_hold_the_closed_stations_and_the_span_of_their_declared_series() -> None:
+    """Closed stations are listed, and a station starts where its declared series does (GH-3847, GH-3864).
+
+    SN99700 (Bjornoya radiosonde station) has a source from 1956-09-01 and a daily precipitation series that begins on
+    1895-07-07 and ends on 1956-12-31; SN18702 closed in 1996 and its source says October, its series 31 October.
+    Frost lists 4,179 sources with the closed ones (2,234 without): nearly half of the list is closed.
+    """
+    stations = MetnoFrostRequest(
+        parameters=[("daily", "data", "precipitation_amount")],
+        start=dt.datetime(1900, 1, 1, tzinfo=UTC),
+        end=dt.datetime(1900, 1, 10, tzinfo=UTC),
+    ).all()
+    spans = {
+        row["station_id"]: (row["start_timestamp"], row["end_timestamp"])
+        for row in stations.df.filter(pl.col("station_id").is_in(["SN99700", "SN18702"])).iter_rows(named=True)
+    }
+
+    assert spans == {
+        "SN99700": (dt.datetime(1895, 7, 7, tzinfo=UTC), dt.datetime(1956, 12, 31, tzinfo=UTC)),
+        "SN18702": (dt.datetime(1981, 8, 4, tzinfo=UTC), dt.datetime(1996, 10, 31, tzinfo=UTC)),
+    }
+    assert stations.df.height > 4000
+    assert stations.df.filter(pl.col("end_timestamp").is_not_null()).height > 1900
+
+
+@pytest.mark.remote
+def test_metno_frost_values_of_a_window_before_1956_are_the_days_of_sn99700() -> None:
+    """The daily precipitation of SN99700 for 1900-01-01 to 10 comes back, 56 years before its source starts."""
+    values = (
+        MetnoFrostRequest(
+            parameters=[("daily", "data", "precipitation_amount")],
+            start=dt.datetime(1900, 1, 1, tzinfo=UTC),
+            end=dt.datetime(1900, 1, 10, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN99700")
+        .values()
+        .all()
+    )
+
+    assert values.df["station_id"].unique().to_list() == ["SN99700"]
+    assert values.df.sort("timestamp")["value"].to_list() == [1.2, 1.4, 0.3, 0.2, 0.0, 0.2, 0.0, 0.2, 0.0, 0.0]
+    assert values.df["timestamp"].min() == dt.datetime(1900, 1, 1, tzinfo=UTC)
+
+
+@pytest.mark.remote
+def test_metno_frost_values_of_a_closed_station_are_reachable() -> None:
+    """The hourly precipitation of SN18702, closed in 1996, comes back: the station is in the list (GH-3847)."""
+    values = (
+        MetnoFrostRequest(
+            parameters=[("hourly", "data", "precipitation_amount")],
+            start=dt.datetime(1990, 7, 1, tzinfo=UTC),
+            end=dt.datetime(1990, 7, 2, tzinfo=UTC),
+        )
+        .filter_by_station_id("SN18702")
+        .values()
+        .all()
+    )
+
+    assert values.df["station_id"].unique().to_list() == ["SN18702"]
+    assert values.df.height > 0
+
+
+@pytest.mark.remote
 def test_metno_frost_values_hourly() -> None:
     """Hourly air temperature at Oslo/Blindern returns 25 rows for a one-day window.
 

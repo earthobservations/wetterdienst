@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.provider.metno.frost.catalogue_rows import is_series_listing, series_of
 from tests.provider.metno.frost.weekly_readers import unread_station_years
 from wetterdienst.exceptions import CredentialRejectedError, InvalidParameterError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
@@ -85,6 +86,10 @@ def _values(
     sources = {"data": [{**SOURCES["data"][0], "id": station}]}
 
     def _download(*, url: str, **_kwargs: object) -> File:
+        # the catalogue's own request for the series of every station is no request of the values: it is served as it
+        # is and not counted, so that `observations` sees what the values ask for
+        if is_series_listing(url):
+            return _ok(url, series_of(station))
         seen.append(url)
         if "/sources/" in url:
             return _ok(url, sources)
