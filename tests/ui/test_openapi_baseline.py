@@ -239,10 +239,34 @@ def test_a_document_is_not_a_break_of_itself() -> None:
             'enum members "a" were removed',
             id="response-enum-removed",
         ),
+        # what a request takes may not be one thing less (a response may, GH-3889)
         pytest.param(
-            lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].pop(0),
+            lambda d: _parameter(d, "size")["anyOf"].pop(0),
             "integer is no longer one of the alternatives",
-            id="union-alternative",
+            id="request-union-alternative-removed",
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "size").update(anyOf=[{"type": "integer", "exclusiveMinimum": 0}]),
+            "null is no longer one of the alternatives",
+            id="request-became-not-nullable",
+        ),
+        # an enum of a response that is a free string now is a type change for a typed client (GH-3889)
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(kind={"type": "string"}),
+            'the enum members "a", "b" became a free string',
+            id="response-enum-became-a-free-string",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(
+                kind={"anyOf": [{"type": "string"}, {"type": "null"}]},
+            ),
+            'the enum members "a", "b" became a free string',
+            id="response-enum-became-a-nullable-free-string",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"]["kind"].update(type=["string", "null"]),
+            "type changed from string to ['string', 'null']",
+            id="response-type-list-widened",
         ),
         # a client typed from the document handles each alternative of a response and no other (GH-3869)
         pytest.param(
@@ -377,6 +401,32 @@ def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
         pytest.param(lambda d: _at(d, *_THINGS)["properties"].update(extra={"type": "string"}), id="member"),
         pytest.param(lambda d: _at(d, *_THINGS)["required"].append("size"), id="member-now-required-in-a-response"),
         pytest.param(lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].append("c"), id="response-enum-member"),
+        # an answer may be one thing less (`number | null` that is `number`): the client handles it already (GH-3889)
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].pop(0), id="response-union-alternative-removed"
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(size={"type": "integer"}),
+            id="response-union-became-its-alternative",
+        ),
+        # a new alternative that is only an enum member of an enum string is the enum gaining a member (GH-3889)
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(
+                kind={"anyOf": [_at(d, *_THINGS)["properties"]["kind"], {"const": "c"}]}
+            ),
+            id="response-enum-member-as-a-const-alternative",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_THINGS)["properties"].update(
+                kind={"anyOf": [_at(d, *_THINGS)["properties"]["kind"], {"type": "string", "enum": ["c", "d"]}]}
+            ),
+            id="response-enum-members-as-an-enum-alternative",
+        ),
+        # what a request takes may be a free string now: looser, an addition
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"].update(mode={"type": "string", "default": "x"}),
+            id="request-free-string",
+        ),
         # what a request takes may be one more thing (the opposite of a response, which must not: GH-3869)
         pytest.param(lambda d: _parameter(d, "size")["anyOf"].append({"type": "string"}), id="request-union"),
         pytest.param(
@@ -480,13 +530,108 @@ def test_a_component_in_a_request_and_an_answer_is_judged_by_each_use() -> None:
     ]
 
 
-def test_narrowing_a_component_in_a_request_and_an_answer_is_a_finding_at_both() -> None:
-    """A shared alternative that goes breaks the caller that sends it and the one that reads it (GH-3869)."""
+def test_a_response_type_list_that_lost_a_type_is_narrowed_and_one_that_gained_is_a_finding() -> None:
+    """`["number", "null"]` written as a list of types follows the rule of the union written as `anyOf` (GH-3889)."""
+    wide = _document()
+    _at(wide, *_THINGS)["properties"]["size"] = {"type": ["integer", "null"]}
+    narrow = copy.deepcopy(wide)
+    _at(narrow, *_THINGS)["properties"]["size"] = {"type": "integer"}
+
+    assert breaking_changes(wide, narrow) == []
+    assert breaking_changes(narrow, wide) == [
+        "GET /api/v1/things 200 application/json.size: type changed from integer to ['integer', 'null']"
+    ]
+
+
+def test_a_response_enum_that_is_a_free_string_in_a_union_is_a_finding() -> None:
+    """An enum string that is a free string beside `null` now is told as the enum, not as a string that was added."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["kind"] = {
+        "anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]
+    }
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["kind"]["anyOf"][0] = {"type": "string"}
+
+    assert breaking_changes(baseline, current) == [
+        'GET /api/v1/things 200 application/json.kind: the enum members "a", "b" became a free string'
+    ]
+
+
+def test_a_new_enum_member_beside_a_nullable_enum_is_not_a_break() -> None:
+    """The members may grow as an alternative of their own, beside `null`, without a string that was added."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["kind"] = {
+        "anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]
+    }
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["kind"]["anyOf"].insert(1, {"type": "string", "const": "c"})
+
+    assert breaking_changes(baseline, current) == []
+
+
+def test_a_new_alternative_that_is_not_an_enum_member_is_still_a_finding_beside_an_enum() -> None:
+    """Only an enum member is let through: a string that is free, or an object, is a new alternative."""
+    for alternative in ({"type": "string"}, {"type": "object"}, {"type": "integer", "const": 1}):
+        current = copy.deepcopy(_document())
+        kind = _at(current, *_THINGS)["properties"]["kind"]
+        _at(current, *_THINGS)["properties"]["kind"] = {"anyOf": [kind, alternative]}
+
+        found = breaking_changes(_document(), current)
+
+        assert len(found) == 1
+        assert "was added to the alternatives of the answer" in found[0]
+
+
+def test_dropping_one_of_several_object_alternatives_of_a_response_is_not_a_break() -> None:
+    """A removed object among objects is a removed alternative, not a member that was removed of the one left."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["shape"] = {
+        "oneOf": [
+            {"type": "object", "properties": {"a": {"type": "string"}}},
+            {"type": "object", "properties": {"b": {"type": "string"}}},
+        ]
+    }
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["shape"]["oneOf"].pop(0)
+
+    assert breaking_changes(baseline, current) == []
+
+
+def test_an_enum_that_became_a_free_string_in_a_component_of_a_request_and_an_answer_is_one_finding() -> None:
+    """A shared component's enum that is free now is a looser request, an addition, and a type change of the answer."""
+    baseline = _shared_document()
+    _at(baseline, "components", "schemas", "Shared")["properties"]["e"] = {"type": "string", "enum": ["a", "b"]}
+    current = copy.deepcopy(baseline)
+    _at(current, "components", "schemas", "Shared")["properties"]["e"] = {"type": "string"}
+
+    assert breaking_changes(baseline, current) == [
+        'GET /api/v1/things 200 application/json.shared.e: the enum members "a", "b" became a free string'
+    ]
+
+
+def test_a_new_enum_member_of_a_component_of_a_request_and_an_answer_is_not_a_break() -> None:
+    """A shared enum may grow, as a member or as an alternative of its own, at both uses."""
+    baseline = _shared_document()
+    _at(baseline, "components", "schemas", "Shared")["properties"]["e"] = {"type": "string", "enum": ["a", "b"]}
+    grown = copy.deepcopy(baseline)
+    _at(grown, "components", "schemas", "Shared")["properties"]["e"]["enum"].append("c")
+    alternative = copy.deepcopy(baseline)
+    _at(alternative, "components", "schemas", "Shared")["properties"]["e"] = {
+        "anyOf": [{"type": "string", "enum": ["a", "b"]}, {"const": "c"}]
+    }
+
+    assert breaking_changes(baseline, grown) == []
+    assert breaking_changes(baseline, alternative) == []
+
+
+def test_a_union_that_lost_an_alternative_in_a_component_of_a_request_and_an_answer_is_a_finding_at_the_request() -> (
+    None
+):
+    """A shared alternative that goes breaks the caller that sends it, and not the one that reads it (GH-3889)."""
     found = _shared_changed(
         lambda d: _at(d, "components", "schemas", "Shared")["properties"].update(w={"type": "string"})
     )
 
     assert found == [
-        "GET /api/v1/things 200 application/json.shared.w: null is no longer one of the alternatives",
-        "GET /api/v1/things: request body application/json.shared.w: null is no longer one of the alternatives",
+        "GET /api/v1/things: request body application/json.shared.w: null is no longer one of the alternatives"
     ]

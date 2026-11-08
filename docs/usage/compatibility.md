@@ -235,7 +235,11 @@ that is a break: a changed `default` (what an omitted parameter means), a tighte
 that was added or changed, and an enum that lost members. `tests/ui/openapi_diff.py` holds it. A looser bound or no
 pattern is an addition and passes. A response is widened when a union gains an alternative (`array` that becomes
 `array | null`, a member that may now be `null`), and that is a break like any changed type, since a client generated
-from the document must handle the new alternative, where the same alternative of a request is an addition.
+from the document must handle the new alternative, where the same alternative of a request is an addition. A response
+is narrowed when a union loses one (`number | null` that becomes `number`), and that is not a break, since a typed
+client already handles the case that no longer comes. A response enum that becomes a free string is a break, a type
+change for a typed client, while a new enum member stays allowed in a minor release, also when the document writes it
+as an alternative of its own.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
 a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
