@@ -8,11 +8,17 @@ file-layout details.
 
 Provider-specific handling, each established by live testing against the real archive:
 
-- **Multiple report types per period.** A daily station may transmit an overnight and a daytime
-  12-hour reading (``NCM``/``AWSDLY``) *and* a 24-hour one (``DLY3208``/``SYNOP``) for the same day.
-  ``parser.parse_values`` collapses these to one value per calendar day (``max`` for max-type
-  parameters, ``min`` for ``_MIN_COLUMNS``), which is idempotent over the 12h/24h duplication.
-  Hourly datasets have one reading per hour, so the aggregation is a no-op there.
+- **Daily temperature: one window, the 24 hours ending 09Z.** The file holds the extremes of 12 and 24 hour
+  windows (``ob_hour_count``): a station reports the 24 hour window ending 09:00 (09-09Z, ``DLY3208``, ``SYNOP``) or
+  its two halves, 21-09Z ending 09:00 and 09-21Z ending 21:00 (``NCM``, ``AWSDLY``), and a few both. Every day is the
+  09-09Z window ending on the stamped day, at every station (GH-3137): the 24 hour row, or at a 12 hour station the
+  extreme of the 21-09Z row ending 09Z on D and the 09-21Z row ending 21Z on D-1 (a year's first day reads the
+  previous year's file for it). A day with both kinds of row is the 24 hour row; a day with only one half is left out
+  and told (``other-window-left-out``), never an answer of "no values". The exception, decided by the maintainer on
+  GH-3137, is ``min_grss_temp``, which no 09-21Z row carries: at a 12 hour station the 21-09Z row ending 09Z on D
+  stands for the 09-09Z window of D (``_NIGHT_ONLY_COLUMNS``), and on a mixed day the 24 hour row wins. See
+  ``parser.climatological_days``.
+  Where a day has two reports of a window (``NCM`` beside ``AWSDLY``) they collapse to the ``max`` or ``min``.
 - **Multi-period accumulations.** Daily rain gauges read every N days post an N-day accumulated total
   on the read date with ``ob_day_cnt=N``, and the hourly rain and radiation files hold 12 and 24 hour
   totals beside the hourly readings (``ob_hour_count``); only the rows with a count of 1 are kept (see
@@ -30,7 +36,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
@@ -41,9 +47,18 @@ from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.metoffice.observation.download import get_ceda_token, raise_if_ceda_rejected
 from wetterdienst.provider.metoffice.observation.fileindex import download_url, latest_release_version
 from wetterdienst.provider.metoffice.observation.metadata import MetOfficeObservationMetadata
-from wetterdienst.provider.metoffice.observation.parser import parse_station_metadata, parse_values
+from wetterdienst.provider.metoffice.observation.parser import (
+    climatological_days,
+    parse_station_metadata,
+    parse_values,
+    parse_window_rows,
+)
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import _without_url_secrets, download_file
+from wetterdienst.util.response_warnings import note_left_out
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 log = logging.getLogger(__name__)
 
@@ -53,10 +68,16 @@ log = logging.getLogger(__name__)
 # The timestamp columns were read off the real file headers during scoping; the uk-daily-rain-obs ob_day_cnt=1 filter
 # is confirmed live. The hourly files of 2023 (three stations each) hold, besides the 1 hour readings, 12 hour rain
 # totals ending 09:00 and 21:00 (719 of 9,299 rows at Tyndrum) and 24 hour radiation totals (364 of 9,084 at
-# Kinloss), which `max` per hour kept in place of the hour's own reading (GH-3137).
+# Kinloss), which `max` per hour kept in place of the hour's own reading (GH-3137). The daily temperature is no count
+# of 1: its rows are 12 and 24 hour windows, built into the 24 hours ending 09Z by `parser.climatological_days`
+# (``climatological_day``)
 _DATASET_CONFIG: dict[str, dict] = {
     "uk-daily-rain-obs": {"time_column": "ob_date", "period_count_column": "ob_day_cnt"},
-    "uk-daily-temperature-obs": {"time_column": "ob_end_time", "period_count_column": None},
+    "uk-daily-temperature-obs": {
+        "time_column": "ob_end_time",
+        "period_count_column": None,
+        "climatological_day": True,
+    },
     "uk-daily-weather-obs": {"time_column": "ob_end_time", "period_count_column": None},
     "uk-hourly-rain-obs": {"time_column": "ob_end_time", "period_count_column": "ob_hour_count"},
     "uk-hourly-weather-obs": {"time_column": "ob_time", "period_count_column": None},
@@ -65,9 +86,23 @@ _DATASET_CONFIG: dict[str, dict] = {
     "uk-soil-temperature-obs": {"time_column": "ob_time", "period_count_column": None},
 }
 
-# raw MIDAS columns aggregated with ``min`` rather than ``max`` when collapsing a day's multiple
-# report types (see parser.parse_values). Only the daily-temperature min-type readings qualify.
+# raw MIDAS columns of the daily temperature whose extreme is a ``min`` rather than a ``max`` (see
+# parser.climatological_days)
 _MIN_COLUMNS = frozenset({"min_air_temp", "min_grss_temp"})
+
+# the daily temperature columns that no 09-21Z row carries: over the 96 station-years of GH-3137 (2015 and 2025, 1995
+# at six stations) `min_grss_temp` has a value in 24,200 12 hour rows ending 09:00 and 4,394 24 hour rows, in none
+# ending 21:00, where `max_air_temp` and `min_air_temp` have one in 25,097 and 25,091 of them. Their 12 hour day is the
+# 21-09Z row alone: the maintainer decided on GH-3137 that this row stands for the 09-09Z window of the day (requiring
+# both halves would leave the grass minimum out at every 12 hour station)
+_NIGHT_ONLY_COLUMNS = frozenset({"min_grss_temp"})
+
+# the reason `other-window-left-out` gives for a day the daily temperature has only one 12 hour half of
+_LEFT_OUT_BECAUSE = (
+    "these days have only one of the two 12 hour windows (21-09Z ending 09:00 on the day, 09-21Z ending 21:00 on the "
+    "day before) and no 24 hour row ending 09:00, and this parameter is the 24 hours ending 09Z on the day, which "
+    "needs both"
+)
 
 # raw MIDAS columns whose native unit differs from the one declared in metadata.py, with the factor
 # that reconciles them. Confirmed live: visibility is stored in decametres, scaled to metres.
@@ -185,12 +220,14 @@ class MetOfficeObservationValues(TimeseriesValues):
                 break
         if content is None:
             return None
+        if config.get("climatological_day"):
+            rows = parse_window_rows(content, time_column=config["time_column"], columns=columns)
+            return rows if not rows.is_empty() else None
         df = parse_values(
             content,
             time_column=config["time_column"],
             columns=columns,
             granularity=granularity,
-            min_columns=_MIN_COLUMNS,
             scale=_SCALE,
             period_count_column=config["period_count_column"],
         )
@@ -217,7 +254,12 @@ class MetOfficeObservationValues(TimeseriesValues):
             return pl.DataFrame()
         county, slug = located
 
-        station_row = self.sr.df.filter(pl.col("station_id") == station_id)
+        # one row for each (resolution, dataset, station): the bounds are those of this dataset's catalogue
+        station_row = self.sr.df.filter(
+            (pl.col("station_id") == station_id)
+            & (pl.col("resolution") == dataset.resolution.name)
+            & (pl.col("dataset") == dataset.name)
+        )
         start = self.sr.start or station_row.item(0, "start_timestamp")
         end = self.sr.end or station_row.item(0, "end_timestamp")
         if start is None or end is None:
@@ -225,9 +267,21 @@ class MetOfficeObservationValues(TimeseriesValues):
 
         columns = [p.name_original for p in dataset.parameters]
         granularity = "1d" if dataset.resolution.name == "daily" else "1h"
+        climatological = bool(config.get("climatological_day"))
+        first_year = start.year
+        if climatological:
+            # the first day of the first year needs the 09-21Z row ending 21:00 on the last day of the year before,
+            # which is in that year's file; read it only where the day is in the window and the station has the file
+            catalogued = station_row.item(0, "start_timestamp")
+            earliest = catalogued.year if catalogued is not None else 0
+            if (
+                start <= start.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                and start.year - 1 >= earliest
+            ):
+                first_year = start.year - 1
         frames = [
             df
-            for year in range(start.year, end.year + 1)
+            for year in range(first_year, end.year + 1)
             if (
                 df := self._collect_year(
                     midas_dataset,
@@ -248,9 +302,33 @@ class MetOfficeObservationValues(TimeseriesValues):
         if not frames:
             return pl.DataFrame()
 
+        if climatological:
+            days, left_out = climatological_days(pl.concat(frames), _MIN_COLUMNS, _NIGHT_ONLY_COLUMNS)
+            asked = {
+                p.name_original: f"{dataset.resolution.name}/{dataset.name}/{p.name}"
+                for p in self.sr.parameters
+                if (p.dataset.resolution.name, p.dataset.name) == (dataset.resolution.name, dataset.name)
+            }
+            self._tell_left_out(left_out, asked, start, end)
+            # the year before only gave its last evening to the first day
+            return days.filter(pl.col("timestamp").dt.year() >= start.year)
+
         # `parse_values` hands over `parameter`, `timestamp`, `value` and `quality_flags`; the station, resolution and
         # dataset, the order of the columns and the dtypes are the core's to write (`shape_provider_frame`)
         return pl.concat(frames)
+
+    @staticmethod
+    def _tell_left_out(left_out: pl.DataFrame, asked: dict[str, str], start: datetime, end: datetime) -> None:
+        """Tell the days of the window that were left out for lack of one 12 hour half (`other-window-left-out`).
+
+        ``asked`` is the name (`resolution/dataset/parameter`) of each parameter that was asked for, by its raw column:
+        the dataset is read whole, and what is told is of the parameters of the answer only, as Frost does (a parameter
+        that was not asked for is not named, which would mark its station as explained).
+        """
+        left_out = left_out.filter(pl.col("timestamp").is_between(start, end))
+        for raw_column, count in left_out.group_by("parameter").len().sort("parameter").iter_rows():
+            if raw_column in asked:
+                note_left_out(asked[raw_column], count, _LEFT_OUT_BECAUSE)
 
 
 @dataclass

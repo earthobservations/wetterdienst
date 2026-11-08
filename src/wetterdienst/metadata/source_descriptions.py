@@ -206,13 +206,22 @@ _WSV_PEGEL_PARAMETERS = {
 }
 
 
-# The daily temperature file of MIDAS Open mixes the 12 hour rows ending 09:00 (night) and 21:00 (day) with 24 hour rows
-# ending 09:00 (2,962 of the 14,334 rows of the daily temperature files of 25 stations, 2022), and the reader stamps
-# a row by the date of its `ob_end_time`, the source's 09Z climatological day (GH-3137)
+# The daily temperature file of MIDAS Open holds the extremes of 12 and 24 hour windows (`ob_hour_count`): the 24
+# hours ending 09:00 (09-09Z), or its two halves, 21-09Z ending 09:00 and 09-21Z ending 21:00. A day is the 24 hours
+# ending 09Z on the stamped day at every station: the 24 hour row, or the extreme of the two halves (GH-3137)
 _MO_DAILY_STAMP = (
-    "Stamped by the date of ob_end_time (the 09Z climatological day of the source). The file mixes 12 hour rows ending "
-    "09:00 and 21:00 with 24 hour rows ending 09:00 (2,962 of 14,334 rows), so a 24 hour 09-09Z row falls on the day "
-    "after most of its coverage."
+    "The 24 hours ending 09Z on the stamped day (09-09Z) at every station: a 24 hour row ending 09:00 as it is, "
+    "else the extreme of the 21-09Z row ending 09:00 on the day and the 09-21Z row ending 21:00 on the day before. "
+    "A day with both kinds of row is the 24 hour row; a day with only one 12 hour half has no value and is told "
+    "(other-window-left-out)."
+)
+# the grass minimum is in no row ending 21:00 (24,200 12 hour rows ending 09:00 and 4,394 24 hour rows have one, 96
+# station-years), so a 12 hour station's day is its 21-09Z row alone, which the maintainer decided (GH-3137) stands for
+# the 09-09Z window
+_MO_GRASS_STAMP = (
+    "The day ending 09Z on the stamped day: a 24 hour row ending 09:00 as it is (09-09Z); at a 12 hour station the "
+    "21-09Z row ending 09:00 on the day, which stands for the 09-09Z window, the only 12 hour window the file "
+    "reports it in. A day with both kinds of row is the 24 hour row."
 )
 
 # the window of a daily value of ECCC (the glossary, "Climatological Day"; Note 16 of the technical documentation)
@@ -3661,7 +3670,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "min_air_temp",
         ): f"Minimum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
         ("daily", "temperature", "min_grss_temp"): (
-            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}"
+            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_GRASS_STAMP}"
         ),
         ("daily", "weather", "drv_24hr_sun_dur"): (
             "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "

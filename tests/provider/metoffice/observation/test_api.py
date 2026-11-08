@@ -15,8 +15,10 @@ from fsspec.exceptions import FSTimeoutError
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
 from wetterdienst.provider.metoffice.observation.parser import (
+    climatological_days,
     parse_station_metadata,
     parse_values,
+    parse_window_rows,
 )
 
 UTC = ZoneInfo("UTC")
@@ -45,43 +47,165 @@ def test_parse_station_metadata_keeps_the_path_components_of_a_stations_files() 
     assert parse_station_metadata(_badc(b"Conventions,G,BADC-CSV,1\n", "src_id", b"")).is_empty()
 
 
-def test_parse_values_collapses_multiple_report_types() -> None:
-    """A day with 12h night/day readings plus a 24h reading collapses to one daily extreme.
+_TEMPERATURE_HEADER = (
+    "ob_end_time,ob_hour_count,met_domain_name,max_air_temp,max_air_temp_q,min_air_temp,min_air_temp_q"
+)
+_MIN = frozenset({"min_air_temp"})
 
-    ``max`` for max-type, ``min`` for ``min_columns`` is idempotent over the duplication, so the
-    result equals the true 24-hour value regardless of which report types a station transmits.
+
+def _days(rows: bytes, columns: list[str] | None = None, **kwargs: object) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Build the days of a daily temperature file of `rows`, and the days left out (GH-3137)."""
+    content = _badc(b"Conventions,G,BADC-CSV,1\n", _TEMPERATURE_HEADER, rows)
+    window_rows = parse_window_rows(
+        content, time_column="ob_end_time", columns=columns or ["max_air_temp", "min_air_temp"]
+    )
+    return climatological_days(window_rows, _MIN, **kwargs)  # ty: ignore[invalid-argument-type]
+
+
+def test_a_12_hour_station_day_is_the_extreme_of_the_evening_before_and_the_night() -> None:
+    """The day D of a 12 hour station is 09-09Z: the 09-21Z row ending 21Z on D-1 and the 21-09Z row ending 09Z on D.
+
+    Heathrow 2025-07-11 (GH-3137): the night row ending 09:00 on the 11th has a maximum of 27.1, the day row ending
+    21:00 on the 11th 32.4 and the one ending 21:00 on the 10th 31.7; the day stamped the 11th is 31.7, not 32.4
+    (the afternoon of the 11th is the day stamped the 12th). The minimum is the night's, the evening before's 17.8
+    being higher.
+    """
+    days, left_out = _days(
+        b"2025-07-10 21:00:00,12,NCM,31.7,6,17.8,6\n"
+        b"2025-07-11 09:00:00,12,NCM,27.1,6,17.1,6\n"
+        b"2025-07-11 21:00:00,12,NCM,32.4,6,18.6,6\n"
+        b"2025-07-12 09:00:00,12,NCM,28.0,6,17.9,6\n"
+    )
+    assert left_out.is_empty()
+    assert days.sort("parameter", "timestamp").select("parameter", "timestamp", "value").rows() == [
+        ("max_air_temp", dt.datetime(2025, 7, 11, tzinfo=UTC), 31.7),
+        ("max_air_temp", dt.datetime(2025, 7, 12, tzinfo=UTC), 32.4),
+        ("min_air_temp", dt.datetime(2025, 7, 11, tzinfo=UTC), 17.1),
+        ("min_air_temp", dt.datetime(2025, 7, 12, tzinfo=UTC), 17.9),
+    ]
+
+
+def test_the_flags_of_a_12_hour_day_are_those_of_the_half_that_gave_the_extreme() -> None:
+    """The `quality_flags` of the day are those of the row its value is of, the maximum's and the minimum's apart."""
+    days, _ = _days(
+        b"2000-01-01 21:00:00,12,NCM,9.0,4,1.0,6\n2000-01-02 09:00:00,12,NCM,5.0,2006,2.0,4\n",
+        columns=["max_air_temp", "min_air_temp"],
+    )
+    assert days.sort("parameter").select("parameter", "value", "quality_flags").rows() == [
+        ("max_air_temp", 9.0, "4"),
+        ("min_air_temp", 1.0, "6"),
+    ]
+
+
+def test_a_24_hour_station_day_is_its_24_hour_row_ending_09z_as_given() -> None:
+    """A 24 hour row ending 09:00 on D is the day D, with its own flags (GH-3137)."""
+    days, left_out = _days(b"2000-01-01 09:00:00,24,DLY3208,5.4,4,0.3,4\n2000-01-02 09:00:00,24,DLY3208,6.1,6,-1.2,6\n")
+    assert left_out.is_empty()
+    assert days.sort("parameter", "timestamp").select("parameter", "timestamp", "value", "quality_flags").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 5.4, "4"),
+        ("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), 6.1, "6"),
+        ("min_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 0.3, "4"),
+        ("min_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), -1.2, "6"),
+    ]
+
+
+def test_a_day_with_both_kinds_of_row_is_the_24_hour_row() -> None:
+    """The 09-21Z row of D lies outside the 24 hours ending 09Z on D, so it must not win (GH-3137).
+
+    Goudhurst 2015-06-25: the 24 hour row 20.0, the day row ending 21:00 on the 25th 22.3 (which the old reader
+    returned for the 25th). Here the evening row of the 1st (9.0), the night row (4.8) and the day row ending
+    21:00 on the 2nd (22.3) are 12 hour rows beside the 24 hour row of 5.4: none changes the value or its flags of
+    the 2nd, and the 22.3 is the evening of the 3rd, which has no other half and is left out.
+    """
+    days, left_out = _days(
+        b"2000-01-01 21:00:00,12,AWSDLY,9.0,6,2.0,6\n"
+        b"2000-01-02 09:00:00,12,AWSDLY,4.8,6,0.3,6\n"
+        b"2000-01-02 09:00:00,24,DLY3208,5.4,4,0.3,4\n"
+        b"2000-01-02 21:00:00,12,AWSDLY,22.3,6,3.0,6\n"
+    )
+    assert left_out.sort("parameter").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC)),
+        ("min_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC)),
+    ]
+    assert days.sort("parameter").select("parameter", "timestamp", "value", "quality_flags").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), 5.4, "4"),
+        ("min_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), 0.3, "4"),
+    ]
+
+
+def test_a_day_with_only_one_12_hour_half_is_left_out_and_not_returned() -> None:
+    """A day without its other half is no value and is told: the 1st has the night only, the 3rd's evening is alone."""
+    days, left_out = _days(
+        b"2000-01-01 09:00:00,12,NCM,4.8,6,0.3,6\n"
+        b"2000-01-02 21:00:00,12,NCM,5.1,6,2.8,6\n"
+        b"2000-01-03 09:00:00,12,NCM,3.0,6,1.0,6\n"
+    )
+    assert days.select("parameter", "timestamp", "value").sort("parameter").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC), 5.1),
+        ("min_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC), 1.0),
+    ]
+    assert left_out.sort("parameter", "timestamp").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC)),
+        ("min_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC)),
+    ]
+
+
+def test_a_half_that_is_an_na_is_a_half_that_is_missing() -> None:
+    """A 12 hour row of `NA` is no value, so the day of its other half has no value to build and is left out."""
+    days, left_out = _days(
+        b"2000-01-01 21:00:00,12,NCM,NA,NA,2.0,6\n2000-01-02 09:00:00,12,NCM,4.8,6,0.3,6\n",
+    )
+    assert days.select("parameter", "timestamp", "value").rows() == [
+        ("min_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), 0.3),
+    ]
+    assert left_out.rows() == [("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC))]
+
+
+def test_a_rows_of_another_window_are_no_part_of_the_day() -> None:
+    """Only the three windows of the TD page make a day: a 24 hour row ending 21:00 or a 6 hour row is not read."""
+    days, left_out = _days(
+        b"2000-01-01 21:00:00,24,X,30.0,6,-9.0,6\n2000-01-01 09:00:00,6,X,31.0,6,-8.0,6\n"
+        b"2000-01-01 09:00:00,24,X,5.4,6,0.3,6\n"
+    )
+    assert left_out.is_empty()
+    assert days.sort("parameter")["value"].to_list() == [5.4, 0.3]
+
+
+def test_two_reports_of_a_window_are_one_extreme() -> None:
+    """`NCM` beside `AWSDLY` for the same window gives the larger maximum and the smaller minimum."""
+    days, _ = _days(
+        b"2000-01-01 21:00:00,12,NCM,8.0,6,2.0,6\n2000-01-01 21:00:00,12,AWSDLY,8.2,4,1.8,4\n"
+        b"2000-01-02 09:00:00,12,NCM,4.8,6,0.3,6\n2000-01-02 09:00:00,12,AWSDLY,4.6,4,0.5,4\n"
+    )
+    assert days.sort("parameter").select("parameter", "value", "quality_flags").rows() == [
+        ("max_air_temp", 8.2, "4"),
+        ("min_air_temp", 0.3, "6"),
+    ]
+
+
+def test_a_column_that_is_never_reported_in_the_09_21z_half_is_built_from_the_night_alone() -> None:
+    """`min_grss_temp` has no value in a row ending 21:00 (GH-3137), so its 12 hour day is the night row alone.
+
+    This is the interim reading until the maintainer decides whether the grass minimum needs both halves: with
+    `night_only` the column gets its day from the 21-09Z row; without it, the same rows leave the day out.
     """
     content = _badc(
         b"Conventions,G,BADC-CSV,1\n",
-        "ob_end_time,ob_hour_count,met_domain_name,max_air_temp,max_air_temp_q,min_air_temp,min_air_temp_q",
-        # night 12h (ends 09:00), full-day 24h (ends 09:00), day 12h (ends 21:00)
-        b"2000-01-01 09:00:00,12,AWSDLY,4.8,6,0.3,6\n"
-        b"2000-01-01 09:00:00,24,DLY3208,5.4,4,0.3,4\n"
-        b"2000-01-01 21:00:00,12,AWSDLY,5.1,6,2.8,6\n",
+        "ob_end_time,ob_hour_count,met_domain_name,min_grss_temp,min_grss_temp_q",
+        b"2000-01-01 21:00:00,12,NCM,NA,NA\n2000-01-02 09:00:00,12,NCM,-1.5,6\n",
     )
-    df = parse_values(
-        content,
-        time_column="ob_end_time",
-        columns=["max_air_temp", "min_air_temp"],
-        granularity="1d",
-        min_columns=frozenset({"min_air_temp"}),
-    ).sort("parameter")
-    assert df.to_dicts() == [
-        # max over {4.8, 5.4, 5.1} == the 24h value 5.4; the flags are those of the extreme row
-        {
-            "timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC),
-            "parameter": "max_air_temp",
-            "value": 5.4,
-            "quality_flags": "4",
-        },
-        # min over {0.3, 0.3, 2.8} == 0.3
-        {
-            "timestamp": dt.datetime(2000, 1, 1, tzinfo=UTC),
-            "parameter": "min_air_temp",
-            "value": 0.3,
-            "quality_flags": "6",
-        },
+    rows = parse_window_rows(content, "ob_end_time", ["min_grss_temp"])
+    grass = frozenset({"min_grss_temp"})
+
+    days, left_out = climatological_days(rows, grass, grass)
+    assert days.select("timestamp", "value", "quality_flags").rows() == [
+        (dt.datetime(2000, 1, 2, tzinfo=UTC), -1.5, "6")
     ]
+    assert left_out.is_empty()
+
+    days, left_out = climatological_days(rows, grass)
+    assert days.is_empty()
+    assert left_out.rows() == [("min_grss_temp", dt.datetime(2000, 1, 2, tzinfo=UTC))]
 
 
 def test_parse_values_drops_multiday_accumulations() -> None:
@@ -152,27 +276,22 @@ def test_parse_values_keeps_the_mesql_code_as_the_text_the_file_writes() -> None
     assert df.get_column("quality_flags").to_list() == ["2576", "20001", None]
 
 
-def test_parse_values_keeps_the_na_of_a_day_that_has_no_value() -> None:
-    """An `NA` beside a value of its day is no value and no flag; a day of nothing but `NA` keeps it (GH-2759)."""
-    content = _badc(
-        b"Conventions,G,BADC-CSV,1\n",
-        "ob_end_time,ob_hour_count,met_domain_name,max_air_temp,max_air_temp_q,min_air_temp,min_air_temp_q",
-        b"2000-01-01 09:00:00,12,AWSDLY,NA,NA,0.3,6\n"
-        b"2000-01-01 21:00:00,12,AWSDLY,5.1,6,NA,NA\n"
-        b"2000-01-02 09:00:00,12,AWSDLY,NA,NA,NA,NA\n",
+def test_a_day_of_nothing_but_na_keeps_the_null_with_its_text_and_an_na_beside_a_value_is_no_flag() -> None:
+    """A day of nothing but `NA` keeps the null and `raw:NA`; an `NA` beside a value is no value (GH-2759)."""
+    days, left_out = _days(
+        b"2000-01-01 09:00:00,24,DLY3208,NA,NA,0.3,6\n"
+        b"2000-01-02 09:00:00,24,DLY3208,6.0,6,NA,NA\n"
+        b"2000-01-03 09:00:00,24,DLY3208,7.0,4,NA,NA\n"
+        b"2000-01-03 09:00:00,24,AWSDLY,NA,NA,NA,NA\n"
     )
-    df = parse_values(
-        content,
-        time_column="ob_end_time",
-        columns=["max_air_temp", "min_air_temp"],
-        granularity="1d",
-        min_columns=frozenset({"min_air_temp"}),
-    ).sort("parameter", "timestamp")
-    assert df.select("parameter", "timestamp", "value", "quality_flags").rows() == [
-        ("max_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 5.1, "6"),
-        ("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), None, "raw:NA"),
+    assert left_out.is_empty()
+    assert days.select("parameter", "timestamp", "value", "quality_flags").sort("parameter", "timestamp").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), None, "raw:NA"),
+        ("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), 6.0, "6"),
+        ("max_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC), 7.0, "4"),
         ("min_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 0.3, "6"),
         ("min_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), None, "raw:NA"),
+        ("min_air_temp", dt.datetime(2000, 1, 3, tzinfo=UTC), None, "raw:NA"),
     ]
 
 
