@@ -59,12 +59,14 @@ Types of changes:
 
 ### Fixed
 
-- A directory whose outage page links to itself (`href="/x/"`, `"./"`, the absolute URL, ...) no
-  longer reads as empty for 12 hours after the server is back: `list_remote_files_fsspec` raised
-  the `DownloadError` as it should, but kept fsspec's listing of the page, so `dwd/observation`
-  then skipped the period as empty until the cache expired. The listing is dropped, as
-  `list_remote_directory_fsspec` does; a link to `./` is a `DownloadError` where it was a
-  `RecursionError` (GH-3861)
+- A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
+  URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
+  `list_remote_directory_fsspec` leave the link out. An outage page with such a link is a
+  `DownloadError` (before: it was kept as a file for `.`, `?retry=1` and `#`, and as an empty
+  listing for `/x/` and the absolute URL, so a directory that was down read as empty for 12 hours
+  after it was back and `dwd/observation` skipped the period; `./` was a `RecursionError` after
+  974 requests that also left fsspec's event loop spinning). An `Index of` page that links to
+  `./` and holds files lists them (GH-3861)
 - **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
   of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
   warning names the directory (it was a log line, and a history of it was cached); so does the

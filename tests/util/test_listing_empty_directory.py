@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -264,14 +265,10 @@ def test_a_real_index_that_links_to_itself_in_any_spelling_is_an_empty_directory
     assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
 
 
-def test_a_page_that_links_to_dot_slash_and_to_a_file_is_not_taken_for_an_empty_directory(
+def test_a_page_that_links_to_dot_slash_and_to_a_file_lists_the_file(
     server: NginxLike, listing: Callable[[str], list[str]]
 ) -> None:
-    """Only a page that lists nothing but itself is read as a self-link: with a file as well it is no empty directory.
-
-    fsspec's walk never ends on the `./` link whatever else the page holds, which is older than GH-3861 and is left as
-    it was (a `RecursionError`); what must not happen is the directory read as `[]` with its file left out.
-    """
+    """The self-link is no entry, so the walk does not enter it, and the file the page holds is listed (one GET)."""
     page = (
         "text/html",
         (
@@ -282,26 +279,29 @@ def test_a_page_that_links_to_dot_slash_and_to_a_file_is_not_taken_for_an_empty_
     server.pages["/x/"] = page
     server.pages["/x"] = page
 
-    with pytest.raises(RecursionError):
-        listing("/x/")
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+    assert len(server.requests) == 1
 
 
-def test_the_cache_drop_of_a_self_link_listing_is_best_effort(
-    server: NginxLike, listing: Callable[[str], list[str]], monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("link", ["./", "/x/"])
+def test_a_self_link_makes_the_walk_ask_a_handful_of_times_and_leaves_the_loop_quiet(
+    server: NginxLike, listing: Callable[[str], list[str]], caplog: pytest.LogCaptureFixture, link: str
 ) -> None:
-    """A cache that cannot be written (busy, read-only) is a log line: the outage is still the `DownloadError`."""
+    """A link to `./` was a walk without end (974 requests, then a `RecursionError`, which left fsspec's shared event
+    loop spinning on a broken transport for the rest of the process): the walk must never come back.
 
-    def refuse(_self: object, _key: str) -> None:
-        message = "database is locked"
-        raise sqlite3.OperationalError(message)
-
-    monkeypatch.setattr(network.FileDirCache, "__delitem__", refuse)
-    page = ("text/html", _outage_page_linking_to("/x/", server.base))
+    The loop's own log is read after a moment: a callback that raised there says so (`Exception in callback`).
+    """
+    page = ("text/html", _outage_page_linking_to(link, server.base))
     server.pages["/x/"] = page
     server.pages["/x"] = page
+    with caplog.at_level(logging.ERROR, logger="asyncio"):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            listing("/x/")
+        time.sleep(0.5)
 
-    with pytest.raises(DownloadError, match="not the index page of a directory"):
-        listing("/x/")
+    assert len(server.requests) <= 6
+    assert [record.getMessage() for record in caplog.records if record.name == "asyncio"] == []
 
 
 @pytest.mark.parametrize(
@@ -493,6 +493,23 @@ def test_an_outage_page_that_links_to_itself_is_a_download_error_not_the_directo
     server.directories["/x/"] = [_ZIP]
 
     assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
+
+
+def test_a_page_that_links_to_a_child_keeps_it(server: NginxLike, entries: Callable[[str], list[dict]]) -> None:
+    """Only the directory itself is left out of its entries: `/x/sub/c.zip` lies under it and a prefix is not it.
+
+    (fsspec drops a link outside the directory, `/xy/b.zip`, on its own, so a sibling cannot tell a path compared by
+    its prefix from one compared whole.)
+    """
+    server.pages["/x/"] = (
+        "text/html",
+        (
+            '<html><head><title>Index of /x/</title></head><body><a href="/x/sub/c.zip">c</a>'
+            '<a href="a.zip">a</a><a href="/x/">self</a></body></html>'
+        ).encode(),
+    )
+
+    assert sorted(entry["name"] for entry in entries("/x/")) == [f"{server.base}/x/a.zip", f"{server.base}/x/sub/c.zip"]
 
 
 _APACHE_SORT_LINKS = (

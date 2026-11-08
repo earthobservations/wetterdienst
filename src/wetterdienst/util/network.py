@@ -1123,6 +1123,8 @@ class HTTPFileSystem(_HTTPFileSystem):
         * upstream caches whatever shape ``detail`` asked for, so one ``detail=False`` call
           poisons every later ``detail=True`` read of the same URL. We always cache the
           detailed listing and derive the name-only view from it.
+
+        The directory itself is never one of its entries (a link of the page to its own URL, in any spelling).
         """
         # a cached listing is always a list (possibly empty), so None is a safe "miss" sentinel
         out: list[dict] | None = self.dircache.get(url) if self.use_listings_cache else None
@@ -1132,6 +1134,10 @@ class HTTPFileSystem(_HTTPFileSystem):
             # caller then fetches in clear
             if urlsplit(url).scheme == "https":
                 out = [entry for entry in out if urlsplit(entry["name"]).scheme != "http"]
+            # and a link of the page to itself, however it is written (`""`, `/x/`, `./`, `.`, `?retry=1`, the
+            # absolute URL), is not an entry of the directory: an index page has none, an outage page has one. Kept,
+            # `find` walks into it as a directory of its own, and a `./` has it walk on without end (GH-3861)
+            out = [entry for entry in out if not _is_the_same_directory(entry["name"], url)]
             self.dircache[url] = out
         return out if detail else sorted(entry["name"] for entry in out)
 
@@ -2698,13 +2704,12 @@ def _found_or_empty_directory(url: str, found: list[str] | None, page: bytes | N
     the next call asks again).
 
     That holds only if the page of a URL ending in `/` is the index of a directory (`Index of /x/`, which nginx and
-    Apache write), whichever way `find` came to list no file: itself as the one file (however its link is written: see
-    `_is_the_same_directory`), nothing, or a 404 for `/x`. Any other 200 page, a CDN's "503" page with a link to itself
-    elsewhere or a JSON error, is not an empty directory and must not read as "no data": it is a `DownloadError` (a
-    502). A 404 for the page is a directory that is not there, `[]`. A URL with no `/` at its end may as well name a
-    file (`/plain.txt` lists itself), and is left as it is.
+    Apache write), whichever way `find` came to list no file: itself as the one file, nothing, or a 404 for `/x`. Any
+    other 200 page, a CDN's "503" page with a link to itself elsewhere or a JSON error, is not an empty directory and
+    must not read as "no data": it is a `DownloadError` (a 502). A 404 for the page is a directory that is not there,
+    `[]`. A URL with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
     """
-    if not url.endswith("/") or (found and not _lists_nothing(url, _as_entries(found))):
+    if not url.endswith("/") or (found and found != [url]):
         return found or []
     if page is None:
         return []
@@ -2713,35 +2718,20 @@ def _found_or_empty_directory(url: str, found: list[str] | None, page: bytes | N
     raise DownloadError(url, "the answer is not the index page of a directory")
 
 
-def _as_entries(names: list[str]) -> list[dict]:
-    """Give the names `find` found as the entries `_lists_nothing` looks at."""
-    return [{"name": name} for name in names]
-
-
 def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None, bytes | None]:
     """List a URL, and read its page where the listing leaves it open whether it is an empty directory.
 
-    The page of a URL ending in `/` is read when no file but the URL itself was found (nothing, the URL itself written
-    in any way `_is_the_same_directory` knows, or a `FileNotFoundError` of `find`), which costs one more GET for such
-    a directory. A listing of the URL itself is dropped from the listings cache, whatever the page turns out to be: it
-    is what an outage page that links to itself lists, and the directory the server has once it is back would be hidden
-    behind it for the `cache_expiry` (GH-3861). The page of an empty directory is not kept as an empty listing either.
+    The page of a URL ending in `/` is read when no file but the URL itself was found (nothing, the URL itself, or a
+    `FileNotFoundError` of `find`), which costs one more GET for such a directory. A link of the page to the directory
+    itself is no entry: `HTTPFileSystem._ls` leaves it out, so an outage page that links to itself, however the link
+    is written, lists nothing and is never stored (GH-3861).
     """
     try:
         found: list[str] | None = fs.find(url, on_error="raise")
     except FileNotFoundError:
         found = None
-    except RecursionError:
-        # a link of the page to `./` is `/x/./`, a directory of its own to the walk, which lists `/x/./.` and goes on
-        # without end (and stores each of them). Only a page that lists nothing but itself is a self-link: any other
-        # page that has such a link as well as files is still the error it was
-        if not url.endswith("/") or not _lists_nothing(url, fs.ls(url, detail=True)):
-            raise
-        found = [url]
-    if not url.endswith("/") or (found and not _lists_nothing(url, _as_entries(found))):
+    if not url.endswith("/") or (found and found != [url]):
         return found, None
-    if found:
-        _drop_cached_listings_of(fs, url)
     return found, _read_page(fs, url)
 
 
@@ -2796,36 +2786,18 @@ def _drop_cached_listing(fs: HTTPFileSystem, url: str) -> None:
         log.warning(f"Could not drop the cached listing of {_without_url_secrets(url)}: {error!r}")
 
 
-def _drop_cached_listings_of(fs: HTTPFileSystem, url: str) -> None:
-    """Drop every listing of the directory `url` from the cache, under whatever spelling fsspec stored it.
-
-    fsspec keeps the listing of `/x/` and, where the page links to itself, those of the spellings it walked on to
-    (`/x`, and `/x/./`, `/x/./.` for a link to `./`): each is a key that `_is_the_same_directory` knows. Best effort,
-    as `_drop_cached_listing`.
-    """
-    try:
-        keys = [key for key in fs.dircache if _is_the_same_directory(key, url)]
-    except (sqlite3.Error, OSError) as error:
-        log.warning(f"Could not read the cached listings to drop {_without_url_secrets(url)}: {error!r}")
-        return
-    for key in keys:
-        _drop_cached_listing(fs, key)
-
-
 def _ls_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[dict], bytes | None]:
     """List a directory, and read its page where it lists nothing, to tell an empty directory from a page that is none.
 
     As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, or none
-    but the URL itself, which costs one more GET for an empty directory. A listing of the URL itself is dropped from the
-    listings cache: it is what an outage page lists, and the directory the server has once it is back would be hidden
-    behind it for the `cache_expiry`. A directory that is not there raises `FileNotFoundError`, as it always did, and a
-    listing with entries reads no second page.
+    but the URL itself, which costs one more GET for an empty directory. A link of the page to the URL itself is no entry
+    (`HTTPFileSystem._ls` leaves it out), so what an outage page lists is never stored, and the directory the server
+    has once it is back is not hidden behind it for the `cache_expiry` (GH-3861). A directory that is not there raises
+    `FileNotFoundError`, as it always did, and a listing with entries reads no second page.
     """
     entries = fs.ls(url, detail=True)
     if not _lists_nothing(url, entries):
         return entries, None
-    if entries:
-        _drop_cached_listing(fs, url)
     return entries, _read_page(fs, url)
 
 
