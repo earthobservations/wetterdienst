@@ -653,6 +653,79 @@ def old_names_of_route(route: str) -> frozenset[str]:
     return OLD_NAMES_OF_ROUTE.get(route, frozenset())
 
 
+#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it
+#: (`stripes values` of that release is `stripes image` now): the command line spells them with hyphens, and
+#: `--convert_units` is told it "was renamed to --convert-units" only on a command that had it, not on `stations`,
+#: which spelled `--name-threshold` so already. `tests/ui/test_renamed_routes.py` holds it to the options of that
+#: release's code, as it does `OLD_NAMES_OF_ROUTE` (GH-3869)
+OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
+    "stations": frozenset({"if_exists", "with_metadata"}),
+    "issues": frozenset({"lead_time"}),
+    "history": frozenset({"with_metadata", "with_stations"}),
+    "values": frozenset(
+        {
+            "convert_units",
+            "drop_nulls",
+            "if_exists",
+            "lead_time",
+            "skip_criteria",
+            "skip_empty",
+            "skip_threshold",
+            "sql_values",
+            "unit_targets",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "interpolate": frozenset(
+        {
+            "convert_units",
+            "if_exists",
+            "interpolation_station_distance",
+            "interpolation_station_distance_heterogeneous",
+            "interpolation_station_distance_homogeneous",
+            "lead_time",
+            "sql_values",
+            "unit_targets",
+            "use_nearby_station_distance",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "summarize": frozenset(
+        {
+            "convert_units",
+            "if_exists",
+            "lead_time",
+            "sql_values",
+            "summary_station_distance",
+            "summary_station_distance_heterogeneous",
+            "summary_station_distance_homogeneous",
+            "unit_targets",
+            "use_nearby_station_distance",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "radar": frozenset({"country_name", "wmo_code"}),
+    "stripes_image": frozenset(
+        {
+            "end_year",
+            "name_threshold",
+            "show_data_availability",
+            "show_title",
+            "show_years",
+            "start_year",
+        }
+    ),
+}
+
+
+def old_underscore_options_of_route(route: str) -> frozenset[str]:
+    """Give the options of a command that were spelled with an underscore in 0.139.0, none for one added since."""
+    return OLD_UNDERSCORE_OPTIONS_OF_ROUTE.get(route, frozenset())
+
+
 #: query parameters removed on the way to 1.0, name to what to do instead. A request that still gives one is
 #: refused with that sentence, on REST and in each MCP tool, rather than as a parameter it does not know
 #: (GH-3336). `debug` set the logger level of the whole process from an anonymous request, so one caller could

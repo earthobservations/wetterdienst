@@ -449,3 +449,44 @@ def test_an_approved_break_is_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(ACCEPTED_BREAKS, finding, "a reason")
 
     assert unaccepted([finding, "GET /x was removed"]) == ["GET /x was removed"]
+
+
+def _shared_document() -> dict[str, Any]:
+    """Build a document whose component `Shared` is a member of both the request body and the answer."""
+    document = _document()
+    document["components"]["schemas"]["Shared"] = {
+        "type": "object",
+        "properties": {"v": {"type": "integer"}, "w": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+    }
+    for name in ("Filter", "Things"):
+        _at(document, "components", "schemas", name)["properties"]["shared"] = {"$ref": "#/components/schemas/Shared"}
+    return document
+
+
+def _shared_changed(edit: Any) -> list[str]:  # noqa: ANN401
+    current = copy.deepcopy(_shared_document())
+    edit(current)
+    return breaking_changes(_shared_document(), current)
+
+
+def test_a_component_in_a_request_and_an_answer_is_judged_by_each_use() -> None:
+    """Widening a shared component is one finding, at the answer: a request that takes more is an addition (GH-3869)."""
+    nullable = {"anyOf": [{"type": "integer"}, {"type": "null"}]}
+
+    found = _shared_changed(lambda d: _at(d, "components", "schemas", "Shared")["properties"].update(v=nullable))
+
+    assert found == [
+        "GET /api/v1/things 200 application/json.shared.v: null was added to the alternatives of the answer"
+    ]
+
+
+def test_narrowing_a_component_in_a_request_and_an_answer_is_a_finding_at_both() -> None:
+    """A shared alternative that goes breaks the caller that sends it and the one that reads it (GH-3869)."""
+    found = _shared_changed(
+        lambda d: _at(d, "components", "schemas", "Shared")["properties"].update(w={"type": "string"})
+    )
+
+    assert found == [
+        "GET /api/v1/things 200 application/json.shared.w: null is no longer one of the alternatives",
+        "GET /api/v1/things: request body application/json.shared.w: null is no longer one of the alternatives",
+    ]

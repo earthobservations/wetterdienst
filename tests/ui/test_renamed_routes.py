@@ -24,11 +24,16 @@ from fastapi.testclient import TestClient
 from tests.ui.routes_0_139_0 import RELEASE, read_routes
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.ui.core import OLD_NAMES_OF_ROUTE, RENAMED_REQUEST_PARAMETERS, old_names_of_route
+from wetterdienst.ui.core import (
+    OLD_NAMES_OF_ROUTE,
+    OLD_UNDERSCORE_OPTIONS_OF_ROUTE,
+    RENAMED_REQUEST_PARAMETERS,
+    old_names_of_route,
+)
 
 BASELINE = read_routes()
-# the answer of a route that has no such parameter is the same wherever the name comes from
-_UNKNOWN = "was renamed"
+# what a refusal says of a rename, and an answer for an unknown name never does
+_RENAME_MARKER = "was renamed"
 
 
 def _rest_routes() -> dict[str, tuple[str, set[str]]]:
@@ -176,7 +181,7 @@ def test_mcp_says_renamed_exactly_where_the_route_had_the_name(
     if expected:
         assert answer == f"{old} was renamed to {RENAMED_REQUEST_PARAMETERS[old]}"
     else:
-        assert _UNKNOWN not in answer
+        assert _RENAME_MARKER not in answer
         assert f"{old} is not an argument of {route}" in answer
 
 
@@ -223,3 +228,43 @@ def test_the_three_surfaces_agree_where_they_share_a_route(mcp_answers: dict[tup
                 disagreements.append((route, old, rest, mcp, on_cli))
 
     assert disagreements == []
+
+
+#: the command `stripes values` of 0.139.0 is `stripes image` now (0.173.0), so its options are the latter's
+_COMMAND_NOW = {"stripes_values": "stripes_image"}
+
+
+def test_the_table_of_underscored_options_is_what_the_release_took() -> None:
+    """`OLD_UNDERSCORE_OPTIONS_OF_ROUTE` is each command's options spelled with an underscore in 0.139.0."""
+    derived = {
+        _COMMAND_NOW.get(route, route): frozenset(name for name in names if "_" in name)
+        for route, names in BASELINE["cli"].items()
+        if any("_" in name for name in names)
+    }
+
+    assert derived == OLD_UNDERSCORE_OPTIONS_OF_ROUTE
+
+
+def _underscored(command: click.Command) -> list[str]:
+    """Give the current options of a command, as the underscored spelling a caller may have had."""
+    return sorted({name.replace("-", "_") for name in _visible(command) if "-" in name})
+
+
+@pytest.mark.parametrize(
+    ("route", "name"),
+    [(route, name) for route in sorted(COMMANDS) for name in _underscored(COMMANDS[route][1])],
+)
+def test_the_command_line_says_renamed_for_an_underscore_only_where_the_command_had_it(route: str, name: str) -> None:
+    """`stations --name_threshold` is click's refusal (0.139.0 had `--name-threshold`)."""
+    path, _ = COMMANDS[route]
+    baseline_route = next((old for old, now in _COMMAND_NOW.items() if now == route), route)
+    expected = name in {n for n in BASELINE["cli"].get(baseline_route, ()) if "_" in n}
+
+    result = CliRunner().invoke(cli, [*path, f"--{name}=x"])
+
+    assert result.exit_code == 2, result.output
+    if expected:
+        assert f"Error: --{name} was renamed to --{name.replace('_', '-')}." in result.output
+    else:
+        assert _RENAME_MARKER not in result.output
+        assert f"No such option '--{name}'" in result.output or f"No such option: --{name}" in result.output

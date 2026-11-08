@@ -1389,8 +1389,9 @@ def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
     An option was renamed for 1.0 if the command has it with its underscores as hyphens
     (`--convert_units`, now `--convert-units`) or in the plural (`--station`, now `--stations`): the
     spellings a command line is free to mistake for the new one, and the only ones it can have kept.
-    The plural is a rename only on a route that had the singular (`OLD_NAMES_OF_ROUTE`): `about providers`
-    never had `--dataset`, nor `stations` `--date`.
+    Either is a rename only on a route that had the old spelling in 0.139.0 (`OLD_NAMES_OF_ROUTE`,
+    `OLD_UNDERSCORE_OPTIONS_OF_ROUTE`): `about providers` never had `--dataset`, nor `stations` `--date`
+    or `--name_threshold`.
     """
     # a hidden option is itself a refusal, such as `--start-date`, and no name to send the caller to
     taken = {
@@ -1400,12 +1401,13 @@ def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
         for opt in (*param.opts, *param.secondary_opts)
     }
     # only a mistyped option gets here, so only a mistyped option waits for the table of what was renamed to import
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, old_names_of_route
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, old_names_of_route, old_underscore_options_of_route
 
     name = option.removeprefix("--")
     # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
     plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name in old_names_of_route(route) else None
-    candidates = (option.replace("_", "-"), plural)
+    hyphenated = option.replace("_", "-") if name in old_underscore_options_of_route(route) else None
+    candidates = (hyphenated, plural)
     return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
 
 

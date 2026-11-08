@@ -62,10 +62,13 @@ Types of changes:
 - **Breaking**: a parameter renamed for 1.0 is told "was renamed" only on a route that had the old
   name in 0.139.0, on REST, MCP and the command line alike. Before, `date` on `stations`,
   `parameter` and `period` where `parameters` and `periods` were taken already, `resolution` and
-  `dataset` on `coverage` and `dataset` on `providers` were told that, though no route took them;
-  each is now an unknown parameter (the command line says "Did you mean"). `stations` loses its
-  hidden `--date`, `--start-date` and `--end-date`, which only refused: they still fail with exit
-  code 2, so no call that worked changes (GH-3869)
+  `dataset` on `coverage`, `dataset` on `providers` and `--name_threshold` on `stations` were told
+  that, though those routes never took them; each is now an unknown parameter (the command line
+  says "Did you mean"): give the name the route takes. `stations` loses its hidden `--date`,
+  `--start-date` and `--end-date`, which only refused and still fail with exit code 2 (GH-3869)
+- **Breaking**: `providers[].networks[].resolutions` is `null` for `datasets=false` (new in this
+  release), and the OpenAPI document now says so (`array` or `null`). A client generated from the
+  document must handle `null`; with `datasets=true`, the default, the answer is as before (GH-3869)
 - A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
   URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
   `list_remote_directory_fsspec` leave the link out, an Apache index's sort links (`?C=N;O=D`)

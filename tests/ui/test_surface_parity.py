@@ -903,6 +903,9 @@ def test_no_option_of_the_command_line_has_an_underscore() -> None:
         pytest.param(path, param.opts[0], id=f"{' '.join(path)} {param.opts[0]}")
         for path, param in _options_of_every_command()
         if "-" in param.opts[0].removeprefix("--")
+        # only a command that spelled it with an underscore in 0.139.0 was renamed (GH-3869, test_renamed_routes.py)
+        and param.opts[0].removeprefix("--").replace("-", "_")
+        in core.old_underscore_options_of_route("_".join(part for part in path if part != "about"))
     ],
 )
 @pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])
