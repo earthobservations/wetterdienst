@@ -309,5 +309,11 @@ ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
             "(read 2026-10-21)",
             where=lambda row: row["station_id"] == "MLJ" and row["resolution"] in {"monthly", "annual"},
         ),
+        Accepted(
+            "data_orphan",
+            "MeteoSwiss publishes the STAC item and files of MLJ, and ogd-smn_meta_stations.csv has no row for it "
+            "(read 2026-11-08, 158 rows against 159 items; GH-3783); remove once the CSV lists MLJ",
+            where=lambda row: row["station_id"] == "MLJ",
+        ),
     ),
 }
