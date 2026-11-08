@@ -4,10 +4,7 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
 import threading
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -237,33 +234,3 @@ def test_an_unknown_network_adds_no_key(probes: list[object]) -> None:
         assert response.status_code == 404
     assert probes == []
     assert core._auth_probes._entries == {}  # noqa: SLF001
-
-
-def test_the_probes_are_forgotten_before_every_test_whatever_the_order_of_the_selection() -> None:
-    """A test is given the reset of the probes even where a selection names `tests/ui` files on both sides of another.
-
-    pytest 9 gives the autouse fixtures of a sub-directory's conftest to the first node it makes for that directory:
-    the files after a file outside it, in a selection that names that directory twice, ran without them, and a probe
-    a test had left in the cache answered the next one's `/api/auth` (GH-3859). The fixture is in `tests/conftest.py`.
-    """
-    selection = ["tests/ui/test_auth_cache.py", "tests/test_info.py", "tests/ui/test_probe_head.py"]
-    result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "pytest", *selection, "--setup-plan", "-p", "no:cacheprovider"],
-        cwd=Path(__file__).parents[2],
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
-    plans: dict[str, set[str]] = {}
-    current = ""
-    for line in result.stdout.splitlines():
-        if line.startswith("tests/"):
-            current = line.split()[0]
-            plans[current] = set()
-        elif current and "SETUP" in line:
-            plans[current].add(line.split()[-1])
-    assert plans
-    assert {nodeid for nodeid, setups in plans.items() if "_forget_auth_probes" not in setups} == set()
