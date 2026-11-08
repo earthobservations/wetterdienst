@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -170,6 +171,141 @@ def test_a_page_that_is_no_index_is_a_download_error_not_an_empty_directory(
         listing("/x/")
 
 
+#: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
+#: (the relative link and the absolute one, which the test completes with the address of the server)
+_SELF_LINKS = [
+    pytest.param("/x/", id="root-relative"),
+    pytest.param("@BASE@/x/", id="absolute"),
+    pytest.param("", id="empty"),
+    pytest.param("./", id="dot-slash"),
+    pytest.param(".", id="dot"),
+    pytest.param("?retry=1", id="query"),
+    pytest.param("#", id="fragment"),
+]
+
+
+def _outage_page_linking_to(link: str, base: str) -> bytes:
+    """Write an outage page with a `retry` link to `link`, where `@BASE@` is the address of the server."""
+    page = f'<html><head><title>503</title></head><body>Unavailable <a href="{link}">retry</a></body></html>'
+    return page.replace("@BASE@", base).encode()
+
+
+@pytest.mark.parametrize("link", _SELF_LINKS)
+def test_an_outage_page_that_links_to_itself_is_not_kept_as_an_empty_directory(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str
+) -> None:
+    """The listing of an outage page with a link to itself is dropped, so the directory is listed once it is back.
+
+    It is a `DownloadError` while the server is down, as it was. But fsspec had stored the listing of the page (the
+    URL itself) before `find` looked at it, and once the server answered again the directory read as empty for the
+    12 hours of `CacheExpiry.METAINDEX` (GH-3861). The link is compared as `_is_the_same_directory` does, so every
+    spelling of it is the directory.
+    """
+    page = ("text/html", _outage_page_linking_to(link, server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    for _ in range(2):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            listing("/x/")
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+@pytest.mark.parametrize("link", ["/x/", "./"])
+def test_the_url_without_the_slash_is_listed_once_the_server_is_back_too(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str, *, redirect: bool
+) -> None:
+    """Fsspec stored the listing of `/x` as well as that of `/x/` (and of `/x/./.` for a link to `./`)."""
+    page = ("text/html", _outage_page_linking_to(link, server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    with pytest.raises(DownloadError, match="not the index page of a directory"):
+        listing("/x/")
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x") == ([f"{server.base}/x/{_ZIP}"] if redirect else [])
+
+
+def test_a_real_index_that_links_to_itself_is_an_empty_directory_and_not_kept(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """The control: an `Index of` page that links to itself is `[]`, and the directory is listed once it is filled."""
+    page = ("text/html", b'<html><head><title>Index of /x/</title></head><body><a href="/x/">refresh</a></body></html>')
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    assert listing("/x/") == []
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+@pytest.mark.parametrize("link", ["/x/", "./", "."])
+def test_a_real_index_that_links_to_itself_in_any_spelling_is_an_empty_directory_and_not_kept(
+    server: NginxLike, listing: Callable[[str], list[str]], link: str
+) -> None:
+    """An `Index of` page that links to itself, however the link is written, lists nothing: `[]`, and it is not kept."""
+    page = (
+        "text/html",
+        f'<html><head><title>Index of /x/</title></head><body><a href="{link}">refresh</a></body></html>'.encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    assert listing("/x/") == []
+
+    server.pages.clear()
+    server.directories["/x/"] = [_ZIP]
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+
+
+def test_a_page_that_links_to_dot_slash_and_to_a_file_lists_the_file(
+    server: NginxLike, listing: Callable[[str], list[str]]
+) -> None:
+    """The self-link is no entry, so the walk does not enter it, and the file the page holds is listed (one GET)."""
+    page = (
+        "text/html",
+        (
+            '<html><head><title>Index of /x/</title></head><body><a href="./">refresh</a>'
+            f'<a href="{_ZIP}">z</a></body></html>'
+        ).encode(),
+    )
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+
+    assert listing("/x/") == [f"{server.base}/x/{_ZIP}"]
+    assert len(server.requests) == 1
+
+
+@pytest.mark.parametrize("link", ["./", "/x/"])
+def test_a_self_link_makes_the_walk_ask_a_handful_of_times_and_leaves_the_loop_quiet(
+    server: NginxLike, listing: Callable[[str], list[str]], caplog: pytest.LogCaptureFixture, link: str
+) -> None:
+    """A link to `./` was a walk without end, which must never come back.
+
+    It was 974 requests and then a `RecursionError`, which left fsspec's shared event loop spinning on a broken
+    transport for the rest of the process.
+
+    The loop's own log is read after a moment: a callback that raised there says so (`Exception in callback`).
+    """
+    page = ("text/html", _outage_page_linking_to(link, server.base))
+    server.pages["/x/"] = page
+    server.pages["/x"] = page
+    with caplog.at_level(logging.ERROR, logger="asyncio"):
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            listing("/x/")
+        time.sleep(0.5)
+
+    assert len(server.requests) <= 6
+    assert [record.getMessage() for record in caplog.records if record.name == "asyncio"] == []
+
+
 @pytest.mark.parametrize(
     ("content_type", "body"),
     [
@@ -277,6 +413,48 @@ def test_a_directory_with_only_an_empty_subdirectory_is_listed_once_it_is_filled
     assert listing("/only/") == [f"{server.base}/only/inner/{_ZIP}"]
 
 
+def _seed(tmp_path: Path, rows: dict[str, list[dict]]) -> None:
+    """Store listings as the release before GH-3861 left them: the link of an outage page to itself is an entry."""
+    cache = HTTPFileSystem(
+        use_listings_cache=True,
+        listings_expiry_time=CacheExpiry.METAINDEX.value,
+        listings_cache_location=str(tmp_path / "cache"),
+    ).dircache
+    for key, value in rows.items():
+        cache[key] = value
+
+
+@pytest.mark.parametrize("function", ["files", "directory"])
+@pytest.mark.parametrize("shape", ["self", "dot-slash-chain"])
+def test_a_listing_of_the_page_to_itself_that_an_older_version_stored_is_a_miss(
+    server: NginxLike, tmp_path: Path, function: str, shape: str
+) -> None:
+    """The listing of an outage page that an older release stored does not hide the directory for 12 hours.
+
+    That release kept `{/x/: [/x/]}`, and for a link to `./` a chain of them (`/x/`, `/x/./`, ... each listing the next,
+    973 rows in all), which `find` walked into until the recursion limit and left fsspec's loop spinning.
+    """
+    server.directories["/x/"] = [_ZIP]
+    url = f"{server.base}/x/"
+
+    def row(name: str) -> list[dict]:
+        return [{"name": name, "type": "directory", "size": None}]
+
+    if shape == "self":
+        _seed(tmp_path, {url: row(url)})
+    else:
+        _seed(tmp_path, {url: row(f"{url}./"), f"{url}./": row(f"{url}././"), f"{url}././": row(f"{url}./././")})
+    settings = Settings(cache_dir=str(tmp_path / "cache"))
+
+    if function == "files":
+        found = list_remote_files_fsspec(url, settings=settings, cache_expiry=CacheExpiry.METAINDEX)
+    else:
+        listed = list_remote_directory_fsspec(url, settings=settings, cache_expiry=CacheExpiry.METAINDEX)
+        found = [entry["name"] for entry in listed]
+
+    assert found == [f"{url}{_ZIP}"]
+
+
 def test_an_empty_listing_that_an_older_version_stored_is_a_miss(
     server: NginxLike, listing: Callable[[str], list[str]], tmp_path: Path
 ) -> None:
@@ -313,25 +491,6 @@ def entries(server: NginxLike, tmp_path: Path) -> Callable[[str], list[dict]]:
         )
 
     return listed
-
-
-#: an outage page that links to its own URL: fsspec keeps the self-link as an entry, so it lists as that directory
-#: (the relative link and the absolute one, which the test completes with the address of the server)
-_SELF_LINKS = [
-    pytest.param("/x/", id="root-relative"),
-    pytest.param("@BASE@/x/", id="absolute"),
-    pytest.param("", id="empty"),
-    pytest.param("./", id="dot-slash"),
-    pytest.param(".", id="dot"),
-    pytest.param("?retry=1", id="query"),
-    pytest.param("#", id="fragment"),
-]
-
-
-def _outage_page_linking_to(link: str, base: str) -> bytes:
-    """Write an outage page with a `retry` link to `link`, where `@BASE@` is the address of the server."""
-    page = f'<html><head><title>503</title></head><body>Unavailable <a href="{link}">retry</a></body></html>'
-    return page.replace("@BASE@", base).encode()
 
 
 @pytest.mark.parametrize(
@@ -380,6 +539,23 @@ def test_an_outage_page_that_links_to_itself_is_a_download_error_not_the_directo
     assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
 
 
+def test_a_page_that_links_to_a_child_keeps_it(server: NginxLike, entries: Callable[[str], list[dict]]) -> None:
+    """Only the directory itself is left out of its entries: `/x/sub/c.zip` lies under it and a prefix is not it.
+
+    (fsspec drops a link outside the directory, `/xy/b.zip`, on its own, so a sibling cannot tell a path compared by
+    its prefix from one compared whole.)
+    """
+    server.pages["/x/"] = (
+        "text/html",
+        (
+            b'<html><head><title>Index of /x/</title></head><body><a href="/x/sub/c.zip">c</a>'
+            b'<a href="a.zip">a</a><a href="/x/">self</a></body></html>'
+        ),
+    )
+
+    assert sorted(entry["name"] for entry in entries("/x/")) == [f"{server.base}/x/a.zip", f"{server.base}/x/sub/c.zip"]
+
+
 _APACHE_SORT_LINKS = (
     '<a href="?C=N;O=D">Name</a><a href="?C=M;O=A">Last modified</a><a href="?C=S;O=A">Size</a>'
     '<a href="/">Parent Directory</a>'
@@ -402,10 +578,13 @@ def test_an_apache_index_of_an_empty_directory_has_no_entries(
     assert entries("/x/") == []
 
 
-def test_an_apache_index_with_a_file_keeps_its_entries_sort_links_included(
+def test_an_apache_index_with_a_file_drops_its_sort_links(
     server: NginxLike, entries: Callable[[str], list[dict]]
 ) -> None:
-    """The sort links do not make a listing with a file one that lists nothing: it is left as fsspec gave it."""
+    """The sort links (`?C=N;O=D`) are the directory itself, so they are no entry whatever else the page lists.
+
+    They came back as files before GH-3861, next to the file the page holds.
+    """
     page = (
         "text/html",
         (
@@ -416,9 +595,7 @@ def test_an_apache_index_with_a_file_keeps_its_entries_sort_links_included(
     server.pages["/x/"] = page
     server.pages["/x"] = page
 
-    names = [entry["name"] for entry in entries("/x/")]
-
-    assert f"{server.base}/x/{_ZIP}" in names
+    assert [entry["name"] for entry in entries("/x/")] == [f"{server.base}/x/{_ZIP}"]
 
 
 def test_a_real_index_that_links_to_itself_has_no_entries(
@@ -571,5 +748,10 @@ def test_a_cache_that_cannot_be_opened_to_drop_a_listing_is_no_failure(
 def test_a_listing_lists_nothing_where_every_entry_is_the_directory_itself(
     names: list[str], url: str, *, nothing: bool
 ) -> None:
-    """What `_lists_nothing` takes for the directory and what it does not (host, normalised path, a URL with a `/`)."""
-    assert network._lists_nothing(url, [{"name": name} for name in names]) is nothing  # noqa: SLF001
+    """What is the directory itself, and so no entry (host, normalised path), and what is not; `_lists_nothing` then.
+
+    `HTTPFileSystem._ls` leaves the directory itself out, so a listing lists nothing where no entry is left, for a URL
+    with a `/` (without it the URL may name a file).
+    """
+    entries = [{"name": name} for name in names if not network._is_the_same_directory(name, url)]  # noqa: SLF001
+    assert network._lists_nothing(url, entries) is nothing  # noqa: SLF001
