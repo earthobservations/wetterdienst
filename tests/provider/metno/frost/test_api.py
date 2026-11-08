@@ -339,24 +339,34 @@ def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> 
 def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None:
     """The wind direction in weak winds is Frost's -3 and comes back null, the code in the flags (GH-3137).
 
-    SN1165900, a WMO station Frost lists since 2026-11-03, has -3 at 2026-11-04 13:00 (beside a speed of 1 to 2 m/s):
-    "No unique wind direction is given when winds are weak" in Frost's data clarifications. The range check used to turn
-    it into a null as `rejected:range`, which says the reading is out of range.
+    SN1178200 (Ostrava/Mosnov, one 10 m series, so the choice of a height changes nothing) has -3 on 2026-11-07 at
+    03:00, 04:00, 06:00 and 07:00 (beside a speed of 1 m/s) and 180 degrees at 05:00: "No unique wind direction is given
+    when winds are weak" in Frost's data clarifications. The range check used to turn it into a null as
+    `rejected:range`, which says the reading is out of range.
+
+    The pin is as old as Frost's series of the foreign WMO stations, which were all started again on 2026-11-05: what
+    was stamped before is gone (SN1165900 at 2026-11-04 13:00, this test's earlier pin, answers 412, GH-3887), and no
+    older -3 is left to pin: there is none in 204,039 hourly readings at 282 Norwegian stations in January 2023, nor in
+    37,851 at the 34 Svalbard and Antarctic ones in January and February 2023. If this pin goes the same way, take a
+    station of `availableTimeSeries` of `wind_from_direction` that has a -3 inside a run of them.
     """
     df = (
         MetnoFrostRequest(
             parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
-            start=dt.datetime(2026, 11, 4, 13, tzinfo=UTC),
-            end=dt.datetime(2026, 11, 4, 13, tzinfo=UTC),
+            start=dt.datetime(2026, 11, 7, 3, tzinfo=UTC),
+            end=dt.datetime(2026, 11, 7, 6, tzinfo=UTC),
             options={"drop_nulls": False},
         )
-        .filter_by_station_id("SN1165900")
+        .filter_by_station_id("SN1178200")
         .values()
         .all()
         .df
     )
-    assert df["value"].to_list() == [None]
-    assert df["quality_flags"].to_list() == ["2,raw:-3"]
+    assert df["timestamp"].to_list() == [dt.datetime(2026, 11, 7, h, tzinfo=UTC) for h in (3, 4, 5, 6)]
+    assert df["value"].to_list() == [None, None, 180.0, None]
+    flags = df["quality_flags"].to_list()
+    assert [f is not None and f.endswith("raw:-3") for f in flags] == [True, True, False, True]
+    assert flags[0] == "2,raw:-3"
 
 
 @pytest.mark.remote
