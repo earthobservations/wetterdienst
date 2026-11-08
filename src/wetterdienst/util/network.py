@@ -347,13 +347,19 @@ def skip_cause_of_failure(error: BaseException) -> SkipCause:
 
     A body refused for its size, its time or an unannounced compression (`DownloadRefusedError`, which is the
     `__cause__` of the `DownloadError` that names the file), a redirect that was not followed
-    (`RedirectRefusedError`, as `as_outage` reads it) and an answer of the server that turns the request down for
-    good (`refused_for_good`: a 400, a 403, a 410, on the error or an `estado` it carries as `status`) are the same
-    refusal at the next request; every other failure, a reset, a timeout, a 5xx, a 429, may be gone the next time.
+    (`RedirectRefusedError`, as `as_outage` reads it), an answer of the server that turns the request down for
+    good (`refused_for_good`: a 400, a 403, a 410, on the error or an `estado` it carries as `status`) and a TLS
+    failure that is the same on every attempt (a certificate that does not verify, a protocol or a cipher the two
+    cannot agree on) are the same refusal at the next request, until the provider fixes it. Every other failure, a
+    reset, a timeout, a 5xx, a 429, may be gone the next time. So may a handshake the server only fumbled
+    (`_is_transient_tls_failure`: `WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`): the network layer asks again before
+    a file is let go, and one that outlasted the retries is a failed download, not a refusal.
     """
     seen: set[int] = set()
     current: BaseException | None = error
     while current is not None and id(current) not in seen:
+        if isinstance(current, (ClientSSLError, ssl.SSLError)):
+            return SkipCause.FAILED if _is_transient_tls_failure(current) else SkipCause.REFUSED
         if isinstance(current, (DownloadRefusedError, RedirectRefusedError)) or refused_for_good(
             getattr(current, "status", None)
         ):

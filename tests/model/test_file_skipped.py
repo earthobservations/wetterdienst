@@ -14,13 +14,14 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import ssl
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import polars as pl
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ClientSSLError
 
 from tests.model.test_parameter_without_rows_failures import (
     _aemet_serving,
@@ -733,3 +734,34 @@ def test_a_station_whose_historical_directory_is_empty_is_told_as_an_empty_direc
     (warning,) = _told()
     assert ": the directory was found empty." in warning["message"]
     _assert_advice(warning["message"], "retry")
+
+
+def test_a_certificate_that_does_not_verify_is_a_refusal_for_good() -> None:
+    """The same server presents the same certificate: the warning says it will not heal, and to report it."""
+    from wetterdienst.util.network import skip_cause_of_failure  # noqa: PLC0415
+
+    url = "https://example.invalid/a.zip"
+    error = ssl.SSLCertVerificationError("certificate verify failed: certificate has expired")
+    # as aiohttp raises it, and the network layer stores the `ssl.SSLError` underneath
+    stored = _failed_file(url, ClientSSLError(MagicMock(), error))
+
+    assert stored is not None
+    assert stored.content is error
+    assert stored.skip_cause is SkipCause.REFUSED
+    assert skip_cause_of_failure(error) is SkipCause.REFUSED
+    message = _told_for(stored.skip_cause)
+    assert ": the download was refused." in message
+    _assert_advice(message, "report")
+
+
+def test_a_handshake_the_server_fumbled_that_outlasted_the_retries_is_a_failed_download() -> None:
+    """`WRONG_VERSION_NUMBER` is a blip of the server: if it is still there after the retries, it may be gone later."""
+    from wetterdienst.util.network import skip_cause_of_failure  # noqa: PLC0415
+
+    error = ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
+    error.reason = "WRONG_VERSION_NUMBER"
+
+    assert skip_cause_of_failure(error) is SkipCause.FAILED
+    message = _told_for(SkipCause.FAILED)
+    assert ": the download failed." in message
+    _assert_advice(message, "retry")
