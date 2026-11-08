@@ -234,11 +234,6 @@ def test_a_document_is_not_a_break_of_itself() -> None:
             "member id is no longer always there",
             id="required-gone",
         ),
-        pytest.param(
-            lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].remove("a"),
-            'enum members "a" were removed',
-            id="response-enum-removed",
-        ),
         # what a request takes may not be one thing less (a response may, GH-3889)
         pytest.param(
             lambda d: _parameter(d, "size")["anyOf"].pop(0),
@@ -401,6 +396,8 @@ def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
         pytest.param(lambda d: _at(d, *_THINGS)["properties"].update(extra={"type": "string"}), id="member"),
         pytest.param(lambda d: _at(d, *_THINGS)["required"].append("size"), id="member-now-required-in-a-response"),
         pytest.param(lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].append("c"), id="response-enum-member"),
+        # an enum of a response may lose members, as a union an alternative; of a request it may not (GH-3889)
+        pytest.param(lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].remove("a"), id="response-enum-removed"),
         # an answer may be one thing less (`number | null` that is `number`): the client handles it already (GH-3889)
         pytest.param(
             lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].pop(0), id="response-union-alternative-removed"
@@ -634,4 +631,92 @@ def test_a_union_that_lost_an_alternative_in_a_component_of_a_request_and_an_ans
 
     assert found == [
         "GET /api/v1/things: request body application/json.shared.w: null is no longer one of the alternatives"
+    ]
+
+
+def test_a_request_type_list_that_lost_a_type_is_a_finding() -> None:
+    """What a request takes may not be a type less, written as a list of types either (GH-3889)."""
+    baseline = _document()
+    _parameter(baseline, "limit")["type"] = ["integer", "null"]
+    current = copy.deepcopy(baseline)
+    _parameter(current, "limit")["type"] = "integer"
+
+    found = breaking_changes(baseline, current)
+
+    assert found == ["GET /api/v1/things: parameter limit (query): type changed from ['integer', 'null'] to integer"]
+
+
+@pytest.mark.parametrize(
+    "alternative",
+    [
+        pytest.param({"const": None}, id="const-null"),
+        pytest.param({"enum": [None]}, id="enum-null"),
+        pytest.param({"const": 1}, id="const-integer"),
+        pytest.param({"const": {"k": 1}}, id="const-object"),
+        pytest.param({"enum": ["c", None]}, id="enum-with-a-null"),
+    ],
+)
+def test_an_alternative_without_a_type_is_an_enum_member_only_of_the_type_of_the_enum(
+    alternative: dict[str, Any],
+) -> None:
+    """`{"const": null}` beside a string enum makes the answer nullable, the break GH-3869 made of it."""
+    current = copy.deepcopy(_document())
+    kind = _at(current, *_THINGS)["properties"]["kind"]
+    _at(current, *_THINGS)["properties"]["kind"] = {"anyOf": [kind, alternative]}
+
+    found = breaking_changes(_document(), current)
+
+    assert len(found) == 1
+    assert "was added to the alternatives of the answer" in found[0]
+
+
+def test_an_alternative_without_a_type_that_is_an_enum_member_of_a_number_enum_passes() -> None:
+    """An integer constant is a member of a number enum."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["kind"] = {"type": "number", "enum": [0.5, 1.5]}
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["kind"] = {
+        "anyOf": [copy.deepcopy(_at(baseline, *_THINGS)["properties"]["kind"]), {"const": 2}]
+    }
+
+    assert breaking_changes(baseline, current) == []
+
+
+def test_a_member_that_changed_in_an_object_alternative_is_found_where_another_was_dropped() -> None:
+    """`oneOf[{x: string}, {y: string}]` that is `oneOf[{x: integer, y: string}]` has changed `x`, not dropped it."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["shape"] = {
+        "oneOf": [
+            {"type": "object", "properties": {"x": {"type": "string"}}},
+            {"type": "object", "properties": {"y": {"type": "string"}}},
+        ]
+    }
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["shape"] = {
+        "oneOf": [{"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "string"}}}]
+    }
+
+    assert breaking_changes(baseline, current) == [
+        "GET /api/v1/things 200 application/json.shape.x: type changed from string to integer"
+    ]
+
+
+def test_a_recursive_schema_whose_union_is_narrowed_ends_and_passes() -> None:
+    """`child: Node | null` that is `child: Node` is a narrowed response, and compares in finite time (GH-3889)."""
+    baseline = _document()
+    node = {
+        "type": "object",
+        "properties": {"child": {"anyOf": [{"$ref": "#/components/schemas/Node"}, {"type": "null"}]}},
+    }
+    baseline["components"]["schemas"]["Node"] = node
+    _at(baseline, *_THINGS)["properties"]["root"] = {"$ref": "#/components/schemas/Node"}
+    current = copy.deepcopy(baseline)
+    current["components"]["schemas"]["Node"] = {
+        "type": "object",
+        "properties": {"child": {"$ref": "#/components/schemas/Node"}},
+    }
+
+    assert breaking_changes(baseline, current) == []
+    assert breaking_changes(current, baseline) == [
+        "GET /api/v1/things 200 application/json.root.child: null was added to the alternatives of the answer"
     ]
