@@ -859,8 +859,8 @@ def test_the_poi_irradiances_of_the_hour_and_the_nws_visibility_are_named_for_th
 
     POI: "Globalstrahlung (letzte Stunde)", "Diffuse Strahlung (letzte Stunde)" and "Direkte Strahlung (letzte
     Stunde)" in W/m2 are the energy of the preceding hour over 3600 s (the 10-minute J/cm2 of the hour times 10000 over
-    3600 within 0.9 W/m2 at 250 of 250 values). The plain names stay valid for the providers that state no statistic,
-    so the dataset answers the old name with the new one. NWS: the ASOS User's Guide, 4.2.2, "ASOS computes a running
+    3600 within 0.9 W/m2 at 250 of 250 values). The plain global and diffuse names have no other row and left the
+    table; the dataset answers each old name with the new one. NWS: the ASOS User's Guide, 4.2.2, "ASOS computes a running
     10-minute harmonic mean once per minute" of the 1-minute visibilities; `visibility` is the source's own field name
     there, so a request for it still selects the row and the answer carries the new name.
     """
