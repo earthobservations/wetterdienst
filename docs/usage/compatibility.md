@@ -351,7 +351,8 @@ correction). Every provider's terms are listed on
 [licences and credit lines](../data/provider/licenses.md).
 
 `GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
-see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
+see [Extent](restapi.md#extent)) and, with `datasets=true`, each dataset narrower than its network one of its own;
+`GET /api/coverage` gives
 the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
 0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
 territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less

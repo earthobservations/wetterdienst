@@ -803,8 +803,8 @@ credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their b
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
-stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
-dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
+stations of Europe and the edges of Africa and Asia. `providers` (with `datasets=true`) shows the
+`extent` of a dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
 it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
 is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
