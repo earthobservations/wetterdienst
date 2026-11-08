@@ -209,9 +209,9 @@ describe('glossary label parity', () => {
 
     for (const [key, label] of Object.entries(labels)) {
       // singular as well as plural: a parameter added upstream as `..._flag` names a flag no less,
-      // and being exempt for its ending is the shape of the miss this exists for. The bare
-      // `quality` key is the quantity rather than a flag -- "Quality", "Qualität"
-      if (!/_flags?$/.test(key) && !key.startsWith('quality_'))
+      // and being exempt for its ending is the shape of the miss this exists for. The quality marks of the
+      // sources (`quality`, `quality_wind`, ...) are not in the glossary any more (GH-3876)
+      if (!/_flags?$/.test(key))
         continue
       expect(
         stems.some(stem => label.toLowerCase().includes(stem)),

@@ -1750,7 +1750,7 @@ def glossary(
 
     if not entries:
         # an empty list is an answer, as `/api/glossary`'s 200 is, and no failure (GH-2635)
-        log.warning("No canonical parameter matches the given filters.")
+        log.warning("No parameter matches the given filters.")
 
     # ensure_ascii=False so unit symbols print as °C and J/cm² rather than escapes; this command
     # exists to show them

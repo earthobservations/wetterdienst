@@ -1109,8 +1109,8 @@ from one is never taken as proof by another that is newer; the worst case is a 2
 
 **What a 304 saves** is the transfer of the body, not the work of making it: the answer is built to be tagged. Measured
 against a server on the loopback interface, a request that sends the tag is answered with 309 bytes where the 200 is
-74,189 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,640 with `pretty=true`, 34,289 for `providers`
-and 130,848 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
+73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 33,806 for `providers`
+and 129,018 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
 `max-age` saves the request itself. A `history` is read again to be tagged, so for it too the saving is the body.
 
 **Behind the web app** the browser keeps an answer for its `max-age` and then asks the app, whose `/api` proxy passes

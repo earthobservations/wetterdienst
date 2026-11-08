@@ -53,6 +53,15 @@ class ParameterGlossaryDirective(SphinxDirective):
             lines.append(parameter.name)
             lines.append(f"  {parameter.description}")
             lines.append("")
+            if parameter.quality_flag:
+                # a term for the provider tables to link to, but no parameter: `/api/glossary` leaves it out and
+                # a reader of this page is sent to the page that tells what the column holds
+                lines.append(
+                    "  Not a parameter, and not in the `glossary` of the REST API, the CLI and the MCP server: "
+                    "it is the `quality_flags` column of the values. See [Quality flags](quality-flags.md)."
+                )
+                lines.append("")
+                continue
             lines.append(f"  Unit type `{parameter.unit_type}`, returned in `{target.name}` ({target.symbol}).")
             lines.append("")
             if not parameter.interpolation:

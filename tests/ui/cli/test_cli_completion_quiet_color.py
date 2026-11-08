@@ -69,7 +69,7 @@ _DUMP_PROVIDERS = textwrap.dedent(
 #: how a terminal that wants colour asks for it, which nothing the command line writes may answer
 _FORCE_COLOR = {"FORCE_COLOR": "1", "CLICOLOR_FORCE": "1", "TERM": "xterm-256color"}
 _ESC = "\x1b"
-_WARNING = "No canonical parameter matches the given filters."
+_WARNING = "No parameter matches the given filters."
 _NOTHING = ["about", "glossary", "--parameter", "zzzz-matches-nothing"]
 
 

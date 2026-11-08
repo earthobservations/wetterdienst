@@ -372,8 +372,9 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
 
 
 def is_quality_flag(parameter: ParameterModel) -> bool:
-    """Say whether a parameter is a quality flag of the source: `quality` or a `quality_*` of the canonical table."""
-    return parameter.name.startswith("quality")
+    """Say whether a parameter is a quality flag of the source, which the canonical table marks (`quality_flag`)."""
+    canonical = PARAMETERS.get(parameter.name)
+    return canonical is not None and canonical.quality_flag
 
 
 class ParameterModel(BaseModel):  # noqa: PLW1641
