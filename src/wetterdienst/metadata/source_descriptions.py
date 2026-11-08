@@ -3736,7 +3736,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "wind", "max_gust_speed"): "Speed of the maximum gust, knots.",
         ("hourly", "wind", "mean_wind_dir"): (
             "Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind "
-            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null, and its 999 (no bearing: no "
+            "MIDAS table words it, it stands beside a light wind of 1 to 6 knots) is null."
         ),
         ("hourly", "wind", "mean_wind_speed"): "Mean wind speed, knots.",
     },
