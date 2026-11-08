@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.185.0] - 2026-11-08
+
 ### Added
 
 - A `station-without-rows` warning names the ids of `stations=` (REST, MCP, CLI, and
@@ -199,11 +201,11 @@ Types of changes:
   valid now), and a station starts and ends with its declared series, not with Frost's source
   dates: data began before `validFrom` at one current station in ten (SN99700, 1895 against 1956),
   and the end was null for 115 whose series had all ended. `values` of a closed station was
-  `unknown-station` (GH-3847, GH-3864). To list the stations in service, keep the rows whose
+  `unknown-station`. To list the stations in service, keep the rows whose
   `end_timestamp` is null, or give a `timestamp`: a search by `rank`, distance or box with a window
   leaves out stations closed before it. The first call reads a 13 MB list of series (about 30 s,
   cached a week); if Frost fails it, `DownloadError` or `NoInternetError`. 58 stations with data
-  are in no Frost list and stay out
+  are in no Frost list and stay out (GH-3847, GH-3864)
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read
@@ -7811,7 +7813,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...HEAD
+[0.185.0]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...v0.185.0
 [0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0
 [0.183.0]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...v0.183.0
 [0.182.0]: https://github.com/earthobservations/wetterdienst/compare/v0.181.0...v0.182.0

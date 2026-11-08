@@ -578,6 +578,10 @@
             }
           ]
         },
+        "datasets": {
+          "type": "boolean",
+          "default": true
+        },
         "pretty": {
           "type": "boolean",
           "default": false
@@ -1758,5 +1762,5 @@
       ]
     }
   },
-  "x-release": "0.184.0"
+  "x-release": "0.185.0"
 }

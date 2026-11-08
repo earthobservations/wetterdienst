@@ -35,12 +35,7 @@ from tests.baselines.common import DIRECTORY, RELEASE, read, write
 BASELINE = DIRECTORY / "parameters.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    "metno/frost/10_minutes/data/wind_direction_gust_max was removed": (
-        "GH-3833: it read `max(wind_from_direction_of_gust PT10M)`, an element Frost lists at PT30M and PT1M only: the "
-        "reader got 412 at 12 of 12 stations tried and no series is listed at PT10M, so no caller holds data under it"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: a rename that ends up in a name that is renamed again is followed this far
 _CHAIN = 10

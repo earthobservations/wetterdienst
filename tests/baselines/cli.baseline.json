@@ -623,6 +623,24 @@
     },
     "wetterdienst about providers": {
       "options": {
+        "--datasets": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--datasets"
+          ],
+          "required": false,
+          "default": true
+        },
         "--debug": {
           "param_type_name": "option",
           "nargs": 1,
@@ -2341,24 +2359,6 @@
           "required": false,
           "default": null
         },
-        "--date": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "",
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--date"
-          ],
-          "required": false,
-          "default": null
-        },
         "--debug": {
           "param_type_name": "option",
           "nargs": 1,
@@ -2409,24 +2409,6 @@
           "max": null,
           "spellings": [
             "--end"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--end-date": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "",
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--end-date"
           ],
           "required": false,
           "default": null
@@ -2803,24 +2785,6 @@
           "max": null,
           "spellings": [
             "--start"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--start-date": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "",
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--start-date"
           ],
           "required": false,
           "default": null
@@ -5181,5 +5145,5 @@
       }
     }
   },
-  "x-release": "0.184.0"
+  "x-release": "0.185.0"
 }

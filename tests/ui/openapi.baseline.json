@@ -10,10 +10,9 @@
     },
     "license": {
       "name": "MIT",
-      "identifier": "MIT",
-      "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
+      "identifier": "MIT"
     },
-    "version": "0.184.0",
+    "version": "0.185.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -1055,7 +1054,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:\n`scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the\nresolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer\nthan its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded\nand no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`\nchecks whether its credentials are accepted.",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nEach network also lists its resolutions and datasets, with how many parameters each has (a dataset whose\nstations are fewer than its network's has an `extent` of its own, and one without has its network's): pass\n`datasets=false` for a short answer without them, which is all a question about a licence or about the\nproviders that reach a place needs.\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1075,6 +1074,18 @@
               "title": "Provider"
             },
             "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
+          },
+          {
+            "name": "datasets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
+              "default": true,
+              "title": "Datasets"
+            },
+            "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -1179,7 +1190,7 @@
           "Catalogue"
         ],
         "summary": "Glossary",
-        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
+        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
         "operationId": "glossary_api_glossary_get",
         "parameters": [
           {
@@ -2584,11 +2595,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed."
           },
           {
             "name": "format",
@@ -6174,7 +6185,7 @@
               }
             ],
             "title": "Attribution",
-            "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
+            "description": "The credit line to cite when the data is used, in the provider's own words where it states one; null where the provider states none or asks for none. `copyright` of each network is the rights holder's notice, shown for information."
           },
           "networks": {
             "items": {
@@ -6254,7 +6265,8 @@
           },
           "copyright": {
             "type": "string",
-            "title": "Copyright"
+            "title": "Copyright",
+            "description": "The rights holder's notice, shown for information. The credit line to cite is `attribution` of the provider."
           },
           "auth": {
             "type": "boolean",
@@ -6272,11 +6284,19 @@
             "description": "How many parameters the network has in all of its datasets."
           },
           "resolutions": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderResolution"
-            },
-            "type": "array",
-            "title": "Resolutions"
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderResolution"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolutions",
+            "description": "The resolutions of the network, each with its datasets and their numbers of parameters; empty for a network that has none (`dwd/radar`, `dwd/alerts`), null with `datasets=false`, which leaves them out."
           }
         },
         "additionalProperties": false,
@@ -6587,7 +6607,7 @@
           },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's notice, shown for information."
           },
           "producer": {
             "$ref": "#/components/schemas/_Producer"
@@ -8981,5 +9001,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.184.0"
+  "x-release": "0.185.0"
 }
