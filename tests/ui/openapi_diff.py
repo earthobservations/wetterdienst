@@ -51,16 +51,7 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    # GH-3536 (#3868), after 0.184.0: the schema says `resolutions` may be null, which a client typed from it must
-    # handle; the answer is null only for `datasets=false`, a parameter of the same change, so a caller that does not
-    # pass it (every caller of 0.184.0) is answered as before, with the list
-    "GET /api/v1/providers 200 application/json.providers[].networks[].resolutions: "
-    "null was added to the alternatives of the answer": (
-        "`resolutions` is null only for `datasets=false`, new in this release; the default answer, with the list, "
-        "is what 0.184.0 gave, so nothing a caller of 0.184.0 does is answered with null"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 
