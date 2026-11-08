@@ -18,11 +18,11 @@ Types of changes:
 
 ### Fixed
 
-- `metoffice/observation` hourly `wind_direction_mean` is null with `raw:999` in `quality_flags`
-  where the file holds a 999, a code and no bearing, which no MIDAS table words (2,333 of 775,720
-  readings, 1970 to 1995, all beside a wind of 1 to 6 knots). It came back as
-  `rejected:range,raw:999`, which marks an implausible reading; filter on `raw:999` for them
-  (GH-3909)
+- **Breaking**: `metoffice/observation` hourly `wind_direction_mean` is null with `raw:999` where
+  the file holds 999, a code and no bearing, which no MIDAS table words (2,333 of 775,720 readings,
+  1970 to 1995, all beside a wind of 1 to 6 knots), in any window. It was null as
+  `rejected:range,raw:999` with `range: hard`, and `999.0` with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:999` (GH-3909)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour
