@@ -1905,16 +1905,29 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
             ],
         }
     )
+    # 04:00 at a station that measures the air temperature at 10 m and 2 m (SN18700 does), the 10 m first as Frost
+    # answers: the 2 m reading is the temperature, 0.1 degC above the 10 m one (GH-3844)
+    payload["data"].append(
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T04:00:00.000Z",
+            "observations": [
+                {"elementId": "air_temperature", "value": 2.4, "qualityCode": 2, "level": {**heights, "value": 10}},
+                {"elementId": "air_temperature", "value": 2.5, "qualityCode": 0, "level": {**heights, "value": 2}},
+            ],
+        }
+    )
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
         parameters=[
             ("hourly", "data", "cloud_cover_total"),
             ("hourly", "data", "snow_depth"),
+            ("hourly", "data", "temperature_air_2m"),
             ("hourly", "data", "wind_direction_mean_last_10min"),
             ("hourly", "data", "wind_speed_mean_last_10min"),
         ],
         start=_day(2020, 1, 1),
-        end=_day(2020, 1, 1, 3),
+        end=_day(2020, 1, 1, 4),
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )

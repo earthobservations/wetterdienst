@@ -15,11 +15,11 @@
 
 | name                                  | original name                                        | description                                                                                                                                                                                                                                                                                                            | unit |
 |---------------------------------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_2m` | air_temperature | Air temperature (default 2 m above ground), present value | degree_celsius |
+| {term}`temperature_air_2m` | air_temperature | Air temperature (default 2 m above ground), present value. At a station with several heights the 2 m sensor, and the nearest height where it has no value. | degree_celsius |
 | {term}`temperature_dew_point_2m` | dew_point_temperature | Dew-point temperature - the temperature at which the air, when cooled, will become saturated (and dew is formed) | degree_celsius |
-| {term}`humidity_relative` | relative_humidity | Relative humidity | percent |
-| {term}`wind_speed_mean_last_10min` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters) | meter_per_second |
-| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by itself after a 404 of the whole dataset. At a station with the wind at two heights (10 m and 2 m) a calm or a -3 of the first height is the answer for the hour, and the other height does not fill it. | degree |
+| {term}`humidity_relative` | relative_humidity | Relative humidity. At a station with several heights the 2 m sensor, and the nearest height where it has no value. | percent |
+| {term}`wind_speed_mean_last_10min` | wind_speed | Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the observation time. (default: 10 meters above ground, some stations have measurements at 2 meters). At a station with several heights the 10 m sensor, and the nearest height where it has no value. | meter_per_second |
+| {term}`wind_direction_mean_last_10min` | wind_from_direction | Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by itself after a 404 of the whole dataset. At a station with several heights the bearing is of the height of its time's speed, and a calm or a -3 there is the answer for the hour: no other height fills it. | degree |
 | {term}`pressure_air_sea_level` | air_pressure_at_sea_level | Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site` | surface_air_pressure | Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total` | cloud_area_fraction | Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated because the sky is obstructed from view by fog, drifting snow and the like; both are returned as null. | one_eighth |
@@ -42,20 +42,17 @@ A `0` of `wind_direction_mean_last_10min` is a calm where the wind speed of the 
 with `raw:0`, as for every provider that writes a calm ([Special values](../../../special_values.md#wind)). Frost writes
 north as 360. A `0` beside a speed above 0 stays `0.0`. The speed is read from the answer, which holds the whole dataset
 whatever parameters were asked for, so it is there for a request of the direction alone; the one case without it is a
-batch that Frost answers with a 404, when each parameter is asked for by itself and a `0` stays `0.0`. At a station with
-the wind at two heights (71 have had a speed at more than one, 10 m and 2 m among them) a direction is held against the speed
-of its own height; with no speed at that height it stays.
+batch that Frost answers with a 404, when each parameter is asked for by itself and a `0` stays `0.0`.
 
-**At a station with two heights** Frost answers a direction for each, the 10 m one first, and the answer keeps one value
-for an hour: the first height that has one. A calm of the first height is that value, `null` with `raw:0`, and the
-bearing of the other height does not fill it (the `calm-wind-direction` warning counts it); the same holds for a `-3` of
-the first height. A gap of the first height, a null with no code, is still filled from the other height, as every
-direction and every other parameter of such a station always was. Where the first height has a bearing it is the
-answer, whatever the other height says, a calm included. "First" is the first row of the answer for the hour, not the
-height: the reader does not sort. Frost answered the 10 m row before the 2 m row in every one of the 2,195 two-height
-hours of the 7 stations that have both (SN99460, SN76530, SN44300, SN26990, SN58070, SN99990 and SN38140) between
-2026-01-10 and 2026-01-24, which is what has been seen, and a change of that order would change which height decides.
-In those 15 days 79 hours had a calm at the first height (SN99460 71, SN99990 4, SN44300 2 and SN26990 2); 34 of them
-would have been filled from the other height, 22 with a bearing above 0 and 12 with a 0 that stands beside a wind
-(SN99460 30). One of the 79, SN99460 2026-01-10 23:00, has a 10 m `0` with no `qualityCode`, which is read as the calm it
-stands for (the speed beside it is 0).
+**At a station with several heights** (71 stations have had a wind speed at more than one, 10 m and 2 m among them; the
+temperature and the humidity have 2 m and another) a time is served from one height
+([#3844](https://github.com/earthobservations/wetterdienst/issues/3844)): `temperature_air_2m` and `humidity_relative`
+from 2 m, `wind_speed_mean_last_10min` from 10 m, where that height has a value, and otherwise from the other height
+that has one (the nearest to the standard). The height does not depend on the order of Frost's answer, which lists the
+highest first. `wind_direction_mean_last_10min` is taken from the height of the same time's speed, so that the pair is one
+height: a bearing of 2 m is not served beside a speed of 10 m, and a gap or a calm of the bearing at the speed's height is
+not filled from the other height (the `calm-wind-direction` warning counts the calms). The `-3` of the bearing at that
+height is the hour too. A time whose speed is at 2 m, because the 10 m sensor has no value, has the bearing of 2 m. The
+Frost page ([Sensors at several heights](index.md#sensors-at-several-heights)) has the counts and the standard heights of the
+other resolutions. Before, the core kept the first row of Frost's answer that had a value: the 10 m reading of the
+wind, but the 10 m reading of the temperature too, though 2 m had one, and a gap at 10 m was filled from 2 m.

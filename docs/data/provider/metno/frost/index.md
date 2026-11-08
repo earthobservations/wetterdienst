@@ -512,6 +512,73 @@ The code is kept as a `raw:` token, as snow depth's is, and a reading with a `ra
 
 Read the `raw:-1` token to tell the two zeros apart.
 
+## Sensors at several heights
+
+A station can measure an element at more than one height: 71 stations have had a wind speed at two or more, 32 a
+direction, and a few the temperature (7 stations hourly, 4 of them at 2 m and 10 m), the humidity (2) and the 10 minute
+gust (42 stations, 10 m and the 47 to 142 m of a platform). Frost answers every height, the highest first, and the
+core kept the first row of a time that had a value. Which height a value came from was not in the answer
+([#3844](https://github.com/earthobservations/wetterdienst/issues/3844)), and the choice was nobody's: measured on 2026-11-07,
+
+- `temperature_air_2m` came from a sensor that is not the 2 m one (mostly 10 m) in 83 % of the hours at 5 of the 6 stations
+  with two heights, though 2 m had a value (SN18700, SN25830 and SN99990 mostly 10 m, SN17850 from 1 m);
+- `humidity_relative` came from 1 m or 10 m in 99.8 % of the hours;
+- the 10 minute gust of a platform came from the sensor at 47 to 120 m in 96 % of the intervals;
+- a wind speed or direction gap at 10 m was filled from 2 m (1.6 % of the speed hours and 1.0 % of the bearing hours at
+  stations with both, last year; 1.2 % and 3.9 % over the long records), and a bearing of 2 m stood beside a speed of 10 m
+  in 0.56 % of the hours that have both (2.7 % over the long records, 8.8 % at SN44300).
+
+**Decided on 2026-11-07: for each time, the standard height of Frost is served where it has a value, otherwise the other
+height.** The standard height is the one `levels=default` answers ("this will exclude any data which is not measured at a
+standard level for each element", Frost's [concepts](https://frost.met.no/concepts2.html#default-level-and-timeoffset)):
+
+| element | standard height | also at |
+|---|---|---|
+| `air_temperature` (`temperature_air_2m`, and the daily and monthly means, maxima and minima) | 2 m | 10 m, 30 m, 25 m, 50 m, 1 m |
+| `relative_humidity` (`humidity_relative`, and the daily and monthly mean) | 2 m | 1 m, 10 m, 50 m |
+| `wind_speed` (`wind_speed_mean_last_10min`, and the daily and monthly mean and maximum) | 10 m | 2 m, 5 m, 8 m, 100 m and more |
+| `wind_from_direction` (`wind_direction_mean_last_10min`) | 10 m | 2 m, 5 m |
+| `max(wind_speed_of_gust PT10M)` (`wind_gust_max`) | 10 m | 2 m, 4 m, and 44 to 142 m on the platforms |
+
+`levels=default` alone is not used, because it drops the wind of the stations whose 10 m series is listed and holds almost
+no data: 36 of the 67 stations that list a wind speed at two heights (SN12550 has 2 hours of 10 m in the year to 2020-02-29), which
+are served from 2 m. Where a time has no value at the standard height the other height with a value is served, the nearest
+to the standard one if there are several (the platform gust at 84 m before the one at 126 m), and the lower of two as near.
+A gap at the standard height is filled this way, a null in Frost's answer being no value. The choice is made for each
+parameter and time, so the height can change along a series and from a parameter to another: the daily mean and the
+daily maximum of the wind are not tied to each other. It is made on the series of the standard `timeOffset` (the
+offsets above), so a date whose 2 m series is of another offset is served from the 10 m one of the standard offset.
+Elements that have no standard height listed (the pressure, at 2 m alone, the dew point, the radiation, the clouds, the
+precipitation, the snow depth) are as they were. The height is not in the answer and cannot be asked for: there is no
+option for the other height.
+
+**The bearing is taken from the height its time's speed was taken from**, so a bearing never stands beside a speed of
+another height. If the speed is at 10 m and the direction has no value at 10 m, there is no bearing for that time (it is not
+filled from 2 m); if the speed is at 2 m, because 10 m has none, so is the bearing, whatever 10 m says. A calm or a `-3` at
+that height is the hour, `null` with `raw:0` or `raw:-3`, and no other height fills it (as since GH-3833). The speed is
+read from the answer of the whole dataset, so it is there for a request of the direction alone; where Frost answers the
+whole dataset with a 404 and each parameter is read by itself (the only case in which the speed is not at hand) the bearing
+is the one of the standard height, or the nearest one that has a value.
+
+What it changes, from a live sample of 2026-11-08 (the hours where the heights read differently, counted from Frost's own
+rows; `before` is the code of 2026-11-08, `main` at #3871):
+
+| series | window | served from the standard height, before | after |
+|---|---|---|---|
+| SN18700 `temperature_air_2m` | 2026-10-01 to 15 | 0 of 262 hours | 262 of 262 |
+| SN25830 `temperature_air_2m` | 2026-10-01 to 15 | 0 of 223 | 223 of 223 |
+| SN99990 `temperature_air_2m`, `humidity_relative` | 2026-10-01 to 15 | 0 of 317, 0 of 274 | 317 of 317, 274 of 274 |
+| SN17850 `temperature_air_2m`, `humidity_relative` (1, 2, 50 m) | 2026-10-01 to 15 | 55 of 315, 25 of 334 | 315 of 315, 334 of 334 |
+| SN76959 `wind_gust_max` (10, 78, 86 m) | 2026-10-02 to 09 | 0 of 1,006 intervals | 1,006 of 1,006 |
+| SN76926 `wind_gust_max` (10, 136 m) | 2026-10-02 to 09 | 0 of 726 | 726 of 726 |
+| SN44300 wind (10, 2 m) | 2026-06-01 to 15 | a bearing beside a speed of another height in 252 of 335 hours with both | 0 of 79 |
+
+The last row is the price of the rule: since early June 2026 SN44300 has a bearing at 2 m only while its speed is at 10 m, so 256 of the
+335 hours that had a bearing have none now. Their bearing was the one of another height. A station with the
+wind at 2 m alone (SN12550, SN99990's bearing) is as it was, and so is the wind at the 10 m of a station that has no 2 m.
+`daily` and `monthly` wind are unchanged at SN44300 in the sample (the 10 m series was first already), and the
+temperature of SN99990 daily has one height.
+
 ## The other coded values
 
 Frost's [data clarifications](https://frost.met.no/dataclarifications.html) list every value of this kind in "Explanations
@@ -550,11 +617,10 @@ time and height is a calm: `null` with `raw:0`, as for the providers listed for 
 [Special values](../../../special_values.md#wind). A `0` beside a speed above 0 stays `0.0` (54 of the 1,068 zeros
 of the Norwegian sample are not beside a speed of 0, and may be north), and so does a `0` read without its speed, which
 happens only when Frost answers the request for the whole dataset with a 404 and each parameter is asked for by itself.
-A station may measure the wind at several heights (71 have had a speed at more than one, and 32 a direction; 7 have a direction at two heights now): a direction
-is held against the speed of its own height, and with none there it stays. At the 7 stations that have a direction at two
-heights a calm or a `-3` of the first height, the 10 m one, is the answer for the hour and the other height does not
-fill it ([the hourly page](hourly.md) says what the answer keeps, and the counts). The `0` was returned as `0.0` before
-(GH-3833).
+A station may measure the wind at several heights: the bearing is the one of the height its time's speed was taken
+from, and a calm or a `-3` there is the answer for the hour, which no other height fills (see
+[Sensors at several heights](#sensors-at-several-heights); [the hourly page](hourly.md) has the details). The `0` was returned as `0.0`
+before (GH-3833).
 
 The rows of Frost's table for elements that are not read here (`low_type_cloud_area_fraction`, `cloud_area_fraction1`
 and `cloud_base_height` `-3`; `max` and `min(surface_snow_thickness P1M)` `-1`; `snow_coverage_type` `-1`, its monthly
