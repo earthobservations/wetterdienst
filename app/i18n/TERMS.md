@@ -248,7 +248,7 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `pl` | `frozen_ground_layer_*` | `Warstwa zmarzliny` (`zmarzlina` is permafrost) | `Przemarznięta warstwa gruntu` (IMGW: `przemarznięcie gruntu`) | low |
 | `pl` | `*loamy_silt*` | `pył gliniasty` | the name from the soil texture classes of PTG | low |
 | `pl` | `snow_depth*`, `snow_depth_new*` | `Grubość pokrywy śnieżnej`, `Grubość świeżego śniegu` | IMGW writes `wysokość pokrywy śnieżnej` and `wysokość świeżo spadłego śniegu` | medium |
-| `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína`, `hlinitou hlínou` ("loamy loam") | `prachovitá hlína` | medium |
+| `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína` ("loamy loam") | `prachovitá hlína` | medium |
 | `cs` | `phenology_bud_swelling` | `Nalévání pupenů` (`nalévání` is the filling of grain and fruit; it may be ČHMÚ's own name of the phase) | `Bobtnání pupenů` if it is not | low |
 | `nl` | `water_equivalent_snow_depth*`, `water_equivalent` | `Sneeuwwatergehalte` next to `Waterequivalent versgevallen sneeuw` | one term | low |
 | `da` | `sunshine_duration`, `sunshine_duration_*` | `Solskinstimer` (parameter, dataset) next to `Relativ solskinsvarighed` | `Solskinsvarighed` | low |

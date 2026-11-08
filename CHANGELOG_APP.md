@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
+  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
+  "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)
+- `[Glossary]` The soil temperatures of loamy sand and loamy silt are labelled "Soil temperature,
+  loamy sand (5 cm)" and "..., loamy silt (5 cm)" in all eleven languages, where they said "under
+  loamy sand" (GH-3899)
+
 ## [0.46.0] - 2026-11-08
 
 ### Added
@@ -41,9 +50,6 @@ Types of changes:
 - `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
   Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
   the settings hold for the visit and are the defaults at the next (GH-3846)
-- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
-  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
-  "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)
 
 ## [0.45.0] - 2026-11-07
 
