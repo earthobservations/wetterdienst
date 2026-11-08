@@ -612,7 +612,9 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
 #: parameter it does not know (GH-2438); so does each MCP tool taking the new name, and the command
 #: line, which names its option (`--station` was renamed to `--stations`). A model that takes the
 #: old name for what it is -- the one reference `station` of an interpolation or a summary, the
-#: `dataset` of the issues of a DMO product -- is not refused it
+#: `dataset` of the issues of a DMO product -- is not refused it. Only a route that had the old name
+#: is refused it as a rename (`OLD_NAMES_OF_ROUTE`): a route that never had it, as `stations` never had
+#: `date`, answers as for any parameter it does not know (GH-3869)
 RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
     "date": "timestamp",
     "station": "stations",
@@ -621,6 +623,34 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
     "dataset": "datasets",
     "resolution": "resolutions",
 }
+
+
+#: the old names of `RENAMED_REQUEST_PARAMETERS` that each route took in 0.139.0, the release the renames are counted
+#: from, by route: the name of its MCP tool (`stations`, `stripes_values`), which is that of its REST path and of its
+#: command (`about coverage` is `coverage`). A route is told that an old name "was renamed" only if it had it: a route
+#: that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route added since had
+#: no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that release's code
+#: declared (`tests/ui/routes_0_139_0.json`, read from the tag), over REST and on the command line, so it is not a
+#: table from memory (GH-3869)
+OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
+    "stations": frozenset({"station"}),
+    "history": frozenset({"station"}),
+    "values": frozenset({"date", "station"}),
+    "interpolate": frozenset({"date", "station"}),
+    "summarize": frozenset({"date", "station"}),
+    "issues": frozenset({"dataset", "station"}),
+    "glossary": frozenset({"parameter"}),
+    "alerts": frozenset({"date"}),
+    # the command `about fields` only, which still takes all three
+    "fields": frozenset({"dataset", "period", "resolution"}),
+    "stripes_values": frozenset({"station"}),
+    "stripes_image": frozenset({"station"}),
+}
+
+
+def old_names_of_route(route: str) -> frozenset[str]:
+    """Give the names of `RENAMED_REQUEST_PARAMETERS` that the route had in 0.139.0, none for one added since."""
+    return OLD_NAMES_OF_ROUTE.get(route, frozenset())
 
 
 #: query parameters removed on the way to 1.0, name to what to do instead. A request that still gives one is
@@ -645,8 +675,9 @@ def removed_parameter_message(name: str) -> str:
 class _RefusesRenamedParameters(BaseModel):
     """A request model that refuses a parameter given by its old name, naming the new one, or one that is gone."""
 
-    #: names of `RENAMED_REQUEST_PARAMETERS` that this model never had, so that giving one is no old name
-    never_renamed: ClassVar[frozenset[str]] = frozenset()
+    #: the route the model is the query of, as `OLD_NAMES_OF_ROUTE` names it, which says which old names it had; a model
+    #: of no route (or one added since 0.139.0) never had one
+    route: ClassVar[str] = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -657,7 +688,7 @@ class _RefusesRenamedParameters(BaseModel):
                 _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
                 for old, new in RENAMED_REQUEST_PARAMETERS.items()
                 if old in data and old not in cls.model_fields and new in cls.model_fields
-                if old not in cls.never_renamed
+                if old in old_names_of_route(cls.route)
             ]
             errors += [
                 _rule_error("removed", removed_parameter_message(name), (name,), data[name])
@@ -847,6 +878,8 @@ def _check_selection(request: BaseModel, selection: Selection) -> list[InitError
 class StationsRequest(_RefusesRenamedParameters):
     """Stations request with validated parameters."""
 
+    route: ClassVar[str] = "stations"
+
     model_config = {"extra": "forbid"}
     selection: ClassVar[Selection] = STATION_SELECTION
 
@@ -940,6 +973,8 @@ class HistoryRequest(_RefusesRenamedParameters):
     Used to get historical station metadata.
     """
 
+    route: ClassVar[str] = "history"
+
     model_config = {"extra": "forbid"}
     selection: ClassVar[Selection] = HISTORY_SELECTION
 
@@ -1006,6 +1041,8 @@ class HistoryRequest(_RefusesRenamedParameters):
 
 class ValuesRequest(_RefusesRenamedParameters):
     """Values request with validated parameters."""
+
+    route: ClassVar[str] = "values"
 
     model_config = {"extra": "forbid"}
     selection: ClassVar[Selection] = STATION_SELECTION
@@ -1133,6 +1170,8 @@ class ValuesRequest(_RefusesRenamedParameters):
 class InterpolationRequest(_RefusesRenamedParameters):
     """Interpolation request with validated parameters."""
 
+    route: ClassVar[str] = "interpolate"
+
     model_config = {"extra": "forbid"}
     selection: ClassVar[Selection] = REFERENCE_SELECTION
 
@@ -1238,6 +1277,8 @@ class InterpolationRequest(_RefusesRenamedParameters):
 
 class SummaryRequest(_RefusesRenamedParameters):
     """Summary request with validated parameters."""
+
+    route: ClassVar[str] = "summarize"
 
     model_config = {"extra": "forbid"}
     selection: ClassVar[Selection] = REFERENCE_SELECTION
@@ -1427,6 +1468,8 @@ _ISSUE_STATION = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9_.-]{0,31}")
 class IssuesRequest(_RefusesRenamedParameters):
     """Request model for listing available issue datetimes."""
 
+    route: ClassVar[str] = "issues"
+
     model_config = {"extra": "forbid"}
 
     provider: _ProviderField
@@ -1472,6 +1515,8 @@ class IssuesRequest(_RefusesRenamedParameters):
 class AuthRequest(_RefusesRenamedParameters):
     """Request model for checking the credentials of a provider and network."""
 
+    route: ClassVar[str] = "auth"
+
     model_config = {"extra": "forbid"}
 
     provider: _ProviderField
@@ -1480,6 +1525,8 @@ class AuthRequest(_RefusesRenamedParameters):
 
 class CoverageRequest(_RefusesRenamedParameters):
     """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
+
+    route: ClassVar[str] = "coverage"
 
     model_config = {"extra": "forbid"}
 
@@ -1514,10 +1561,9 @@ class CoverageRequest(_RefusesRenamedParameters):
 class ProvidersRequest(_RefusesRenamedParameters):
     """Request model for describing the providers."""
 
-    model_config = {"extra": "forbid"}
+    route: ClassVar[str] = "providers"
 
-    # `providers` never took `dataset`, so a request that gives it is not told it was renamed to `datasets`
-    never_renamed: ClassVar[frozenset[str]] = frozenset({"dataset"})
+    model_config = {"extra": "forbid"}
 
     provider: Annotated[
         str | None,
@@ -1537,6 +1583,8 @@ class ProvidersRequest(_RefusesRenamedParameters):
 class GlossaryRequest(_RefusesRenamedParameters):
     """Request model for looking up the canonical parameters."""
 
+    route: ClassVar[str] = "glossary"
+
     model_config = {"extra": "forbid"}
 
     parameter: Annotated[
@@ -1552,6 +1600,8 @@ class GlossaryRequest(_RefusesRenamedParameters):
 
 class AlertsRequest(_RefusesRenamedParameters):
     """Request model for the DWD weather alerts."""
+
+    route: ClassVar[str] = "alerts"
 
     model_config = {"extra": "forbid"}
 
@@ -2296,6 +2346,8 @@ StripesKind = Literal["temperature", "precipitation"]
 class StripesStationsRequest(_RefusesRenamedParameters):
     """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
 
+    route: ClassVar[str] = "stripes_stations"
+
     model_config = {"extra": "forbid"}
 
     kind: Annotated[
@@ -2362,12 +2414,16 @@ class StripesRequest(_RefusesRenamedParameters):
 class StripesValuesRequest(StripesRequest):
     """A request for the values climate stripes are made of."""
 
+    route: ClassVar[str] = "stripes_values"
+
     format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
     pretty: _PrettyField = False
 
 
 class StripesImageRequest(StripesRequest):
     """A request for a climate stripes image."""
+
+    route: ClassVar[str] = "stripes_image"
 
     show_title: Annotated[bool, Field(description="Show the station name.")] = True
     show_years: Annotated[bool, Field(description="Show the first and last year.")] = True

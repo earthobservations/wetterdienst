@@ -314,7 +314,7 @@ def _bool_opt(
     return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help, **kwargs)
 
 
-# GH-2438: --date, the old name of --timestamp
+# GH-2438: --date, the old name of --timestamp, on the commands that had it in 0.139.0 (not `stations`: GH-3869)
 renamed_date_opt = _renamed_opt("--date", "--timestamp")
 start_opt = click.option(
     "--start",
@@ -326,7 +326,7 @@ end_opt = click.option(
     type=click.STRING,
     help="End of a time window. Given alone, it is read as --timestamp.",
 )
-# GH-2437: the window is a pair of UTC timestamps, not of dates
+# GH-2437: the window is a pair of UTC timestamps, not of dates; on the commands that had `--start-date` in 0.139.0
 start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
@@ -1374,12 +1374,23 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
         raise click.BadParameter(msg)
 
 
-def _renamed_to(command: click.Command, option: str) -> str | None:
+def _route_of(ctx: click.Context) -> str:
+    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage` for `about coverage`."""
+    names = []
+    while ctx.parent is not None:
+        names.append(ctx.info_name or "")
+        ctx = ctx.parent
+    return "_".join(name for name in reversed(names) if name != "about")
+
+
+def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
     """Tell the option a renamed one is now spelled, where the rename is mechanical, else None.
 
     An option was renamed for 1.0 if the command has it with its underscores as hyphens
     (`--convert_units`, now `--convert-units`) or in the plural (`--station`, now `--stations`): the
     spellings a command line is free to mistake for the new one, and the only ones it can have kept.
+    The plural is a rename only on a route that had the singular (`OLD_NAMES_OF_ROUTE`): `about providers`
+    never had `--dataset`, nor `stations` `--date`.
     """
     # a hidden option is itself a refusal, such as `--start-date`, and no name to send the caller to
     taken = {
@@ -1389,13 +1400,11 @@ def _renamed_to(command: click.Command, option: str) -> str | None:
         for opt in (*param.opts, *param.secondary_opts)
     }
     # only a mistyped option gets here, so only a mistyped option waits for the table of what was renamed to import
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, ProvidersRequest
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, old_names_of_route
 
-    # `providers` never had `--dataset`, so it is no old name of its `--datasets`
-    never = ProvidersRequest.never_renamed if command.name == "providers" else frozenset()
     name = option.removeprefix("--")
     # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
-    plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name not in never else None
+    plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name in old_names_of_route(route) else None
     candidates = (option.replace("_", "-"), plural)
     return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
 
@@ -1411,7 +1420,7 @@ class _Command(click.Command):
         try:
             return super().parse_args(ctx, args)
         except click.NoSuchOption as e:
-            renamed = _renamed_to(self, e.option_name)
+            renamed = _renamed_to(self, e.option_name, _route_of(ctx))
             if renamed is None:
                 # click guesses among every option the command registered, the hidden refusals too (GH-3167): one
                 # of them as a suggestion would send the caller to an option that says it was renamed
@@ -1827,11 +1836,8 @@ def fields(
 @parameters_opt
 @periods_opt
 @stations_timestamp_opt
-@renamed_date_opt
 @start_opt
 @end_opt
-@start_date_renamed_opt
-@end_date_renamed_opt
 @all_opt
 @stations_opt
 @name_opt

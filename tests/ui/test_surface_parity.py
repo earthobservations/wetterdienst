@@ -920,21 +920,9 @@ def test_an_option_by_its_underscored_name_is_refused_naming_the_hyphenated_one(
     assert f"Error: {old} was renamed to {option}." in result.output
 
 
-# a list is plural on every surface: what the singular was is refused naming the plural
-_SINGULARS = [
-    ((command,), old, new)
-    for command in ("stations", "values", "history")
-    for old, new in (("--station", "--stations"), ("--parameter", "--parameters"))
-] + [
-    (("stations",), "--period", "--periods"),
-    (("values",), "--period", "--periods"),
-    (("interpolate",), "--parameter", "--parameters"),
-    (("interpolate",), "--period", "--periods"),
-    (("summarize",), "--parameter", "--parameters"),
-    (("summarize",), "--period", "--periods"),
-    (("about", "coverage"), "--resolution", "--resolutions"),
-    (("about", "coverage"), "--dataset", "--datasets"),
-]
+# a list is plural on every surface: what the singular was is refused naming the plural, on the routes that had the
+# singular in 0.139.0 (`stations` took `--parameters` and `--periods` then: GH-3869, tests/ui/test_renamed_routes.py)
+_SINGULARS = [((command,), "--station", "--stations") for command in ("stations", "values", "history")]
 
 
 @pytest.mark.parametrize(
@@ -953,13 +941,7 @@ def test_an_option_by_the_singular_of_its_list_is_refused_naming_the_plural(
 
 @pytest.mark.parametrize(
     ("endpoint", "old", "new"),
-    [
-        (endpoint, old, new)
-        for endpoint in ("/api/stations", "/api/values", "/api/history")
-        for old, new in (("station", "stations"), ("parameter", "parameters"))
-    ]
-    + [(endpoint, "period", "periods") for endpoint in ("/api/stations", "/api/values")]
-    + [("/api/coverage", "resolution", "resolutions"), ("/api/coverage", "dataset", "datasets")],
+    [(endpoint, "station", "stations") for endpoint in ("/api/stations", "/api/values", "/api/history")],
 )
 def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint: str, old: str, new: str) -> None:
     """Over REST, as on the command line, the old name fails with the new one in the answer (GH-2561)."""
@@ -976,10 +958,6 @@ def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint:
         ("values", "station", "stations"),
         ("stations", "station", "stations"),
         ("history", "station", "stations"),
-        ("values", "parameter", "parameters"),
-        ("values", "period", "periods"),
-        ("coverage", "resolution", "resolutions"),
-        ("coverage", "dataset", "datasets"),
     ],
 )
 def test_the_singular_of_a_list_is_refused_by_the_mcp_tool_naming_the_plural(tool: str, old: str, new: str) -> None:
