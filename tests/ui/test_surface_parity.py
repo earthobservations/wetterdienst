@@ -2327,14 +2327,22 @@ def test_nothing_let_go_is_told_of_on_any_surface() -> None:
 
 
 @pytest.mark.parametrize("estimate", ["summarize", "interpolate"])
-def test_an_estimate_does_not_tell_a_file_let_go(monkeypatch: pytest.MonkeyPatch, estimate: str) -> None:
-    """An estimate reads the stations around a point as candidates and goes on with the next one: it does not tell."""
+def test_an_estimate_tells_a_file_let_go_once_and_not_of_each_station(
+    monkeypatch: pytest.MonkeyPatch, estimate: str
+) -> None:
+    """An estimate reads the stations around a point as candidates: `file-skipped` is not told of each, the summary is.
+
+    The two stations whose file was let go are one `source-data-left-out` warning (GH-3848).
+    """
     _withdrawing(monkeypatch, "00001", "00002")
     begin_response()
 
     getattr(DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03"), estimate)(_POINT)
 
     assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+    (summary,) = [w for w in recorded_warnings() if w["code"] == "source-data-left-out"]
+    assert summary["stations"] == ["00002", "00001"]
+    assert "at 2 of the 7 stations it read." in summary["message"]
 
 
 def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
