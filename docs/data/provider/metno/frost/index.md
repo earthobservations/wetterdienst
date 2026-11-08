@@ -302,6 +302,64 @@ SN25830 on 2020-01-01: -2.2 (`PT0H`) and -3.8 (`PT6H`); on 1993-11-16 only `PT6H
 Every other element has one offset except the ones above (the monthly and annual temperature extremes `PT18H`; the daily snow
 depth, its monthly mean and the annual precipitation sum `PT6H`; the rest `PT0H`).
 
+## Windows that have not closed
+
+Frost serves the value of a period that is still going on, and marks nothing: an open value has the same `qualityCode`
+as a closed one (`performanceCategory` and `exposureCategory` describe the sensor and the site), and a monthly row is
+always code 2. Measured on 2026-11-07
+([#3856](https://github.com/earthobservations/wetterdienst/issues/3856)):
+
+- **Daily.** Frost starts serving a date at 00:00 UTC. Five minutes before 18 UTC, `max` and `min(air_temperature P1D)`
+  (`PT18H`) had a value for that date at 456 and 461 stations; by 18:15 15 % of the minima had fallen (by up to 1.9 degC)
+  and 37 to 39 more stations appeared. The `PT6H` precipitation sum is not served before its date starts. The `PT0H`
+  mean was served at 7 stations, and the `PT0H` pressure at 191. The humidity, the wind means and the sunshine are `PT0H`
+  daily values served before the day ends as well.
+- **Monthly.** The value of the current month, month to date, is served all month: the mean, the extremes and the
+  precipitation at about 450 to 630 stations.
+
+A value of an open window is partial, and as the day's maximum, minimum, sum or mean it would be wrong. **Decided on
+2026-11-07: a daily value is left out, and a monthly value is returned and marked; the maintainer added the annual value
+to the monthly rule as a safeguard.**
+
+| resolution | the window of the value closes at | what is returned | what is told |
+|---|---|---|---|
+| daily | the date `D` + the offset: `PT18H` (the extremes) 18 UTC, `PT6H` (the precipitation sum) 06 UTC; `PT0H` (the mean, and every other daily element) the end of `D` | the value is **left out** until the window has closed | `window-not-closed`: how many values were left out, at which stations, and when the earliest window closes |
+| monthly | the last day `L` of the month + the offset: `PT18H` 18 UTC of `L`, `PT6H` 06 UTC of `L`; `PT0H` (the calendar month) the end of `L` | the value is **returned** with `completeness:Incomplete` as the last token of its `quality_flags` before `raw:` (`2,completeness:Incomplete`) | `window-not-closed`: the same, and that the values are marked |
+| annual | the same around 31 December: `PT18H` 18 UTC, `PT6H` 06 UTC, `PT0H` (the calendar year) the end of the year | as monthly: **returned** with `completeness:Incomplete` | as monthly |
+
+The rule has no parameters other than the stamp, the series and the time. The stamp is the date (or the month) the value
+is stamped at, and a series stamped off midnight is the date of its stamp. The series is the row's own `timeOffset`, or
+the one its element names where it gives none, or `PT0H`. The time is UTC when the station is read, or when the answer was
+cached if that was before (Frost's answers are kept for five minutes, and a copy made at 17:57 is not the final value of a
+window that closes at 18:00): a window that closes at that time is closed. A date whose window is open is therefore left
+out by every reader, and the next request after the closing time returns it.
+
+- **A month is open until the last day.** The monthly `PT6H` sum of November runs from 06 UTC on 31 October to 06 UTC on
+  30 November ("the observation period lasts continuously from the previous date at 06 UTC to current date 06 UTC", for the
+  month from the last day of the previous month), so November is open until 2026-11-30 06:00 UTC, the `PT18H` maximum and
+  minimum until 18:00, and the calendar-month mean and every other `PT0H` element until 2026-12-01 00:00. February closes
+  on its 28th (29th in a leap year).
+- **Every daily aggregate.** Not only the standard series of the decision (the `PT18H` extremes, the `PT6H` sum, the `PT0H`
+  mean): every daily element but the snow depth is the aggregate of a window and has its window closed by the same rule,
+  with `PT0H` the calendar day, which is what the pressure, humidity, wind and sunshine are. The daily snow depth
+  (`surface_snow_thickness`) is the reading of an instant, stamped at its time, and has no window.
+- **A date left out as open is told once**, as open, and not again as `other-window-left-out` for the other series.
+- **Closed does not mean final.** There is no grace period: a window is closed at its closing time, and the answer is
+  not held back or marked after it. Frost may publish the last readings of a window late, and corrects values in its
+  normal quality control cycle (`qualityCode` 1: "controlled and corrected"), so a value of a closed window can still
+  change, and it is not marked as complete: only an open window is told.
+- **The annual value** follows the monthly rule as a safeguard (the maintainer's decision of 2026-11-07, after the
+  measurement): the current year is returned with `completeness:Incomplete` and the `window-not-closed` warning until the
+  end of 31 December (`PT0H`), or 06 UTC (`PT6H`) or 18 UTC (`PT18H`) of it. Frost did not serve the current year of the
+  annual mean, maximum and precipitation sum at SN18700 and SN50540 on 2026-11-07 (the last year returned was 2025), so
+  the rule had no value to mark there; other stations were not read. Frost's documentation says "ReferenceTime and
+  timeOffset for annual data follow the same conventions as for seasonal and monthly data" (concepts, case 2.5), so
+  the closing time is that of the monthly rule around the last day of the year.
+
+The token `completeness` is the one the Environment Agency's hydrology readings already have (`Incomplete`: based on
+incomplete data); Frost writes only `Incomplete`, never `Complete`. To keep the closed periods alone, filter
+`quality_flags` for the token; to keep the current month or year out, ask for a request window that ends before it.
+
 ## The code -1 of the precipitation sums
 
 Frost writes the value `-1` into its precipitation sums. The element descriptions do not say what it is, but the
