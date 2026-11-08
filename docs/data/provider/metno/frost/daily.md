@@ -46,3 +46,7 @@ Frost page.
 The `-1` of `snow_depth` ("Zero snowdepth or partial snow cover") is `0.0` with `raw:-1`, a `0` ("Snowdepth less than 0.5
 cm") stays `0.0`, and a `-3` ("Not possible to measure snowdepth") is `null` with `raw:-3`. See the section
 [The other coded values](index.md) of the Frost page.
+
+At a station with several heights the daily mean temperature and humidity are of 2 m and the mean and the maximum of the wind
+of 10 m, each where that height has a value, and otherwise of the nearest other height
+([Sensors at several heights](index.md#sensors-at-several-heights)). The mean and the maximum of a date are chosen apart.
