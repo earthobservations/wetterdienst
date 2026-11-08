@@ -2789,11 +2789,11 @@ def _drop_cached_listing(fs: HTTPFileSystem, url: str) -> None:
 def _ls_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[dict], bytes | None]:
     """List a directory, and read its page where it lists nothing, to tell an empty directory from a page that is none.
 
-    As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, or none
-    but the URL itself, which costs one more GET for an empty directory. A link of the page to the URL itself is no entry
-    (`HTTPFileSystem._ls` leaves it out), so what an outage page lists is never stored, and the directory the server
-    has once it is back is not hidden behind it for the `cache_expiry` (GH-3861). A directory that is not there raises
-    `FileNotFoundError`, as it always did, and a listing with entries reads no second page.
+    As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, which
+    costs one more GET for an empty directory. A link of the page to the URL itself is no entry (`HTTPFileSystem._ls`
+    leaves it out), so what an outage page lists is never stored, and the directory the server has once it is back is
+    not hidden behind it for the `cache_expiry` (GH-3861). A directory that is not there raises `FileNotFoundError`,
+    as it always did, and a listing with entries reads no second page.
     """
     entries = fs.ls(url, detail=True)
     if not _lists_nothing(url, entries):

@@ -287,8 +287,10 @@ def test_a_page_that_links_to_dot_slash_and_to_a_file_lists_the_file(
 def test_a_self_link_makes_the_walk_ask_a_handful_of_times_and_leaves_the_loop_quiet(
     server: NginxLike, listing: Callable[[str], list[str]], caplog: pytest.LogCaptureFixture, link: str
 ) -> None:
-    """A link to `./` was a walk without end (974 requests, then a `RecursionError`, which left fsspec's shared event
-    loop spinning on a broken transport for the rest of the process): the walk must never come back.
+    """A link to `./` was a walk without end, which must never come back.
+
+    It was 974 requests and then a `RecursionError`, which left fsspec's shared event loop spinning on a broken
+    transport for the rest of the process.
 
     The loop's own log is read after a moment: a callback that raised there says so (`Exception in callback`).
     """
@@ -504,9 +506,9 @@ def test_a_page_that_links_to_a_child_keeps_it(server: NginxLike, entries: Calla
     server.pages["/x/"] = (
         "text/html",
         (
-            '<html><head><title>Index of /x/</title></head><body><a href="/x/sub/c.zip">c</a>'
-            '<a href="a.zip">a</a><a href="/x/">self</a></body></html>'
-        ).encode(),
+            b'<html><head><title>Index of /x/</title></head><body><a href="/x/sub/c.zip">c</a>'
+            b'<a href="a.zip">a</a><a href="/x/">self</a></body></html>'
+        ),
     )
 
     assert sorted(entry["name"] for entry in entries("/x/")) == [f"{server.base}/x/a.zip", f"{server.base}/x/sub/c.zip"]
