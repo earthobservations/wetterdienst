@@ -16,6 +16,7 @@ import pytest
 
 import wetterdienst
 from tests.conftest import BUFR_AVAILABLE
+from tests.provider.metno.frost.catalogue_rows import is_series_listing, series_of
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -147,6 +148,8 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
     def answer(url: str) -> File:
         if "/sources/" in url:
             return _ok(url, json.dumps(sources).encode())
+        if is_series_listing(url):
+            return _ok(url, json.dumps(series_of("SN18700")).encode())
         if "/availableTimeSeries/" in url:
             return _ok(url, json.dumps(available).encode())
         # no data for the window, which ends the discovered series without a further request
@@ -184,7 +187,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> Seen:
     [
         pytest.param(_geosphere, 2, id="geosphere"),
         pytest.param(_ea, 3, id="ea"),
-        pytest.param(_metno_frost, 6, id="metno_frost"),
+        pytest.param(_metno_frost, 7, id="metno_frost"),
         pytest.param(
             _dwd_road,
             1,
