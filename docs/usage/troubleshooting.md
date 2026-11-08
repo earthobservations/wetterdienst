@@ -53,7 +53,9 @@ The usual reasons:
   until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
   of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
   The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
-  daily value, or end the window before the current month; the answer is not partial for a failure.
+  daily value, or end the window before the current month; the answer is not partial for a failure. `interpolate` and
+  `summarize` cannot carry the mark, so they leave the monthly and annual value of an open window out too and tell it as
+  a cause of their `source-data-left-out` warning (below).
 - **A station you named has no rows while others do.** A `station-without-rows` warning lists the ids of `stations`
   that returned nothing in the window, in the order of the answer: the source holds no values of them there (the
   message names the `periods`, run or lead time that narrowed the request, which may hold them; a station whose dates
@@ -77,8 +79,11 @@ The usual reasons:
   empty), whose values may be missing from the estimate (a download, a page or a directory may be back later, try
   again; a refused download or a file that would not parse mostly stays as it is); dates of another series of the source (`metno/frost`, as
   `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
-  again; and values a hard plausibility check rejected, which the estimate does not use. It is one warning, whatever the
-  number of stations or causes, and an estimate tells neither `file-skipped` nor `other-window-left-out` of a station.
+  again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
+  `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
+  again then, or end the window before the current period); and values a hard plausibility check rejected, which the
+  estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
+  `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.
 - **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
   directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
   with no description), so a station that only it lists is not found: the station may well exist. Try again later. A

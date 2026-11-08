@@ -331,8 +331,8 @@ what the answer is missing:
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
   stations around a point as candidates, nearest first, and stop when they have enough, so the walk of a values request
-  that tells `file-skipped` and `other-window-left-out` at its end does not apply to them, and neither is told of a
-  station by an estimate. It carries `stations` (the stations that were affected, in the order they were read, the
+  that tells `file-skipped`, `other-window-left-out` and `window-not-closed` at its end does not apply to them, and none
+  of them is told of a station by an estimate. It carries `stations` (the stations that were affected, in the order they were read, the
   first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
   with the stations it affected:
 
@@ -344,6 +344,11 @@ what the answer is missing:
   - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
     the source holds values for them, nothing is missing there, and they are not read because a value of another
     window would be wrong under the parameter's name;
+  - values of a window that had not closed yet (the case of `window-not-closed`, counted in values for each window:
+    today, this month, this year): the day's, month's or year's value is partial and may still change, and the source
+    does not mark it. They are not missing at the source and come back once the window has closed. An estimate cannot
+    carry the `completeness:Incomplete` mark that `values` puts on a monthly or annual value of an open window, so it
+    leaves those out as it leaves a daily one out (`metno/frost`);
   - values a hard [plausibility check](../data/plausibility.md) rejected (the case of `rejected-by-plausibility`,
     counted in values and by check, a value several checks rejected counted under each): the source wrote a number
     there, which the check made null and the estimate does not use. A value a soft check flags `suspect:` is left out
@@ -353,7 +358,7 @@ what the answer is missing:
   that the source holds, and a values request, which asks more, keeps its codes. A station is counted once whatever the
   number of causes. A station that the walk read once it was done and did not use, because it had enough nearer
   ones, is not counted, whether it came back with rows or, as a station whose file was lost does, with none, nor is one
-  it never read. Only the providers listed below tell the first two causes to the
+  it never read. Only the providers listed below tell the first three causes to the
   walk, so an estimate without the warning is no proof that every file was read. It is told next to what the lookup of
   the stations says, which `file-skipped` (a directory of `dwd/observation` or `dwd/derived` found empty, below) still
   tells without a station: the two state different facts. In Python it is a log line at level `WARNING`, and
@@ -374,8 +379,9 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly one is returned
-  with `completeness:Incomplete` as a token of its `quality_flags`; the message says which, how many values at which
+  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is returned
+  with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
+  as a cause of `source-data-left-out`, above); the message says which, how many values at which
   stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
   window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.

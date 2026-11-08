@@ -99,7 +99,8 @@ WINDOW_NOT_CLOSED = "window-not-closed"
 
 #: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
 #: (GH-3848): the stations it read whose file the provider let go (`note_skipped_download`), those whose dates of
-#: another series were left out (`note_left_out`) and those with values a hard plausibility check rejected, counted by
+#: another series were left out (`note_left_out`), those whose values of a window that had not closed the provider left
+#: out (`note_open_window`, GH-3883) and those with values a hard plausibility check rejected, counted by
 #: cause, in one warning for the answer. An estimate reads
 #: the stations around a point as candidates, so it tells neither `file-skipped` nor `other-window-left-out` of each
 #: station, nor `parameter-without-rows`, which a station without a parameter is the ordinary case of
