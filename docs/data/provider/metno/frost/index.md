@@ -552,13 +552,24 @@ Elements that have no standard height listed (the pressure, at 2 m alone, the de
 precipitation, the snow depth) are as they were. The height is not in the answer and cannot be asked for: there is no
 option for the other height.
 
-**The bearing is taken from the height its time's speed was taken from**, so a bearing never stands beside a speed of
-another height. If the speed is at 10 m and the direction has no value at 10 m, there is no bearing for that time (it is not
-filled from 2 m); if the speed is at 2 m, because 10 m has none, so is the bearing, whatever 10 m says. A calm or a `-3` at
-that height is the hour, `null` with `raw:0` or `raw:-3`, and no other height fills it (as since GH-3833). The speed is
-read from the answer of the whole dataset, so it is there for a request of the direction alone; where Frost answers the
-whole dataset with a 404 and each parameter is read by itself (the only case in which the speed is not at hand) the bearing
-is the one of the standard height, or the nearest one that has a value.
+**The wind speed and the bearing of a time are a pair of one height**, so a bearing never stands beside a speed of another
+height, and none is dropped for that ([#3844](https://github.com/earthobservations/wetterdienst/issues/3844), decided
+after the first version, which dropped the bearing where 10 m had a speed and no bearing). The height of the pair is, in
+this order:
+
+1. the 10 m height, if it has both a speed and a bearing;
+2. else the height that has both and is the nearest to 10 m (the lower of two as near), speed and bearing both of it, though
+   10 m has a speed: at SN44300 since early June 2026 10 m has a speed and no bearing, and the hour is the 2 m pair;
+3. else (no height has both) the speed is chosen as every parameter is, the 10 m one first, and the bearing is of the speed's
+   height, so none if it has none there; it is never of another height.
+
+A calm or a `-3` is a bearing: a height whose bearing is a calm has both, and is the pair, `null` with `raw:0` or `raw:-3`,
+and no other height fills it (as since GH-3833). The gust is no part of the pair. The speed and the bearing are read from
+the answer of the whole dataset, whatever parameters were asked for, so the speed of a request for the speed alone is the
+speed of the pair too: the same hour has the same speed in every request, and the speed is the 2 m one, not the 10 m one,
+at an hour where 10 m has a speed and no bearing. Only where Frost answers the whole dataset with a 404 and each parameter
+is read by itself (the case in which no data was found in 12 of 12 series sampled) there is no pair to see: the speed is the
+10 m one first, and the bearing the 10 m one first, or the nearest that has a value.
 
 What it changes, from a live sample of 2026-11-08 (the hours where the heights read differently, counted from Frost's own
 rows; `before` is the code of 2026-11-08, `main` at #3871):
@@ -571,13 +582,15 @@ rows; `before` is the code of 2026-11-08, `main` at #3871):
 | SN17850 `temperature_air_2m`, `humidity_relative` (1, 2, 50 m) | 2026-10-01 to 15 | 55 of 315, 25 of 334 | 315 of 315, 334 of 334 |
 | SN76959 `wind_gust_max` (10, 78, 86 m) | 2026-10-02 to 09 | 0 of 1,006 intervals | 1,006 of 1,006 |
 | SN76926 `wind_gust_max` (10, 136 m) | 2026-10-02 to 09 | 0 of 726 | 726 of 726 |
-| SN44300 wind (10, 2 m) | 2026-06-01 to 15 | a bearing beside a speed of another height in 252 of 335 hours with both | 0 of 79 |
+| SN44300 wind (10, 2 m) | 2026-06-01 to 15 | a bearing beside a speed of another height in 252 of 335 hours with both | 0 of 335 |
 
-The last row is the price of the rule: since early June 2026 SN44300 has a bearing at 2 m only while its speed is at 10 m, so 256 of the
-335 hours that had a bearing have none now. Their bearing was the one of another height. A station with the
-wind at 2 m alone (SN12550, SN99990's bearing) is as it was, and so is the wind at the 10 m of a station that has no 2 m.
+The last row is the pair: since early June 2026 SN44300 has a bearing at 2 m only while 10 m has a speed, and those 252
+of 337 hours had a 10 m speed beside a 2 m bearing. The pair is the 2 m one now, so the speed of those hours is the 2 m
+speed (where 10 m has a speed, 252 hours are not the 10 m one), and all 335 bearings stay. Before the pair rule was relaxed,
+a version of this change that gave the bearing only to the speed's height left 79 of the 335. A station with the wind at 2 m
+alone (SN12550, SN99990's bearing) is as it was, and so is the wind at the 10 m of a station that has no 2 m.
 `daily` and `monthly` wind are unchanged at SN44300 in the sample (the 10 m series was first already), and the
-temperature of SN99990 daily has one height.
+temperature of SN99990 daily has one height. The mean and the maximum of the daily wind are not a pair.
 
 ## The other coded values
 
@@ -617,8 +630,8 @@ time and height is a calm: `null` with `raw:0`, as for the providers listed for 
 [Special values](../../../special_values.md#wind). A `0` beside a speed above 0 stays `0.0` (54 of the 1,068 zeros
 of the Norwegian sample are not beside a speed of 0, and may be north), and so does a `0` read without its speed, which
 happens only when Frost answers the request for the whole dataset with a 404 and each parameter is asked for by itself.
-A station may measure the wind at several heights: the bearing is the one of the height its time's speed was taken
-from, and a calm or a `-3` there is the answer for the hour, which no other height fills (see
+A station may measure the wind at several heights: the speed and the bearing of a time are of one height, and a calm or a
+`-3` there is the answer for the hour, which no other height fills (see
 [Sensors at several heights](#sensors-at-several-heights); [the hourly page](hourly.md) has the details). The `0` was returned as `0.0`
 before (GH-3833).
 

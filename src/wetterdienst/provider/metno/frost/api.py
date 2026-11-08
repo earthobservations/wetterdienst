@@ -449,10 +449,9 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
 #   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
 #   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
-#   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the direction is the one of the
-#   height its time's speed was taken from (the 10 m one where it has a value), a calm or a -3 there is what the hour
-#   is, and the bearing of another height never fills it, nor a gap, so that no bearing stands beside a speed of
-#   another height
+#   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
+#   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
+#   what the hour is, and the bearing of another height never fills it
 # - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
 #   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
 #   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
@@ -1116,12 +1115,20 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
     a wind direction are of the height, as the hour (GH-3833), and a null is a gap, which another height fills. A
     time with no value at any height keeps all its rows.
 
-    The direction is the exception to that: it is taken from the height its time's speed was taken from, whatever the
-    direction has at its own heights, so that a bearing never stands beside a speed of another height. If the
-    direction has none there it has none, and that height is where `calm` pairs them in `_decode_sentinels`. A time
-    with no speed that has a value is the direction's own choice, as for the other parameters. The speed is in
-    the frame wherever the direction is, the dataset being asked for whole; a direction read by itself (after a 404 of
-    the whole) has no speed to follow.
+    The wind speed and the direction are a pair, of one height, so that a bearing never stands beside a speed of another
+    height. The height of a time's pair is, in this order:
+
+    1. the standard height (10 m), if it has both a speed and a direction;
+    2. else the height that has both and is nearest to the standard one (the lower of two as near): the speed and the
+       bearing are both of it, though the standard height has a speed;
+    3. else (no height has both) the speed is chosen as any parameter is, and the direction is of the speed's height,
+       or none if it has none there, never of another height. A time with no speed that has a value is the direction's
+       own choice.
+
+    The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
+    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
+    readers that read a parameter by itself (after a 404 of the whole dataset, where no data was found) have no pair to
+    see, and choose the speed, or the direction, as any other parameter. The gust is no part of the pair.
 
     A parameter that is not in `_STANDARD_HEIGHT`, and a frame without `_LEVEL`, are as they were.
     """
@@ -1141,18 +1148,39 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
         pl.when(answered & (distance == nearest)).then(pl.col(_HEIGHT)).min().over(keys).alias("__chosen"),
         answered.any().over(keys).alias("__answered"),
     )
-    # the height each time's speed was taken from, to join to the direction of that time
+    # the heights that have both a speed and a direction at a time, and the one of them that is the pair's
+    is_speed = pl.col("parameter") == _WIND_SPEED
+    is_direction = pl.col("parameter") == _WIND_DIRECTION
+    at_height = ["timestamp", _HEIGHT]
+    both = (
+        (is_speed | is_direction)
+        & (is_speed & answered).any().over(at_height)
+        & (is_direction & answered).any().over(at_height)
+    )
+    nearest_pair = pl.when(both).then(distance).min().over("timestamp")
+    df = df.with_columns(
+        both.any().over("timestamp").alias("__paired"),
+        pl.when(both & (distance == nearest_pair)).then(pl.col(_HEIGHT)).min().over("timestamp").alias("__pair"),
+    )
+    # the height each time's speed was chosen at, for the direction of a time that has no pair
     speed = (
-        df.filter((pl.col("parameter") == _WIND_SPEED) & pl.col("__answered"))
+        df.filter(is_speed & pl.col("__answered"))
         .select("timestamp", pl.col("__chosen").alias("__speed_height"), pl.lit(value=True).alias("__follows"))
         .unique("timestamp")
     )
     df = df.join(speed, on="timestamp", how="left")
-    follows = (pl.col("parameter") == _WIND_DIRECTION) & pl.col("__follows").fill_null(value=False)
-    wanted = pl.when(follows).then(pl.col("__speed_height")).otherwise(pl.col("__chosen"))
-    decided = pl.col(_STANDARD).is_not_null() & (follows | pl.col("__answered"))
+    paired = (is_speed | is_direction) & pl.col("__paired")
+    follows = is_direction & ~pl.col("__paired") & pl.col("__follows").fill_null(value=False)
+    wanted = (
+        pl.when(paired)
+        .then(pl.col("__pair"))
+        .when(follows)
+        .then(pl.col("__speed_height"))
+        .otherwise(pl.col("__chosen"))
+    )
+    decided = pl.col(_STANDARD).is_not_null() & (paired | follows | pl.col("__answered"))
     return df.filter(~decided | pl.col(_HEIGHT).eq_missing(wanted)).drop(
-        _HEIGHT, _STANDARD, "__chosen", "__answered", "__speed_height", "__follows"
+        _HEIGHT, _STANDARD, "__chosen", "__answered", "__paired", "__pair", "__speed_height", "__follows"
     )
 
 

@@ -2097,8 +2097,9 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
     SN99460 answers the wind at 10 m and 2 m for every hour, and the core keeps the first row of a reading that has a
     value: the calm of 10 m (null) was filled with the bearing of 2 m. 34 of the 79 calm hours at the 7 stations with
     two heights read as a wind that blows beside a speed of 0, 22 with a bearing above 0. A code of the height of the
-    speed (`-3` too) is what the hour is, and so is a gap (a null that is no code): since GH-3844 the bearing is of the
-    height its speed was taken from and no other height fills it, where a gap used to be filled from the other height.
+    pair (`-3` too) is what the hour is. Since GH-3844 the speed and the bearing are of one height, the 10 m one where
+    it has both, and a height that lacks the bearing (a gap) is not the pair: the other height with both is, speed
+    and bearing together.
     """
     wind = "wind_speed"
     direction = "wind_from_direction"
@@ -2107,7 +2108,7 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
         [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 170)],
         # 01:00 both heights calm
         [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 0)],
-        # 02:00 a gap at 10 m is not filled from 2 m: the speed is of 10 m, and so is the bearing (GH-3844)
+        # 02:00 no bearing at 10 m: the pair is the 2 m one, the speed of 2 m beside the bearing of 2 m (GH-3844)
         [(wind, 10, 1.0), (wind, 2, 1.0), (direction, 10, None), (direction, 2, 90)],
         # 03:00 a bearing at 10 m stays, whatever 2 m is
         [(wind, 10, 3.0), (wind, 2, 0.0), (direction, 10, 45), (direction, 2, 0)],
@@ -2133,7 +2134,7 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
     )
     begin_response()
     df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
-    assert df["value"].to_list() == [None, None, None, 45.0, None, None, 0.0]
+    assert df["value"].to_list() == [None, None, 90.0, 45.0, None, None, 0.0]
     flags = [flag.split(",")[-1] for flag in df["quality_flags"].to_list()]
     assert flags == ["raw:0", "raw:0", "0", "0", "raw:-3", "raw:0", "0"]
     # the calm hours are counted, whichever height would have filled them
@@ -2141,14 +2142,14 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
     assert calm["message"].startswith("3 wind directions were a calm")
 
 
-def test_metno_frost_a_gap_without_a_quality_code_is_no_code_and_is_not_filled_from_the_other_height(
+def test_metno_frost_a_gap_without_a_quality_code_is_filled_from_the_other_height(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that a null at the speed's height that has no `qualityCode` is no code, and 2 m does not fill it.
+    """Test that a null at 10 m that has no `qualityCode` is no code, and the pair of 2 m is served (GH-3833, GH-3844).
 
-    The null has no flags at all, so the test of the height for a code was null and dropped the later row (GH-3833): the
-    bearing of 2 m came back as 90.0, and the hour reads null since GH-3844 (the bearing is of the speed's height). A
-    calm without a `qualityCode` is a calm all the same.
+    The null has no flags at all, so the test of the height for a code was null and dropped the later row (GH-3833). It
+    is no bearing at 10 m, so the pair is the 2 m one (speed and bearing of 2 m), where the hour read 90.0 from the 2 m
+    bearing beside the 10 m speed before GH-3844. A calm without a `qualityCode` is a calm all the same.
     """
     wind = "wind_speed"
     direction = "wind_from_direction"
@@ -2173,7 +2174,7 @@ def test_metno_frost_a_gap_without_a_quality_code_is_no_code_and_is_not_filled_f
         options={"drop_nulls": False},
     )
     df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
-    assert df["value"].to_list() == [None, None]
+    assert df["value"].to_list() == [90.0, None]
     assert df["quality_flags"].to_list() == [None, "raw:0"]
 
 

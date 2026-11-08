@@ -4041,13 +4041,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
             "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
             "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
-            "itself after a 404 of the whole dataset. At a station with several heights the bearing is of the height "
-            "of its time's speed, and a calm or a -3 there is the answer for the hour: no other height fills it."
+            "itself after a 404 of the whole dataset. At a station with several heights the speed and the direction "
+            "are of one height: 10 m if it has both, else the nearest height that has both; a calm or a -3 there "
+            "is the answer for the hour: no other height fills it."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "
             "observation time. (default: 10 meters above ground, some stations have measurements at 2 meters). "
-            "At a station with several heights the 10 m sensor, and the nearest height where it has no value."
+            "At a station with several heights the speed and the direction are of one height: 10 m if it has both, "
+            "else the nearest height that has both."
         ),
         ("monthly", "data", "max(air_temperature P1M)"): "Highest recorded air temperature per month",
         ("monthly", "data", "max(wind_speed P1M)"): (

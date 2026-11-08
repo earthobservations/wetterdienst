@@ -7,7 +7,8 @@ value: the air temperature came from 10 m in 83 % of the hours at 5 of the 6 sta
 humidity from 1 m or 10 m in 99.8 %, and the 10 minute gust of the platforms from 47 to 120 m in 96 % of the intervals
 (measured 2026-11-07). The maintainer decided that for each time the standard height of Frost (2 m for the temperature
 and the humidity, 10 m for the wind speed, the direction and the gust) is served where it has a value, the other height
-where it has not, and that a direction is taken from the height its time's speed was taken from.
+where it has not, and that the speed and the direction of a time are a pair of one height: the standard one if it has
+both, else the nearest height that has both, else the speed standard-first and the direction of its height.
 
 The readings below are real ones, as Frost answered them on 2026-11-07 (the station, the stamp, the height, the value
 and the `qualityCode`), in the order Frost gave them. The quality code tells which height a value is from: it is the
@@ -217,21 +218,41 @@ WIND_PAIRS = [
 WIND = [("hourly", "data", "wind_speed_mean_last_10min"), ("hourly", "data", "wind_direction_mean_last_10min")]
 
 
-def test_metno_frost_a_bearing_is_taken_from_the_height_of_its_speed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that SN44300's speed and bearing are of one height, and a bearing of another height is not served.
+def test_metno_frost_the_speed_and_the_bearing_are_a_pair_of_one_height(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that SN44300's speed and bearing are of one height: the 10 m pair if it is whole, else the 2 m one.
 
     - 2025-11-01 00:00: both heights have both: the 10 m pair (8.8 m/s, 119 degrees), as the core served it.
     - 2026-06-02 12:00: 10 m has neither, 2 m has both: the 2 m pair (5.5 m/s, 346 degrees).
-    - 2026-06-04 07:00 to 09:00: the 10 m speed (7.8, 8.4 and 8.1) has no bearing at 10 m, and the bearing of 2 m (346)
-      stood beside it: 502 of the station's hours in a year (8.8 %). There is no bearing at 10 m, so there is none.
+    - 2026-06-04 07:00 to 09:00: 10 m has a speed (7.8, 8.4 and 8.1) and no bearing, and the bearing of 2 m (346) stood
+      beside it, 502 of the station's hours in a year (8.8 %). The pair is the 2 m one, speed and bearing (5.7 m/s, 346
+      degrees): no mixed pair, and no bearing lost. The 10 m speed is not served though it is the standard height's.
     """
     df = _read(monkeypatch, _answer(WIND_PAIRS), WIND, "2025-11-01T00:00", "2026-06-05T00:00", station="SN44300")
     speed = _of(df, "wind_speed_mean_last_10min")
     direction = _of(df, "wind_direction_mean_last_10min")
-    assert speed["value"].to_list() == [8.8, 5.5, 7.8, 8.4, 8.1]
-    assert speed["quality_flags"].to_list() == ["0", "2", "6", "6", "6"]
-    assert direction["value"].to_list() == [119.0, 346.0]
-    assert direction["quality_flags"].to_list() == ["0", "2"]
+    assert speed["value"].to_list() == [8.8, 5.5, 5.7, 5.7, 5.7]
+    assert speed["quality_flags"].to_list() == ["0", "2", "2", "2", "2"]
+    assert direction["value"].to_list() == [119.0, 346.0, 346.0, 346.0, 346.0]
+    assert direction["quality_flags"].to_list() == ["0", "2", "2", "2", "2"]
+
+
+def test_metno_frost_a_time_with_no_whole_pair_has_the_speed_standard_first_and_no_other_bearing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the last step of the rule: no height has both, so the speed is the 10 m one and the bearing has none there.
+
+    A built answer (the sample has no such hour): a speed at 10 m and 2 m, a bearing at 5 m. No height has both, so the
+    speed is chosen as any parameter is (10 m), and the bearing of 5 m is not served beside it.
+    """
+    hours = [
+        (
+            "2025-11-01T00:00",
+            [(SPEED, 10, 7.8, 6, "PT0H"), (SPEED, 2, 5.7, 2, "PT0H"), (DIRECTION, 5, 346, 2, "PT0H")],
+        )
+    ]
+    df = _read(monkeypatch, _answer(hours), WIND, "2025-11-01T00:00", "2025-11-01T01:00", station="SN44300")
+    assert _of(df, "wind_speed_mean_last_10min")["value"].to_list() == [7.8]
+    assert _of(df, "wind_direction_mean_last_10min").is_empty()
 
 
 def test_metno_frost_a_bearing_follows_its_speed_to_the_other_height_of_a_station_with_both(
@@ -239,8 +260,8 @@ def test_metno_frost_a_bearing_follows_its_speed_to_the_other_height_of_a_statio
 ) -> None:
     """Test that a bearing of 2 m stands beside the speed of 2 m, though 10 m has a bearing too (a built answer).
 
-    The 10 m speed has a gap, and the 10 m bearing has a value: the speed is of 2 m, and so the bearing is, so that the
-    pair is one height. (No hour of the sample has this: it is the case that the rule decides, not the one Frost has.)
+    The 10 m speed has a gap, and the 10 m bearing has a value: only 2 m has both, so the pair is the 2 m one. (No hour
+    of the sample has this: it is the case that the rule decides, not the one Frost has.)
     """
     hours = [
         (
@@ -256,11 +277,11 @@ def test_metno_frost_a_bearing_follows_its_speed_to_the_other_height_of_a_statio
 def test_metno_frost_a_bearing_asked_for_alone_is_the_standard_height_where_it_has_a_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that the direction is the 10 m one, then the other, by the rule of the speed, when the speed is not asked.
+    """Test that the direction is the 10 m one, then the other, when it is read without the speed.
 
-    The batch holds the whole dataset, so the speed is read and the bearing follows it (the hour of 07:00 has no
-    bearing). A bearing read by itself (the single and the discovery readers, which are reached only after a 404 of the
-    whole) has no speed to follow and is the standard height where it has a value.
+    The batch holds the whole dataset, so the speed is read and the pair is chosen (the hour of 07:00 has the 2 m pair).
+    A bearing read by itself (the single and the discovery readers, which are reached only after a 404 of the whole)
+    has no speed to pair with and is the standard height where it has a value.
     """
     df = _read(
         monkeypatch,
@@ -520,32 +541,72 @@ def test_metno_frost_height_choice_reads_the_element_by_its_base_name() -> None:
         assert _kept([(element, 0, other, 1.0), (element, 0, standard, 2.0)]) == [(element, 0, standard)], element
 
 
-def test_metno_frost_height_choice_takes_the_bearing_from_the_height_of_the_speed() -> None:
-    """Test the pairing on frames: the bearing is of the speed's height, and none if that height has none."""
+def test_metno_frost_height_choice_makes_the_speed_and_the_bearing_a_pair_of_one_height() -> None:
+    """Test the pairing on frames: the standard pair, else the nearest whole one, else the speed and its own bearing."""
     s, d = "wind_speed", "wind_from_direction"
-    # the speed is at 10 m, the bearing at 2 m only: no bearing
-    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "2", 346.0)]) == [(s, 0, "10")]
+    # the standard height has both: it is the pair, whatever the other height has
+    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "10", 119.0), (d, 0, "2", 135.0)]) == [
+        (s, 0, "10"),
+        (d, 0, "10"),
+    ]
+    # the speed is at 10 m, the bearing at 2 m only: the pair is the 2 m one, and the speed of 10 m is not served
+    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "2", 346.0)]) == [(s, 0, "2"), (d, 0, "2")]
     # the speed is at 2 m (10 m has none): the bearing is of 2 m, though 10 m has one
     assert _kept([(s, 0, "2", 5.0), (d, 0, "10", 119.0), (d, 0, "2", 135.0)]) == [(s, 0, "2"), (d, 0, "2")]
-    # a gap of the bearing at the speed's height is not filled from the other
+    # a gap of the bearing at 10 m: 2 m has both and is the pair
+    assert _kept([(s, 0, "10", 7.8), (d, 0, "10", None), (s, 0, "2", 5.7), (d, 0, "2", 346.0)]) == [
+        (s, 0, "2"),
+        (d, 0, "2"),
+    ]
+    # no standard pair: the nearest height that has both (5 m is nearer to 10 m than 100 m), the lower of two as near
+    assert _kept([(s, 0, "100", 9.0), (d, 0, "100", 1.0), (s, 0, "5", 3.0), (d, 0, "5", 2.0), (s, 0, "10", 4.0)]) == [
+        (s, 0, "5"),
+        (d, 0, "5"),
+    ]
+    assert _kept([(s, 0, "5", 3.0), (d, 0, "5", 2.0), (s, 0, "15", 4.0), (d, 0, "15", 1.0)]) == [
+        (s, 0, "5"),
+        (d, 0, "5"),
+    ]
+    # a code is a bearing: a calm at 10 m has both, and the bearing of 2 m does not replace it
+    assert _kept([(s, 0, "10", 0.0), (d, 0, "10", 0.0), (s, 0, "2", 0.0), (d, 0, "2", 170.0)]) == [
+        (s, 0, "10"),
+        (d, 0, "10"),
+    ]
+    # no height has both: the speed is the standard height's, and the bearing has none there (it is not of 2 m)
+    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "5", 346.0)]) == [(s, 0, "10")]
+    # a gap of the bearing at the speed's height, the bearing at another height with no speed: the speed's height
     assert _kept([(s, 0, "10", 7.8), (d, 0, "10", None), (d, 0, "2", 346.0)]) == [(s, 0, "10"), (d, 0, "10")]
     # no speed at the time: the bearing is the standard height where it has a value, else the nearest
     assert _kept([(d, 0, "10", 119.0), (d, 0, "2", 135.0)]) == [(d, 0, "10")]
     assert _kept([(d, 0, "10", None), (d, 0, "2", 135.0)]) == [(d, 0, "2")]
     # a speed that has no value at any height does not decide
     assert _kept([(s, 0, "10", None), (d, 0, "10", 119.0), (d, 0, "2", 135.0)]) == [(s, 0, "10"), (d, 0, "10")]
-    # the daily wind speed is no speed of a bearing: it takes no part in the pairing
-    assert _kept([("mean(wind_speed P1D)", 0, "2", 5.0), (d, 0, "10", 119.0)]) == [
-        ("mean(wind_speed P1D)", 0, "2"),
+    # no direction in the frame: the speed is standard-first (the readers that read a parameter by itself)
+    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7)]) == [(s, 0, "10")]
+    # each time is paired for itself
+    assert _kept([(s, 0, "10", 7.8), (d, 0, "10", 119.0), (s, 1, "10", 7.8), (s, 1, "2", 5.7), (d, 1, "2", 346.0)]) == [
+        (s, 0, "10"),
         (d, 0, "10"),
+        (s, 1, "2"),
+        (d, 1, "2"),
     ]
+    # the daily wind speed and the gust are no speed of a pair
+    assert _kept(
+        [("mean(wind_speed P1D)", 0, "10", 5.0), ("mean(wind_speed P1D)", 0, "2", 4.0), (d, 0, "2", 119.0)]
+    ) == [
+        ("mean(wind_speed P1D)", 0, "10"),
+        (d, 0, "2"),
+    ]
+    gust = "max(wind_speed_of_gust PT10M)"
+    assert _kept([(gust, 0, "10", 9.0), (gust, 0, "86", 12.0), (d, 0, "86", 119.0)]) == [(gust, 0, "10"), (d, 0, "86")]
 
 
 def test_metno_frost_a_code_of_the_chosen_height_is_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a calm or a `-3` at the speed's height is the hour, and the bearing of the other height is not served.
+    """Test that a calm or a `-3` at the pair's height is the hour, and the bearing of the other height is not served.
 
     The choice is on what Frost answered, before the codes are decoded: a 0 beside a speed of 0 is a calm (null with
-    `raw:0`), and a -3 is null with `raw:-3`, at the height of the speed, whatever the other height says.
+    `raw:0`), and a -3 is null with `raw:-3`, at the height of the pair, whatever the other height says. A code is a
+    bearing: the 10 m height with a calm or a -3 has both, and is the pair.
     """
     hours = [
         # a calm at 10 m, a bearing at 2 m beside a speed of 0 as well
@@ -568,7 +629,7 @@ def test_metno_frost_a_code_of_the_chosen_height_is_the_hour(monkeypatch: pytest
                 (DIRECTION, 2, 200, 0, "PT0H"),
             ],
         ),
-        # a gap at 10 m (no row of the bearing): the bearing of 2 m does not fill it
+        # no bearing at 10 m (no row): the pair is the 2 m one, a bearing of 90
         (
             "2020-01-01T02:00",
             [(SPEED, 10, 1.0, 0, "PT0H"), (SPEED, 2, 1.0, 0, "PT0H"), (DIRECTION, 2, 90, 0, "PT0H")],
@@ -588,5 +649,5 @@ def test_metno_frost_a_code_of_the_chosen_height_is_the_hour(monkeypatch: pytest
         options={"drop_nulls": False},
     )
     direction = _of(df, "wind_direction_mean_last_10min")
-    assert direction["value"].to_list() == [None, None, None]
-    assert [flag.split(",")[-1] for flag in direction["quality_flags"].to_list()] == ["raw:0", "raw:-3", "raw:0"]
+    assert direction["value"].to_list() == [None, None, 90.0, None]
+    assert [flag.split(",")[-1] for flag in direction["quality_flags"].to_list()] == ["raw:0", "raw:-3", "0", "raw:0"]
