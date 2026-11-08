@@ -59,6 +59,15 @@ Types of changes:
 
 ### Fixed
 
+- A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
+  URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
+  `list_remote_directory_fsspec` leave the link out, an Apache index's sort links (`?C=N;O=D`)
+  too, which were listed as files. An outage page with such a link is a `DownloadError` (before:
+  `/x/` and the absolute URL were kept as an empty listing, so a directory that was down read as
+  empty for 12 hours after it was back and `dwd/observation` skipped the period; `.`, `?retry=1`
+  and `#` came back as a file; `./` was a `RecursionError` after 974 requests that left fsspec's
+  event loop spinning). A listing an older release cached is read the same way. An `Index of`
+  page that links to `./` and holds files lists them (GH-3861)
 - **Breaking**: `glossary` (REST `/api/glossary`, `wetterdienst about glossary`, the MCP tool,
   `get_glossary`) lists the 635 parameters the networks offer, as the homepage counts them, not 641:
   the quality flags of the sources (`quality`, `quality_3`, `quality_6`, `quality_general`,
