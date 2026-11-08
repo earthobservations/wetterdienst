@@ -94,6 +94,11 @@ class CanonicalParameter:
     # comfort indices derived from several quantities at once, and for pressure, which falls
     # exponentially rather than linearly and wants the barometric formula instead
     lapse_rate: float | None = None
+    # a quality mark of the source, not a quantity: it is never requested and comes back in the
+    # ``quality_flags`` column of the readings it qualifies, so the glossary, which lists what a request can
+    # ask for, leaves it out (docs/data/quality-flags.md tells what the columns hold). Set on exactly the
+    # entries whose name ``is_quality_flag`` (``model/metadata.py``) recognises; a test holds the two together
+    quality_flag: bool = False
 
 
 # The rates the atmosphere thins at, in kelvin per metre. The dry-bulb figure is the ICAO standard
@@ -1532,23 +1537,37 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "qualifies, as the string the source writes. The codes are the provider's own and do not "
         "compare between providers -- DWD observation carries its `qn` codes, where a larger number is "
         "a more thorough check. See the provider's page for what its codes mean.",
+        quality_flag=True,
     ),
     CanonicalParameter(
-        "quality_3", "dimensionless", "Quality flag for the 3-hourly maximum wind gust reported in the same dataset."
+        "quality_3",
+        "dimensionless",
+        "Quality flag for the 3-hourly maximum wind gust reported in the same dataset.",
+        quality_flag=True,
     ),
     CanonicalParameter(
-        "quality_6", "dimensionless", "Quality flag for the 6-hourly maximum wind gust reported in the same dataset."
+        "quality_6",
+        "dimensionless",
+        "Quality flag for the 6-hourly maximum wind gust reported in the same dataset.",
+        quality_flag=True,
     ),
     CanonicalParameter(
-        "quality_general", "dimensionless", "Quality flag published by the source, applying to the dataset as a whole."
+        "quality_general",
+        "dimensionless",
+        "Quality flag published by the source, applying to the dataset as a whole.",
+        quality_flag=True,
     ),
     CanonicalParameter(
         "quality_precipitation",
         "dimensionless",
         "Quality flag published by the source for `precipitation` in the same dataset.",
+        quality_flag=True,
     ),
     CanonicalParameter(
-        "quality_wind", "dimensionless", "Quality flag published by the source for `wind` in the same dataset."
+        "quality_wind",
+        "dimensionless",
+        "Quality flag published by the source for `wind` in the same dataset.",
+        quality_flag=True,
     ),
     CanonicalParameter(
         "radiation_global",

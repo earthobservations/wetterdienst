@@ -59,6 +59,12 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `glossary` (REST `/api/glossary`, `wetterdienst about glossary`, the MCP tool,
+  `get_glossary`) lists the 635 parameters the networks offer, as the homepage counts them, not 641:
+  the quality flags of the sources (`quality`, `quality_3`, `quality_6`, `quality_general`,
+  `quality_precipitation`, `quality_wind`) are no parameters and are left out, so a lookup of one
+  is an empty list. They are the `quality_flags` column of the values: read the quality-flags page
+  of the docs, not the glossary. `CanonicalParameter.quality_flag` marks them (GH-3876)
 - `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
   warning, that source data was left out: how many of the stations they read lost a file the
   provider let go (a failed download, a directory found empty), dates of another series (Frost) or
