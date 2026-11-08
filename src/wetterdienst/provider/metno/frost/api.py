@@ -9,7 +9,7 @@ import logging
 import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 from urllib.parse import parse_qs, quote, urlparse
 
 import polars as pl
@@ -40,7 +40,7 @@ from wetterdienst.util.network import (
     raise_if_credential_rejected,
     read_refusal,
 )
-from wetterdienst.util.response_warnings import note_left_out, note_skipped_download
+from wetterdienst.util.response_warnings import note_left_out, note_open_window, note_skipped_download
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -539,6 +539,11 @@ _DAILY_PRECIPITATION_SUM = "sum(precipitation_amount P1D)"
 # the stations whose daily -1 is a day nobody read the gauge on, up to and including the year: a weekly reader (GH-3820)
 _UNREAD_DAYS_THROUGH = {"SN81930": 1993}
 _DAILY = "daily"
+_MONTHLY = "monthly"
+_ANNUAL = "annual"
+# the resolutions whose value is the aggregate of a window that can be open at the request (GH-3856), and the length of
+# the period the stamp starts, by resolution: the daily value is left out while it is open, the others are marked
+_PERIODS = {_DAILY: "1d", _MONTHLY: "1mo", _ANNUAL: "1y"}
 
 # Frost keeps several series of an element at a station that differ in `timeOffset` only ("Sometimes multiple
 # timeseries are available at the same station, with the only difference being the timeOffset value",
@@ -603,26 +608,54 @@ _STANDARD_SERIES = {
     "PT18H": "18-18 UTC series (`timeOffset` PT18H)",
     "PT0H": "calendar-day series (`timeOffset` PT0H, the hourly readings stamped 00:00 to 23:00)",
 }
-# the monthly mean is the calendar month, not a day, and its `PT6H` series runs from 06 UTC on the last day of the month
-# before to 06 UTC on the last day of the month (the daily wording would call a month "the hourly readings stamped
-# 00:00 to 23:00")
-_MONTHLY_MEAN = "mean(air_temperature P1M)"
-_MONTHLY_MEAN_SERIES = "calendar-month series (`timeOffset` PT0H, midnight to midnight of the calendar month)"
-_MONTHLY_MEAN_OTHER = "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)"
-# what the `other-window-left-out` warning says of the dates that only the other series has, by element: Frost names
-# the standard of the sums and of the extremes in its table, and prefers `PT0H` for every other element
-_LEFT_OUT_BECAUSE = {
-    element: (
-        f"these dates have a value in Frost's "
-        f"{_MONTHLY_MEAN_OTHER if element == _MONTHLY_MEAN else _OTHER_SERIES[offset]} only, and this parameter is the "
-        f"{_MONTHLY_MEAN_SERIES if element == _MONTHLY_MEAN else _STANDARD_SERIES[offset]}, "
+# a month is not a day, and the daily wording would describe it wrongly (GH-3863, GH-3867): the calendar month
+# (`PT0H`) is midnight to midnight of the month, not "the hourly readings stamped 00:00 to 23:00"; the monthly `PT6H`
+# sum and mean run from 06 UTC on the last day of the month before to 06 UTC on the last day of the month, not a 06-06
+# window of a day, and so does the `PT18H` one at 18 UTC
+_MONTHLY_STANDARD_SERIES = {
+    "PT6H": "month series from 06 UTC on the last day of the previous month to 06 UTC on the last day of the month "
+    "(`timeOffset` PT6H)",
+    "PT0H": "calendar-month series (`timeOffset` PT0H, midnight to midnight of the calendar month)",
+}
+_MONTHLY_OTHER_SERIES = {
+    "PT6H": "month series from 18 UTC on the last day of the previous month to 18 UTC on the last day of the month "
+    "(`timeOffset` PT18H)",
+    "PT0H": "other series (`timeOffset` PT6H, 06 UTC to 06 UTC on the last days of the months, or PT18H)",
+}
+
+
+def _because(element: str, offset: str) -> str:
+    """Say what the `other-window-left-out` warning says of the dates only the other series of `element` has.
+
+    The daily and the monthly element differ in the window, so the text is keyed by the element, which names its
+    resolution: Frost names the standard of the sums and of the extremes in its table, and prefers `PT0H` for every
+    other element.
+    """
+    monthly = element.endswith(" P1M)")
+    other = (_MONTHLY_OTHER_SERIES if monthly else _OTHER_SERIES)[offset]
+    own = (_MONTHLY_STANDARD_SERIES if monthly else _STANDARD_SERIES)[offset]
+    return (
+        f"these dates have a value in Frost's {other} only, and this parameter is the {own}, "
         f"the one Frost {'prefers' if offset == 'PT0H' else 'names its standard'}"
     )
-    for element, offset in _STANDARD_OFFSET.items()
-}
+
+
+# what the `other-window-left-out` warning says of the dates that only the other series has, by element
+_LEFT_OUT_BECAUSE = {element: _because(element, offset) for element, offset in _STANDARD_OFFSET.items()}
 # the column that carries the height of a reading's sensor beside it: a station may measure the wind at 10 m and 2 m,
 # and the speed that tells a calm is the one of the direction's own level. Blank where Frost gives none
 _LEVEL = "__level"
+# the column that carries the time the window of an observation closes (`_closes`), and whether it had not closed when
+# the request was served (`_OPEN`, which `_decode_sentinels` writes as `completeness:Incomplete`)
+_CLOSES = "__closes"
+_OPEN = "__open"
+# the elements of a daily value that is the reading of an instant, stamped at its time, whose window is over when it
+# is read: Frost's snow depth, one reading a day at 06 UTC. The aggregates of a window (mean, maximum, minimum, sum) are
+# not
+_INSTANTANEOUS = ("surface_snow_thickness",)
+# the code of the token `completeness` for such a value, the one the Environment Agency's own flag uses for a value
+# based on incomplete data (`quality_legend.py`)
+_INCOMPLETE = "Incomplete"
 
 
 def _raise_if_rejected(file: File) -> None:
@@ -765,6 +798,75 @@ def _stamp_days(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
     return df.with_columns(pl.col("timestamp").dt.truncate("1d"))
 
 
+def _stamp_keys(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
+    """Cut the stamps to what names the period of a value: the day of a daily one, the month, the year.
+
+    The frame the station returns has its daily stamps cut to the day (`_stamp_days`), so every comparison of its dates
+    with those of another frame of the same answer is made on this key, and not on the raw `referenceTime`, which a
+    series may stamp off midnight (the `PT6H` precipitation at 06:00, GH-3865). A stamp of another resolution is its own
+    key.
+    """
+    if resolution == _DAILY:
+        return _stamp_days(df, resolution)
+    if resolution in _PERIODS:
+        return df.with_columns(pl.col("timestamp").dt.truncate(_PERIODS[resolution]))
+    return df
+
+
+def _now() -> datetime:
+    """Give the time a request is served at, UTC: the clock that decides which windows have closed (GH-3856).
+
+    A function of its own so that a test sets the time (`monkeypatch.setattr(frost_api, "_now", ...)`).
+    """
+    return datetime.now(UTC)
+
+
+def _served_at(file: File, asked_at: datetime) -> datetime:
+    """Give the time the answer in hand is of: when it was asked for, or when its copy was made if that was before.
+
+    ``asked_at`` is `_now` taken before the download began. An answer is cached for five minutes
+    (`CacheExpiry.FIVE_MINUTES`), so one read after a window closed may have been fetched before: Frost's state at 17:57
+    is no final value of a window that closes at 18:00, whoever reads it at 18:01. A copy that has no time (the cache is
+    off, a save was skipped, a download that is stubbed) is of the time the download began, and not of the time it
+    ended: a window that closes while the answer is on its way is not closed in it.
+    """
+    if file.cached_at is None:
+        return asked_at
+    return min(asked_at, datetime.fromtimestamp(file.cached_at, UTC))
+
+
+def _closes(df: pl.DataFrame, resolution: str) -> pl.Expr:
+    """Give, for each observation of a daily, monthly or annual element, the time its value's window closes (GH-3856).
+
+    The window is the one `timeOffset` names ("If timeOffset != PT0H, the observation represents the last 24 hr, at the
+    time after midnight equal to timeOffset", https://frost.met.no/concepts2.html). Daily, the value of the date ``D``:
+    ``PT0H`` the calendar day, closing at the end of ``D``, any other offset at ``D`` + the offset (`PT6H`: 06 UTC of
+    ``D``, `PT18H`: 18 UTC). Monthly, the same around the last day of the month: ``PT0H`` closes at the end of the
+    month, ``PT6H`` at 06 UTC and ``PT18H`` at 18 UTC of its last day. Annual, around the last day of the year (31
+    December): Frost has annual data "follow the same conventions as for seasonal and monthly data". The date, month
+    or year is the key of the stamp (`_stamp_keys`). The offset is the row's own, or the one the element names
+    (`_STANDARD_OFFSET`) where the row gives none, or `PT0H`.
+
+    Null for an instantaneous element (`_INSTANTANEOUS`: the daily snow depth is the reading of an instant, which is
+    over when it is read) and for any other resolution: no window.
+    """
+    if resolution not in _PERIODS:
+        return pl.lit(None, dtype=pl.Datetime("us", "UTC"))
+    key = pl.col("referenceTime").dt.truncate(_PERIODS[resolution])
+    last_day = key if resolution == _DAILY else key.dt.offset_by(_PERIODS[resolution]).dt.offset_by("-1d")
+    offset = pl.col("timeOffset") if "timeOffset" in df.columns else pl.lit(None, dtype=pl.String)
+    standard = pl.col("elementId").replace_strict(_STANDARD_OFFSET, default=None, return_dtype=pl.String)
+    hours = (
+        offset.fill_null(standard)
+        .fill_null("PT0H")
+        .str.extract(r"^PT(\d+)H$", 1)
+        .cast(pl.Int64, strict=False)
+        .fill_null(0)
+    )
+    closes = pl.when(hours == 0).then(last_day.dt.offset_by("1d")).otherwise(last_day + pl.duration(hours=hours))
+    return pl.when(pl.col("elementId").is_in(_INSTANTANEOUS)).then(None).otherwise(closes)
+
+
 def _keep_standard_offset(df: pl.DataFrame) -> pl.DataFrame:
     """Keep, of an element that has several series by `timeOffset`, the rows of the one that is named (GH-3832).
 
@@ -782,15 +884,19 @@ def _is_standard_offset() -> pl.Expr:
     return standard.is_null() | pl.col("timeOffset").is_null() | (pl.col("timeOffset") == standard)
 
 
-def _left_out_dates(df: pl.DataFrame, parameter: pl.Expr) -> pl.DataFrame:
-    """Give the `parameter` and `timestamp` of the observations `_keep_standard_offset` leaves out, one row per date."""
+def _left_out_dates(df: pl.DataFrame, parameter: pl.Expr, resolution: str) -> pl.DataFrame:
+    """Give the `parameter` and `timestamp` of the observations `_keep_standard_offset` leaves out, one row per date.
+
+    The stamp is the key of the date (`_stamp_keys`), as the frame the station returns has it (GH-3865).
+    """
     if "timeOffset" not in df.columns:
         return pl.DataFrame()
-    return (
-        df.filter(~_is_standard_offset())
-        .select(parameter.alias("parameter"), pl.col("referenceTime").alias("timestamp"))
-        .unique()
-    )
+    return _stamp_keys(
+        df.filter(~_is_standard_offset()).select(
+            parameter.alias("parameter"), pl.col("referenceTime").alias("timestamp")
+        ),
+        resolution,
+    ).unique()
 
 
 def _full_name(parameter: ParameterModel) -> str:
@@ -804,24 +910,73 @@ def _tell_left_out(
     names: dict[str, str],
     start: datetime,
     end: datetime,
+    resolution: str,
+    open_window: pl.DataFrame | None = None,
 ) -> None:
     """Tell the walk of the dates, of the parameters asked for, that only the series of another offset has (GH-3832).
 
     ``left_out`` is what `_left_out_dates` gave, ``kept`` the frame the station returns, ``names`` the name
-    (`resolution/dataset/parameter`) of each parameter that was asked for by the name Frost gives it, and ``start`` and
-    ``end`` the window the core cuts the answer to. A date the returned series has is no date left out. The warning is
-    `other-window-left-out`, and is why `parameter-without-rows` says nothing of such a parameter.
+    (`resolution/dataset/parameter`) of each parameter that was asked for by the name Frost gives it, ``start`` and
+    ``end`` the window the core cuts the answer to, and ``resolution`` the name of the resolution they were asked for.
+    A date the returned series has is no date left out, and neither is one the returned series has but for its window
+    not having closed (``open_window``, the frame `_read_observations` gave, which `_tell_open_window` tells). The dates
+    are compared by the key of the date (`_stamp_keys`) on both sides, and the window is cut on it: a stamp of the
+    other series that is off midnight is the date of the returned one (GH-3865). The warning is `other-window-left-out`,
+    and is why `parameter-without-rows` says nothing of such a parameter.
     """
     if left_out.is_empty():
         return
-    if not kept.is_empty():
-        left_out = left_out.join(
-            kept.select("parameter", "timestamp").unique(), on=["parameter", "timestamp"], how="anti"
-        )
+    present = [
+        _stamp_keys(frame.select("parameter", "timestamp"), resolution)
+        for frame in (kept, open_window)
+        if frame is not None and not frame.is_empty()
+    ]
+    if present:
+        left_out = left_out.join(pl.concat(present).unique(), on=["parameter", "timestamp"], how="anti")
     left_out = left_out.filter(pl.col("timestamp").is_between(start, end))
     for parameter, count in left_out.group_by("parameter").len().iter_rows():
         if parameter in names:
             note_left_out(names[parameter], count, _LEFT_OUT_BECAUSE[parameter])
+
+
+def _tell_open_window(
+    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+) -> None:
+    """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
+
+    ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
+    time the window `closes`, one row for each. A daily value is left out of the answer and a monthly or annual one is
+    returned (marked, `_OPEN`), so the warning says which. A value the core cuts off (beyond the window of the request)
+    is not counted. The warning is `window-not-closed`.
+    """
+    if open_window.is_empty():
+        return
+    inside = open_window.filter(pl.col("timestamp").is_between(start, end))
+    summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
+    for parameter, count, closes in summary.iter_rows():
+        if parameter in names:
+            note_open_window(names[parameter], count, closes, returned=resolution != _DAILY)
+
+
+def _no_open_window() -> pl.DataFrame:
+    """Give the frame of the values of a window that had not closed (`_Read.open_window`) with none."""
+    return pl.DataFrame(
+        schema={"parameter": pl.String, "timestamp": pl.Datetime("us", "UTC"), "closes": pl.Datetime("us", "UTC")}
+    )
+
+
+def _tell_not_returned(
+    read: _Read, kept: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+) -> None:
+    """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `_tell_open_window`).
+
+    ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
+    """
+    # a daily value of a window not closed is left out, and no date left out for another series (GH-3856)
+    _tell_left_out(
+        read.left_out, kept, names, start, end, resolution, read.open_window if resolution == _DAILY else None
+    )
+    _tell_open_window(read.open_window, names, start, end, resolution)
 
 
 def _level(df: pl.DataFrame) -> pl.Expr:
@@ -832,21 +987,54 @@ def _level(df: pl.DataFrame) -> pl.Expr:
     return pl.lit("", dtype=pl.String).alias(_LEVEL)
 
 
+class _Read(NamedTuple):
+    """What `_read_observations` takes from the observations of an answer."""
+
+    #: the frame the core takes
+    frame: pl.DataFrame
+    #: the dates of another series that was left out (`_left_out_dates`)
+    left_out: pl.DataFrame
+    #: the values of a window that had not closed (`parameter`, `timestamp`, `closes`; `_tell_open_window`)
+    open_window: pl.DataFrame
+
+
 def _read_observations(
-    df: pl.DataFrame, parameter: pl.Expr, resolution: str, station_id: str
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Give the frame the core takes from the observations of an answer, and the dates of another series it left out.
+    df: pl.DataFrame, parameter: pl.Expr, resolution: str, station_id: str, served_at: datetime
+) -> _Read:
+    """Give the frame the core takes from the observations of an answer, and what it left out or marked.
 
     ``df`` has one row per observation (`elementId`, `referenceTime`, `value`, `timeOffset`, ...), ``parameter`` is
     the expression of the name the rows are given, ``resolution`` the name of the resolution they were asked for and
-    ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags;
-    the second frame is `_left_out_dates`, for `_tell_left_out`.
+    ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
+    The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
+    the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
+    and has `completeness:Incomplete` in its quality flags.
     """
-    left_out = _left_out_dates(df, parameter)
+    left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
+    open_window = _no_open_window()
+    if not df.is_empty() and resolution in _PERIODS:
+        df = df.with_columns(_closes(df, resolution).alias(_CLOSES))
+        is_open = (pl.col(_CLOSES) > served_at).fill_null(value=False)
+        open_window = (
+            _stamp_keys(
+                df.filter(is_open).select(
+                    parameter.alias("parameter"),
+                    pl.col("referenceTime").alias("timestamp"),
+                    pl.col(_CLOSES).alias("closes"),
+                ),
+                resolution,
+            )
+            .group_by("parameter", "timestamp")
+            .agg(pl.col("closes").min())
+        )
+        df = df.with_columns(is_open.alias(_OPEN))
+        if resolution == _DAILY:
+            # a daily value of a window that has not closed is partial and looks like the day's: left out
+            df = df.filter(~pl.col(_OPEN))
     if df.is_empty():
-        # every row was of another series: nothing to return, and what was left out is told
-        return pl.DataFrame(), left_out
+        # every row was of another series, or of a window not closed: nothing to return, and what was left out is told
+        return _Read(pl.DataFrame(), left_out, open_window)
     frame = _stamp_days(
         _decode_sentinels(
             df.select(
@@ -855,12 +1043,13 @@ def _read_observations(
                 pl.col("value"),
                 _quality_flags(df),
                 _level(df),
+                *([pl.col(_OPEN)] if _OPEN in df.columns else []),
             ),
             station_id,
         ),
         resolution,
     )
-    return _a_reading_beats_a_minus_one(frame), left_out
+    return _Read(_a_reading_beats_a_minus_one(frame), left_out, open_window)
 
 
 def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
@@ -934,8 +1123,12 @@ def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.Dat
         text=False,
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
-    decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, raw=raw))
-    return _first_height_decides_a_code(decoded).drop(SPEED_BESIDE, _LEVEL, strict=False)
+    # a value of a window that had not closed (`_read_observations`) is incomplete; none that has is marked as complete
+    incomplete = (
+        pl.when(pl.col(_OPEN)).then(pl.lit(_INCOMPLETE)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
+    )
+    decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, completeness=incomplete, raw=raw))
+    return _first_height_decides_a_code(decoded).drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
 
 
 class MetnoFrostValues(TimeseriesValues):
@@ -1008,6 +1201,7 @@ class MetnoFrostValues(TimeseriesValues):
             time_resolution=dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
+        asked_at = _now()
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -1052,15 +1246,17 @@ class MetnoFrostValues(TimeseriesValues):
         )
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
-        frame, left_out = _read_observations(df, pl.col("elementId"), dataset.resolution.name, station_id)
+        read = _read_observations(
+            df, pl.col("elementId"), dataset.resolution.name, station_id, _served_at(file, asked_at)
+        )
         # the batch holds the whole dataset: what is told is of the parameters asked for
         asked = {
             parameter.name_original: _full_name(parameter)
             for parameter in self.sr.parameters
             if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
         }
-        _tell_left_out(left_out, frame, asked, start_date, end_date)
-        return frame
+        _tell_not_returned(read, read.frame, asked, start_date, end_date, dataset.resolution.name)
+        return read.frame
 
     def _collect_after_batch_404(
         self,
@@ -1114,6 +1310,7 @@ class MetnoFrostValues(TimeseriesValues):
             time_resolution=parameter.dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
+        asked_at = _now()
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -1157,11 +1354,22 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.unnest("observations")
         # keep only matching elementId (the Frost response may include multiple elements)
         df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        frame, left_out = _read_observations(
-            df, pl.lit(parameter.name_original, dtype=pl.String), parameter.dataset.resolution.name, station_id
+        read = _read_observations(
+            df,
+            pl.lit(parameter.name_original, dtype=pl.String),
+            parameter.dataset.resolution.name,
+            station_id,
+            _served_at(file, asked_at),
         )
-        _tell_left_out(left_out, frame, {parameter.name_original: _full_name(parameter)}, start_date, end_date)
-        return frame
+        _tell_not_returned(
+            read,
+            read.frame,
+            {parameter.name_original: _full_name(parameter)},
+            start_date,
+            end_date,
+            parameter.dataset.resolution.name,
+        )
+        return read.frame
 
     def _collect_via_time_series_discovery(  # noqa: C901
         self,
@@ -1214,6 +1422,7 @@ class MetnoFrostValues(TimeseriesValues):
         ts_list = json.loads(avail_file.content.read()).get("data", [])
         frames = []
         left_outs = []
+        open_windows = []
         asked: set[str] = set()
         for ts in ts_list:
             valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
@@ -1245,6 +1454,7 @@ class MetnoFrostValues(TimeseriesValues):
                 continue
             asked.add(obs_url)
             log.info(f"Acquiring data from {obs_url}")
+            asked_at = _now()
             obs_file = download_file(
                 url=obs_url,
                 cache_dir=settings.cache_dir,
@@ -1278,21 +1488,29 @@ class MetnoFrostValues(TimeseriesValues):
             )
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
-            frame, left_out = _read_observations(df, pl.lit(element, dtype=pl.String), resolution_name, station_id)
-            left_outs.append(left_out)
-            if not frame.is_empty():
-                frames.append(frame)
+            read = _read_observations(
+                df, pl.lit(element, dtype=pl.String), resolution_name, station_id, _served_at(obs_file, asked_at)
+            )
+            left_outs.append(read.left_out)
+            open_windows.append(read.open_window)
+            if not read.frame.is_empty():
+                frames.append(read.frame)
 
         kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
         # the series of one station are read apart: a `-1` of one can come first to a reading of another (idempotent)
         if not kept.is_empty():
             kept = _a_reading_beats_a_minus_one(kept)
         # a date is left out when no series of the station returned it
-        left_out = [frame for frame in left_outs if not frame.is_empty()]
-        if left_out:
-            _tell_left_out(
-                pl.concat(left_out).unique(), kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date
-            )
+        read = _Read(
+            kept,
+            pl.concat([frame for frame in left_outs if not frame.is_empty()] or [pl.DataFrame()]).unique(),
+            pl.concat(open_windows).group_by("parameter", "timestamp").agg(pl.col("closes").min())
+            if open_windows
+            else _no_open_window(),
+        )
+        _tell_not_returned(
+            read, kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date, resolution_name
+        )
         return kept
 
 

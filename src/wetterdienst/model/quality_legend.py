@@ -297,6 +297,16 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "meteoswiss/observation": [SUSPECT, REJECTED, RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
+        _kind(
+            "completeness",
+            "Incomplete",
+            "The monthly or annual value of a window that had not closed when the request was served (the "
+            "current month or year: the calendar one closes at its end, the `PT6H` sum at 06 UTC and the `PT18H` "
+            "extremes at 18 UTC of its last day): it is the period so far, partial, and may still change. Frost "
+            "marks no such value, so this library does. A value of a closed window has no token, which is no claim "
+            "that it is final; a daily value of an open window is not returned at all (`window-not-closed`).",
+            codes=_codes(Incomplete="Based on a window that had not closed"),
+        ),
         SUSPECT,
         REJECTED,
         RAW,
