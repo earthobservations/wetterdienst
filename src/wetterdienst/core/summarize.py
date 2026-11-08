@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
 import polars as pl
@@ -27,10 +28,12 @@ from wetterdienst.core.util import (
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
+    walk_was_done_at,
     widest_station_distance,
     zero_elevation_is_unknown,
 )
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.parameter_rows import EstimateLeftOut
 from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import SUMMARIZED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
@@ -162,6 +165,12 @@ def request_stations(
     # the markers of its answer (GH-3554)
     values._count_missing_value_markers = False  # noqa: SLF001
     values._warn_without_rows = False  # noqa: SLF001
+    # what its walk leaves out at the stations it reads is told once, as one warning, when the walk is over (GH-3848)
+    left_out = EstimateLeftOut()
+    values._left_out_of_estimate = left_out  # noqa: SLF001
+
+    # the stations read up to the last one the walk used (`EstimateLeftOut.forget_since`)
+    used = 0
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),
@@ -177,6 +186,7 @@ def request_stations(
             param_dict, dropped_for_elevation.keys() & parameters_still_in_reach(counts, station["distance"])
         ):
             break
+        used = left_out.mark()
         if result_df.drop_nulls("value").is_empty():
             continue
         if apply_station_values_per_parameter(
@@ -192,6 +202,18 @@ def request_stations(
             stations_dict[station["station_id"]] = (station["longitude"], station["latitude"], station["distance"])
             if placements is not None:
                 placements[station["station_id"]] = place_station(station, elevation)
+    # the station the walk stopped at, and those it passed over for want of rows once it was done, lost nothing
+    left_out.forget_since(
+        used,
+        partial(
+            walk_was_done_at,
+            stations_by_id=stations_by_id,
+            counts=counts,
+            param_dict=param_dict,
+            dropped_for_elevation=dropped_for_elevation,
+        ),
+    )
+    left_out.warn()
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
 
