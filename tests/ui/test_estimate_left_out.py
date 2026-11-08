@@ -249,7 +249,11 @@ def _serving_three_months(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _dwd_request() -> DwdObservationRequest:
     return DwdObservationRequest(
-        parameters=[_MONTHLY], start="2026-01-01", end="2026-03-01", settings=Settings(cache_disable=True)
+        # the window reaches into the previous year, so `historical` is read at any hour (GH-3914)
+        parameters=[_MONTHLY],
+        start="2025-12-01",
+        end="2026-03-01",
+        settings=Settings(cache_disable=True),
     )
 
 
@@ -299,7 +303,7 @@ def test_an_estimate_that_lost_a_directory_over_rest_carries_the_warning_once(
             "parameters": _MONTHLY,
             "latitude": str(_DWD_POINT[0]),
             "longitude": str(_DWD_POINT[1]),
-            "timestamp": "2026-01-01/2026-03-01",
+            "timestamp": "2025-12-01/2026-03-01",
         },
     )
 
