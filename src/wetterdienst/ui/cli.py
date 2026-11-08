@@ -1389,10 +1389,13 @@ def _renamed_to(command: click.Command, option: str) -> str | None:
         for opt in (*param.opts, *param.secondary_opts)
     }
     # only a mistyped option gets here, so only a mistyped option waits for the table of what was renamed to import
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, ProvidersRequest
 
+    # `providers` never had `--dataset`, so it is no old name of its `--datasets`
+    never = ProvidersRequest.never_renamed if command.name == "providers" else frozenset()
+    name = option.removeprefix("--")
     # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
-    plural = f"{option}s" if option.removeprefix("--") in RENAMED_REQUEST_PARAMETERS else None
+    plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name not in never else None
     candidates = (option.replace("_", "-"), plural)
     return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
 
@@ -1640,17 +1643,26 @@ def coverage(
     shell_complete=_complete_provider,
     help="Only this provider. Without it, every provider. Example: dwd",
 )
+@_bool_opt(
+    "--datasets",
+    default=True,
+    help="List the resolutions and datasets of each network, with their number of parameters. "
+    "--datasets=false leaves them out, for a short answer. Default: true",
+)
 @debug_opt
 def providers(
     provider: str,
+    datasets: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Describe what each data provider is: its name, country, licence, credit line, source and networks.
 
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
-    its data under (`license`, null where it states none), the credit line to give (`attribution`), and its
-    networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
-    offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
+    its data under (`license`, null where it states none), the credit line to cite (`attribution`; the `copyright`
+    of a network is the rights holder's notice, for information), and its networks with their `kind`, `extent`,
+    source `url`, whether they need credentials, their number of parameters and their resolutions and datasets;
+    `--datasets=false` leaves out the last. Nothing is downloaded and no credential is read. `about coverage` lists the
+    parameters of a network.
     """
     from wetterdienst.ui.core import ProvidersRequest
     from wetterdienst.ui.providers import get_providers
@@ -1658,9 +1670,9 @@ def providers(
     _apply_log_level(debug=debug)
     begin_response()
 
-    request = ProvidersRequest.model_validate({"provider": provider})
+    request = ProvidersRequest.model_validate({"provider": provider, "datasets": datasets})
     try:
-        answer = get_providers(request.provider)
+        answer = get_providers(request.provider, datasets=request.datasets)
     except ApiNotFoundError as e:
         msg = f"{e} List them with: wetterdienst about providers"
         raise click.UsageError(msg) from e

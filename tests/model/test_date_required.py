@@ -116,9 +116,17 @@ def test_stations_of_a_date_required_dataset_are_listed_without_a_window(monkeyp
         b'{"data": [{"id": "SN18700", "name": "OSLO - BLINDERN", "validFrom": "1937-01-01T00:00:00.000Z",'
         b' "geometry": {"coordinates": [10.72, 59.94]}, "county": "OSLO", "countryCode": "NO", "masl": 94}]}'
     )
-    monkeypatch.setattr(
-        frost_api, "download_file", lambda *, url, **_: File(url=url, content=BytesIO(sources), status=200)
+    # the list of the series that the start and the end are read from (GH-3847): the station's own, in service
+    series = (
+        b'{"data": [{"sourceId": "SN18700:0", "validFrom": "1937-01-01T00:00:00.000Z",'
+        b' "timeResolution": "P1D", "elementId": "sum(precipitation_amount P1D)"}]}'
     )
+
+    def download_file(*, url: str, **_: object) -> File:
+        body = series if "availableTimeSeries" in url else sources
+        return File(url=url, content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(frost_api, "download_file", download_file)
     request = MetnoFrostRequest(parameters=[("daily", "data")])
 
     stations = request.filter_by_station_id("SN18700")

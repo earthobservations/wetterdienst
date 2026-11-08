@@ -27,6 +27,14 @@ Types of changes:
   shape keeps them). The message names the window and the `periods`, run or lead time that narrowed
   the request, and does not say what the other stations have. Up to 10 ids, then their number
   (GH-3828)
+- `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool, `get_providers`)
+  takes `datasets` (`--datasets`), true by default, so the answer is as before. `datasets=false`
+  leaves out the `resolutions` of each network (null) and keeps everything else, the number of
+  `parameters` among it: 20 kB for every provider where the answer was 34 kB (44 kB where 109 kB
+  with `pretty`). The default will become false in a later release, before 1.0: pass
+  `datasets=true` where you read `resolutions`. The field descriptions (OpenAPI, MCP, `--help`)
+  and the docs now say that `attribution` is the credit line to cite and `copyright` the rights
+  holder's notice, for information; the values are unchanged (GH-3536)
 
 ### Changed
 
@@ -124,6 +132,15 @@ Types of changes:
   year, until its last day + the offset) is returned with `completeness:Incomplete` in
   `quality_flags` and the same warning. Ask again after the closing time, or end the window before
   the current period; the daily snow depth has no window (GH-3856)
+- **Breaking**: `metno/frost` `stations` lists the closed stations (4,179, where it listed the 2,234
+  valid now), and a station starts and ends with its declared series, not with Frost's source
+  dates: data began before `validFrom` at one current station in ten (SN99700, 1895 against 1956),
+  and the end was null for 115 whose series had all ended. `values` of a closed station was
+  `unknown-station` (GH-3847, GH-3864). To list the stations in service, keep the rows whose
+  `end_timestamp` is null, or give a `timestamp`: a search by `rank`, distance or box with a window
+  leaves out stations closed before it. The first call reads a 13 MB list of series (about 30 s,
+  cached a week); if Frost fails it, `DownloadError` or `NoInternetError`. 58 stations with data
+  are in no Frost list and stay out
 - **Breaking**: `metno/frost` hourly `wind_direction_mean_last_10min` `0` beside a
   `wind_speed_mean_last_10min` of 0 at the same height is a calm: null with `raw:0`, as for every
   other provider, where it was `0.0`. A `0` beside a speed above 0 stays, and so does one read

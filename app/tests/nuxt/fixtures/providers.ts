@@ -1,4 +1,6 @@
+import type { H3Event } from 'h3'
 import type { Provider, ProvidersResponse } from '#shared/types/api'
+import { getQuery } from 'h3'
 
 const CC_BY = {
   spdx_id: 'CC-BY-4.0',
@@ -156,4 +158,20 @@ export function providersResponse(): ProvidersResponse {
     },
     providers: all,
   } satisfies ProvidersResponse
+}
+
+/**
+ * What the backend answers `GET /api/providers` with: the lists of each network (`resolutions`) only for
+ * `datasets=true`, else `null`, as its compact answer has them. Every consumer is held to asking for them:
+ * one that does not gets a network with nothing to list.
+ */
+export function providersAnswer(event: H3Event): ProvidersResponse {
+  const response = providersResponse()
+  if (getQuery(event).datasets !== 'true') {
+    for (const provider of response.providers) {
+      for (const network of provider.networks)
+        network.resolutions = null
+    }
+  }
+  return response
 }

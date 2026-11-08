@@ -11,19 +11,62 @@ Set the client ID via the `WD_AUTH__METNO_FROST=<client_id>` environment variabl
 
 ## Stations
 
-The station list is Frost's catalogue of `SensorSystem` sources, about 2,200 entries. 24 of
-them have no position: Frost gives them no `geometry`, and no latitude or longitude in any other
-field. They are mobile platforms, such as ships (`SN76999` SCARABEO 8, `SN77049` MS ASTERIX,
-`SN20930` POLARSTERN), rigs (`SN76946` ROSS RIG) and gliders (`SN20957` SG644 GLIDER), 20 of them
-with ship codes, so there is no fixed place to state. They stay in the list with a null
-`latitude` and `longitude`, and a search by distance or bounding box, an interpolation or a
-summary never picks them.
+The station list is Frost's catalogue of `SensorSystem` sources, the closed ones included: 4,179 entries on
+2026-11-07, of which 2,043 have an end (Frost's own list, asked without a `validtime`, holds the 2,234 that are valid now).
+Frost serves observations of a closed station, but `ids=` of one is a 404, so the catalogue is the only way to it.
 
-The list also holds about 237 foreign SYNOP stations, with ids made of `SN` and the WMO number
-times 100 (`SN743400` is Limoges-Bellegarde in France, `SN623500` De Kooy in the Netherlands,
-`SN848200` Malaga in Spain). Frost serves observations for them, but mostly with short, recent
-series: those of Limoges and De Kooy start on 2026-10-26. They show up in `stations`, so
-check the dates a station has values for before relying on a long record.
+52 of them have no position: Frost gives them no `geometry`, and no latitude or longitude in any other
+field. They are mobile platforms, such as ships (`SN76999` SCARABEO 8, `SN77049` MS ASTERIX,
+`SN20930` POLARSTERN), rigs (`SN76946` ROSS RIG) and gliders (`SN20957` SG644 GLIDER), so there is no
+fixed place to state. They stay in the list with a null `latitude` and `longitude`, and a search by distance or bounding
+box, an interpolation or a summary never picks them.
+
+The list also holds about 465 stations of foreign SYNOP networks (closed ones included), with ids made of `SN` and the WMO
+number times 100 (`SN743400` is Limoges-Bellegarde in France, `SN623500` De Kooy in the Netherlands, `SN848200` Malaga in
+Spain). Frost serves observations for them, but mostly with short, recent series: those of Limoges and De Kooy start on
+2026-10-26. They show up in `stations`, so check the dates a station has values for before relying on a long record.
+
+Three closed stations lie outside Norway's box: Torgilsbu and Myggbukta on the coast of Greenland and Nordkappbassenget in
+the Barents Sea (east of 32 E). They stay in the list with the position Frost gives.
+
+### Start and end
+
+The `start_timestamp` and `end_timestamp` of a station are those of its data, not Frost's `validFrom` and `validTo` of the
+source, which are not: data begins before the source's `validFrom` at one station in ten (SN99700's daily precipitation
+begins on 1895-07-07, the source on 1956-09-01), and the source's `validTo` is earlier than the end of the data at 1,156 of
+1,868 stations. They are read from one request of Frost's list of time series, for the elements and resolutions the dataset
+declares (about 71,000 series, 13 MB, which Frost takes about 30 s to answer), and kept for a week, where the list of sources
+is kept for twelve hours:
+
+- the start is the earlier of the source's `validFrom` and the earliest `validFrom` of a declared series;
+- the end is the latest `validTo` of a declared series, and none if any declared series is still open (the end of the
+  source is not used, so the 115 stations in service whose declared series have all ended have an end, and the 17 closed
+  ones with a series that is open have none);
+- a station without a declared series (344 of the 4,179) keeps the dates of its source.
+
+The two are out of step by design: a start is history and an end changes only when a series closes, so a list of series that
+is old costs a station that closed since a place in the searches of a window (it answers no data), and a station that opened
+since keeps the dates of its source. The first request with an empty cache takes about 35 s (36.7 s on 2026-11-07, 30 of
+them for the series), the later ones are served from the cache, which the series fill once a week: a REST API or MCP server
+with the default `WD_RESTAPI_TIMEOUT` of 60 s answers the first with a 504 `request-timeout` only when Frost is slower than
+that, and the work goes on, so the next request finds the cache full. An answer of Frost that is no list (a page of a proxy,
+no `data`, no series) is raised as a `DownloadError` and is not kept.
+
+If Frost does not answer that request, `stations` raises the `DownloadError` or `NoInternetError` of the failure and does
+not give a list with the dates of the sources. With a window, `filter_by_name`, the `stations` command, REST endpoint and MCP tool, and a search by rank, distance or
+bounding box (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and `values` by point or box) leave out the stations
+that began after it or ended before it: the end is that of the last declared series, which Frost closes only when every one
+has ended, so it does not lag a station that is still reporting. A closed station is then not counted against
+`WD_RESTAPI_MAX_STATIONS` or the rows limit, and a rank does not ask Frost for it. Without a window the whole list is
+searched, closed stations included, with their dates (the values of Frost need a window, so this is the listing alone); a
+search by station id, name and SQL looks among the whole list (the name applies the window itself). To list the stations in
+service only, keep the rows whose `end_timestamp` is null, or give the listing a `timestamp`.
+
+### Stations that cannot be reached
+
+58 stations that have a declared series (on 2026-11-07) are in no list of Frost's `/sources`, whatever `validtime` is
+asked: no catalogue request can name them, so they are not in the station list and `values` for one of them answers
+`unknown-station`.
 
 ## Time window
 
@@ -92,10 +135,11 @@ at those dates, under the name of the 06-06 one.
 
 ### What changes
 
-Counted from the readings Frost had on 2026-11-07, for the stations that wetterdienst serves. Its list is Frost's
-catalogue of `SensorSystem` sources (`/sources`, 2,234 stations), which leaves out the closed ones that Frost's
-time-series listing still has: a station of the listing that is not in the catalogue answers `unknown-station` here, with
-or without this change, so nothing there reaches a caller. Of the 2,334 stations that have a daily precipitation series
+Counted from the readings Frost had on 2026-11-07, for the stations that wetterdienst served then. Its list was Frost's
+catalogue of `SensorSystem` sources valid now (`/sources`, 2,234 stations), which left out the closed ones that Frost's
+time-series listing has: a station of the listing that was not in the catalogue answered `unknown-station`, with
+or without this change, so nothing there reached a caller. The closed stations are listed since GH-3847; the counts below
+are those of the 2,234, and the closed ones are in Frost's figures. Of the 2,334 stations that have a daily precipitation series
 in Frost's listing 1,045 are in the catalogue, and of the 987 that have both series 618; of the 2,388 stations with a
 monthly series 785, and of the 964 with both 612. The other stations have the `PT6H` series only (and two daily ones
 `PT18H` only), and nothing changes for them. A figure that is Frost's and not the catalogue's is called so.
@@ -190,9 +234,9 @@ says so, as does one of 2022-09-20 to 09-30, which returns the dates that have i
 
 ### What changes
 
-Counted from the readings Frost had on 2026-11-07, for the stations of the station list (Frost's `/sources` catalogue,
-see above: a station of the time-series listing that is not in it answers `unknown-station` with or without this
-change). Frost's listing has the maximum at 1,133 stations (579 with both series, 545 with `PT18H` only, 9 with `PT0H`
+Counted from the readings Frost had on 2026-11-07, for the stations of the station list as it was then (Frost's `/sources`
+catalogue of the stations valid now, see above: a station of the time-series listing that was not in it answered
+`unknown-station` with or without this change; the closed stations are listed since GH-3847). Frost's listing has the maximum at 1,133 stations (579 with both series, 545 with `PT18H` only, 9 with `PT0H`
 only) and the minimum at 1,161 (574, 578 and 9 with `PT6H` only); the station list has 683 stations of each, **550 and
 545 with both**, 133 and 138 with `PT18H` only and none without it. Their values were read in nine years (1960, 1970,
 1980, 2000, 2010, 2015, 2020, 2022 and 2024, the whole year each, every station of the list that has both and is active
@@ -237,8 +281,9 @@ the rows of `PT0H` are returned. A date that only `PT6H` (or `PT18H`) has is not
 so with an `other-window-left-out` warning, never as "the source has no values". A station that has no `PT0H` series returns no
 mean (none of the station list is without it). There is no option for the old series.
 
-Counted from the readings Frost had on 2026-11-07, for the stations of the station list (Frost's `/sources` catalogue; a
-station of Frost's listing that is not in it answers `unknown-station`):
+Counted from the readings Frost had on 2026-11-07, for the stations of the station list as it was then (Frost's `/sources`
+catalogue of the stations valid now; a station of Frost's listing that was not in it answered `unknown-station`; the closed
+stations are listed since GH-3847):
 
 | element | stations with both series | days or months that only `PT6H` has |
 |---|---|---|

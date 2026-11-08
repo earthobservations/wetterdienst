@@ -211,7 +211,7 @@ what the answer is missing:
   and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
   provider states none or asks for none.
-  `copyright` stays the free text it was. All providers are listed with their licence and credit line on
+  `copyright` stays the free text it was, the rights holder's notice, shown for information: cite `attribution`. All providers are listed with their licence and credit line on
   [licences and credit lines](../data/provider/licenses.md).
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
@@ -700,10 +700,15 @@ ask the same question and give the same answer.
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
 by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
-(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
-credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
-whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
+(`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice, shown for
+information), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
+how many parameters they have (`parameters`), and the resolutions and datasets they offer, with how many parameters each
+has (`dwd/radar` and `dwd/alerts` have an empty list). `datasets=false` leaves the resolutions and datasets out
+(`resolutions` is then null and everything else stays), which is all that a question about a licence or about which
+providers reach a place needs, and an answer about 40 % shorter: 20 kB for every provider where the full one is 34 kB.
+`datasets` is true for now and becomes false in a later release, before 1.0, so pass `datasets=true` where you read
+`resolutions`. `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
+answers at once, and `auth` checks whether credentials are accepted.
 
 ```bash
 # Every provider, sorted by name.
@@ -711,9 +716,12 @@ http localhost:7890/api/providers
 
 # One provider.
 http localhost:7890/api/providers provider==dwd
+
+# Without the resolutions and datasets of each network.
+http localhost:7890/api/providers provider==dwd datasets==false
 ```
 
-The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+The command line is `wetterdienst about providers [--provider dwd] [--datasets=false]` and the MCP tool is `providers`.
 
 ### Extent
 

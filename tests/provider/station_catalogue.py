@@ -260,6 +260,20 @@ FROST_ANTARCTIC = Accepted(
 )
 
 
+# Frost lists closed stations too (GH-3847), and three of them lie off the box of Norway: two on the coast of Greenland
+# (west of the box's 10 W) and one in the Barents Sea (east of its 32 E). Their ids are Norwegian ones, and the
+# positions are the ones the list gives. The box is not widened to them: the extent is where the network is
+FROST_OFF_THE_BOX = Accepted(
+    "coordinates_outside_extent",
+    "Frost lists the closed stations as well, and three of them lie outside the box of Norway (read 2026-11-07): "
+    "SN99960 TORGILSBU at (60.535, -43.225), series 1932-1940, and SN99970 MYGGBUKTA at (73.494, -21.532), series "
+    "1922-2008, both on the coast of Greenland, and SN20927 NORDKAPPBASSENGET at (72.66, 34.7), series 2018-2020, "
+    "east of the box's 32 E in the Barents Sea. Their ids are Norwegian (five digits) and the positions are the ones "
+    "the list gives, so they stay in the list and the extent stays that of Norway",
+    where=lambda row: row["station_id"] in {"SN99960", "SN99970", "SN20927"},
+)
+
+
 def _violations(
     df: pl.DataFrame,
     catalogue: str,
