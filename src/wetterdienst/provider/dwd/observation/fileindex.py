@@ -224,6 +224,17 @@ def station_ids_of_files(filenames: list[str]) -> frozenset[str]:
     return frozenset(match.group(1).zfill(5) for match in ids if match and match.group(1).zfill(5) != "00000")
 
 
+def forget_listing_of_missing_file(file_url: str, settings: Settings, ttl: CacheExpiry) -> None:
+    """Drop the listing of the directory that listed a file the server answered with a 404 (GH-3892).
+
+    The listing is kept for the `ttl` of the file index (12 hours), and a file it names that is gone has been
+    renamed or withdrawn since (DWD renames the historical files at the annual rollover). Kept, the listing has the
+    next request ask for the same name until it expires; dropped, the next request lists the directory afresh and
+    finds the file under its new name. `ttl` is the one the directory was listed with.
+    """
+    forget_remote_listing(file_url.rsplit("/", maxsplit=1)[0] + "/", settings, ttl)
+
+
 def forget_description_missing(url: str, settings: Settings, ttl: CacheExpiry) -> None:
     """Drop the listing of a directory that has no description from the listings cache, as it is no answer to keep."""
     forget_remote_listing(url if url.endswith("/") else f"{url}/", settings, ttl)

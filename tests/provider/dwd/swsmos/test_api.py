@@ -20,7 +20,7 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest, api
 from wetterdienst.provider.dwd.swsmos.api import _LATEST_FILE, DwdForecastDate, _read_run_csv, _run_url
 from wetterdienst.util.network import File
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import SkipCause, begin_response, collecting, recorded_warnings
 
 UTC = ZoneInfo("UTC")
 _RUN_URL = _run_url(dt.datetime(2026, 7, 31, 7, tzinfo=UTC))
@@ -1000,3 +1000,114 @@ def test_swsmos_tells_the_readings_the_run_wrote_a_marker_for(monkeypatch: pytes
     warnings = recorded_warnings()
     assert [warning["code"] for warning in warnings] == ["missing-value-marker"]
     assert warnings[0]["message"].startswith("2 readings of the source")
+
+
+# the cause that `file-skipped` tells when no run could be read is that of the newest candidate (GH-3892)
+
+_NEWEST = "swsmos_20260731080000_opendata.csv.bz2"
+_BEFORE = "swsmos_20260731070000_opendata.csv.bz2"
+_GONE = None
+_UNREADABLE = b"\x42\x5a\x68truncated"
+
+
+def _skip_causes(
+    monkeypatch: pytest.MonkeyPatch,
+    listed: list[str],
+    bodies: dict[str, bytes | None],
+    *,
+    issue: dt.datetime | None = None,
+) -> list[tuple[bool, SkipCause]]:
+    """Read the run of a request that lists `listed` and serves `bodies` (None: a 404), and give what it let go."""
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: [f"{api._BASE_URL}/{name}" for name in listed],  # noqa: SLF001
+    )
+
+    def download(**kwargs: object) -> File:
+        url = cast("str", kwargs["url"])
+        body = bodies[url.rsplit("/", 1)[-1]]
+        if body is None:
+            return File(url=url, content=FileNotFoundError("404"), status=404)
+        return File(url=url, content=BytesIO(body), status=200)
+
+    monkeypatch.setattr(api, "download_file", download)
+    stations = _stub_stations()
+    if issue is not None:
+        stations.request.issue = issue
+    told: list[tuple[bool, SkipCause]] = []
+    with collecting(lambda whole_request, cause: told.append((whole_request, cause))):
+        df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
+            "A006",
+            DwdSwsmosRequest.metadata["hourly"]["data"],
+        )
+    assert df.is_empty()
+    return told
+
+
+def test_swsmos_tells_a_run_that_is_a_404_as_withdrawn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run the listing named and the server no longer has is a withdrawn file, which may be back."""
+    told = _skip_causes(monkeypatch, [_NEWEST, _BEFORE], {_NEWEST: _GONE, _BEFORE: _GONE})
+    assert told == [(True, SkipCause.WITHDRAWN)]
+
+
+def test_swsmos_tells_a_run_that_would_not_parse_as_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unreadable body is no download that failed: it heals only where DWD was still writing it."""
+    told = _skip_causes(monkeypatch, [_NEWEST, _BEFORE], {_NEWEST: _UNREADABLE, _BEFORE: _UNREADABLE})
+    assert told == [(True, SkipCause.UNPARSEABLE)]
+
+
+def test_swsmos_tells_a_pinned_run_that_would_not_parse_as_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pinned `issue` has one candidate, and a corrupt one stays so (the entry is held for twelve hours)."""
+    told = _skip_causes(monkeypatch, [_NEWEST], {_NEWEST: _UNREADABLE}, issue=dt.datetime(2026, 7, 31, 8, tzinfo=UTC))
+    assert told == [(True, SkipCause.UNPARSEABLE)]
+
+
+@pytest.mark.parametrize(
+    ("newest", "before", "cause"),
+    [
+        pytest.param(_UNREADABLE, _GONE, SkipCause.UNPARSEABLE, id="newest unreadable, the one before gone"),
+        pytest.param(_GONE, _UNREADABLE, SkipCause.WITHDRAWN, id="newest gone, the one before unreadable"),
+    ],
+)
+def test_swsmos_tells_the_cause_of_the_newest_run_when_both_fail_differently(
+    monkeypatch: pytest.MonkeyPatch, newest: bytes | None, before: bytes | None, cause: SkipCause
+) -> None:
+    """The run before is a stand-in for the newest: what met the newest is what the next request meets."""
+    assert _skip_causes(monkeypatch, [_NEWEST, _BEFORE], {_NEWEST: newest, _BEFORE: before}) == [(True, cause)]
+
+
+def test_swsmos_tells_nothing_when_the_run_before_serves_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fallback that answers is no file let go, as before: the causes of the runs it passed over are not told."""
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_a, **_k: [f"{api._BASE_URL}/{n}" for n in (_NEWEST, _BEFORE)],  # noqa: SLF001
+    )
+    bodies = {_NEWEST: _UNREADABLE, _BEFORE: _run_file(("A006", "202607310800", "17.9"))}
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
+    )
+    told: list[tuple[bool, SkipCause]] = []
+    values = _stub_stations().values()
+    with collecting(lambda whole_request, cause: told.append((whole_request, cause))):
+        df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
+            "A006", DwdSwsmosRequest.metadata["hourly"]["data"]
+        )
+    assert df.get_column("value").to_list() == [17.9]
+    assert told == []
+
+
+def test_swsmos_tells_a_directory_that_lists_nothing_as_found_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty or missing directory is the cause of an empty listing, which may be filled again."""
+    assert _skip_causes(monkeypatch, [], {}) == [(True, SkipCause.EMPTY_DIRECTORY)]
+
+
+def test_swsmos_tells_a_directory_that_lists_no_run_as_a_file_the_reader_cannot_use(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Files and no run is a restructure, which stays: not a cause that a retry would heal."""
+    told = _skip_causes(monkeypatch, ["swsmos_renamed_20260731.csv.bz2", "swsKatalog.csv.bz2"], {})
+    assert told == [(True, SkipCause.UNPARSEABLE)]
