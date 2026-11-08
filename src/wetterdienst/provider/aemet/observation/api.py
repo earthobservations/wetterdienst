@@ -40,8 +40,9 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    skip_cause_of_failure,
 )
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -141,6 +142,10 @@ class _AemetEnvelopeError(Exception):
         self.status = status
 
 
+class _AemetBodyError(Exception):
+    """AEMET answered with a body that is no envelope, no link to the data or no JSON array (an HTTP 200)."""
+
+
 class _AemetRetryableError(Exception):
     """Internal signal used to trigger a stamina retry on a retryable AEMET failure."""
 
@@ -235,7 +240,7 @@ def _read_envelope(file: File) -> dict | Exception:
         estado = envelope.get("estado")
     except (ValueError, AttributeError):
         # a 200 that is no envelope: a maintenance page, or JSON that is no object
-        return Exception("AEMET answered with something other than its JSON envelope")
+        return _AemetBodyError("AEMET answered with something other than its JSON envelope")
     if estado != 200:
         description = envelope.get("descripcion", "unknown AEMET error")
         if estado in _KEY_REJECTED_STATUSES:
@@ -284,11 +289,14 @@ def _note_skipped_chunk(payload: Exception) -> None:
     """Tell that a chunk is left out of the answer, unless AEMET answered for it that it has no data (a 404).
 
     Everything else that comes back as a failure is a chunk the reader lets go: a refusal, an envelope of an `estado`
-    that is no answer, a body that is no envelope (a maintenance page answered with HTTP 200).
+    that is no answer, a body that is no envelope (a maintenance page answered with HTTP 200, `_AemetBodyError`, which
+    is `MAINTENANCE`; the others are told by `skip_cause_of_failure`).
     """
     if isinstance(payload, FileNotFoundError) or getattr(payload, "status", None) == HTTPStatus.NOT_FOUND:
         return
-    note_skipped_download()
+    note_skipped_download(
+        SkipCause.MAINTENANCE if isinstance(payload, _AemetBodyError) else skip_cause_of_failure(payload)
+    )
 
 
 def _raise_if_unanswered(payload: bytes | Exception) -> None:
@@ -360,7 +368,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         return _as_outage(envelope, file.url, file.status)
     if not isinstance(envelope.get("datos"), str):
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return Exception("AEMET answered with an envelope without a link to the data")
+        return _AemetBodyError("AEMET answered with an envelope without a link to the data")
     try:
         # the link is the envelope's to name, and is fetched only on AEMET's own host (GH-3339)
         datos_url = fetchable_link(envelope["datos"], _BASE_URL)
@@ -371,7 +379,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     if isinstance(datos_file.content, Exception):
         # the envelope said 200 and named the data, which is not there: a chunk let go, whatever the status of the
         # link, and not AEMET's answer that it has no data for the request (an `estado` of 404)
-        note_skipped_download()
+        note_skipped_download(datos_file.skip_cause)
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(datos_file.content, datos_file.url, datos_file.status)
     payload = datos_file.content.read()
@@ -380,7 +388,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         # that led to it is asked again from the cache
         _drop_cached_body(datos_file, settings, ttl, settings.fsspec_client_kwargs)
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return Exception("AEMET answered with something other than a JSON array as the data")
+        return _AemetBodyError("AEMET answered with something other than a JSON array as the data")
     return payload
 
 

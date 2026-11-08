@@ -41,7 +41,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     warn_skipped_listings,
 )
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -652,7 +652,7 @@ class DwdDerivedValues(TimeseriesValues):
             except EmptyListingError as e:
                 # the directory has no file to read: the lookup of the stations tells the directory, this the station
                 log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
-                note_skipped_download()
+                note_skipped_download(SkipCause.EMPTY_DIRECTORY)
                 continue
 
             if remote_files.is_empty():

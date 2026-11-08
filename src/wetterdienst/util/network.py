@@ -68,6 +68,7 @@ from wetterdienst.util.listing_cache import (
     remove_diskcache_leftovers,
 )
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
+from wetterdienst.util.response_warnings import SkipCause
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -152,6 +153,19 @@ class File:
             raise self.content
         if isinstance(self.content, Exception):
             raise _download_error(self.content, self.url) from self.content
+
+    @property
+    def skip_cause(self) -> SkipCause:
+        """Give why a provider that lets this failed download go (`note_skipped_download`) lets it go.
+
+        A 404 is a file withdrawn since the listing; a status that is a refusal for good (`refused_for_good`) is a
+        refusal, whatever the exception stored; any other failure is told by `skip_cause_of_failure`.
+        """
+        if self.status == HTTPStatus.NOT_FOUND:
+            return SkipCause.WITHDRAWN
+        if refused_for_good(self.status):
+            return SkipCause.REFUSED
+        return skip_cause_of_failure(self.content) if isinstance(self.content, BaseException) else SkipCause.FAILED
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -305,6 +319,54 @@ def as_outage(error: Exception, url: str) -> Exception:
         failure.__cause__ = error
         return failure
     return error
+
+
+#: The 4xx statuses that are no refusal for good: a file not there yet (404), a request that timed out (408), one
+#: that came too early (425) and one over the rate (429). Any other 4xx is the server turning the request down, and
+#: it does so again at the next one.
+_HEALING_CLIENT_STATUSES = frozenset(
+    {HTTPStatus.NOT_FOUND, HTTPStatus.REQUEST_TIMEOUT, HTTPStatus.TOO_EARLY, HTTPStatus.TOO_MANY_REQUESTS}
+)
+
+
+def refused_for_good(status: object) -> bool:
+    """Tell whether an HTTP status is the server turning the request down for good: a 4xx but 404, 408, 425 and 429.
+
+    A 400 (a query or a parameter the server does not have), a 401 or 403, a 410 and the like stay as they are when
+    the request is made again; a missing file, a timeout, a request that came too early and a rate limit may not.
+    """
+    return (
+        isinstance(status, int)
+        and HTTPStatus.BAD_REQUEST <= status < HTTPStatus.INTERNAL_SERVER_ERROR
+        and status not in _HEALING_CLIENT_STATUSES
+    )
+
+
+def skip_cause_of_failure(error: BaseException) -> SkipCause:
+    """Say why a download that failed with `error` is let go: refused (and will be again), or failed (and may not).
+
+    A body refused for its size, its time or an unannounced compression (`DownloadRefusedError`, which is the
+    `__cause__` of the `DownloadError` that names the file), a redirect that was not followed
+    (`RedirectRefusedError`, as `as_outage` reads it), an answer of the server that turns the request down for
+    good (`refused_for_good`: a 400, a 403, a 410, on the error or an `estado` it carries as `status`) and a TLS
+    failure that is the same on every attempt (a certificate that does not verify, a protocol or a cipher the two
+    cannot agree on) are the same refusal at the next request, until the provider fixes it. Every other failure, a
+    reset, a timeout, a 5xx, a 429, may be gone the next time. So may a handshake the server only fumbled
+    (`_is_transient_tls_failure`: `WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`): the network layer asks again before
+    a file is let go, and one that outlasted the retries is a failed download, not a refusal.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if isinstance(current, (ClientSSLError, ssl.SSLError)):
+            return SkipCause.FAILED if _is_transient_tls_failure(current) else SkipCause.REFUSED
+        if isinstance(current, (DownloadRefusedError, RedirectRefusedError)) or refused_for_good(
+            getattr(current, "status", None)
+        ):
+            return SkipCause.REFUSED
+        seen.add(id(current))
+        current = current.__cause__
+    return SkipCause.FAILED
 
 
 #: The statuses with which a provider says that it refuses the credential it was sent.

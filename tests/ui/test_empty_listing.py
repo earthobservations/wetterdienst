@@ -563,7 +563,9 @@ def test_rest_values_of_a_station_whose_historical_directory_is_empty_name_the_s
     assert any(
         "stations" not in warning and "`climate/monthly/kl/historical/`" in warning["message"] for warning in skipped
     )
-    assert any(warning.get("stations") == ["00044"] for warning in skipped)
+    (station_level,) = [warning for warning in skipped if warning.get("stations") == ["00044"]]
+    assert ": the directory was found empty." in station_level["message"]
+    assert station_level["message"].endswith("Try again later.")
     assert "Cache-Control" not in response.headers
 
 
@@ -898,7 +900,10 @@ def test_python_the_values_of_a_station_of_an_empty_directory_warn_and_go_on(dwd
 
     assert all(result.df.is_empty() for result in results)
     skipped = [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
-    assert any(warning.get("stations") == ["00044"] for warning in skipped)
+    (station_level,) = [warning for warning in skipped if warning.get("stations") == ["00044"]]
+    # an empty directory may be filled again: the station's warning gives that cause and says to try again
+    assert ": the directory was found empty." in station_level["message"]
+    assert station_level["message"].endswith("Try again later.")
 
 
 def test_python_the_values_of_a_ten_minute_dataset_skip_an_empty_historical_directory(dwd: _Dwd) -> None:
@@ -914,7 +919,10 @@ def test_python_the_values_of_a_ten_minute_dataset_skip_an_empty_historical_dire
 
     assert all(result.df.is_empty() for result in results)
     skipped = [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
-    assert any(warning.get("stations") == ["00044"] for warning in skipped)
+    (station_level,) = [warning for warning in skipped if warning.get("stations") == ["00044"]]
+    # an empty directory may be filled again: the station's warning gives that cause and says to try again
+    assert ": the directory was found empty." in station_level["message"]
+    assert station_level["message"].endswith("Try again later.")
 
 
 def test_python_the_values_of_derived_skip_an_empty_directory(dwd: _Dwd) -> None:
@@ -930,7 +938,10 @@ def test_python_the_values_of_derived_skip_an_empty_directory(dwd: _Dwd) -> None
 
     assert all(result.df.is_empty() for result in results)
     skipped = [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
-    assert any(warning.get("stations") == ["00044"] for warning in skipped)
+    (station_level,) = [warning for warning in skipped if warning.get("stations") == ["00044"]]
+    # an empty directory may be filled again: the station's warning gives that cause and says to try again
+    assert ": the directory was found empty." in station_level["message"]
+    assert station_level["message"].endswith("Try again later.")
 
 
 def test_python_an_outage_is_raised_by_the_lookup(dwd: _Dwd) -> None:

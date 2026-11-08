@@ -311,7 +311,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
-                note_skipped_download()
+                note_skipped_download(file.skip_cause)
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)

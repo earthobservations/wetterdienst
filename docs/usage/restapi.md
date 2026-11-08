@@ -340,7 +340,8 @@ what the answer is missing:
     since the listing, a maintenance page, a file that would not parse, a directory found empty). The values of the
     station may be missing from the estimate. The cause is not known to the walk, so the advice is for each: a failed
     download, a withdrawn file, a maintenance page and an empty directory may be back later, so try again; a refused
-    download (too large, too slow) or a file that would not parse mostly stays as it is;
+    download (too large, too slow) or a file that would not parse mostly stays as it is, and is worth reporting to the
+    provider;
   - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
     the source holds values for them, nothing is missing there, and they are not read because a value of another
     window would be wrong under the parameter's name;
@@ -454,7 +455,7 @@ what the answer is missing:
   at all.
 
   `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
-  listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
+  listed (a refused download, a file withdrawn since the listing, an error page answered with HTTP 200, a file
   that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
   carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
   datasets the request read at them: a provider says which station, not which of its files. A file that serves every
@@ -463,7 +464,15 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  Retry later: what is missing may well be there then, which is the
+  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408, 425 or
+  429), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
+  report such as FMI's rate limit) and a directory found empty may be back, so it says to try again later; a refused
+  download (too large, too slow, an off-host redirect, or a request the server turns down for good: a 400, 401, 403 or
+  410, or an exception report that names a request error such as `InvalidParameterValue`) and a file that would not
+  parse mostly stay as they are, so it says that retrying will not help and that it is worth reporting to the
+  provider. Where both kinds occurred it groups them as
+  `source-data-left-out` does. The code and the members (`stations`) are the same for every cause. What is missing may
+  well be there on a retry for the first kind, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
   again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a

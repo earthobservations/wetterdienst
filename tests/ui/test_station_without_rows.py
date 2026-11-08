@@ -29,7 +29,13 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.util.response_warnings import begin_response, note_left_out, note_skipped_download, recorded_warnings
+from wetterdienst.util.response_warnings import (
+    SkipCause,
+    begin_response,
+    note_left_out,
+    note_skipped_download,
+    recorded_warnings,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -489,7 +495,7 @@ def test_a_file_that_serves_every_station_covers_the_stations_read(monkeypatch: 
     """A whole-request file let go is every collected station's: its emptiness is `file-skipped`'s, not told here."""
 
     def lets_go(df: pl.DataFrame) -> pl.DataFrame:
-        note_skipped_download(whole_request=True)
+        note_skipped_download(SkipCause.FAILED, whole_request=True)
         return df
 
     _serving(monkeypatch, s00001=lets_go, s00002=_nothing)
@@ -502,7 +508,7 @@ def test_a_station_not_read_is_named_beside_a_whole_request_file_let_go(monkeypa
     """The file covers the stations that were read; one the index says began after the window was never read."""
 
     def lets_go(df: pl.DataFrame) -> pl.DataFrame:
-        note_skipped_download(whole_request=True)
+        note_skipped_download(SkipCause.FAILED, whole_request=True)
         return df.with_columns(pl.col("timestamp").dt.replace(year=1955))
 
     _serving(monkeypatch, s00001=lets_go)
