@@ -38,9 +38,10 @@ so a larger number is not "worse".
 
 ## The daily temperature: the 24 hours ending 09Z
 
-The daily `temperature_air_max_2m`, `temperature_air_min_2m` and `temperature_air_min_0_05m` are the
-extremes of **the 24 hours ending 09Z on the stamped day (09-09Z)**, the Met Office's usual
-climatological day, at every station. The MIDAS file holds them as windows of 12 or 24 hours
+The daily `temperature_air_max_2m` and `temperature_air_min_2m` are the extremes of **the 24 hours
+ending 09Z on the stamped day (09-09Z)**, the Met Office's usual climatological day, at every
+station; `temperature_air_min_0_05m` is the same day, built from the 21-09Z row at a 12 hour station
+(below). The MIDAS file holds them as windows of 12 or 24 hours
 (`ob_hour_count`), each with the time it ends (`ob_end_time`): the TD table says "For air
 temperatures, the observation period will usually be one of the following: 09-09Z, 09-21Z, 21-09Z"
 ([TD table](https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/TD_Table.html)). A station reports
@@ -68,9 +69,10 @@ before). A year's first day reads the evening of 31 December from the file of th
 The minimum grass temperature is reported in the 21-09Z rows and the 24 hour rows only: of 28,594
 rows of the 96 station-years that have a value, 24,200 are 12 hour rows ending 09:00 and 4,394 are
 24 hour rows, and none is a 12 hour row ending 21:00 (the air temperatures have 25,097 and 25,091 of
-those). Its 12 hour day is therefore the 21-09Z row alone, as before, and no day is left out for it.
-Whether it should need both halves, which would leave it out at every 12 hour station, is open
-(GH-3137).
+those). At a 12 hour station the 21-09Z row ending 09:00 on `D` therefore stands for the 09-09Z
+window of `D`, and no day is left out for it; on a day with a 24 hour row, that row wins. This is
+the maintainer's decision (GH-3137): requiring both halves would leave the grass minimum out at
+every 12 hour station.
 
 ## The source's own verdict (`source`)
 

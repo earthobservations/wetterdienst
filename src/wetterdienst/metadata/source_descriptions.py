@@ -216,10 +216,12 @@ _MO_DAILY_STAMP = (
     "(other-window-left-out)."
 )
 # the grass minimum is in no row ending 21:00 (24,200 12 hour rows ending 09:00 and 4,394 24 hour rows have one, 96
-# station-years), so a 12 hour station's day is its 21-09Z row alone
+# station-years), so a 12 hour station's day is its 21-09Z row alone, which the maintainer decided (GH-3137) stands for
+# the 09-09Z window
 _MO_GRASS_STAMP = (
-    "The 24 hours ending 09Z on the stamped day (09-09Z): a 24 hour row ending 09:00 as it is, else the 21-09Z row "
-    "ending 09:00 on the day, the only 12 hour window the file reports it in."
+    "The day ending 09Z on the stamped day: a 24 hour row ending 09:00 as it is (09-09Z); at a 12 hour station the "
+    "21-09Z row ending 09:00 on the day, which stands for the 09-09Z window, the only 12 hour window the file "
+    "reports it in. A day with both kinds of row is the 24 hour row."
 )
 
 # the window of a daily value of ECCC (the glossary, "Climatological Day"; Note 16 of the technical documentation)
