@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-08
+
 ### Added
 
 - `[Navigation]` On a phone you choose which four tools are in the tab bar, and in which order:
@@ -39,6 +41,9 @@ Types of changes:
 - `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
   Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
   the settings hold for the visit and are the defaults at the next (GH-3846)
+- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
+  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
+  "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)
 
 ## [0.45.0] - 2026-11-07
 
@@ -1863,7 +1868,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...HEAD
+[0.46.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...app-v0.46.0
 [0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
