@@ -133,12 +133,12 @@ def test_metno_frost_the_gust_of_a_platform_is_the_10_m_reading() -> None:
 
 
 def test_metno_frost_the_speed_and_the_bearing_are_of_one_height() -> None:
-    """Test that a returned speed and bearing are the readings of one height, the pair's, and none is lost for a gap.
+    """Test that a returned speed and bearing are the readings of the pair's height, and none is lost for a gap.
 
     SN44300 measures the wind at 10 m and 2 m. The pair's height of a time is the 10 m one if it has both a speed and a
-    bearing, else the nearest height that has both; with no whole pair the speed is the 10 m one (else the nearest) and
-    the bearing must be of its height. A bearing is returned only beside the speed of its height, and where a pair
-    exists both are returned (a calm, a bearing of 0 beside a speed of 0, and `-3` are null and not compared).
+    bearing, else the nearest height that has both: speed and bearing are both of it. Where no height has both, each is
+    the standard height's, or the nearest. A calm (a bearing of 0 beside a speed of 0) and `-3` are null and not
+    compared.
     """
     start = dt.datetime(2026, 6, 1, tzinfo=UTC)
     end = dt.datetime(2026, 6, 8, tzinfo=UTC)
@@ -155,11 +155,28 @@ def test_metno_frost_the_speed_and_the_bearing_are_of_one_height() -> None:
         pairs += bool(whole)
         assert value == pytest.approx(speed_raw[time][height]), time
         if time in directions:
-            assert height in direction_raw[time], f"a bearing at {time} where the speed's height {height} has none"
-            assert directions[time] == pytest.approx(direction_raw[time][height]), time
+            own = height if whole else _height(direction_raw[time], 10.0)
+            assert directions[time] == pytest.approx(direction_raw[time][own]), time
             beside += 1
-        elif whole and direction_raw[time][height] not in (0, -3):
-            pytest.fail(f"no bearing at {time} where the pair's height {height} has one")
+        elif direction_raw[time]:
+            own = height if whole else _height(direction_raw[time], 10.0)
+            assert direction_raw[time][own] in (0, -3), f"no bearing at {time} where Frost has one at {own}"
     assert pairs
     assert beside
     assert set(directions) <= set(speeds), "a bearing without a speed"
+
+
+def test_metno_frost_a_station_that_never_measured_both_at_one_height_loses_no_bearing() -> None:
+    """Test that SN92120 (speed at 2 m, bearing at 10 m, 1992-02 to 1993-12) returns every bearing Frost has.
+
+    No height has both a speed and a bearing, so the bearing is the one it has, beside the speed of another height. A
+    calm (0) and `-3` are null and not counted.
+    """
+    start = dt.datetime(1993, 6, 1, tzinfo=UTC)
+    end = dt.datetime(1993, 6, 3, tzinfo=UTC)
+    direction_raw = _raw("SN92120", "wind_from_direction", "PT1H", start, end)
+    df = _values("SN92120", "hourly", ["wind_speed_mean_last_10min", "wind_direction_mean_last_10min"], start, end)
+    directions = _of(df, "wind_direction_mean_last_10min")
+    expected = {time: heights[10] for time, heights in direction_raw.items() if heights and heights[10] not in (0, -3)}
+    assert expected
+    assert directions == pytest.approx(expected)

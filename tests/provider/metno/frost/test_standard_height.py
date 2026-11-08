@@ -236,13 +236,11 @@ def test_metno_frost_the_speed_and_the_bearing_are_a_pair_of_one_height(monkeypa
     assert direction["quality_flags"].to_list() == ["0", "2", "2", "2", "2"]
 
 
-def test_metno_frost_a_time_with_no_whole_pair_has_the_speed_standard_first_and_no_other_bearing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test the last step of the rule: no height has both, so the speed is the 10 m one and the bearing has none there.
+def test_metno_frost_a_time_with_no_whole_pair_has_each_standard_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the last step of the rule: no height has both, so the speed and the bearing are each chosen apart.
 
-    A built answer (the sample has no such hour): a speed at 10 m and 2 m, a bearing at 5 m. No height has both, so the
-    speed is chosen as any parameter is (10 m), and the bearing of 5 m is not served beside it.
+    A built answer: a speed at 10 m and 2 m, a bearing at 5 m. No height has both, so the speed is the 10 m one and the
+    bearing is served beside it, of 5 m: a bearing is not lost because Frost never measured the two at one height.
     """
     hours = [
         (
@@ -252,7 +250,46 @@ def test_metno_frost_a_time_with_no_whole_pair_has_the_speed_standard_first_and_
     ]
     df = _read(monkeypatch, _answer(hours), WIND, "2025-11-01T00:00", "2025-11-01T01:00", station="SN44300")
     assert _of(df, "wind_speed_mean_last_10min")["value"].to_list() == [7.8]
-    assert _of(df, "wind_direction_mean_last_10min").is_empty()
+    assert _of(df, "wind_direction_mean_last_10min")["value"].to_list() == [346.0]
+
+
+# SN92120, 1993-06-01 to 03, as Frost answered it (the whole answer, 48 hours): the speed at 2 m only, every third hour,
+# the bearing at 10 m only, every hour. The station and SN92130 measured so from 1992-02 to 1993-12, and SN49490 for 4
+# days in 2013: no height has both, so the pair rule has no pair to give
+SN92120_SPEEDS = {
+    0: 17.7, 3: 15.6, 6: 14.4, 9: 11.8, 12: 10.4, 15: 9.0, 18: 8.4, 21: 6.6,
+    24: 8.5, 27: 9.2, 30: 7.3, 33: 6.9, 36: 8.0, 39: 6.0, 42: 5.4, 45: 4.4,
+}  # fmt: skip
+SN92120_BEARINGS = [
+    27, 26, 32, 32, 36, 33, 33, 38, 40, 40, 47, 58, 58, 48, 53, 53, 50, 72, 72, 80, 87, 87, 101, 101,
+    101, 101, 101, 101, 82, 82, 82, 72, 64, 64, 54, 59, 59, 55, 54, 54, 51, 57, 57, 54, 72, 72, 86, 107,
+]  # fmt: skip
+
+
+def test_metno_frost_a_station_that_never_measured_both_at_one_height_keeps_every_bearing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that all 48 bearings of SN92120 are served, beside the 2 m speeds that exist, measured at another height.
+
+    The speed is at 2 m (every third hour) and the bearing at 10 m (every hour): no height has both. A rule that gave
+    the bearing only to the speed's height kept 16 of the 48 bearings; the maintainer decided that no bearing is lost
+    where Frost never measured the two at one height, and that the mixed pair is documented.
+    """
+    hours = [
+        (
+            f"1993-06-0{1 + hour // 24}T{hour % 24:02d}:00",
+            [
+                *([(SPEED, 2, SN92120_SPEEDS[hour], 2, "PT0H")] if hour in SN92120_SPEEDS else []),
+                (DIRECTION, 10, SN92120_BEARINGS[hour], 2, "PT0H"),
+            ],
+        )
+        for hour in range(48)
+    ]
+    df = _read(monkeypatch, _answer(hours), WIND, "1993-06-01T00:00", "1993-06-03T00:00", station="SN92120")
+    speed = _of(df, "wind_speed_mean_last_10min")
+    direction = _of(df, "wind_direction_mean_last_10min")
+    assert speed["value"].to_list() == list(SN92120_SPEEDS.values())
+    assert direction["value"].to_list() == [float(value) for value in SN92120_BEARINGS]
 
 
 def test_metno_frost_a_bearing_follows_its_speed_to_the_other_height_of_a_station_with_both(
@@ -572,10 +609,11 @@ def test_metno_frost_height_choice_makes_the_speed_and_the_bearing_a_pair_of_one
         (s, 0, "10"),
         (d, 0, "10"),
     ]
-    # no height has both: the speed is the standard height's, and the bearing has none there (it is not of 2 m)
-    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "5", 346.0)]) == [(s, 0, "10")]
-    # a gap of the bearing at the speed's height, the bearing at another height with no speed: the speed's height
-    assert _kept([(s, 0, "10", 7.8), (d, 0, "10", None), (d, 0, "2", 346.0)]) == [(s, 0, "10"), (d, 0, "10")]
+    # no height has both: each is chosen apart, the speed the 10 m one and the bearing the one it has (never lost)
+    assert _kept([(s, 0, "10", 7.8), (s, 0, "2", 5.7), (d, 0, "5", 346.0)]) == [(s, 0, "10"), (d, 0, "5")]
+    assert _kept([(s, 0, "2", 7.8), (d, 0, "10", 346.0)]) == [(s, 0, "2"), (d, 0, "10")]
+    # a gap of the bearing at 10 m, a bearing at 2 m with no speed there: the bearing is the one it has
+    assert _kept([(s, 0, "10", 7.8), (d, 0, "10", None), (d, 0, "2", 346.0)]) == [(s, 0, "10"), (d, 0, "2")]
     # no speed at the time: the bearing is the standard height where it has a value, else the nearest
     assert _kept([(d, 0, "10", 119.0), (d, 0, "2", 135.0)]) == [(d, 0, "10")]
     assert _kept([(d, 0, "10", None), (d, 0, "2", 135.0)]) == [(d, 0, "2")]

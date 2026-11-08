@@ -451,7 +451,8 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
 #   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
 #   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
-#   what the hour is, and the bearing of another height never fills it
+#   what the hour is, and the bearing of another height does not fill it; only where no height has both are they
+#   chosen apart
 # - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
 #   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
 #   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
@@ -1121,9 +1122,10 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
     1. the standard height (10 m), if it has both a speed and a direction;
     2. else the height that has both and is nearest to the standard one (the lower of two as near): the speed and the
        bearing are both of it, though the standard height has a speed;
-    3. else (no height has both) the speed is chosen as any parameter is, and the direction is of the speed's height,
-       or none if it has none there, never of another height. A time with no speed that has a value is the direction's
-       own choice.
+    3. else (no height has both: Frost never measured them at one height, as at SN92120 and SN92130 in 1992-02 to
+       1993-12, the speed at 2 m and the bearing at 10 m) each is chosen as any parameter is, the standard height
+       first. That is the one case in which a bearing stands beside a speed of another height, and it is served so
+       that no bearing is lost.
 
     The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
     a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
@@ -1162,25 +1164,11 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
         both.any().over("timestamp").alias("__paired"),
         pl.when(both & (distance == nearest_pair)).then(pl.col(_HEIGHT)).min().over("timestamp").alias("__pair"),
     )
-    # the height each time's speed was chosen at, for the direction of a time that has no pair
-    speed = (
-        df.filter(is_speed & pl.col("__answered"))
-        .select("timestamp", pl.col("__chosen").alias("__speed_height"), pl.lit(value=True).alias("__follows"))
-        .unique("timestamp")
-    )
-    df = df.join(speed, on="timestamp", how="left")
     paired = (is_speed | is_direction) & pl.col("__paired")
-    follows = is_direction & ~pl.col("__paired") & pl.col("__follows").fill_null(value=False)
-    wanted = (
-        pl.when(paired)
-        .then(pl.col("__pair"))
-        .when(follows)
-        .then(pl.col("__speed_height"))
-        .otherwise(pl.col("__chosen"))
-    )
-    decided = pl.col(_STANDARD).is_not_null() & (paired | follows | pl.col("__answered"))
+    wanted = pl.when(paired).then(pl.col("__pair")).otherwise(pl.col("__chosen"))
+    decided = pl.col(_STANDARD).is_not_null() & (paired | pl.col("__answered"))
     return df.filter(~decided | pl.col(_HEIGHT).eq_missing(wanted)).drop(
-        _HEIGHT, _STANDARD, "__chosen", "__answered", "__paired", "__pair", "__speed_height", "__follows"
+        _HEIGHT, _STANDARD, "__chosen", "__answered", "__paired", "__pair"
     )
 
 

@@ -552,16 +552,19 @@ Elements that have no standard height listed (the pressure, at 2 m alone, the de
 precipitation, the snow depth) are as they were. The height is not in the answer and cannot be asked for: there is no
 option for the other height.
 
-**The wind speed and the bearing of a time are a pair of one height**, so a bearing never stands beside a speed of another
-height, and none is dropped for that ([#3844](https://github.com/earthobservations/wetterdienst/issues/3844), decided
-after the first version, which dropped the bearing where 10 m had a speed and no bearing). The height of the pair is, in
-this order:
+**The wind speed and the bearing of a time are a pair of one height** wherever Frost has a height with both, so a bearing
+does not stand beside a speed of another height, and none is dropped for that
+([#3844](https://github.com/earthobservations/wetterdienst/issues/3844), decided after the first version, which dropped the
+bearing where 10 m had a speed and no bearing). The height of the pair is, in this order:
 
 1. the 10 m height, if it has both a speed and a bearing;
 2. else the height that has both and is the nearest to 10 m (the lower of two as near), speed and bearing both of it, though
    10 m has a speed: at SN44300 since early June 2026 10 m has a speed and no bearing, and the hour is the 2 m pair;
-3. else (no height has both) the speed is chosen as every parameter is, the 10 m one first, and the bearing is of the speed's
-   height, so none if it has none there; it is never of another height.
+3. else (no height has both: Frost never measured them at one height) the speed and the bearing are each chosen as every
+   parameter is, the 10 m one first, else the nearest. **This is the one case of a mixed pair**: the bearing stands beside
+   a speed of another height, and it is served so that no bearing is lost. It is SN92120 and SN92130 from 1992-02 to
+   1993-12 (the speed at 2 m, every third hour, the bearing at 10 m, every hour: all 48 bearings of 1993-06-01 to 03 at
+   SN92120 are served, 16 of them beside a 2 m speed of that hour), and SN49490 for 4 days in 2013.
 
 A calm or a `-3` is a bearing: a height whose bearing is a calm has both, and is the pair, `null` with `raw:0` or `raw:-3`,
 and no other height fills it (as since GH-3833). The gust is no part of the pair. The speed and the bearing are read from
@@ -569,7 +572,7 @@ the answer of the whole dataset, whatever parameters were asked for, so the spee
 speed of the pair too: the same hour has the same speed in every request, and the speed is the 2 m one, not the 10 m one,
 at an hour where 10 m has a speed and no bearing. Only where Frost answers the whole dataset with a 404 and each parameter
 is read by itself (the case in which no data was found in 12 of 12 series sampled) there is no pair to see: the speed is the
-10 m one first, and the bearing the 10 m one first, or the nearest that has a value.
+10 m one first, and the bearing the 10 m one first, or the nearest that has a value, as in step 3.
 
 What it changes, from a live sample of 2026-11-08 (the hours where the heights read differently, counted from Frost's own
 rows; `before` is the code of 2026-11-08, `main` at #3871):
@@ -588,7 +591,7 @@ The last row is the pair: since early June 2026 SN44300 has a bearing at 2 m onl
 of 337 hours had a 10 m speed beside a 2 m bearing. The pair is the 2 m one now, so the speed of those hours is the 2 m
 speed (where 10 m has a speed, 252 hours are not the 10 m one), and all 335 bearings stay. Before the pair rule was relaxed,
 a version of this change that gave the bearing only to the speed's height left 79 of the 335. A station with the wind at 2 m
-alone (SN12550, SN99990's bearing) is as it was, and so is the wind at the 10 m of a station that has no 2 m.
+alone (SN12550) is as it was, and so is the wind at the 10 m of a station that has no 2 m.
 `daily` and `monthly` wind are unchanged at SN44300 in the sample (the 10 m series was first already), and the
 temperature of SN99990 daily has one height. The mean and the maximum of the daily wind are not a pair.
 

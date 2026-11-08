@@ -3916,7 +3916,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "max(relative_humidity PT10M)"): "Maximum relative humidity per 10 min",
         ("10_minutes", "data", "max(wind_speed_of_gust PT10M)"): (
             "Maximum wind gust for the last ten minutes. At a station with several heights (the platforms have 10 m "
-            "and one at 44 to 142 m) the 10 m sensor, and the nearest height where it has no value."
+            "and one or two more at 44 to 142 m, two stations on land 2 m and 10 m) the 10 m sensor, and the nearest "
+            "height where it has no value."
         ),
         ("10_minutes", "data", "min(air_temperature PT10M)"): "Lowest recorded air temperature per ten minutes",
         ("10_minutes", "data", "min(relative_humidity PT10M)"): "Minimum relative humidity per 10 min",
@@ -4043,13 +4044,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
             "itself after a 404 of the whole dataset. At a station with several heights the speed and the direction "
             "are of one height: 10 m if it has both, else the nearest height that has both; a calm or a -3 there "
-            "is the answer for the hour: no other height fills it."
+            "is the answer for the hour: no other height fills it. Where no height has both, each is the 10 m one "
+            "first, else the nearest."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "
             "observation time. (default: 10 meters above ground, some stations have measurements at 2 meters). "
             "At a station with several heights the speed and the direction are of one height: 10 m if it has both, "
-            "else the nearest height that has both."
+            "else the nearest height that has both; where no height has both, each is the 10 m one first."
         ),
         ("monthly", "data", "max(air_temperature P1M)"): "Highest recorded air temperature per month",
         ("monthly", "data", "max(wind_speed P1M)"): (
