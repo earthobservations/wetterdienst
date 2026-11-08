@@ -1291,7 +1291,6 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["stations", *_DWD_KL, "--stations=01048"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
         pytest.param(["interpolate", *_DWD_KL, "--station=01048"], id="interpolate"),
         pytest.param(["summarize", *_DWD_KL, "--station=01048"], id="summarize"),
@@ -1299,7 +1298,10 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
     ],
 )
 def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
-    """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438)."""
+    """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438).
+
+    Only on the commands that had it in 0.139.0: `stations` never did (GH-3869, `tests/ui/test_renamed_routes.py`).
+    """
     for date in ("--date=2020-06-30", "--date"):
         result = CliRunner().invoke(cli, [*args, date])
         assert result.exit_code == 2, result.output

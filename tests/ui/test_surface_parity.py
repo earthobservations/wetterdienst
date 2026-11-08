@@ -903,6 +903,9 @@ def test_no_option_of_the_command_line_has_an_underscore() -> None:
         pytest.param(path, param.opts[0], id=f"{' '.join(path)} {param.opts[0]}")
         for path, param in _options_of_every_command()
         if "-" in param.opts[0].removeprefix("--")
+        # only a command that spelled it with an underscore in 0.139.0 was renamed (GH-3869, test_renamed_routes.py)
+        and param.opts[0].removeprefix("--").replace("-", "_")
+        in core.old_underscore_options_of_route("_".join(part for part in path if part != "about"))
     ],
 )
 @pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])
@@ -920,21 +923,9 @@ def test_an_option_by_its_underscored_name_is_refused_naming_the_hyphenated_one(
     assert f"Error: {old} was renamed to {option}." in result.output
 
 
-# a list is plural on every surface: what the singular was is refused naming the plural
-_SINGULARS = [
-    ((command,), old, new)
-    for command in ("stations", "values", "history")
-    for old, new in (("--station", "--stations"), ("--parameter", "--parameters"))
-] + [
-    (("stations",), "--period", "--periods"),
-    (("values",), "--period", "--periods"),
-    (("interpolate",), "--parameter", "--parameters"),
-    (("interpolate",), "--period", "--periods"),
-    (("summarize",), "--parameter", "--parameters"),
-    (("summarize",), "--period", "--periods"),
-    (("about", "coverage"), "--resolution", "--resolutions"),
-    (("about", "coverage"), "--dataset", "--datasets"),
-]
+# a list is plural on every surface: what the singular was is refused naming the plural, on the routes that had the
+# singular in 0.139.0 (`stations` took `--parameters` and `--periods` then: GH-3869, tests/ui/test_renamed_routes.py)
+_SINGULARS = [((command,), "--station", "--stations") for command in ("stations", "values", "history")]
 
 
 @pytest.mark.parametrize(
@@ -953,13 +944,7 @@ def test_an_option_by_the_singular_of_its_list_is_refused_naming_the_plural(
 
 @pytest.mark.parametrize(
     ("endpoint", "old", "new"),
-    [
-        (endpoint, old, new)
-        for endpoint in ("/api/stations", "/api/values", "/api/history")
-        for old, new in (("station", "stations"), ("parameter", "parameters"))
-    ]
-    + [(endpoint, "period", "periods") for endpoint in ("/api/stations", "/api/values")]
-    + [("/api/coverage", "resolution", "resolutions"), ("/api/coverage", "dataset", "datasets")],
+    [(endpoint, "station", "stations") for endpoint in ("/api/stations", "/api/values", "/api/history")],
 )
 def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint: str, old: str, new: str) -> None:
     """Over REST, as on the command line, the old name fails with the new one in the answer (GH-2561)."""
@@ -976,10 +961,6 @@ def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint:
         ("values", "station", "stations"),
         ("stations", "station", "stations"),
         ("history", "station", "stations"),
-        ("values", "parameter", "parameters"),
-        ("values", "period", "periods"),
-        ("coverage", "resolution", "resolutions"),
-        ("coverage", "dataset", "datasets"),
     ],
 )
 def test_the_singular_of_a_list_is_refused_by_the_mcp_tool_naming_the_plural(tool: str, old: str, new: str) -> None:
@@ -2015,14 +1996,14 @@ def test_a_window_of_a_day_or_of_minutes_is_written_as_such() -> None:
 
 def _letting_go(monkeypatch: pytest.MonkeyPatch, stations: set[str], *, whole_request: bool = False) -> None:
     """Have the source hold nothing of `sdk`, and the provider let go a file of each of `stations` on the way."""
-    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
 
     original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
 
     def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
         df = original(self, station_id, parameter_or_dataset)
         if station_id in stations:
-            note_skipped_download(whole_request=whole_request)
+            note_skipped_download(SkipCause.FAILED, whole_request=whole_request)
         return df.filter(pl.col("parameter") != "sdk")
 
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
@@ -2047,10 +2028,10 @@ def test_a_file_that_every_station_is_read_from_silences_the_warning(monkeypatch
 
 def test_a_file_let_go_outside_the_collection_of_a_station_is_nothing() -> None:
     """The note is the collection's: a provider that calls it outside one (listing the stations) changes nothing."""
-    from wetterdienst.util.response_warnings import note_skipped_download  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
 
-    note_skipped_download()
-    note_skipped_download(whole_request=True)
+    note_skipped_download(SkipCause.FAILED)
+    note_skipped_download(SkipCause.FAILED, whole_request=True)
 
 
 def test_the_lead_time_that_was_asked_for_survives_a_replaced_or_copied_request() -> None:

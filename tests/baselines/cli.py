@@ -38,7 +38,17 @@ from tests.baselines.common import DIRECTORY, read, write
 BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    # GH-3869: three hidden options of `stations` that only ever refused. `stations` took no `--date` and no window in
+    # 0.139.0, so the renames they named were not its renames; a script that gave one got exit code 2 and still does
+    **{
+        f"wetterdienst stations: {option} was removed": (
+            f"a hidden option that only refused with `{option} was renamed`, on a command that never had the name: "
+            "the exit code is still 2 (click's no-such-option), so no call that worked fails"
+        )
+        for option in ("--date", "--start-date", "--end-date")
+    },
+}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")

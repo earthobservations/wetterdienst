@@ -1215,11 +1215,12 @@ def test_cli_values_leaves_a_wetterdienst_error_that_is_no_refusal_its_traceback
 
 @pytest.mark.parametrize("given", ["{old}=2020", "{old} 2020", "{old}"])
 @pytest.mark.parametrize(("old", "new"), [("--start-date", "--start"), ("--end-date", "--end")])
-@pytest.mark.parametrize("command", ["stations", "values", "interpolate", "summarize"])
+@pytest.mark.parametrize("command", ["values", "interpolate", "summarize"])
 def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: str, new: str, given: str) -> None:
     """Test the old window options name the new one rather than click's bare no-such-option (GH-2437).
 
-    Given with or without a value: alone, it is not refused for the value it lacks.
+    Given with or without a value: alone, it is not refused for the value it lacks. `stations` had no window in
+    0.139.0, so it is no rename there (GH-3869, `tests/ui/test_renamed_routes.py`).
     """
     result = CliRunner().invoke(
         cli,
@@ -1228,7 +1229,7 @@ def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: 
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/kl",
-            "--stations=01048" if command in {"stations", "values"} else "--station=01048",
+            "--stations=01048" if command == "values" else "--station=01048",
             # last, so that alone it has nothing to take for a value
             *given.format(old=old).split(),
         ],

@@ -19,7 +19,6 @@ from wetterdienst.exceptions import CredentialMissingError, DownloadError, Inval
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import (
-    RAW_TOKEN,
     SPEED_BESIDE,
     Sentinel,
     calm,
@@ -40,7 +39,7 @@ from wetterdienst.util.network import (
     raise_if_credential_rejected,
     read_refusal,
 )
-from wetterdienst.util.response_warnings import note_left_out, note_open_window, note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_open_window, note_skipped_download
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -450,9 +449,10 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
 #   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
 #   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
-#   may measure the wind at two heights (7 have a direction at both, the 10 m first): the core keeps the first row of a
-#   reading that has a value, so a calm or a -3 of the first height is what the hour is, and the rows of the other
-#   height are left out (`_first_height_decides_a_code`); a gap (a null with no code) is filled from the other height
+#   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
+#   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
+#   what the hour is, and the bearing of another height does not fill it; only where no height has both are they
+#   chosen apart
 # - `surface_snow_thickness` -1: "Zero snowdepth or partial snow cover" (the description of the element: "Code=-1
 #   means no snow"), read as a depth of zero rather than an absent one. It reaches the caller as -1 cm otherwise, and
 #   it is not rare: at SN18700 across one summer, 93 of 185 daily observations are -1 against 92 measured zeros.
@@ -645,6 +645,29 @@ _LEFT_OUT_BECAUSE = {element: _because(element, offset) for element, offset in _
 # the column that carries the height of a reading's sensor beside it: a station may measure the wind at 10 m and 2 m,
 # and the speed that tells a calm is the one of the direction's own level. Blank where Frost gives none
 _LEVEL = "__level"
+# the columns `_prefer_standard_height` works with: the height as a number, and the standard height of the element
+_HEIGHT = "__height"
+_STANDARD = "__standard"
+# the base names of the elements that Frost serves at several heights, and the height Frost names the standard of
+# each: `levels=default` "will exclude any data which is not measured at a standard level for each element"
+# (https://frost.met.no/concepts2.html, "Default level and timeoffset"). The heights are the ones it answers, read
+# 2026-11-08: 2 m for `air_temperature` (SN18700, SN17850, SN18950), `relative_humidity` (SN17850, SN99990) and the
+# daily `mean(air_temperature P1D)` (SN18210); 10 m for `wind_speed` (SN76530), `wind_from_direction` (SN44300), the
+# daily and monthly `max` and `mean(wind_speed)` (SN44300) and the 10 minute `wind_speed_of_gust` (SN76959, SN76960).
+# `levels=default` is not used alone for the wind: it drops the wind of the 36 of 67 stations whose 10 m series has no
+# data. The element ids that carry a name are the daily, monthly and 10 minute ones too (`mean(wind_speed P1D)`,
+# `max(wind_speed_of_gust PT10M)`). The other elements are at one height or none: the pressure at 2 m only, the dew
+# point, the radiation, the clouds, the sums and the snow depth with none
+_STANDARD_HEIGHT = {
+    "air_temperature": 2.0,
+    "relative_humidity": 2.0,
+    "wind_speed": 10.0,
+    "wind_speed_of_gust": 10.0,
+    "wind_from_direction": 10.0,
+}
+# the base name of an element id: `mean(wind_speed P1D)` and `max(wind_speed_of_gust PT10M)` have the name inside, the
+# hourly ones are the name
+_BASE_NAME = r"(?:^|\()([a-z_]+)(?:[ )]|$)"
 # the column that carries the time the window of an observation closes (`_closes`), and whether it had not closed when
 # the request was served (`_OPEN`, which `_decode_sentinels` writes as `completeness:Incomplete`)
 _CLOSES = "__closes"
@@ -940,14 +963,14 @@ def _tell_left_out(
 
 
 def _tell_open_window(
-    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, *, returned: bool
 ) -> None:
     """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
 
     ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
-    time the window `closes`, one row for each. A daily value is left out of the answer and a monthly or annual one is
-    returned (marked, `_OPEN`), so the warning says which. A value the core cuts off (beyond the window of the request)
-    is not counted. The warning is `window-not-closed`.
+    time the window `closes`, one row for each. ``returned`` is whether they are in the answer (marked, `_OPEN`) or left
+    out of it (`_leaves_open_out`), so the warning says which. A value the core cuts off (beyond the window of the
+    request) is not counted. The warning is `window-not-closed`.
     """
     if open_window.is_empty():
         return
@@ -955,7 +978,7 @@ def _tell_open_window(
     summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
     for parameter, count, closes in summary.iter_rows():
         if parameter in names:
-            note_open_window(names[parameter], count, closes, returned=resolution != _DAILY)
+            note_open_window(names[parameter], count, closes, returned=returned)
 
 
 def _no_open_window() -> pl.DataFrame:
@@ -965,18 +988,35 @@ def _no_open_window() -> pl.DataFrame:
     )
 
 
+def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
+    """Give whether a value of a window that had not closed is left out of the answer, and not returned marked.
+
+    A daily one always is: it looks like the day's (GH-3856). A monthly or annual one is returned marked
+    `completeness:Incomplete` in `quality_flags`, which an estimate drops, so it is left out of an estimate and told as
+    such (GH-3883); `values` still returns it.
+    """
+    return resolution == _DAILY or (estimate and resolution in _PERIODS)
+
+
 def _tell_not_returned(
-    read: _Read, kept: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+    read: _Read,
+    kept: pl.DataFrame,
+    names: dict[str, str],
+    start: datetime,
+    end: datetime,
+    resolution: str,
+    *,
+    estimate: bool,
 ) -> None:
     """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `_tell_open_window`).
 
     ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
+    ``estimate`` is whether the values are read for `interpolate` or `summarize` (`_leaves_open_out`).
     """
-    # a daily value of a window not closed is left out, and no date left out for another series (GH-3856)
-    _tell_left_out(
-        read.left_out, kept, names, start, end, resolution, read.open_window if resolution == _DAILY else None
-    )
-    _tell_open_window(read.open_window, names, start, end, resolution)
+    leaves_out = _leaves_open_out(resolution, estimate=estimate)
+    # a value of a window not closed that is left out is no date left out for another series (GH-3856)
+    _tell_left_out(read.left_out, kept, names, start, end, resolution, read.open_window if leaves_out else None)
+    _tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
 
 
 def _level(df: pl.DataFrame) -> pl.Expr:
@@ -999,7 +1039,13 @@ class _Read(NamedTuple):
 
 
 def _read_observations(
-    df: pl.DataFrame, parameter: pl.Expr, resolution: str, station_id: str, served_at: datetime
+    df: pl.DataFrame,
+    parameter: pl.Expr,
+    resolution: str,
+    station_id: str,
+    served_at: datetime,
+    *,
+    estimate: bool = False,
 ) -> _Read:
     """Give the frame the core takes from the observations of an answer, and what it left out or marked.
 
@@ -1008,7 +1054,8 @@ def _read_observations(
     ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
     The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
     the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
-    and has `completeness:Incomplete` in its quality flags.
+    and has `completeness:Incomplete` in its quality flags, unless ``estimate``, which leaves it out too
+    (`_leaves_open_out`).
     """
     left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
@@ -1029,21 +1076,27 @@ def _read_observations(
             .agg(pl.col("closes").min())
         )
         df = df.with_columns(is_open.alias(_OPEN))
-        if resolution == _DAILY:
-            # a daily value of a window that has not closed is partial and looks like the day's: left out
+        if _leaves_open_out(resolution, estimate=estimate):
+            # a daily value of a window that has not closed is partial and looks like the day's, and a monthly or annual
+            # one is partial and an estimate cannot carry its mark: left out
             df = df.filter(~pl.col(_OPEN))
     if df.is_empty():
         # every row was of another series, or of a window not closed: nothing to return, and what was left out is told
         return _Read(pl.DataFrame(), left_out, open_window)
+    # the height is chosen on what Frost answered, so after the offset and the open window (`closes` does not depend on
+    # the height, and a row left out must not stand for a reading of a height) and before the codes are decoded: the
+    # `-3` and the calm `0` of the height decide the hour, and `calm` finds the one height of a direction's speed
     frame = _stamp_days(
         _decode_sentinels(
-            df.select(
-                parameter.alias("parameter"),
-                pl.col("referenceTime").alias("timestamp"),
-                pl.col("value"),
-                _quality_flags(df),
-                _level(df),
-                *([pl.col(_OPEN)] if _OPEN in df.columns else []),
+            _prefer_standard_height(
+                df.select(
+                    parameter.alias("parameter"),
+                    pl.col("referenceTime").alias("timestamp"),
+                    pl.col("value"),
+                    _quality_flags(df),
+                    _level(df),
+                    *([pl.col(_OPEN)] if _OPEN in df.columns else []),
+                )
             ),
             station_id,
         ),
@@ -1072,23 +1125,76 @@ def _a_reading_beats_a_minus_one(df: pl.DataFrame) -> pl.DataFrame:
     return df.filter(~(minus_one & reading.any().over("parameter", "timestamp")))
 
 
-def _first_height_decides_a_code(df: pl.DataFrame) -> pl.DataFrame:
-    """Leave out the later rows of a wind direction whose first row is a code of the source (GH-3833).
+def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
+    """Keep, of an element that is measured at several heights, the readings of one height for each time (GH-3844).
 
-    A station that measures the wind at two heights answers a direction for each, the 10 m one first, and the core keeps
-    the first row of a reading that has a value (`merge_duplicate_readings`): a calm (or a "no unique direction", `-3`)
-    at the first height is null, so the bearing of the second height would fill it and the hour would read as a wind
-    that blows beside a speed of 0. The code is what the hour is, so the rows after it are left out. A null that is no
-    code (a gap) is filled from the other height as it always was.
+    ``df`` is the frame of `_read_observations` before the codes are decoded: `parameter`, `timestamp`, `value` and the
+    height of the sensor as text (`_LEVEL`), one row for each reading. Frost answers all heights of a station, 10 m
+    first, and the core keeps the first row of a reading that has a value (`merge_duplicate_readings`): the air
+    temperature came from 10 m in 83 % of the hours at 5 of 6 stations that have 2 m and 10 m, the 10 minute gust of
+    the platforms from 47 to 120 m in 96 %, and a gap at one height was filled from another with nothing to say so.
+
+    For each parameter and time the height kept is the standard one (`_STANDARD_HEIGHT`: 2 m for the temperature and
+    the humidity, 10 m for the wind speed, the gust and the direction) if it has a value, otherwise the height of the
+    other readings that has a value and is nearest to the standard one (the lower of two as near), and no other
+    height's reading stays. A reading "has a value" as Frost answers it, before the decoding: the `-3` and the `0` of
+    a wind direction are of the height, as the hour (GH-3833), and a null is a gap, which another height fills. A
+    time with no value at any height keeps all its rows.
+
+    The wind speed and the direction are a pair, of one height, so that a bearing never stands beside a speed of another
+    height. The height of a time's pair is, in this order:
+
+    1. the standard height (10 m), if it has both a speed and a direction;
+    2. else the height that has both and is nearest to the standard one (the lower of two as near): the speed and the
+       bearing are both of it, though the standard height has a speed;
+    3. else (no height has both: Frost never measured them at one height, as at SN92120 and SN92130 in 1992-02 to
+       1993-12, the speed at 2 m and the bearing at 10 m) each is chosen as any parameter is, the standard height
+       first. That is the one case in which a bearing stands beside a speed of another height, and it is served so
+       that no bearing is lost.
+
+    The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
+    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
+    readers that read a parameter by itself (after a 404 of the whole dataset, where no data was found) have no pair to
+    see, and choose the speed, or the direction, as any other parameter. The gust is no part of the pair.
+
+    A parameter that is not in `_STANDARD_HEIGHT`, and a frame without `_LEVEL`, are as they were.
     """
-    direction = pl.col("parameter") == _WIND_DIRECTION
-    # a null with no `qualityCode` has no flags at all, which is no code (and not a null that drops the row)
-    coded = (direction & pl.col("value").is_null() & pl.col("quality_flags").str.contains(RAW_TOKEN)).fill_null(
-        value=False
+    if _LEVEL not in df.columns or df.is_empty():
+        return df
+    keys = ["parameter", "timestamp"]
+    answered = pl.col("value").is_not_null()
+    distance = (pl.col(_HEIGHT) - pl.col(_STANDARD)).abs().fill_null(float("inf"))
+    nearest = pl.when(answered).then(distance).min().over(keys)
+    df = df.with_columns(
+        pl.col("parameter")
+        .str.extract(_BASE_NAME, 1)
+        .replace_strict(_STANDARD_HEIGHT, default=None, return_dtype=pl.Float64)
+        .alias(_STANDARD),
+        pl.col(_LEVEL).cast(pl.Float64, strict=False).alias(_HEIGHT),
+    ).with_columns(
+        pl.when(answered & (distance == nearest)).then(pl.col(_HEIGHT)).min().over(keys).alias("__chosen"),
+        answered.any().over(keys).alias("__answered"),
     )
-    first_is_coded = coded.first().over("parameter", "timestamp")
-    later = pl.int_range(pl.len()).over("parameter", "timestamp") > 0
-    return df.filter(~(first_is_coded & later))
+    # the heights that have both a speed and a direction at a time, and the one of them that is the pair's
+    is_speed = pl.col("parameter") == _WIND_SPEED
+    is_direction = pl.col("parameter") == _WIND_DIRECTION
+    at_height = ["timestamp", _HEIGHT]
+    both = (
+        (is_speed | is_direction)
+        & (is_speed & answered).any().over(at_height)
+        & (is_direction & answered).any().over(at_height)
+    )
+    nearest_pair = pl.when(both).then(distance).min().over("timestamp")
+    df = df.with_columns(
+        both.any().over("timestamp").alias("__paired"),
+        pl.when(both & (distance == nearest_pair)).then(pl.col(_HEIGHT)).min().over("timestamp").alias("__pair"),
+    )
+    paired = (is_speed | is_direction) & pl.col("__paired")
+    wanted = pl.when(paired).then(pl.col("__pair")).otherwise(pl.col("__chosen"))
+    decided = pl.col(_STANDARD).is_not_null() & (paired | pl.col("__answered"))
+    return df.filter(~decided | pl.col(_HEIGHT).eq_missing(wanted)).drop(
+        _HEIGHT, _STANDARD, "__chosen", "__answered", "__paired", "__pair"
+    )
 
 
 def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.DataFrame:
@@ -1128,7 +1234,7 @@ def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.Dat
         pl.when(pl.col(_OPEN)).then(pl.lit(_INCOMPLETE)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
     )
     decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, completeness=incomplete, raw=raw))
-    return _first_height_decides_a_code(decoded).drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
+    return decoded.drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
 
 
 class MetnoFrostValues(TimeseriesValues):
@@ -1223,12 +1329,12 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1247,7 +1353,12 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
         read = _read_observations(
-            df, pl.col("elementId"), dataset.resolution.name, station_id, _served_at(file, asked_at)
+            df,
+            pl.col("elementId"),
+            dataset.resolution.name,
+            station_id,
+            _served_at(file, asked_at),
+            estimate=self._left_out_of_estimate is not None,
         )
         # the batch holds the whole dataset: what is told is of the parameters asked for
         asked = {
@@ -1255,7 +1366,15 @@ class MetnoFrostValues(TimeseriesValues):
             for parameter in self.sr.parameters
             if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
         }
-        _tell_not_returned(read, read.frame, asked, start_date, end_date, dataset.resolution.name)
+        _tell_not_returned(
+            read,
+            read.frame,
+            asked,
+            start_date,
+            end_date,
+            dataset.resolution.name,
+            estimate=self._left_out_of_estimate is not None,
+        )
         return read.frame
 
     def _collect_after_batch_404(
@@ -1330,12 +1449,12 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, parameter, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1360,6 +1479,7 @@ class MetnoFrostValues(TimeseriesValues):
             parameter.dataset.resolution.name,
             station_id,
             _served_at(file, asked_at),
+            estimate=self._left_out_of_estimate is not None,
         )
         _tell_not_returned(
             read,
@@ -1368,6 +1488,7 @@ class MetnoFrostValues(TimeseriesValues):
             start_date,
             end_date,
             parameter.dataset.resolution.name,
+            estimate=self._left_out_of_estimate is not None,
         )
         return read.frame
 
@@ -1411,11 +1532,11 @@ class MetnoFrostValues(TimeseriesValues):
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(avail_file.skip_cause)
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {avail_file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1469,11 +1590,11 @@ class MetnoFrostValues(TimeseriesValues):
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
-                note_skipped_download()
+                note_skipped_download(obs_file.skip_cause)
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:
-                note_skipped_download()
+                note_skipped_download(SkipCause.MAINTENANCE)
                 log.warning(f"Frost answered {obs_file.url} with an empty body")
                 continue
 
@@ -1489,7 +1610,12 @@ class MetnoFrostValues(TimeseriesValues):
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             read = _read_observations(
-                df, pl.lit(element, dtype=pl.String), resolution_name, station_id, _served_at(obs_file, asked_at)
+                df,
+                pl.lit(element, dtype=pl.String),
+                resolution_name,
+                station_id,
+                _served_at(obs_file, asked_at),
+                estimate=self._left_out_of_estimate is not None,
             )
             left_outs.append(read.left_out)
             open_windows.append(read.open_window)
@@ -1509,7 +1635,13 @@ class MetnoFrostValues(TimeseriesValues):
             else _no_open_window(),
         )
         _tell_not_returned(
-            read, kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date, resolution_name
+            read,
+            kept,
+            {element: _full_name(parameter_or_dataset)},
+            start_date,
+            end_date,
+            resolution_name,
+            estimate=self._left_out_of_estimate is not None,
         )
         return kept
 

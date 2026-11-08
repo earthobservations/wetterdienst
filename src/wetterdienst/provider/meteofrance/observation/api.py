@@ -1064,7 +1064,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         for resource in matches:
             file = files_by_url[resource["url"]]
             if isinstance(file.content, Exception):
-                note_skipped_download()
+                note_skipped_download(file.skip_cause)
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(

@@ -2096,9 +2096,10 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
 
     SN99460 answers the wind at 10 m and 2 m for every hour, and the core keeps the first row of a reading that has a
     value: the calm of 10 m (null) was filled with the bearing of 2 m. 34 of the 79 calm hours at the 7 stations with
-    two heights read as a wind that blows beside a speed of 0, 22 with a bearing above 0. A code of the first height
-    (`-3` too) is what the hour is. A gap (a null that is no code) is filled from the other height, as it always was,
-    and a first height with a bearing is the bearing.
+    two heights read as a wind that blows beside a speed of 0, 22 with a bearing above 0. A code of the height of the
+    pair (`-3` too) is what the hour is. Since GH-3844 the speed and the bearing are of one height, the 10 m one where
+    it has both, and a height that lacks the bearing (a gap) is not the pair: the other height with both is, speed
+    and bearing together.
     """
     wind = "wind_speed"
     direction = "wind_from_direction"
@@ -2107,7 +2108,7 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
         [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 170)],
         # 01:00 both heights calm
         [(wind, 10, 0.0), (wind, 2, 0.0), (direction, 10, 0), (direction, 2, 0)],
-        # 02:00 a gap at 10 m is filled from 2 m
+        # 02:00 no bearing at 10 m: the pair is the 2 m one, the speed of 2 m beside the bearing of 2 m (GH-3844)
         [(wind, 10, 1.0), (wind, 2, 1.0), (direction, 10, None), (direction, 2, 90)],
         # 03:00 a bearing at 10 m stays, whatever 2 m is
         [(wind, 10, 3.0), (wind, 2, 0.0), (direction, 10, 45), (direction, 2, 0)],
@@ -2144,10 +2145,11 @@ def test_metno_frost_a_calm_at_the_first_height_stays_a_calm_at_a_station_with_t
 def test_metno_frost_a_gap_without_a_quality_code_is_filled_from_the_other_height(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that a null at the first height that has no `qualityCode` is no code, and 2 m fills it (GH-3833).
+    """Test that a null at 10 m that has no `qualityCode` is no code, and the pair of 2 m is served (GH-3833, GH-3844).
 
-    The null has no flags at all, so the test of the first height for a code was null and dropped the later row: the
-    hour read null where `qualityCode: 0` made it 90.0. A calm without a `qualityCode` is a calm all the same.
+    The null has no flags at all, so the test of the height for a code was null and dropped the later row (GH-3833). It
+    is no bearing at 10 m, so the pair is the 2 m one (speed and bearing of 2 m), where the hour read 90.0 from the 2 m
+    bearing beside the 10 m speed before GH-3844. A calm without a `qualityCode` is a calm all the same.
     """
     wind = "wind_speed"
     direction = "wind_from_direction"
@@ -2176,19 +2178,19 @@ def test_metno_frost_a_gap_without_a_quality_code_is_filled_from_the_other_heigh
     assert df["quality_flags"].to_list() == [None, "raw:0"]
 
 
-def test_metno_frost_the_first_height_is_the_first_row_of_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that "first" is the order of Frost's rows, not the height: a change of that order is noticed (GH-3833).
+def test_metno_frost_the_height_is_not_the_first_row_of_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the order of Frost's rows decides nothing: the speed's height is the standard one (GH-3833, GH-3844).
 
     Frost answered the 10 m rows before the 2 m rows at all 7 stations that have both, in 3 windows (2026-01, 2026-11,
-    2024-06). The reader does not sort by height. A calm that comes first is the hour whichever height it is, and a
-    bearing that comes first is the answer, a calm after it or not.
+    2024-06). The height is chosen and not the first row: the 10 m one is the standard where it has a value, whichever
+    row comes first, and a bearing is of the height of the speed.
     """
     wind = "wind_speed"
     direction = "wind_from_direction"
     hours = [
-        # 2 m first: its calm is the hour, and the bearing of 10 m does not fill it
+        # 2 m first: the calm of 2 m is not the hour, the 10 m pair is (3.0 m/s, 90)
         [(wind, 2, 0.0), (wind, 10, 3.0), (direction, 2, 0), (direction, 10, 90)],
-        # 2 m first, with a bearing: it is the answer, and the calm of 10 m is no matter
+        # 2 m first, with a bearing: the 10 m pair is the hour, a calm (0.0 m/s, 0)
         [(wind, 2, 3.0), (wind, 10, 0.0), (direction, 2, 45), (direction, 10, 0)],
     ]
     payload = _two_heights(hours)
@@ -2205,14 +2207,15 @@ def test_metno_frost_the_first_height_is_the_first_row_of_the_answer(monkeypatch
         options={"drop_nulls": False},
     )
     df = values.all().df.filter(pl.col("parameter") == "wind_direction_mean_last_10min").sort("timestamp")
-    assert df["value"].to_list() == [None, 45.0]
-    assert [flag.split(",")[-1] for flag in df["quality_flags"].to_list()] == ["raw:0", "0"]
+    assert df["value"].to_list() == [90.0, None]
+    assert [flag.split(",")[-1] for flag in df["quality_flags"].to_list()] == ["0", "raw:0"]
 
 
-def test_metno_frost_the_first_height_rule_is_the_wind_direction_s_alone() -> None:
-    """Test that the rows of any other parameter at one time all stay, a code first or not (GH-3833).
+def test_metno_frost_decoding_leaves_every_row_of_a_time_in_the_frame() -> None:
+    """Test that decoding drops no row: the rows of a parameter at one time all stay, a code first or not (GH-3833).
 
-    A cloud cover of 9 is a code too, and the next row of the same time is no other height of a wind direction.
+    A cloud cover of 9 is a code too, and the next row of the same time is no other height of a wind direction. The
+    choice of a height is `_prefer_standard_height`'s, before the decoding (GH-3844).
     """
     given = pl.DataFrame(
         {

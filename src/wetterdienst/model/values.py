@@ -348,8 +348,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: told by the same walk and so are left out there too; the estimate tells them once (`_left_out_of_estimate`)
     _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
     #: where an estimate (interpolation, summary) has the walk tell what it left out at each station it reads: the
-    #: stations whose file the provider let go and those whose dates of another series were left out, which the
-    #: estimate tells once as `source-data-left-out` when its walk is over (`EstimateLeftOut`, GH-3848)
+    #: stations whose file the provider let go, those whose dates of another series were left out and those whose values
+    #: of a window that had not closed were left out, which the estimate tells once as `source-data-left-out` when its
+    #: walk is over (`EstimateLeftOut`, GH-3848, GH-3883). It also says that the values are read for an estimate:
+    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value
     _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:

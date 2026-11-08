@@ -59,6 +59,23 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: a parameter renamed for 1.0 is told "was renamed" only on a route that had the old
+  name in 0.139.0, on REST, MCP and the command line alike. Before, `date` on `stations`,
+  `parameter` and `period` where `parameters` and `periods` were taken already, `resolution` and
+  `dataset` on `coverage`, `dataset` on `providers` and `--name_threshold` on `stations` were told
+  that, though those routes never took them; each is now an unknown parameter (the command line
+  says "Did you mean"): give the name the route takes. `stations` loses its hidden `--date`,
+  `--start-date` and `--end-date`, which only refused and still fail with exit code 2 (GH-3869)
+- **Breaking**: `providers[].networks[].resolutions` is `null` for `datasets=false` (new in this
+  release), and the OpenAPI document now says so (`array` or `null`). A client generated from the
+  document must handle `null`; with `datasets=true`, the default, the answer is as before (GH-3869)
+- The `file-skipped` warning names why a file was let go and advises by it: "Try again later" only
+  for a failed download, a withdrawn file, an error page or empty body, or an empty directory. For
+  a refused download (too large, too slow, an off-host redirect, a 400, 403 or 410) or a file that
+  would not parse it says that a retry gets the same and that it is worth reporting to the
+  provider; mixed causes are grouped as the estimate's `source-data-left-out` groups them, whose
+  message now says so too. Code and `stations` are unchanged; before, every cause said "Try again
+  later", which sent callers into retries that cannot help (GH-3874)
 - A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
   URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
   `list_remote_directory_fsspec` leave the link out, an Apache index's sort links (`?C=N;O=D`)
@@ -82,6 +99,12 @@ Types of changes:
   values a hard plausibility check rejected. Before, none reached an estimate, which answered
   `warnings: []`. One warning per answer, not per station, up to 10 station ids; the station the
   walk stops at is not counted (GH-3848)
+- **Breaking**: `interpolate` and `summarize` leave out the monthly or annual value of the current
+  month or year (`metno/frost`, window not closed), where it entered the estimate with its
+  `completeness:Incomplete` mark dropped, and tell it, and a daily one that was left out without a
+  word, as a fourth cause of `source-data-left-out` (counted in values: today, this month, this
+  year). `values` is unchanged. Ask again once the window has closed, or end the window before the
+  current period; read `values` for the marked partial month (GH-3883)
 - **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
   of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
   warning names the directory (it was a log line, and a history of it was cached); so does the
@@ -147,6 +170,16 @@ Types of changes:
   station's series: at least 3,694 days at 11 stations, 901 months at 179. Those dates are no
   longer returned, in any window, and an `other-window-left-out` warning tells them. A stored
   series does not join the new one: read it anew (GH-3855)
+- **Breaking**: `metno/frost` serves a parameter that a station measures at several heights from
+  one: the standard height (2 m for `temperature_air_2m` and `humidity_relative`, 10 m for wind
+  speed, direction and `wind_gust_max`, the daily and monthly ones too) where it has a value, else
+  the nearest other. It was the first row of Frost's answer, the highest: 10 m for the temperature
+  in 83 % of the hours at 5 of 6 stations, 47 to 120 m for the platform gust in 96 %. Wind speed
+  and direction are one height: 10 m if it has both, else the nearest that has both (SN44300 since
+  June: 252 of 337 hours are the 2 m speed and bearing). A bearing stands beside a speed of
+  another height only where Frost never measured both at one height (SN92120, SN92130, SN49490).
+  Nothing to do for most callers; the other height cannot be asked for. Read a stored series
+  anew (GH-3844)
 - **Breaking**: `metno/frost` leaves out a daily value whose window has not closed at the request
   (the date + the offset: `PT18H` extremes 18 UTC, `PT6H` sum 06 UTC, `PT0H` mean and the other
   elements the end of the date) and tells it with a `window-not-closed` warning (how many, when the

@@ -331,19 +331,25 @@ what the answer is missing:
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
   stations around a point as candidates, nearest first, and stop when they have enough, so the walk of a values request
-  that tells `file-skipped` and `other-window-left-out` at its end does not apply to them, and neither is told of a
-  station by an estimate. It carries `stations` (the stations that were affected, in the order they were read, the
-  first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
+  that tells `file-skipped`, `other-window-left-out` and `window-not-closed` at its end does not apply to them, and none
+  of them is told of a station by an estimate. It carries `stations` (the stations that were affected, in the order
+  they were read, the first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
   with the stations it affected:
 
   - a file the provider could not use (the cases of `file-skipped`: a refused or failed download, a file withdrawn
     since the listing, a maintenance page, a file that would not parse, a directory found empty). The values of the
     station may be missing from the estimate. The cause is not known to the walk, so the advice is for each: a failed
     download, a withdrawn file, a maintenance page and an empty directory may be back later, so try again; a refused
-    download (too large, too slow) or a file that would not parse mostly stays as it is;
+    download (too large, too slow) or a file that would not parse mostly stays as it is, and is worth reporting to the
+    provider;
   - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
     the source holds values for them, nothing is missing there, and they are not read because a value of another
     window would be wrong under the parameter's name;
+  - values of a window that had not closed yet (the case of `window-not-closed`, counted in values for each window:
+    today, this month, this year): the day's, month's or year's value is partial and may still change, and the source
+    does not mark it. They are not missing at the source and come back once the window has closed. An estimate cannot
+    carry the `completeness:Incomplete` mark that `values` puts on a monthly or annual value of an open window, so it
+    leaves those out as it leaves a daily one out (`metno/frost`);
   - values a hard [plausibility check](../data/plausibility.md) rejected (the case of `rejected-by-plausibility`,
     counted in values and by check, a value several checks rejected counted under each): the source wrote a number
     there, which the check made null and the estimate does not use. A value a soft check flags `suspect:` is left out
@@ -353,7 +359,7 @@ what the answer is missing:
   that the source holds, and a values request, which asks more, keeps its codes. A station is counted once whatever the
   number of causes. A station that the walk read once it was done and did not use, because it had enough nearer
   ones, is not counted, whether it came back with rows or, as a station whose file was lost does, with none, nor is one
-  it never read. Only the providers listed below tell the first two causes to the
+  it never read. Only the providers listed below tell the first three causes to the
   walk, so an estimate without the warning is no proof that every file was read. It is told next to what the lookup of
   the stations says, which `file-skipped` (a directory of `dwd/observation` or `dwd/derived` found empty, below) still
   tells without a station: the two state different facts. In Python it is a log line at level `WARNING`, and
@@ -374,8 +380,9 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly one is returned
-  with `completeness:Incomplete` as a token of its `quality_flags`; the message says which, how many values at which
+  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is
+  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
+  as a cause of `source-data-left-out`, above); the message says which, how many values at which
   stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
   window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
@@ -448,7 +455,7 @@ what the answer is missing:
   at all.
 
   `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
-  listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
+  listed (a refused download, a file withdrawn since the listing, an error page answered with HTTP 200, a file
   that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
   carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
   datasets the request read at them: a provider says which station, not which of its files. A file that serves every
@@ -457,7 +464,15 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  Retry later: what is missing may well be there then, which is the
+  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408, 425 or
+  429), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
+  report such as FMI's rate limit) and a directory found empty may be back, so it says to try again later; a refused
+  download (too large, too slow, an off-host redirect, or a request the server turns down for good: a 400, 401, 403 or
+  410, or an exception report that names a request error such as `InvalidParameterValue`) and a file that would not
+  parse mostly stay as they are, so it says that retrying will not help and that it is worth reporting to the
+  provider. Where both kinds occurred it groups them as
+  `source-data-left-out` does. The code and the members (`stations`) are the same for every cause. What is missing may
+  well be there on a retry for the first kind, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
   again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a
@@ -634,9 +649,11 @@ learnt on one holds on the others:
   not). The underscored spellings of the command line,
   `--convert_units` and the like, are refused with an error naming the hyphenated one.
 - **A parameter that takes a list is plural.** `parameters`, `periods`, `stations` and `sections`,
-  and `resolutions` and `datasets` of `coverage`, take a list; `station`, `parameter`, `period`,
-  `resolution` and `dataset` for them are refused with an error naming the plural
-  (`station was renamed to stations`). A parameter of one value is singular: the one reference
+  and `resolutions` and `datasets` of `coverage`, take a list; `station` for `stations` is refused
+  with an error naming the plural (`station was renamed to stations`) on the routes that took it in
+  0.139.0 (`stations`, `values`, `history`). A name a route never had is no rename there but an
+  unknown parameter: `date` of `stations`, which takes a `timestamp` only, `parameter` of `values`.
+  A parameter of one value is singular: the one reference
   `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
   `parameter` text `glossary` looks for.
 - **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,

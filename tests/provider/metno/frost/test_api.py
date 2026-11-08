@@ -152,7 +152,8 @@ def test_metno_frost_values_hourly() -> None:
     assert df["parameter"].unique().to_list() == ["temperature_air_2m"]
     first = df.row(0, named=True)
     assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
-    assert first["value"] == pytest.approx(3.4)
+    # the 2 m reading: Frost also has 3.4 at 10 m for that hour, which came first and was returned before GH-3844
+    assert first["value"] == pytest.approx(2.7)
     assert df["timestamp"].max() == dt.datetime(2020, 1, 2, 0, 0, 0, tzinfo=UTC)
 
 

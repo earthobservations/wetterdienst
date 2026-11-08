@@ -187,15 +187,20 @@ enough. A station can lose something on the way: the provider lets a file go (a 
 withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty), so its values
 may be missing; the provider leaves out the dates of another series of the source (`metno/frost` keeps two series of a
 precipitation sum or a temperature extreme, and a date only the other one has would be a value of another window under
-the parameter's name); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
+the parameter's name); the values of a day, month or year that has not closed yet are left out (`metno/frost` serves
+them unmarked, and an estimate cannot carry the `completeness:Incomplete` mark that `values` puts on a partial month or
+year); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
 does not use (a value a soft check flags is left out in every mode and is not told). None is a station without a
 reading, and the estimate is made from the other stations and the other values all the same. The answer says so once,
 with a `source-data-left-out` warning: how many of the stations read were affected, by which cause, and the first ten
 of them in `stations`. It is one warning however many stations or causes there are, a station is counted once, and none
 is told for a station on its own. The station the walk reads to find that it is done and does not use is not counted.
 A download, a page or a directory may be there later (try again); a refused download or a file that would not parse
-mostly is not, and a date of another series never is. `values` tells the first two causes with `file-skipped` and `other-window-left-out`, and the third with
-`rejected-by-plausibility`; the [response metadata](restapi.md#response-metadata) says what each code carries. In
+mostly is not, a date of another series never is, and a window that had not closed comes back once it has (ask
+again then, or end the window before the current period). `values` tells the first three causes with `file-skipped`
+(which names the cause of each file and advises by it as this warning does), `other-window-left-out` and
+`window-not-closed`, and the fourth with `rejected-by-plausibility`; the
+[response metadata](restapi.md#response-metadata) says what each code carries. In
 Python, read it with `begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a
 log line.
 

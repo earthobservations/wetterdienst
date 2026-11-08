@@ -149,9 +149,9 @@ def test_the_hook_reaches_the_walk_that_is_collecting_and_no_other() -> None:
     told: list[tuple[str, int, str]] = []
     other: list[tuple[str, int, str]] = []
 
-    with collecting(lambda _: None, None, lambda *args: told.append(args)):
+    with collecting(lambda *_: None, None, lambda *args: told.append(args)):
         note_left_out("a", 1, "x")
-        with collecting(lambda _: None, None, lambda *args: other.append(args)):
+        with collecting(lambda *_: None, None, lambda *args: other.append(args)):
             note_left_out("b", 2, "y")
         note_left_out("c", 3, "z")
     note_left_out("d", 4, "w")
@@ -164,7 +164,7 @@ def test_the_hook_ignores_a_count_that_is_not_a_date() -> None:
     """No dates, no warning: a count of 0 or less is not noted."""
     told: list[tuple[str, int, str]] = []
 
-    with collecting(lambda _: None, None, lambda *args: told.append(args)):
+    with collecting(lambda *_: None, None, lambda *args: told.append(args)):
         note_left_out("a", 0, "x")
         note_left_out("a", -2, "x")
 
@@ -174,5 +174,5 @@ def test_the_hook_ignores_a_count_that_is_not_a_date() -> None:
 def test_the_hook_is_silent_outside_a_walk_and_where_the_walk_does_not_listen() -> None:
     """The library as a library has no walk, and a walk of another kind has no callback: neither raises."""
     note_left_out("a", 3, "x")
-    with collecting(lambda _: None):
+    with collecting(lambda *_: None):
         note_left_out("a", 3, "x")
