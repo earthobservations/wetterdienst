@@ -68,6 +68,7 @@ from wetterdienst.util.listing_cache import (
     remove_diskcache_leftovers,
 )
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
+from wetterdienst.util.response_warnings import SkipCause
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -152,6 +153,16 @@ class File:
             raise self.content
         if isinstance(self.content, Exception):
             raise _download_error(self.content, self.url) from self.content
+
+    @property
+    def skip_cause(self) -> SkipCause:
+        """Give why a provider that lets this failed download go (`note_skipped_download`) lets it go.
+
+        A 404 is a file withdrawn since the listing; any other failure is told by `skip_cause_of_failure`.
+        """
+        if self.status == HTTPStatus.NOT_FOUND:
+            return SkipCause.WITHDRAWN
+        return skip_cause_of_failure(self.content) if isinstance(self.content, BaseException) else SkipCause.FAILED
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -305,6 +316,23 @@ def as_outage(error: Exception, url: str) -> Exception:
         failure.__cause__ = error
         return failure
     return error
+
+
+def skip_cause_of_failure(error: BaseException) -> SkipCause:
+    """Say why a download that failed with `error` is let go: refused (and will be again), or failed (and may not).
+
+    A body refused for its size, its time or an unannounced compression (`DownloadRefusedError`, which is the
+    `__cause__` of the `DownloadError` that names the file) is the same refusal at the next request; every other
+    failure, a reset, a timeout, a 5xx, a 4xx answer, may be gone the next time.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if isinstance(current, DownloadRefusedError):
+            return SkipCause.REFUSED
+        seen.add(id(current))
+        current = current.__cause__
+    return SkipCause.FAILED
 
 
 #: The statuses with which a provider says that it refuses the credential it was sent.

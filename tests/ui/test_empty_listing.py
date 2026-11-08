@@ -563,7 +563,9 @@ def test_rest_values_of_a_station_whose_historical_directory_is_empty_name_the_s
     assert any(
         "stations" not in warning and "`climate/monthly/kl/historical/`" in warning["message"] for warning in skipped
     )
-    assert any(warning.get("stations") == ["00044"] for warning in skipped)
+    (station_level,) = [warning for warning in skipped if warning.get("stations") == ["00044"]]
+    assert ": the directory was found empty." in station_level["message"]
+    assert station_level["message"].endswith("Try again later.")
     assert "Cache-Control" not in response.headers
 
 

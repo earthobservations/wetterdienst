@@ -44,6 +44,7 @@ from wetterdienst.ui.cli import cli
 from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
+    SkipCause,
     begin_response,
     note_left_out,
     note_skipped_download,
@@ -365,7 +366,7 @@ def _serving_stations(
     def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401, ARG001
         read.append(station_id)
         if station_id in losing:
-            note_skipped_download()
+            note_skipped_download(SkipCause.FAILED)
         if station_id in without_rows:
             return pl.DataFrame()
         dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
@@ -653,7 +654,7 @@ def _walk(
     for station in dict.fromkeys([*read, *skipped, *(dates or {})]):
         with rows.collecting(station):
             if station in skipped:
-                note_skipped_download()
+                note_skipped_download(SkipCause.FAILED)
             if dates and station in dates:
                 note_left_out(_FROST_NAME, dates[station], "these dates are of another series")
     return left_out

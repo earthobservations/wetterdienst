@@ -36,7 +36,7 @@ from tests.provider.value_stubs import stations_result
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File, _failed_file
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+from wetterdienst.util.response_warnings import SkipCause, begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -403,9 +403,9 @@ def test_dwd_downloads_let_go_a_file_the_index_listed_that_is_not_there(
     url = "https://opendata.dwd.de/climate_environment/CDC/x/produkt.zip"
     content: Exception = DownloadError(url, "down") if raises else FileNotFoundError(url)
     monkeypatch.setattr(module, "download_files", lambda **_kwargs: [File(url=url, content=content, status=status)])
-    letting_go: list[bool] = []
+    letting_go: list[SkipCause] = []
 
-    with collecting(letting_go.append):
+    with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         if raises:
             with pytest.raises(DownloadError):
                 function(pl.Series([url]), Settings(cache_disable=True))
@@ -438,9 +438,9 @@ def test_dwd_parsers_let_go_a_file_that_would_not_parse(
 
     monkeypatch.setattr(pl, "scan_csv", broken)
     file = File(url="https://example.org/produkt.txt", content=BytesIO(b"a;b\n1;2\n"), status=200)
-    letting_go: list[bool] = []
+    letting_go: list[SkipCause] = []
 
-    with collecting(letting_go.append):
+    with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         if family == "observation":
             observation_parser._parse_climate_observations_data(  # noqa: SLF001
                 file, DwdObservationMetadata.daily.climate_summary, Period.RECENT
@@ -448,7 +448,7 @@ def test_dwd_parsers_let_go_a_file_that_would_not_parse(
         else:
             derived_parser._parse_climate_derived_data(file, next(iter(DwdDerivedMetadata["daily"])))  # noqa: SLF001
 
-    assert letting_go == [False]
+    assert letting_go == [SkipCause.UNPARSEABLE]
 
 
 # the rest of the sites: SMHI's CSV, POI, Météo-France, SWSMOS, WSV
@@ -612,9 +612,9 @@ def test_wsv_values_say_nothing_of_a_series_with_no_unit_or_an_unhandled_one(
         _timeseries_meta=lambda _settings: {("0001", "W"): meta},
         _endpoint=wsv_api.WsvPegelValues._endpoint,  # noqa: SLF001
     )
-    letting_go: list[bool] = []
+    letting_go: list[SkipCause] = []
 
-    with collecting(letting_go.append):
+    with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         df = wsv_api.WsvPegelValues._collect_station_parameter_or_dataset(values, "0001", parameter)  # noqa: SLF001
 
     assert bool(letting_go) is let_go
@@ -659,9 +659,9 @@ def test_wsv_values_tell_of_a_series_that_pegelonline_says_does_not_exist(monkey
         _timeseries_meta=lambda _settings: {("0001", "W"): meta},
         _endpoint=wsv_api.WsvPegelValues._endpoint,  # noqa: SLF001
     )
-    letting_go: list[bool] = []
+    letting_go: list[SkipCause] = []
 
-    with collecting(letting_go.append):
+    with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         df = wsv_api.WsvPegelValues._collect_station_parameter_or_dataset(values, "0001", parameter)  # noqa: SLF001
 
     assert df.is_empty()
@@ -708,9 +708,9 @@ def test_frost_values_say_nothing_when_frost_was_not_asked() -> None:
 
     parameter = next(iter(MetnoFrostRequest.metadata["hourly"]["data"]))
     values = SimpleNamespace(sr=SimpleNamespace(start=None, end=None))
-    letting_go: list[bool] = []
+    letting_go: list[SkipCause] = []
 
-    with collecting(letting_go.append):
+    with collecting(lambda _whole_request, cause: letting_go.append(cause)):
         df = MetnoFrostValues._collect_station_parameter_or_dataset(values, "SN18700", parameter)  # noqa: SLF001
 
     assert df.is_empty()

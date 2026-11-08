@@ -59,6 +59,13 @@ Types of changes:
 
 ### Fixed
 
+- The `file-skipped` warning names why a file was let go and advises by it: "Try again later" only
+  for a failed download, a withdrawn file, a maintenance page or an empty directory. For a refused
+  download (too large, too slow) or a file that would not parse it says that a retry gets the
+  same and that it is worth reporting to the provider; mixed causes are grouped as the estimate's
+  `source-data-left-out` groups them. Code and `stations` are unchanged; before, every cause said
+  "Try again later", which sent callers into retries that cannot help. A provider that calls
+  `note_skipped_download` must now pass the cause (`SkipCause`) (GH-3874)
 - A page that links to its own URL (`href="/x/"`, `"./"`, `"."`, `"?retry=1"`, `"#"`, the absolute
   URL) is no entry of the directory it stands for: `list_remote_files_fsspec` and
   `list_remote_directory_fsspec` leave the link out, an Apache index's sort links (`?C=N;O=D`)

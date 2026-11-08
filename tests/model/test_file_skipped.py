@@ -45,6 +45,7 @@ from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File, _failed_file
 from wetterdienst.util.response_warnings import (
     FILE_SKIPPED,
+    SkipCause,
     begin_response,
     note_skipped_download,
     recorded_warnings,
@@ -123,6 +124,7 @@ def test_dwd_observation_names_the_station_whose_file_was_withdrawn(monkeypatch:
     (warning,) = _told()
     assert warning["stations"] == ["00001"]
     assert warning["message"].startswith("A file of station 00001 (daily/climate_summary) was not used")
+    assert ": the file was gone." in warning["message"]
     assert "Try again later." in warning["message"]
     # the source holds nothing at the other station, which is told as before, and the one let go is not
     (without_rows,) = _told("parameter-without-rows")
@@ -191,6 +193,7 @@ def test_smhi_names_the_station_whose_file_was_refused(
     assert [w["stations"] for w in _told()] == ([["98230"]] if told else [])
     if told:
         assert "(daily/data)" in _told()[0]["message"]
+        assert ": the download failed." in _told()[0]["message"]
         assert _told("parameter-without-rows") == []
 
 
@@ -241,6 +244,8 @@ def test_fmi_names_the_station_whose_answer_was_an_exception_report(
     start = dt.datetime(2024, 1, 1, tzinfo=UTC)
     assert _fmi_values("hourly", start, start + dt.timedelta(hours=1)).is_empty()
     assert [w["stations"] for w in _told()] == ([["100971"]] if told else [])
+    if told:
+        assert ": a maintenance page came in its place." in _told()[0]["message"]
 
 
 @pytest.mark.parametrize(("status", "told"), [(500, True), (404, False)], ids=["500 failed", "404 is no data"])
@@ -285,7 +290,7 @@ def test_a_file_that_serves_every_station_is_every_stations() -> None:
         rows.examine(station, [dataset])
         with rows.collecting(station):
             if station == "00001":
-                note_skipped_download(whole_request=True)
+                note_skipped_download(SkipCause.FAILED, whole_request=True)
     begin_response()
 
     rows.warn()
@@ -308,7 +313,7 @@ def test_the_stations_are_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> No
     for station in stations:
         rows.examine(station, [dataset])
         with rows.collecting(station):
-            note_skipped_download()
+            note_skipped_download(SkipCause.FAILED)
     begin_response()
 
     rows.warn()
@@ -330,7 +335,7 @@ def test_a_walk_that_let_go_nothing_tells_nothing() -> None:
     request = _dwd_stations(("00001",)).request
     rows = ParameterRows(request, None, None, enabled=False)
     with rows.collecting("00001"):
-        note_skipped_download()
+        note_skipped_download(SkipCause.FAILED)
     rows.warn()
     assert _told() == []
 
@@ -342,8 +347,8 @@ def test_the_warning_is_recorded_once_whatever_the_number_of_files() -> None:
     dataset = request.metadata["daily"]["climate_summary"]
     rows.examine("00001", [dataset])
     with rows.collecting("00001"):
-        note_skipped_download()
-        note_skipped_download()
+        note_skipped_download(SkipCause.FAILED)
+        note_skipped_download(SkipCause.FAILED)
     begin_response()
 
     rows.warn()
@@ -360,7 +365,7 @@ def test_the_message_names_only_the_datasets_read_at_the_stations_let_go() -> No
     rows.examine("00001", [request.metadata["daily"]["climate_summary"]])
     rows.examine("00002", [request.metadata["daily"]["precipitation_more"]])
     with rows.collecting("00001"):
-        note_skipped_download()
+        note_skipped_download(SkipCause.FAILED)
     with rows.collecting("00002"):
         pass
     begin_response()
@@ -380,7 +385,7 @@ def test_a_station_a_filled_rank_walk_passed_over_is_not_named() -> None:
     for station in ("00001", "00002"):
         rows.examine(station, [request.metadata["daily"]["climate_summary"]])
         with rows.collecting(station):
-            note_skipped_download()
+            note_skipped_download(SkipCause.FAILED)
     rows.passed_over("00001")
     begin_response()
 
@@ -430,3 +435,141 @@ def test_swsmos_names_every_station_of_a_rank_walk_whose_run_could_not_be_fetche
     assert warning["message"].startswith("A file that every station of the request is read from (stations A006, B999")
     # the run is not evidence that the source holds nothing
     assert _told("parameter-without-rows") == []
+
+
+# the advice is worded by the cause the provider tells (GH-3874)
+
+_HEALING = (SkipCause.FAILED, SkipCause.WITHDRAWN, SkipCause.MAINTENANCE, SkipCause.EMPTY_DIRECTORY)
+_LASTING = (SkipCause.REFUSED, SkipCause.UNPARSEABLE)
+
+
+def _told_for(*causes: SkipCause, whole_request: bool = False) -> str:
+    """Give the message of `file-skipped` for a walk whose provider let a file go for each of `causes`."""
+    stations = tuple(f"0000{number}" for number in range(1, len(causes) + 1))
+    request = _dwd_stations(stations).request
+    rows = ParameterRows(request, None, None)
+    dataset = request.metadata["daily"]["climate_summary"]
+    for station, cause in zip(stations, causes, strict=True):
+        rows.examine(station, [dataset])
+        with rows.collecting(station):
+            note_skipped_download(cause, whole_request=whole_request)
+    begin_response()
+    rows.warn()
+    (warning,) = _told()
+    return warning["message"]
+
+
+@pytest.mark.parametrize("cause", _HEALING)
+def test_a_cause_that_can_heal_says_to_try_again_later(cause: SkipCause) -> None:
+    """A failed download, a withdrawn file, a maintenance page and an empty directory may be back: retry."""
+    message = _told_for(cause)
+
+    assert f": {cause.reason}." in message
+    assert message.endswith("which is partial. Try again later.")
+    assert "report" not in message
+
+
+@pytest.mark.parametrize("cause", _LASTING)
+def test_a_cause_that_stays_never_says_to_try_again(cause: SkipCause) -> None:
+    """A refused download and a file that would not parse stay as they are: the advice is to report it."""
+    message = _told_for(cause)
+
+    assert f": {cause.reason}." in message
+    assert "try again" not in message.lower()
+    assert "unlikely to change" in message
+    assert "report it to the provider" in message
+    assert message.count(cause.noun.capitalize()) == 1
+
+
+def test_a_parse_failure_in_the_real_parser_is_a_cause_that_stays(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The DWD parser tells `UNPARSEABLE` for a file polars cannot read, and the warning does not send a retry."""
+    from wetterdienst.metadata.period import Period  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import parser as observation_parser  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata  # noqa: PLC0415
+
+    def broken(**_kwargs: object) -> None:
+        msg = "x"
+        raise pl.exceptions.SchemaError(msg)
+
+    monkeypatch.setattr(pl, "scan_csv", broken)
+    file = File(url="https://example.org/produkt.txt", content=BytesIO(b"a;b\n1;2\n"), status=200)
+    request = _dwd_stations(("00001",)).request
+    rows = ParameterRows(request, None, None)
+    rows.examine("00001", [request.metadata["daily"]["climate_summary"]])
+    with rows.collecting("00001"):
+        observation_parser._parse_climate_observations_data(  # noqa: SLF001
+            file, DwdObservationMetadata.daily.climate_summary, Period.RECENT
+        )
+    begin_response()
+    rows.warn()
+
+    (warning,) = _told()
+    assert ": it would not parse." in warning["message"]
+    assert "try again" not in warning["message"].lower()
+    assert "report it to the provider" in warning["message"]
+
+
+def test_causes_of_both_kinds_are_grouped_as_the_estimate_groups_them() -> None:
+    """Several causes in one warning: the ones that heal are retried, the others reported, naming what occurred."""
+    message = _told_for(SkipCause.WITHDRAWN, SkipCause.EMPTY_DIRECTORY, SkipCause.UNPARSEABLE)
+
+    assert ": the file was gone, the directory was found empty or it would not parse." in message
+    assert message.endswith(
+        "A withdrawn file and an empty directory may be back later, so try again; a file that would not parse "
+        "mostly stays as it is, and is worth reporting to the provider."
+    )
+
+
+def test_only_the_causes_of_the_stations_named_are_told() -> None:
+    """A station a filled rank walk replaced does not bring its cause into the warning of the others."""
+    request = _dwd_stations(("00001", "00002")).request
+    rows = ParameterRows(request, None, None)
+    for station, cause in (("00001", SkipCause.UNPARSEABLE), ("00002", SkipCause.FAILED)):
+        rows.examine(station, [request.metadata["daily"]["climate_summary"]])
+        with rows.collecting(station):
+            note_skipped_download(cause)
+    rows.passed_over("00001")
+    begin_response()
+
+    rows.warn(rank_filled=True)
+
+    (warning,) = _told()
+    assert warning["stations"] == ["00002"]
+    assert warning["message"].endswith("Try again later.")
+    assert "would not parse" not in warning["message"]
+
+
+def test_a_file_that_serves_every_station_tells_its_own_cause() -> None:
+    """The cause of a whole-request file is the file's, whichever station met it."""
+    message = _told_for(SkipCause.REFUSED, whole_request=True)
+
+    assert message.startswith("A file that every station of the request is read from")
+    assert ": the download was refused." in message
+    assert "try again" not in message.lower()
+
+
+def test_the_structured_members_of_the_warning_are_unchanged() -> None:
+    """The code and the members stay: the cause is in the message, not a new field (GH-3874)."""
+    _told_for(SkipCause.UNPARSEABLE)
+
+    (warning,) = _told()
+    assert set(warning) == {"code", "message", "stations"}
+    assert warning["code"] == "file-skipped"
+
+
+def test_a_failed_download_is_told_as_refused_only_where_the_download_was_refused() -> None:
+    """`File.skip_cause` reads the 404 as withdrawn, a refused body as refused and any other failure as failed."""
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.util.network import DownloadRefusedError, skip_cause_of_failure  # noqa: PLC0415
+
+    url = "https://example.invalid/a.zip"
+    refused = DownloadRefusedError("the file is larger than a download is held to")
+
+    assert File(url=url, content=FileNotFoundError(url), status=404).skip_cause is SkipCause.WITHDRAWN
+    assert File(url=url, content=refused, status=200).skip_cause is SkipCause.REFUSED
+    assert File(url=url, content=TimeoutError(), status=200).skip_cause is SkipCause.FAILED
+    assert File(url=url, content=DownloadError(url, "500"), status=500).skip_cause is SkipCause.FAILED
+    # the error a caller raised for the refusal names the file and keeps the refusal as its cause
+    named = DownloadError(url, str(refused))
+    named.__cause__ = refused
+    assert skip_cause_of_failure(named) is SkipCause.REFUSED

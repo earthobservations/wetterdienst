@@ -40,6 +40,7 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    skip_cause_of_failure,
 )
 from wetterdienst.util.response_warnings import note_skipped_download
 
@@ -288,7 +289,7 @@ def _note_skipped_chunk(payload: Exception) -> None:
     """
     if isinstance(payload, FileNotFoundError) or getattr(payload, "status", None) == HTTPStatus.NOT_FOUND:
         return
-    note_skipped_download()
+    note_skipped_download(skip_cause_of_failure(payload))
 
 
 def _raise_if_unanswered(payload: bytes | Exception) -> None:
@@ -371,7 +372,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     if isinstance(datos_file.content, Exception):
         # the envelope said 200 and named the data, which is not there: a chunk let go, whatever the status of the
         # link, and not AEMET's answer that it has no data for the request (an `estado` of 404)
-        note_skipped_download()
+        note_skipped_download(datos_file.skip_cause)
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(datos_file.content, datos_file.url, datos_file.status)
     payload = datos_file.content.read()

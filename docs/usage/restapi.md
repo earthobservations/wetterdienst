@@ -457,7 +457,12 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  Retry later: what is missing may well be there then, which is the
+  The message gives the cause, and its advice follows it: a failed download, a file withdrawn since the listing, a
+  maintenance page (or an empty answer) and a directory found empty may be back, so it says to try again later; a
+  refused download (too large, too slow) and a file that would not parse mostly stay as they are, so it says that
+  retrying will not help and that it is worth reporting to the provider. Where both kinds occurred it groups them as
+  `source-data-left-out` does. The code and the members (`stations`) are the same for every cause. What is missing may
+  well be there on a retry for the first kind, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
   again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a

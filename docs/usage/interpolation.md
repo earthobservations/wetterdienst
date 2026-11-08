@@ -194,7 +194,8 @@ with a `source-data-left-out` warning: how many of the stations read were affect
 of them in `stations`. It is one warning however many stations or causes there are, a station is counted once, and none
 is told for a station on its own. The station the walk reads to find that it is done and does not use is not counted.
 A download, a page or a directory may be there later (try again); a refused download or a file that would not parse
-mostly is not, and a date of another series never is. `values` tells the first two causes with `file-skipped` and `other-window-left-out`, and the third with
+mostly is not, and a date of another series never is. `values` tells the first two causes with `file-skipped` (which
+names the cause of each file and advises by it as this warning does) and `other-window-left-out`, and the third with
 `rejected-by-plausibility`; the [response metadata](restapi.md#response-metadata) says what each code carries. In
 Python, read it with `begin_response()` and `recorded_warnings()` from `wetterdienst.util.response_warnings`, or as a
 log line.

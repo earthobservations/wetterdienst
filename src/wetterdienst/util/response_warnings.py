@@ -18,12 +18,13 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
+from enum import Enum
 from typing import TYPE_CHECKING, Any, NotRequired
 
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Sequence
     from datetime import datetime
 
 
@@ -105,6 +106,73 @@ WINDOW_NOT_CLOSED = "window-not-closed"
 #: station, nor `parameter-without-rows`, which a station without a parameter is the ordinary case of
 SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 
+
+class SkipCause(Enum):
+    """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
+
+    Each member holds the clause the warning gives for it (`reason`), the noun of the grouped advice (`noun`, as
+    `source-data-left-out` words it) and whether the cause can heal (`may_heal`): a download that failed, a file
+    withdrawn since the listing, a maintenance page and a directory found empty may be back, so asking again is worth
+    it; a download refused for its size, its time or an unannounced compression, and a file that would not parse,
+    mostly stay as they are, and a caller who retries them gets the same.
+    """
+
+    #: the download failed (a reset, a timeout, a 5xx, a 4xx answer)
+    FAILED = ("the download failed", "a failed download", True)
+    #: the file the listing named is not on the server (a 404)
+    WITHDRAWN = ("the file was gone", "a withdrawn file", True)
+    #: a body that is no answer: a maintenance page, an exception report, an empty 200
+    MAINTENANCE = ("a maintenance page came in its place", "a maintenance page", True)
+    #: the directory that was to list the files came back empty or missing
+    EMPTY_DIRECTORY = ("the directory was found empty", "an empty directory", True)
+    #: the download was refused: too large, too slow, or compressed while its name says it is not
+    REFUSED = ("the download was refused", "a refused download", False)
+    #: the file arrived and would not parse, or held what the reader cannot use
+    UNPARSEABLE = ("it would not parse", "a file that would not parse", False)
+
+    def __init__(self, reason: str, noun: str, may_heal: bool) -> None:  # noqa: FBT001
+        """Keep the clause of the warning, the noun of the advice and whether the cause can heal."""
+        self.reason = reason
+        self.noun = noun
+        self.may_heal = may_heal
+
+
+def _joined(phrases: Sequence[str], conjunction: str = "and") -> str:
+    """Join phrases as prose: `a`, `a and b`, `a, b and c`."""
+    if len(phrases) <= 1:
+        return "".join(phrases)
+    return f"{', '.join(phrases[:-1])} {conjunction} {phrases[-1]}"
+
+
+def tell_skip_causes(causes: Iterable[SkipCause]) -> str:
+    """Give why files were let go, as a clause of `file-skipped`: `the download failed or it would not parse`."""
+    wanted = set(causes)
+    return _joined([cause.reason for cause in SkipCause if cause in wanted], "or")
+
+
+def advise_on_skip_causes(causes: Iterable[SkipCause]) -> str:
+    """Give what a caller can do about files let go for `causes`, as `file-skipped` says it.
+
+    Only the causes that can heal are told to try again later. A refused download or a file that would not parse
+    mostly stays as it is, so the advice is to report it to the provider; where both kinds occurred the two are
+    grouped as the warning of an estimate (`source-data-left-out`) groups them, naming the causes that occurred.
+    """
+    wanted = set(causes)
+    healing = [cause.noun for cause in SkipCause if cause in wanted and cause.may_heal]
+    lasting = [cause.noun for cause in SkipCause if cause in wanted and not cause.may_heal]
+    if not lasting:
+        return "Try again later."
+    if not healing:
+        return (
+            f"{_joined(lasting).capitalize()} is unlikely to change, so trying again will not help; if it keeps "
+            "happening, report it to the provider."
+        )
+    return (
+        f"{_joined(healing).capitalize()} may be back later, so try again; {_joined(lasting)} mostly stays as it is, "
+        "and is worth reporting to the provider."
+    )
+
+
 #: the parameters a warning names while a walk collects one station (`collecting`), which the response warnings of
 #: the request cannot tell where nothing is recorded (the library as a library)
 _NAMED: ContextVar[set[str] | None] = ContextVar("wetterdienst_named_parameters", default=None)
@@ -116,7 +184,7 @@ _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_cou
 
 #: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
 #: walk of the values around the collection of one station, and `None` outside it
-_SKIPPING: ContextVar[Callable[[bool], None] | None] = ContextVar("wetterdienst_skipping", default=None)
+_SKIPPING: ContextVar[Callable[[bool, SkipCause], None] | None] = ContextVar("wetterdienst_skipping", default=None)
 #: what a provider tells when it leaves the rows of another window out of the station being collected
 #: (`note_left_out`), set like `_SKIPPING`
 _LEFT_OUT: ContextVar[Callable[[str, int, str], None] | None] = ContextVar("wetterdienst_left_out", default=None)
@@ -129,7 +197,7 @@ _OPEN_WINDOW: ContextVar[Callable[[str, int, datetime, bool], None] | None] = Co
 
 @contextmanager
 def collecting(
-    note: Callable[[bool], None],
+    note: Callable[[bool, SkipCause], None],
     named: set[str] | None = None,
     left_out: Callable[[str, int, str], None] | None = None,
     open_window: Callable[[str, int, datetime, bool], None] | None = None,
@@ -192,7 +260,7 @@ def note_open_window(parameter: str, count: int, closes: datetime, *, returned: 
         note(parameter, count, closes, returned)
 
 
-def note_skipped_download(*, whole_request: bool = False) -> None:
+def note_skipped_download(cause: SkipCause, *, whole_request: bool = False) -> None:
     """Tell that the provider let a file go and answers without it: a station's readings may be missing for that.
 
     For the places where a provider gives up on a file it expected to be there and goes on with the others: a
@@ -200,7 +268,8 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     that is an error in the guise of an answer (a maintenance page, an exception report), a file that would not
     parse. The station being collected is then no evidence that the source holds nothing, and
     `parameter-without-rows` does not count it (`whole_request` for a file that every station of the request is read
-    from).
+    from). ``cause`` is why (`SkipCause`), which `file-skipped` words its advice by. It is required: a call that left
+    it out would send a caller to retry what cannot heal.
 
     Not for an answer that says there is nothing (a 404 for a station that does not report the parameter, Frost's
     412), nor for a download that failed and was made again with success. Nothing happens outside the collection of
@@ -212,7 +281,7 @@ def note_skipped_download(*, whole_request: bool = False) -> None:
     """
     note = _SKIPPING.get()
     if note is not None:
-        note(whole_request)
+        note(whole_request, cause)
 
 
 def begin_response() -> None:
