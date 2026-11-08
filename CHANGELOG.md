@@ -67,6 +67,12 @@ Types of changes:
   after it was back and `dwd/observation` skipped the period; `./` was a `RecursionError` after
   974 requests that also left fsspec's event loop spinning). An `Index of` page that links to
   `./` and holds files lists them (GH-3861)
+- `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
+  warning, that source data was left out: how many of the stations they read lost a file the
+  provider let go (a failed download, a directory found empty), dates of another series (Frost) or
+  values a hard plausibility check rejected. Before, none reached an estimate, which answered
+  `warnings: []`. One warning per answer, not per station, up to 10 station ids; the station the
+  walk stops at is not counted (GH-3848)
 - **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
   of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
   warning names the directory (it was a log line, and a history of it was cached); so does the
