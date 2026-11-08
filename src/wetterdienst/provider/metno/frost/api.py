@@ -940,14 +940,14 @@ def _tell_left_out(
 
 
 def _tell_open_window(
-    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, *, returned: bool
 ) -> None:
     """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
 
     ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
-    time the window `closes`, one row for each. A daily value is left out of the answer and a monthly or annual one is
-    returned (marked, `_OPEN`), so the warning says which. A value the core cuts off (beyond the window of the request)
-    is not counted. The warning is `window-not-closed`.
+    time the window `closes`, one row for each. ``returned`` is whether they are in the answer (marked, `_OPEN`) or left
+    out of it (`_leaves_open_out`), so the warning says which. A value the core cuts off (beyond the window of the
+    request) is not counted. The warning is `window-not-closed`.
     """
     if open_window.is_empty():
         return
@@ -955,7 +955,7 @@ def _tell_open_window(
     summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
     for parameter, count, closes in summary.iter_rows():
         if parameter in names:
-            note_open_window(names[parameter], count, closes, returned=resolution != _DAILY)
+            note_open_window(names[parameter], count, closes, returned=returned)
 
 
 def _no_open_window() -> pl.DataFrame:
@@ -965,18 +965,35 @@ def _no_open_window() -> pl.DataFrame:
     )
 
 
+def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
+    """Give whether a value of a window that had not closed is left out of the answer, and not returned marked.
+
+    A daily one always is: it looks like the day's (GH-3856). A monthly or annual one is returned marked
+    `completeness:Incomplete` in `quality_flags`, which an estimate drops, so it is left out of an estimate and told as
+    such (GH-3883); `values` still returns it.
+    """
+    return resolution == _DAILY or (estimate and resolution in _PERIODS)
+
+
 def _tell_not_returned(
-    read: _Read, kept: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, resolution: str
+    read: _Read,
+    kept: pl.DataFrame,
+    names: dict[str, str],
+    start: datetime,
+    end: datetime,
+    resolution: str,
+    *,
+    estimate: bool,
 ) -> None:
     """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `_tell_open_window`).
 
     ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
+    ``estimate`` is whether the values are read for `interpolate` or `summarize` (`_leaves_open_out`).
     """
-    # a daily value of a window not closed is left out, and no date left out for another series (GH-3856)
-    _tell_left_out(
-        read.left_out, kept, names, start, end, resolution, read.open_window if resolution == _DAILY else None
-    )
-    _tell_open_window(read.open_window, names, start, end, resolution)
+    leaves_out = _leaves_open_out(resolution, estimate=estimate)
+    # a value of a window not closed that is left out is no date left out for another series (GH-3856)
+    _tell_left_out(read.left_out, kept, names, start, end, resolution, read.open_window if leaves_out else None)
+    _tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
 
 
 def _level(df: pl.DataFrame) -> pl.Expr:
@@ -999,7 +1016,13 @@ class _Read(NamedTuple):
 
 
 def _read_observations(
-    df: pl.DataFrame, parameter: pl.Expr, resolution: str, station_id: str, served_at: datetime
+    df: pl.DataFrame,
+    parameter: pl.Expr,
+    resolution: str,
+    station_id: str,
+    served_at: datetime,
+    *,
+    estimate: bool = False,
 ) -> _Read:
     """Give the frame the core takes from the observations of an answer, and what it left out or marked.
 
@@ -1008,7 +1031,8 @@ def _read_observations(
     ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
     The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
     the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
-    and has `completeness:Incomplete` in its quality flags.
+    and has `completeness:Incomplete` in its quality flags, unless ``estimate``, which leaves it out too
+    (`_leaves_open_out`).
     """
     left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
@@ -1029,8 +1053,9 @@ def _read_observations(
             .agg(pl.col("closes").min())
         )
         df = df.with_columns(is_open.alias(_OPEN))
-        if resolution == _DAILY:
-            # a daily value of a window that has not closed is partial and looks like the day's: left out
+        if _leaves_open_out(resolution, estimate=estimate):
+            # a daily value of a window that has not closed is partial and looks like the day's, and a monthly or annual
+            # one is partial and an estimate cannot carry its mark: left out
             df = df.filter(~pl.col(_OPEN))
     if df.is_empty():
         # every row was of another series, or of a window not closed: nothing to return, and what was left out is told
@@ -1247,7 +1272,12 @@ class MetnoFrostValues(TimeseriesValues):
         df = df.explode("observations", empty_as_null=True)
         df = df.unnest("observations")
         read = _read_observations(
-            df, pl.col("elementId"), dataset.resolution.name, station_id, _served_at(file, asked_at)
+            df,
+            pl.col("elementId"),
+            dataset.resolution.name,
+            station_id,
+            _served_at(file, asked_at),
+            estimate=self._left_out_of_estimate is not None,
         )
         # the batch holds the whole dataset: what is told is of the parameters asked for
         asked = {
@@ -1255,7 +1285,15 @@ class MetnoFrostValues(TimeseriesValues):
             for parameter in self.sr.parameters
             if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
         }
-        _tell_not_returned(read, read.frame, asked, start_date, end_date, dataset.resolution.name)
+        _tell_not_returned(
+            read,
+            read.frame,
+            asked,
+            start_date,
+            end_date,
+            dataset.resolution.name,
+            estimate=self._left_out_of_estimate is not None,
+        )
         return read.frame
 
     def _collect_after_batch_404(
@@ -1360,6 +1398,7 @@ class MetnoFrostValues(TimeseriesValues):
             parameter.dataset.resolution.name,
             station_id,
             _served_at(file, asked_at),
+            estimate=self._left_out_of_estimate is not None,
         )
         _tell_not_returned(
             read,
@@ -1368,6 +1407,7 @@ class MetnoFrostValues(TimeseriesValues):
             start_date,
             end_date,
             parameter.dataset.resolution.name,
+            estimate=self._left_out_of_estimate is not None,
         )
         return read.frame
 
@@ -1489,7 +1529,12 @@ class MetnoFrostValues(TimeseriesValues):
             df = df.explode("observations", empty_as_null=True).unnest("observations")
             df = df.filter(pl.col("elementId").eq(element))
             read = _read_observations(
-                df, pl.lit(element, dtype=pl.String), resolution_name, station_id, _served_at(obs_file, asked_at)
+                df,
+                pl.lit(element, dtype=pl.String),
+                resolution_name,
+                station_id,
+                _served_at(obs_file, asked_at),
+                estimate=self._left_out_of_estimate is not None,
             )
             left_outs.append(read.left_out)
             open_windows.append(read.open_window)
@@ -1509,7 +1554,13 @@ class MetnoFrostValues(TimeseriesValues):
             else _no_open_window(),
         )
         _tell_not_returned(
-            read, kept, {element: _full_name(parameter_or_dataset)}, start_date, end_date, resolution_name
+            read,
+            kept,
+            {element: _full_name(parameter_or_dataset)},
+            start_date,
+            end_date,
+            resolution_name,
+            estimate=self._left_out_of_estimate is not None,
         )
         return kept
 

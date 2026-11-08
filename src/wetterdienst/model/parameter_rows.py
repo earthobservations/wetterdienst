@@ -229,6 +229,8 @@ class ParameterRows:
             stations[station_id] = stations.get(station_id, 0) + count
             self._open_closes[parameter] = min(closes, self._open_closes.get(parameter, closes))
             self._open_returned[parameter] = returned
+            if not returned and self._estimate is not None:
+                self._estimate.open_window(station_id, parameter, count)
             if not returned:
                 # the source has values there, left out: no `parameter-without-rows`, no `station-without-rows`
                 self._named.add(parameter)
@@ -524,6 +526,10 @@ class ParameterRows:
         )
 
 
+#: what a window of a resolution is called in the warning of an estimate, by the resolution of the parameter
+_OPEN_WINDOWS = {"daily": "today", "monthly": "this month", "annual": "this year"}
+
+
 class EstimateLeftOut:
     """What the walk of an estimate left out at the stations it read, told as one warning for the answer (GH-3848).
 
@@ -540,6 +546,11 @@ class EstimateLeftOut:
     - `other-window-left-out`'s: dates of a parameter that only another series of the source has, which are no missing
       data and are left out so that a value of another window is not given under this parameter's name; counted in dates
       for each parameter.
+    - `window-not-closed`'s, for the values the provider left out of the answer (`note_open_window`, `returned`
+      false): values of a window that had not closed yet (today, this month, this year), counted in values for each
+      resolution. An estimate cannot carry the incomplete mark of a value the source serves before its window closes,
+      so the provider leaves those out of an estimate (`metno/frost`: the month and the year too, which `values`
+      returns marked) and they are told here (GH-3883).
     - `rejected-by-plausibility`'s: values a hard plausibility check made null (`REJECTED_TOKEN`), counted in values and
       by check. What a soft check flags (`suspect:`) is left out by the estimate itself, whatever the mode, and is not
       counted here.
@@ -564,6 +575,9 @@ class EstimateLeftOut:
         self._dates: dict[str, dict[str, int]] = {}
         #: the values a hard check made null, by station: the count, and the count by check
         self._rejected: dict[str, tuple[int, dict[str, int]]] = {}
+        #: the values of a window that had not closed that the provider left out, by what the window is (`today`, ...)
+        #: and then by station
+        self._open: dict[str, dict[str, int]] = {}
 
     def collected(self, station_id: str) -> None:
         """Note that the walk reads the station, which a file that serves every station was let go for."""
@@ -579,6 +593,15 @@ class EstimateLeftOut:
     def left_out(self, station_id: str, parameter: str, count: int) -> None:
         """Note that the provider left `count` dates of `parameter` out of the station: they are of another series."""
         stations = self._dates.setdefault(parameter, {})
+        stations[station_id] = stations.get(station_id, 0) + count
+
+    def open_window(self, station_id: str, parameter: str, count: int) -> None:
+        """Note that the provider left `count` values of `parameter` out of the station: their window had not closed.
+
+        ``parameter`` is `resolution/dataset/parameter`, and its resolution says which window it was.
+        """
+        window = _OPEN_WINDOWS.get(parameter.split("/", maxsplit=1)[0], "the current period")
+        stations = self._open.setdefault(window, {})
         stations[station_id] = stations.get(station_id, 0) + count
 
     def rejected(self, station_id: str, count: int, by_check: dict[str, int]) -> None:
@@ -616,14 +639,20 @@ class EstimateLeftOut:
         for stations in self._dates.values():
             stations.pop(station_id, None)
         self._dates = {parameter: stations for parameter, stations in self._dates.items() if stations}
+        for stations in self._open.values():
+            stations.pop(station_id, None)
+        self._open = {window: stations for window, stations in self._open.items() if stations}
 
     def warn(self) -> None:
         """Tell, in one warning, what was left out and at how many of the stations read; nothing if nothing was."""
         files = list(self._collected if self._files_of_all else self._files)
         other = [station for station in self._collected if any(station in dates for dates in self._dates.values())]
         rejected = [station for station in self._collected if station in self._rejected]
+        open_ = [station for station in self._collected if any(station in windows for windows in self._open.values())]
         affected = [
-            station for station in self._collected if station in files or station in other or station in rejected
+            station
+            for station in self._collected
+            if station in files or station in other or station in rejected or station in open_
         ]
         if not affected:
             return
@@ -635,6 +664,18 @@ class EstimateLeftOut:
                 f"Dates of another series of the source were left out at {self._count(other)}: {dates}. "
                 "The source holds values for them, so nothing is missing there, but they are not read: a value of "
                 "another window would be wrong under the parameter's name."
+            )
+        if open_:
+            total = sum(sum(stations.values()) for stations in self._open.values())
+            windows = ", ".join(f"{sum(stations.values())} for {window}" for window, stations in self._open.items())
+            one = total == 1
+            sentences.append(
+                f"{total} {'value' if one else 'values'} at {self._count(open_)} "
+                f"{'was' if one else 'were'} of a window that had not closed yet ({windows}) and "
+                f"{'is' if one else 'are'} left out: {'it is' if one else 'they are'} partial and may "
+                f"still change, and the source does not mark {'it' if one else 'them'}. "
+                f"{'It is' if one else 'They are'} not missing at the source and {'comes' if one else 'come'} back "
+                "once the window has closed."
             )
         if rejected:
             total = sum(self._rejected[station][0] for station in rejected)
