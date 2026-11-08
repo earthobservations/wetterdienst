@@ -33,6 +33,10 @@ hand-maintained name lists -- ``TimeseriesRequest.interpolatable_parameters``, t
 ``geo_station_distance`` defaults in ``options`` and ``_OCCURRENCE_BASED_PARAMETERS`` in
 ``core.interpolate`` -- which had to agree about the same names and could only be kept in step by a
 test. All three are derived from these two fields now.
+
+``aggregation`` says what a value is relative to its own interval (a mean, a maximum, a total, a count, ...), where
+the name of the quantity decides it (GH-3134). It is ``None`` for a name that states no statistic, which a provider
+may declare where its source does.
 """
 
 from __future__ import annotations
@@ -64,6 +68,64 @@ if TYPE_CHECKING:
 # A ``Literal`` rather than an enum, for the same reason as ``UnitType``: a typo in a table entry
 # is then a type error under ``ty`` rather than something only a test can catch.
 Interpolation = Literal["homogeneous", "heterogeneous"]
+
+# What a value is, relative to the interval of its own row (the hour of an hourly row, the day of a daily one) or to
+# the window its name states (``_last_3h``), as ``docs/data/parameters.md`` ("The statistic in a name") defines the
+# words of a name. A closed set, a ``Literal`` like ``UnitType`` and ``Interpolation``: a typo is a type error, and
+# the members are a JSON-Schema enum wherever a model that holds one is described (REST, MCP). ``None`` is not a
+# member: it says "not stated", and is the answer wherever no member fits. A response enum that gains a member after
+# v1 is a break (GH-3888), so the set is complete here, ``change``, ``uncertainty``, ``occurrence`` and ``at_max``
+# included, though only a handful of names carry them.
+#
+# The canonical value is declared where the *name* decides it (``tests/metadata/test_aggregation.py`` derives it from
+# the name and holds the table to it). A plain name (``temperature_air_2m``) states no statistic -- "a reading at
+# one moment, or a source that states no statistic" -- so it is ``None`` here, and no canonical name is ``instant``:
+# only a provider that says its source states a reading can say that, row by row.
+Aggregation = Literal[
+    "instant",
+    "mean",
+    "max",
+    "min",
+    "sum",
+    "count",
+    "mean_of_max",
+    "mean_of_min",
+    "probability",
+    "occurrence",
+    "date",
+    "change",
+    "uncertainty",
+    "code",
+    "at_max",
+]
+
+# one line per member, in the words of the naming page; the surfaces that describe the field (coverage, glossary,
+# the MCP instructions) read them from here, so that the definition is written once
+AGGREGATION_DEFINITIONS: dict[Aggregation, str] = {
+    "instant": (
+        "A reading at the timestamp, or a mean over a window of at most 5 minutes that the naming rules treat as a "
+        "reading (GH-2660)."
+    ),
+    "mean": "The mean over the interval or over the window the name states.",
+    "max": "The largest value over the interval or over the window the name states.",
+    "min": "The smallest value over the interval or over the window the name states.",
+    "sum": (
+        "The total accumulated over the interval or window, or the sum of the daily values of a quantity that has no "
+        "unit of its own as a sum; includes the totals by nature (amounts, durations, energies, degree-days)."
+    ),
+    "count": "A number of days, hours or events in the interval.",
+    "mean_of_max": "The mean over the days of the interval of the daily maximum.",
+    "mean_of_min": "The mean over the days of the interval of the daily minimum.",
+    "probability": "The probability that an event happens within the window, a forecast.",
+    "occurrence": "Whether an event happened at least once in the interval, a 0/1 flag.",
+    "date": "The day on which an event happened, as a day count.",
+    "change": "The difference between the end and the start of the window.",
+    "uncertainty": "An estimate of the error of another quantity, no statistic of the quantity itself.",
+    "code": "A coded, classified or derived value to which no statistic applies.",
+    "at_max": (
+        "The value of a quantity at the time another quantity reached its maximum, as the direction of the top gust."
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +161,10 @@ class CanonicalParameter:
     # ask for, leaves it out (docs/data/quality-flags.md tells what the columns hold). ``is_quality_flag``
     # (``model/metadata.py``) reads it, so a dataset's iteration, the counts, ``coverage`` and the glossary agree
     quality_flag: bool = False
+    # what a value is relative to its interval (``Aggregation``), where the *name* decides it; ``None`` is "not
+    # stated" and is what a plain name holds (a provider says a reading where its source does). Written out, not
+    # derived from the name, so that a rename after v1 cannot move a frozen value; the rule test holds it to the name
+    aggregation: Aggregation | None = None
 
 
 # The rates the atmosphere thins at, in kelvin per metre. The dry-bulb figure is the ICAO standard
@@ -147,7 +213,10 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "clearance_height", "length_medium", "Vertical clearance between the water surface and the structure above it."
     ),
     CanonicalParameter(
-        "climate_correction_factor", "dimensionless", "Factor correcting a degree-day total for the local climate."
+        "climate_correction_factor",
+        "dimensionless",
+        "Factor correcting a degree-day total for the local climate.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "cloud_cover_above_7km",
@@ -209,37 +278,43 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "fraction",
         "Mean fraction of the sky covered by cloud of any kind over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "cloud_cover_total_mean_midnight_to_midnight",
         "fraction",
         "Mean total cloud cover over the calendar day, midnight to midnight.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "cloud_cover_total_mean_midnight_to_midnight_manual",
         "fraction",
         "Mean total cloud cover over the calendar day, midnight to midnight, from manual observation.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "cloud_cover_total_mean_sunrise_to_sunset",
         "fraction",
         "Mean total cloud cover over the daylight hours, sunrise to sunset.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "cloud_cover_total_mean_sunrise_to_sunset_manual",
         "fraction",
         "Mean total cloud cover over the daylight hours, sunrise to sunset, from manual observation.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "cloud_cover_total_measurement_method",
         "dimensionless",
         "Coded indicator of how the total cloud cover was determined, such as by a person or an instrument.",
+        aggregation="code",
     ),
-    CanonicalParameter("cloud_density", "dimensionless", "Optical density of the cloud."),
+    CanonicalParameter("cloud_density", "dimensionless", "Optical density of the cloud.", aggregation="code"),
     CanonicalParameter(
         "cloud_height_layer1", "length_medium", "Height above ground of the base of the lowest reported cloud layer."
     ),
@@ -252,220 +327,319 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "cloud_height_layer4", "length_medium", "Height above ground of the base of the fourth reported cloud layer."
     ),
-    CanonicalParameter("cloud_type_layer1", "dimensionless", "Coded cloud genus of the lowest reported cloud layer."),
-    CanonicalParameter("cloud_type_layer2", "dimensionless", "Coded cloud genus of the second reported cloud layer."),
-    CanonicalParameter("cloud_type_layer3", "dimensionless", "Coded cloud genus of the third reported cloud layer."),
-    CanonicalParameter("cloud_type_layer4", "dimensionless", "Coded cloud genus of the fourth reported cloud layer."),
+    CanonicalParameter(
+        "cloud_type_layer1",
+        "dimensionless",
+        "Coded cloud genus of the lowest reported cloud layer.",
+        aggregation="code",
+    ),
+    CanonicalParameter(
+        "cloud_type_layer2",
+        "dimensionless",
+        "Coded cloud genus of the second reported cloud layer.",
+        aggregation="code",
+    ),
+    CanonicalParameter(
+        "cloud_type_layer3", "dimensionless", "Coded cloud genus of the third reported cloud layer.", aggregation="code"
+    ),
+    CanonicalParameter(
+        "cloud_type_layer4",
+        "dimensionless",
+        "Coded cloud genus of the fourth reported cloud layer.",
+        aggregation="code",
+    ),
     CanonicalParameter(
         "cooling_degree_day",
         "degree_day",
         "Cooling degree days, the temperature excess above a base value summed over each day.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "cooling_degree_hour",
         "degree_hour",
         "Cooling degree hours, the temperature excess above a base value summed over each hour.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "count_days_cloud_cover_total_mean_gt_80pct",
         "dimensionless",
         "Number of days on which the mean total cloud cover was more than 80 percent.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_cloud_cover_total_mean_lt_20pct",
         "dimensionless",
         "Number of days on which the mean total cloud cover was less than 20 percent.",
+        aggregation="count",
     ),
-    CanonicalParameter("count_days_cooling_degree", "dimensionless", "Number of days on which cooling was required."),
+    CanonicalParameter(
+        "count_days_cooling_degree",
+        "dimensionless",
+        "Number of days on which cooling was required.",
+        aggregation="count",
+    ),
     CanonicalParameter(
         "count_days_frost",
         "dimensionless",
         "Number of days on which the minimum air temperature fell below 0 degrees Celsius.",
+        aggregation="count",
     ),
-    CanonicalParameter("count_days_heating_degree", "dimensionless", "Number of days on which heating was required."),
+    CanonicalParameter(
+        "count_days_heating_degree",
+        "dimensionless",
+        "Number of days on which heating was required.",
+        aggregation="count",
+    ),
     CanonicalParameter(
         "count_days_hot",
         "dimensionless",
         "Number of days on which the maximum air temperature reached at least 30 degrees Celsius.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_ice",
         "dimensionless",
         "Number of days on which the maximum air temperature stayed below 0 degrees Celsius.",
+        aggregation="count",
     ),
     CanonicalParameter(
-        "count_days_multiday_evaporation", "dimensionless", "Number of days covered by a multi-day evaporation total."
+        "count_days_multiday_evaporation",
+        "dimensionless",
+        "Number of days covered by a multi-day evaporation total.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_multiday_precipitation",
         "dimensionless",
         "Number of days covered by a multi-day precipitation total.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_multiday_precipitation_amount_gt_0mm",
         "dimensionless",
         "Number of days with measurable precipitation within a multi-day total.",
+        aggregation="count",
     ),
     CanonicalParameter(
-        "count_days_multiday_snow_depth_new", "dimensionless", "Number of days covered by a multi-day fresh snow total."
+        "count_days_multiday_snow_depth_new",
+        "dimensionless",
+        "Number of days covered by a multi-day fresh snow total.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_multiday_temperature_air_max_2m",
         "dimensionless",
         "Number of days covered by a multi-day maximum air temperature.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_multiday_temperature_air_min_2m",
         "dimensionless",
         "Number of days covered by a multi-day minimum air temperature.",
+        aggregation="count",
     ),
     CanonicalParameter(
-        "count_days_multiday_wind_movement", "dimensionless", "Number of days covered by a multi-day wind run total."
+        "count_days_multiday_wind_movement",
+        "dimensionless",
+        "Number of days covered by a multi-day wind run total.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_0_1mm",
         "dimensionless",
         "Number of days on which at least 0.1 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_10mm",
         "dimensionless",
         "Number of days on which at least 10 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_1mm",
         "dimensionless",
         "Number of days on which at least 1 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_20mm",
         "dimensionless",
         "Number of days on which at least 20 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_2_5mm",
         "dimensionless",
         "Number of days on which at least 2.5 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_precipitation_amount_ge_5mm",
         "dimensionless",
         "Number of days on which at least 5 mm of precipitation fell.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_snow_cover_gt_50pct",
         "dimensionless",
         "Number of days on which the snow depth was more than 0 and more than 50 percent of the ground was covered "
         "by snow.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_snow_depth_ge_1cm",
         "dimensionless",
         "Number of days on which the snow depth reached at least 1 cm.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_snow_depth_ge_5cm",
         "dimensionless",
         "Number of days on which the snow depth reached at least 5 cm.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_summer",
         "dimensionless",
         "Number of days on which the maximum air temperature reached at least 25 degrees Celsius.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_temperature_air_min_2m_lt_minus_10c",
         "dimensionless",
         "Number of days on which the minimum air temperature fell below -10 degrees Celsius.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_tropical_night",
         "dimensionless",
         "Number of nights on which the minimum air temperature stayed at or above 20 degrees Celsius.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_precipitation_amount",
         "dimensionless",
         "Number of days in the period carrying a valid precipitation observation.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_snow_depth_new",
         "dimensionless",
         "Number of days in the period carrying a valid fresh snow observation.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_sunshine_duration",
         "dimensionless",
         "Number of days in the period carrying a valid sunshine duration observation.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_temperature_air_max_2m",
         "dimensionless",
         "Number of days in the period carrying a valid maximum air temperature observation.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_temperature_air_mean_minmax_2m",
         "dimensionless",
         "Number of days in the period carrying a valid `temperature_air_mean_minmax_2m`, the mean of the day's "
         "maximum and minimum air temperature.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_valid_temperature_air_min_2m",
         "dimensionless",
         "Number of days in the period carrying a valid minimum air temperature observation.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_wind_speed_rolling_mean_max_ge_10_8mps",
         "dimensionless",
         "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
         "least 10.8 m/s.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_wind_speed_rolling_mean_max_ge_20_8mps",
         "dimensionless",
         "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
         "least 20.8 m/s.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_wind_speed_rolling_mean_max_ge_24_5mps",
         "dimensionless",
         "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
         "least 24.5 m/s.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_days_wind_speed_rolling_mean_max_ge_28_5mps",
         "dimensionless",
         "Number of days on which the highest rolling mean wind speed (`wind_speed_rolling_mean_max`) reached at "
         "least 28.5 m/s.",
+        aggregation="count",
     ),
     CanonicalParameter(
-        "count_hours_cooling_degree", "dimensionless", "Number of hours during which cooling was required."
+        "count_hours_cooling_degree",
+        "dimensionless",
+        "Number of hours during which cooling was required.",
+        aggregation="count",
     ),
-    CanonicalParameter("count_weather_type_dew", "dimensionless", "Number of days on which dew was observed."),
-    CanonicalParameter("count_weather_type_fog", "dimensionless", "Number of days on which fog was observed."),
-    CanonicalParameter("count_weather_type_glaze", "dimensionless", "Number of days on which glaze ice was observed."),
-    CanonicalParameter("count_weather_type_graupel", "dimensionless", "Number of days on which graupel was observed."),
-    CanonicalParameter("count_weather_type_hail", "dimensionless", "Number of days on which hail was observed."),
     CanonicalParameter(
-        "count_weather_type_hoar_frost", "dimensionless", "Number of days on which hoar frost was observed."
+        "count_weather_type_dew", "dimensionless", "Number of days on which dew was observed.", aggregation="count"
+    ),
+    CanonicalParameter(
+        "count_weather_type_fog", "dimensionless", "Number of days on which fog was observed.", aggregation="count"
+    ),
+    CanonicalParameter(
+        "count_weather_type_glaze",
+        "dimensionless",
+        "Number of days on which glaze ice was observed.",
+        aggregation="count",
+    ),
+    CanonicalParameter(
+        "count_weather_type_graupel",
+        "dimensionless",
+        "Number of days on which graupel was observed.",
+        aggregation="count",
+    ),
+    CanonicalParameter(
+        "count_weather_type_hail", "dimensionless", "Number of days on which hail was observed.", aggregation="count"
+    ),
+    CanonicalParameter(
+        "count_weather_type_hoar_frost",
+        "dimensionless",
+        "Number of days on which hoar frost was observed.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_weather_type_storm_stormier_wind",
         "dimensionless",
         "Number of days with wind reaching at least Beaufort 8.",
+        aggregation="count",
     ),
     CanonicalParameter(
         "count_weather_type_storm_strong_wind",
         "dimensionless",
         "Number of days with wind reaching at least Beaufort 6.",
+        aggregation="count",
     ),
-    CanonicalParameter("count_weather_type_thunder", "dimensionless", "Number of days on which thunder was heard."),
+    CanonicalParameter(
+        "count_weather_type_thunder", "dimensionless", "Number of days on which thunder was heard.", aggregation="count"
+    ),
     CanonicalParameter("discharge", "volume_per_time", "Volume of water passing the gauge per unit of time."),
-    CanonicalParameter("discharge_max", "volume_per_time", "Highest discharge observed over the period."),
-    CanonicalParameter("discharge_mean", "volume_per_time", "Mean discharge over the period."),
-    CanonicalParameter("discharge_min", "volume_per_time", "Lowest discharge observed over the period."),
+    CanonicalParameter(
+        "discharge_max", "volume_per_time", "Highest discharge observed over the period.", aggregation="max"
+    ),
+    CanonicalParameter("discharge_mean", "volume_per_time", "Mean discharge over the period.", aggregation="mean"),
+    CanonicalParameter(
+        "discharge_min", "volume_per_time", "Lowest discharge observed over the period.", aggregation="min"
+    ),
     CanonicalParameter(
         "distance_river_gauge_height", "length_medium", "Height of the gauge zero point above the reference datum."
     ),
@@ -475,93 +649,118 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Electrical conductivity of the water, a proxy for its dissolved salt content.",
     ),
     CanonicalParameter(
-        "error_absolute_pressure_air_site", "pressure", "Absolute error attached to the reported air pressure."
+        "error_absolute_pressure_air_site",
+        "pressure",
+        "Absolute error attached to the reported air pressure.",
+        aggregation="uncertainty",
     ),
     CanonicalParameter(
         "error_absolute_temperature_air_2m",
         "temperature_difference",
         "Absolute error attached to the reported air temperature, a temperature difference in kelvin.",
+        aggregation="uncertainty",
     ),
     CanonicalParameter(
         "error_absolute_temperature_dew_point_2m",
         "temperature_difference",
         "Absolute error attached to the reported dew point, a temperature difference in kelvin.",
+        aggregation="uncertainty",
     ),
     CanonicalParameter(
-        "error_absolute_wind_direction", "angle", "Absolute error attached to the reported wind direction."
+        "error_absolute_wind_direction",
+        "angle",
+        "Absolute error attached to the reported wind direction.",
+        aggregation="uncertainty",
     ),
-    CanonicalParameter("error_absolute_wind_speed", "speed", "Absolute error attached to the reported wind speed."),
+    CanonicalParameter(
+        "error_absolute_wind_speed",
+        "speed",
+        "Absolute error attached to the reported wind speed.",
+        aggregation="uncertainty",
+    ),
     CanonicalParameter(
         "evaporation_amount",
         "precipitation",
         "Depth of water evaporated from the surface.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_corn_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under corn.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_corn_sand",
         "precipitation",
         "Depth of water evaporated from sand under corn.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_grass_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under grass.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_grass_sand",
         "precipitation",
         "Depth of water evaporated from sand under grass.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_multiday",
         "precipitation",
         "Depth of water evaporated over several days, reported as one total.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_winter_cereals_loamy_silt",
         "precipitation",
         "Depth of water evaporated from loamy silt under winter cereals.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evaporation_amount_winter_cereals_sand",
         "precipitation",
         "Depth of water evaporated from sand under winter cereals.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evapotranspiration_last_24h",
         "precipitation",
         "Water evaporated and transpired in the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evapotranspiration_potential_grass_fao",
         "precipitation",
         "Potential evapotranspiration over grass, totalled over the period, after the FAO reference method.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evapotranspiration_potential_grass_haude",
         "precipitation",
         "Potential evapotranspiration over grass, totalled over the period, after the Haude method.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "evapotranspiration_potential_last_24h",
         "precipitation",
         "Potential evapotranspiration in the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "flow_direction", "angle", "Direction the water current is flowing towards, clockwise from magnetic north."
@@ -575,6 +774,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "frozen_ground_layer_thickness_max_month",
         "length_short",
         "Greatest thickness the frozen ground layer reached during the month.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "frozen_ground_layer_top", "length_short", "Depth below the surface at which the frozen layer begins."
@@ -585,6 +785,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "degree_day",
         "Heating degree days, the temperature shortfall below a base value summed over each day.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "humidity_relative",
@@ -601,7 +802,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "humidity_relative_max", "fraction", "Highest relative humidity over the period.", interpolation="homogeneous"
+        "humidity_relative_max",
+        "fraction",
+        "Highest relative humidity over the period.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "humidity_relative_mean",
@@ -609,18 +814,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean relative humidity of the air over the period, the fraction of the moisture it could hold at "
         "that temperature.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
-        "humidity_relative_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
+        "humidity_relative_min",
+        "fraction",
+        "Lowest relative humidity over the period.",
+        interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter("ice_on_water_thickness", "length_short", "Thickness of the ice covering the water surface."),
     CanonicalParameter(
         "leaf_wetness_duration",
         "duration",
         "Length of time during which the leaves of a plant were wet.",
+        aggregation="sum",
     ),
-    CanonicalParameter("count_days_in_month", "dimensionless", "Number of days in the month the record covers."),
-    CanonicalParameter("count_hours_in_month", "dimensionless", "Number of hours in the month the record covers."),
+    CanonicalParameter(
+        "count_days_in_month", "dimensionless", "Number of days in the month the record covers.", aggregation="count"
+    ),
+    CanonicalParameter(
+        "count_hours_in_month", "dimensionless", "Number of hours in the month the record covers.", aggregation="count"
+    ),
     CanonicalParameter("oxygen_level", "concentration", "Concentration of oxygen dissolved in the water."),
     CanonicalParameter("ph_value", "dimensionless", "Acidity of the water on the pH scale."),
     # The phenological phases of the DWD phenology network. A value is the day on which the phase
@@ -629,29 +844,46 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     # station, and the library has no notion of averaging two of them into a date that happened
     # at neither.
     CanonicalParameter(
-        "phenology_activity_beginning", "dimensionless", _phase("on which the recorded farming activity began")
+        "phenology_activity_beginning",
+        "dimensionless",
+        _phase("on which the recorded farming activity began"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_activity_end", "dimensionless", _phase("on which the recorded farming activity ended")
+        "phenology_activity_end",
+        "dimensionless",
+        _phase("on which the recorded farming activity ended"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_bleeding_first", "dimensionless", _phase("on which sap first bled from the pruned vine")
+        "phenology_bleeding_first",
+        "dimensionless",
+        _phase("on which sap first bled from the pruned vine"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_bud_formation_beginning",
         "dimensionless",
         _phase("on which the terminal or flower bud of about half of the plants became visible"),
+        aggregation="date",
     ),
-    CanonicalParameter("phenology_bud_swelling", "dimensionless", _phase("on which the buds first swelled noticeably")),
+    CanonicalParameter(
+        "phenology_bud_swelling",
+        "dimensionless",
+        _phase("on which the buds first swelled noticeably"),
+        aggregation="date",
+    ),
     CanonicalParameter(
         "phenology_dough_ripeness_beginning",
         "dimensionless",
         _phase("on which the grain reached dough (wax-ripe) stage"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_emergence_beginning",
         "dimensionless",
         _phase("on which the plants or seedlings had broken through the soil"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_flowering_beginning",
@@ -661,6 +893,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
             "the first pollen released, for a few a share of the flowers, ears, flower heads or plants (5%, for elder "
             "50%)"
         ),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_flowering_end",
@@ -669,11 +902,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
             "on which flowering was nearly over: about 95% of the flowers, of the stand (rapeseed) or of the "
             "inflorescences (grapevine) had faded"
         ),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_flowering_end_observation_area",
         "dimensionless",
         _phase("on which flowering ended across the whole observation area"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_flowering_general",
@@ -682,21 +917,34 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
             "on which about half of the flowers were open (for rye, the grasses and maize: about half of the ears, "
             "spike-like panicles, spikelets or plants releasing pollen)"
         ),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_fruit_ripe_first", "dimensionless", _phase("on which the first fruits were fully ripe")
+        "phenology_fruit_ripe_first",
+        "dimensionless",
+        _phase("on which the first fruits were fully ripe"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_full_ripeness_beginning", "dimensionless", _phase("on which the crop reached full ripeness")
+        "phenology_full_ripeness_beginning",
+        "dimensionless",
+        _phase("on which the crop reached full ripeness"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_grain_harvest_beginning", "dimensionless", _phase("on which the grain harvest began")
+        "phenology_grain_harvest_beginning",
+        "dimensionless",
+        _phase("on which the grain harvest began"),
+        aggregation="date",
     ),
-    CanonicalParameter("phenology_grape_harvest", "dimensionless", _phase("on which the grapes were harvested")),
+    CanonicalParameter(
+        "phenology_grape_harvest", "dimensionless", _phase("on which the grapes were harvested"), aggregation="date"
+    ),
     CanonicalParameter(
         "phenology_grape_picking_ripeness",
         "dimensionless",
         _phase("on which the grapes were ripe for picking"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_grape_ripeness_beginning",
@@ -704,147 +952,202 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase(
             "on which the berries began to soften and lighten (veraison), on about a quarter of the bunches or berries"
         ),
+        aggregation="date",
     ),
-    CanonicalParameter("phenology_harvest", "dimensionless", _phase("on which the crop was harvested")),
+    CanonicalParameter(
+        "phenology_harvest", "dimensionless", _phase("on which the crop was harvested"), aggregation="date"
+    ),
     CanonicalParameter(
         "phenology_harvest_by_hand",
         "dimensionless",
         _phase("on which the harvest began with a scythe or a simple machine"),
+        aggregation="date",
     ),
-    CanonicalParameter("phenology_hay_cut_first", "dimensionless", _phase("of the first cut of the grassland for hay")),
     CanonicalParameter(
-        "phenology_hay_cut_second", "dimensionless", _phase("of the second cut of the grassland for hay")
+        "phenology_hay_cut_first",
+        "dimensionless",
+        _phase("of the first cut of the grassland for hay"),
+        aggregation="date",
+    ),
+    CanonicalParameter(
+        "phenology_hay_cut_second",
+        "dimensionless",
+        _phase("of the second cut of the grassland for hay"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_hay_or_silage_cut_first",
         "dimensionless",
         _phase("of the first cut of the grassland for hay or silage"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_hay_or_silage_cut_second",
         "dimensionless",
         _phase("of the second cut of the grassland for hay or silage"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_heading_beginning",
         "dimensionless",
         _phase("on which the tips of the ears pushed out of the leaf sheaths on about half of the stems"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_height_growth_beginning",
         "dimensionless",
         _phase("on which about half of the plants had begun to grow in height"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_leaf_colouring_autumn",
         "dimensionless",
         _phase("on which about half of the leaves had taken on their autumn colour"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_leaf_fall_autumn", "dimensionless", _phase("on which about half of the leaves had fallen")
+        "phenology_leaf_fall_autumn",
+        "dimensionless",
+        _phase("on which about half of the leaves had fallen"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_leaf_formation_beginning",
         "dimensionless",
         _phase("on which about half of the plants had unfolded their first pair of leaves"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_leaf_unfolding_beginning",
         "dimensionless",
         _phase("on which the first leaves had unfolded (for the horse chestnut, the leaflets risen into a hand)"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_may_sprouting",
         "dimensionless",
         _phase("on which the May shoots of the conifer broke from the buds"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_milk_ripeness_beginning",
         "dimensionless",
         _phase("on which the grain reached milk ripeness"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_needle_colouring_autumn",
         "dimensionless",
         _phase("on which about half of the needles had taken on their autumn colour"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_needle_fall_autumn",
         "dimensionless",
         _phase("on which about half of the needles had fallen"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_needle_unfolding_beginning",
         "dimensionless",
         _phase("on which the first needle bundles unfolded"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_panicle_emergence_beginning",
         "dimensionless",
         _phase("on which the tips of the panicles pushed out of the leaf sheaths on about half of the stems"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_picking_ripeness_beginning",
         "dimensionless",
         _phase("on which the fruit was first ripe for picking"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_planting_beginning", "dimensionless", _phase("on which planting out of the crop began")
+        "phenology_planting_beginning",
+        "dimensionless",
+        _phase("on which planting out of the crop began"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_rosette_formation_beginning",
         "dimensionless",
         _phase("on which about half of the plants had formed the fourth leaf of the rosette"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_shooting_beginning",
         "dimensionless",
         _phase("on which about half of the plants were elongating clearly and the first stem node was palpable"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_silage_cut_first", "dimensionless", _phase("of the first cut of the grassland for silage")
+        "phenology_silage_cut_first",
+        "dimensionless",
+        _phase("of the first cut of the grassland for silage"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_silage_cut_second", "dimensionless", _phase("of the second cut of the grassland for silage")
+        "phenology_silage_cut_second",
+        "dimensionless",
+        _phase("of the second cut of the grassland for silage"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_silage_harvest_beginning", "dimensionless", _phase("on which the silage harvest began")
+        "phenology_silage_harvest_beginning",
+        "dimensionless",
+        _phase("on which the silage harvest began"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_silk_emergence_beginning",
         "dimensionless",
         _phase("on which the female inflorescences, with long silks, appeared on about half of the maize plants"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_sowing_beginning", "dimensionless", _phase("on which sowing or drilling of the crop began")
+        "phenology_sowing_beginning",
+        "dimensionless",
+        _phase("on which sowing or drilling of the crop began"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_sprouting_beginning",
         "dimensionless",
         _phase("on which the first buds broke open, for most plants with the first leaf green visible"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_st_johns_sprouting",
         "dimensionless",
         _phase("on which the midsummer (St. John's) shoot appeared"),
+        aggregation="date",
     ),
     CanonicalParameter(
-        "phenology_stand_closed", "dimensionless", _phase("on which about half of the plants touched across the rows")
+        "phenology_stand_closed",
+        "dimensionless",
+        _phase("on which about half of the plants touched across the rows"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_tassel_tip_visible",
         "dimensionless",
         _phase("on which the tassel became visible on about half of the maize plants"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_turning_green_beginning",
         "dimensionless",
         _phase("on which about a quarter of the grassland showed fresh green"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "phenology_yellow_ripeness_beginning",
         "dimensionless",
         _phase("on which the crop reached yellow ripeness"),
+        aggregation="date",
     ),
     CanonicalParameter(
         "precipitation_duration",
@@ -852,9 +1155,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Length of time during which precipitation fell.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
-        "precipitation_form", "dimensionless", "Coded form of the precipitation, such as rain, snow or freezing rain."
+        "precipitation_form",
+        "dimensionless",
+        "Coded form of the precipitation, such as rain, snow or freezing rain.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "precipitation_intensity_mean",
@@ -862,11 +1169,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean rate at which precipitation fell over the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "precipitation_type_flags",
         "dimensionless",
         "Set of precipitation types observed at once, as a bit per type rather than a single code.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "precipitation_amount",
@@ -874,6 +1183,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_day",
@@ -881,6 +1191,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected during the daytime hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_droplet",
@@ -888,6 +1199,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation measured by the droplet sensor of the gauge.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_12h",
@@ -895,6 +1207,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 12 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_15h",
@@ -902,6 +1215,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 15 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_18h",
@@ -909,6 +1223,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 18 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_1h",
@@ -916,6 +1231,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_21h",
@@ -923,6 +1239,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 21 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_24h",
@@ -930,6 +1247,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 24 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_3h",
@@ -937,6 +1255,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 3 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_6h",
@@ -944,6 +1263,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 6 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_last_9h",
@@ -951,6 +1271,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected over the preceding 9 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_liquid",
@@ -958,6 +1279,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of the liquid part of the precipitation.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_liquid_last_6h",
@@ -965,6 +1287,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of the liquid part of the precipitation over the preceding 6 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_liquid_significant_weather_last_1h",
@@ -972,6 +1295,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of liquid precipitation from significant weather in the preceding hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_max",
@@ -979,6 +1303,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Greatest precipitation depth recorded in any single interval of the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="max",
     ),
     CanonicalParameter(
         "precipitation_amount_max_30min",
@@ -986,6 +1311,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Greatest precipitation depth recorded in any 30 minutes of the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="max",
     ),
     CanonicalParameter(
         "precipitation_amount_multiday",
@@ -993,6 +1319,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation over several days, reported as one total.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_night",
@@ -1000,12 +1327,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation collected during the night hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_normal",
         "precipitation",
         "Climatological normal of the precipitation amount for the period.",
         interpolation="heterogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_rocker",
@@ -1013,6 +1342,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation measured by the tipping-bucket sensor of the gauge.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_since_last_routine_report",
@@ -1022,6 +1352,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "(SPECI) for the part that had fallen when it was filed, not the amount of a fixed clock hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_significant_weather_last_12h",
@@ -1029,6 +1360,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation from significant weather over the preceding 12 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_significant_weather_last_1h",
@@ -1036,6 +1368,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation from significant weather over the preceding hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_significant_weather_last_24h",
@@ -1043,6 +1376,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation from significant weather over the preceding 24 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_significant_weather_last_3h",
@@ -1050,6 +1384,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation from significant weather over the preceding 3 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "precipitation_amount_significant_weather_last_6h",
@@ -1057,8 +1392,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of precipitation from significant weather over the preceding 6 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
-    CanonicalParameter("precipitation_index", "dimensionless", "Coded indicator of whether precipitation occurred."),
+    CanonicalParameter(
+        "precipitation_index",
+        "dimensionless",
+        "Coded indicator of whether precipitation occurred.",
+        aggregation="occurrence",
+    ),
     CanonicalParameter(
         "precipitation_intensity",
         "precipitation_intensity",
@@ -1081,18 +1422,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Highest air pressure reduced to mean sea level over the period, so that stations at different heights "
         "compare.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "pressure_air_sea_level_mean",
         "pressure",
         "Mean air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "pressure_air_sea_level_min",
         "pressure",
         "Lowest air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "pressure_air_site",
@@ -1106,24 +1450,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "pressure",
         "Change in air pressure at station height over the preceding 3 hours.",
         interpolation="homogeneous",
+        aggregation="change",
     ),
     CanonicalParameter(
         "pressure_air_site_max",
         "pressure",
         "Highest air pressure at station height over the period.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "pressure_air_site_mean",
         "pressure",
         "Mean air pressure as measured at station height over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "pressure_air_site_min",
         "pressure",
         "Lowest air pressure at station height over the period.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "pressure_air_site_reduced",
@@ -1144,390 +1492,455 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "pressure",
         "Mean partial pressure of water vapour in the air over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "probability_drizzle_last_12h",
         "fraction",
         "Probability of drizzle over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_drizzle_last_1h",
         "fraction",
         "Probability of drizzle over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_drizzle_last_6h",
         "fraction",
         "Probability of drizzle over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_fog_last_12h",
         "fraction",
         "Probability of fog over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_fog_last_1h",
         "fraction",
         "Probability of fog over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_fog_last_24h",
         "fraction",
         "Probability of fog over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_fog_last_6h",
         "fraction",
         "Probability of fog over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_convective_last_12h",
         "fraction",
         "Probability of convective precipitation over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_convective_last_1h",
         "fraction",
         "Probability of convective precipitation over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_convective_last_6h",
         "fraction",
         "Probability of convective precipitation over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_freezing_last_12h",
         "fraction",
         "Probability of freezing precipitation over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_freezing_last_1h",
         "fraction",
         "Probability of freezing precipitation over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_freezing_last_6h",
         "fraction",
         "Probability of freezing precipitation over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_0mm_last_12h",
         "fraction",
         "Probability that more than 0.0 mm of precipitation fell over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_0mm_last_24h",
         "fraction",
         "Probability that more than 0.0 mm of precipitation fell over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_0mm_last_6h",
         "fraction",
         "Probability that more than 0.0 mm of precipitation fell over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_1mm_last_1h",
         "fraction",
         "Probability that more than 0.1 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_2mm_last_12h",
         "fraction",
         "Probability that more than 0.2 mm of precipitation fell over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_2mm_last_1h",
         "fraction",
         "Probability that more than 0.2 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_2mm_last_24h",
         "fraction",
         "Probability that more than 0.2 mm of precipitation fell over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_2mm_last_6h",
         "fraction",
         "Probability that more than 0.2 mm of precipitation fell over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_3mm_last_1h",
         "fraction",
         "Probability that more than 0.3 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_5mm_last_1h",
         "fraction",
         "Probability that more than 0.5 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_0_7mm_last_1h",
         "fraction",
         "Probability that more than 0.7 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_10mm_last_1h",
         "fraction",
         "Probability that more than 10 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_15mm_last_1h",
         "fraction",
         "Probability that more than 15 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_1mm_last_12h",
         "fraction",
         "Probability that more than 1 mm of precipitation fell over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_1mm_last_1h",
         "fraction",
         "Probability that more than 1 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_1mm_last_24h",
         "fraction",
         "Probability that more than 1 mm of precipitation fell over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_1mm_last_6h",
         "fraction",
         "Probability that more than 1 mm of precipitation fell over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_25mm_last_1h",
         "fraction",
         "Probability that more than 25 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_2mm_last_1h",
         "fraction",
         "Probability that more than 2 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_3mm_last_1h",
         "fraction",
         "Probability that more than 3 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_5mm_last_12h",
         "fraction",
         "Probability that more than 5 mm of precipitation fell over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_5mm_last_1h",
         "fraction",
         "Probability that more than 5 mm of precipitation fell over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_5mm_last_24h",
         "fraction",
         "Probability that more than 5 mm of precipitation fell over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_amount_gt_5mm_last_6h",
         "fraction",
         "Probability that more than 5 mm of precipitation fell over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_last_12h",
         "fraction",
         "Probability of precipitation of any kind over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_last_1h",
         "fraction",
         "Probability of precipitation of any kind over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_last_24h",
         "fraction",
         "Probability of precipitation of any kind over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_last_6h",
         "fraction",
         "Probability of precipitation of any kind over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_liquid_last_12h",
         "fraction",
         "Probability of liquid precipitation over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_liquid_last_1h",
         "fraction",
         "Probability of liquid precipitation over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_liquid_last_6h",
         "fraction",
         "Probability of liquid precipitation over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_solid_last_12h",
         "fraction",
         "Probability of solid precipitation over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_solid_last_1h",
         "fraction",
         "Probability of solid precipitation over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_solid_last_6h",
         "fraction",
         "Probability of solid precipitation over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_stratiform_last_12h",
         "fraction",
         "Probability of stratiform precipitation over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_stratiform_last_1h",
         "fraction",
         "Probability of stratiform precipitation over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_precipitation_stratiform_last_6h",
         "fraction",
         "Probability of stratiform precipitation over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_sunshine_duration_relative_gt_0pct_last_24h",
         "fraction",
         "Probability that sunshine lasted more than 0 % of the possible duration over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_sunshine_duration_relative_gt_30pct_last_24h",
         "fraction",
         "Probability that sunshine lasted more than 30 % of the possible duration over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_sunshine_duration_relative_gt_60pct_last_24h",
         "fraction",
         "Probability that sunshine lasted more than 60 % of the possible duration over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_thunder_last_12h",
         "fraction",
         "Probability of thunderstorm over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_thunder_last_1h",
         "fraction",
         "Probability of thunderstorm over the preceding hour.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_thunder_last_24h",
         "fraction",
         "Probability of thunderstorm over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_thunder_last_6h",
         "fraction",
         "Probability of thunderstorm over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_visibility_below_1000m",
         "fraction",
         "Probability that visibility falls below 1000 m.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_25kn_last_12h",
         "fraction",
         "Probability of a wind gust reaching 25 kn or more over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_25kn_last_6h",
         "fraction",
         "Probability of a wind gust reaching 25 kn or more over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_40kn_last_12h",
         "fraction",
         "Probability of a wind gust reaching 40 kn or more over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_40kn_last_6h",
         "fraction",
         "Probability of a wind gust reaching 40 kn or more over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_55kn_last_12h",
         "fraction",
         "Probability of a wind gust reaching 55 kn or more over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "probability_wind_gust_ge_55kn_last_6h",
         "fraction",
         "Probability of a wind gust reaching 55 kn or more over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="probability",
     ),
     CanonicalParameter(
         "quality",
@@ -1538,42 +1951,49 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "compare between providers -- DWD observation carries its `qn` codes, where a larger number is "
         "a more thorough check. See the provider's page for what its codes mean.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "quality_3",
         "dimensionless",
         "Quality flag for the 3-hourly maximum wind gust reported in the same dataset.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "quality_6",
         "dimensionless",
         "Quality flag for the 6-hourly maximum wind gust reported in the same dataset.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "quality_general",
         "dimensionless",
         "Quality flag published by the source, applying to the dataset as a whole.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "quality_precipitation",
         "dimensionless",
         "Quality flag published by the source for `precipitation` in the same dataset.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "quality_wind",
         "dimensionless",
         "Quality flag published by the source for `wind` in the same dataset.",
         quality_flag=True,
+        aggregation="code",
     ),
     CanonicalParameter(
         "radiation_global",
         "energy_per_area",
         "Global radiation received on a horizontal surface, accumulated as energy over the interval.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_global_intensity",
@@ -1588,6 +2008,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "power_per_area",
         "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "radiation_global_relative_last_1h",
@@ -1595,9 +2016,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Global radiation over the preceding hour relative to the radiation at the top of the atmosphere in that "
         "hour, a clearness index.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
-        "radiation_global_uncertainty", "energy_per_area", "Uncertainty attached to the reported global radiation."
+        "radiation_global_uncertainty",
+        "energy_per_area",
+        "Uncertainty attached to the reported global radiation.",
+        aggregation="uncertainty",
     ),
     CanonicalParameter(
         "radiation_long_wave_net_last_3h",
@@ -1605,6 +2030,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Net long-wave radiation balance over the preceding 3 hours: the long-wave radiation the surface "
         "receives from the sky minus the one it emits, positive downward into the surface and mostly negative.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_short_wave_net_last_3h",
@@ -1612,24 +2038,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Net short-wave radiation balance over the preceding 3 hours: the short-wave radiation the surface "
         "absorbs, the incoming minus the reflected, positive downward into the surface.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_sky_long_wave",
         "energy_per_area",
         "Downward long-wave radiation from the sky, accumulated as energy over the interval.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_sky_long_wave_intensity_mean",
         "power_per_area",
         "Mean downward long-wave irradiance from the sky over the period, reported as power.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "radiation_sky_short_wave_diffuse",
         "energy_per_area",
         "Diffuse short-wave radiation from the sky, accumulated as energy over the interval.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_sky_short_wave_diffuse_intensity",
@@ -1643,6 +2073,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "power_per_area",
         "Mean diffuse short-wave irradiance from the sky over the period, reported as power.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "radiation_sky_short_wave_direct_perpendicular",
@@ -1652,6 +2083,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "no component on a horizontal surface and can exceed the global radiation of the same interval: multiplied "
         "by the cosine of the solar zenith angle at the middle of the interval it approximates that.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_sky_short_wave_direct_perpendicular_intensity",
@@ -1668,6 +2100,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Coded condition of the road surface as a road station reports it: the codes of BUFR table 0 20 241 "
         "(0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry). The forecast of DWD's SWSMOS has "
         "other codes and is `road_surface_condition_forecast`.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "road_surface_condition_forecast",
@@ -1675,6 +2108,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Coded condition of the road surface as a road weather model forecasts it: the codes of DWD's SWSMOS "
         "(1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, 6 glaze ice), which are not those of the "
         "road stations' `road_surface_condition` (0 dry, 1 moist, 2 wet, ...).",
+        aggregation="code",
     ),
     CanonicalParameter(
         "snow_cover",
@@ -1694,6 +2128,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "length_short",
         "Mean depth of the snow lying on the ground over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "snow_depth_sampled",
@@ -1706,6 +2141,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "length_day",
         "Sum of the daily depths of the snow lying on the ground over the days of the period, in cm times days.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "snow_depth_manual",
@@ -1714,7 +2150,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "snow_depth_max", "length_short", "Greatest snow depth over the period.", interpolation="homogeneous"
+        "snow_depth_max",
+        "length_short",
+        "Greatest snow depth over the period.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "snow_depth_new",
@@ -1722,6 +2162,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of snow that fell during the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "snow_depth_new_max",
@@ -1729,6 +2170,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Greatest depth of fresh snow recorded over the period.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="max",
     ),
     CanonicalParameter(
         "snow_depth_new_multiday",
@@ -1736,12 +2178,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of fresh snow over several days, reported as one total.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "snow_depth_new_normal",
         "length_short",
         "Climatological normal of the fresh snow total for the period.",
         interpolation="heterogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "soil_moisture_corn_loamy_silt_00cm_60cm",
@@ -1826,72 +2270,84 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "fraction",
         "Mean soil moisture in loamy silt under corn, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_corn_sand_00cm_60cm",
         "fraction",
         "Mean soil moisture in sand under corn, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between the surface and 10 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_00cm_60cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_10cm_20cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between 10 cm and 20 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_20cm_30cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between 20 cm and 30 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_30cm_40cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between 30 cm and 40 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between 40 cm and 50 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
         "fraction",
         "Mean soil moisture in loamy silt under grass, between 50 cm and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_grass_sand_00cm_60cm",
         "fraction",
         "Mean soil moisture in sand under grass, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
         "fraction",
         "Mean soil moisture in loamy silt under winter cereals, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
         "fraction",
         "Mean soil moisture in sand under winter cereals, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
@@ -1913,47 +2369,66 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "soil_state_index",
         "dimensionless",
         "Coded state of the ground surface, such as dry, moist, frozen or snow-covered.",
+        aggregation="code",
     ),
     CanonicalParameter("stage", "length_medium", "Water level at the gauge, measured against the gauge datum."),
-    CanonicalParameter("stage_max", "length_medium", "Highest water level at the gauge over the period."),
-    CanonicalParameter("stage_mean", "length_medium", "Mean water level at the gauge over the period."),
-    CanonicalParameter("stage_min", "length_medium", "Lowest water level at the gauge over the period."),
+    CanonicalParameter(
+        "stage_max", "length_medium", "Highest water level at the gauge over the period.", aggregation="max"
+    ),
+    CanonicalParameter(
+        "stage_mean", "length_medium", "Mean water level at the gauge over the period.", aggregation="mean"
+    ),
+    CanonicalParameter(
+        "stage_min", "length_medium", "Lowest water level at the gauge over the period.", aggregation="min"
+    ),
     CanonicalParameter("sun_zenith_angle", "angle", "Angle between the sun and the vertical."),
     CanonicalParameter(
-        "sunshine_duration", "duration", "Length of time the sun shone unobstructed.", interpolation="homogeneous"
+        "sunshine_duration",
+        "duration",
+        "Length of time the sun shone unobstructed.",
+        interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_last_3h",
         "duration",
         "Length of time the sun shone unobstructed in the preceding 3 hours.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_normal",
         "duration",
         "Climatological normal of the sunshine duration for the period.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_relative",
         "fraction",
         "Sunshine duration as a fraction of the longest possible for the location and date.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_relative_last_24h",
         "fraction",
         "Relative sunshine duration over the preceding 24 hours.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
-        "sunshine_duration_uncertainty", "duration", "Uncertainty attached to the reported sunshine duration."
+        "sunshine_duration_uncertainty",
+        "duration",
+        "Uncertainty attached to the reported sunshine duration.",
+        aggregation="uncertainty",
     ),
     CanonicalParameter(
         "sunshine_duration_yesterday",
         "duration",
         "Length of time the sun shone unobstructed on the previous day.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "temperature_air",
@@ -1982,6 +2457,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Maximum air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m",
@@ -1989,6 +2465,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Maximum air temperature at 2 m above ground.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m_last_12h",
@@ -1996,6 +2473,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Maximum air temperature at 2 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m_last_24h",
@@ -2003,6 +2481,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Maximum air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m_mean",
@@ -2010,6 +2489,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean of the daily maximum air temperature at 2 m above ground over the period.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean_of_max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m_multiday",
@@ -2017,6 +2497,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Maximum air temperature at 2 m above ground, covering several days where a station did not report daily.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_max_2m_yesterday",
@@ -2024,24 +2505,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Maximum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_air_mean_0_05m",
         "temperature",
         "Mean air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_0_1m",
         "temperature",
         "Mean air temperature at 0.1 m above ground.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_grass_height",
         "temperature",
         "Mean air temperature at grass height, 5 to 20 cm above ground.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_2m",
@@ -2049,6 +2534,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean air temperature at 2 m above ground.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_2m_last_24h",
@@ -2056,6 +2542,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_2m_yesterday",
@@ -2063,6 +2550,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_minmax_2m",
@@ -2072,6 +2560,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "month, the mean of those daily values.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_mean_minmax_2m_normal",
@@ -2080,30 +2569,35 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "values of `temperature_air_mean_minmax_2m`, (max + min) / 2.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m",
         "temperature",
         "Minimum air temperature at 0.05 m above ground.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m_last_12h",
         "temperature",
         "Minimum air temperature at 0.05 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m_night",
         "temperature",
         "Minimum air temperature at 0.05 m above ground over the night, from 18 UTC of the previous day to 06 UTC.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_0_05m_yesterday",
         "temperature",
         "Minimum air temperature at 0.05 m above ground on the previous day.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m",
@@ -2111,6 +2605,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum air temperature at 2 m above ground.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m_last_12h",
@@ -2118,6 +2613,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum air temperature at 2 m above ground over the preceding 12 hours.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m_last_24h",
@@ -2125,6 +2621,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum air temperature at 2 m above ground over the preceding 24 hours.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m_mean",
@@ -2132,6 +2629,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean of the daily minimum air temperature at 2 m above ground over the period.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="mean_of_min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m_multiday",
@@ -2139,6 +2637,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum air temperature at 2 m above ground, covering several days where a station did not report daily.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_air_min_2m_yesterday",
@@ -2146,24 +2645,28 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Minimum air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_concrete_max_0m",
         "temperature",
         "Maximum temperature at the surface of a concrete slab.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_concrete_mean_0m",
         "temperature",
         "Mean temperature at the surface of a concrete slab.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_concrete_min_0m",
         "temperature",
         "Minimum temperature at the surface of a concrete slab.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_dew_point",
@@ -2186,6 +2689,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Dew point at 2 m above ground, the temperature at which the air would become saturated.",
         interpolation="homogeneous",
         lapse_rate=_DEW_POINT_LAPSE_RATE,
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_humidex",
@@ -2243,844 +2747,1008 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Maximum soil temperature at 0.1 m depth.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "temperature_soil_max_1m", "temperature", "Maximum soil temperature at 1 m depth.", interpolation="homogeneous"
+        "temperature_soil_max_1m",
+        "temperature",
+        "Maximum soil temperature at 1 m depth.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "temperature_soil_max_2m", "temperature", "Maximum soil temperature at 2 m depth.", interpolation="homogeneous"
+        "temperature_soil_max_2m",
+        "temperature",
+        "Maximum soil temperature at 2 m depth.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_ground_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_bare_muck_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_brome_grass_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_fallow_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_grass_muck_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_sod_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_straw_mulch_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_05m",
         "temperature",
         "Maximum soil temperature at 0.05 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_1m",
         "temperature",
         "Maximum soil temperature at 0.1 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_2m",
         "temperature",
         "Maximum soil temperature at 0.2 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_0_5m",
         "temperature",
         "Maximum soil temperature at 0.5 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1_5m",
         "temperature",
         "Maximum soil temperature at 1.5 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1_8m",
         "temperature",
         "Maximum soil temperature at 1.8 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_max_unknown_1m",
         "temperature",
         "Maximum soil temperature at 1 m depth in soil with an unrecorded surface cover.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_02m",
         "temperature",
         "Mean soil temperature at 0.02 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_05m",
         "temperature",
         "Mean soil temperature at 0.05 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_1m",
         "temperature",
         "Mean soil temperature at 0.1 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_2m",
         "temperature",
         "Mean soil temperature at 0.2 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_3m",
         "temperature",
         "Mean soil temperature at 0.3 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_0_5m",
         "temperature",
         "Mean soil temperature at 0.5 m depth.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
-        "temperature_soil_mean_1m", "temperature", "Mean soil temperature at 1 m depth.", interpolation="homogeneous"
+        "temperature_soil_mean_1m",
+        "temperature",
+        "Mean soil temperature at 1 m depth.",
+        interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
-        "temperature_soil_mean_2m", "temperature", "Mean soil temperature at 2 m depth.", interpolation="homogeneous"
+        "temperature_soil_mean_2m",
+        "temperature",
+        "Mean soil temperature at 2 m depth.",
+        interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_loamy_sand_0_05m",
         "temperature",
         "Mean soil temperature at 0.05 m depth in loamy sand without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_mean_loamy_silt_0_05m",
         "temperature",
         "Mean soil temperature at 0.05 m depth in loamy silt without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_soil_min_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
-        "temperature_soil_min_1m", "temperature", "Minimum soil temperature at 1 m depth.", interpolation="homogeneous"
+        "temperature_soil_min_1m",
+        "temperature",
+        "Minimum soil temperature at 1 m depth.",
+        interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
-        "temperature_soil_min_2m", "temperature", "Minimum soil temperature at 2 m depth.", interpolation="homogeneous"
+        "temperature_soil_min_2m",
+        "temperature",
+        "Minimum soil temperature at 2 m depth.",
+        interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_ground_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_bare_muck_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in muck soil without vegetation cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_brome_grass_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil with a brome grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_fallow_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in fallow soil.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_grass_muck_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in muck soil with a grass cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_sod_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil with a sod cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_straw_mulch_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil with a straw mulch cover.",
         interpolation="homogeneous",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_05m",
         "temperature",
         "Minimum soil temperature at 0.05 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_1m",
         "temperature",
         "Minimum soil temperature at 0.1 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_2m",
         "temperature",
         "Minimum soil temperature at 0.2 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_0_5m",
         "temperature",
         "Minimum soil temperature at 0.5 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1_5m",
         "temperature",
         "Minimum soil temperature at 1.5 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1_8m",
         "temperature",
         "Minimum soil temperature at 1.8 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_soil_min_unknown_1m",
         "temperature",
         "Minimum soil temperature at 1 m depth in soil with an unrecorded surface cover.",
+        aggregation="min",
     ),
     CanonicalParameter(
         "temperature_surface",
@@ -3093,25 +3761,35 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Mean temperature of a surface (the ground, or the grass on it) as a probe lying on it reads it.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter("temperature_water", "temperature", "Temperature of the water."),
     CanonicalParameter(
         "temperature_water_evaporation_pan_max",
         "temperature",
         "Highest water temperature in the evaporation pan over the period.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "temperature_water_evaporation_pan_min",
         "temperature",
         "Lowest water temperature in the evaporation pan over the period.",
+        aggregation="min",
     ),
-    CanonicalParameter("temperature_water_max", "temperature", "Highest water temperature over the period."),
-    CanonicalParameter("temperature_water_mean", "temperature", "Mean water temperature over the period."),
-    CanonicalParameter("temperature_water_min", "temperature", "Lowest water temperature over the period."),
+    CanonicalParameter(
+        "temperature_water_max", "temperature", "Highest water temperature over the period.", aggregation="max"
+    ),
+    CanonicalParameter(
+        "temperature_water_mean", "temperature", "Mean water temperature over the period.", aggregation="mean"
+    ),
+    CanonicalParameter(
+        "temperature_water_min", "temperature", "Lowest water temperature over the period.", aggregation="min"
+    ),
     CanonicalParameter(
         "temperature_wet_ice_formation",
         "dimensionless",
         "Whether ice had formed on the thermometer during the wet bulb measurement.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "temperature_wet_2m",
@@ -3124,6 +3802,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature",
         "Mean wet-bulb temperature at 2 m above ground.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "temperature_wind_chill",
@@ -3136,6 +3815,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "thawing_thickness_bare_ground_max_month",
         "length_short",
         "Greatest depth to which bare ground thawed during the month.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "thawing_thickness_plant_cover", "length_short", "Depth to which ground under plant cover has thawed."
@@ -3144,12 +3824,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "thawing_thickness_plant_cover_max_month",
         "length_short",
         "Greatest depth to which ground under plant cover thawed in the month.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "true_local_time_offset",
         "time",
         "How far true local solar time runs ahead of the timestamp of the record, being the "
         "longitude correction plus the equation of time.",
+        aggregation="code",
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
@@ -3158,6 +3840,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean difference between the pressure of water vapour in saturated air and the partial pressure of water "
         "vapour in the air, at the temperature of the air, over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "visibility",
@@ -3170,17 +3853,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "visibility_index",
         "dimensionless",
         "Coded class the visibility range falls into, rather than a measured distance.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "visibility_mean",
         "length_medium",
         "Mean horizontal distance at which an object can still be made out, over the period.",
         interpolation="heterogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "visibility_measurement_method",
         "dimensionless",
         "Coded indicator of how the visibility range was determined, such as by a person or an instrument.",
+        aggregation="code",
     ),
     CanonicalParameter("volume_reservoir", "volume", "Volume of water held in a reservoir."),
     CanonicalParameter(
@@ -3201,6 +3887,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Depth of water that would result from melting the freshly fallen snow.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "water_equivalent_snow_depth_new_last_1h",
@@ -3208,6 +3895,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Water equivalent of the snow that fell in the preceding hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "water_equivalent_snow_depth_new_last_3h",
@@ -3215,12 +3903,16 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Water equivalent of the snow that fell in the preceding 3 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
+        aggregation="sum",
     ),
     CanonicalParameter(
         "water_film_thickness", "length_tiny", "Thickness of the film of water lying on the road surface."
     ),
     CanonicalParameter(
-        "wave_height_max", "length_medium", "Height of the highest single wave observed over the period."
+        "wave_height_max",
+        "length_medium",
+        "Height of the highest single wave observed over the period.",
+        aggregation="max",
     ),
     CanonicalParameter(
         "wave_height_significant",
@@ -3228,14 +3920,19 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Significant wave height, the mean height of the highest third of the waves.",
     ),
     CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),
-    CanonicalParameter("weather", "dimensionless", "Coded present weather at the time of observation."),
-    CanonicalParameter("weather_last_6h", "dimensionless", "Coded weather observed over the preceding 6 hours."),
+    CanonicalParameter(
+        "weather", "dimensionless", "Coded present weather at the time of observation.", aggregation="code"
+    ),
+    CanonicalParameter(
+        "weather_last_6h", "dimensionless", "Coded weather observed over the preceding 6 hours.", aggregation="code"
+    ),
     CanonicalParameter(
         "weather_past",
         "dimensionless",
         "Coded past weather of a synoptic report (BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned "
         "station, 10 to 19 for an automatic one), over the 6 hours before the reports of 00, 06, 12 and 18 UTC "
         "and the 3 hours before those of 03, 09, 15 and 21 UTC.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_secondary_past",
@@ -3243,103 +3940,164 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Second coded past weather of a synoptic report, where two kinds of weather occurred (BUFR 0 20 005, "
         "coded as `weather_past` is), over the same hours: the 6 hours before the reports of 00, 06, 12 and 18 "
         "UTC and the 3 hours before those of 03, 09, 15 and 21 UTC.",
+        aggregation="code",
     ),
     CanonicalParameter(
-        "weather_significant", "significant_weather", "Coded significant weather at the time of observation."
+        "weather_significant",
+        "significant_weather",
+        "Coded significant weather at the time of observation.",
+        aggregation="code",
     ),
     CanonicalParameter(
-        "weather_significant_last_3h", "significant_weather", "Coded significant weather over the preceding 3 hours."
+        "weather_significant_last_3h",
+        "significant_weather",
+        "Coded significant weather over the preceding 3 hours.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_significant_optional_last_12h",
         "significant_weather",
         "Coded significant weather over the preceding 12 hours, where reported.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_significant_optional_last_1h",
         "significant_weather",
         "Coded significant weather over the preceding hour, where reported.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_significant_optional_last_24h",
         "significant_weather",
         "Coded significant weather over the preceding 24 hours, where reported.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_significant_optional_last_3h",
         "significant_weather",
         "Coded significant weather over the preceding 3 hours, where reported.",
+        aggregation="code",
     ),
     CanonicalParameter(
         "weather_significant_optional_last_6h",
         "significant_weather",
         "Coded significant weather over the preceding 6 hours, where reported.",
+        aggregation="code",
     ),
     CanonicalParameter(
-        "weather_type_blowing_drifting_snow", "dimensionless", "Whether blowing or drifting snow was observed."
-    ),
-    CanonicalParameter("weather_type_blowing_spray", "dimensionless", "Whether blowing spray was observed."),
-    CanonicalParameter("weather_type_drizzle", "dimensionless", "Whether drizzle was observed."),
-    CanonicalParameter(
-        "weather_type_dust_ash_sand", "dimensionless", "Whether dust, volcanic ash or blowing sand was observed."
-    ),
-    CanonicalParameter("weather_type_fog", "dimensionless", "Whether fog was observed."),
-    CanonicalParameter("weather_type_freezing_drizzle", "dimensionless", "Whether freezing drizzle was observed."),
-    CanonicalParameter("weather_type_freezing_rain", "dimensionless", "Whether freezing rain was observed."),
-    CanonicalParameter("weather_type_glaze_rime", "dimensionless", "Whether glaze or rime was observed."),
-    CanonicalParameter("weather_type_ground_fog", "dimensionless", "Whether ground fog was observed."),
-    CanonicalParameter("weather_type_hail", "dimensionless", "Whether hail was observed."),
-    CanonicalParameter("weather_type_heavy_fog", "dimensionless", "Whether heavy or freezing fog was observed."),
-    CanonicalParameter(
-        "weather_type_high_damaging_winds", "dimensionless", "Whether high, damaging winds was observed."
+        "weather_type_blowing_drifting_snow",
+        "dimensionless",
+        "Whether blowing or drifting snow was observed.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
-        "weather_type_ice_fog_freezing_fog", "dimensionless", "Whether ice fog or freezing fog was observed."
+        "weather_type_blowing_spray", "dimensionless", "Whether blowing spray was observed.", aggregation="occurrence"
     ),
     CanonicalParameter(
-        "weather_type_ice_sleet_snow_hail", "dimensionless", "Whether ice pellets, sleet, snow or hail was observed."
+        "weather_type_drizzle", "dimensionless", "Whether drizzle was observed.", aggregation="occurrence"
     ),
-    CanonicalParameter("weather_type_mist", "dimensionless", "Whether mist was observed."),
+    CanonicalParameter(
+        "weather_type_dust_ash_sand",
+        "dimensionless",
+        "Whether dust, volcanic ash or blowing sand was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter("weather_type_fog", "dimensionless", "Whether fog was observed.", aggregation="occurrence"),
+    CanonicalParameter(
+        "weather_type_freezing_drizzle",
+        "dimensionless",
+        "Whether freezing drizzle was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter(
+        "weather_type_freezing_rain", "dimensionless", "Whether freezing rain was observed.", aggregation="occurrence"
+    ),
+    CanonicalParameter(
+        "weather_type_glaze_rime", "dimensionless", "Whether glaze or rime was observed.", aggregation="occurrence"
+    ),
+    CanonicalParameter(
+        "weather_type_ground_fog", "dimensionless", "Whether ground fog was observed.", aggregation="occurrence"
+    ),
+    CanonicalParameter("weather_type_hail", "dimensionless", "Whether hail was observed.", aggregation="occurrence"),
+    CanonicalParameter(
+        "weather_type_heavy_fog",
+        "dimensionless",
+        "Whether heavy or freezing fog was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter(
+        "weather_type_high_damaging_winds",
+        "dimensionless",
+        "Whether high, damaging winds was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter(
+        "weather_type_ice_fog_freezing_fog",
+        "dimensionless",
+        "Whether ice fog or freezing fog was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter(
+        "weather_type_ice_sleet_snow_hail",
+        "dimensionless",
+        "Whether ice pellets, sleet, snow or hail was observed.",
+        aggregation="occurrence",
+    ),
+    CanonicalParameter("weather_type_mist", "dimensionless", "Whether mist was observed.", aggregation="occurrence"),
     CanonicalParameter(
         "weather_type_precipitation_unknown_source",
         "dimensionless",
         "Whether precipitation of unknown type was observed.",
+        aggregation="occurrence",
     ),
-    CanonicalParameter("weather_type_rain", "dimensionless", "Whether rain was observed."),
-    CanonicalParameter("weather_type_smoke_haze", "dimensionless", "Whether smoke or haze was observed."),
+    CanonicalParameter("weather_type_rain", "dimensionless", "Whether rain was observed.", aggregation="occurrence"),
+    CanonicalParameter(
+        "weather_type_smoke_haze", "dimensionless", "Whether smoke or haze was observed.", aggregation="occurrence"
+    ),
     CanonicalParameter(
         "weather_type_snow_pellets_snow_grains_ice_crystals",
         "dimensionless",
         "Whether snow pellets, snow grains or ice crystals was observed.",
+        aggregation="occurrence",
     ),
-    CanonicalParameter("weather_type_thunder", "dimensionless", "Whether thunder was observed."),
+    CanonicalParameter(
+        "weather_type_thunder", "dimensionless", "Whether thunder was observed.", aggregation="occurrence"
+    ),
     CanonicalParameter(
         "weather_type_tornado_waterspout",
         "dimensionless",
         "Whether a tornado, waterspout or funnel cloud was observed.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "weather_type_vicinity_dust_ash_sand",
         "dimensionless",
         "Whether dust, volcanic ash or blowing sand was observed in the vicinity of the station.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "weather_type_vicinity_fog_any",
         "dimensionless",
         "Whether fog of any kind was observed in the vicinity of the station.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "weather_type_vicinity_rain_snow_shower",
         "dimensionless",
         "Whether a rain or snow shower was observed in the vicinity of the station.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "weather_type_vicinity_snow_ice_crystals",
         "dimensionless",
         "Whether snow or ice crystals was observed in the vicinity of the station.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
-        "weather_type_vicinity_thunder", "dimensionless", "Whether thunder was observed in the vicinity of the station."
+        "weather_type_vicinity_thunder",
+        "dimensionless",
+        "Whether thunder was observed in the vicinity of the station.",
+        aggregation="occurrence",
     ),
     CanonicalParameter(
         "wind_direction",
@@ -3347,38 +4105,61 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Direction the wind is blowing from, clockwise from true north, where the source states no statistic "
         "or a reading at one moment; the stated mean is `wind_direction_mean`.",
     ),
-    CanonicalParameter("wind_direction_gust_max", "angle", "Direction the strongest gust of the period blew from."),
+    CanonicalParameter(
+        "wind_direction_gust_max",
+        "angle",
+        "Direction the strongest gust of the period blew from.",
+        aggregation="at_max",
+    ),
     CanonicalParameter(
         "wind_direction_gust_max_1mile",
         "angle",
         "Direction of the strongest gust measured over a one-mile passage of air.",
+        aggregation="at_max",
     ),
     CanonicalParameter(
-        "wind_direction_gust_max_1min", "angle", "Direction of the strongest gust averaged over one minute."
+        "wind_direction_gust_max_1min",
+        "angle",
+        "Direction of the strongest gust averaged over one minute.",
+        aggregation="at_max",
     ),
     CanonicalParameter(
-        "wind_direction_gust_max_2min", "angle", "Direction of the strongest gust averaged over two minutes."
+        "wind_direction_gust_max_2min",
+        "angle",
+        "Direction of the strongest gust averaged over two minutes.",
+        aggregation="at_max",
     ),
     CanonicalParameter(
-        "wind_direction_gust_max_5sec", "angle", "Direction of the strongest gust averaged over five seconds."
+        "wind_direction_gust_max_5sec",
+        "angle",
+        "Direction of the strongest gust averaged over five seconds.",
+        aggregation="at_max",
     ),
-    CanonicalParameter("wind_direction_gust_max_instant", "angle", "Direction of the strongest instantaneous gust."),
+    CanonicalParameter(
+        "wind_direction_gust_max_instant",
+        "angle",
+        "Direction of the strongest instantaneous gust.",
+        aggregation="at_max",
+    ),
     CanonicalParameter(
         "wind_direction_mean",
         "angle",
         "Mean direction the wind is blowing from over the period, clockwise from true north.",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_direction_mean_last_10min",
         "angle",
         "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than "
         "the dataset's own interval.",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_direction_mean_last_2min",
         "angle",
         "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the"
         " dataset's own interval.",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_force_beaufort",
@@ -3392,62 +4173,106 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_scale",
         "Mean wind strength on the Beaufort scale over the period.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
-        "wind_gust_max", "speed", "Speed of the strongest gust of the period.", interpolation="homogeneous"
+        "wind_gust_max",
+        "speed",
+        "Speed of the strongest gust of the period.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "wind_gust_max_1mile",
         "speed",
         "Strongest gust measured over a one-mile passage of air.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_1min", "speed", "Strongest gust averaged over one minute.", interpolation="homogeneous"
+        "wind_gust_max_1min",
+        "speed",
+        "Strongest gust averaged over one minute.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_2min", "speed", "Strongest gust averaged over two minutes.", interpolation="homogeneous"
+        "wind_gust_max_2min",
+        "speed",
+        "Strongest gust averaged over two minutes.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_5sec", "speed", "Strongest gust averaged over five seconds.", interpolation="homogeneous"
+        "wind_gust_max_5sec",
+        "speed",
+        "Strongest gust averaged over five seconds.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
-    CanonicalParameter("wind_gust_max_instant", "speed", "Strongest instantaneous gust.", interpolation="homogeneous"),
+    CanonicalParameter(
+        "wind_gust_max_instant",
+        "speed",
+        "Strongest instantaneous gust.",
+        interpolation="homogeneous",
+        aggregation="max",
+    ),
     CanonicalParameter(
         "wind_gust_max_last_10min",
         "speed",
         "Strongest gust over the 10 minutes before the timestamp, a window shorter than the dataset's own "
         "interval, not the strongest gust of the interval that `wind_gust_max` is.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_last_12h", "speed", "Strongest gust over the preceding 12 hours.", interpolation="homogeneous"
+        "wind_gust_max_last_12h",
+        "speed",
+        "Strongest gust over the preceding 12 hours.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_last_1h", "speed", "Strongest gust over the preceding hour.", interpolation="homogeneous"
+        "wind_gust_max_last_1h",
+        "speed",
+        "Strongest gust over the preceding hour.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_last_3h", "speed", "Strongest gust over the preceding 3 hours.", interpolation="homogeneous"
+        "wind_gust_max_last_3h",
+        "speed",
+        "Strongest gust over the preceding 3 hours.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_gust_max_last_6h", "speed", "Strongest gust over the preceding 6 hours.", interpolation="homogeneous"
+        "wind_gust_max_last_6h",
+        "speed",
+        "Strongest gust over the preceding 6 hours.",
+        interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "wind_gust_max_yesterday",
         "speed",
         "Strongest gust on the previous day.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "wind_movement",
         "length_long",
         "Wind run, the distance a parcel of air travelled past the station in 24 hours.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "wind_movement_multiday",
         "length_long",
         "Wind run over several days, reported as one total.",
         interpolation="homogeneous",
+        aggregation="sum",
     ),
     CanonicalParameter(
         "wind_speed",
@@ -3461,6 +4286,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "speed",
         "Arithmetic mean of the wind speed, unweighted by direction.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_speed_max",
@@ -3469,9 +4295,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "(`wind_gust_max`) nor the window it is averaged over (`wind_speed_rolling_mean_max` is the highest rolling "
         "mean).",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
-        "wind_speed_mean", "speed", "Mean speed of the wind over the period.", interpolation="homogeneous"
+        "wind_speed_mean",
+        "speed",
+        "Mean speed of the wind over the period.",
+        interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_speed_mean_last_10min",
@@ -3479,6 +4310,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean wind speed over the 10 minutes before the timestamp, a window shorter than the dataset's own "
         "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
     CanonicalParameter(
         "wind_speed_mean_last_2min",
@@ -3486,19 +4318,24 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Mean wind speed over the 2 minutes before the timestamp, a window shorter than the dataset's own "
         "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
+        aggregation="mean",
     ),
-    CanonicalParameter("wind_speed_min", "speed", "Lowest wind speed over the period.", interpolation="homogeneous"),
+    CanonicalParameter(
+        "wind_speed_min", "speed", "Lowest wind speed over the period.", interpolation="homogeneous", aggregation="min"
+    ),
     CanonicalParameter(
         "wind_speed_rolling_mean_max",
         "speed",
         "Highest rolling mean wind speed over the period.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
     CanonicalParameter(
         "wind_speed_rolling_mean_max_last_6h",
         "speed",
         "Highest rolling mean wind speed over the preceding 6 hours.",
         interpolation="homogeneous",
+        aggregation="max",
     ),
 )
 
