@@ -13,7 +13,10 @@ thing everywhere. Those names, and the unit type each of them implies, live in a
 different quantities depending on who reported it.
 
 The glossary below lists them all. The provider pages link into it, so from any provider's parameter table you can jump
-to what the parameter actually is.
+to what the parameter actually is. The quality marks some sources publish with their readings (`quality`,
+`quality_wind`, ...) are no parameters, so the glossary of the REST API, the CLI and the MCP server does not list them
+and the entries below only name them for the provider tables to link to: they come back in the `quality_flags` column of
+the values, which [Quality flags](quality-flags.md) explains.
 
 ## Metadata Model
 
