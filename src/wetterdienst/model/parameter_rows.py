@@ -91,8 +91,10 @@ from wetterdienst.util.response_warnings import (
     SOURCE_DATA_LEFT_OUT,
     STATION_WITHOUT_ROWS,
     WINDOW_NOT_CLOSED,
+    advise_on_skip_causes,
     collecting,
     tell_details,
+    tell_skip_causes,
     warn_response,
 )
 
@@ -104,6 +106,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.util.response_warnings import SkipCause
 
 log = logging.getLogger(__name__)
 
@@ -161,6 +164,10 @@ class ParameterRows:
         #: the stations whose file the provider let go, in the order they came (a dict for the order): no evidence that
         #: the source holds nothing, and the stations `file-skipped` names
         self._skipped: dict[str, None] = {}
+        #: why the provider let go the files of each station, and the file every station is read from, in the order the
+        #: causes came (dicts for the order): what the advice of `file-skipped` is worded by
+        self._skip_causes: dict[str, dict[SkipCause, None]] = {}
+        self._skip_causes_of_all: dict[SkipCause, None] = {}
         #: the stations the walk collected, which a file that serves every station of the request was let go for
         self._collected: dict[str, None] = {}
         #: the candidates a rank walk passed over for the next one (an empty frame, or below `skip_threshold`)
@@ -196,11 +203,13 @@ class ParameterRows:
     def collecting(self, station_id: str) -> AbstractContextManager[None]:
         """Watch the collection of one station for a file the provider lets go (`note_skipped_download`)."""
 
-        def skipped(whole_request: bool) -> None:  # noqa: FBT001
+        def skipped(whole_request: bool, cause: SkipCause) -> None:  # noqa: FBT001
             if whole_request:
                 self._skipped_all = True
+                self._skip_causes_of_all[cause] = None
             else:
                 self._skipped[station_id] = None
+                self._skip_causes.setdefault(station_id, {})[cause] = None
             if self._estimate is not None:
                 self._estimate.skipped(station_id, whole_request=whole_request)
 
@@ -458,6 +467,10 @@ class ParameterRows:
             for (resolution, dataset), read in self._examined.items()
             if set(stations).intersection(read)
         ]
+        causes = [
+            *self._skip_causes_of_all,
+            *(cause for station in stations for cause in self._skip_causes.get(station, ())),
+        ]
         of = f" ({', '.join(datasets)})" if datasets else ""
         many = len(stations) > 1
         where = f"{self._where(stations)}{of}"
@@ -470,9 +483,9 @@ class ParameterRows:
         warn_response(
             log,
             FILE_SKIPPED,
-            f"{what}: the download was refused or failed, the file was gone, a maintenance page came in its place, "
-            f"or it would not parse. The values of {'these stations' if many else 'this station'} may be missing from "
-            "the answer, which is partial. Try again later.",
+            f"{what}: {tell_skip_causes(causes)}. The values of "
+            f"{'these stations' if many else 'this station'} may be missing from the answer, which is partial. "
+            f"{advise_on_skip_causes(causes)}",
             stations=stations[:MAX_STATIONS_LISTED],
         )
 
@@ -681,7 +694,7 @@ class EstimateLeftOut:
                 f"{self._count(files)}: the values of {'these stations' if len(files) > 1 else 'this station'} may be "
                 "missing from the estimate. A failed download, a withdrawn file, a maintenance page and an empty "
                 "directory may be back later, so try again; a refused download or a file that would not parse mostly "
-                "stays as it is."
+                "stays as it is, and is worth reporting to the provider."
             )
         warn_response(log, SOURCE_DATA_LEFT_OUT, " ".join(sentences), stations=affected[:MAX_STATIONS_LISTED])
 

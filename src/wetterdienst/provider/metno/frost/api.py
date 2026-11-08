@@ -39,7 +39,7 @@ from wetterdienst.util.network import (
     raise_if_credential_rejected,
     read_refusal,
 )
-from wetterdienst.util.response_warnings import note_left_out, note_open_window, note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_open_window, note_skipped_download
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -1329,12 +1329,12 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1449,12 +1449,12 @@ class MetnoFrostValues(TimeseriesValues):
                 station_id, parameter, start_date, end_date, settings, client_kwargs
             )
         if isinstance(file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
             return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1532,11 +1532,11 @@ class MetnoFrostValues(TimeseriesValues):
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
-            note_skipped_download()
+            note_skipped_download(avail_file.skip_cause)
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
             return pl.DataFrame()
         if avail_file.is_empty:
-            note_skipped_download()
+            note_skipped_download(SkipCause.MAINTENANCE)
             log.warning(f"Frost answered {avail_file.url} with an empty body")
             return pl.DataFrame()
 
@@ -1590,11 +1590,11 @@ class MetnoFrostValues(TimeseriesValues):
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
-                note_skipped_download()
+                note_skipped_download(obs_file.skip_cause)
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
                 continue
             if obs_file.is_empty:
-                note_skipped_download()
+                note_skipped_download(SkipCause.MAINTENANCE)
                 log.warning(f"Frost answered {obs_file.url} with an empty body")
                 continue
 

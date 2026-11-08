@@ -43,6 +43,7 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    skip_cause_of_failure,
 )
 from wetterdienst.util.response_warnings import note_skipped_download
 
@@ -328,7 +329,7 @@ class KnmiObservationValues(TimeseriesValues):
             if isinstance(payload, Exception):
                 # a single missing timestamp (a 404) or one that KNMI refused (a 429, an answer)
                 # shouldn't sink the whole range
-                note_skipped_download()
+                note_skipped_download(skip_cause_of_failure(payload))
                 log.warning(
                     f"Failed to acquire KNMI data for station {station_id}, file {filename}: "
                     f"{_without_url_secrets_in(str(payload))}"

@@ -16,7 +16,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.network import File, download_files
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     import polars as pl
@@ -135,7 +135,7 @@ def download_climate_observations_data(
         if file.status != 404:
             file.raise_if_exception()
         else:
-            note_skipped_download()
+            note_skipped_download(SkipCause.WITHDRAWN)
             log.warning(
                 f"The file {file.url} that the file index lists is not on the server (404): its values are missing"
             )
