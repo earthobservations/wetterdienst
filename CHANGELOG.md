@@ -20,8 +20,8 @@ Types of changes:
 
 - The `glossary` and `coverage` descriptions of the soil temperatures of a surface cover (bare
   ground, grass, sod, fallow, straw mulch, ...) now say "at 0.05 m depth in soil without vegetation
-  cover" or "with a grass cover"; "under bare ground" read as below the ground's cover. The
-  parameter names are unchanged (GH-3614)
+  cover" or "with a grass cover", where they said "under bare ground". The parameter names are
+  unchanged (GH-3614)
 
 ## [0.185.0] - 2026-11-08
 
