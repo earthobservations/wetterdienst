@@ -41,10 +41,17 @@ function source(path: string): string {
   return readFileSync(`${repository}${path}`, 'utf-8')
 }
 
-/** The canonical parameter names: the first argument of each `CanonicalParameter(...)` in the table. */
+/**
+ * The canonical parameter names the glossary serves: the first argument of each `CanonicalParameter(...)` in the
+ * table, but the quality flags (`quality_flag=True`), which `/api/glossary` leaves out and the app never shows.
+ */
 function canonicalParameters(): string[] {
-  return [...source('src/wetterdienst/metadata/parameter_table.py').matchAll(/^ {4}CanonicalParameter\(\s*"([a-z0-9_]+)"/gm)]
-    .map(match => match[1] as string)
+  const table = source('src/wetterdienst/metadata/parameter_table.py')
+  return table
+    .split(/^ {4}CanonicalParameter\(/m)
+    .slice(1)
+    .filter(block => !block.includes('quality_flag=True'))
+    .map(block => /^\s*"([a-z0-9_]+)"/.exec(block)?.[1] as string)
 }
 
 /** The values of the `Resolution` enum, which ends where `Frequency` begins. */

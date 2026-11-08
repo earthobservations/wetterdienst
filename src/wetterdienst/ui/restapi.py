@@ -1755,6 +1755,10 @@ def glossary(
     large response and a broad filter can still be a wide one (parameter="temperature" matches
     nearly two hundred).
 
+    These are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)
+    are not parameters and are not listed: they come back in the `quality_flags` column of the values, which the
+    quality-flags page of the documentation explains.
+
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
     including any `unit_targets` option override.

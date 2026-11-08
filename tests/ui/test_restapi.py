@@ -362,11 +362,11 @@ def test_glossary(client: TestClient) -> None:
 
 
 def test_glossary_all(client: TestClient) -> None:
-    """Test that the unfiltered glossary covers the whole canonical vocabulary."""
+    """Test that the unfiltered glossary covers the canonical vocabulary but the quality flags (GH-3876)."""
     response = client.get("/api/glossary")
     assert response.status_code == 200
     entries = response.json()
-    assert len(entries) == len(PARAMETER_TABLE)
+    assert len(entries) == len([parameter for parameter in PARAMETER_TABLE if not parameter.quality_flag])
     # every entry says what it is and which unit it comes back in; that is the point of the endpoint
     assert all(entry["description"] for entry in entries)
     assert all(entry["unit"] for entry in entries)

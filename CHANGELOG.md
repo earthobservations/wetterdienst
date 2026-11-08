@@ -68,6 +68,14 @@ Types of changes:
   and `#` came back as a file; `./` was a `RecursionError` after 974 requests that left fsspec's
   event loop spinning). A listing an older release cached is read the same way. An `Index of`
   page that links to `./` and holds files lists them (GH-3861)
+- **Breaking**: `glossary` (REST `/api/glossary`, `wetterdienst about glossary`, the MCP tool,
+  `get_glossary`) lists the 635 parameters the networks offer, as the homepage counts them, not 641:
+  the quality flags of the sources (`quality`, `quality_3`, `quality_6`, `quality_general`,
+  `quality_precipitation`, `quality_wind`) are no parameters and are left out, so a lookup of one
+  is an empty list. They are the `quality_flags` column of the values: read the quality-flags page
+  of the docs, not the glossary. `CanonicalParameter.quality_flag` marks them. `providers` counts
+  the parameters of a dataset and of a network without them too, as `coverage` lists them
+  (dwd/observation 246, not 312) (GH-3876)
 - `interpolate` and `summarize` (REST, MCP, CLI, Python) tell once, with a `source-data-left-out`
   warning, that source data was left out: how many of the stations they read lost a file the
   provider let go (a failed download, a directory found empty), dates of another series (Frost) or

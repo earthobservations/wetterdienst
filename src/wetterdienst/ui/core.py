@@ -1801,6 +1801,10 @@ def get_glossary(
 ) -> list[GlossaryEntry]:
     """Return the canonical parameter vocabulary, optionally filtered.
 
+    This is what the networks offer: the quality flags of the sources (`quality`, `quality_wind`, ...) are not
+    parameters, are never requested and come back in the `quality_flags` column of the values, so they are not
+    listed; the quality-flags page of the docs tells what that column holds (GH-3876).
+
     `coverage` answers which parameters a given provider offers, with the unit each comes back in for a
     request that passes no options (the environment's targets, as here); this answers what any of them means,
     for every provider, and the unit under the `unit_targets` of the `options` given, which `coverage` takes
@@ -1831,6 +1835,8 @@ def get_glossary(
         needles.append(PARAMETER_ALIASES[needle].new)
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
+        if canonical.quality_flag:
+            continue
         if needles and not any(n in canonical.name for n in needles):
             continue
         if unit_type and canonical.unit_type != unit_type:
