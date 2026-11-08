@@ -2016,7 +2016,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Global radiation over the preceding hour relative to the radiation at the top of the atmosphere in that "
         "hour, a clearness index.",
         interpolation="homogeneous",
-        aggregation="sum",
     ),
     CanonicalParameter(
         "radiation_global_uncertainty",
@@ -2408,14 +2407,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "fraction",
         "Sunshine duration as a fraction of the longest possible for the location and date.",
         interpolation="homogeneous",
-        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_relative_last_24h",
         "fraction",
         "Relative sunshine duration over the preceding 24 hours.",
         interpolation="homogeneous",
-        aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_uncertainty",
@@ -3789,7 +3786,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_wet_ice_formation",
         "dimensionless",
         "Whether ice had formed on the thermometer during the wet bulb measurement.",
-        aggregation="occurrence",
+        aggregation="code",
     ),
     CanonicalParameter(
         "temperature_wet_2m",

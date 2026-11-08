@@ -39,17 +39,14 @@ BY_HAND: dict[str, tuple[Aggregation, str]] = {
     "soil_state_index": ("code", "DWD's coded soil state (`ZUSTAND_BODEN`), a class"),
     "visibility_index": ("code", "a derived index of the visibility, a class"),
     "true_local_time_offset": ("code", "an offset between true and mean local time, a derived value"),
+    "temperature_wet_ice_formation": (
+        "code",
+        'DWD `e_tf_ter`, "Eisansatz bei der Messung der Feuchttemperatur": a YES/NO flag of one reading',
+    ),
     # a flag that says whether the phenomenon happened in the interval
     "precipitation_index": ("occurrence", "DWD's `RS_IND`: whether precipitation fell (1) or not (0) in the interval"),
-    "temperature_wet_ice_formation": ("occurrence", "whether wet ice formed on the surface in the interval, a flag"),
     # the suffix names how the mean is formed (arithmetic, against the vector mean of the direction), not a window
     "wind_speed_arithmetic": ("mean", "the arithmetic mean of the wind speed, as the name says"),
-    # ratios of two totals (sunshine over the astronomically possible sunshine, global radiation over the
-    # extraterrestrial one): a quantity of a total, so `sum`. A doubtful case of the design (GH-3134, A.4 item 1):
-    # the alternative is `None`, and a provider's row may state otherwise where its source says so
-    "sunshine_duration_relative": ("sum", "ratio of two totals of the interval, design doubtful case 1"),
-    "sunshine_duration_relative_last_24h": ("sum", "ratio of two totals of the window, design doubtful case 1"),
-    "radiation_global_relative_last_1h": ("sum", "ratio of two totals of the window, design doubtful case 1"),
 }
 
 # the totals by nature (GH-2614): a quantity that has no value at a moment but only as an accumulation over an
