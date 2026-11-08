@@ -321,6 +321,38 @@ def test_collection_is_done_waits_for_a_parameter_that_has_yet_to_take_a_station
     assert not collection_is_done({}, set())
 
 
+def test_walk_was_done_at_asks_what_was_still_in_reach_at_the_distance_of_the_station() -> None:
+    """The walk that stopped at a far station was not done at a nearer one that was passed over (GH-3848).
+
+    Temperature is finished, and precipitation lost stations for want of an elevation and has no column yet. Its
+    furthest station with an elevation is at 10 km, so a station at 12 km finds nothing to wait for and the walk done,
+    and one at 8 km finds it waiting for precipitation. The interpolation's other condition, that four stations
+    surround the point, is the caller's.
+    """
+    from wetterdienst.core.util import (  # noqa: PLC0415
+        DroppedForElevation,
+        StationsInReach,
+        _ParameterData,
+        walk_was_done_at,
+    )
+
+    grid = build_date_grid(Resolution.DAILY, dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2022, 1, 3, tzinfo=UTC))
+    finished = _ParameterData(grid.with_columns(pl.Series("00011", [1.0, 2.0, 3.0])), finished=True)
+    arguments = {
+        "stations_by_id": {"near": {"distance": 8.0}, "far": {"distance": 12.0}},
+        "counts": {TEMPERATURE: StationsInReach(3, 3, 5.0), PRECIPITATION: StationsInReach(3, 3, 10.0)},
+        "param_dict": {TEMPERATURE: finished},
+        "dropped_for_elevation": {PRECIPITATION: DroppedForElevation(2)},
+    }
+
+    assert walk_was_done_at("far", **arguments)
+    assert not walk_was_done_at("near", **arguments)
+    # four stations that surround the point are asked of by the caller
+    assert not walk_was_done_at("far", valid_group=False, **arguments)
+    # nothing collected is never done
+    assert not walk_was_done_at("far", **{**arguments, "param_dict": {}})
+
+
 def test_report_elevation_exclusions_does_not_blame_the_elevations_for_what_they_did_not_do(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
