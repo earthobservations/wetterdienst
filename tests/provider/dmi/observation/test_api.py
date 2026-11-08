@@ -624,6 +624,10 @@ def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_h
         ("mean_wind_dir_min0", "2025-11-21T03:00:00+00:00", 133.0, True),
         ("mean_wind_dir", "2025-11-21T03:00:00+00:00", 0.0, False),
         ("mean_wind_speed", "2025-11-21T03:00:00+00:00", 0.0, True),
+        # the real 360 of 04220 (2025-12-11 21:00, beside 5.8 m/s) stays 360, as no 0 and no 360 is folded into the
+        # other; DMI had no record without a value in 1006, so the last one is synthetic (null stays null)
+        ("mean_wind_dir_min0", "2025-12-11T21:00:00+00:00", 360.0, True),
+        ("mean_wind_dir_min0", "2025-12-11T22:00:00+00:00", None, True),
     ]
     features = [
         {
@@ -644,7 +648,7 @@ def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_h
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         df=_STATIONS,
         start=dt.datetime(2025, 11, 21, tzinfo=UTC),
-        end=dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
+        end=dt.datetime(2025, 12, 12, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
@@ -654,9 +658,11 @@ def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_h
         dt.datetime(2025, 11, 21, 2, tzinfo=UTC),
         dt.datetime(2025, 11, 21, 3, tzinfo=UTC),
         dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
+        dt.datetime(2025, 12, 11, 22, tzinfo=UTC),
+        dt.datetime(2025, 12, 11, 23, tzinfo=UTC),
     ]
-    assert minute_0.get_column("value").to_list() == [0.0, 0.0, 133.0]
-    assert minute_0.get_column("quality_flags").to_list() == ["manual,validity:true"] * 3
+    assert minute_0.get_column("value").to_list() == [0.0, 0.0, 133.0, 360.0, None]
+    assert minute_0.get_column("quality_flags").to_list() == ["manual,validity:true"] * 5
     hour = df.filter(pl.col("parameter") == "mean_wind_dir").sort("timestamp")
     assert hour.get_column("value").to_list() == [202.0, None, None]
     assert hour.get_column("quality_flags").to_list() == [
