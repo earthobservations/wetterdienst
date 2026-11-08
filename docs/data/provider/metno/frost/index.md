@@ -356,6 +356,12 @@ out by every reader, and the next request after the closing time returns it.
   timeOffset for annual data follow the same conventions as for seasonal and monthly data" (concepts, case 2.5), so
   the closing time is that of the monthly rule around the last day of the year.
 
+- **An estimate leaves the month and the year out too.** `interpolate` and `summarize` drop `quality_flags`, so they
+  cannot carry the mark: the monthly and annual value of an open window is left out of an estimate, as a daily one is,
+  and told as a cause of the one `source-data-left-out` warning (counted in values for today, this month and this year,
+  with the stations), not with `window-not-closed`. `values` is unchanged and still returns it marked (decided
+  2026-11-08, GH-3883). Ask again once the window has closed, or end the window before the current period.
+
 The token `completeness` is the one the Environment Agency's hydrology readings already have (`Incomplete`: based on
 incomplete data); Frost writes only `Incomplete`, never `Complete`. To keep the closed periods alone, filter
 `quality_flags` for the token; to keep the current month or year out, ask for a request window that ends before it.

@@ -82,6 +82,12 @@ Types of changes:
   values a hard plausibility check rejected. Before, none reached an estimate, which answered
   `warnings: []`. One warning per answer, not per station, up to 10 station ids; the station the
   walk stops at is not counted (GH-3848)
+- **Breaking**: `interpolate` and `summarize` leave out the monthly or annual value of the current
+  month or year (`metno/frost`, window not closed), where it entered the estimate with its
+  `completeness:Incomplete` mark dropped, and tell it, and a daily one that was left out without a
+  word, as a fourth cause of `source-data-left-out` (counted in values: today, this month, this
+  year). `values` is unchanged. Ask again once the window has closed, or end the window before the
+  current period; read `values` for the marked partial month (GH-3883)
 - **Breaking**: `dwd/observation` skips a period whose directory lists files but no description
   of its stations, as it skips an empty one: the other periods are answered and a `file-skipped`
   warning names the directory (it was a log line, and a history of it was cached); so does the
