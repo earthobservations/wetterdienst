@@ -81,6 +81,7 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "cloud_cover_total",
                             "name_original": "cloud_cover_total",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
@@ -91,61 +92,73 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "evapotranspiration_last_24h",
                             "name_original": "evaporation/evapotranspiration_last_24_hours",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_amount_last_1h",
                             "name_original": "precipitation_amount_last_hour",
+                            "timestamp_position": "end",
                             **_PRECIPITATION,
                         },
                         {
                             "name": "precipitation_amount_last_3h",
                             "name_original": "precipitation_amount_last_3_hours",
+                            "timestamp_position": "end",
                             **_PRECIPITATION,
                         },
                         {
                             "name": "precipitation_amount_last_6h",
                             "name_original": "precipitation_amount_last_6_hours",
+                            "timestamp_position": "end",
                             **_PRECIPITATION,
                         },
                         {
                             "name": "precipitation_amount_last_12h",
                             "name_original": "precipitation_last_12_hours",
+                            "timestamp_position": "end",
                             **_PRECIPITATION,
                         },
                         {
                             "name": "precipitation_amount_last_24h",
                             "name_original": "precipitation_amount_last_24_hours",
+                            "timestamp_position": "end",
                             **_PRECIPITATION,
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pressure_reduced_to_mean_sea_level",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
                             "name_original": "global_radiation_last_hour",
+                            "timestamp_position": "end",
                             **_RADIATION,
                         },
                         {
                             "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "diffuse_solar_radiation_last_hour",
+                            "timestamp_position": "end",
                             **_RADIATION,
                         },
                         {
                             "name": "radiation_sky_short_wave_direct_perpendicular_intensity_mean",
                             "name_original": "direct_solar_radiation_last_hour",
+                            "timestamp_position": "end",
                             **_RADIATION,
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "total_snow_depth",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -156,6 +169,7 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "total_time_of_sunshine_during_last_hour",
+                            "timestamp_position": "end",
                             "unit": "minute",
                         },
                         {
@@ -166,6 +180,7 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "dry_bulb_temperature_at_2_meter_above_ground",
+                            "timestamp_position": "instant",
                             **_TEMPERATURE,
                         },
                         {
@@ -176,16 +191,19 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "temperature_air_max_2m_last_12h",
                             "name_original": "maximum_temperature_last_12_hours_2_meters_above_ground",
+                            "timestamp_position": "end",
                             **_TEMPERATURE,
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
                             "name_original": "minimum_temperature_last_12_hours_2_meters_above_ground",
+                            "timestamp_position": "end",
                             **_TEMPERATURE,
                         },
                         {
                             "name": "temperature_air_min_0_05m_last_12h",
                             "name_original": "minimum_temperature_last_12_hours_5_cm_above_ground",
+                            "timestamp_position": "end",
                             **_TEMPERATURE,
                         },
                         {
@@ -211,6 +229,7 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature_at_2_meter_above_ground",
+                            "timestamp_position": "instant",
                             **_TEMPERATURE,
                         },
                         {
@@ -221,31 +240,37 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "visibility",
                             "name_original": "horizontal_visibility",
+                            "timestamp_position": "instant",
                             "unit": "kilometer",
                         },
                         {
                             "name": "weather",
                             "name_original": "present_weather",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "weather_past",
                             "name_original": "past_weather_1",
+                            "timestamp_position": "end",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "weather_secondary_past",
                             "name_original": "past_weather_2",
+                            "timestamp_position": "end",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "wind_direction_mean_last_10min",
                             "name_original": "mean_wind_direction_during_last_10 min_at_10_meters_above_ground",
+                            "timestamp_position": "end",
                             "unit": "degree",
                         },
                         {
                             "name": "wind_speed_mean_last_10min",
                             "name_original": "mean_wind_speed_during last_10_min_at_10_meters_above_ground",
+                            "timestamp_position": "end",
                             **_WIND_SPEED,
                         },
                         {
@@ -256,16 +281,19 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "wind_speed_rolling_mean_max_last_6h",
                             "name_original": "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day",
+                            "timestamp_position": "end",
                             **_WIND_SPEED,
                         },
                         {
                             "name": "wind_gust_max_last_1h",
                             "name_original": "maximum_wind_speed_last_hour",
+                            "timestamp_position": "end",
                             **_WIND_SPEED,
                         },
                         {
                             "name": "wind_gust_max_last_6h",
                             "name_original": "maximum_wind_speed_during_last_6_hours",
+                            "timestamp_position": "end",
                             **_WIND_SPEED,
                         },
                         {

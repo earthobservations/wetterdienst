@@ -5,6 +5,7 @@
 import re
 import tomllib
 from collections.abc import Iterable, Iterator
+from fnmatch import fnmatchcase
 from itertools import takewhile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -1482,6 +1483,91 @@ def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str,
     return {key: [cells[4].split(" ")[0] for cells in named] for key, named in _time_reference_cells(rows).items()}
 
 
+# The words of a segment of a cell that say it names the parameters it does not answer for (GH-3134).
+_NOT_ONE_ANSWER = re.compile(r"not qualified|not stated|unverified|differs? by period")
+_CELL_WORDS = re.compile(r"[\s,;:()\[\]'\"]+")
+_LEADING_POSITION = re.compile(r"^\s*(start|end|instant|middle)\b")
+
+
+def _cell_segments(cell: str) -> list[tuple[str | None, str, int]]:
+    """Give (position, text, shortest name) for each part of a `reference time` cell that can name parameters.
+
+    A cell that begins with an answer gives that answer for the whole of its text; a `mixed` cell is read by the
+    parts between its semicolons: one that begins with an answer gives it for the parameters it names, one that says
+    `not qualified`, `not stated` or `differ by period` names parameters that have no answer (None), and the others
+    say something else (a period, a window) and name nothing; an `unverified` cell names parameters that have none.
+    The shortest name is the length a word must have to be taken as a name where only the absence of an answer is at
+    stake (a letter of prose is not a parameter), so that `n` is read where `instant (n, nh)` answers.
+    """
+    first, _, body = cell.partition(" ")
+    body = body.strip()
+    if body.startswith("(") and body.endswith(")"):
+        body = body[1:-1]
+    if first in _POSITIONS:
+        return [(first, body, 1)]
+    if first == "unverified":
+        return [(None, body, 2)]
+    if first != "mixed":
+        return []
+    segments: list[tuple[str | None, str, int]] = []
+    for part in body.split(";"):
+        leading = _LEADING_POSITION.match(part)
+        if leading:
+            segments.append((leading.group(1), part, 1))
+        elif _NOT_ONE_ANSWER.search(part):
+            segments.append((None, part, 2))
+    return segments
+
+
+def _mixed_positions(cell: str) -> set[str]:
+    """Give the answers a `mixed` cell names parameters for."""
+    return {position for position, _, _ in _cell_segments(cell) if position} if cell.startswith("mixed") else set()
+
+
+def _named_by(text: str, parameters: Iterable[object], shortest: int) -> tuple[set[str], set[str]]:
+    """Give the names of the parameters a text names as they are, and those a pattern with `*` names.
+
+    A word names a parameter when it is the parameter's name or its original name in any case, or one side of a
+    `/` in the original name (`evaporation/evapotranspiration_last_24_hours`); a word with `*` (`N*`,
+    `precipitation_amount_last_*`) names those of which it is the pattern.
+    """
+    exact: set[str] = set()
+    wild: set[str] = set()
+    words = {word.strip(".").lower() for word in _CELL_WORDS.split(text)}
+    words |= {part for word in words for part in word.split("/")}
+    for parameter in parameters:
+        spellings = {parameter.name.lower(), parameter.name_original.lower()}
+        spellings |= set(parameter.name_original.lower().split("/"))
+        for word in words:
+            if len(word) < shortest or word.startswith("-"):
+                continue
+            if "*" in word:
+                if any(fnmatchcase(spelling, word) for spelling in spellings):
+                    wild.add(parameter.name)
+            elif word in spellings:
+                exact.add(parameter.name)
+    return exact, wild
+
+
+def _page_positions(cells: list[list[str]], dataset: object) -> dict[str, set[str | None]]:
+    """Give, per parameter a row of the dataset names, the answers the page gives it (None: it has none).
+
+    A parameter named as it is outranks one a pattern names (`ww` is an instant, `ww*` the probabilities of the
+    windows); a parameter a page names twice with two answers has two, which the test calls a page that disagrees
+    with itself.
+    """
+    exact: dict[str, set[str | None]] = {}
+    wild: dict[str, set[str | None]] = {}
+    for row in cells:
+        for position, text, shortest in _cell_segments(row[4]):
+            names, patterns = _named_by(text, dataset.parameters, shortest)
+            for name in names:
+                exact.setdefault(name, set()).add(position)
+            for name in patterns:
+                wild.setdefault(name, set()).add(position)
+    return {**wild, **exact}
+
+
 def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() -> None:
     """Test that `timestamp_position` of the metadata and the `reference time` of the page say the same (GH-3134).
 
@@ -1496,22 +1582,21 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
       (`LIBRARY_BUILT_START`), where it declares `start`; no parameter declares anything;
     - rows that disagree, mix `unverified` with an answer, or say `mixed` (which a cell that gives its answer for some
       parameters only must, `test_a_cell_that_gives_one_answer_for_some_parameters_only_is_mixed`): the dataset
-      declares nothing, and a
-      parameter declares only what a row of its dataset says (any answer where a row is `mixed`, whose qualifier
-      says which parameters it means and is not parsed).
-
-    A dataset with several rows is held by the weaker check of the last case, since the qualifiers of its rows say
-    which parameters each is about.
+      declares nothing, and a parameter declares only an answer a row of its dataset gives, which for a `mixed` cell
+      is an answer one of its parts begins with (`mixed (instant: TT_10, TM5_10; ...)`, `_cell_segments`);
+      `test_the_parameters_the_page_names_have_the_positions_it_gives` holds each parameter a row names to it.
     """
     from tests.provider.timestamps import LIBRARY_BUILT_START  # noqa: PLC0415
 
     rows, _ = _time_reference_tables()
     tokens = _time_reference_tokens(rows)
+    cells_of = _time_reference_cells(rows)
     errors = []
     built = set()
     for provider, network, resolution, dataset in _declared_datasets():
         tag = f"{provider}/{network}/{resolution}/{dataset.name}"
         found = tokens[provider, network, resolution, dataset.name]
+        named_rows = cells_of[provider, network, resolution, dataset.name]
         answers = {token for token in found if token in _POSITIONS}
         entry = LIBRARY_BUILT_START.get((provider, network, resolution))
         library_built = entry is not None and (entry[0] is None or dataset.name in entry[0])
@@ -1527,7 +1612,7 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
             expected = next(iter(answers)) if len(set(found)) == 1 and answers else None
         if dataset.timestamp_position != expected:
             errors.append(f"{tag}: declares {dataset.timestamp_position!r} but its rows say {sorted(set(found))}")
-        allowed = _POSITIONS if "mixed" in found else answers
+        allowed = answers.union(*(_mixed_positions(cells[4]) for cells in named_rows))
         for parameter in dataset.parameters:
             if expected is not None:
                 if parameter.effective_timestamp_position != expected:
@@ -1543,6 +1628,43 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
         f"LIBRARY_BUILT_START has {'/'.join(key)}, which no dataset has"
         for key in sorted(set(LIBRARY_BUILT_START) - built)
     )
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+#: The providers whose mixed datasets declare the position of every parameter their page names (GH-3134). A provider
+#: joins when its own PR has written its cells so that they name the parameters and given the parameters their values:
+#: until then a parameter it names and leaves null is no failure, and a dataset of it that has declared one is held.
+_PER_PARAMETER_PROVIDERS = frozenset(["dwd"])
+
+
+def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
+    """Test that a dataset without a position of its own declares, per parameter, what its rows name (GH-3134).
+
+    The rows of a dataset that is mixed, or has several rows, name the parameters they answer for: `instant (ttt,
+    td, ...)`, `end (...: RR1c, TX, R*/ww* probabilities)`, `mixed (instant: TT_10, TM5_10; RF_10 not qualified)`
+    (`_cell_segments`, `_named_by`: a name is a parameter's name or original name in any case, `*` a pattern, and a
+    parameter named as it is outranks one a pattern names). The parameter then declares exactly that answer, and None
+    where the page names it as not stated, not qualified, differing by period or unverified. A parameter no row names
+    declares nothing (what the page does not state is not guessed), and the test of
+    `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it that what is declared is one
+    of the answers of the rows. A dataset is held here once one of its parameters declares a position, or it is of a
+    provider in `_PER_PARAMETER_PROVIDERS`; a dataset with one answer for all its rows declares it itself.
+    """
+    rows, _ = _time_reference_tables()
+    cells_of = _time_reference_cells(rows)
+    errors = []
+    for provider, network, resolution, dataset in _declared_datasets():
+        if dataset.timestamp_position is not None:
+            continue
+        declared = {parameter.name: parameter.timestamp_position for parameter in dataset.parameters}
+        if provider not in _PER_PARAMETER_PROVIDERS and not any(declared.values()):
+            continue
+        tag = f"{provider}/{network}/{resolution}/{dataset.name}"
+        for name, answers in _page_positions(cells_of[provider, network, resolution, dataset.name], dataset).items():
+            if len(answers) != 1:
+                errors.append(f"{tag}/{name}: the page gives it {sorted(map(str, answers))}, not one answer")
+            elif declared[name] != next(iter(answers)):
+                errors.append(f"{tag}/{name}: declares {declared[name]!r} but the page gives {next(iter(answers))!r}")
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
 
 
