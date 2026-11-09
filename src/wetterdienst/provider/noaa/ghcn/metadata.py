@@ -168,7 +168,6 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "visibility",
                             "name_original": "visibility",
-                            "timestamp_position": "instant",
                             "unit": "kilometer",
                         },
                         # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south,

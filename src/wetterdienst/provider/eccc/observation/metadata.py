@@ -85,7 +85,6 @@ _EcccObservationMetadataSpec = {
                         {
                             "name": "visibility",
                             "name_original": "visibility",
-                            "timestamp_position": "instant",
                             "unit": "kilometer",
                         },
                         {
@@ -103,7 +102,6 @@ _EcccObservationMetadataSpec = {
                         {
                             "name": "temperature_wind_chill",
                             "name_original": "windchill",
-                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {

@@ -14,7 +14,7 @@ How to read the tables:
   and `end` an aggregate over the period that begins or ends at it, `middle` one centred on it, and `mixed` that the
   datasets, parameters or periods of the row differ (the qualifier says how; a row that gives its answer for some of
   the parameters only and leaves the others unqualified or unverified is `mixed`). A daily stamp is mostly a date at
-  00:00 UTC, and for it `start` and `end` say that the day's window begins or ends on that date, and the qualifier gives the window.
+  00:00 UTC, and for it `start` and `end` say that the day's window begins or ends on that date, and the qualifier gives the window. The day is the source's own, in its local time or MOZ, not the UTC date: a window of 0-24 MOZ (23 UTC of the day before to 23 UTC) is `start`, as a CET day is.
 - **`unverified`** means the provider's documentation does not state it. The cell never holds a guess; where a
   comparison with a second source suggests an answer, the cell says so in brackets as an observation.
 - **verified**: `yes` if the quoted text defines both zone and reference time as shown, `partly` if it defines only one
@@ -107,7 +107,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | hourly | data | UTC | mixed (start (from = start of the hour): max\_temp\_w\_date, min\_temp, acc\_precip, mean\_wind\_speed, max\_wind\_speed\_10min, bright\_sunshine, mean\_radiation, temp\_soil\_10, temp\_grass, leaf\_moisture, vapour\_pressure\_deficit\_mean; end (to = the end of the window of the 12 and 24 hour values, and the minute the 10-minute mean at minute 0 is up to): max\_temp\_12h, min\_temperature\_12h, acc\_precip\_past12h, acc\_precip\_past24h, mean\_wind\_dir\_min0; instant (to = the minute of the reading at minute 0): mean\_cloud\_cover; not stated (mean\_pressure is the reading at minute 0 stamped by to in Greenland and the Faroe Islands, a mean of the hour stamped by from in Denmark; in Greenland the value of the hour (stamped by from) or a reading at minute 0 (the minute of to), by station and hour, so up to one hour from its stamp): mean\_pressure, mean\_temp, mean\_relative\_hum, mean\_wind\_dir, max\_wind\_speed\_3sec) | yes |
+| observation | hourly | data | UTC | mixed (start (from = start of the hour): max\_temp\_w\_date, min\_temp, acc\_precip, mean\_wind\_speed, max\_wind\_speed\_10min, bright\_sunshine, mean\_radiation, temp\_soil\_10, temp\_grass, leaf\_moisture, vapour\_pressure\_deficit\_mean; end (to = the end of the window of the 12 and 24 hour values, and the minute the 10-minute mean at minute 0 is up to): max\_temp\_12h, min\_temperature\_12h, acc\_precip\_past12h, acc\_precip\_past24h, mean\_wind\_dir\_min0; instant (to = the minute of the reading at minute 0): mean\_cloud\_cover; differ by station (mean\_pressure is the reading at minute 0 stamped by to in Greenland and the Faroe Islands, a mean of the hour stamped by from in Denmark, and in Greenland the value of the hour (stamped by from) or a reading at minute 0 (the minute of to), by station and hour, so up to one hour from its stamp): mean\_pressure, mean\_temp, mean\_relative\_hum, mean\_wind\_dir, max\_wind\_speed\_3sec) | yes |
 | observation | daily | data | Europe/Copenhagen local time (CET/CEST) for Danish stations | start (local civil day, labelled with its date at 00:00 UTC: mean\_temp, max\_temp\_w\_date, min\_temp, mean\_relative\_hum, mean\_pressure, acc\_precip, mean\_wind\_speed, max\_wind\_speed\_10min, max\_wind\_speed\_3sec, mean\_wind\_dir, max\_pressure, min\_pressure, max\_relative\_hum, min\_relative\_hum, bright\_sunshine, mean\_cloud\_cover, mean\_radiation, mean\_vapour\_pressure, temp\_soil\_10, temp\_grass, temp\_soil\_30, leaf\_moisture, vapour\_pressure\_deficit\_mean, no\_clear\_days, no\_cloudy\_days, acc\_heating\_degree\_days\_17) | yes |
 | observation | daily | data | Europe/Copenhagen local time (CET/CEST) | end (precipitation\_amount\_max = max\_precip\_30m: window 23:31 local D-1 to 24:00 local D, ends on day D and is labelled D) | yes |
 | observation | daily | data | UTC (Greenland/Faroe 'old meteorological day') | start (Greenland station values: 06:00 UTC D to 06:00 UTC D+1, labelled D) | yes |
@@ -243,7 +243,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | hourly | all | local standard time (fixed offset, no DST) | mixed (instant (hourly observations): temp, dew\_point\_temp, relative\_humidity, station\_pressure, visibility, windchill, humidex; not stated: precip\_amount covers 'minutes 00 through 60' of an hour whose relation to the stamp the docs do not state) | partly |
+| observation | hourly | all | local standard time (fixed offset, no DST) | mixed (instant (hourly observations): temp, dew\_point\_temp, relative\_humidity, station\_pressure, humidex; not stated: precip\_amount covers 'minutes 00 through 60' of an hour whose relation to the stamp the docs do not state) | partly |
 | observation | daily | all | UTC-bounded climatological day (06:01 UTC to 06:00 UTC) at principal stations; calendar day at once-daily stations | start (the date names the climatological day beginning 0601 UTC that date) | partly |
 | observation | monthly | all | unverified (months of daily values; the daily day definition applies) | start (month label) | partly |
 
@@ -307,7 +307,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | 10\_minutes | data | UTC | mixed (end (of the preceding 10 minutes, and ta, td, rh, p0 and pp are the 'past minute mean' at that end): ta, td, rh, p0, pp, tg, tb, fx, qg, ss, n, vv, rg, dr; not stated: dd, ff partly 'middle' at listed stations; the library stamps the end (the file name)) | yes |
+| observation | 10\_minutes | data | UTC | mixed (end (of the preceding 10 minutes, and ta, td, rh, p0 and pp are the 'past minute mean' at that end): ta, td, rh, p0, pp, tg, tb, fx, qg, ss, n, vv, rg, dr; differ by station: dd, ff partly 'middle' at listed stations; the library stamps the end (the file name)) | yes |
 | observation | hourly | data | UTC | end (of the preceding hour; T/TD/U/P 'past 1 minute' values at that end; FH/FX/RH/DR/SQ/Q hourly aggregates); the library stamps the end (file name + 1 h) | yes |
 | observation | daily | data | UTC | start (UTC day 00-24 labelled with its date; KNMI's NetCDF time is the end) | yes |
 
@@ -331,7 +331,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| ghcn | hourly | all | UTC | mixed (instant (reports, the one nearest to the full hour and stamped with it): relative\_humidity, sea\_level\_pressure, station\_level\_pressure, altimeter, snow\_depth, temperature, dew\_point\_temperature, wet\_bulb\_temperature, visibility; end: precipitation is a running total up to the report, and the closing report of each hour is the one returned) | yes |
+| ghcn | hourly | all | UTC | mixed (instant (reports, the one nearest to the full hour and stamped with it): relative\_humidity, sea\_level\_pressure, station\_level\_pressure, altimeter, snow\_depth, temperature, dew\_point\_temperature, wet\_bulb\_temperature; end: precipitation is a running total up to the report, and the closing report of each hour is the one returned) | yes |
 | ghcn | daily | all | local (station's own observing day; docs give no zone except that TAVG from source 'S' runs to 2400 UTC) | unverified (date of the observing day; COOP stations report at an OBS-TIME, e.g. 0700) | partly |
 
 Notes:
@@ -387,7 +387,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | hourly | all | UTC offset carried in each value (ISO 8601 date-time, observed '+00:00') | mixed (instant (report): temperature, dewpoint, relativehumidity, barometricpressure, sealevelpressure, windchill; end: precipitationlasthour, precipitationlast3hours, precipitationlast6hours, the fields named LastHour, Last3Hours and Last6Hours cover the period ending at the stamp by their names) | partly |
+| observation | hourly | all | UTC offset carried in each value (ISO 8601 date-time, observed '+00:00') | mixed (instant (report): temperature, dewpoint, relativehumidity, barometricpressure, sealevelpressure; end: precipitationlasthour, precipitationlast3hours, precipitationlast6hours, the fields named LastHour, Last3Hours and Last6Hours cover the period ending at the stamp by their names) | partly |
 
 Notes:
 
@@ -417,7 +417,7 @@ Notes:
 | --- | --- | --- | --- | --- | --- |
 | observation | 10\_minutes | all | UTC | unverified (observed: end, the 10 minutes before the stamp) | partly |
 | observation | hourly | all | UTC | unverified (observed: end, the hour before the stamp; tl the value at the stamp) | partly |
-| observation | daily | all | UTC | mixed (stamp D 00:00 UTC names day D; start: rr D 06:01-\>D+1 06:00 UTC; end: tlmax, tlmin D-1 18:10-\>D 18:00 UTC, cglo\_j, so\_h, ffx D-1 23-\>D 23 UTC (0-24 MOZ); instant: sh at 06 UTC; p/rf/vv/bewm terms 06,13,18 UTC) | yes |
+| observation | daily | all | UTC | mixed (stamp D 00:00 UTC names day D; start: rr D 06:01-\>D+1 06:00 UTC, cglo\_j, so\_h, ffx D-1 23-\>D 23 UTC (0-24 MOZ, the source's day D); end: tlmax, tlmin D-1 18:10-\>D 18:00 UTC; instant: sh at 06 UTC; p/rf/vv/bewm terms 06,13,18 UTC) | yes |
 | observation | monthly | all | UTC | unverified (observed: start) | partly |
 
 Notes:
@@ -484,8 +484,8 @@ Notes:
 | frost | 10\_minutes | data | UTC | unverified (referenceTime = 'observation time'; whether that is the end of the PT10M max/min/sum is not stated) | partly |
 | frost | hourly | data | UTC | mixed (instant: air\_temperature, dew\_point\_temperature, relative\_humidity, air\_pressure\_at\_sea\_level, surface\_air\_pressure, cloud\_area\_fraction, surface\_snow\_thickness; end (the mean of the last 10 minutes before the stamp): wind\_speed, wind\_from\_direction; not stated: radiation\_global\_intensity\_mean (mean PT1H) and precipitation\_amount (sum PT1H) stamped at 'observation time', start/end unstated) | partly |
 | frost | 6\_hours | data | UTC | unverified (sum(precipitation\_amount PT6H) stamped at 'observation time'; start/end unstated) | partly |
-| frost | daily | data | UTC | mixed (timeOffset PT0H: start, UTC calendar date; timeOffset != PT0H: end date, window ends at date+offset. Returned: end: precipitation\_amount (sum(precipitation\_amount P1D) PT6H, previous date 06 UTC to the date 06 UTC, the PT18H series is left out (GH-3832)); end: temperature\_air\_max\_2m, temperature\_air\_min\_2m (max/min(air\_temperature P1D) PT18H, the 24 hours ending 18 UTC of the date (the hourly readings stamped D-1 19:00 to D 18:00; Frost's table calls it 19-18 UTC), the PT0H calendar-day series is left out and a station without PT18H returns no extremes (GH-3843)); start: temperature\_air\_mean\_2m (mean(air\_temperature P1D) PT0H, the calendar day (the hourly readings stamped 00:00 to 23:00), the PT6H series (06 UTC of the previous date to 06 UTC of the date) is left out and a station without PT0H returns no mean (GH-3855)); instant: snow\_depth (surface\_snow\_thickness): the instant of the reading, stamped 00:00 UTC of its date) | yes |
-| frost | monthly | data | UTC | mixed (timeOffset 0: start of calendar month; not stated: precipitation\_amount (sum(precipitation\_amount P1M) PT6H, the series returned (GH-3832): last day of previous month 06 UTC to last day of month 06 UTC, labelled day 1); start: temperature\_air\_mean\_2m (mean(air\_temperature P1M) PT0H, the calendar month, the series returned, the PT6H series is left out (GH-3855))) | yes |
+| frost | daily | data | UTC | mixed (timeOffset PT0H: start, UTC calendar date; timeOffset != PT0H: end date, window ends at date+offset; end (the series returned): precipitation\_amount (sum(precipitation\_amount P1D) PT6H, previous date 06 UTC to the date 06 UTC, the PT18H series is left out (GH-3832)); end: temperature\_air\_max\_2m, temperature\_air\_min\_2m (max/min(air\_temperature P1D) PT18H, the 24 hours ending 18 UTC of the date (the hourly readings stamped D-1 19:00 to D 18:00; Frost's table calls it 19-18 UTC), the PT0H calendar-day series is left out and a station without PT18H returns no extremes (GH-3843)); start: temperature\_air\_mean\_2m (mean(air\_temperature P1D) PT0H, the calendar day (the hourly readings stamped 00:00 to 23:00), the PT6H series (06 UTC of the previous date to 06 UTC of the date) is left out and a station without PT0H returns no mean (GH-3855)); instant: snow\_depth (surface\_snow\_thickness): the instant of the reading, stamped 00:00 UTC of its date) | yes |
+| frost | monthly | data | UTC | mixed (timeOffset 0: start of calendar month; neither start nor end: precipitation\_amount (sum(precipitation\_amount P1M) PT6H, the series returned (GH-3832): last day of previous month 06 UTC to last day of month 06 UTC, labelled day 1); start: temperature\_air\_mean\_2m (mean(air\_temperature P1M) PT0H, the calendar month, the series returned, the PT6H series is left out (GH-3855))) | yes |
 | frost | annual | data | UTC | start (calendar year, referenceTime \<year\>-01-01T00:00; offset rules as monthly) | yes |
 
 Notes:

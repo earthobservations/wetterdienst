@@ -306,7 +306,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo_j",
-                            "timestamp_position": "end",
+                            "timestamp_position": "start",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
@@ -328,7 +328,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so_h",
-                            "timestamp_position": "end",
+                            "timestamp_position": "start",
                             "unit": "hour",
                         },
                         {
@@ -356,7 +356,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "ffx",
-                            "timestamp_position": "end",
+                            "timestamp_position": "start",
                             "unit": "meter_per_second",
                         },
                         {

@@ -1484,7 +1484,9 @@ def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str,
 
 
 # The words of a segment of a cell that say it names the parameters it does not answer for (GH-3134).
-_NOT_ONE_ANSWER = re.compile(r"not qualified|not stated|unstated|unverified|differs? by period")
+_NOT_ONE_ANSWER = re.compile(
+    r"not qualified|not stated|unstated|unverified|differs? by (?:period|station)|neither start nor end"
+)
 _CELL_WORDS = re.compile(r"[\s,;:()\[\]'\"`]+")
 _LEADING_POSITION = re.compile(r"^\s*(start|end|instant|middle)\b")
 
@@ -1494,7 +1496,8 @@ def _cell_segments(cell: str) -> list[tuple[str | None, str, int]]:
 
     A cell that begins with an answer gives that answer for the whole of its text; a `mixed` cell is read by the
     parts between its semicolons: one that begins with an answer gives it for the parameters it names, one that says
-    `not qualified`, `not stated`, `unstated`, `unverified` or `differ by period` names parameters that have no answer
+    `not qualified`, `not stated`, `unstated`, `unverified`, `differ by period`, `differ by station` or `neither start nor end` names parameters that have no
+    answer
     (None), and the others say something else (a period, a window) and name nothing; an `unverified` cell names
     parameters that have none.
     The shortest name is the length a word must have to be taken as a name where only the absence of an answer is at

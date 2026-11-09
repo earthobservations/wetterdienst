@@ -274,6 +274,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "sum(precipitation_amount P1D)",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {

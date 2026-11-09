@@ -195,7 +195,6 @@ _NwsObservationMetadataSpec = {
                         {
                             "name": "temperature_wind_chill",
                             "name_original": "windchill",
-                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                     ],
