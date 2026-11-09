@@ -54,8 +54,8 @@ The sources, by quantity:
   The vapour pressure deficit is -10 to 200 hPa (D): the saturation pressure at the 60 °C of the air bound is 199 hPa
   by Magnus, and DMI's slightly negative hours (-3 hPa) stay.
 - Wind: the highest gust is 113.2 m/s (W, Barrow Island, 1996-04-10), so a gust and a mean wind (which cannot exceed
-  the gust of its interval, D) are 0 to 115 m/s; a direction is 0 to 360 and a zenith angle 0 to 180 degrees, Beaufort
-  0 to 12 (D); the run of wind in a day is 115 m/s for 86,400 s, 9,936 km (D).
+  the gust of its interval, D) are 0 to 115 m/s; a direction (of the wind or of a current) is 0 to 360 and a zenith
+  angle 0 to 180 degrees, Beaufort 0 to 12 (D); the run of wind in a day is 115 m/s for 86,400 s, 9,936 km (D).
 - Rain, by the span it fell in (W): 31.2 mm in 1 minute (Unionville MD, 1956-07-04), so 40; 305 mm in 60 minutes (Holt
   MO, 1947-06-22), so 350, which also holds the 5 to 30 minutes in it; 1,144 mm in 12 hours (Foc-Foc, 1966-01-07/08),
   so 1,150, which also holds the 2 to 12 hours in it; 1,825 mm in 24 hours (Foc-Foc), so 1,850; 2,493, 3,930 and 4,936
@@ -208,9 +208,9 @@ PARAMETER_RANGES: dict[str, Range] = {
     "radiation_long_wave_net_last_3h": None,
     "radiation_short_wave_net_last_3h": None,
     "flow_speed": None,
-    # the direction of the current: WSV writes it in a unit the documentation does not explain (MGN), perhaps gon (0 to
-    # 400) and from magnetic north, so with no definition to bound it it is held to nothing
-    "flow_direction": None,
+    # the direction the current flows towards: WSV's unit MGN is degrees from magnetic north, 0 to 359 (WSV's answer to
+    # #3364), a bearing as the direction of the wind
+    "flow_direction": Bounds(0.0, 360.0),
     # the days and hours a month has
     "count_days_in_month": Bounds(28.0, 31.0),
     "count_hours_in_month": Bounds(672.0, 744.0),
