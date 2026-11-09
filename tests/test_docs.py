@@ -1306,10 +1306,12 @@ _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unv
 # the ones of them that say where the stamp sits, which is what `timestamp_position` of the metadata can be (GH-3134)
 _POSITIONS = _REFERENCE_TIMES - {"mixed", "unverified"}
 # What a cell that begins with one answer says when it covers some of the parameters of its datasets only: the others
-# are not qualified, unverified, partly one thing, an exception, or the answer is given for a list of parameters. A
-# dataset declares one position for all its parameters, so such a cell is `mixed (...)`, never the answer alone.
+# are not qualified, not stated, not compared, unverified, partly one thing, an exception, or the answer is given for
+# some parameters only or for a list of them. A dataset declares one position for all its parameters, so such a cell
+# is `mixed (...)`, never the answer alone.
 _QUALIFIED_ANSWER = re.compile(
-    r"not qualified|unverified|partly|except|^\w+ \(\s*[\w/\[\]]+(?:, [\w/\[\]]+)+\s*[;)]",
+    r"not qualified|not stated|not compared|unverified|partly|except|\bonly\b"
+    r"|^\w+ \(\s*[\w/\[\]]+(?:, [\w/\[\]]+)+\s*[;)]",
 )
 
 # `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps

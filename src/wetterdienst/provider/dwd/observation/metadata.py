@@ -1071,7 +1071,6 @@ _DwdObservationMetadataSpec = {
                     "name": "cloudiness",
                     "name_original": "cloudiness",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1094,7 +1093,6 @@ _DwdObservationMetadataSpec = {
                     "name": "moisture",
                     "name_original": "moisture",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1129,7 +1127,6 @@ _DwdObservationMetadataSpec = {
                     "name": "pressure",
                     "name_original": "pressure",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1147,7 +1144,6 @@ _DwdObservationMetadataSpec = {
                     "name": "soil",
                     "name_original": "soil",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1185,7 +1181,6 @@ _DwdObservationMetadataSpec = {
                     "name": "visibility",
                     "name_original": "visibility",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1205,7 +1200,6 @@ _DwdObservationMetadataSpec = {
                     "name": "wind",
                     "name_original": "wind",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
