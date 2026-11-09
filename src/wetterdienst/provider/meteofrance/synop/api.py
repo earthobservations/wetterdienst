@@ -240,7 +240,7 @@ def _download_year(year: int, settings: Settings) -> File:
     # it, or inside what is the grace now) may lack what was filed late: it is fetched once more
     refetch_before = _year_settled_at(year).timestamp() if ttl is CacheExpiry.INFINITE else None
 
-    def fetch(*, once_more: bool = False) -> File:
+    def fetch(*, once_more: bool = False, held_copy: bool = False) -> File:
         return download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -250,7 +250,8 @@ def _download_year(year: int, settings: Settings) -> File:
             use_certifi=settings.use_certifi,
             attempts=1 if once_more else 2,
             refetch_undated=once_more,
-            refetch_before=refetch_before,
+            # the read of the held copy after a failed fetch takes it as it is, as for a copy with no date
+            refetch_before=None if held_copy else refetch_before,
         )
 
     held = cached_copy_is_held(
@@ -267,11 +268,9 @@ def _download_year(year: int, settings: Settings) -> File:
     file = fetch(once_more=True)
     if not isinstance(file.content, Exception):
         return file
-    copy = fetch()
+    copy = fetch(held_copy=True)
     if not isinstance(copy.content, Exception):
-        log.warning(
-            f"{url} could not be downloaded again to date it ({file.content!r}): the copy held is read, with no date"
-        )
+        log.warning(f"{url} could not be downloaded again ({file.content!r}): the copy held is read as it is")
     return copy
 
 
