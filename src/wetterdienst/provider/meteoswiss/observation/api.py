@@ -47,6 +47,15 @@ class MeteoswissObservationValues(TimeseriesValues):
     # can be skipped without an extra request, avoiding large unnecessary downloads for old stations
     _decade_pattern = re.compile(r"_historical_(\d{4})-(\d{4})\.csv$")
 
+    # the `_historical` assets (whole, or the decades of it) are final by name, so a week (GH-3929); `_recent` and
+    # `_now` are written to as the data comes in, and stay at five minutes
+    _historical_pattern = re.compile(r"_historical(_\d{4}-\d{4})?\.csv$")
+
+    @classmethod
+    def _asset_expiry(cls, asset_name: str) -> CacheExpiry:
+        """Give the expiry an asset is downloaded with: a week for the `_historical` ones, else five minutes."""
+        return CacheExpiry.ONE_WEEK if cls._historical_pattern.search(asset_name) else CacheExpiry.FIVE_MINUTES
+
     def _asset_overlaps_request(self, asset_name: str) -> bool:
         """Check whether a decade-chunked historical asset overlaps the requested date range."""
         start_date, end_date = self.sr.start, self.sr.end
@@ -86,18 +95,18 @@ class MeteoswissObservationValues(TimeseriesValues):
         pattern = re.compile(rf"^ogd-smn_{re.escape(station_id_lower)}_{granularity}(_.*)?\.csv$")
         urls = sorted(
             # the asset's address is the answer's to name: fetched at the host of the catalogue (GH-3339)
-            fetchable_link(asset["href"], item_url)
+            (fetchable_link(asset["href"], item_url), self._asset_expiry(name))
             for name, asset in assets.items()
             if pattern.match(name) and self._asset_overlaps_request(name)
         )
         if not urls:
             return pl.DataFrame()
         dfs = []
-        for url in urls:
+        for url, expiry in urls:
             csv_file = download_file(
                 url=url,
                 cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
+                ttl=expiry,
                 client_kwargs=settings.fsspec_client_kwargs,
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,

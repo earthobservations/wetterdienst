@@ -75,7 +75,8 @@ goes on to the next one (`StationsResult._rank`).
 
 **Fetch-ahead.** A provider whose files are one set per station can name them beforehand by implementing
 `TimeseriesValues._files_ahead(station_id, datasets)`, which returns a `FilesAhead` (the URLs and the cache expiry the
-provider downloads them with). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
+provider downloads them with, `ttl`, and `ttls` for the URLs it downloads with another, as a file that is final by
+name is kept longer than one that is still written to). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
 at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station is parsed, and the
 provider's own download at the station's turn finds them there: `_collect_station_parameter_or_dataset` is not changed
 and is still what raises, at the station it raises at. A thread fetches the files of a station one after the other; when

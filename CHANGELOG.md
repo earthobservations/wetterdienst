@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
+  12 hours: the `historical` period of `dwd/observation`, `dwd/derived` and `dwd/phenology`, SMHI
+  `corrected-archive`, MeteoSwiss `_historical` files, Met Office station-years. An `lhmt` day and a
+  `meteofrance/synop` year are held for 6 hours and 7 days after they ended before they are kept for
+  good. Hub'Eau's 5-minute cache now hits, as its URLs no longer change by the microsecond (GH-3929)
 - **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
   `get_providers`) answers compact by default: `resolutions` of each network is null and everything
   else stays, the number of `parameters` among it. 20 kB for every provider where the answer was

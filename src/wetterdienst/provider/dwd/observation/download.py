@@ -13,6 +13,7 @@ from zipfile import BadZipFile
 
 from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.provider.dwd.expiry import file_expiry
 from wetterdienst.provider.dwd.observation.fileindex import forget_listing_of_missing_file
 from wetterdienst.provider.dwd.observation.local_mean_time_blocks import local_mean_time_spans
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     import polars as pl
     from fsspec.implementations.zip import ZipFileSystem
 
+    from wetterdienst.metadata.period import Period
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
 
@@ -160,12 +162,17 @@ def download_climate_observations_data(
     remote_files: pl.Series,
     settings: Settings,
     dataset: DatasetModel | None = None,
+    period: Period | None = None,
 ) -> list[File]:
-    """Download climate observations data from DWD server."""
+    """Download climate observations data from DWD server.
+
+    The files of the `historical` period are final by name and are kept a week, those of any other period (or of none
+    named) five minutes, as DWD appends to them (GH-3929).
+    """
     files = download_files(
         urls=remote_files.to_list(),
         cache_dir=settings.cache_dir,
-        ttl=CacheExpiry.FIVE_MINUTES,
+        ttl=file_expiry(period),
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,

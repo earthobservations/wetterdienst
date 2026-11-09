@@ -497,6 +497,28 @@ _HubeauMetadataSpec = {
 HubeauMetadata = build_metadata_model(_HubeauMetadataSpec, "HubeauMetadata")
 
 
+#: the length in minutes of the steps the end of the window is rounded down to, the expiry of the answers: the URLs
+#: of the pages are the same for as long as they are cached, so a repeated request within it is served from the cache
+#: (GH-3929)
+_WINDOW_MINUTES = CacheExpiry.FIVE_MINUTES.value // 60
+
+
+def _now() -> dt.datetime:
+    """Give the time the window is taken from (a seam for a test, which pins it)."""
+    return dt.datetime.now(ZoneInfo("UTC"))
+
+
+def _window_end(now: dt.datetime) -> dt.datetime:
+    """Give the end of the window of the last 30 days: ``now`` in UTC, rounded down to the start of its five minutes.
+
+    Five minutes and not one: the answers are cached for five minutes, and a URL that changes every minute would miss
+    the cache four times of five. It costs the window the last minutes the station may have reported, which a cache of
+    five minutes would have hidden for as long. The result carries no time zone, as the API's parameters have none.
+    """
+    utc = now.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    return utc.replace(minute=utc.minute - utc.minute % _WINDOW_MINUTES, second=0, microsecond=0)
+
+
 class HubeauValues(TimeseriesValues[ParameterModel]):
     """Values class for Eaufrance Hubeau data."""
 
@@ -515,8 +537,11 @@ class HubeauValues(TimeseriesValues[ParameterModel]):
         measures stage, and a station whose discharge arrives more often would hold more. The
         chunks are therefore sized to a page and the pages are followed, so an underestimate costs
         another request rather than the records past the first page.
+
+        The window ends at the start of the current five minutes (`_window_end`), so that the URLs of the pages do
+        not change within the five minutes the answers are cached for (GH-3929).
         """
-        end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+        end = _window_end(_now())
         start = end - dt.timedelta(days=30)
         delta = end - start
         data_delta = dt.timedelta(minutes=_RESOLUTION_TO_STEP[parameter.dataset.resolution.name])

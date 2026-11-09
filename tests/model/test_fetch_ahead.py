@@ -831,6 +831,37 @@ def test_a_fetch_that_breaks_is_not_heard_of_and_stops_the_fetching(
     assert asked == {0, 1}
 
 
+def test_a_file_is_fetched_with_the_expiry_the_hook_names_it_with(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A settled file is kept longer than one still written to, and is fetched ahead with its own expiry (GH-3929)."""
+    reader = _reader(monkeypatch, tmp_path, stations=3, urls_of=_files(upstream, 2), depth=1)
+    asked: dict[str, CacheExpiry] = {}
+
+    def spy(**kwargs: object) -> object:
+        asked[str(kwargs["url"])] = cast("CacheExpiry", kwargs["ttl"])
+        return download_file(**kwargs)  # ty: ignore[invalid-argument-type]
+
+    def files_ahead(self: object, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:  # noqa: ARG001
+        urls = _files(upstream, 2)(station_id)
+        # the first file of a station is settled, the second is not, and the hook says so for the first only
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls={urls[0]: CacheExpiry.ONE_WEEK})
+
+    monkeypatch.setattr(fetch_ahead, "download_file", spy)
+    monkeypatch.setattr(type(reader), "_files_ahead", files_ahead)
+
+    results = reader.query()
+    next(results)
+    upstream.settle()
+    list(results)
+
+    assert asked
+    assert {url: ttl for url, ttl in asked.items() if url.endswith("/0")} == {
+        url: CacheExpiry.ONE_WEEK for url in asked if url.endswith("/0")
+    }
+    assert {ttl for url, ttl in asked.items() if url.endswith("/1")} == {CacheExpiry.FIVE_MINUTES}
+
+
 def test_a_station_with_many_files_is_read_no_slower_than_without_the_fetch_ahead(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
