@@ -478,12 +478,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Dew point temperature at 2 m above ground."
         ),
         ("hourly", "data", "diffuse_solar_radiation_last_hour"): (
-            'Diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
-            'Stunde)"): the energy of that hour divided by 3600 s, not a reading at one moment.'
+            'Mean diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
+            'Stunde)"): the energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one '
+            "moment."
         ),
         ("hourly", "data", "direct_solar_radiation_last_hour"): (
-            'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
-            'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
+            'Mean direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
+            'Stunde)", no surface stated): the energy of that hour divided by 3600 s, so the mean of the hour. It '
+            "exceeds the global irradiance in some reports, so it is not the "
             "component on a horizontal surface but the irradiance on a plane perpendicular to the sun's rays (direct "
             "normal irradiance, WMO-No. 8 chapter 7.2): multiplied by the cosine of the solar zenith angle it stays "
             "below the global irradiance."
@@ -494,8 +496,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Stunden)"), reported almost only at 06 UTC.'
         ),
         ("hourly", "data", "global_radiation_last_hour"): (
-            'Global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
-            "energy of that hour divided by 3600 s, not a reading at one moment."
+            'Mean global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
+            "energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one moment."
         ),
         ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
             "Height above the station of the base of the lowest cloud."
