@@ -63,9 +63,12 @@ from wetterdienst.provider.dwd.observation.metadata import (
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
+from wetterdienst.provider.dwd.observation.mez_blocks import ZONE_MEZ, ZONE_MEZ_BATCH
 from wetterdienst.provider.dwd.observation.parser import (
+    MEZ_BATCH_PREFIX,
     MEZ_MD_PREFIX,
     WOZ_COLUMN,
+    mez_batch_column,
     mez_md_column,
     parse_climate_observations_data,
 )
@@ -102,8 +105,26 @@ def _is_value_column(column: str) -> bool:
     return not (
         column.endswith(RAW_SUFFIX)
         or column in (WOZ_COLUMN, _PERIOD_RANK)
-        or column.startswith((MEZ_MD_PREFIX, "qn", "qualitaet"))
+        or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, "qn", "qualitaet"))
     )
+
+
+def _in_spans(
+    df: pl.DataFrame, spans_by_station: Iterable[tuple[str, tuple[tuple[dt.datetime, dt.datetime], ...]]]
+) -> list[pl.Expr]:
+    """Say, per span of the stations of the frame, which stamps (as written) lie in it, both ends included.
+
+    Only the stations the frame holds: the table of the blocks that are MEZ in the values has 26 of them, and a frame
+    is one station's.
+    """
+    stations = set(df.get_column("station_id").cast(pl.Int64, strict=False).drop_nulls().unique().to_list())
+    return [
+        (pl.col("station_id").cast(pl.Int64, strict=False) == int(station))
+        & pl.col("timestamp").is_between(first, last, closed="both")
+        for station, spans in spans_by_station
+        if int(station) in stations
+        for first, last in spans
+    ]
 
 
 class DwdObservationValues(TimeseriesValues):
@@ -272,14 +293,19 @@ class DwdObservationValues(TimeseriesValues):
         data = []
         series_quality = pl.Series()
         for column in df.columns[2:]:
-            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN or column.startswith(MEZ_MD_PREFIX):
+            if (
+                column.endswith(RAW_SUFFIX)
+                or column == WOZ_COLUMN
+                or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX))
+            ):
                 continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
             else:
                 # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816), those of a
                 # period the archive calls MEZ (MD), the soil periods of the eMD archive and the air temperature
-                # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029)
+                # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029), those of
+                # the 1973-01 to 1975-12 batch of the table of GH-3776 `zone:mez-1973-75`
                 shifted = (
                     pl.col(mez_md_column(column)).fill_null(value=False)
                     if mez_md_column(column) in df.columns
@@ -288,15 +314,19 @@ class DwdObservationValues(TimeseriesValues):
                 zone = pl.lit(None, pl.String)
                 if WOZ_COLUMN in df.columns:
                     zone = pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")).otherwise(zone)
-                zone = pl.when(shifted).then(pl.lit("mez")).otherwise(zone).alias("zone")
+                zone = pl.when(shifted).then(pl.lit(ZONE_MEZ)).otherwise(zone)
+                if mez_batch_column(column) in df.columns:
+                    zone = (
+                        pl.when(shifted & pl.col(mez_batch_column(column)).fill_null(value=False))
+                        .then(pl.lit(ZONE_MEZ_BATCH))
+                        .otherwise(zone)
+                    )
+                zone = zone.alias("zone")
                 # a shifted row of a block `MEZ_BY_COMPARISON` names is kept before the row that was not moved, the
                 # row of every other shifted period after it
-                compared = [
-                    (pl.col("station_id").cast(pl.Int64, strict=False) == int(station))
-                    & pl.col("timestamp").is_between(first, last, closed="both")
-                    for station, parameters in MEZ_BY_COMPARISON.items()
-                    for first, last in parameters.get(column, ())
-                ]
+                compared = _in_spans(
+                    df, ((station, parameters.get(column, ())) for station, parameters in MEZ_BY_COMPARISON.items())
+                )
                 shift_order = (
                     pl.when(shifted & pl.any_horizontal(compared))
                     .then(pl.lit(0))
