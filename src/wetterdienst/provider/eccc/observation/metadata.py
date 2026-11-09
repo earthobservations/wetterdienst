@@ -120,6 +120,7 @@ _EcccObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cooling_degree_day",
@@ -200,6 +201,7 @@ _EcccObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     # The fields the climate-monthly collection actually publishes. This block used
                     # to carry bulk-CSV column headers ("total precip (mm)", "spd of max gust(km/h)")
                     # that the OGC API never returns, along with quality parameters -- quality

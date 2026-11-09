@@ -134,11 +134,12 @@ _DAILY_PARAMETERS = [
 ]
 
 
-def _default_dataset(parameters: list[dict]) -> dict:
+def _default_dataset(parameters: list[dict], timestamp_position: str | None = None) -> dict:
     return {
         "name": DATASET_NAME_DEFAULT,
         "name_original": DATASET_NAME_DEFAULT,
         "grouped": True,
+        "timestamp_position": timestamp_position,
         "parameters": parameters,
     }
 
@@ -182,7 +183,7 @@ _RmiObservationMetadataSpec = {
             "name_original": "aws_1day",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_DAILY_PARAMETERS)],
+            "datasets": [_default_dataset(_DAILY_PARAMETERS, "start")],
         },
     ],
 }
