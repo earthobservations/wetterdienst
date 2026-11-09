@@ -45,7 +45,6 @@ _KnmiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
-                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "temperature_air_2m",

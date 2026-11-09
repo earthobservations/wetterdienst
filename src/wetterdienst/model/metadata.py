@@ -428,7 +428,13 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
 
     @property
     def effective_timestamp_position(self) -> TimestampPosition | None:
-        """Where the stamp of this parameter sits in its interval: its own declaration, else its dataset's."""
+        """Where the stamp of this parameter sits in its interval: its own declaration, else its dataset's.
+
+        A dataset has a position only where its page row states it for every parameter, so a parameter under a dataset
+        value always has that position or its own override, and None means not stated. A dataset with a parameter the
+        row does not cover is mixed and declares None (`tests/test_docs.py`), so there is no way, and no need, to
+        say "not stated" under a value.
+        """
         return self.timestamp_position or self.dataset.timestamp_position
 
     def __eq__(self, other: object) -> bool:

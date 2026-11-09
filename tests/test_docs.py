@@ -1305,6 +1305,12 @@ TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
 _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
 # the ones of them that say where the stamp sits, which is what `timestamp_position` of the metadata can be (GH-3134)
 _POSITIONS = _REFERENCE_TIMES - {"mixed", "unverified"}
+# What a cell that begins with one answer says when it covers some of the parameters of its datasets only: the others
+# are not qualified, unverified, partly one thing, an exception, or the answer is given for a list of parameters. A
+# dataset declares one position for all its parameters, so such a cell is `mixed (...)`, never the answer alone.
+_QUALIFIED_ANSWER = re.compile(
+    r"not qualified|unverified|partly|except|^\w+ \(\s*[\w/\[\]]+(?:, [\w/\[\]]+)+\s*[;)]",
+)
 
 # `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps
 # are file names and BUFR times that can be read wrongly like any other, so the table has a row for it,
@@ -1452,19 +1458,26 @@ def _declared_datasets() -> Iterator[tuple[str, str, str, object]]:
             yield provider, network, resolution.name, dataset
 
 
-def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str, str, str, str], list[str]]:
-    """Give, per (provider, network, resolution, dataset), the first word of the reference time of its rows."""
-    tokens: dict[tuple[str, str, str, str], list[str]] = {}
-    for provider, network, resolution, dataset in _declared_datasets():
-        tokens[provider, network, resolution, dataset.name] = [
-            cells[4].split(" ")[0]
+def _time_reference_cells(
+    rows: list[tuple[str, list[str]]],
+) -> dict[tuple[str, str, str, str], list[list[str]]]:
+    """Give, per (provider, network, resolution, dataset), the rows of the page that name it."""
+    return {
+        (provider, network, resolution, dataset.name): [
+            cells
             for row_provider, cells in rows
             if row_provider == provider
             and cells[0] == network
             and cells[1] == resolution
             and (cells[2] == "all" or dataset.name in [name.strip() for name in cells[2].split(",")])
         ]
-    return tokens
+        for provider, network, resolution, dataset in _declared_datasets()
+    }
+
+
+def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str, str, str, str], list[str]]:
+    """Give, per (provider, network, resolution, dataset), the first word of the reference time of its rows."""
+    return {key: [cells[4].split(" ")[0] for cells in named] for key, named in _time_reference_cells(rows).items()}
 
 
 def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() -> None:
@@ -1479,7 +1492,9 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
       parameter of it declares another;
     - `unverified` in all of them: the dataset declares nothing, unless the library builds the stamp itself
       (`LIBRARY_BUILT_START`), where it declares `start`; no parameter declares anything;
-    - rows that disagree, mix `unverified` with an answer, or say `mixed`: the dataset declares nothing, and a
+    - rows that disagree, mix `unverified` with an answer, or say `mixed` (which a cell that gives its answer for some
+      parameters only must, `test_a_cell_that_gives_one_answer_for_some_parameters_only_is_mixed`): the dataset
+      declares nothing, and a
       parameter declares only what a row of its dataset says (any answer where a row is `mixed`, whose qualifier
       says which parameters it means and is not parsed).
 
@@ -1527,6 +1542,31 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
         for key in sorted(set(LIBRARY_BUILT_START) - built)
     )
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def test_a_cell_that_gives_one_answer_for_some_parameters_only_is_mixed() -> None:
+    """Test that a cell standing for a whole dataset does not limit its answer to some parameters (GH-3134).
+
+    The metadata declares a dataset's position from the first word of the cell, for every parameter of the dataset, so
+    `instant (TT_10, TM5_10; RF/PP/TD not qualified)` would give the humidity and the pressure a position the page
+    does not state. Such a cell is `mixed (instant: ...)`, which the dataset declares as null, and the parameters it
+    covers declare their own. A cell that is one of several rows of a dataset says which parameters it is about by
+    design and is left to the check of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page`.
+    A position that is stated for the dataset but of a doubtful place inside the stamp (the reading's minute, which
+    window) is no limit on the parameters and stays an answer.
+    """
+    rows, _ = _time_reference_tables()
+    errors = []
+    for (provider, network, resolution, dataset), named in _time_reference_cells(rows).items():
+        if len({cells[4].split(" ")[0] for cells in named}) != 1:
+            continue
+        errors.extend(
+            f"{provider}/{network}/{resolution}/{dataset}: {cells[4]!r} gives {cells[4].split(' ')[0]} for some "
+            "parameters only, so the cell begins with `mixed`"
+            for cells in named
+            if cells[4].split(" ")[0] in _POSITIONS and _QUALIFIED_ANSWER.search(cells[4])
+        )
+    assert not errors, "\n".join(_capped(sorted(set(errors)), 40, "the report"))
 
 
 def test_the_positions_are_the_answers_the_page_allows() -> None:

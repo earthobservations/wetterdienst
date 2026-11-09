@@ -166,7 +166,6 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "opad",
                     "grouped": True,
-                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",

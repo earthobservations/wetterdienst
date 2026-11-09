@@ -12,8 +12,9 @@ How to read the tables:
 - **source time zone**: the zone in which the provider states its stamps.
 - **reference time**: where the stamp sits in the period a value covers. `instant` is a reading at the stamp, `start`
   and `end` an aggregate over the period that begins or ends at it, `middle` one centred on it, and `mixed` that the
-  datasets, parameters or periods of the row differ (the qualifier says how). A daily stamp is mostly a date at 00:00 UTC, and
-  for it `start` and `end` say that the day's window begins or ends on that date, and the qualifier gives the window.
+  datasets, parameters or periods of the row differ (the qualifier says how; a row that gives its answer for some of
+  the parameters only and leaves the others unqualified or unverified is `mixed`). A daily stamp is mostly a date at
+  00:00 UTC, and for it `start` and `end` say that the day's window begins or ends on that date, and the qualifier gives the window.
 - **`unverified`** means the provider's documentation does not state it. The cell never holds a guess; where a
   comparison with a second source suggests an answer, the cell says so in brackets as an observation.
 - **verified**: `yes` if the quoted text defines both zone and reference time as shown, `partly` if it defines only one
@@ -127,7 +128,7 @@ Notes:
 | --- | --- | --- | --- | --- | --- |
 | observation | 1\_minute | all | UTC (recent/, now/); MEZ (UTC+1, no DST) before 2000 in historical/ | end (of the 1-minute interval for rain\[e\]H3; Pluvio Ott delayed ~5 min) | yes |
 | observation | 5\_minutes | all | UTC (recent/, now/); MEZ (UTC+1, no DST) before 2000 in historical/ | end (of the previous 5 minutes) | yes |
-| observation | 10\_minutes | temperature\_air | UTC (recent/, now/); MEZ (UTC+1, no DST) before 2000 in historical/ | instant (TT\_10, TM5\_10; RF/PP/TD not qualified) | yes |
+| observation | 10\_minutes | temperature\_air | UTC (recent/, now/); MEZ (UTC+1, no DST) before 2000 in historical/ | mixed (instant: TT\_10, TM5\_10; RF/PP/TD not qualified) | yes |
 | observation | 10\_minutes | precipitation, solar, wind, wind\_extreme, temperature\_extreme | UTC (recent/, now/); MEZ (UTC+1, no DST) before 2000 in historical/ | end (of the previous 10 minutes) | yes |
 | observation | 10\_minutes | urban\_temperature\_air | UTC | instant | yes |
 | observation | 10\_minutes | urban\_temperature\_extreme, urban\_wind\_extreme, urban\_precipitation, urban\_pressure, urban\_temperature\_soil, urban\_solar, urban\_wind | unverified | unverified | no |
@@ -274,7 +275,7 @@ Notes:
 | meteorology | daily | synop | UTC | end (temperature\_air\_max\_2m/min\_2m/min\_0\_05m: 18:01 UTC D-1 to 18:00 UTC D, dated D) | yes |
 | meteorology | daily | synop | UTC | instant (snow\_depth: 06 UTC of D) | yes |
 | meteorology | daily | climate | unverified (terms GG 06/12/18 in k\_t; their zone is not stated in k\_t\_format.txt or Opis.txt) | mixed (precipitation\_amount 06 UTC D to 06 UTC D+1 dated D; temperature\_air\_mean\_2m = (T06+T18+Tmax+Tmin)/4 of D; Tmax/Tmin window unverified) | partly |
-| meteorology | daily | precipitation | UTC (06 UTC reading, per IMGW bulletin) | start (precipitation\_amount 06 UTC D to 06 UTC D+1, dated D; snow\_depth/snow\_depth\_new reading time unverified) | partly |
+| meteorology | daily | precipitation | UTC (06 UTC reading, per IMGW bulletin) | mixed (start: precipitation\_amount 06 UTC D to 06 UTC D+1, dated D; snow\_depth/snow\_depth\_new reading time unverified) | partly |
 | meteorology | monthly | synop | UTC | start (calendar month = aggregate of the daily rows dated in the month; precipitation thus 06 UTC on the 1st to 06 UTC on the 1st of the next month) | partly |
 | meteorology | monthly | climate, precipitation | unverified | unverified (observed: start (calendar month; month bounds of the underlying days as in the daily rows -- unverified for these datasets)) | no |
 
@@ -305,7 +306,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | 10\_minutes | data | UTC | end (of the preceding 10 minutes; ta/td/rh/p0/pp 'past minute mean' at that end; dd/ff partly 'middle' at listed stations); the library stamps the end (the file name) | yes |
+| observation | 10\_minutes | data | UTC | mixed (end: of the preceding 10 minutes; ta/td/rh/p0/pp 'past minute mean' at that end; dd/ff partly 'middle' at listed stations; the library stamps the end (the file name)) | yes |
 | observation | hourly | data | UTC | end (of the preceding hour; T/TD/U/P 'past 1 minute' values at that end; FH/FX/RH/DR/SQ/Q hourly aggregates); the library stamps the end (file name + 1 h) | yes |
 | observation | daily | data | UTC | start (UTC day 00-24 labelled with its date; KNMI's NetCDF time is the end) | yes |
 

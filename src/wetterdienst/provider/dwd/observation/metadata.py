@@ -165,7 +165,6 @@ _DwdObservationMetadataSpec = {
                     "name": "temperature_air",
                     "name_original": "air_temperature",
                     "grouped": True,
-                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
