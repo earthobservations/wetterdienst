@@ -42,8 +42,14 @@ KNOWN = [
     # a mixed dataset: the parameters of DMI hourly differ, and each has its own position
     ("dmi", "observation", "hourly", "data", "wind_direction_mean_last_10min", "mean", "end"),
     ("dmi", "observation", "hourly", "data", "cloud_cover_total", "instant", "instant"),
-    # a plain name that states nothing is not a reading
+    # a name that states a mean, whose dataset says nothing of the position
     ("dwd", "observation", "daily", "climate_summary", "cloud_cover_total_mean", "mean", None),
+    # the strict rule: a source that states neither is null in both (ECCC's visibility is a 10-minute harmonic mean)
+    ("eccc", "observation", "hourly", "data", "visibility", None, None),
+    # a forecast step says where the stamp sits, not what the value is: the position, no aggregation
+    ("dwd", "mosmix", "hourly", "small", "temperature_air_2m", None, "instant"),
+    # a name that was renamed to say `_mean`, in a dataset whose stamp is the start of the day
+    ("knmi", "observation", "daily", "data", "pressure_air_sea_level_mean", "mean", "start"),
 ]
 
 
@@ -206,7 +212,11 @@ def test_the_block_of_a_values_answer_over_rest(client: TestClient, monkeypatch:
 
 
 def test_the_members_are_the_closed_sets_of_the_model() -> None:
-    """The `Literal`s are the sets the definitions are written for, and what the metadata declares is in them."""
+    """The `Literal`s are the sets the definitions are written for, closed at 1.0.0: a new member is a break (GH-3134).
+
+    Both sets are written out here, so that adding a member to either is a change of this test, of the OpenAPI snapshot
+    and of `CLOSED_RESPONSE_ENUMS` of `tests/ui/openapi_diff.py`, which refuses it in a response after the release.
+    """
     assert set(AGGREGATION_DEFINITIONS) == AGGREGATIONS
     assert set(TIMESTAMP_POSITION_DEFINITIONS) == POSITIONS
     assert {

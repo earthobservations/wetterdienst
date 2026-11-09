@@ -218,7 +218,8 @@ _SqlValuesField = Annotated[
 _WithMetadataField = Annotated[
     bool,
     Field(
-        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        description="Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what "
+        "`quality_flags` holds to the `metadata` block of the "
         "JSON or GeoJSON, which is always there."
     ),
 ]
@@ -226,7 +227,8 @@ _WithMetadataField = Annotated[
 _WithMetadataSettingsField = Annotated[
     bool,
     Field(
-        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        description="Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what "
+        "`quality_flags` holds to the `metadata` block of the "
         "JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
     ),
 ]

@@ -7,8 +7,8 @@ used (the licence and the credit line of the provider), what was asked as the li
 parameters that `daily/kl` meant, the periods, the window, the stations selected), when it was
 retrieved, what it is missing but did not fail on (`warnings`), how much of it there is (`counts`), the
 reference system of its positions (`crs`), and the versions of the API and of this shape. The block is
-always there; `with_metadata` only adds the heavier parts, the unit of every parameter and what
-`quality_flags` holds.
+always there; `with_metadata` only adds the heavier parts, the unit, the `aggregation` and the
+`timestamp_position` of every parameter and what `quality_flags` holds.
 
 Outside JSON the same information goes into headers (`response_headers`): a CSV or an image has no place
 in its body for it. This module imports no web framework, so the command line can use it without the
@@ -152,13 +152,13 @@ class ParameterInfo(BaseModel):
         "on, else the unit the source publishes.",
     )
     aggregation: Aggregation | None = Field(
-        description="What the value is relative to its interval, the provider's declaration where the name states "
-        "none, else the name's: `mean`, `max`, `sum`, `instant` (a single reading) and the others of `glossary`. "
-        "Null: the source does not state it, which is not a reading.",
+        description="What the value is relative to its interval: the name's, else the provider's declaration "
+        "where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not "
+        "stated, which is not a reading.",
     )
     timestamp_position: TimestampPosition | None = Field(
-        description="Where the timestamp sits in the interval the value covers: `instant` (a reading at the "
-        "timestamp), `start`, `end` or `middle`. Null: the source does not state it.",
+        description="Where the timestamp sits in the row's interval: `instant` (when the value was observed), "
+        "`start`, `end` or `middle` of it. Null: not stated.",
     )
 
 

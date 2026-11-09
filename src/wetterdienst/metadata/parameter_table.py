@@ -99,13 +99,13 @@ Aggregation = Literal[
     "at_max",
 ]
 
-# one line per member, in the words of the naming page; the surfaces that describe the field (coverage, glossary,
-# the MCP instructions) read them from here, so that the definition is written once
+# one line per member, in the words of the naming page, written once: the docs build renders them into the table of
+# ``docs/data/parameters.md`` (``docs/_ext/parameter_glossary.py``), and ``tests/metadata/test_aggregation.py`` holds
+# the keys to ``Aggregation``. The descriptions of the fields in the answers are short and say the same
 AGGREGATION_DEFINITIONS: dict[Aggregation, str] = {
     "instant": (
         "A single reading, not a statistic over a window (a mean over at most 5 minutes counts as a reading, GH-2660). "
-        "The description of the row says when it was taken, and the timestamp position, where it is `instant`, that it "
-        "is at the timestamp."
+        "The description of the row says when it was taken, and the timestamp position where the timestamp sits."
     ),
     "mean": "The mean over the interval or over the window the name states.",
     "max": "The largest value over the interval or over the window the name states.",

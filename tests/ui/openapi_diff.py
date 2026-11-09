@@ -30,9 +30,10 @@ of a union and no other, so a new alternative of a response (`array` that is now
 be `null`) is a finding, where the same widening of what a request takes is an addition (GH-3869). A response that
 becomes **less** than it was is none: a typed client already handles the alternative that no longer comes (`number |
 null` that is now `number`; GH-3889). An enum that is now a free string is a finding, a type change for a typed client;
-a new enum member is not, and nor is a new alternative that is only a constant or enum of a type the response
-already had (`{"const": "c"}` beside a string enum), where one of another type (`{"const": null}`) is a new
-alternative (GH-3889). An enum that lost members is a break of a request and none of a response (GH-3889).
+a new enum member is not, except for the two enums that are closed (`CLOSED_RESPONSE_ENUMS`), and nor is a new
+alternative that is only a constant or enum of a type the response already had (`{"const": "c"}` beside a string
+enum), where one of another type (`{"const": null}`) is a new alternative (GH-3889). An enum that lost members is a
+break of a request and none of a response (GH-3889).
 
 Everything else is additive and passes: a new path, operation, optional parameter, member, status, enum member or
 media type, a new alternative of what a request takes, and a looser bound or no pattern. The by-convention rule of the
@@ -49,6 +50,11 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
+#: the members of an answer whose enum is closed at 1.0.0 (GH-3134, decision of 2026-11-09): a new member of it in a
+#: response is a break, where a new member of any other response enum passes. They are a parameter's `aggregation`
+#: and `timestamp_position` (`coverage`, `glossary`, the `metadata` block).
+CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
 ACCEPTED_BREAKS: dict[str, str] = {
@@ -387,6 +393,13 @@ def _members(where: str, old_node: dict[str, Any], new_node: dict[str, Any], *, 
         found.append(f"{where}: now takes only the enum members {', '.join(sorted(new_members))}")
     elif not asked and old_members and not new_members:
         found.append(f"{where}: the enum members {', '.join(sorted(old_members))} became a free {_label(new_node)}")
+    if (
+        not asked
+        and old_members
+        and where.rsplit(".", 1)[-1] in CLOSED_RESPONSE_ENUMS
+        and (added := sorted(new_members - old_members))
+    ):
+        found.append(f"{where}: the closed enum gained the members {', '.join(added)}")
     if asked:
         found += _bounds(where, old_node, new_node)
         found += _pattern(where, old_node, new_node)

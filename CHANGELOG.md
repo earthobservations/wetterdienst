@@ -18,10 +18,11 @@ Types of changes:
 
 ### Added
 
-- `coverage` and the `metadata.parameters` of `values` (with `with_metadata`) give every parameter
-  an `aggregation` (`mean`, `max`, `sum`, `instant` for a single reading, ...) and a
-  `timestamp_position` (`instant`, `start`, `end`, `middle`); `glossary` gives the `aggregation` of
-  the name. `null` is not stated. Both sets are closed from 1.0.0 (GH-3134)
+- `coverage` and `metadata.parameters` (with `with_metadata`, on `values`, `stations`,
+  `interpolate` and `summarize`) give every parameter an `aggregation` (`mean`, `max`, `sum`,
+  `instant` for a single reading, ...) and a `timestamp_position` (`instant`, `start`, `end`,
+  `middle`); `glossary` gives the `aggregation` of the name. `null` is not stated. Both sets are
+  closed from 1.0.0 (GH-3134)
 
 ### Changed
 

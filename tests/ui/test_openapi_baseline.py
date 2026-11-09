@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from tests.ui.openapi_baseline import RELEASE, project_version, read_baseline
-from tests.ui.openapi_diff import ACCEPTED_BREAKS, breaking_changes, unaccepted
+from tests.ui.openapi_diff import ACCEPTED_BREAKS, CLOSED_RESPONSE_ENUMS, breaking_changes, unaccepted
 from tests.ui.openapi_snapshot import build_document, installed_versions, locked_versions
 
 _BREAK = (
@@ -720,3 +720,59 @@ def test_a_recursive_schema_whose_union_is_narrowed_ends_and_passes() -> None:
     assert breaking_changes(current, baseline) == [
         "GET /api/v1/things 200 application/json.root.child: null was added to the alternatives of the answer"
     ]
+
+
+def _closed_baseline(member: str) -> dict[str, Any]:
+    """Make a document whose answer has a nullable enum `member` and a nullable enum `kind`, both of two members."""
+    baseline = _document()
+    properties = _at(baseline, *_THINGS)["properties"]
+    properties[member] = {"anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]}
+    properties["kind"] = {"anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]}
+    return baseline
+
+
+def test_the_closed_response_enums_are_the_two_of_the_answers() -> None:
+    """Only a parameter's `aggregation` and `timestamp_position` are closed at 1.0.0 (maintainer, 2026-11-09)."""
+    assert {"aggregation", "timestamp_position"} == CLOSED_RESPONSE_ENUMS
+
+
+@pytest.mark.parametrize("member", ["aggregation", "timestamp_position"])
+@pytest.mark.parametrize("as_alternative", [False, True], ids=["in-the-enum", "as-an-alternative"])
+def test_a_new_member_of_a_closed_response_enum_is_a_break(*, member: str, as_alternative: bool) -> None:
+    """`aggregation` and `timestamp_position` are closed at 1.0.0: a member added to either in an answer is a break."""
+    baseline = _closed_baseline(member)
+    current = copy.deepcopy(baseline)
+    alternatives = _at(current, *_THINGS)["properties"][member]["anyOf"]
+    if as_alternative:
+        alternatives.insert(1, {"type": "string", "const": "c"})
+    else:
+        alternatives[0]["enum"].append("c")
+
+    found = breaking_changes(baseline, current)
+
+    assert found, "a new member of a closed enum passed"
+    assert all(member in finding for finding in found)
+
+
+@pytest.mark.parametrize("member", ["aggregation", "timestamp_position"])
+@pytest.mark.parametrize("as_alternative", [False, True], ids=["in-the-enum", "as-an-alternative"])
+def test_a_new_member_of_another_response_enum_still_passes(*, member: str, as_alternative: bool) -> None:
+    """Only the two are closed: `kind`, beside them in the same answer, may gain a member in a minor release."""
+    baseline = _closed_baseline(member)
+    current = copy.deepcopy(baseline)
+    alternatives = _at(current, *_THINGS)["properties"]["kind"]["anyOf"]
+    if as_alternative:
+        alternatives.insert(1, {"type": "string", "const": "c"})
+    else:
+        alternatives[0]["enum"].append("c")
+
+    assert breaking_changes(baseline, current) == []
+
+
+def test_a_closed_response_enum_may_lose_a_member() -> None:
+    """The closure is of additions: a response enum that loses a member is none, as for every other."""
+    baseline = _closed_baseline("aggregation")
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["aggregation"]["anyOf"][0]["enum"].remove("b")
+
+    assert breaking_changes(baseline, current) == []

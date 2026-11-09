@@ -557,7 +557,8 @@ with_metadata_opt = _bool_opt(
     "--with-metadata",
     default=False,
     help=(
-        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
         "which is always there. Default: false"
     ),
 )
@@ -566,7 +567,8 @@ with_metadata_target_opt = _bool_opt(
     "--with-metadata",
     default=False,
     help=(
-        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
         "which is always there. With a file --target it writes the block beside the file as "
         "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
         "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
@@ -1590,7 +1592,7 @@ def coverage(
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
     not this answer. `aggregation` is what the value is relative to its interval (`mean`, `max`, `sum`, ...,
-    `instant` for a single reading) and `timestamp_position` where its timestamp sits in the interval it covers
+    `instant` for a single reading) and `timestamp_position` where its timestamp sits in the row's interval
     (`instant`, `start`, `end`, `middle`); `null` in either: the source does not state it.
     """
     from wetterdienst import Settings

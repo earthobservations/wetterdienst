@@ -543,8 +543,8 @@ the terms are those of each provider it lists.
 - **`parameters`**: for each parameter read its `resolution`, `dataset`, canonical `name`,
   `name_original` (the source's), `description`, `quantity` and the `unit` of its values: the target of the
   quantity, which `unit_targets` sets, where `convert_units` is on, else the unit the source publishes, its
-  `aggregation` and its `timestamp_position` (what they mean: [The statistic in a
-  name](../data/parameters.md#aggregation-and-timestamp-position-in-the-answers); `null` is not stated).
+  `aggregation` and its `timestamp_position` (what they mean: [Aggregation and timestamp
+  position](../data/parameters.md#aggregation-and-timestamp-position-in-the-answers); `null` is not stated).
 - **`quality`**: what the `quality_flags` of a reading holds (its `format`), the `source_flags`, the
   quality flags the datasets read publish, whose code is the first token of `quality_flags`, and the
   `legend`: what each kind of token means for the network read, in the order of the column. An entry has
@@ -732,14 +732,15 @@ list, nor is a provider none of whose networks can be; the server logs why. Aski
 by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
 optional package is missing, never a 404 as for a network that does not exist.
 
-With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`:
+With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`, and
+always an `aggregation` and a `timestamp_position`:
 
 | Field | |
 | --- | --- |
 | `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `percent` for a percentage, `hour` for a duration |
 | `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `one_eighth`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (189 of 2132 parameters); absent means the same as `unit` |
-| `aggregation` | what the value is relative to its interval: `instant`, `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`; the provider's declaration where the name states no statistic, else the name's. Always there; `null` means the source does not state it |
-| `timestamp_position` | where the timestamp sits in the interval the value covers: `instant`, `start`, `end` or `middle`; the parameter's own, else its dataset's (see [Time reference](../data/time_reference.md)). Always there; `null` means the source does not state it |
+| `aggregation` | what the value is relative to its interval: `instant`, `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`; the name's where it states a statistic, else the provider's declaration. Always there; `null` means the source does not state it |
+| `timestamp_position` | where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle`; the parameter's own, else its dataset's (see [Time reference](../data/time_reference.md)). Always there; `null` means the source does not state it |
 
 `coverage` takes no options, so a `unit_targets` or `convert_units` a request to `values` gives changes what
 `values` return, not `unit`. The settings of the server (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`) are what a

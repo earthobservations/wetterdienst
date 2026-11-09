@@ -1657,9 +1657,9 @@ def coverage(
 
     `aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the
     others of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its
-    source states it. `timestamp_position` is where its timestamp sits in the interval the value covers: `instant`
-    (the stamp is when it was read), `start`, `end` or `middle`. Both are always there, and `null` means the source
-    does not state it: not a reading, not a mean.
+    source states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`
+    (the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`
+    means the source does not state it: not a reading, not a mean.
     """
     provider, network = request.provider, request.network
 
@@ -2132,7 +2132,7 @@ def values(
 
     With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
     relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
-    (where the timestamp sits in the interval the value covers: `instant`, `start`, `end` or `middle`); `null` in
+    (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
     either means the source does not state it.
     """
     begin_response()
