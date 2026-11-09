@@ -66,9 +66,9 @@ Types of changes:
   unchanged; POI's old names are refused with the new one named, a request for NWS `visibility`
   still selects the row. Use the new names to filter and key the result (Part of GH-3134)
 - **Breaking**: `knmi/observation` daily `pressure_air_sea_level` (`PG`) is
-  `pressure_air_sea_level_mean`: KNMI defines it as the "Daily mean sea level pressure ... calculated
-  from 24 hourly values". Values and unit are unchanged; the old name is refused with the new one
-  named. Use the new name to filter and key the result (GH-3925)
+  `pressure_air_sea_level_mean`: KNMI defines it as the "Daily mean sea level pressure ...
+  calculated from 24 hourly values". Values and unit are unchanged; the old name is refused with
+  the new one named. Use the new name to filter and key the result (GH-3925)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour
