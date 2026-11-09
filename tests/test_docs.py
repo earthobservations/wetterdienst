@@ -1529,8 +1529,8 @@ def _named_by(text: str, parameters: Iterable[object], shortest: int) -> tuple[s
     """Give the names of the parameters a text names as they are, and those a pattern with `*` names.
 
     A word names a parameter when it is the parameter's name or its original name in any case, or one side of a
-    `/` in the original name (`evaporation/evapotranspiration_last_24_hours`); a word with `*` (`N*`,
-    `precipitation_amount_last_*`) names those of which it is the pattern.
+    `/` in the original name (`evaporation/evapotranspiration_last_24_hours`); a word with `*` or `?` (`N*`,
+    `precipitation_amount_last_*`, `R1??`) names those of which it is the pattern.
     """
     exact: set[str] = set()
     wild: set[str] = set()
@@ -1542,7 +1542,7 @@ def _named_by(text: str, parameters: Iterable[object], shortest: int) -> tuple[s
         for word in words:
             if len(word) < shortest or word.startswith("-"):
                 continue
-            if "*" in word:
+            if "*" in word or "?" in word:
                 if any(fnmatchcase(spelling, word) for spelling in spellings):
                     wild.add(parameter.name)
             elif word in spellings:
@@ -1662,15 +1662,15 @@ def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
     """Test that a dataset without a position of its own declares, per parameter, what its rows name (GH-3134).
 
     The rows of a dataset that is mixed, or has several rows, name the parameters they answer for: `instant (ttt,
-    td, ...)`, `end (...: RR1c, TX, R*/ww* probabilities)`, `mixed (instant: TT_10, TM5_10; RF_10 not qualified)`
-    (`_cell_segments`, `_named_by`: a name is a parameter's name or original name in any case, `*` a pattern, and a
-    parameter named as it is outranks one a pattern names). The parameter then declares exactly that answer, and None
-    where the page names it as not stated, not qualified, differing by period or unverified. A parameter no row names
-    declares nothing, a value on it is an error (what the page does not state is not guessed), and the test of
-    `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it that what is declared is one
-    of the answers of the rows. A dataset is held here unless it is of a provider in `_PER_PARAMETER_PENDING`, where it
-    is held once one of its parameters declares a position; a dataset with one answer for all its rows declares it
-    itself.
+    td, ...)`, `end (...: RR1c, TX, R1?? probabilities)`, `mixed (instant: TT_10, TM5_10; RF_10 not qualified)`
+    (`_cell_segments`, `_named_by`: a name is a parameter's name or original name in any case, `*` or `?` a
+    pattern, and a parameter named as it is outranks one a pattern names). The parameter then declares exactly that
+    answer, and None where the page names it as not stated, not qualified, differing by period or unverified. A
+    parameter no row names declares nothing, a value on it is an error (what the page does not state is not
+    guessed), and the test of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it
+    that what is declared is one of the answers of the rows. A dataset is held here unless it is of a provider in
+    `_PER_PARAMETER_PENDING`, where it is held once one of its parameters declares a position; a dataset with one
+    answer for all its rows declares it itself.
     """
     rows, _ = _time_reference_tables()
     cells_of = _time_reference_cells(rows)
