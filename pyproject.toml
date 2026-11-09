@@ -503,7 +503,7 @@ DEP001 = ["mcp_types", "tabula"]
 DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -524,7 +524,8 @@ testpaths = ["tests"]
 # xfail_strict = true
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
-# --only-rerun flags in addopts restrict retries to transient network errors.
+# --only-rerun flags in addopts restrict retries to transient network errors, a hung test and a Kaleido image
+# that a loaded runner did not draw in time (GH-3918).
 reruns = 2
 reruns_delay = 5
 
