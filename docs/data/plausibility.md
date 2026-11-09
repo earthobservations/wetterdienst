@@ -620,6 +620,7 @@ the main ones are:
 | pressure at the station | 300 to 1100 hPa | Everest 330 hPa; WMO-No. 305 (1993, withdrawn) erroneous below 300 or above 1100 hPa; the elevation check is the sharper one |
 | vapour pressure | 0 to 60 hPa | the saturation pressure at 35 °C, the highest dew point on record (Dhahran, 2003) |
 | wind gust and mean wind speed | 0 to 115 m/s | WMO: 113.2 m/s (Barrow Island, 1996); a mean cannot exceed the gust of its interval |
+| wind direction, direction of the current | 0 to 360 degrees | definition of a bearing |
 | rain in 1 minute | 0 to 40 mm | WMO: 31.2 mm (Unionville, 1956) |
 | rain in 5 to 60 minutes | 0 to 350 mm | WMO: 305 mm in 60 minutes (Holt, 1947) |
 | rain in up to 12 hours | 0 to 1,150 mm | WMO: 1,144 mm in 12 hours (Foc-Foc, 1966) |
@@ -639,7 +640,7 @@ the main ones are:
 
 Quantities that are **derived** from others (wind chill, humidex, evaporation, the net radiation of DMO and the forecast
 errors `error_absolute_*`), codes and flags, and the **hydrology gauges** (stage, discharge, groundwater level, distance
-to the gauge, flow speed and the direction of the current, whose unit the source does not explain: a datum of their own, and a tidal river runs backwards) have no bound.
+to the gauge and flow speed: a datum of their own, and a tidal river runs backwards) have no bound. The direction of the current is a bearing, held to 0 to 360 degrees like the direction of the wind.
 
 **Shangdi.** The one documented exceedance is Shangdi (Inner Mongolia, 1975-07-03): 401 mm in 60 minutes, which is in
 the lists of the Bureau of Meteorology and the NWS but not in the WMO table, so the bound of an hour is 350 mm and the

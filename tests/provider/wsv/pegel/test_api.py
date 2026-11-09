@@ -128,8 +128,9 @@ def test_wsv_wave_period_is_seconds() -> None:
 def test_wsv_flow_direction_is_a_bearing() -> None:
     """Test that the direction of the water current is reported in degrees.
 
-    Pegelonline gives `R` the unit `MGN`, degrees relative to magnetic north, which had been read
-    as a magnetic quantity and declared as magnetic field strength in A/m.
+    Pegelonline gives `R` the unit `MGN`, which WSV confirmed to mean degrees from magnetic north (0 to 359),
+    the direction the current flows towards. It had been read as a magnetic quantity and declared as
+    magnetic field strength in A/m.
     """
     df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")], **WINDOW).all().values().all().df
     series = df.get_column("value").drop_nulls()

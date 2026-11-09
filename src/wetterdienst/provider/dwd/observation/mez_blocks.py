@@ -78,14 +78,24 @@ class MezBlock:
     @property
     def first_stamp(self) -> dt.datetime:
         """The first stamp of the block as written: 01 of the first day of the first month (00 is the hour before)."""
-        year, month = _year_month(self.start)
-        return dt.datetime(year, month, 1, 1, tzinfo=dt.UTC)
+        return first_stamp_of(self.start)
 
     @property
     def last_stamp(self) -> dt.datetime:
         """The last stamp of the block as written: 00 of the first day after its last month (the 24 of its last day)."""
-        year, month = _year_month(self.end)
-        return dt.datetime(year + month // 12, month % 12 + 1, 1, 0, tzinfo=dt.UTC)
+        return last_stamp_of(self.end)
+
+
+def first_stamp_of(month: str) -> dt.datetime:
+    """Name the first stamp as written of a block that begins in the month (`YYYY-MM`): 01 of its first day."""
+    year, number = _year_month(month)
+    return dt.datetime(year, number, 1, 1, tzinfo=dt.UTC)
+
+
+def last_stamp_of(month: str) -> dt.datetime:
+    """Name the last stamp as written of a block that ends in the month (`YYYY-MM`): 00 of the day after it."""
+    year, number = _year_month(month)
+    return dt.datetime(year + number // 12, number % 12 + 1, 1, 0, tzinfo=dt.UTC)
 
 
 def _year_month(text: str) -> tuple[int, int]:

@@ -393,6 +393,17 @@ def mez_batch_column(parameter: str) -> str:
     return f"{MEZ_BATCH_PREFIX}{parameter}"
 
 
+#: the prefix of the boolean column that says which stamps of a parameter lie in the months of the table of GH-3910
+#: whose stamps are mean local time: the rows of these that a MEZ (MD) period shifts are flagged
+#: `zone:mez-local-mean-time` instead of `zone:mez`
+LOCAL_MEAN_TIME_PREFIX = "local_mean_time__"
+
+
+def local_mean_time_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are mean local time."""
+    return f"{LOCAL_MEAN_TIME_PREFIX}{parameter}"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
@@ -579,6 +590,18 @@ def _parse_climate_observations_data(  # noqa: C901
                 if file.mez_batch_spans.get(column)
                 else pl.lit(value=False)
             ).alias(mez_batch_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.local_mean_time_spans[column]
+                )
+                if file.local_mean_time_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(local_mean_time_column(column))
             for column in parameters
             if column in columns
         )

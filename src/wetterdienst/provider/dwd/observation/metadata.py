@@ -179,12 +179,14 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "tt_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                             "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tm5_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                             "aggregation": "instant",
                         },
@@ -1309,6 +1311,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rsk",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1324,6 +1327,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "shk_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -1377,6 +1381,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rs",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1387,6 +1392,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "sh_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
