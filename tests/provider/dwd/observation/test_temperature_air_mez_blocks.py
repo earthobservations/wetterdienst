@@ -62,14 +62,19 @@ def _next_day(day: str) -> str:
 
 
 def _serve(
-    monkeypatch: pytest.MonkeyPatch, station: str, stamps: list[dt.datetime], label_to: str = "19951231"
+    monkeypatch: pytest.MonkeyPatch,
+    station: str,
+    stamps: list[dt.datetime],
+    label_to: str = "19951231",
+    labels: tuple[tuple[str, str, str], ...] | None = None,
 ) -> None:
-    """Serve the archive of a station whose plain MEZ label runs from 1949 to `label_to`, then UTC."""
+    """Serve the archive of a station whose plain MEZ label runs from 1949 to `label_to`, then UTC (or `labels`)."""
     number = int(station)
+    labels = labels or (("19490101", label_to, "MEZ"), (_next_day(label_to), "20010401", "UTC"))
     metadata = _HEADER + "".join(
         f"{number};{first};{last};Station;{parameter};x;x;Daten der Temperatur;Stundenwerte in {info};;;eor;\n"
         for parameter in ("RF_TU", "TT_TU")
-        for first, last, info in (("19490101", label_to, "MEZ"), (_next_day(label_to), "20010401", "UTC"))
+        for first, last, info in labels
     )
     product = "STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;eor\n" + "".join(
         f"{number:>12};{_stamp(moment)};    3;{_tt(moment):>6.1f};{_rf(moment):>6.1f};eor\n" for moment in stamps
@@ -311,3 +316,28 @@ def test_a_run_through_the_blocks_of_a_station_has_no_second_row_at_a_stamp_and_
         assert shifted == any(
             span_first <= timestamp + dt.timedelta(hours=1) <= span_last for span_first, span_last in spans
         )
+
+
+def test_a_row_that_a_mez_md_period_shifts_inside_the_batch_is_flagged_zone_mez_not_the_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test Berlin-Alexanderplatz 00399, whose batch block 1974-02 to 1974-07 has a MEZ (MD) period in the middle.
+
+    The note of the batch is on the rows the table shifted. A row inside the MD period is shifted by that period, as it
+    would be without the table,, and flagged `zone:mez`.
+    """
+    written = [_at(1974, 3, 15, 12), _at(1974, 5, 15, 12), _at(1974, 7, 15, 12)]
+    labels = (
+        ("19490101", "19740331", "MEZ"),
+        ("19740401", "19740630", "MEZ (MD)"),
+        ("19740701", "19951231", "MEZ"),
+    )
+    _serve(monkeypatch, "00399", written, labels=labels)
+    df = _values("00399", _at(1974, 3, 1), _at(1974, 8, 1))
+    for parameter in ("temperature_air_2m", "humidity_relative"):
+        part = df.filter(pl.col("parameter") == parameter).select("timestamp", "quality_flags")
+        assert part.rows() == [
+            (_at(1974, 3, 15, 11), f"3,zone:{ZONE_MEZ_BATCH}"),
+            (_at(1974, 5, 15, 11), f"3,zone:{ZONE_MEZ}"),
+            (_at(1974, 7, 15, 11), f"3,zone:{ZONE_MEZ_BATCH}"),
+        ]

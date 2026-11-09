@@ -37,7 +37,6 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.coverage import warn_files_without_description
 from wetterdienst.provider.dwd.observation.download import (
-    MEZ_BATCH_SPANS,
     MEZ_BY_COMPARISON,
     download_climate_observations_data,
 )
@@ -66,8 +65,10 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 )
 from wetterdienst.provider.dwd.observation.mez_blocks import ZONE_MEZ, ZONE_MEZ_BATCH
 from wetterdienst.provider.dwd.observation.parser import (
+    MEZ_BATCH_PREFIX,
     MEZ_MD_PREFIX,
     WOZ_COLUMN,
+    mez_batch_column,
     mez_md_column,
     parse_climate_observations_data,
 )
@@ -104,7 +105,7 @@ def _is_value_column(column: str) -> bool:
     return not (
         column.endswith(RAW_SUFFIX)
         or column in (WOZ_COLUMN, _PERIOD_RANK)
-        or column.startswith((MEZ_MD_PREFIX, "qn", "qualitaet"))
+        or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, "qn", "qualitaet"))
     )
 
 
@@ -292,7 +293,11 @@ class DwdObservationValues(TimeseriesValues):
         data = []
         series_quality = pl.Series()
         for column in df.columns[2:]:
-            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN or column.startswith(MEZ_MD_PREFIX):
+            if (
+                column.endswith(RAW_SUFFIX)
+                or column == WOZ_COLUMN
+                or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX))
+            ):
                 continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
@@ -310,9 +315,12 @@ class DwdObservationValues(TimeseriesValues):
                 if WOZ_COLUMN in df.columns:
                     zone = pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")).otherwise(zone)
                 zone = pl.when(shifted).then(pl.lit(ZONE_MEZ)).otherwise(zone)
-                batch = _in_spans(df, MEZ_BATCH_SPANS.items())
-                if batch:
-                    zone = pl.when(shifted & pl.any_horizontal(batch)).then(pl.lit(ZONE_MEZ_BATCH)).otherwise(zone)
+                if mez_batch_column(column) in df.columns:
+                    zone = (
+                        pl.when(shifted & pl.col(mez_batch_column(column)).fill_null(value=False))
+                        .then(pl.lit(ZONE_MEZ_BATCH))
+                        .otherwise(zone)
+                    )
                 zone = zone.alias("zone")
                 # a shifted row of a block `MEZ_BY_COMPARISON` names is kept before the row that was not moved, the
                 # row of every other shifted period after it

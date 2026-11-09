@@ -15,12 +15,14 @@ German stations from 1955, three-hourly before 1973):
   which a one-hour clock shift moves by +0.9 to +1.3 h and the analog instrument's lag by 0 to +0.4 h.
 
 Each method gives a verdict per month through a two-state UTC/MEZ forward-backward model. A month is in the table
-(`mez_blocks.csv`, one row per block of consecutive months) only if both say MEZ under every variant of the constants of
-the scan (the MEZ shift of the model 0.8 or 1.2 h instead of 1.0, the probability of a switch between the clocks 0.01 or
-0.08 instead of 0.03, the posterior threshold 0.8 or 0.97 instead of 0.9): the evidence class "both methods, robust"
-of GH-3776, 854 station-months at 27 stations. The months the library shifted before (`MEZ_BY_COMPARISON` in
-`download.py`: Nürnberg 1986-02 to 1988-10 and Diepholz 1995-04 to 1996-05 among them, 46 of the 854) are no row. The
-months that only one method calls MEZ, or that both call MEZ in some variant only, stay as written.
+(`mez_blocks.csv`, one row per block of consecutive months) only if both say MEZ in the base run and in each of the six
+one-at-a-time variants of the constants of the scan (the MEZ shift of the model 0.8 or 1.2 h instead of 1.0, the
+probability of a switch between the clocks 0.01 or 0.08 instead of 0.03, the posterior threshold 0.8 or 0.97 instead of
+0.9, one changed at a time; a full grid of all 27 combinations keeps 748 of the 854): the evidence class "both
+methods, robust" of GH-3776, 854 station-months at 27 stations. The months the library shifted before
+(`MEZ_BY_COMPARISON` in `download.py`: Nürnberg 1986-02 to 1988-10 and Diepholz 1995-04 to 1996-05 among them, 46 of
+the 854) are no row. The months that only one method calls MEZ, or that both call MEZ in some variants only, stay as
+written.
 
 A row is the months of its stations as the stamps of the archive are written, and the shift is made as in `download.py`
 for the other blocks of whole UTC days: from the stamp 01 of the first day of the first month to the stamp 00 of the
@@ -31,10 +33,14 @@ first day after the last month, both included, by -1 h. The columns:
   months with the station's own reference), `medium` (at least three months, 0.9), else `low`; at most `medium` where
   the offset or the step is beyond what a shift of 1 h leaves (ISD delta -1.35 h or less, phase step 1.35 h or more) or
   the ISD twin is more than 3 km away;
-- `batch_1973_75`: the months of 1973-01 to 1975-12 at the 13 stations where at least 12 of those 36 months are in the
-  table (a processing batch: its edges fall on calendar boundaries). At 8 of them both measures exceed 1 h (ISD delta
-  -1.4 to -1.6 h, phase step +1.2 to +1.5 h), so the shift by exactly the 1 h of the clock leaves about 0.4 h, which is
-  the lag of the analog recorder and stays as in every other analog year. Their rows carry `zone:mez-1973-75`;
+- `batch_1973_75`: the months of 1973-01 to 1975-12 at the 13 stations that have at least 12 of those 36 months among
+  the 996 months both methods call MEZ in the base run (the wider set, before the cut to the robust core: Norderney has
+  9 robust months in the window, Berlin-Alexanderplatz 12 in three pieces, six stations all 36). A block that runs
+  past the window is split at its edges. The edges of the batch fall on calendar boundaries, which looks like a
+  processing batch. At 8 of the 13 both measures exceed 1 h (ISD delta -1.4 to -1.6 h, phase step +1.2 to +1.5 h), so
+  the shift by exactly the 1 h of the clock leaves about 0.4 h, which is the lag of the analog recorder and stays as in
+  every other analog year; Bad Salzuflen, Osnabrück and Feldberg sit at about -1.0 h. Their rows carry
+  `zone:mez-1973-75`;
 - `isd_delta` and `phase_step`: the medians over the months of the block, in hours.
 """
 
