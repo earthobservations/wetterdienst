@@ -129,17 +129,17 @@ _DwdPoiMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "global_radiation_last_hour",
                             **_RADIATION,
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "diffuse_solar_radiation_last_hour",
                             **_RADIATION,
                         },
                         {
-                            "name": "radiation_sky_short_wave_direct_perpendicular_intensity",
+                            "name": "radiation_sky_short_wave_direct_perpendicular_intensity_mean",
                             "name_original": "direct_solar_radiation_last_hour",
                             **_RADIATION,
                         },

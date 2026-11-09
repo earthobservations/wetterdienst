@@ -259,9 +259,9 @@ def test_dwd_poi_direct_radiation_is_the_irradiance_perpendicular_to_the_sun_and
         "22.10.26;09:00;603;297\n"
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"07280-BEOB.csv": csv})
-    perpendicular = "radiation_sky_short_wave_direct_perpendicular_intensity"
+    perpendicular = "radiation_sky_short_wave_direct_perpendicular_intensity_mean"
     request = DwdPoiRequest(
-        parameters=[("hourly", "data", perpendicular), ("hourly", "data", "radiation_global_intensity")],
+        parameters=[("hourly", "data", perpendicular), ("hourly", "data", "radiation_global_intensity_mean")],
         start=dt.datetime(2026, 10, 22, tzinfo=UTC),
         end=dt.datetime(2026, 10, 23, tzinfo=UTC),
         settings=Settings(cache_disable=True),
@@ -270,8 +270,8 @@ def test_dwd_poi_direct_radiation_is_the_irradiance_perpendicular_to_the_sun_and
     df = stations_result(request, "hourly", "data", "07280").values().all().df
     wide = df.pivot(on="parameter", index="timestamp", values="value").sort("timestamp")
     assert wide[perpendicular].to_list() == [603.0, 252.0, 141.0]
-    assert wide["radiation_global_intensity"].to_list() == [297.0, 418.0, 225.0]
-    above = wide.filter(pl.col(perpendicular) > pl.col("radiation_global_intensity"))
+    assert wide["radiation_global_intensity_mean"].to_list() == [297.0, 418.0, 225.0]
+    above = wide.filter(pl.col(perpendicular) > pl.col("radiation_global_intensity_mean"))
     assert above["timestamp"].dt.hour().to_list() == [9]
     assert "perpendicular" in DwdPoiMetadata["hourly"]["data"][perpendicular].description
 

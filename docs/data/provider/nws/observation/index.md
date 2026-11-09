@@ -92,7 +92,8 @@ the same distance, then the earlier), quantity by quantity, so two quantities of
 two rows (GH-3480):
 
 - filled: `temperature_air_2m`, `temperature_dew_point_2m`, `humidity_relative`,
-  `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility`, `wind_speed_mean_last_2min`,
+  `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility_mean_last_10min`,
+  `wind_speed_mean_last_2min`,
   `wind_direction_mean_last_2min`, `precipitation_amount_since_last_routine_report`,
   `precipitation_amount_last_3h` and `precipitation_amount_last_6h`;
 - not filled: `wind_gust_max_last_10min` and `temperature_wind_chill`. A METAR leaves the gust out

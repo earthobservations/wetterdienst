@@ -75,11 +75,9 @@ export const parameters: Record<string, string> = {
   radiation_global: 'Globalstrahlung',
   radiation_sky_short_wave_diffuse: 'Diffuse Himmelsstrahlung',
   radiation_sky_long_wave: 'Langwellige Strahlung',
-  radiation_global_intensity: 'Globalstrahlung (Bestrahlungsstärke)',
   radiation_global_intensity_mean: 'Mittlere Globalstrahlung (Bestrahlungsstärke)',
-  radiation_sky_short_wave_diffuse_intensity: 'Diffuse Himmelsstrahlung (Bestrahlungsstärke)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Mittlere diffuse Himmelsstrahlung (Bestrahlungsstärke)',
-  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direkte Normalstrahlung (Bestrahlungsstärke)',
+  radiation_sky_short_wave_direct_perpendicular_intensity_mean: 'Mittlere direkte Normalstrahlung (Bestrahlungsstärke)',
   radiation_sky_long_wave_intensity_mean: 'Mittlere langwellige Strahlung (Bestrahlungsstärke)',
 
   // Snow
@@ -96,6 +94,7 @@ export const parameters: Record<string, string> = {
   cloud_height_layer1: 'Wolkenuntergrenze (1. Schicht)',
   visibility: 'Sichtweite',
   visibility_mean: 'Mittlere Sichtweite',
+  visibility_mean_last_10min: 'Mittlere Sichtweite (letzte 10 min)',
   visibility_index: 'Sichtweitenklasse',
   visibility_measurement_method: 'Sichtweite, Messart',
 

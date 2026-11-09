@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
+  `get_providers`) answers compact by default: `resolutions` of each network is null and everything
+  else stays, the number of `parameters` among it. 20 kB for every provider where the answer was
+  34 kB (44 kB where 109 kB with `pretty`). Where you read `resolutions`, pass `datasets=true`
+  (`--datasets`, `get_providers(datasets=True)`), which gives the answer as before; `coverage` lists
+  the parameters (GH-3536)
+
 ### Fixed
 
 - **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
@@ -26,10 +35,23 @@ Types of changes:
   `zone:mez-1973-75`: the shift is the 1 h of the clock, about 0.4 h of the recorder's lag stays at 8 of them.
   Months only one method finds in MEZ stay as written. A stored series needs a re-read: add an hour
   to flagged stamps for the old ones. The blocks are `mez_blocks.csv` (GH-3776)
+- **Breaking**: `metoffice/observation` hourly `wind_direction_mean` is null with `raw:999` where
+  the file holds 999, a code and no bearing, which no MIDAS table words (2,333 of 775,720 readings,
+  1970 to 1995, all beside a wind of 1 to 6 knots), in any window. It was null as
+  `rejected:range,raw:999` with `range: hard`, and `999.0` with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:999` (GH-3909)
 - `dwd/observation` ends the `historical` period at midnight of 1 January, not at 1 January at the
   time of day of the request: a window starting on 1 January of this year read `historical` at 23
   hours of the day and not between 00:00 and 01:00 Berlin. It now never does, as the period holds
   the years before; a window that reaches into last year reads it as ever (GH-3914)
+- **Breaking**: the hourly means of `dwd/poi` and `nws/observation` carry `_mean` and their window.
+  POI's global, diffuse and direct irradiance (DWD: "(letzte Stunde)", W/m2, the energy of the hour
+  over 3600 s) are `radiation_global_intensity_mean`,
+  `radiation_sky_short_wave_diffuse_intensity_mean` and
+  `radiation_sky_short_wave_direct_perpendicular_intensity_mean`. NWS's `visibility` (the ASOS's
+  "running 10-minute harmonic mean") is `visibility_mean_last_10min`. Values and units are
+  unchanged; POI's old names are refused with the new one named, a request for NWS `visibility`
+  still selects the row. Use the new names to filter and key the result (Part of GH-3134)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour

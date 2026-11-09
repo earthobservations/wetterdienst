@@ -382,6 +382,31 @@ def test_parse_values_reads_a_sky_obscured_as_no_cloud_amount() -> None:
     assert df.select("value", "quality_flags").rows() == [(8.0, "0"), (None, "0,raw:9"), (0.0, "0")]
 
 
+def test_parse_values_reads_a_mean_wind_direction_of_999_as_a_code() -> None:
+    """A mean wind direction of 999 is no bearing, beside a speed above 0 as the files write it (GH-3909)."""
+    # the rows are those of station 00416 in 1979 (the file writes 999 beside a speed of 2.0 and the quality 9), a
+    # calm, north as 360 and a missing direction
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,mean_wind_dir,mean_wind_speed,mean_wind_dir_q,mean_wind_speed_q",
+        b"1979-01-05 20:00:00,1,999,2.0,9,2009\n1979-01-05 21:00:00,1,0,0.0,0,0\n"
+        b"1979-01-05 22:00:00,1,360,4.0,0,0\n1979-01-05 23:00:00,1,NA,NA,NA,NA\n",
+    )
+    df = parse_values(
+        content,
+        time_column="ob_end_time",
+        columns=["mean_wind_dir"],
+        granularity="1h",
+        period_count_column="ob_hour_count",
+    ).sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [
+        (None, "9,raw:999"),
+        (None, "0,raw:0"),
+        (360.0, "0"),
+        (None, "raw:NA"),
+    ]
+
+
 def _fake_jwt(exp: float) -> str:
     """Build a minimal unsigned JWT string carrying just an ``exp`` claim (base64url payload)."""
     import base64  # noqa: PLC0415

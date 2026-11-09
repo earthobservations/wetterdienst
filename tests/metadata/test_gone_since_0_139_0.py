@@ -67,6 +67,7 @@ SOURCE_NAMES: dict[tuple[str, str, str], str] = {
     ("MetOfficeObservationMetadata", "hourly/weather", "wind_direction"): "the Met Office's own field name",
     ("MetOfficeObservationMetadata", "hourly/weather", "wind_speed"): "the Met Office's own field name",
     ("MetnoFrostMetadata", "hourly/data", "wind_speed"): "Frost's own element name",
+    ("NwsObservationMetadata", "hourly/data", "visibility"): "the NWS's own field name (GH-3134)",
 }
 
 _DATASETS = {

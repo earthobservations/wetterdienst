@@ -404,7 +404,7 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
     # `barometricPressure` is the altimeter setting, `seaLevelPressure` the one with the temperatures observed
     assert values["pressure_air_site_reduced"] == pytest.approx(1017.6098)
     assert values["pressure_air_sea_level"] == pytest.approx(1017.605)
-    assert values["visibility"] == pytest.approx(16093.44)
+    assert values["visibility_mean_last_10min"] == pytest.approx(16093.44)
     assert values["precipitation_amount_since_last_routine_report"] == pytest.approx(0.8)
     assert values["precipitation_amount_last_3h"] == pytest.approx(1.3)
     assert values["precipitation_amount_last_6h"] == pytest.approx(28.4)
@@ -833,7 +833,7 @@ def test_nws_hourly_fills_every_quantity_of_the_list_and_none_of_the_others(monk
         "relativeHumidity": "humidity_relative",
         "barometricPressure": "pressure_air_site_reduced",
         "seaLevelPressure": "pressure_air_sea_level",
-        "visibility": "visibility",
+        "visibility": "visibility_mean_last_10min",
         "windSpeed": "wind_speed_mean_last_2min",
         "windDirection": "wind_direction_mean_last_2min",
         "precipitationLast3Hours": "precipitation_amount_last_3h",
