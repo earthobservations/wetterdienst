@@ -76,15 +76,15 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "wind_speed_mean_last_10min", "name_original": "wind_speed", **_WIND_SPEED},
     {"name": "wind_gust_max_last_10min", "name_original": "q10mnt_mxgst_spd", **_WIND_SPEED},
     # native decametres; scaled to metres in api.py (_SCALE)
-    {"name": "visibility", "name_original": "visibility", "unit": "meter", "aggregation": "instant"},
-    {"name": "pressure_air_sea_level", "name_original": "msl_pressure", "aggregation": "instant", **_PRESSURE},
-    {"name": "pressure_air_site", "name_original": "stn_pres", "aggregation": "instant", **_PRESSURE},
-    {"name": "temperature_air_2m", "name_original": "air_temperature", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "temperature_dew_point_2m", "name_original": "dewpoint", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "humidity_relative", "name_original": "rltv_hum", "aggregation": "instant", **_HUMIDITY},
+    {"name": "visibility", "name_original": "visibility", "unit": "meter"},
+    {"name": "pressure_air_sea_level", "name_original": "msl_pressure", **_PRESSURE},
+    {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
+    {"name": "temperature_air_2m", "name_original": "air_temperature", **_TEMPERATURE},
+    {"name": "temperature_dew_point_2m", "name_original": "dewpoint", **_TEMPERATURE},
+    {"name": "humidity_relative", "name_original": "rltv_hum", **_HUMIDITY},
     {"name": "sunshine_duration", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
-    {"name": "snow_depth", "name_original": "snow_depth", "aggregation": "instant", **_SNOW_DEPTH},
-    {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit": "one_eighth", "aggregation": "instant"},
+    {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
+    {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit": "one_eighth"},
     {"name": "weather", "name_original": "prst_wx_id", "unit": "dimensionless"},
 ]
 
@@ -102,11 +102,11 @@ _RADIATION_PARAMETERS = [
 ]
 
 _SOIL_TEMPERATURE_PARAMETERS = [
-    {"name": "temperature_soil_0_05m", "name_original": "q5cm_soil_temp", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "temperature_soil_0_1m", "name_original": "q10cm_soil_temp", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "temperature_soil_0_2m", "name_original": "q20cm_soil_temp", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "temperature_soil_0_5m", "name_original": "q50cm_soil_temp", "aggregation": "instant", **_TEMPERATURE},
-    {"name": "temperature_soil_1m", "name_original": "q100cm_soil_temp", "aggregation": "instant", **_TEMPERATURE},
+    {"name": "temperature_soil_0_05m", "name_original": "q5cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_1m", "name_original": "q10cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_2m", "name_original": "q20cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_0_5m", "name_original": "q50cm_soil_temp", **_TEMPERATURE},
+    {"name": "temperature_soil_1m", "name_original": "q100cm_soil_temp", **_TEMPERATURE},
 ]
 
 

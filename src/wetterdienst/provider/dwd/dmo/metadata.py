@@ -41,31 +41,26 @@ _DwdDmoMetadataSpec = {
                             "name": "cloud_cover_above_7km",
                             "name_original": "nh",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_2km",
                             "name_original": "nl",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_effective",
                             "name_original": "neff",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount_last_1h",
@@ -76,7 +71,6 @@ _DwdDmoMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global",
@@ -95,13 +89,11 @@ _DwdDmoMetadataSpec = {
                             "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
@@ -112,7 +104,6 @@ _DwdDmoMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "water_equivalent_snow_depth_new_last_1h",
@@ -133,7 +124,6 @@ _DwdDmoMetadataSpec = {
                             "name": "wind_direction",
                             "name_original": "dd",
                             "unit": "degree",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_gust_max_last_3h",
@@ -144,7 +134,6 @@ _DwdDmoMetadataSpec = {
                             "name": "wind_speed",
                             "name_original": "ff",
                             "unit": "meter_per_second",
-                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -157,31 +146,26 @@ _DwdDmoMetadataSpec = {
                             "name": "cloud_cover_above_7km",
                             "name_original": "nh",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_2km",
                             "name_original": "nl",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_effective",
                             "name_original": "neff",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount_last_1h",
@@ -197,7 +181,6 @@ _DwdDmoMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global",
@@ -227,13 +210,11 @@ _DwdDmoMetadataSpec = {
                             "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
@@ -244,7 +225,6 @@ _DwdDmoMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "water_equivalent_snow_depth_new_last_1h",
@@ -270,7 +250,6 @@ _DwdDmoMetadataSpec = {
                             "name": "wind_direction",
                             "name_original": "dd",
                             "unit": "degree",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_gust_max_last_3h",
@@ -281,7 +260,6 @@ _DwdDmoMetadataSpec = {
                             "name": "wind_speed",
                             "name_original": "ff",
                             "unit": "meter_per_second",
-                            "aggregation": "instant",
                         },
                     ],
                 },

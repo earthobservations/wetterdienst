@@ -55,13 +55,11 @@ _MeteoFranceSynopMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "t",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
@@ -87,13 +85,11 @@ _MeteoFranceSynopMetadataSpec = {
                             "name": "humidity_relative",
                             "name_original": "u",
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
@@ -101,19 +97,16 @@ _MeteoFranceSynopMetadataSpec = {
                             # source already publishes the WMO okta code as a percentage
                             # class (0, 10, 25, 40, 50, 60, 75, 90, 100), not raw eighths
                             "unit": "percent",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "pres",
                             "unit": "pascal",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pmer",
                             "unit": "pascal",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount_last_1h",

@@ -82,7 +82,6 @@ _EAHydrologyMetadataSpec = {
                             "name": "groundwater_level",
                             "name_original": "gw-logged-i-subdaily",
                             "unit": "meter",
-                            "aggregation": "instant",
                         },
                     ],
                 },

@@ -974,6 +974,7 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "luftdruck_stationshoehe",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                     ],
                 },
