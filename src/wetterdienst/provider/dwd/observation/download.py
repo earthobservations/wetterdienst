@@ -14,6 +14,7 @@ from zipfile import BadZipFile
 from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.fileindex import forget_listing_of_missing_file
+from wetterdienst.provider.dwd.observation.local_mean_time_blocks import local_mean_time_spans
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.mez_blocks import mez_block_spans
 from wetterdienst.util.archive import open_zip
@@ -119,6 +120,11 @@ MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ..
 #: the stamps of the 1973-01 to 1975-12 batch, by station: the rows of these are flagged `zone:mez-1973-75` (GH-3776)
 MEZ_BATCH_SPANS: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = mez_block_spans(batch=True)
 
+#: the stamps of the months whose `MEZ (MD)` stamps are mean local time, by station: the rows of these that the period
+#: shifts are flagged `zone:mez-local-mean-time` instead of `zone:mez` and keep the shift of -1 h, which leaves them
+#: 0.2 to 0.5 h early (GH-3910, `local_mean_time_blocks.py`)
+LOCAL_MEAN_TIME_SPANS: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = local_mean_time_spans()
+
 #: the datasets whose stamps are MEZ in some periods: hourly air temperature (GH-2709), hourly soil temperature
 #: (GH-3029)
 MEZ_DATASETS = (DwdObservationMetadata.hourly.temperature_air, DwdObservationMetadata.hourly.temperature_soil)
@@ -141,6 +147,12 @@ class ProductFile(File):
 
     Only what the table shifted: a stamp that a period the archive calls MEZ (MD) shifts anyway is not in it, and the
     spans are cut to the plain MEZ periods like the others.
+    """
+    local_mean_time_spans: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = field(default_factory=dict)
+    """Per parameter, the stamps of the months of the table of GH-3910 whose stamps are in mean local time.
+
+    All the table has for the station, not cut to the periods: the rows that a `MEZ (MD)` period shifts and that lie in
+    them are flagged `zone:mez-local-mean-time`, and no others.
     """
 
 
@@ -189,7 +201,7 @@ def _unpack_climate_observations_data(file: File, dataset: DatasetModel | None =
         msg = f"The archive of {file.filename} does not hold a 'produkt' file."
         raise ProductFileNotFoundError(msg)
     product_bytes = zfs.open(product_file[0]).read()
-    spans, batch = _read_mez_spans(zfs, dataset) if dataset in MEZ_DATASETS else ({}, {})
+    spans, batch, local = _read_mez_spans(zfs, dataset) if dataset in MEZ_DATASETS else ({}, {}, {})
     # let's put this again in another file object
     return ProductFile(
         url=file.url,
@@ -202,6 +214,7 @@ def _unpack_climate_observations_data(file: File, dataset: DatasetModel | None =
         woz_spans=_read_woz_spans(zfs) if dataset == DwdObservationMetadata.hourly.sun else (),
         mez_md_spans=spans,
         mez_batch_spans=batch,
+        local_mean_time_spans=local,
     )
 
 
@@ -236,12 +249,16 @@ def _read_woz_spans(zfs: ZipFileSystem) -> tuple[tuple[dt.date, dt.date], ...]:
 def _read_mez_spans(
     zfs: ZipFileSystem, dataset: DatasetModel | None
 ) -> tuple[
-    dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]], dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]
+    dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]],
+    dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]],
+    dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]],
 ]:
     """Read, per parameter, the stamps of a station's hourly air or soil temperature that are MEZ from the metadata.
 
-    Two answers: the stamps that are MEZ, and those of them that only the batch of 1973-01 to 1975-12 of the table of
-    GH-3776 shifts (it is flagged `zone:mez-1973-75`; a stamp that a MEZ (MD) period shifts is not).
+    Three answers: the stamps that are MEZ, those of them that only the batch of 1973-01 to 1975-12 of the table of
+    GH-3776 shifts (it is flagged `zone:mez-1973-75`; a stamp that a MEZ (MD) period shifts is not), and the stamps of
+    the months of the table of GH-3910 that are mean local time (what a `MEZ (MD)` period shifts of them is flagged
+    `zone:mez-local-mean-time`).
 
     `Metadaten_Parameter_*.txt` has a table of periods per parameter, and the tables of `TT_TU` and `RF_TU` differ in
     42 of the 637 stations (Aue 00222: `TT_TU` is MEZ (MD) from 1982-01-01, `RF_TU` from 1991-01-01), so the periods
@@ -265,7 +282,7 @@ def _read_mez_spans(
     """
     files = zfs.glob("**/Metadaten_Parameter_*.txt")
     if not files:
-        return {}, {}
+        return {}, {}, {}
     rows: dict[str, list[tuple[dt.date, dt.date, bool]]] = {}
     plain_mez: dict[str, list[tuple[dt.date, dt.date]]] = {}
     stations: set[str] = set()
@@ -291,11 +308,20 @@ def _read_mez_spans(
         rows.setdefault(parameter, []).append((first, last, is_mez))
     spans = {parameter: _mez_md_stamps(periods) for parameter, periods in rows.items()}
     batch: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = {}
+    local: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = {}
     if dataset == DwdObservationMetadata.hourly.temperature_air:
         _add_table_spans(spans, batch, stations, plain_mez)
+        # the parameters the shift is made for, as in `MEZ_BY_COMPARISON`
+        local = {
+            parameter: LOCAL_MEAN_TIME_SPANS[station]
+            for station in stations & LOCAL_MEAN_TIME_SPANS.keys()
+            for parameter in ("tt_tu", "rf_tu")
+            if parameter in rows
+        }
     return (
         {parameter: stamps for parameter, stamps in spans.items() if stamps},
         {parameter: stamps for parameter, stamps in batch.items() if stamps},
+        local,
     )
 
 

@@ -237,8 +237,8 @@ Codes (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days (1955 to 1997, almost all before 1991; the table is `mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged `zone:mez-1973-75`. The other stamps are UTC. | °C | - |
-| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days (1955 to 1997, almost all before 1991; the table is `mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged `zone:mez-1973-75`. The other stamps are UTC. | % | >=0,<=100 |
+| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days (1955 to 1997, almost all before 1991; the table is `mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged `zone:mez-1973-75`. The 1,321 station-months of 17 East German stations whose `MEZ (MD)` stamps are in the local time of the station's longitude (UTC plus the longitude over 15, 0.6 to 0.9 h: 1952 to 1961 at 16 stations, Potsdam 1973-01 to 1975-05, GH-3910) are shifted by the same hour and so are still 0.2 to 0.5 h early; their rows carry a `zone` token of their own instead of `zone:mez` (the legend of `quality_flags` names it). The other stamps are UTC. | °C | - |
+| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from 1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days (1955 to 1997, almost all before 1991; the table is `mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged `zone:mez-1973-75`. The 1,321 station-months of 17 East German stations whose `MEZ (MD)` stamps are in the local time of the station's longitude (UTC plus the longitude over 15, 0.6 to 0.9 h: 1952 to 1961 at 16 stations, Potsdam 1973-01 to 1975-05, GH-3910) are shifted by the same hour and so are still 0.2 to 0.5 h early; their rows carry a `zone` token of their own instead of `zone:mez` (the legend of `quality_flags` names it). The other stamps are UTC. | % | >=0,<=100 |
 
 #### time reference
 
@@ -248,8 +248,9 @@ are shifted only where two methods that do not depend on each other agree
 ([#3776](https://github.com/earthobservations/wetterdienst/issues/3776)).
 
 **Why a second source.** NOAA ISD holds the SYNOP reports of about 60 West German stations from 1955, three-hourly
-(00, 03, ..., 21 UTC) before 1973 and hourly at some stations from 1973; the East German stations begin in 1976. The
-check of the hourly values against ISD that settled Diepholz, Nürnberg and the others (a month is at lag 0 or lag -1
+(00, 03, ..., 21 UTC) before 1973 and hourly at some stations from 1973; the East German stations are in it too: the
+10xxxx files (WMO block 10) hold FM-12 SYNOP at 00, 06, 12 and 18 UTC from 1952 (the 09xxxx files only from 1973 or
+1976). The check of the hourly values against ISD that settled Diepholz, Nürnberg and the others (a month is at lag 0 or lag -1
 where at least 85 % of its hours equal ISD's) cannot decide an analog year, as the chart values are not the SYNOP
 readings: they are equal in about 20 % of the hours even at the right lag.
 
@@ -291,9 +292,34 @@ caller can leave them out.
 where the phase test says UTC or is undecided, probably an ISD artefact. Winter boundaries (November to February) are
 uncertain by 1 to 3 months; a month between two blocks that is not in the table stays as written, so a series can change
 its clock at such a month. The phase test finds none of the blocks of one to four months of Frankfurt, Trier and Bremen.
-The East German `MEZ (MD)` periods are not in the scan, and their shift before about 1970 is a question of its own
-([#3910](https://github.com/earthobservations/wetterdienst/issues/3910)). A caller who wants the series as DWD wrote it
-reads the rows flagged `zone:mez` or `zone:mez-1973-75` one hour later.
+The East German `MEZ (MD)` periods are not in the scan: they are shifted by the label, and that shift
+is checked against ISD below. A caller who wants the series as DWD wrote it reads the rows flagged `zone:mez`,
+`zone:mez-1973-75` or `zone:mez-local-mean-time` one hour later.
+
+**The East German `MEZ (MD)` periods before 1962 and mean local time**
+([#3910](https://github.com/earthobservations/wetterdienst/issues/3910)). Is the shift by -1 h of these periods right
+before about 1970? The offset of the raw stamps to the ISD reports, fitted as above at 41 stations before 1976 (344
+station-years) and at 47 in 1976 to 1991 (557 station-years), is -1.0 h in every year from 1962 to 1991 at every
+station with an ISD twin, and no station-year is UTC: the shift is right to the whole hour. The diurnal phase against
+the station's own MEZ years of 1976 to 1990 (it steps by 0.3 to 0.6 h at 15 stations in 1962, by 1.0 h at none), the
+correlation of the first differences with the West German stations that ISD confirms as UTC and the term files of DWD
+(from 1967-01 the hourly stamp S+1 equals the term S) agree. One exception: in 1952 to 1961 at 16 stations in the west
+and centre (10.1 to 13.0 degrees east: Brocken, Kaltennordheim, Sonneberg, Gardelegen, Schwerin, Weimar, Plauen,
+Rostock-Warnemünde, Halle-Kröllwitz, Wernigerode, Leipzig-Holzhausen, Magdeburg, Leinefelde, Wittenberg, Chemnitz and
+Fichtelberg) and at Potsdam from 1973-01 to 1975-05 the offset is -0.5 to -0.8 h, ordered by longitude, so the stamps
+are the mean local time of the station (UTC plus the longitude over 15, 0.6 to 0.9 h; a slope of -0.096 h per degree
+against -0.067, no pattern of the equation of time, so mean and not true solar time), not MEZ. The regime begins at a
+station between 1952-11 and 1957-05 (or in 1952) and ends at all of them on 1962-01-01 (the monthly offset jumps at
+Brocken, Kaltennordheim and Magdeburg, the phase at 15 more); ISD ends at most of them in 1960 or 1961, so the table
+stops there and the months up to 1961-12 that it does not hold are not flagged.
+
+The shift by -1 h leaves these stamps 0.2 to 0.5 h early (the median is 0.3 h), which an hourly grid cannot correct, and
+no shift would be better (0.6 to 0.9 h wrong). Values and timestamps are therefore not changed. The 1,321 station-months
+(26 blocks, `local_mean_time_blocks.csv`: station, first and last month, the ISD offset, the phase against the MEZ years
+and how early the stamp stays) are flagged `zone:mez-local-mean-time` instead of `zone:mez`. The months before 1951 at
+Potsdam, Rostock-Warnemünde and Wahnsdorf were not checked against ISD, and winter boundaries are uncertain by 1 to 3
+months. The first five months of Gardelegen (1952-01 to 1952-05) are in the table although their offset is -1.00 h, as
+the three-state model returned them. A caller who needs the hour exactly leaves the flagged rows out.
 
 ### temperature_soil
 

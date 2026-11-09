@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and `humidity_relative`: the
+  1,321 station-months of the East German "Stundenwerte in MEZ (MD)" periods whose stamps are in
+  mean local time (UTC + 0.6 to 0.9 h: 16 stations in 1952 to 1961, Potsdam 1973-01 to 1975-05)
+  carry `zone:mez-local-mean-time` instead of `zone:mez`. Values and timestamps are unchanged: the
+  shift of -1 h is right to the hour from 1962, and leaves these stamps 0.2 to 0.5 h early. The
+  docs said NOAA ISD has no East German reports before 1976; the 10xxxx files have them from 1952
+  (GH-3910)
 - **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
   `get_providers`) answers compact by default: `resolutions` of each network is null and everything
   else stays, the number of `parameters` among it. 20 kB for every provider where the answer was
