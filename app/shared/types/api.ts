@@ -12,6 +12,30 @@ export type Resolution
     | 'monthly'
     | 'annual'
 
+/**
+ * What a value is relative to its interval, as the backend's `Aggregation` in
+ * wetterdienst/metadata/parameter_table.py: a closed set, where `null` is "not stated"
+ */
+export type Aggregation
+  = 'instant'
+    | 'mean'
+    | 'max'
+    | 'min'
+    | 'sum'
+    | 'count'
+    | 'mean_of_max'
+    | 'mean_of_min'
+    | 'probability'
+    | 'occurrence'
+    | 'date'
+    | 'change'
+    | 'uncertainty'
+    | 'code'
+    | 'at_max'
+
+/** Where a timestamp sits in the interval its value covers, as the backend's `TimestampPosition`: a closed set */
+export type TimestampPosition = 'instant' | 'start' | 'end' | 'middle'
+
 // ============================================================================
 // Coverage API
 // ============================================================================
@@ -28,6 +52,13 @@ export interface CoverageParameter {
   unit_type: string
   unit: string
   description: string | null
+  /**
+   * What the value is relative to its interval; null: the source does not state it. The app does not
+   * read it, and it is optional for a server that does not send it yet
+   */
+  aggregation?: Aggregation | null
+  /** Where the timestamp sits in the interval the value covers; null: not stated. Optional as `aggregation` */
+  timestamp_position?: TimestampPosition | null
   /**
    * DWD DMO only: the lead times whose run carries the parameter. Values refuse a parameter asked
    * for by name that the requested run does not carry
@@ -62,6 +93,8 @@ export interface GlossaryEntry {
   unit: string
   unit_symbol: string
   description: string
+  /** The canonical value, null for a plain name; optional for a server that does not send it yet */
+  aggregation?: Aggregation | null
 }
 
 /**

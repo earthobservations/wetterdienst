@@ -64,6 +64,10 @@ class ParameterGlossaryDirective(SphinxDirective):
                 continue
             lines.append(f"  Unit type `{parameter.unit_type}`, returned in `{target.name}` ({target.symbol}).")
             lines.append("")
+            if parameter.aggregation:
+                # the canonical value, which `glossary` gives; a provider's `coverage` has its own for a plain name
+                lines.append(f"  Aggregation `{parameter.aggregation}`.")
+                lines.append("")
             if not parameter.interpolation:
                 lines.append("  Not interpolatable.")
             else:

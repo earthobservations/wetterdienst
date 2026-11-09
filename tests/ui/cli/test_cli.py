@@ -478,6 +478,7 @@ def test_cli_glossary() -> None:
             "description": (
                 "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
             ),
+            "aggregation": "mean",
         },
     ]
 

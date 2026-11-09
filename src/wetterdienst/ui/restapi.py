@@ -1654,6 +1654,12 @@ def coverage(
     for a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with
     `convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no
     options: a `unit_targets` of your own changes what `values` return, not this answer.
+
+    `aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the
+    others of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its
+    source states it. `timestamp_position` is where its timestamp sits in the interval the value covers: `instant`
+    (the stamp is when it was read), `start`, `end` or `middle`. Both are always there, and `null` means the source
+    does not state it: not a reading, not a mean.
     """
     provider, network = request.provider, request.network
 
@@ -1762,6 +1768,10 @@ def glossary(
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
     including any `unit_targets` option override.
+
+    `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,
+    ...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each
+    provider and the `timestamp_position`, which the glossary does not know.
     """
     # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
@@ -2119,6 +2129,11 @@ def values(
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
+
+    With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
+    relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
+    (where the timestamp sits in the interval the value covers: `instant`, `start`, `end` or `middle`); `null` in
+    either means the source does not state it.
     """
     begin_response()
     _refuse_sql_unless_enabled(request)

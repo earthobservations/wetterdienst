@@ -240,7 +240,8 @@ is narrowed when a union loses one (`number | null` that becomes `number`), and 
 client already handles the case that no longer comes. An enum of a response that loses a member is no break either,
 where it is one for a request. A response enum that becomes a free string is a break, a type change for a typed client,
 while a new enum member stays allowed in a minor release, also when the document writes it as an alternative of its
-own.
+own. The two enums of a parameter's `aggregation` and `timestamp_position` are the exception: they are closed and
+complete at 1.0.0, and a member added to either after it is a break.
 
 What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
 a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
@@ -314,6 +315,10 @@ whoever reports it. Frozen: a name that was released keeps meaning what it meant
   wrong one is announced as such in a minor release (see [Which release a break takes](#which-release-a-break-takes)).
 - **Timestamps** mean what [Time reference](../data/time_reference.md) says for each provider and resolution; a change
   of the stamp is breaking, and so is a correction of a wrong one, in a minor release.
+- **`aggregation` and `timestamp_position`** of a parameter (`coverage`, `glossary` and the `metadata` block of `values`)
+  say what the value is relative to its interval and where its timestamp sits in it, and `null` means not stated. A
+  `null` that becomes a value is an addition, and a value that changes is a correction, Breaking in a minor release,
+  as a stamp is. The two enums are closed at 1.0.0.
 - **Quality flags** are one string, `quality_flags`, of comma-separated tokens: the source's flag plain, further kinds
   as `kind:code`, the text of a missing value as the last token `raw:<text>`. What a code means is the provider's.
 

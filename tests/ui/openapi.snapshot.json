@@ -848,7 +848,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the interval the value covers: `instant`\n(the stamp is when it was read), `start`, `end` or `middle`. Both are always there, and `null` means the source\ndoes not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -1189,7 +1189,7 @@
           "Catalogue"
         ],
         "summary": "Glossary",
-        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
+        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,\n...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each\nprovider and the `timestamp_position`, which the glossary does not know.",
         "operationId": "glossary_api_glossary_get",
         "parameters": [
           {
@@ -2158,7 +2158,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the interval the value covers: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -5595,6 +5595,53 @@
             ],
             "title": "Description"
           },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval, the one of the provider where it declares it, else the one of the name: `mean`, `max`, `sum`, `instant` (a single reading) and the others of `glossary`. Null: the source does not state it, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the interval the value covers: `instant` (a reading at the timestamp), `start`, `end` or `middle`. Null: the source does not state it."
+          },
           "lead_times": {
             "items": {
               "type": "string",
@@ -5614,7 +5661,9 @@
           "name_original",
           "unit_type",
           "unit",
-          "description"
+          "description",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "CoverageParameter",
         "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`."
@@ -5793,6 +5842,35 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the one of each provider, which declares one for a plain name where its source states it (`instant`)."
           }
         },
         "type": "object",
@@ -5801,10 +5879,11 @@
           "unit_type",
           "unit",
           "unit_symbol",
-          "description"
+          "description",
+          "aggregation"
         ],
         "title": "GlossaryEntry",
-        "description": "One canonical parameter: what it measures and which unit it is returned in."
+        "description": "One canonical parameter: what it measures and which unit it is returned in.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a\nplain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares\none for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which\nthe glossary does not have, since it knows no dataset."
       },
       "Health": {
         "properties": {
@@ -6110,6 +6189,53 @@
             "type": "string",
             "title": "Unit",
             "description": "The symbol of the unit of the values: the target of the quantity where `convert_units` is on, else the unit the source publishes."
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval, the provider's declaration where the name states none, else the name's: `mean`, `max`, `sum`, `instant` (a single reading) and the others of `glossary`. Null: the source does not state it, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the interval the value covers: `instant` (a reading at the timestamp), `start`, `end` or `middle`. Null: the source does not state it."
           }
         },
         "additionalProperties": false,
@@ -6121,7 +6247,9 @@
           "name_original",
           "description",
           "quantity",
-          "unit"
+          "unit",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "ParameterInfo",
         "description": "One parameter of the answer, with the unit its values are in."

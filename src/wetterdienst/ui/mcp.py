@@ -152,7 +152,9 @@ measurement. Prefer the single-measurement form to keep responses small. Paramet
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
 of those three levels carries a `description` saying what the source means by it. `unit` is what `values` \
-return; `unit_source` only if it differs.
+return; `unit_source` only if it differs. Each parameter has `aggregation` \
+(`mean`, `max`, `sum`, ...; `instant` is a single reading) and `timestamp_position` (`instant`, `start`, \
+`end`, `middle`); `null` means not stated, not a reading.
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
 above it get different answers from the same stations; without it the readings are used as they \

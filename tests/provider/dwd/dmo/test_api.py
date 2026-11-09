@@ -1956,6 +1956,8 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
                 "unit_type",
                 "unit",
                 "description",
+                "aggregation",
+                "timestamp_position",
                 "lead_times",
             }
     icon = {parameter["name"]: parameter["lead_times"] for parameter in datasets["icon"]["parameters"]}

@@ -99,6 +99,41 @@ was taken (at 06:00 UTC, at midday), and the `timestamp_position` of the dataset
 the timestamp. A row whose source states nothing, or only where the timestamp sits (a forecast step, a report time),
 declares none (null: not stated). A name that states a statistic (`_mean`, `_max`, `count_`) cannot be overridden by a provider.
 
+### Aggregation and timestamp position in the answers
+
+`coverage` gives every parameter an `aggregation` and a `timestamp_position`, and `values` with `with_metadata` gives
+them in `metadata.parameters`; `glossary` gives the `aggregation` of the name only, since it knows no dataset, and
+`coverage` has the one of each provider. Both are always there, and **`null` means the source does not state it**:
+not a reading, not a mean. The `aggregation` is the canonical value where the name states a statistic, else what the
+provider declares for the row.
+
+| `aggregation` | the value is |
+| --- | --- |
+| `instant` | a single reading, not a statistic over a window; when it was taken is said by the description and the `timestamp_position` |
+| `mean` | the mean over the interval, or over the window the name states |
+| `max`, `min` | the largest or smallest value over the interval or the window |
+| `sum` | the total accumulated over the interval or the window (amounts, durations, energies, degree-days) |
+| `count` | a number of days, hours or events in the interval |
+| `mean_of_max`, `mean_of_min` | the mean over the days of the interval of the daily maximum or minimum |
+| `probability` | the probability that an event happens within the window, a forecast |
+| `occurrence` | whether an event happened at least once in the interval, a 0/1 flag |
+| `date` | the day on which an event happened, as a day count |
+| `change` | the difference between the end and the start of the window |
+| `uncertainty` | an estimate of the error of another quantity, no statistic of the quantity itself |
+| `code` | a coded, classified or derived value to which no statistic applies |
+| `at_max` | the value of a quantity at the time another quantity reached its maximum (the direction of the top gust) |
+
+| `timestamp_position` | the timestamp is |
+| --- | --- |
+| `instant` | when the value was read |
+| `start` | the start of the interval the value covers (also a stamp the library builds: the first day of a month, a year or a reference year) |
+| `end` | the end of the interval the value covers |
+| `middle` | the middle of the interval the value covers |
+
+The position of a parameter is its own where its dataset's parameters differ, else its dataset's; it is read from
+[Time reference](time_reference.md), which keeps the evidence. The two sets are closed from 1.0: a member is not added
+to them after that.
+
 A name that was renamed is refused with the new name in the message (`'wind_speed' was renamed to
 'wind_speed_mean' in this dataset`), and the plain name stays where the source states no mean. The old names of a
 request, of the `parameter` column, of the wide column names and of `Options(geo_station_distance=...)` are the

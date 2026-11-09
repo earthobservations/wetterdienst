@@ -84,6 +84,15 @@ ExtentScope = Literal["global", "national", "regional"]
 #: keeps the evidence and `tests/test_docs.py` holds the two together (GH-3134).
 TimestampPosition = Literal["instant", "start", "end", "middle"]
 
+#: one line per member, which `coverage`, the MCP instructions and the docs read from here, so that the definition is
+#: written once (`tests/model/test_surfaces_aggregation.py` holds the keys to `TimestampPosition`)
+TIMESTAMP_POSITION_DEFINITIONS: dict[TimestampPosition, str] = {
+    "instant": "The value is a single reading, and the timestamp is when it was taken.",
+    "start": "The value covers the interval that begins at the timestamp.",
+    "end": "The value covers the interval that ends at the timestamp.",
+    "middle": "The value covers the interval that is centred on the timestamp.",
+}
+
 #: the box of the Earth, `[west, south, east, north]`, which the bbox of a global network is
 WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
 
@@ -172,6 +181,21 @@ class CoverageParameter(TypedDict):
         ]
     ]
     description: str | None
+    aggregation: Annotated[
+        Aggregation | None,
+        Field(
+            description="What the value is relative to its interval, the one of the provider where it declares it, "
+            "else the one of the name: `mean`, `max`, `sum`, `instant` (a single reading) and the others of "
+            "`glossary`. Null: the source does not state it, which is not a reading.",
+        ),
+    ]
+    timestamp_position: Annotated[
+        TimestampPosition | None,
+        Field(
+            description="Where the timestamp sits in the interval the value covers: `instant` (a reading at the "
+            "timestamp), `start`, `end` or `middle`. Null: the source does not state it.",
+        ),
+    ]
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
 

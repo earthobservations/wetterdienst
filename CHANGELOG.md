@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `coverage` and the `metadata.parameters` of `values` (with `with_metadata`) give every parameter
+  an `aggregation` (`mean`, `max`, `sum`, `instant` for a single reading, ...) and a
+  `timestamp_position` (`instant`, `start`, `end`, `middle`); `glossary` gives the `aggregation` of
+  the name. `null` is not stated. Both sets are closed from 1.0.0 (GH-3134)
+
 ### Changed
 
 - `knmi/observation` keeps the content of a file whose interval ended more than 6 hours ago for 12

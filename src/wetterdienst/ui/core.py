@@ -40,6 +40,7 @@ from wetterdienst.exceptions import (
     UpstreamError,
 )
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
+from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
@@ -1908,13 +1909,28 @@ def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, ne
 
 
 class GlossaryEntry(TypedDict):
-    """One canonical parameter: what it measures and which unit it is returned in."""
+    """One canonical parameter: what it measures and which unit it is returned in.
+
+    `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a
+    plain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares
+    one for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which
+    the glossary does not have, since it knows no dataset.
+    """
 
     name: str
     unit_type: UnitType
     unit: str
     unit_symbol: str
     description: str
+    aggregation: Annotated[
+        Aggregation | None,
+        Field(
+            description="What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, "
+            "`count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, "
+            "`code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the "
+            "one of each provider, which declares one for a plain name where its source states it (`instant`).",
+        ),
+    ]
 
 
 def get_glossary(
@@ -1973,6 +1989,7 @@ def get_glossary(
                 unit=target.name,
                 unit_symbol=target.symbol,
                 description=canonical.description,
+                aggregation=canonical.aggregation,
             ),
         )
         if limit is not None and len(entries) >= limit:

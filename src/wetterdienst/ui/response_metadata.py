@@ -23,8 +23,9 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.metadata.period import Period
-from wetterdienst.model.metadata import is_quality_flag
+from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.quality_legend import QualityKind, quality_legend
 from wetterdienst.model.result import (
     StationsFilter,
@@ -149,6 +150,15 @@ class ParameterInfo(BaseModel):
     unit: str = Field(
         description="The symbol of the unit of the values: the target of the quantity where `convert_units` is "
         "on, else the unit the source publishes.",
+    )
+    aggregation: Aggregation | None = Field(
+        description="What the value is relative to its interval, the provider's declaration where the name states "
+        "none, else the name's: `mean`, `max`, `sum`, `instant` (a single reading) and the others of `glossary`. "
+        "Null: the source does not state it, which is not a reading.",
+    )
+    timestamp_position: TimestampPosition | None = Field(
+        description="Where the timestamp sits in the interval the value covers: `instant` (a reading at the "
+        "timestamp), `start`, `end` or `middle`. Null: the source does not state it.",
     )
 
 
@@ -351,6 +361,8 @@ def result_metadata(
                 description=p.description,
                 quantity=p.unit_type,
                 unit=_unit_symbol(p, options, converter),
+                aggregation=p.effective_aggregation,
+                timestamp_position=p.effective_timestamp_position,
             )
             for p in parameters
         ]
