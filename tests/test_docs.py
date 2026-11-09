@@ -5,6 +5,7 @@
 import re
 import tomllib
 from collections.abc import Iterable, Iterator
+from fnmatch import fnmatchcase
 from itertools import takewhile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -1303,6 +1304,16 @@ TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
 # documentation does not state: the cell holds no guess, and a comparison with a second source goes in
 # brackets behind it as an observation.
 _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
+# the ones of them that say where the stamp sits, which is what `timestamp_position` of the metadata can be (GH-3134)
+_POSITIONS = _REFERENCE_TIMES - {"mixed", "unverified"}
+# What a cell that begins with one answer says when it covers some of the parameters of its datasets only: the others
+# are not qualified, not stated, not compared, unverified, partly one thing, an exception, or the answer is given for
+# some parameters only or for a list of them. A dataset declares one position for all its parameters, so such a cell
+# is `mixed (...)`, never the answer alone.
+_QUALIFIED_ANSWER = re.compile(
+    r"not qualified|not stated|not compared|unverified|partly|except|\bonly\b"
+    r"|^\w+ \(\s*[\w/\[\]]+(?:, [\w/\[\]]+)+\s*[;)]",
+)
 
 # `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps
 # are file names and BUFR times that can be read wrongly like any other, so the table has a row for it,
@@ -1440,6 +1451,257 @@ def test_time_reference_rows_are_complete() -> None:
         for cells, note in zip(provider_rows, notes[provider], strict=False):
             errors.extend(_time_reference_row_problems(provider, cells, note))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _declared_datasets() -> Iterator[tuple[str, str, str, object]]:
+    """Give (provider, network, resolution, dataset model) for every dataset the registry's networks declare."""
+    pages, _ = _resolution_pages()
+    for provider, network, resolution, _page in pages:
+        for dataset in resolution:
+            yield provider, network, resolution.name, dataset
+
+
+def _time_reference_cells(
+    rows: list[tuple[str, list[str]]],
+) -> dict[tuple[str, str, str, str], list[list[str]]]:
+    """Give, per (provider, network, resolution, dataset), the rows of the page that name it."""
+    return {
+        (provider, network, resolution, dataset.name): [
+            cells
+            for row_provider, cells in rows
+            if row_provider == provider
+            and cells[0] == network
+            and cells[1] == resolution
+            and (cells[2] == "all" or dataset.name in [name.strip() for name in cells[2].split(",")])
+        ]
+        for provider, network, resolution, dataset in _declared_datasets()
+    }
+
+
+def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str, str, str, str], list[str]]:
+    """Give, per (provider, network, resolution, dataset), the first word of the reference time of its rows."""
+    return {key: [cells[4].split(" ")[0] for cells in named] for key, named in _time_reference_cells(rows).items()}
+
+
+# The words of a segment of a cell that say it names the parameters it does not answer for (GH-3134).
+_NOT_ONE_ANSWER = re.compile(
+    r"not qualified|not stated|unstated|unverified|differs? by (?:period|station)|neither start nor end"
+)
+_CELL_WORDS = re.compile(r"[\s,;:()\[\]'\"`]+")
+_LEADING_POSITION = re.compile(r"^\s*(start|end|instant|middle)\b")
+
+
+def _cell_segments(cell: str) -> list[tuple[str | None, str, int]]:
+    """Give (position, text, shortest name) for each part of a `reference time` cell that can name parameters.
+
+    A cell that begins with an answer gives that answer for the whole of its text; a `mixed` cell is read by the
+    parts between its semicolons: one that begins with an answer gives it for the parameters it names, one that says
+    `not qualified`, `not stated`, `unstated`, `unverified`, `differ by period`, `differ by station` or `neither start
+    nor end` names parameters that have no answer (None), and the others say something else (a period, a window) and
+    name nothing; an `unverified` cell names parameters that have none.
+    The shortest name is the length a word must have to be taken as a name where only the absence of an answer is at
+    stake (a letter of prose is not a parameter), so that `n` is read where `instant (n, nh)` answers.
+    """
+    first, _, body = cell.partition(" ")
+    body = body.strip()
+    if body.startswith("(") and body.endswith(")"):
+        body = body[1:-1]
+    if first in _POSITIONS:
+        return [(first, body, 1)]
+    if first == "unverified":
+        return [(None, body, 2)]
+    if first != "mixed":
+        return []
+    segments: list[tuple[str | None, str, int]] = []
+    for part in body.split(";"):
+        leading = _LEADING_POSITION.match(part)
+        if leading:
+            segments.append((leading.group(1), part, 1))
+        elif _NOT_ONE_ANSWER.search(part):
+            segments.append((None, part, 2))
+    return segments
+
+
+def _mixed_positions(cell: str) -> set[str]:
+    """Give the answers a `mixed` cell names parameters for."""
+    return {position for position, _, _ in _cell_segments(cell) if position} if cell.startswith("mixed") else set()
+
+
+def _named_by(text: str, parameters: Iterable[object], shortest: int) -> tuple[set[str], set[str]]:
+    """Give the names of the parameters a text names as they are, and those a pattern with `*` names.
+
+    A word names a parameter when it is the parameter's name or its original name in any case, or one side of a
+    `/` in the original name (`evaporation/evapotranspiration_last_24_hours`); a word with `*` or `?` (`N*`,
+    `precipitation_amount_last_*`, `R1??`) names those of which it is the pattern.
+    """
+    exact: set[str] = set()
+    wild: set[str] = set()
+    words = {word.strip(".").lower() for word in _CELL_WORDS.split(text)}
+    words |= {part for word in words for part in word.split("/")}
+    for parameter in parameters:
+        spellings = {parameter.name.lower(), parameter.name_original.lower()}
+        spellings |= set(parameter.name_original.lower().split("/"))
+        for word in words:
+            if len(word) < shortest or word.startswith("-"):
+                continue
+            if "*" in word or "?" in word:
+                if any(fnmatchcase(spelling, word) for spelling in spellings):
+                    wild.add(parameter.name)
+            elif word in spellings:
+                exact.add(parameter.name)
+    return exact, wild
+
+
+def _page_positions(cells: list[list[str]], dataset: object) -> dict[str, set[str | None]]:
+    """Give, per parameter a row of the dataset names, the answers the page gives it (None: it has none).
+
+    A parameter named as it is outranks one a pattern names (`ww` is an instant, `ww*` the probabilities of the
+    windows); a parameter a page names twice with two answers has two, which the test calls a page that disagrees
+    with itself.
+    """
+    exact: dict[str, set[str | None]] = {}
+    wild: dict[str, set[str | None]] = {}
+    for row in cells:
+        for position, text, shortest in _cell_segments(row[4]):
+            names, patterns = _named_by(text, dataset.parameters, shortest)
+            for name in names:
+                exact.setdefault(name, set()).add(position)
+            for name in patterns:
+                wild.setdefault(name, set()).add(position)
+    return {**wild, **exact}
+
+
+def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() -> None:
+    """Test that `timestamp_position` of the metadata and the `reference time` of the page say the same (GH-3134).
+
+    The token a caller reads is declared once, in the provider's metadata (a dataset, and a parameter where the
+    dataset is mixed); the page keeps the evidence, the quoted sentence and the observation. This holds the two
+    together, by the first word of the cell of each row that names a dataset (`all` names every dataset of its
+    resolution):
+
+    - one answer in all of a dataset's rows (`start`, `end`, `instant`, `middle`): the dataset declares it, and no
+      parameter of it declares another;
+    - `unverified` in all of them: the dataset declares nothing, unless the library builds the stamp itself
+      (`LIBRARY_BUILT_START`), where it declares `start`; no parameter declares anything;
+    - rows that disagree, mix `unverified` with an answer, or say `mixed` (which a cell that gives its answer for some
+      parameters only must, `test_a_cell_that_gives_one_answer_for_some_parameters_only_is_mixed`): the dataset
+      declares nothing, and a parameter declares only an answer a row of its dataset gives, which for a `mixed` cell
+      is an answer one of its parts begins with (`mixed (instant: TT_10, TM5_10; ...)`, `_cell_segments`);
+      `test_the_parameters_the_page_names_have_the_positions_it_gives` holds each parameter a row names to it.
+    """
+    from tests.provider.timestamps import LIBRARY_BUILT_START  # noqa: PLC0415
+
+    rows, _ = _time_reference_tables()
+    tokens = _time_reference_tokens(rows)
+    cells_of = _time_reference_cells(rows)
+    errors = []
+    built = set()
+    for provider, network, resolution, dataset in _declared_datasets():
+        tag = f"{provider}/{network}/{resolution}/{dataset.name}"
+        found = tokens[provider, network, resolution, dataset.name]
+        named_rows = cells_of[provider, network, resolution, dataset.name]
+        answers = {token for token in found if token in _POSITIONS}
+        entry = LIBRARY_BUILT_START.get((provider, network, resolution))
+        library_built = entry is not None and (entry[0] is None or dataset.name in entry[0])
+        if library_built:
+            built.add((provider, network, resolution))
+            if set(found) != {"unverified"}:
+                errors.append(
+                    f"{tag}: is listed in LIBRARY_BUILT_START but its rows say {sorted(set(found))}; "
+                    "a row that states the position backs the declaration, so the entry goes"
+                )
+            expected = "start"
+        else:
+            expected = next(iter(answers)) if len(set(found)) == 1 and answers else None
+        if dataset.timestamp_position != expected:
+            errors.append(f"{tag}: declares {dataset.timestamp_position!r} but its rows say {sorted(set(found))}")
+        allowed = answers.union(*(_mixed_positions(cells[4]) for cells in named_rows))
+        for parameter in dataset.parameters:
+            if expected is not None:
+                if parameter.effective_timestamp_position != expected:
+                    errors.append(
+                        f"{tag}/{parameter.name}: {parameter.effective_timestamp_position!r}, not {expected!r}"
+                    )
+            elif parameter.timestamp_position is not None and parameter.timestamp_position not in allowed:
+                errors.append(
+                    f"{tag}/{parameter.name}: declares {parameter.timestamp_position!r} but its rows say "
+                    f"{sorted(set(found))}"
+                )
+    errors.extend(
+        f"LIBRARY_BUILT_START has {'/'.join(key)}, which no dataset has"
+        for key in sorted(set(LIBRARY_BUILT_START) - built)
+    )
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
+    """Test that a dataset without a position of its own declares, per parameter, what its rows name (GH-3134).
+
+    The rows of a dataset that is mixed, or has several rows, name the parameters they answer for: `instant (ttt,
+    td, ...)`, `end (...: RR1c, TX, R1?? probabilities)`, `mixed (instant: TT_10, TM5_10; RF_10 not qualified)`
+    (`_cell_segments`, `_named_by`: a name is a parameter's name or original name in any case, `*` or `?` a
+    pattern, and a parameter named as it is outranks one a pattern names). The parameter then declares exactly that
+    answer, and None where the page names it as not stated, not qualified, differing by period or unverified. A
+    parameter no row names declares nothing, a value on it is an error (what the page does not state is not
+    guessed), and the test of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it
+    that what is declared is one of the answers of the rows. A dataset with one answer for all its rows declares it
+    itself, and every other dataset is held here, of every provider.
+    """
+    rows, _ = _time_reference_tables()
+    cells_of = _time_reference_cells(rows)
+    errors = []
+    for provider, network, resolution, dataset in _declared_datasets():
+        if dataset.timestamp_position is not None:
+            continue
+        declared = {parameter.name: parameter.timestamp_position for parameter in dataset.parameters}
+        tag = f"{provider}/{network}/{resolution}/{dataset.name}"
+        named = _page_positions(cells_of[provider, network, resolution, dataset.name], dataset)
+        for name, answers in named.items():
+            if len(answers) != 1:
+                errors.append(f"{tag}/{name}: the page gives it {sorted(map(str, answers))}, not one answer")
+            elif declared[name] != next(iter(answers)):
+                errors.append(f"{tag}/{name}: declares {declared[name]!r} but the page gives {next(iter(answers))!r}")
+        errors.extend(
+            f"{tag}/{name}: declares {position!r} but no row names it"
+            for name, position in declared.items()
+            if position is not None and name not in named
+        )
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def test_a_cell_that_gives_one_answer_for_some_parameters_only_is_mixed() -> None:
+    """Test that a cell standing for a whole dataset does not limit its answer to some parameters (GH-3134).
+
+    The metadata declares a dataset's position from the first word of the cell, for every parameter of the dataset, so
+    `instant (TT_10, TM5_10; RF/PP/TD not qualified)` would give the humidity and the pressure a position the page
+    does not state. Such a cell is `mixed (instant: ...)`, which the dataset declares as null, and the parameters it
+    covers declare their own. A cell that is one of several rows of a dataset says which parameters it is about by
+    design and is left to the check of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page`.
+    A position that is stated for the dataset but of a doubtful place inside the stamp (the reading's minute, which
+    window) is no limit on the parameters and stays an answer.
+    """
+    rows, _ = _time_reference_tables()
+    errors = []
+    for (provider, network, resolution, dataset), named in _time_reference_cells(rows).items():
+        if len({cells[4].split(" ")[0] for cells in named}) != 1:
+            continue
+        errors.extend(
+            f"{provider}/{network}/{resolution}/{dataset}: {cells[4]!r} gives {cells[4].split(' ')[0]} for some "
+            "parameters only, so the cell begins with `mixed`"
+            for cells in named
+            if cells[4].split(" ")[0] in _POSITIONS and _QUALIFIED_ANSWER.search(cells[4])
+        )
+    assert not errors, "\n".join(_capped(sorted(set(errors)), 40, "the report"))
+
+
+def test_the_positions_are_the_answers_the_page_allows() -> None:
+    """Test that the `Literal` of the model and the answers of the page, less `mixed` and `unverified`, are the same."""
+    from typing import get_args  # noqa: PLC0415
+
+    from wetterdienst.model.metadata import TimestampPosition  # noqa: PLC0415
+
+    assert set(get_args(TimestampPosition)) == _POSITIONS
+    assert _REFERENCE_TIMES - {"mixed", "unverified"} == _POSITIONS
 
 
 def test_time_reference_links_match_the_issues_it_lists() -> None:

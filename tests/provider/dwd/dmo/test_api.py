@@ -1956,6 +1956,8 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
                 "unit_type",
                 "unit",
                 "description",
+                "aggregation",
+                "timestamp_position",
                 "lead_times",
             }
     icon = {parameter["name"]: parameter["lead_times"] for parameter in datasets["icon"]["parameters"]}
@@ -2145,3 +2147,84 @@ def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_produc
     assert hourly.icon.rad1h.unit == "joule_per_square_centimeter"
     assert hourly.icon.rads3.unit == "joule_per_square_centimeter"
     assert hourly.icon.radl3.unit == "kilojoule_per_square_meter"
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        pytest.param(
+            "text/html", b'<html><title>503 - CDN</title><a href="https://status.example.com/">s</a></html>', id="cdn"
+        ),
+        pytest.param("application/json", b'{"error": "unavailable"}', id="json"),
+    ],
+)
+def test_dmo_directory_answered_with_a_page_that_is_no_index_is_an_error_not_no_forecast(
+    content_type: str, body: bytes
+) -> None:
+    """A 200 page of an outage must not read as the empty directory of a station with no forecast (GH-3819).
+
+    An empty directory is `None` and a warning; a CDN's error page or a JSON error in its place is a `DownloadError`.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    values = _stub_dmo_values()
+    with serving() as server:
+        server.pages["/kmz/"] = (content_type, body)
+        server.pages["/kmz"] = (content_type, body)
+        server.directories["/empty/"] = []
+
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            values.get_url_for_date(f"{server.base}/kmz/", api.DwdForecastDate.LATEST)
+        assert values.get_url_for_date(f"{server.base}/empty/", api.DwdForecastDate.LATEST) is None
+
+
+# --- a 200 page that is no index of a directory (GH-3834) ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        pytest.param(("application/json", b'{"error": "unavailable"}'), id="json"),
+        pytest.param(("text/html", b"<html><head><title>503 - CDN</title></head><body></body></html>"), id="cdn-page"),
+        pytest.param(None, id="empty-index"),
+    ],
+)
+def test_dmo_a_station_directory_that_lists_nothing_keeps_the_catalogue_and_says_why(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: object,
+    page: tuple[str, bytes] | None,
+) -> None:
+    """The listing of the stations a product covers falls back to the shared catalogue, with a warning, for any page.
+
+    Checked for the 200 page that is no index (GH-3834): the URL has no `/` at its end, which `list_remote_directory_
+    fsspec` leaves as it is (it may name a file), and fsspec raises a `FileNotFoundError` for a page that lists nothing
+    there, so this caller never took an outage page for a product with no station. It is the same for a real empty
+    index. The catalogue is kept (`None`: no narrowing) and the warning says the listing could not be read.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+    from wetterdienst.util.network import list_remote_directory_fsspec  # noqa: PLC0415
+
+    caplog.set_level(logging.WARNING)
+    path = api._dmo_station_dir("icon_eu").removeprefix("https://opendata.dwd.de").rstrip("/")  # noqa: SLF001
+    with serving() as server:
+        if page is None:
+            server.directories[f"{path}/"] = []
+        else:
+            server.pages[path] = page
+            server.pages[f"{path}/"] = page
+
+        def listing(url: str, settings: Settings, cache_expiry: object) -> list[dict]:
+            local = url.replace("https://opendata.dwd.de", server.base)
+            return list_remote_directory_fsspec(local, settings, cache_expiry)  # ty: ignore[invalid-argument-type]
+
+        monkeypatch.setattr(api, "list_remote_directory_fsspec", listing)
+        request = DwdDmoRequest(parameters=[("hourly", "icon_eu")], settings=Settings(cache_dir=str(tmp_path)))
+
+        covered = request._read_covered_station_ids("icon_eu")  # noqa: SLF001
+
+    assert covered is None
+    assert [record for record in caplog.records if "Unable to list the stations icon_eu covers" in record.message]

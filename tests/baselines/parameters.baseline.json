@@ -2341,7 +2341,6 @@
           "precipitation_amount",
           "temperature_air_max_2m",
           "temperature_air_min_2m",
-          "wind_direction_gust_max",
           "wind_gust_max"
         ]
       },
@@ -3539,5 +3538,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.183.0"
+  "x-release": "0.185.0"
 }

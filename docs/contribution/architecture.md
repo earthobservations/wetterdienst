@@ -75,15 +75,17 @@ goes on to the next one (`StationsResult._rank`).
 
 **Fetch-ahead.** A provider whose files are one set per station can name them beforehand by implementing
 `TimeseriesValues._files_ahead(station_id, datasets)`, which returns a `FilesAhead` (the URLs and the cache expiry the
-provider downloads them with). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
-at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station is parsed, and the
-provider's own download at the station's turn finds them there: `_collect_station_parameter_or_dataset` is not changed
-and is still what raises, at the station it raises at. A thread fetches the files of a station one after the other; when
-the walk comes to the station, it ends the file it is at and the provider's own download, which fetches a station's
-files side by side, takes the rest, so a provider whose stations have many files gains little (at the default of 4 it is
-not slower; with 1 or 2 stations ahead it can be). A fetch ahead raises nothing itself; after a failure other than a 404 (or a failing
-hook) nothing more is fetched ahead for that read. A file that is missing or failed is asked for again at its station's
-turn, so an outage can show up later than the first failed request, by up to twice the client timeout.
+provider downloads them with, `ttl`, and `ttls` for the URLs it downloads with another, as a file that is final by name
+is kept longer than one that is still written to). `query()` then has the files of the next `Settings.fetch_ahead`
+stations (4 by default, at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station
+is parsed, and the provider's own download at the station's turn finds them there:
+`_collect_station_parameter_or_dataset` is not changed and is still what raises, at the station it raises at. A thread
+fetches the files of a station one after the other; when the walk comes to the station, it ends the file it is at and
+the provider's own download, which fetches a station's files side by side, takes the rest, so a provider whose stations
+have many files gains little (at the default of 4 it is not slower; with 1 or 2 stations ahead it can be). A fetch ahead
+raises nothing itself; after a failure other than a 404 (or a failing hook) nothing more is fetched ahead for that read.
+A file that is missing or failed is asked for again at its station's turn, so an outage can show up later than the first
+failed request, by up to twice the client timeout.
 
 What is limited: the fetch-ahead's own connections, to `fetch_ahead` for a read and to 8 per host for all the reads of a
 process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connections of the station in hand (the
@@ -198,7 +200,7 @@ client of its own; it passes the four things it reads from the `Settings` of the
 | `post_file(url, ...)` | a `File` for a POST, never cached (the token endpoints) |
 
 **Caching.** `CacheExpiry` (`wetterdienst.metadata.cache`) is the time to live a caller asks for: `NO_CACHE`,
-`FIVE_SECONDS` to `TWELVE_HOURS`, `INFINITE`, and the aliases `FILEINDEX` (five minutes, for listings) and `METAINDEX`
+`FIVE_SECONDS` to `ONE_WEEK`, `INFINITE`, and the aliases `FILEINDEX` (five minutes, for listings) and `METAINDEX`
 (twelve hours, for station catalogues). `NetworkFilesystemManager` keeps one filesystem per thread and per combination of
 cache directory, expiry and client arguments. With a cache it is fsspec's `WholeFileCacheFileSystem` over the HTTP
 filesystem (`_LockedWholeFileCacheFileSystem`), in a directory of `cache_dir/fsspec` per expiry and per credential
@@ -223,6 +225,7 @@ else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a 
 | the source answered badly: a 4xx or 5xx, a dropped connection, a body cut short, a timeout, a TLS failure, a refused redirect | `DownloadError(url, reason)`, the failure as `__cause__` | 502, 504 for a timeout |
 | the file is not there | a `File` with `status == 404`, whose `raise_if_exception()` raises a `DownloadError` like any other failure | 502 if raised |
 | the directory is not there | `[]` from `list_remote_files_fsspec`; a `FileNotFoundError` from `list_remote_directory_fsspec` | |
+| a 200 page that is no index of a directory, where a URL ending in `/` lists no file or entry (a CDN's error page, a JSON error) | `DownloadError` from both listings, never an empty list | 502 |
 
 Both errors are `UpstreamError`s. A download that fails is stored in `File.content` and raised by
 `File.raise_if_exception()`, which raises the stored `NoInternetError` as it is and wraps any other failure in a

@@ -37,6 +37,29 @@ log = logging.getLogger(__name__)
 _BASE_URL = "https://api.meteo.lt/v1"
 _STATIONS_URL = f"{_BASE_URL}/stations"
 
+#: how long after a day has ended its file is still fetched again at the short expiry, before it is kept for good. Our
+#: choice (GH-3929): api.meteo.lt states no time at which a day is final, so a late reading that is filed after midnight
+#: is given this long to arrive
+_DAY_SETTLED_AFTER = dt.timedelta(hours=6)
+
+
+def _now() -> dt.datetime:
+    """Give the time the age of a day is taken against (a seam for a test, which pins it)."""
+    return dt.datetime.now(dt.UTC)
+
+
+def _day_settled_at(day: dt.date) -> dt.datetime:
+    """Give the moment the file of a UTC day is kept for good: `_DAY_SETTLED_AFTER` after the day ended.
+
+    A day ends at 00:00 UTC of the next one.
+    """
+    return dt.datetime.combine(day + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC) + _DAY_SETTLED_AFTER
+
+
+def _day_expiry(day: dt.date) -> CacheExpiry:
+    """Say how long the file of a UTC day is kept: five minutes until its grace is over, then for good."""
+    return CacheExpiry.FIVE_MINUTES if _now() < _day_settled_at(day) else CacheExpiry.INFINITE
+
 
 def _days(start: dt.datetime, end: dt.datetime) -> Iterator[dt.date]:
     """Yield each UTC calendar date in ``[start, end]`` inclusive.
@@ -75,10 +98,13 @@ class LhmtObservationValues(TimeseriesValues):
 
     def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | None:
         url = f"{_BASE_URL}/stations/{station_id}/observations/{day.isoformat()}"
-        # a settled past day is immutable, so it can be cached indefinitely; only the current (still
-        # filling) day needs a short cache. This keeps repeated historical queries off the network
+        # a settled past day is immutable, so it can be cached indefinitely; the current (still filling) day, and
+        # the one that ended not long ago, need a short cache. This keeps repeated historical queries off the network
         # and well under the api.meteo.lt request-rate limit.
-        ttl = CacheExpiry.FIVE_MINUTES if day >= dt.datetime.now(dt.UTC).date() else CacheExpiry.INFINITE
+        ttl = _day_expiry(day)
+        # a copy that went into the directory of what is kept for good before the grace was over (by a version without
+        # it, or inside what is the grace now) may lack what was filed late: it is fetched once more
+        refetch_before = _day_settled_at(day).timestamp() if ttl is CacheExpiry.INFINITE else None
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -86,6 +112,7 @@ class LhmtObservationValues(TimeseriesValues):
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
+            refetch_before=refetch_before,
         )
         # a day before the station's record is a 404 and simply contributes no rows; any other
         # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as

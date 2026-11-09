@@ -8,6 +8,7 @@ import datetime as dt
 import io
 import json
 import zipfile
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -29,7 +30,11 @@ from wetterdienst.provider.dwd.alerts import (
 )
 from wetterdienst.provider.dwd.alerts.api import _SCHEMA
 
+from .stubs import CAP_MUL, CAP_MUL_LANGUAGES, serve_snapshot
 from .test_parser import CAP_XML
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 UTC = ZoneInfo("UTC")
 _URL = "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/snapshot.zip"
@@ -398,3 +403,99 @@ def test_the_alerts_are_dated_by_the_newest_sent_of_them() -> None:
 def test_a_snapshot_without_a_warning_has_no_date() -> None:
     """No warning says nothing of when it was updated: null, never the time of the request."""
     assert _result_of_alerts_sent().data_updated_at is None
+
+
+# --- the further <info> blocks of a message: the other languages of `mul` (GH-3801) --------------------------------
+
+
+def test_a_mul_snapshot_keeps_every_language_of_an_alert_in_its_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `mul` message is one row of the first (German) language, with the seven others as its `translations`."""
+    serve_snapshot(monkeypatch, CAP_MUL)
+    result = DwdWeatherAlertRequest(language="mul").query()
+
+    assert result.df.schema == pl.Schema(_SCHEMA)
+    assert result.df.height == 1
+    assert result.df["language"].to_list() == ["de-DE"]
+    assert result.df.columns[-1] == "translations"
+    alert = result.to_dict()["alerts"][0]
+    assert alert["event"] == "NEBEL"
+    assert [t["language"] for t in alert["translations"]] == CAP_MUL_LANGUAGES[1:]
+    assert alert["translations"][0] == {
+        "language": "en",
+        "event": "fog",
+        "headline": "Official WARNING of FOG",
+        "description": alert["translations"][0]["description"],
+        "instruction": alert["translations"][0]["instruction"],
+    }
+    # in the frame they are JSON text, as `parameters` is
+    assert json.loads(result.df["translations"][0]) == alert["translations"]
+
+
+def test_every_format_of_a_mul_snapshot_has_the_translations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`to_dict`, `to_json`, GeoJSON and CSV each hold the seven further languages, and the CSV is still one row."""
+    serve_snapshot(monkeypatch, CAP_MUL)
+    result = DwdWeatherAlertRequest(language="mul").query()
+    translations = result.to_dict()["alerts"][0]["translations"]
+
+    assert json.loads(result.to_json())["alerts"][0]["translations"] == translations
+    feature = result.to_ogc_feature_collection()["features"][0]
+    assert feature["properties"]["translations"] == translations
+    assert "geometry" not in feature["properties"]
+    assert json.loads(result.to_geojson())["features"][0]["properties"]["translations"] == translations
+    assert json.loads(result.to_format("JSON", with_metadata=True))["alerts"][0]["translations"] == translations
+
+    csv = pl.read_csv(io.StringIO(result.to_csv()), infer_schema=False)
+    assert csv.height == 1
+    assert csv.columns == list(_SCHEMA)
+    assert json.loads(csv["translations"][0]) == translations
+
+
+def test_a_single_language_snapshot_has_empty_translations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An answer of one language says so with `[]`, a few bytes, in the JSON, the GeoJSON and (as text) the CSV."""
+    serve_snapshot(monkeypatch, CAP_XML)
+    result = DwdWeatherAlertRequest().query()
+
+    assert result.to_dict()["alerts"][0]["translations"] == []
+    assert result.to_ogc_feature_collection()["features"][0]["properties"]["translations"] == []
+    csv = pl.read_csv(io.StringIO(result.to_csv()), infer_schema=False)
+    assert csv["translations"].to_list() == ["[]"]
+
+
+@pytest.mark.remote
+def test_query_live_mul_snapshot() -> None:
+    """Verify the live `mul` product gives each alert the seven further languages, which differ in text only."""
+    result = DwdWeatherAlertRequest(granularity="district", language="mul").query()
+    assert result.df.schema == pl.Schema(_SCHEMA)
+    for alert in result.to_dict()["alerts"]:
+        assert alert["language"] == CAP_MUL_LANGUAGES[0]
+        assert [t["language"] for t in alert["translations"]] == CAP_MUL_LANGUAGES[1:]
+        for translation in alert["translations"]:
+            assert set(translation) <= {"language", "event", "headline", "description", "instruction"}
+
+
+def test_resolve_snapshot_a_200_page_that_is_no_index_is_a_download_error_not_no_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A listing that is an outage page with a 200 is told as one (a `DownloadError`), not as no snapshot at all.
+
+    Both are a 502 over REST, but the second said "no weather-alerts snapshot listed" for an outage (GH-3834). A real
+    index with no link is still the directory without a snapshot.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import api  # noqa: PLC0415
+
+    with serving() as server:
+        monkeypatch.setattr(api, "DWD_ALERTS_BASE_URL", f"{server.base}/weather/alerts/cap")
+        directory = "/weather/alerts/cap/COMMUNEUNION_DWD_STAT/"
+        server.pages[directory] = ("application/json", b'{"error": "unavailable"}')
+        server.pages[directory.rstrip("/")] = ("application/json", b'{"error": "unavailable"}')
+        request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00", settings=Settings(cache_dir=str(tmp_path)))
+
+        with pytest.raises(DownloadError, match="not the index page of a directory"):
+            request._resolve_snapshot()  # noqa: SLF001
+
+        server.pages.clear()
+        server.directories[directory] = []
+        with pytest.raises(MetaFileNotFoundError, match="no weather-alerts snapshot listed at"):
+            request._resolve_snapshot()  # noqa: SLF001

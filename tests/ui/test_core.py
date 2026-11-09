@@ -687,6 +687,8 @@ def test_debug_is_refused_as_removed(
         for old, new in (("station", "stations"), ("parameter", "parameters"), ("period", "periods"))
         # a history request takes no periods, so there the singular is an input it does not know
         if new in model.model_fields
+        # and only a route that had the singular in 0.139.0 was renamed: all three took `parameters` and `periods` then
+        if old in core.old_names_of_route(model.route)
     ],
 )
 def test_a_list_by_its_singular_name_is_refused_naming_the_plural(
@@ -715,17 +717,21 @@ def test_the_one_station_a_request_takes_is_not_a_renamed_list(model: type) -> N
     assert "renamed" not in types
 
 
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [("resolution", "resolutions"), ("dataset", "datasets")],
-)
-def test_coverage_refuses_the_singular_of_its_lists_naming_the_plural(old: str, new: str) -> None:
-    """Test the resolutions and datasets of a coverage are plural, and the singular is refused naming them (GH-2561)."""
+@pytest.mark.parametrize("old", ["resolution", "dataset"])
+def test_coverage_never_had_the_singular_of_its_lists(old: str) -> None:
+    """Test the singular is no rename on `coverage`, which took `resolutions` and `datasets` in 0.139.0 (GH-3869)."""
     with pytest.raises(ValidationError) as error:
         core.CoverageRequest.model_validate({"provider": "dwd", "network": "observation", old: "x"})
-    assert [(e["type"], e["loc"], e["msg"]) for e in error.value.errors(include_url=False)] == [
-        ("renamed", (old,), f"{old} was renamed to {new}")
-    ]
+    assert [(e["type"], e["loc"]) for e in error.value.errors(include_url=False)] == [("extra_forbidden", (old,))]
+
+
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest, HistoryRequest])
+@pytest.mark.parametrize("old", ["parameter", "period"])
+def test_a_route_that_took_the_plural_in_0_139_0_never_had_the_singular(model: type, old: str) -> None:
+    """Test `parameter` and `period` are no old names of the routes that took the plurals already (GH-3869)."""
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**_BASE, "all": True, old: "x"})
+    assert [(e["type"], e["loc"]) for e in error.value.errors(include_url=False)] == [("extra_forbidden", (old,))]
 
 
 # what each class of `exceptions.py` is answered with, by name so that a class added to the module
@@ -765,6 +771,7 @@ _STATUS_OF = {
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
+    "StationListingIncompleteError": 502,
     "StationNotFoundError": 404,
     "UnknownFormatError": 400,
     "UpstreamError": 502,

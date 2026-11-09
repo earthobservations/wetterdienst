@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from measurement.measures import Distance
-from measurement.utils import guess
 
 from wetterdienst.exceptions import (
     DateRequiredError,
@@ -32,6 +30,7 @@ from wetterdienst.exceptions import (
     ProviderContractError,
     RequestError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     StationNotFoundError,
 )
 from wetterdienst.io.sql_filter import filter_by_sql
@@ -39,6 +38,7 @@ from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.listing_gap import ListingGap  # noqa: TC001, a return annotation of the hook below
 from wetterdienst.model.metadata import (
     CoverageDataset,
     CoverageParameter,
@@ -80,6 +80,7 @@ from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -854,6 +855,10 @@ class TimeseriesRequest:
                 # the source's own words for its own field, where we have them; the canonical,
                 # provider-independent sentence lives in the glossary
                 "description": parameter.description,
+                # null is "not stated", never a reading: the provider's own declaration where the name states no
+                # statistic, and the position of the parameter or else of its dataset (GH-3134)
+                "aggregation": parameter.effective_aggregation,
+                "timestamp_position": parameter.effective_timestamp_position,
             }
             # only where it says something: absent is the same as `unit`, as most are (GH-3537)
             if parameter.unit != unit:
@@ -994,6 +999,29 @@ class TimeseriesRequest:
             _stations_filter=StationsFilter.ALL,
         )
 
+    def _lookup_gaps(self) -> dict[str, ListingGap]:
+        """Name the listings of the provider that the last lookup of the stations went without, with what they can say.
+
+        `dwd/observation` and `dwd/derived` look the stations up in directories and skip one that came back empty or
+        missing, or that lists no description (`file-skipped`): a station that only it lists is not in the answer. They
+        record them in `_all`, by directory, with the reason and the stations the directory can still name (the files of
+        a directory with no description carry their ids; an empty or missing one names none). Empty where the lookup
+        went without nothing, which is every other provider and every lookup that read all.
+        """
+        return dict(getattr(self, "_gaps_of_lookup", {}))
+
+    def _gaps_that_may_list(self, station_id: str) -> dict[str, str]:
+        """Give the directories the last lookup went without that a station may be listed in, with the reason.
+
+        A station asked for by its id and not found is perhaps one that only a skipped directory lists:
+        `_get_position_by_station_id` and the stripes raise `StationListingIncompleteError`, not `StationNotFoundError`.
+        Every skipped directory may hold it where it can name no station (an empty or missing one); one whose files
+        name their stations only where the id is among them. Empty where nothing says it may be there: the station is
+        unknown, and the usual 404.
+        """
+        station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
+        return {directory: gap.reason for directory, gap in self._lookup_gaps().items() if gap.may_list(station_id)}
+
     def _stations_to_select_among(self) -> pl.DataFrame:
         """Build the stations of the request that a filter or an estimate selects among.
 
@@ -1005,6 +1033,16 @@ class TimeseriesRequest:
             return self.all().df
         finally:
             _SELECTING.reset(token)
+
+    def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
+        """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
+
+        All of them, whatever the window: a provider whose `end_timestamp` is exact, which never says a station still
+        reporting has ended, narrows them to the stations with a record in the window (`limit_to_window`), so that a
+        station that closed before it is neither counted nor asked for. Where the end lags a station that is still
+        reporting, as most indexes do, a station is kept for the walk to ask and skip.
+        """
+        return df_all
 
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """Filter stations by station_id.
@@ -1166,7 +1204,8 @@ class TimeseriesRequest:
         Rank is defined by distance to the requested point. The resulting
         ``StationsResult.df`` holds **all** stations with a position sorted by
         distance, not just ``rank`` rows; a station without a latitude or longitude
-        has no distance and is left out. Because we cannot know upfront which
+        has no distance and is left out (a provider whose end timestamps are exact may cut the list to the stations
+        with a record in the window first, see ``_stations_to_search``). Because we cannot know upfront which
         stations actually carry data for the request, the ``rank`` limit is applied
         lazily while collecting values. Value collection walks the distance-sorted
         stations and stops once ``rank`` stations that returned anything have been
@@ -1201,8 +1240,7 @@ class TimeseriesRequest:
         # `summarize` does, and not ranked by the distances its wrapped coordinates have (GH-3717)
         q_lat, q_lon = float(latlon[0]), float(latlon[1])
         require_location_in_range(q_lat, q_lon)
-        if df_all is None:
-            df_all = self._stations_to_select_among()
+        df_all = self._stations_to_search(self._stations_to_select_among() if df_all is None else df_all)
         latitudes = df_all.get_column("latitude").to_arrow()
         longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
@@ -1263,6 +1301,11 @@ class TimeseriesRequest:
 
         unit = unit.strip()
 
+        # imported here: `measurement` imports sympy, which is 0.14 s of the 0.5 s a `values` command takes to start,
+        # and only a request by distance reads it (GH-3809)
+        from measurement.measures import Distance  # noqa: PLC0415
+        from measurement.utils import guess  # noqa: PLC0415
+
         distance_in_km = guess(distance, unit, [Distance]).km
 
         # the rank only limits value collection later on: `df` holds every located station whatever
@@ -1304,7 +1347,7 @@ class TimeseriesRequest:
             msg = "bbox bottom border should be smaller then top"
             raise InvalidBoundingBoxError(msg)
 
-        df_all = self._stations_to_select_among()
+        df_all = self._stations_to_search(self._stations_to_select_among())
 
         df = df_all.filter(
             pl.col("latitude").is_between(bottom, top, closed="both")
@@ -1373,6 +1416,8 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
+
         _require_finite_elevation(elevation)
         # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
         interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
@@ -1398,9 +1443,16 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
+        placements: dict[str, StationPlacement] = {}
         with answer_cut_to_window():
             interpolated = get_interpolated_df(
-                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
             )
         df_interpolated = self._as_asked(interpolated)
         # the elevation belongs in the name: two elevations at one point are two different
@@ -1418,12 +1470,15 @@ class TimeseriesRequest:
             ),
             INTERPOLATED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
-            .explode("station_id", empty_as_null=True)
-            .unique(),
-            on="station_id",
-            maintain_order="left",
+        df_stations = with_placement(
+            df_all.join(
+                other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
+                .explode("station_id", empty_as_null=True)
+                .unique(),
+                on="station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,
@@ -1509,6 +1564,7 @@ class TimeseriesRequest:
         this one frame, so that the provider builds its station list once.
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
 
         lat, lon = float(latlon[0]), float(latlon[1])
         require_location_in_range(lat, lon)
@@ -1530,9 +1586,16 @@ class TimeseriesRequest:
         if df_all is None:
             df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
+        placements: dict[str, StationPlacement] = {}
         with answer_cut_to_window():
             summarized = get_summarized_df(
-                self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
             )
         summarized_values = self._as_asked(summarized)
         # the elevation belongs in the name: two elevations at one point are two different
@@ -1548,11 +1611,14 @@ class TimeseriesRequest:
             ),
             SUMMARIZED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=summarized_values.select(pl.col("taken_station_id")).unique(),
-            left_on="station_id",
-            right_on="taken_station_id",
-            maintain_order="left",
+        df_stations = with_placement(
+            df_all.join(
+                other=summarized_values.select(pl.col("taken_station_id")).unique(),
+                left_on="station_id",
+                right_on="taken_station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,
@@ -1668,6 +1734,9 @@ class TimeseriesRequest:
 
         Raises:
             StationNotFoundError: Where the station is not listed.
+            StationListingIncompleteError: Where it is not listed and the lookup of the stations went without a listing
+                the station may be in (`dwd/observation`, `dwd/derived`: a directory that came back empty or missing,
+                or that lists no description), so that it is not known to be unknown.
             LocationOutOfRangeError: Where no row of the station gives both a latitude and a longitude.
 
         """
@@ -1676,6 +1745,9 @@ class TimeseriesRequest:
             df_all = self._stations_to_select_among()
         stations = df_all.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
+            if gaps := self._gaps_that_may_list(station_id):
+                # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
+                raise StationListingIncompleteError(station_id, gaps)
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
         located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()

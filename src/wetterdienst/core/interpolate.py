@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import math
-from functools import lru_cache
+from functools import lru_cache, partial
 from itertools import combinations
 from queue import Queue
 from typing import TYPE_CHECKING, cast
@@ -32,15 +32,18 @@ from wetterdienst.core.util import (
     one_row_per_station,
     open_parameter_data,
     parameters_still_in_reach,
+    place_station,
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
+    walk_was_done_at,
     widest_station_distance,
     zero_elevation_is_unknown,
 )
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.parameter_rows import EstimateLeftOut
 from wetterdienst.model.plausibility import leave_out_suspect
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
@@ -50,6 +53,7 @@ if TYPE_CHECKING:
 
     from shapely.geometry.base import BaseGeometry
 
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.options import Options
@@ -95,6 +99,7 @@ def get_interpolated_df(
     *,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> pl.DataFrame:
     """Get the interpolated DataFrame for the given request and location.
 
@@ -107,6 +112,8 @@ def get_interpolated_df(
             where left out
         data_updated: a dict the date is put into that the source states for the data of each station that gave a
             value (`data_updated_at` of its values), by `station_id`; the answer has the newest of those it was made of
+        placements: a dict the distance of each station that gave a value, and its elevation against the point's, is
+            put into, by `station_id`; the answer names them for the stations its rows were made of
 
     Raises:
         NoStationsWithElevationError: where an elevation is asked about and leaving out the stations
@@ -125,6 +132,7 @@ def get_interpolated_df(
         zone=(zone_number, zone_letter),
         df_all=df_all,
         data_updated=data_updated,
+        placements=placements,
     )
     df = calculate_interpolation(utm_x, utm_y, stations_dict, param_dict, options.geo_use_nearby_station_distance)
     # after the frame is built, not before: a parameter the exclusions left with three stations
@@ -152,6 +160,7 @@ def request_stations(
     zone: tuple[int, str] | None = None,
     df_all: pl.DataFrame | None = None,
     data_updated: dict[str, dt.datetime] | None = None,
+    placements: dict[str, StationPlacement] | None = None,
 ) -> tuple[dict, dict, dict[tuple[str, str, str], DroppedForElevation], set[tuple[str, str, str]]]:
     """Request the stations for the interpolation.
 
@@ -169,6 +178,8 @@ def request_stations(
         df_all: the station list `request.all()` gave, which the ranking reads rather than building
             it again
         data_updated: where to put the date the source states for the data of each station that gave a value
+        placements: where to put how far each station that gave a value is from the point, and its elevation against
+            the point's
 
     Returns:
         the stations dict, the parameter dict, how many stations each parameter lost for
@@ -225,6 +236,12 @@ def request_stations(
     # the markers of its answer (GH-3554)
     values._count_missing_value_markers = False  # noqa: SLF001
     values._warn_without_rows = False  # noqa: SLF001
+    # what its walk leaves out at the stations it reads is told once, as one warning, when the walk is over (GH-3848)
+    left_out = EstimateLeftOut()
+    values._left_out_of_estimate = left_out  # noqa: SLF001
+
+    # the stations read up to the last one the walk used (`EstimateLeftOut.forget_since`)
+    used = 0
     for result in tqdm(
         values.query(),
         total=len(stations_by_id),
@@ -244,6 +261,7 @@ def request_stations(
             and valid_station_groups_exists
         ):
             break
+        used = left_out.mark()
         if result_df.drop_nulls("value").is_empty():
             continue
         if not UTM_LATITUDE_MIN <= station["latitude"] <= UTM_LATITUDE_MAX:
@@ -276,6 +294,21 @@ def request_stations(
                 force_zone_letter=zone[1],
             )[:2]
             stations_dict[station["station_id"]] = (utm_x_station, utm_y_station, station["distance"])
+            if placements is not None:
+                placements[station["station_id"]] = place_station(station, elevation)
+    # the station the walk stopped at, and those it passed over for want of rows once it was done, lost nothing
+    left_out.forget_since(
+        used,
+        partial(
+            walk_was_done_at,
+            stations_by_id=stations_by_id,
+            counts=counts,
+            param_dict=param_dict,
+            dropped_for_elevation=dropped_for_elevation,
+            valid_group=has_valid_station_group(stations_dict, utm_x, utm_y),
+        ),
+    )
+    left_out.warn()
     return stations_dict, param_dict, dropped_for_elevation, unanswerable
 
 

@@ -12,6 +12,30 @@ export type Resolution
     | 'monthly'
     | 'annual'
 
+/**
+ * What a value is relative to its interval, as the backend's `Aggregation` in
+ * wetterdienst/metadata/parameter_table.py: a closed set, where `null` is "not stated"
+ */
+export type Aggregation
+  = 'instant'
+    | 'mean'
+    | 'max'
+    | 'min'
+    | 'sum'
+    | 'count'
+    | 'mean_of_max'
+    | 'mean_of_min'
+    | 'probability'
+    | 'occurrence'
+    | 'date'
+    | 'change'
+    | 'uncertainty'
+    | 'code'
+    | 'at_max'
+
+/** Where a timestamp sits in the row's interval, as the backend's `TimestampPosition`: a closed set */
+export type TimestampPosition = 'instant' | 'start' | 'end' | 'middle'
+
 // ============================================================================
 // Coverage API
 // ============================================================================
@@ -28,6 +52,13 @@ export interface CoverageParameter {
   unit_type: string
   unit: string
   description: string | null
+  /**
+   * What the value is relative to its interval; null: the source does not state it. The app does not
+   * read it, and it is optional for a server that does not send it yet
+   */
+  aggregation?: Aggregation | null
+  /** Where the timestamp sits in the row's interval; null: not stated. Optional as `aggregation` */
+  timestamp_position?: TimestampPosition | null
   /**
    * DWD DMO only: the lead times whose run carries the parameter. Values refuse a parameter asked
    * for by name that the requested run does not carry
@@ -62,6 +93,8 @@ export interface GlossaryEntry {
   unit: string
   unit_symbol: string
   description: string
+  /** The canonical value, null for a plain name; optional for a server that does not send it yet */
+  aggregation?: Aggregation | null
 }
 
 /**
@@ -288,6 +321,8 @@ export interface StripesStation {
   region: string
   latitude: number
   longitude: number
+  /** Null or left out where the station has none */
+  elevation?: number | null
   start_timestamp: string | null
   end_timestamp: string | null
 }
@@ -473,7 +508,11 @@ export interface NetworkExtent {
   bbox: [number, number, number, number]
 }
 
-/** A network of a provider, as `GET /api/providers` lists it: standalone ones (`radar`, `alerts`) have no resolutions */
+/**
+ * A network of a provider, as `GET /api/providers?datasets=true` lists it: standalone ones (`radar`, `alerts`) have an
+ * empty list. The backend's compact answer (`datasets=false`, which is to become its default) has `null`, so the app
+ * asks with `datasets=true` and reads a missing list as an empty one.
+ */
 export interface ProviderNetwork {
   network: string
   kind: NetworkKind
@@ -487,7 +526,7 @@ export interface ProviderNetwork {
   date_required: boolean
   /** How many parameters the network has in all of its datasets */
   parameters: number
-  resolutions: ProviderResolution[]
+  resolutions: ProviderResolution[] | null
 }
 
 /** A provider of data, as `GET /api/providers` lists it */

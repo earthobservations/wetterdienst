@@ -19,6 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
@@ -32,12 +33,22 @@ from wetterdienst.provider.dwd.derived.fileindex import (
 from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
+from wetterdienst.provider.dwd.expiry import expiries_of, file_expiry
+from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
+    EmptyListingError,
+    directory_of,
+    remembering_empty_directories,
+    warn_skipped_listings,
+)
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from wetterdienst import Period
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
 
 
@@ -79,6 +90,11 @@ def _get_data_from_file(
 
 class DwdDerivedValues(TimeseriesValues):
     """Values class for dwd derived data."""
+
+    @remembering_empty_directories
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
+        yield from super().query()
 
     _default_start_dates: ClassVar = {
         Resolution.MONTHLY: dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -532,7 +548,7 @@ class DwdDerivedValues(TimeseriesValues):
                 downloaded_file = download_file(
                     url=url,
                     cache_dir=cast("Settings", self.sr.request.settings).cache_dir,
-                    ttl=CacheExpiry.FIVE_MINUTES,
+                    ttl=file_expiry(period),
                     client_kwargs=self.sr.settings.fsspec_client_kwargs,
                     cache_disable=self.sr.settings.cache_disable,
                     use_certifi=self.sr.settings.use_certifi,
@@ -590,12 +606,20 @@ class DwdDerivedValues(TimeseriesValues):
         stations = cast("DwdDerivedRequest", self.sr.request)
         settings = cast("Settings", stations.settings)
         urls: list[str] = []
+        ttls: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             if dataset in TECHNICAL_DATASETS:
                 continue
             for period in sorted(cast("set[Period]", stations.periods) or set()):
-                urls += create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                try:
+                    of_period = create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
+                except EmptyListingError:
+                    # as the collection skips the period; the files ahead are only a head start
+                    continue
+                urls += of_period
+                # the expiry of the period, as `download_climate_derived_data` downloads them with (GH-3929)
+                ttls |= expiries_of(of_period, period)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -626,15 +650,23 @@ class DwdDerivedValues(TimeseriesValues):
         # settled on. Iterating the set directly left the order to the set's own, which varies from one
         # interpreter run to the next
         for rank, period in enumerate(sorted(station_periods)):
-            remote_files = create_file_list_for_climate_derived(
-                station_id, dataset, period, cast("Settings", stations.settings)
-            )
+            try:
+                remote_files = create_file_list_for_climate_derived(
+                    station_id, dataset, period, cast("Settings", stations.settings)
+                )
+            except EmptyListingError as e:
+                # the directory has no file to read: the lookup of the stations tells the directory, this the station
+                log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
+                note_skipped_download(SkipCause.EMPTY_DIRECTORY)
+                continue
 
             if remote_files.is_empty():
                 dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_derived_data(remote_files, cast("Settings", stations.settings))
+            filenames_and_files = download_climate_derived_data(
+                remote_files, cast("Settings", stations.settings), period
+            )
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))
@@ -725,6 +757,7 @@ class DwdDerivedRequest(TimeseriesRequest):
 
         return stations_data.sort(by=["station_id"], maintain_order=True)
 
+    @remembering_empty_directories
     def _all(self) -> pl.LazyFrame:
         """Fetch station data for the given request.
 
@@ -738,6 +771,9 @@ class DwdDerivedRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel) and parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
         stations = []
+        # the directories this lookup went without, for a station that is not found (`_lookup_gaps`)
+        gaps: dict[str, ListingGap] = {}
+        self._gaps_of_lookup = gaps
         for dataset in datasets:
             file_ids: set[str] = set()
             listed_ids: set[str] = set()
@@ -748,10 +784,19 @@ class DwdDerivedRequest(TimeseriesRequest):
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; `reversed(list(...))` over a set left the
             # winner to the set's own iteration order, which varies from one interpreter run to the next
+            skipped: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 df = create_meta_index_for_climate_derived(dataset, settings)
                 df = self._process_dataframe_to_expected_format(df, dataset)
-                file_index = create_file_index_for_climate_derived(dataset, period, settings)
+                try:
+                    file_index = create_file_index_for_climate_derived(dataset, period, settings)
+                except EmptyListingError as e:
+                    # a directory that came back empty or missing costs the stations that only it lists, which the
+                    # warning below says, as for `dwd/observation`; an outage is raised by the listing
+                    log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
+                    skipped.setdefault(directory := directory_of(e.url), []).append(period)
+                    gaps[directory] = ListingGap(EMPTY_LISTING)
+                    continue
                 if dataset not in TECHNICAL_DATASETS:
                     file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                     df = df.join(
@@ -766,6 +811,7 @@ class DwdDerivedRequest(TimeseriesRequest):
                     df = df.lazy()
 
                 stations.append(df)
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(

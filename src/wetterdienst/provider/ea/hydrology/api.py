@@ -64,16 +64,19 @@ _EAHydrologyMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "discharge",
                             "name_original": "flow-i-900",
                             "unit": "cubic_meter_per_second",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "stage",
                             "name_original": "level-i-900",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "groundwater_level",

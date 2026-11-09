@@ -27,7 +27,7 @@ from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, ME
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.util.network import File
@@ -383,6 +383,27 @@ def mez_md_column(parameter: str) -> str:
     return f"{MEZ_MD_PREFIX}{parameter}"
 
 
+#: the prefix of the boolean column that says which of those stamps only the 1973-01 to 1975-12 batch of the table of
+#: GH-3776 shifted: the rows `zone:mez-1973-75` flags, not those a MEZ (MD) period shifts too
+MEZ_BATCH_PREFIX = "mez_batch__"
+
+
+def mez_batch_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are of the batch."""
+    return f"{MEZ_BATCH_PREFIX}{parameter}"
+
+
+#: the prefix of the boolean column that says which stamps of a parameter lie in the months of the table of GH-3910
+#: whose stamps are mean local time: the rows of these that a MEZ (MD) period shifts are flagged
+#: `zone:mez-local-mean-time` instead of `zone:mez`
+LOCAL_MEAN_TIME_PREFIX = "local_mean_time__"
+
+
+def local_mean_time_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are mean local time."""
+    return f"{LOCAL_MEAN_TIME_PREFIX}{parameter}"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
@@ -429,11 +450,11 @@ def _parse_climate_observations_data(  # noqa: C901
             infer_schema=False,
         )
     except pl.exceptions.SchemaError:
-        note_skipped_download()
+        note_skipped_download(SkipCause.UNPARSEABLE)
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
-        note_skipped_download()
+        note_skipped_download(SkipCause.UNPARSEABLE)
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
@@ -557,6 +578,30 @@ def _parse_climate_observations_data(  # noqa: C901
                 if file.mez_md_spans.get(column)
                 else pl.lit(value=False)
             ).alias(mez_md_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.mez_batch_spans[column]
+                )
+                if file.mez_batch_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(mez_batch_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.local_mean_time_spans[column]
+                )
+                if file.local_mean_time_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(local_mean_time_column(column))
             for column in parameters
             if column in columns
         )

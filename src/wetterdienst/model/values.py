@@ -30,7 +30,7 @@ from wetterdienst.model.judge import (
     to_requested,
 )
 from wetterdienst.model.metadata import group_parameters_by_dataset
-from wetterdienst.model.parameter_rows import ParameterRows
+from wetterdienst.model.parameter_rows import EstimateLeftOut, ParameterRows
 from wetterdienst.model.plausibility import REJECTED_TOKEN, leave_out_suspect
 from wetterdienst.model.quality_flags import CALM_TOKEN, QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.request import require_window
@@ -344,8 +344,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: whether `query` tells, at the end of the walk, the parameters of the request that no station had a row of
     #: (`parameter-without-rows`, GH-3539); a caller that reads stations only to estimate between them (interpolation,
     #: summary) sets it False, as a station without a parameter is what it expects there; the stations whose file the
-    #: provider let go (`file-skipped`, GH-3552) are told by the same walk and so are left out there too
+    #: provider let go (`file-skipped`, GH-3552) and the dates left out for another series (`other-window-left-out`) are
+    #: told by the same walk and so are left out there too; the estimate tells them once (`_left_out_of_estimate`)
     _warn_without_rows: bool = field(default=True, init=False, repr=False, compare=False)
+    #: where an estimate (interpolation, summary) has the walk tell what it left out at each station it reads: the
+    #: stations whose file the provider let go, those whose dates of another series were left out and those whose values
+    #: of a window that had not closed were left out, which the estimate tells once as `source-data-left-out` when its
+    #: walk is over (`EstimateLeftOut`, GH-3848, GH-3883). It also says that the values are read for an estimate:
+    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value
+    _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Post-initialization of the TimeseriesValues object."""
@@ -483,7 +490,22 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
-        rows = ParameterRows(self.sr.request, self.sr.start, self.sr.end, enabled=self._warn_without_rows)
+        # an explicit list of ids is the one selection whose empty stations are told (`station-without-rows`, GH-3828)
+        asked = (
+            [cast("str", station_id) for (station_id,), _ in groups]
+            if self.sr._stations_filter == StationsFilter.BY_STATION_ID  # noqa: SLF001
+            else None
+        )
+        rows = ParameterRows(
+            self.sr.request,
+            self.sr.start,
+            self.sr.end,
+            enabled=self._warn_without_rows,
+            asked=asked,
+            # `skip_empty` tells a station with a reading, all null, by `station-skipped` (`_leave_out_emptied`)
+            nulls_dropped=self.sr.options.drop_nulls_effective and not self.sr.options.skip_empty,
+            left_out=self._left_out_of_estimate,
+        )
         # mapping of original to humanized parameter names is always the same
         hpm = self._create_humanized_parameters_mapping() if self.sr.options.humanize else None
         for position, ((station_id,), df_station_meta) in enumerate(groups):
@@ -506,6 +528,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # Collect data for this station
             with rows.collecting(station_id):
                 df = self._filter_by_window(self._collect_station_data(station_id, available_datasets))
+            # the values a hard check made null at this station, for an estimate to tell (`EstimateLeftOut`)
+            rows.rejected(station_id, self._rejected_in_window, self._rejected_by_check)
             rows.note(df)
             # judged after the window has been cut, not before it: a station whose record lies
             # entirely outside the requested window returned data, but none that was asked for.
@@ -521,7 +545,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 if percentage < self.sr.options.skip_threshold:
                     # a parameter that holds nothing but nulls is a row the station has, with the nulls kept
                     self._note_nulls_dropped(rows)
-                    self._warn_station_skipped(station_id, percentage)
+                    self._warn_station_skipped(station_id, percentage, rows)
                     self._pass_over(rows, station_id)
                     continue
             self._tell_missing_value_markers()
@@ -540,6 +564,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
             df = df.sort(sort_columns)
             stations_collected += 1
+            rows.returned(station_id)
             yield ValuesResult(stations=self.sr, df=df, data_updated_at=newest(self._data_updated))
         # only a walk read to its end says what it found: a failure raised before it, and one that is stopped is silent
         rows.warn(rank_filled=stations_collected == self.sr._rank)  # noqa: SLF001
@@ -554,8 +579,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr._stations_filter == StationsFilter.BY_RANK:  # noqa: SLF001
             rows.passed_over(station_id)
 
-    def _warn_station_skipped(self, station_id: str, percentage: float) -> None:
+    def _warn_station_skipped(self, station_id: str, percentage: float, rows: ParameterRows) -> None:
         """Tell that `skip_empty` leaves the station out, for a share of actual values below the threshold."""
+        rows.explained(station_id)
         warn_response(
             log,
             "station-skipped",
@@ -568,7 +594,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Tell of a station with nothing left in the window: `station-skipped` if it held readings, all nulls."""
         if self._note_nulls_dropped(rows):
             # `skip_empty` leaves it out, as it does with the nulls kept
-            self._warn_station_skipped(station_id, 0.0)
+            self._warn_station_skipped(station_id, 0.0, rows)
         self._tell_missing_value_markers(emptied=True)
 
     def _station_spans(self) -> pl.DataFrame | None:
@@ -1289,7 +1315,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         `if_exists` is for the first station and defaults to 'fail', where a result's `to_target` defaults to
         'replace': this is one table being filled station by station rather than one frame being written, so the
         first station must not overwrite a table that already holds data. Every station after it is appended.
+
+        Raises:
+            ExportRefusedError: `if_exists` is none of the four words, told before any station is downloaded.
+
         """
+        # the sinks import the results, which import this module
+        from wetterdienst.io.sinks import refuse_unknown_if_exists  # noqa: PLC0415
+
+        refuse_unknown_if_exists(if_exists)
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
         redacted = redact_password(target)
         for i, result in tqdm(enumerate(self.query()), total=len(self.sr.station_id), file=tqdm_out):

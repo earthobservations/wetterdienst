@@ -21,7 +21,7 @@ import logging
 import queue
 import threading
 from concurrent.futures import Future, wait
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
@@ -31,7 +31,7 @@ from wetterdienst.settings import FETCH_AHEAD_MAX
 from wetterdienst.util.network import _without_url_secrets, download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
@@ -53,6 +53,13 @@ class FilesAhead:
     """The URLs the provider downloads for the station, whatever order and however many times it asks for them."""
     ttl: CacheExpiry
     """The expiry the provider downloads them with: the cache they are fetched into is the one of this expiry."""
+    ttls: Mapping[str, CacheExpiry] = field(default_factory=dict)
+    """The expiry of the URLs whose own is named here, a settled file being kept longer than one that is still written
+    to (GH-3929): a hook may name every URL, or only those that differ from ``ttl``, and the rest have ``ttl``."""
+
+    def ttl_of(self, url: str) -> CacheExpiry:
+        """Give the expiry the provider downloads ``url`` with."""
+        return self.ttls.get(url, self.ttl)
 
 
 def _host_slot(url: str) -> threading.BoundedSemaphore:
@@ -123,7 +130,8 @@ class _Fetch:
     """The files of one station, fetched by one thread, one after the other."""
 
     urls: list[str]
-    ttl: CacheExpiry
+    #: the expiry each of the urls is downloaded with
+    ttls: dict[str, CacheExpiry]
     #: set when the walk comes to the station: what is under way ends, and the files left are the station's own
     #: download's, which fetches a station's files side by side where this fetches them one after the other
     stop: threading.Event
@@ -255,15 +263,17 @@ class FetchAhead:
         station_id, datasets = station
         # a hook that raises is guarded by `advance`: it stops the fetching, the station's own collection meets it
         files = self._files_of(station_id, datasets)
-        if files is None or files.ttl is CacheExpiry.NO_CACHE:
+        if files is None:
             return
-        urls = [url for url in dict.fromkeys(files.urls) if url not in self._seen]
-        self._seen.update(files.urls)
+        # a file that is not cached is not fetched ahead, whatever the expiry of the others
+        named = [url for url in dict.fromkeys(files.urls) if files.ttl_of(url) is not CacheExpiry.NO_CACHE]
+        urls = [url for url in named if url not in self._seen]
+        self._seen.update(named)
         if not fetch or not urls:
             return
         if self._workers is None:
             self._workers = _Workers(self._depth, "wetterdienst-fetch-ahead")
-        job = _Fetch(urls=urls, ttl=files.ttl, stop=threading.Event())
+        job = _Fetch(urls=urls, ttls={url: files.ttl_of(url) for url in urls}, stop=threading.Event())
         self._fetches[position] = job
         job.future = self._workers.submit(self._fetch, job)
 
@@ -281,7 +291,7 @@ class FetchAhead:
                     file = download_file(
                         url=url,
                         cache_dir=self._settings.cache_dir,
-                        ttl=job.ttl,
+                        ttl=job.ttls[url],
                         client_kwargs=self._settings.fsspec_client_kwargs,
                         cache_disable=self._settings.cache_disable,
                         use_certifi=self._settings.use_certifi,

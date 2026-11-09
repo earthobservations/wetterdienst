@@ -30,7 +30,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA, EXTENT_GERMANY
 from wetterdienst.util.eccodes import bufr_file, require_bufr
 from wetterdienst.util.network import File, download_file, download_files, list_remote_files_fsspec
-from wetterdienst.util.response_warnings import collecting, note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, collecting, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -65,7 +65,9 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "humidity_relative",
                             "name_original": "relativeHumidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             # not `precipitation_form`, which every other provider fills with a
@@ -76,16 +78,19 @@ _DwdRoadMetadataSpec = {
                             # name the two would be one quantity with two incomparable encodings
                             "name": "precipitation_type_flags",
                             "name_original": "precipitationType",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "precipitation_amount",
                             "name_original": "totalPrecipitationOrTotalWaterEquivalent",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_intensity",
                             "name_original": "intensityOfPrecipitation",
+                            "timestamp_position": "instant",
                             # BUFR `0 13 055` gives this as `kg m-2 s-1`, a mass flux per area which
                             # for water is millimetres per second, and nothing in this parser
                             # converts. Its own width settles it: 8 bits at a scale of 4, in every
@@ -99,26 +104,34 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "road_surface_condition",
                             "name_original": "roadSurfaceCondition",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "temperature_air",
                             "name_original": "airTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point",
                             "name_original": "dewpointTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_surface",
                             "name_original": "roadSurfaceTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "horizontalVisibility",
+                            "timestamp_position": "instant",
                             # BUFR 0 20 001 horizontalVisibility is metres, and nothing in this
                             # parser converts; the docs page already said m
                             "unit": "meter",
@@ -126,6 +139,7 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "water_film_thickness",
                             "name_original": "waterFilmThickness",
+                            "timestamp_position": "instant",
                             # metres whichever descriptor carries it, and nothing in this parser
                             # converts. These files come in two layouts: the road one names the film
                             # with DWD's own local `0 13 241`, metres to a scale of 3, and the WMO
@@ -605,8 +619,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         require_bufr("DWD road weather data")
         # the group parsed for the station asked about before this one, and the key it answers for.
         # See `_collect_data_by_station_group`
-        # and whether a file of the group was let go, which is every station of it is told again
-        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, bool] | None = None
+        # and why a file of the group was let go, if one was, which is every station of it is told again
+        self._group_cache: tuple[tuple[str, tuple[str, ...]], pl.DataFrame, tuple[SkipCause, ...]] | None = None
 
     def _plausibility_rules(self, station_id: str, dataset: DatasetModel) -> tuple[Rule, ...]:  # noqa: ARG002
         """Give the relation of the road surface to the air at night, where the station has a position."""
@@ -733,15 +747,16 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         key = (road_weather_station_group.value, tuple(parameter.name_original for parameter in parameters))
         if self._group_cache is not None and self._group_cache[0] == key:
             # a file of the group that was let go is every station's of it, not only the first one's
-            if self._group_cache[2]:
-                note_skipped_download()
+            for cause in self._group_cache[2]:
+                note_skipped_download(cause)
             return self._group_cache[1]
-        let_go: list[bool] = []
-        with collecting(let_go.append):
+        let_go: list[SkipCause] = []
+        with collecting(lambda _whole_request, cause: let_go.append(cause)):
             df = self.__collect_data_by_station_group(road_weather_station_group, parameters)
-        if let_go:
-            note_skipped_download()
-        self._group_cache = (key, df, bool(let_go))
+        causes = tuple(dict.fromkeys(let_go))
+        for cause in causes:
+            note_skipped_download(cause)
+        self._group_cache = (key, df, causes)
         return df
 
     def __collect_data_by_station_group(
@@ -783,7 +798,8 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
             # the readings of the files that arrived are returned, and those of the others are
             # missing: a gap in the window, which can also keep a stuck sensor below the count of
             # readings that marks it
-            note_skipped_download()
+            for cause in dict.fromkeys(file.skip_cause for file in failed):
+                note_skipped_download(cause)
             log.warning(
                 f"{len(failed)} of {len(files)} files of {road_weather_station_group.value} could not be "
                 f"downloaded and their readings are missing (first: {failed[0].filename}, "

@@ -5,8 +5,9 @@
    Four tiles, one frame (GH-3518)
 
    The logo is four rounded tiles: a sun (yellow), rain (blue), wind (teal) and a thermometer (coral) on navy. The
-   app has four tools, and each takes one tile as its mark: the forecast the sun, the explorer the rain, the station
-   history the wind and the climate stripes the thermometer (`app/utils/sections.ts`). Those four colours appear
+   app's tools each take one tile as their mark: the forecast the sun, the explorer the rain, the station
+   history the wind and the climate stripes the thermometer (`app/utils/sections.ts`); the map, the fifth tool, has
+   a violet of its own (GH-3650). Those five colours appear
    only there, as tiles, so that a colour always says which tool a page is; everything else is navy ink on paper,
    with the logo's blue as the one colour of action (links, the primary button, the focus ring).
 
@@ -115,6 +116,13 @@
   --color-tile-wind: #2bb3a3;
   --color-tile-heat: #f0543c;
   --color-tile-navy: #17335f;
+  /* The fifth tile, the map's (GH-3650): a violet, hue 262, in the widest gap of the colour wheel between the rain's
+     blue (217) and the thermometer's coral (7), and far from the four for red-green colour blindness too. By day it
+     is violet-600 with a white glyph (5.7:1; 5.3:1 against the paper, 5.7:1 against a card); at night that fill would
+     be 2.8:1 against a card, so the tile takes a lighter violet with the navy glyph the sun and the wind have (5.3:1;
+     4.8:1 against a card). Held to those ratios by `tests/unit/button-contrast.test.ts`. */
+  --color-tile-map: #7c3aed;
+  --color-tile-map-night: #9a79f8;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -398,13 +406,16 @@
 /* A tab of the header: the tool's tile and name. The tab of the page one is on is bolder, and carries a bar on the
    header's lower edge (navy by day, the sun by night). The bold name takes no more room than the plain one, so the
    tabs do not move when the page changes: the bold width is reserved by an invisible copy (`data-text`). */
+/* five tools and the reference in the header: a tab is a little narrower below 90 rem than above it, so that the longer
+   languages (Italian and French, GH-3650) still fit at 1024 and 1280 px, where the header holds the search's word too */
 .nav-tab {
+  --nav-tab-pad: 0.5rem;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4375rem;
   height: 2.5rem;
-  padding-inline: 0.625rem;
+  padding-inline: var(--nav-tab-pad);
   border-radius: calc(var(--ui-radius) * 2);
   color: var(--ui-text-toned);
   font-weight: 500;
@@ -412,6 +423,12 @@
   transition:
     background-color 150ms,
     color 150ms;
+}
+@media (min-width: 90rem) {
+  .nav-tab {
+    --nav-tab-pad: 0.625rem;
+    gap: 0.5rem;
+  }
 }
 .nav-tab:hover {
   background: var(--ui-bg-elevated);
@@ -426,7 +443,7 @@
 .nav-tab[data-current]::after {
   content: "";
   position: absolute;
-  inset-inline: 0.625rem;
+  inset-inline: var(--nav-tab-pad);
   bottom: calc((var(--header-height) - 2.5rem) / -2 - 1px);
   height: 3px;
   border-radius: 3px 3px 0 0;
@@ -498,10 +515,12 @@
   overflow-wrap: anywhere;
   max-width: 100%;
 }
-.tabbar-item[aria-current="page"] {
+.tabbar-item[aria-current="page"],
+.tabbar-item[aria-current="true"] {
   color: var(--ui-text-highlighted);
 }
-.tabbar-item[aria-current="page"]::before {
+.tabbar-item[aria-current="page"]::before,
+.tabbar-item[aria-current="true"]::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -561,6 +580,147 @@
 }
 .sheet-link[aria-current="page"] {
   box-shadow: inset 3px 0 0 var(--app-current);
+}
+
+/* The chooser of the phone bar's tools (settings page, GH-3846): the preview is the bar as it is drawn on a phone, the
+   rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
+.bar-sticky {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 5;
+  margin-inline: -0.25rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+  /* an edge of its own: what passes under it (a row's border, a line of text) does not read as part of it */
+  border-bottom: 1px solid var(--ui-border-accented);
+  background: var(--ui-bg);
+  box-shadow: 0 0.5rem 0.5rem -0.375rem color-mix(in oklab, var(--ui-text-highlighted) 12%, transparent);
+}
+/* a focused button is scrolled clear of what stands over it (WCAG 2.4.11): the header and this preview */
+.bar-move,
+.bar-reset {
+  scroll-margin-top: calc(var(--header-height) + 9rem);
+}
+/* too low a window: the header is not fixed, and a preview that stood on would cover half of what is left */
+@media (max-height: 30rem) {
+  .bar-sticky {
+    position: static;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+  .bar-move,
+  .bar-reset {
+    scroll-margin-top: 0;
+  }
+}
+.bar-preview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 4.25rem;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg);
+}
+.dark .bar-preview {
+  background: var(--app-canvas);
+}
+.bar-preview-item[data-moving] {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+/* On a phone the preview is as wide as the window, as the bar it shows is: in the card it is 64 px narrower, and the
+   names of the tools that fit the bar (Pronóstico, Explorador) would break in it. It reaches out of the card's padding and
+   the page's gutter, and has no sides, like the bar; the caption and the line under it keep the card's inset. */
+@media (width < 40rem) {
+  .bar-sticky {
+    margin-inline: calc(-1rem - var(--frame-gutter));
+    padding-inline: 0;
+  }
+  .bar-sticky > :not(.bar-preview) {
+    padding-inline: calc(1rem + var(--frame-gutter));
+  }
+  .bar-preview {
+    border-inline: 0;
+    border-radius: 0;
+  }
+}
+.bar-line {
+  padding-top: 1rem;
+  border-top: 2px dashed var(--ui-border-accented);
+}
+.bar-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.5rem;
+  padding-inline: 0.25rem 0.5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg-elevated);
+}
+.bar-row[data-dragging] {
+  opacity: 0.55;
+}
+/* where the dragged tool will land: a bar on the edge of the row it comes to stand at */
+.bar-row[data-drop]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-current);
+}
+.bar-row[data-drop="before"]::before {
+  top: -6px;
+}
+.bar-row[data-drop="after"]::before {
+  bottom: -6px;
+}
+.bar-handle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 2.5rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-muted);
+  cursor: grab;
+  /* only here: a finger anywhere else scrolls the sheet and the page */
+  touch-action: none;
+  user-select: none;
+}
+.bar-dragging,
+.bar-dragging .bar-handle {
+  cursor: grabbing;
+}
+.bar-dragging {
+  user-select: none;
+}
+.bar-move {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  /* the muted text colour: 3:1 or more on the row's raised background, light and dark (1.4.11; button-contrast.test.ts) */
+  border: 1px solid var(--ui-text-muted);
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+}
+.bar-move:hover {
+  background: var(--ui-bg-accented);
+}
+/* at the end of the list: stays a stop, so that the focus of a button pressed to the end is not lost */
+.bar-move[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.bar-move[aria-disabled="true"]:hover {
+  background: var(--ui-bg);
 }
 
 .footer-heading {
@@ -678,6 +838,14 @@
   --tile-fill: var(--color-tile-heat);
   --tile-glyph: #ffffff;
 }
+.tile-map {
+  --tile-fill: var(--color-tile-map);
+  --tile-glyph: #ffffff;
+}
+.dark .tile-map {
+  --tile-fill: var(--color-tile-map-night);
+  --tile-glyph: var(--color-ink-950);
+}
 .tile-navy {
   --tile-fill: var(--color-tile-navy);
   --tile-glyph: #ffffff;
@@ -701,6 +869,7 @@
     border: 2px solid ButtonText;
   }
   [aria-current="page"],
+  [aria-current="true"],
   [data-current] {
     text-decoration: underline;
     text-decoration-thickness: 2px;

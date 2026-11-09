@@ -4,11 +4,17 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
+import logging
 import re
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import polars as pl
 
+from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -19,11 +25,22 @@ from wetterdienst.provider.dwd.observation.metadata import (
     HIGH_RESOLUTIONS,
     DwdObservationMetadata,
 )
-from wetterdienst.util.network import list_remote_files_fsspec
+from wetterdienst.util.network import forget_remote_listing, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
+
+log = logging.getLogger(__name__)
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+#: the directories found empty by the lookup or the walk that is running (`remembering_empty_directories`), and none
+#: outside one: a context variable, so that concurrent requests do not share it
+_REMEMBERED: ContextVar[set[str] | None] = ContextVar("wetterdienst_empty_directories", default=None)
+#: the directories whose listing a 404 dropped in the lookup or the walk that is running: once is enough, as the
+#: listing made after it is the server's own (set and reset with `_REMEMBERED`)
+_DROPPED: ContextVar[set[str] | None] = ContextVar("wetterdienst_dropped_listings", default=None)
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
@@ -145,15 +162,201 @@ def _midnight_in_utc(day: pl.Expr, days: int = 0) -> pl.Expr:
     )
 
 
+def _meta_data_url(resolution: str, dataset: str) -> str:
+    """Give the `meta_data` directory of a 1, 5 or 10 minute dataset, which lists a file for each of its stations."""
+    return f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{resolution}/{dataset}/meta_data/"
+
+
 def _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(
     resolution: str, dataset: str, settings: Settings
 ) -> pl.LazyFrame:
     """Create metadata DataFrame for 1minute precipitation historical."""
-    url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{resolution}/{dataset}/meta_data/"
+    url = _meta_data_url(resolution, dataset)
     df_files = _create_file_index_for_dwd_server(url, settings=settings, ttl=CacheExpiry.METAINDEX)
     return df_files.with_columns(
         pl.col("filename").str.split("_").list.last().str.strip_suffix(".zip").alias("station_id"),
     )
+
+
+class EmptyListingError(FileNotFoundError):
+    """A directory of DWD's server whose listing came back empty, or that is not there (a 404).
+
+    A `FileNotFoundError` with the message it always had, so that whoever caught that still does. It says which
+    directory (`url`), which the lookups of `dwd/observation` and `dwd/derived` name in their `file-skipped` warning
+    when they go on without it: it is no outage. A connection that cannot be made is a `NoInternetError` and a reset,
+    a timeout or a 5xx a `DownloadError`, both raised by the listing itself and never turned into this. Meant to be
+    caught where a directory is skipped; `describe_fields` lets it out as the `FileNotFoundError` it is.
+    """
+
+    def __init__(self, url: str) -> None:
+        """Keep the URL of the directory, and say what the function always said of it."""
+        super().__init__(f"url {url} does not have a list of files")
+        self.url = url
+
+    def __reduce__(self) -> tuple[type[EmptyListingError], tuple[str]]:
+        """Rebuild from the url, as the constructor takes it (a copy or a pickle would pass the message)."""
+        return type(self), (self.url,)
+
+
+class DescriptionFileMissingError(MetaFileNotFoundError):
+    """A directory of DWD's server that lists files, but none of the description of its stations (GH-3834).
+
+    A `MetaFileNotFoundError`, as it was raised before, with the message it had; it says which directory (`url`).
+    The lookups of `dwd/observation` skip the period as they skip an empty directory, and say so with `file-skipped`.
+    The listing of the directory is dropped from the listings cache when this is raised (`forget_description_missing`),
+    since DWD uploads the description after the files and the listing is no answer to keep for 12 hours. The files
+    carry the ids of their stations, which are `station_ids`: a station that is not among them is not one the
+    directory would have listed.
+    """
+
+    def __init__(self, url: str, what: str = "meta file", station_ids: frozenset[str] = frozenset()) -> None:
+        """Keep the URL of the directory, what was missing in it and the stations its files name."""
+        super().__init__(f"No {what} was found amongst the files at {url}.")
+        self.url = url
+        self.what = what
+        self.station_ids = station_ids
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the url, what was missing and the stations, with the attributes set since."""
+        return type(self), (self.url, self.what, self.station_ids), self.__dict__
+
+
+def station_ids_of_files(filenames: list[str]) -> frozenset[str]:
+    """Give the station ids that the names of the files of a directory carry, padded as the file index pads them."""
+    ids = (re.search(STATION_ID_REGEX, name) for name in filenames)
+    return frozenset(match.group(1).zfill(5) for match in ids if match and match.group(1).zfill(5) != "00000")
+
+
+def forget_listing_of_missing_file(file_url: str, settings: Settings, ttl: CacheExpiry) -> None:
+    """Drop the listing of the directory that listed a file the server answered with a 404 (GH-3892).
+
+    The listing is kept for the `ttl` of the file index (12 hours), and a file it names that is gone has been
+    renamed or withdrawn since (DWD renames the historical files at the annual rollover). Kept, the listing has the
+    next request ask for the same name until it expires; dropped, the next request lists the directory afresh and
+    finds the file under its new name. `ttl` is the one the directory was listed with.
+    """
+    directory = file_url.rsplit("/", maxsplit=1)[0]
+    dropped = _DROPPED.get()
+    if dropped is not None:
+        if directory in dropped:
+            return
+        dropped.add(directory)
+    # the directory the index lists is kept under its URL with `/`, a subdirectory `find` walked into (a year of the
+    # 1- and 5-minute precipitation) under the one without (fsspec's `_walk` strips it)
+    for key in (f"{directory}/", directory):
+        forget_remote_listing(key, settings, ttl)
+
+
+def forget_description_missing(url: str, settings: Settings, ttl: CacheExpiry) -> None:
+    """Drop the listing of a directory that has no description from the listings cache, as it is no answer to keep."""
+    forget_remote_listing(url if url.endswith("/") else f"{url}/", settings, ttl)
+
+
+#: why a lookup went without a directory, as the warning and `StationListingIncompleteError` say it
+EMPTY_LISTING = "its listing came back empty or missing"
+NO_DESCRIPTION = "it lists no description of its stations"
+_WARNING_LEAD = {
+    EMPTY_LISTING: "The listing of the directory {directory} came back empty or missing",
+    NO_DESCRIPTION: "The directory {directory} lists no description of its stations",
+}
+
+
+def directory_of(url: str) -> str:
+    """Give the directory of a URL as the warnings name it, in backticks.
+
+    The path below `observations_germany/` for the observations, below `CDC/` for the others (`derived_germany/...`).
+    """
+    for marker in ("observations_germany/", "CDC/"):
+        if marker in url:
+            return f"`{url.rsplit(marker, maxsplit=1)[-1]}`"
+    return f"`{url}`"
+
+
+def warn_skipped_listings(label: str, skipped: dict[str, list[Period]], reason: str = EMPTY_LISTING) -> None:
+    """Tell that the stations of a dataset were looked up without the periods whose directory could not be used.
+
+    One `file-skipped` warning for each directory, which names it, the dataset (`label`) and the periods it was to list.
+    That is what is certain: the stations that only those periods list are not in the answer, which may be partial,
+    and the values or the history of such a station are not read. What a directory was read for is not always the
+    period's own (the 1 minute precipitation reads the daily `more_precip` directory for the region of its
+    `historical` stations), so the message names the periods that were skipped, not what the directory holds.
+    `reason` is why: the listing came back empty or missing (`EMPTY_LISTING`), or the directory lists files but no
+    description of its stations (`NO_DESCRIPTION`).
+    """
+    for directory, periods in skipped.items():
+        named = " and ".join(period.value for period in sorted(periods))
+        lead = _WARNING_LEAD[reason].format(directory=directory)
+        warn_response(
+            log,
+            FILE_SKIPPED,
+            f"{lead}, so the {named} stations of {label} were not looked up, and a station that only that release "
+            "lists is not in the answer, which may be partial. Try again later.",
+        )
+
+
+def remembering_empty_directories(method: _F) -> _F:
+    """Have a lookup or a walk list a directory that is found empty once, for as long as it runs and no longer.
+
+    A directory that comes back empty costs five requests (`list_remote_files_fsspec` reads its page and asks for it
+    again for the index check), and a walk over stations asks for it at each of them, and the fetch-ahead hook again.
+    What is remembered belongs to the call wrapped here, a lookup (`_all`) or a walk (`query`), and is gone with it: the
+    next request asks again and sees the directory filled. Inside a wrapped call the outer one's is used, so the hook
+    and the lookup a walk makes share it. A walk is a generator, which has no context of its own and may be left open:
+    the memory is set around each step of it and not between, so it never outlives the step in the caller's context.
+    Only an empty directory is remembered, not a listing with files (the listings cache keeps that) and not an error.
+    """
+    if inspect.isgeneratorfunction(method):
+
+        @functools.wraps(method)
+        def generator(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            remembered = _REMEMBERED.get()
+            if remembered is None:
+                remembered = set()
+            dropped = _DROPPED.get()
+            if dropped is None:
+                dropped = set()
+            steps = method(*args, **kwargs)
+            try:
+                while True:
+                    token = _REMEMBERED.set(remembered)
+                    token_dropped = _DROPPED.set(dropped)
+                    try:
+                        item = next(steps)
+                    except StopIteration:
+                        return
+                    finally:
+                        _DROPPED.reset(token_dropped)
+                        _REMEMBERED.reset(token)
+                    yield item
+            finally:
+                # the blocks the walk ends with run under the memory too
+                token = _REMEMBERED.set(remembered)
+                try:
+                    steps.close()
+                finally:
+                    _REMEMBERED.reset(token)
+
+        return cast("_F", generator)
+
+    @functools.wraps(method)
+    def plain(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if _REMEMBERED.get() is not None:
+            return method(*args, **kwargs)
+        token = _REMEMBERED.set(set())
+        token_dropped = _DROPPED.set(set())
+        try:
+            return method(*args, **kwargs)
+        finally:
+            _DROPPED.reset(token_dropped)
+            _REMEMBERED.reset(token)
+
+    return cast("_F", plain)
+
+
+def _remembered_empty_directories() -> set[str]:
+    """Give the directories found empty by the lookup or the walk that is running, a set of its own outside one."""
+    remembered = _REMEMBERED.get()
+    return remembered if remembered is not None else set()
 
 
 def _create_file_index_for_dwd_server(
@@ -161,10 +364,19 @@ def _create_file_index_for_dwd_server(
     settings: Settings,
     ttl: CacheExpiry,
 ) -> pl.LazyFrame:
+    """List a directory of DWD's server, as a frame of its files, or raise the `EmptyListingError` that names it.
+
+    The URL is a directory: one that does not end in `/` is listed as one that does, as a server answers it with a
+    redirect, and only a URL with the `/` can be told an empty directory from a file (`list_remote_files_fsspec`).
+    """
+    url = url if url.endswith("/") else f"{url}/"
+    empty = _remembered_empty_directories()
+    if url in empty:
+        raise EmptyListingError(url)
     urls = list_remote_files_fsspec(url, settings=settings, cache_expiry=ttl)
     if not urls:
-        msg = f"url {url} does not have a list of files"
-        raise FileNotFoundError(msg)
+        empty.add(url)
+        raise EmptyListingError(url)
     df = pl.DataFrame({"url": urls}, schema={"url": pl.String}, orient="col")
     df = df.with_columns(
         pl.col("url").str.split("/").list.last().alias("filename"),

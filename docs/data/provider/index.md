@@ -8,12 +8,14 @@ answer of `coverage` where it differs from `unit`; the values come back in the u
 
 The licence each provider publishes its data under and the credit line it asks for are in one table on
 [licences and credit lines](licenses.md), built from the provider metadata. Each provider's page below links its terms
-and, in different detail, says what they ask of you.
+and, in different detail, says what they ask of you. What the project does with the data, what the providers that need a
+key say about sharing it, and what the repository's own files hold is on [what wetterdienst does with the data](data-use.md).
 
 ```{toctree}
 :hidden:
 
 licenses.md
+data-use.md
 aemet/index.md
 chmi/index.md
 dmi/index.md

@@ -357,16 +357,17 @@ def test_glossary(client: TestClient) -> None:
             "description": (
                 "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
             ),
+            "aggregation": "mean",
         },
     ]
 
 
 def test_glossary_all(client: TestClient) -> None:
-    """Test that the unfiltered glossary covers the whole canonical vocabulary."""
+    """Test that the unfiltered glossary covers the canonical vocabulary but the quality flags (GH-3876)."""
     response = client.get("/api/glossary")
     assert response.status_code == 200
     entries = response.json()
-    assert len(entries) == len(PARAMETER_TABLE)
+    assert len(entries) == len([parameter for parameter in PARAMETER_TABLE if not parameter.quality_flag])
     # every entry says what it is and which unit it comes back in; that is the point of the endpoint
     assert all(entry["description"] for entry in entries)
     assert all(entry["unit"] for entry in entries)
@@ -4470,7 +4471,7 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
         to_dict=lambda: {"stations": stations},
         values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
     )
-    request = SimpleNamespace(filter_by_station_id=lambda _station: result)
+    request = SimpleNamespace(filter_by_station_id=lambda _station: result, _gaps_that_may_list=lambda _station: {})
     monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
 
 
@@ -5794,12 +5795,20 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
     }
     if endpoint == "/api/values":
         result = values
-    elif endpoint == "/api/interpolate":
-        df = pl.DataFrame([{**row, "distance_mean": 5.0, "taken_station_ids": ["01048"]}])
-        result = InterpolatedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
     else:
-        df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
-        result = SummarizedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
+        # the stations of an estimate say where each stands against the point
+        placed = replace(
+            values.stations,
+            df=values.stations.df.with_columns(
+                pl.lit(5.0).alias("distance"), pl.lit(None, dtype=pl.Float64).alias("elevation_difference")
+            ),
+        )
+        if endpoint == "/api/interpolate":
+            df = pl.DataFrame([{**row, "distance_mean": 5.0, "taken_station_ids": ["01048"]}])
+            result = InterpolatedValuesResult(stations=placed, df=df, latlon=(51.1, 13.8))
+        else:
+            df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
+            result = SummarizedValuesResult(stations=placed, df=df, latlon=(51.1, 13.8))
     taken: list[Options] = []
 
     def fetch(*, options: Options, **_kwargs: object) -> object:
@@ -8703,7 +8712,7 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     )
     assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
-    required = {"name", "name_original", "unit_type", "unit", "description"}
+    required = {"name", "name_original", "unit_type", "unit", "description", "aggregation", "timestamp_position"}
     # `unit_source` is the provider's unit where that is not `unit`, absent where it is the same (GH-3537)
     assert shape("CoverageParameter") == (required | {"lead_times", "unit_source"}, required)
     parameter = components["CoverageParameter"]["properties"]

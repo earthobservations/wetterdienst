@@ -44,6 +44,7 @@ _DwdDerivedMetadataSpec = {
                     "name": "radiation_global",
                     "name_original": "radiation_global",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -66,6 +67,7 @@ _DwdDerivedMetadataSpec = {
                     "name": "sunshine_duration",
                     "name_original": "sunshine_duration",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -136,17 +138,20 @@ _DwdDerivedMetadataSpec = {
                             "name": "frozen_ground_layer_thickness",
                             "name_original": "zfumi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "thawing_thickness_plant_cover",  # Auftauschicht am Mittag unter Bestand (BEKLIMA)
                             "name_original": "ztkmi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             # Auftauschicht am Mittag unter unbewachsenem Boden
                             "name": "thawing_thickness_bare_ground",
                             "name_original": "ztumi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "soil_moisture_grass_loamy_silt_00cm_10cm",  # _silt_loam
@@ -262,6 +267,7 @@ _DwdDerivedMetadataSpec = {
                     "name": "heating_degreedays",
                     "name_original": "heating_degreedays",
                     "grouped": False,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "count_days_in_month",
@@ -284,24 +290,28 @@ _DwdDerivedMetadataSpec = {
                     "name": "cooling_degreehours_13",
                     "name_original": "cooling_degreehours_13",
                     "grouped": False,
+                    "timestamp_position": "start",
                     "parameters": cooling_degree_hours_common_parameters,
                 },
                 {
                     "name": "cooling_degreehours_16",
                     "name_original": "cooling_degreehours_16",
                     "grouped": False,
+                    "timestamp_position": "start",
                     "parameters": cooling_degree_hours_common_parameters,
                 },
                 {
                     "name": "cooling_degreehours_18",
                     "name_original": "cooling_degreehours_18",
                     "grouped": False,
+                    "timestamp_position": "start",
                     "parameters": cooling_degree_hours_common_parameters,
                 },
                 {
                     "name": "climate_correction_factor",
                     "name_original": "climate_correction_factor",
                     "grouped": False,
+                    "timestamp_position": "start",
                     "periods": ["recent"],
                     "parameters": [
                         {
@@ -315,6 +325,7 @@ _DwdDerivedMetadataSpec = {
                     "name": "soil",
                     "name_original": "soil",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "periods": ["historical", "recent"],
                     "parameters": [
                         {

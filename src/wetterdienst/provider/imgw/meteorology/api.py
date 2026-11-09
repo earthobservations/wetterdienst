@@ -128,6 +128,7 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -170,6 +171,7 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -192,71 +194,85 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "cloud_cover_total_mean",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
+                            "timestamp_position": "start",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity_relative_mean",
                             "name_original": "średnia dobowa wilgotność względna",
+                            "timestamp_position": "start",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_day",
                             "name_original": "suma opadu dzień",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_night",
                             "name_original": "suma opadu noc",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "pressure_air_site_mean",
                             "name_original": "średnia dobowe ciśnienie na poziomie stacji",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_sea_level_mean",
                             "name_original": "średnie dobowe ciśnienie na pozimie morza",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_vapor_mean",
                             "name_original": "średnia dobowe ciśnienie pary wodnej",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "wysokość pokrywy śnieżnej",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "maksymalna temperatura dobowa",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
+                            "timestamp_position": "start",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "temperatura minimalna przy gruncie",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "minimalna temperatura dobowa",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_speed_mean",
                             "name_original": "średnia dobowa prędkość wiatru",
+                            "timestamp_position": "start",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -273,6 +289,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "climate",
                     "name_original": "klimat",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",
@@ -340,6 +357,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "opad",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",
@@ -357,6 +375,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "synop",
                     "name_original": "synop",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",

@@ -10,8 +10,7 @@
     },
     "license": {
       "name": "MIT",
-      "identifier": "MIT",
-      "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
+      "identifier": "MIT"
     },
     "x-api-version": "1"
   },
@@ -96,6 +95,19 @@
             }
           }
         }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check, headers only",
+        "description": "Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body."
+          }
+        }
       }
     },
     "/ready": {
@@ -127,6 +139,38 @@
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Readiness check, headers only",
+        "description": "Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`.",
+        "operationId": "ready_head_ready_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable, as `GET` answers it, without the body (the problem of the component `Unavailable`).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -804,7 +848,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.",
+        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -1009,7 +1053,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:\n`scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the\nresolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer\nthan its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded\nand no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`\nchecks whether its credentials are accepted.",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nThe answer is short: each network's `resolutions` is null, which is all a question about a licence or about\nthe providers that reach a place needs. Pass `datasets=true` and each network lists its resolutions and\ndatasets, with how many parameters each has (a dataset whose stations are fewer than its network's has an\n`extent` of its own, and one without has its network's).\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1029,6 +1073,18 @@
               "title": "Provider"
             },
             "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
+          },
+          {
+            "name": "datasets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "List the resolutions and datasets of each network, with the number of parameters of each. Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
+              "default": false,
+              "title": "Datasets"
+            },
+            "description": "List the resolutions and datasets of each network, with the number of parameters of each. Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -1133,7 +1189,7 @@
           "Catalogue"
         ],
         "summary": "Glossary",
-        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
+        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,\n...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each\nprovider and the `timestamp_position`, which the glossary does not know.",
         "operationId": "glossary_api_glossary_get",
         "parameters": [
           {
@@ -1390,11 +1446,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1415,9 +1476,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1435,7 +1504,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1469,7 +1543,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1489,7 +1568,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -1509,7 +1593,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -1528,7 +1617,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -1548,7 +1642,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -1568,7 +1667,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -1588,7 +1692,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -1608,7 +1717,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -1626,7 +1740,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "timestamp",
@@ -1672,11 +1791,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "format",
@@ -1839,6 +1958,65 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
+          }
         }
       }
     },
@@ -1980,7 +2158,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -2097,11 +2275,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -2122,9 +2305,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -2142,7 +2333,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -2176,7 +2372,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -2196,7 +2397,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -2216,7 +2422,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -2235,7 +2446,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -2255,7 +2471,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -2275,7 +2496,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -2295,7 +2521,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -2315,7 +2546,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -2333,7 +2569,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "with_metadata",
@@ -2341,11 +2582,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -2353,11 +2594,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed."
           },
           {
             "name": "format",
@@ -2903,6 +3144,65 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
+          }
         }
       }
     },
@@ -3043,7 +3343,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3063,7 +3368,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3083,7 +3393,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3298,11 +3613,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -3310,11 +3625,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3442,6 +3757,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -3582,7 +3908,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3602,7 +3933,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3622,7 +3958,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3824,11 +4165,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -3836,11 +4177,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3968,6 +4309,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -4130,7 +4482,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -4148,7 +4505,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4279,6 +4641,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4322,7 +4694,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -4340,7 +4717,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -4501,6 +4883,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -4564,11 +4956,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all or stations is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -4589,9 +4986,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all or stations is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "sections",
@@ -4630,11 +5035,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "with_stations",
@@ -4734,6 +5139,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ]
+          ]
         }
       }
     },
@@ -4775,11 +5190,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",
@@ -5180,6 +5595,53 @@
             ],
             "title": "Description"
           },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
+          },
           "lead_times": {
             "items": {
               "type": "string",
@@ -5199,7 +5661,9 @@
           "name_original",
           "unit_type",
           "unit",
-          "description"
+          "description",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "CoverageParameter",
         "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`."
@@ -5378,6 +5842,35 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the one of each provider, which declares one for a plain name where its source states it (`instant`)."
           }
         },
         "type": "object",
@@ -5386,10 +5879,11 @@
           "unit_type",
           "unit",
           "unit_symbol",
-          "description"
+          "description",
+          "aggregation"
         ],
         "title": "GlossaryEntry",
-        "description": "One canonical parameter: what it measures and which unit it is returned in."
+        "description": "One canonical parameter: what it measures and which unit it is returned in.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a\nplain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares\none for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which\nthe glossary does not have, since it knows no dataset."
       },
       "Health": {
         "properties": {
@@ -5695,6 +6189,53 @@
             "type": "string",
             "title": "Unit",
             "description": "The symbol of the unit of the values: the target of the quantity where `convert_units` is on, else the unit the source publishes."
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
           }
         },
         "additionalProperties": false,
@@ -5706,7 +6247,9 @@
           "name_original",
           "description",
           "quantity",
-          "unit"
+          "unit",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "ParameterInfo",
         "description": "One parameter of the answer, with the unit its values are in."
@@ -5769,7 +6312,7 @@
               }
             ],
             "title": "Attribution",
-            "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
+            "description": "The credit line to cite when the data is used, in the provider's own words where it states one; null where the provider states none or asks for none. `copyright` of each network is the rights holder's notice, shown for information."
           },
           "networks": {
             "items": {
@@ -5849,7 +6392,8 @@
           },
           "copyright": {
             "type": "string",
-            "title": "Copyright"
+            "title": "Copyright",
+            "description": "The rights holder's notice, shown for information. The credit line to cite is `attribution` of the provider."
           },
           "auth": {
             "type": "boolean",
@@ -5867,11 +6411,19 @@
             "description": "How many parameters the network has in all of its datasets."
           },
           "resolutions": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderResolution"
-            },
-            "type": "array",
-            "title": "Resolutions"
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderResolution"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolutions",
+            "description": "The resolutions of the network, each with its datasets and their numbers of parameters; empty for a network that has none (`dwd/radar`, `dwd/alerts`), null unless `datasets=true` asks for them."
           }
         },
         "additionalProperties": false,
@@ -6182,7 +6734,7 @@
           },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's notice, shown for information."
           },
           "producer": {
             "$ref": "#/components/schemas/_Producer"
@@ -6973,6 +7525,132 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -7101,7 +7779,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7152,7 +7830,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7784,7 +8462,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7835,7 +8513,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"

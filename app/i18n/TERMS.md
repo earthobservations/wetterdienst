@@ -15,20 +15,20 @@ table at the bottom of that test, in one commit.
 Each cell is the label the app shows for the term, from the key in the second row (`glossary:` keys
 are in `glossary/<locale>.ts`).
 
-| Locale | Station | Parameter | Dataset | Resolution | Period | Quality | Provider | Network | Date range | Weather service |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Source key | `stripes.station` | `dataViewer.statParameter` | `parameterSelection.datasetLabel` | `parameterSelection.resolutionLabel` | `history.periods` | `glossary:parameters.quality` | `parameterSelection.providerLabel` | `parameterSelection.networkLabel` | `dateRange.label` | `home.dataProvidersTitle` |
-| `en` | Station | Parameter | Dataset | Resolution | Periods | Quality | Provider | Network | Date Range | Weather services |
-| `de` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Qualität | Anbieter | Netzwerk | Zeitraum | Wetterdienste |
-| `de-hh` | Station | Parameter | Datensatz | Oplösung | Tietrüüm | Gööd | Anbeder | Nettwark | Tietruum | Wedderdeenste |
-| `fr` | Station | Paramètre | Jeu de données | Résolution | Périodes | Qualité | Fournisseur | Réseau | Plage de dates | Services météorologiques |
-| `es` | Estación | Parámetro | Conjunto de datos | Resolución | Periodos | Calidad | Proveedor | Red | Rango de fechas | Servicios meteorológicos |
-| `it` | Stazione | Parametro | Dataset | Risoluzione | Periodi | Qualità | Fornitore | Rete | Intervallo di date | Servizi meteorologici |
-| `nl` | Station | Parameter | Dataset | Resolutie | Perioden | Kwaliteit | Aanbieder | Netwerk | Datumbereik | Weerdiensten |
-| `pl` | Stacja | Parametr | Zbiór danych | Rozdzielczość | Okresy | Jakość | Dostawca | Sieć | Zakres dat | Służby meteorologiczne |
-| `cs` | Stanice | Parametr | Datová sada | Rozlišení | Období | Kvalita | Poskytovatel | Síť | Rozsah dat | Meteorologické služby |
-| `da` | Station | Parameter | Datasæt | Opløsning | Perioder | Kvalitet | Udbyder | Netværk | Datointerval | Vejrtjenester |
-| `lb` | Statioun | Parameter | Datesaz | Opléisung | Perioden | Qualitéit | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter |
+| Locale | Station | Parameter | Dataset | Resolution | Period | Provider | Network | Date range | Weather service |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Source key | `stripes.station` | `dataViewer.statParameter` | `parameterSelection.datasetLabel` | `parameterSelection.resolutionLabel` | `history.periods` | `parameterSelection.providerLabel` | `parameterSelection.networkLabel` | `dateRange.label` | `home.dataProvidersTitle` |
+| `en` | Station | Parameter | Dataset | Resolution | Periods | Provider | Network | Date Range | Weather services |
+| `de` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Anbieter | Netzwerk | Zeitraum | Wetterdienste |
+| `de-hh` | Station | Parameter | Datensatz | Oplösung | Tietrüüm | Anbeder | Nettwark | Tietruum | Wedderdeenste |
+| `fr` | Station | Paramètre | Jeu de données | Résolution | Périodes | Fournisseur | Réseau | Plage de dates | Services météorologiques |
+| `es` | Estación | Parámetro | Conjunto de datos | Resolución | Periodos | Proveedor | Red | Rango de fechas | Servicios meteorológicos |
+| `it` | Stazione | Parametro | Dataset | Risoluzione | Periodi | Fornitore | Rete | Intervallo di date | Servizi meteorologici |
+| `nl` | Station | Parameter | Dataset | Resolutie | Perioden | Aanbieder | Netwerk | Datumbereik | Weerdiensten |
+| `pl` | Stacja | Parametr | Zbiór danych | Rozdzielczość | Okresy | Dostawca | Sieć | Zakres dat | Służby meteorologiczne |
+| `cs` | Stanice | Parametr | Datová sada | Rozlišení | Období | Poskytovatel | Síť | Rozsah dat | Meteorologické služby |
+| `da` | Station | Parameter | Datasæt | Opløsning | Perioder | Udbyder | Netværk | Datointerval | Vejrtjenester |
+| `lb` | Statioun | Parameter | Datesaz | Opléisung | Perioden | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter |
 
 ## Terms that are different things
 
@@ -41,8 +41,9 @@ are in `glossary/<locale>.ts`).
   behind it: the home page counts weather services, the explorer picks a provider. The
   **operator** of a station, from the station history, is a third thing and is not translated as
   provider (`Betreiber`, `exploitant`, `gestore`, `operator`, `Bedreiwer`, `provozovatel`, ...).
-- **Quality flag** is the word each locale settled on in its sixteen `quality_*` glossary entries;
-  `i18n-parity.test.ts` holds a locale to it (Kennung, flag, vlag, indicateur, ...).
+- **Quality flag** is the word each locale settled on for a flag, as in `precipitation_type_flags`;
+  `i18n-parity.test.ts` holds a locale to it (Kennung, flag, vlag, indicateur, ...). The quality marks of
+  the sources (`quality`, `quality_wind`, ...) are no parameters, are not in `/api/glossary` and have no label.
 
 ## Address and spelling
 
@@ -110,8 +111,8 @@ The labels of the parameters, resolutions and datasets (`glossary/<locale>.ts`) 
 - one English label has one translation;
 - an hour after a number is `h` (`u` in nl, `t` in da), with the English number;
 - a soil temperature of a cover or a texture has the word for the soil, and in fr, es and it it opens
-  with the words of the plain soil temperature, so that "Maximum soil temperature under grass" is not
-  "Maximum temperature under grass" (the other languages put an adjective before the noun, and a
+  with the words of the plain soil temperature, so that "Maximum soil temperature, grass" is not
+  "Maximum temperature, grass" (the other languages put an adjective before the noun, and a
   correct label of theirs has no fixed opening);
 - French sets a no-break space before a colon, as the catalog does.
 
@@ -140,7 +141,7 @@ meant to be understood, not to be the last word, and **a review by a native spea
   glossary has several spellings of the same word (`Sünnschien`, `Sünnenschien`; `Snééhööchd`,
   `Snehööch`), so there is no one orthography to follow; the UI text leans on the Sass spelling and
   is itself not uniform. The fallbacks of GH-2971 (`Afraag is scheefgahn`, `Backend-Fehler`) are
-  new text in it. The quality term is `Gööd` and its sixteen flag entries `Göödkennen`.
+  new text in it. Its word for a flag is `Göödkennen`.
   `Datensatz` is kept as Low German shares the word; `Anbeder`, `Nettwark`, `Oplösung` and `Tietruum`
   are the words chosen for provider, network, resolution and date range.
 
@@ -174,6 +175,13 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Fraag dat Weer`, `Oort ännern`; `lb` `Fro d'Wieder`, `Méintlech Mëttelwäerter`; `pl` and `cs` for the verdicts
   of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
   verdicts (calm, breezy, windy, stormy), which follows no official word list.
+
+- **Machine-made**: the strings of the map tool (`mapTool.*`, `nav.map`, `shell.stationsMap` and `shell.stationOnMap`,
+  `seo.pages.map`, GH-3650: the chips, the panel, the cards' notes and links, the about text) were written by a language
+  model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`
+  (`Utsicht-Stationen`, `Söök di … ut`, `opmaken`, `Pielentasten`, `Seehööch`); `lb` (`Prognosstatioune`, `Schicht`,
+  `Feilen` for the arrow keys, `ewech`); `pl` and `cs` (`Wybrano: {name}` and `Vybráno: {name}` for "chosen", `n.p.m.` and
+  `n. m.` for "above sea level"); and in every language the sentence of the about text that explains the keyboard.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
@@ -240,7 +248,7 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `pl` | `frozen_ground_layer_*` | `Warstwa zmarzliny` (`zmarzlina` is permafrost) | `Przemarznięta warstwa gruntu` (IMGW: `przemarznięcie gruntu`) | low |
 | `pl` | `*loamy_silt*` | `pył gliniasty` | the name from the soil texture classes of PTG | low |
 | `pl` | `snow_depth*`, `snow_depth_new*` | `Grubość pokrywy śnieżnej`, `Grubość świeżego śniegu` | IMGW writes `wysokość pokrywy śnieżnej` and `wysokość świeżo spadłego śniegu` | medium |
-| `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína`, `hlinitou hlínou` ("loamy loam") | `prachovitá hlína` | medium |
+| `cs` | `*loamy_silt*` (soil moisture, evaporation, soil temperature) | `hlinitá hlína` ("loamy loam") | `prachovitá hlína` | medium |
 | `cs` | `phenology_bud_swelling` | `Nalévání pupenů` (`nalévání` is the filling of grain and fruit; it may be ČHMÚ's own name of the phase) | `Bobtnání pupenů` if it is not | low |
 | `nl` | `water_equivalent_snow_depth*`, `water_equivalent` | `Sneeuwwatergehalte` next to `Waterequivalent versgevallen sneeuw` | one term | low |
 | `da` | `sunshine_duration`, `sunshine_duration_*` | `Solskinstimer` (parameter, dataset) next to `Relativ solskinsvarighed` | `Solskinsvarighed` | low |

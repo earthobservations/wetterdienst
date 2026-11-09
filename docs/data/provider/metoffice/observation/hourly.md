@@ -65,7 +65,7 @@
 
 | name                            | original name   | description                                                    | unit |
 |---------------------------------|-----------------|----------------------------------------------------------------|------|
-| {term}`wind_direction_mean` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null. | ° |
+| {term}`wind_direction_mean` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null, and its 999 (no bearing: no MIDAS table words it, it stands beside a light wind of 1 to 6 knots) is null. | ° |
 | {term}`wind_speed_mean` | mean_wind_speed | Mean wind speed, knots. | kn |
 | {term}`wind_direction_gust_max` | max_gust_dir | Direction of the maximum gust, degrees true. The source's 0 beside a gust speed of 0 (a calm wind) is null. | ° |
 | {term}`wind_gust_max` | max_gust_speed | Speed of the maximum gust, knots. | kn |

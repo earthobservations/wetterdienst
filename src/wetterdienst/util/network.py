@@ -14,6 +14,7 @@ import ipaddress
 import json
 import logging
 import os
+import posixpath
 import re
 import shutil
 import sqlite3
@@ -67,6 +68,7 @@ from wetterdienst.util.listing_cache import (
     remove_diskcache_leftovers,
 )
 from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
+from wetterdienst.util.response_warnings import SkipCause
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -151,6 +153,19 @@ class File:
             raise self.content
         if isinstance(self.content, Exception):
             raise _download_error(self.content, self.url) from self.content
+
+    @property
+    def skip_cause(self) -> SkipCause:
+        """Give why a provider that lets this failed download go (`note_skipped_download`) lets it go.
+
+        A 404 is a file withdrawn since the listing; a status that is a refusal for good (`refused_for_good`) is a
+        refusal, whatever the exception stored; any other failure is told by `skip_cause_of_failure`.
+        """
+        if self.status == HTTPStatus.NOT_FOUND:
+            return SkipCause.WITHDRAWN
+        if refused_for_good(self.status):
+            return SkipCause.REFUSED
+        return skip_cause_of_failure(self.content) if isinstance(self.content, BaseException) else SkipCause.FAILED
 
     @property
     def is_no_internet_error(self) -> bool:
@@ -304,6 +319,54 @@ def as_outage(error: Exception, url: str) -> Exception:
         failure.__cause__ = error
         return failure
     return error
+
+
+#: The 4xx statuses that are no refusal for good: a file not there yet (404), a request that timed out (408), one
+#: that came too early (425) and one over the rate (429). Any other 4xx is the server turning the request down, and
+#: it does so again at the next one.
+_HEALING_CLIENT_STATUSES = frozenset(
+    {HTTPStatus.NOT_FOUND, HTTPStatus.REQUEST_TIMEOUT, HTTPStatus.TOO_EARLY, HTTPStatus.TOO_MANY_REQUESTS}
+)
+
+
+def refused_for_good(status: object) -> bool:
+    """Tell whether an HTTP status is the server turning the request down for good: a 4xx but 404, 408, 425 and 429.
+
+    A 400 (a query or a parameter the server does not have), a 401 or 403, a 410 and the like stay as they are when
+    the request is made again; a missing file, a timeout, a request that came too early and a rate limit may not.
+    """
+    return (
+        isinstance(status, int)
+        and HTTPStatus.BAD_REQUEST <= status < HTTPStatus.INTERNAL_SERVER_ERROR
+        and status not in _HEALING_CLIENT_STATUSES
+    )
+
+
+def skip_cause_of_failure(error: BaseException) -> SkipCause:
+    """Say why a download that failed with `error` is let go: refused (and will be again), or failed (and may not).
+
+    A body refused for its size, its time or an unannounced compression (`DownloadRefusedError`, which is the
+    `__cause__` of the `DownloadError` that names the file), a redirect that was not followed
+    (`RedirectRefusedError`, as `as_outage` reads it), an answer of the server that turns the request down for
+    good (`refused_for_good`: a 400, a 403, a 410, on the error or an `estado` it carries as `status`) and a TLS
+    failure that is the same on every attempt (a certificate that does not verify, a protocol or a cipher the two
+    cannot agree on) are the same refusal at the next request, until the provider fixes it. Every other failure, a
+    reset, a timeout, a 5xx, a 429, may be gone the next time. So may a handshake the server only fumbled
+    (`_is_transient_tls_failure`: `WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`): the network layer asks again before
+    a file is let go, and one that outlasted the retries is a failed download, not a refusal.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if isinstance(current, (ClientSSLError, ssl.SSLError)):
+            return SkipCause.FAILED if _is_transient_tls_failure(current) else SkipCause.REFUSED
+        if isinstance(current, (DownloadRefusedError, RedirectRefusedError)) or refused_for_good(
+            getattr(current, "status", None)
+        ):
+            return SkipCause.REFUSED
+        seen.add(id(current))
+        current = current.__cause__
+    return SkipCause.FAILED
 
 
 #: The statuses with which a provider says that it refuses the credential it was sent.
@@ -908,7 +971,8 @@ class FileDirCache(MutableMapping):
         if store is None:
             return default
         value = store.get(key)
-        return default if value is None else value
+        # an empty listing is no answer to keep (see `__setitem__`): one that an older version stored is a miss too
+        return value or default
 
     def clear(self) -> None:
         """Clear cache."""
@@ -923,8 +987,9 @@ class FileDirCache(MutableMapping):
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        store = self._store
-        return store is not None and store.contains(item)
+        # through `get`, which reads the listing: one an older version stored empty is a miss, and fsspec's `_ls`
+        # indexes the cache after asking `in` (`ListingStore.contains` does not decode, so knows no empty one)
+        return self.get(item) is not None
 
     def __setitem__(self, key: str, value: list[dict]) -> None:
         """Store listing in cache.
@@ -936,6 +1001,12 @@ class FileDirCache(MutableMapping):
         """
         store = self._store
         if store is None:
+            return
+        if not value:
+            # an empty listing is never stored: DWD fills a directory again, and a year directory of a tree that is
+            # empty today (`.../historical/2022/`) is listed with the others, so keeping it would hide the files from
+            # the next call for the whole `cache_expiry` (12 hours for the metadata), across restarts. What an empty
+            # directory costs is one request
             return
         store.set(key, value, self.listings_expiry_time)
 
@@ -1114,15 +1185,26 @@ class HTTPFileSystem(_HTTPFileSystem):
         * upstream caches whatever shape ``detail`` asked for, so one ``detail=False`` call
           poisons every later ``detail=True`` read of the same URL. We always cache the
           detailed listing and derive the name-only view from it.
+
+        The directory itself is never one of its entries (a link of the page to its own URL, in any spelling).
         """
         # a cached listing is always a list (possibly empty), so None is a safe "miss" sentinel
         out: list[dict] | None = self.dircache.get(url) if self.use_listings_cache else None
+        if out is not None:
+            # a listing an older release stored may hold the link of the page to itself (an outage page's, a `./` chain
+            # of them): left out as for a listing just read, and a row that holds nothing else is a miss, as the store
+            # keeps no empty listing (GH-3861)
+            out = [entry for entry in out if not _is_the_same_directory(entry["name"], url)] or None
         if out is None:
             out = await self._ls_real(url, detail=True, **kwargs)
             # fsspec keeps a link of an https listing that leads to the same address over http, which a
             # caller then fetches in clear
             if urlsplit(url).scheme == "https":
                 out = [entry for entry in out if urlsplit(entry["name"]).scheme != "http"]
+            # and a link of the page to itself, however it is written (`""`, `/x/`, `./`, `.`, `?retry=1`, the
+            # absolute URL), is not an entry of the directory: an index page has none, an outage page has one. Kept,
+            # `find` walks into it as a directory of its own, and a `./` has it walk on without end (GH-3861)
+            out = [entry for entry in out if not _is_the_same_directory(entry["name"], url)]
             self.dircache[url] = out
         return out if detail else sorted(entry["name"] for entry in out)
 
@@ -2082,6 +2164,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # usable copy: asking it again here would be the cost of a big directory a second time. Anyone else who opens
         # a file (the reader of a forecast does) has not asked
         checked = kwargs.pop("checked", False)
+        # where a miss is fetched from, for a copy that is kept under a name that is no address (`download_file`)
+        fetch_url = kwargs.pop("fetch_url", None)
         path = self._strip_protocol(path)
         cached = super()._check_file(path) if checked else self._check_file(path, refetch_before)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
@@ -2111,9 +2195,14 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # entry when the fetch is over)
             started = time.time()
             try:
-                self.fs.get_file(path, temp, **fetch_kwargs)
+                origin = path if fetch_url is None else fetch_url
+                self.fs.get_file(origin, temp, **fetch_kwargs)
                 # the date this fetch brought, and the file as written, which is what names the blob it becomes
-                last_modified = None if registry is None else registry.get(path)
+                last_modified = None if registry is None else registry.get(origin)
+                if registry is not None and origin != path:
+                    # noted by the address it came from, where `download_file` takes it by the name of the copy
+                    registry.pop(origin, None)
+                    _remember_last_modified(registry, path, last_modified)
                 written = Path(temp).stat()
                 # the rename onto the blob and the row that names it are one step for the lock file of the directory
                 # (GH-3485): a sweep of another process that reads the old row between the two would delete the new
@@ -2647,22 +2736,155 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server, or no files if the directory is not there
+        A list of all files on the server, or no files if the directory is not there or is empty: a URL ending in `/`
+        that lists as itself alone, and whose page is an index (`Index of`) with no link, as nginx answers for an empty
+        directory, is the empty directory. No empty listing is kept in the listings cache, a subdirectory's included
+        (a year directory of a tree that is empty today), so the next call sees the directory filled. A URL that does
+        not end in `/` and lists as itself is a file, and is returned.
 
     Raises:
         NoInternetError: If no connection could be made after three attempts (no network, a DNS
             failure, a refusing host), naming the URL, the connection error as its ``__cause__``.
             A directory that is not there is an answer, `[]`; being offline is not (GH-2640).
         DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
-            broken body, or an HTTP error status other than 404, naming the URL, the failure as its
-            ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
-            times before it is raised, so is a TLS handshake the server fumbled (a wrong version
+            broken body, an HTTP error status other than 404, or a page that is no index of a directory
+            where a directory was asked for (a CDN's error page answered with a 200, a JSON error), naming the
+            URL, the failure as its ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked
+            for three times before it is raised, so is a TLS handshake the server fumbled (a wrong version
             number, an invalid session id, GH-3533); a 4xx once. A certificate that does not verify
             is raised at the first attempt, with the ``ssl.SSLError`` as its ``__cause__``: asking
             again would meet the same certificate (GH-3099).
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
+
+
+#: how much of the page that stood for a directory is searched for its title, which every index page puts first. The
+#: whole page is read (up to the download cap, `MAX_DOWNLOAD_BYTES`): only the search stops here
+_INDEX_PAGE_HEAD_BYTES = 65536
+#: `Index of /`, as nginx and Apache write the title and the heading of an index page; not `Index of services`
+_INDEX_PAGE_TITLE = re.compile(rb"<(?:title|h1)>\s*Index of /", re.IGNORECASE)
+
+
+def _found_or_empty_directory(url: str, found: list[str] | None, page: bytes | None) -> list[str]:
+    """Give what `find` found at a URL, or no file where the URL is a directory with none.
+
+    `found` is None where `find` raised `FileNotFoundError`, and `page` is None where the page of the URL is a 404.
+
+    An empty directory is taken for a file by fsspec: it finds no link on the index page of `/x/`, asks for `/x`, which
+    nginx (DWD's server) answers with a 301 to `/x/`, and `find` then lists the directory as the one file it holds,
+    because `_isfile` is a GET that answers below 400 (and as nothing at all if that GET fails: a 503, a reset). The
+    listing says nothing of a file there: the directory is empty (`[]`; the listings cache stores no empty listing, so
+    the next call asks again).
+
+    That holds only if the page of a URL ending in `/` is the index of a directory (`Index of /x/`, which nginx and
+    Apache write), whichever way `find` came to list no file: itself as the one file, nothing, or a 404 for `/x`. Any
+    other 200 page, a CDN's "503" page with a link to itself elsewhere or a JSON error, is not an empty directory and
+    must not read as "no data": it is a `DownloadError` (a 502). A 404 for the page is a directory that is not there,
+    `[]`. A URL with no `/` at its end may as well name a file (`/plain.txt` lists itself), and is left as it is.
+    """
+    if not url.endswith("/") or (found and found != [url]):
+        return found or []
+    if page is None:
+        return []
+    if _INDEX_PAGE_TITLE.search(page[:_INDEX_PAGE_HEAD_BYTES]):
+        return []
+    raise DownloadError(url, "the answer is not the index page of a directory")
+
+
+def _find_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[str] | None, bytes | None]:
+    """List a URL, and read its page where the listing leaves it open whether it is an empty directory.
+
+    The page of a URL ending in `/` is read when no file but the URL itself was found (nothing, the URL itself, or a
+    `FileNotFoundError` of `find`), which costs one more GET for such a directory. A link of the page to the directory
+    itself is no entry: `HTTPFileSystem._ls` leaves it out, so an outage page that links to itself, however the link
+    is written, lists nothing and is never stored (GH-3861).
+    """
+    try:
+        found: list[str] | None = fs.find(url, on_error="raise")
+    except FileNotFoundError:
+        found = None
+    if not url.endswith("/") or (found and found != [url]):
+        return found, None
+    return found, _read_page(fs, url)
+
+
+def _read_page(fs: HTTPFileSystem, url: str) -> bytes | None:
+    """Read the page that stands for a directory (a URL ending in `/`); None for a 404 or a URL that is no directory."""
+    if not url.endswith("/"):
+        return None
+    try:
+        return fs.cat_file(url)
+    except FileNotFoundError:
+        return None
+
+
+def _is_the_same_directory(name: str, url: str) -> bool:
+    """Tell whether an entry that fsspec made of a link is the directory `url` itself, by host and normalised path.
+
+    fsspec joins a relative link to the URL without resolving it: `href=""` and `href="/x/"` and the absolute URL come
+    out as `/x/`, `href="./"` as `/x/./` and `href="."` as `/x/.`, and `href="?C=N;O=D"` (an Apache index's sort link)
+    as `/x/?C=N;O=D`. All of those are the directory: the path is normalised (`posixpath.normpath`, which drops the
+    `.` and the trailing `/`) and the query and the fragment are not compared. A link to a `..`, a file or a
+    subdirectory is another path and is not.
+    """
+    entry_url, own_url = urlsplit(name), urlsplit(url)
+    return entry_url.netloc == own_url.netloc and posixpath.normpath(entry_url.path) == posixpath.normpath(own_url.path)
+
+
+def _lists_nothing(url: str, entries: list[dict]) -> bool:
+    """Tell whether the listing of a directory (a URL ending in `/`) holds no entry.
+
+    A link of the page to the directory itself is no entry (`HTTPFileSystem._ls` leaves it out, whichever way it is
+    written: see `_is_the_same_directory`), so an outage page with a `retry` link to its own URL lists nothing, and so
+    does an Apache index of an empty directory, whose sort links (`?C=N;O=D`) are the directory too. A URL that does
+    not end in `/` may name a file and is never taken for one that lists nothing.
+    """
+    return url.endswith("/") and not entries
+
+
+def _drop_cached_listing(fs: HTTPFileSystem, url: str) -> None:
+    """Drop the listing of a URL from the listings cache of a filesystem, as far as the cache lets it.
+
+    Best effort: the listing is gone, or it was not there (`KeyError`), or the cache cannot be written (a store that is
+    busy or read-only, `sqlite3.Error`, an `OSError`), which is told in the log and is no failure of the request, that
+    has its answer without the cache.
+    """
+    try:
+        del fs.dircache[url]
+    except KeyError:
+        pass
+    except (sqlite3.Error, OSError) as error:
+        log.warning(f"Could not drop the cached listing of {_without_url_secrets(url)}: {error!r}")
+
+
+def _ls_and_read_page(fs: HTTPFileSystem, url: str) -> tuple[list[dict], bytes | None]:
+    """List a directory, and read its page where it lists nothing, to tell an empty directory from a page that is none.
+
+    As `_find_and_read_page` for the files: the page of a URL ending in `/` is read when `ls` found no entry, which
+    costs one more GET for an empty directory. A link of the page to the URL itself is no entry (`HTTPFileSystem._ls`
+    leaves it out), so what an outage page lists is never stored, and the directory the server has once it is back is
+    not hidden behind it for the `cache_expiry` (GH-3861). A directory that is not there raises `FileNotFoundError`,
+    as it always did, and a listing with entries reads no second page.
+    """
+    entries = fs.ls(url, detail=True)
+    if not _lists_nothing(url, entries):
+        return entries, None
+    return entries, _read_page(fs, url)
+
+
+def _entries_or_empty_directory(url: str, entries: list[dict], page: bytes | None) -> list[dict]:
+    """Give the entries `ls` found at a URL, none where the page is that of an empty directory.
+
+    A directory that lists nothing is an index page with no link (nginx), or a 404 for the page. Any
+    other 200 page, a CDN's error page or a JSON error, with a link to itself or none, is not an empty directory and
+    must not read as "no entries": it is a `DownloadError`, a 502, as for `list_remote_files_fsspec` (GH-3834). A
+    listing with entries is left as it is.
+    """
+    if not _lists_nothing(url, entries):
+        return entries
+    _found_or_empty_directory(url, [], page)
+    return []
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -2686,9 +2908,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
         # and callers have always had it as `[]`; anything else is a failure to read, which a
         # caller should hear about rather than infer, after the retry around this where it can help
-        return fs.find(url, on_error="raise")
-    except FileNotFoundError:
-        return []
+        found, page = _find_and_read_page(fs, url)
     except ClientSSLError as e:
         # a certificate that does not verify, or a TLS protocol failure: the host answered, so this
         # is not being offline, and `[]` would hand the caller an empty directory with no hint of
@@ -2713,9 +2933,37 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # aiohttp built from its credentials in the request info, and the retry around this logs the repr
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        return _found_or_empty_directory(url, found, page)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise tls_failure
+
+
+def forget_remote_listing(url: str, settings: Settings, cache_expiry: CacheExpiry) -> None:
+    """Drop the listing of a directory from the listings cache, so that the next listing asks the server again.
+
+    For a listing that has files and is still no answer: a directory that holds the files of its stations but not the
+    description that goes with them, which DWD uploads next. Kept for the `cache_expiry` of its listing (12 hours for
+    the metadata), it would have every request skip the directory long after the server has it whole (GH-3834).
+    The `url` and the `cache_expiry` are those the directory was listed with. Nothing happens where no listing is kept
+    (the cache is disabled, or the listing is not in it). Best effort: a cache that cannot be opened or written (busy,
+    read-only) is told in the log, and the caller goes on, as it has its answer without it.
+    """
+    if settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE:
+        return
+    try:
+        fs = HTTPFileSystem(
+            use_listings_cache=True,
+            listings_expiry_time=cache_expiry.value,
+            listings_cache_location=settings.cache_dir,
+            client_kwargs=settings.fsspec_client_kwargs,
+            use_certifi=settings.use_certifi,
+        )
+    except (sqlite3.Error, OSError) as error:
+        log.warning(f"Could not open the listings cache to drop {_without_url_secrets(url)}: {error!r}")
+        return
+    _drop_cached_listing(fs, url)
 
 
 def list_remote_directory_fsspec(
@@ -2739,7 +2987,9 @@ def list_remote_directory_fsspec(
         NoInternetError: If no connection could be made after three attempts, as for
             ``list_remote_files_fsspec`` (GH-2640).
         DownloadError: If the server answered badly or a TLS check failed, as for
-            ``list_remote_files_fsspec`` (GH-3004, GH-3099).
+            ``list_remote_files_fsspec`` (GH-3004, GH-3099), or if a URL ending in `/` lists no entry and its page is
+            no index of a directory (a CDN's error page answered with a 200, a JSON error), which is no empty
+            directory and must not read as no entries. An `Index of` page with no link is `[]` (GH-3834).
         FileNotFoundError: If the directory is not there. Unlike ``list_remote_files_fsspec``, this
             does not return no entries. A missing directory is asked for once.
 
@@ -2760,7 +3010,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     )
     failure: OSError
     try:
-        return fs.ls(url, detail=True)
+        entries, page = _ls_and_read_page(fs, url)
     except ClientSSLError as e:
         # as in `list_remote_files_fsspec`: the host answered, so a failing certificate or handshake
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
@@ -2777,6 +3027,8 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
+    else:
+        return _entries_or_empty_directory(url, entries, page)
     # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
     # help: not for a certificate that does not verify, which is the same on every attempt (GH-2618)
     raise failure
@@ -2802,6 +3054,7 @@ def download_file(
     max_bytes: int | None = None,
     refetch_before: float | None = None,
     refetch_undated: bool = False,
+    fetch_url: str | None = None,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2829,6 +3082,12 @@ def download_file(
         refetch_undated: Whether a copy that no version which kept the date of a download (`File.last_modified`) made is
             fetched again, once. Such a copy has no record of its date beside it, not even of a missing one, where a
             copy made since has one, so the new copy is held for good. Held in the same way as for `refetch_before`.
+
+        fetch_url: The address a copy that is not held is fetched from, where `url` is only the name the copy is kept
+            under (the key of the cache, never asked for). For a file whose address is made for the request and is
+            gone within the hour, a pre-signed link: kept under a name of its own, the copy is found again by a
+            request that has no link yet (`read_cached_copy`). The address is not logged and is in no error, which
+            name `url`. Where nothing is cached (`cache_disable`, `NO_CACHE`) the file is fetched from it all the same.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2890,14 +3149,20 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    fetch_kwargs: dict[str, float | str] = {} if max_bytes is None else {"max_bytes": max_bytes}
                     if isinstance(filesystem, _LockedWholeFileCacheFileSystem):
                         fetch_kwargs["checked"] = True
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before
                     if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_undated"] = True
-                    payload = filesystem.cat_file(url, **fetch_kwargs)
+                    if fetch_url is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["fetch_url"] = fetch_url
+                    # a filesystem that keeps no copy has no name for one: it reads the address
+                    read_url = (
+                        url if fetch_url is None or isinstance(filesystem, WholeFileCacheFileSystem) else fetch_url
+                    )
+                    payload = filesystem.cat_file(read_url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -2911,7 +3176,7 @@ def download_file(
                     content=BytesIO(payload),
                     status=200,
                     from_cache=served_from_cache,
-                    last_modified=_take_last_modified(filesystem, url),
+                    last_modified=_take_last_modified(filesystem, read_url),
                     cached_at=float(copy[0]["time"]) if copy else None,
                 )
     except Exception as e:
@@ -3002,6 +3267,45 @@ def cached_copy_is_held(
         return isinstance(filesystem, WholeFileCacheFileSystem) and bool(filesystem._check_file(url))  # noqa: SLF001
     except Exception:  # noqa: BLE001 -- best effort, a copy not seen is a download made
         return False
+
+
+def read_cached_copy(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bytes | None:
+    """Read the copy `download_file` holds under a name, without a request; None where there is none.
+
+    For a copy kept under a name that is no address (`download_file`'s `fetch_url`), which a caller that needs a
+    request to learn the address (a pre-signed link) asks for first, to make that request only on a miss. Takes the
+    arguments the download was made with, as `drop_cached_file` does, since they name the cache. Reads the copy as a
+    cache hit does, so a copy that has expired is none. None too where nothing is cached (`NO_CACHE`,
+    `cache_disable`), where the copy cannot be read, and where the cache cannot be: never raises.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return None
+        held = filesystem._check_file(url)  # noqa: SLF001
+        if not held:
+            return None
+        with _open_blob(Path(held[1]), "rb") as blob:
+            payload = blob.read()
+    except Exception:  # noqa: BLE001 -- best effort: a copy not read is a download made
+        log.debug("Could not read the cached copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
+    log.info(f"Read file {_without_url_secrets(url)} from cache")
+    return payload
 
 
 def drop_cached_file(
@@ -3321,6 +3625,61 @@ def post_file(
         # named one by one, because the promise made above is that a failure comes back as a File.
         log.info(f"Failed to post to {shown}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
+
+
+#: The most of a refusal's body that is read (`read_refusal`), and the longest the reading may take in all: a reason
+#: is a sentence, so a body past this is no reason, and a server that drips one byte at a time is not waited for.
+_REFUSAL_MAX_BYTES = 64 * 1024
+_REFUSAL_MAX_SECONDS = 15.0
+
+
+def read_refusal(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    client_kwargs: dict | None = None,
+    use_certifi: bool = False,
+    max_chars: int = 2000,
+    max_bytes: int = _REFUSAL_MAX_BYTES,
+    max_seconds: float = _REFUSAL_MAX_SECONDS,
+) -> str | None:
+    """Ask for a URL once more and give the body of its answer if that is a 4xx, for a provider that says why in it.
+
+    A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
+    (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
+    exceeds the maximum") cannot be told from one that refuses the credential by the status alone. A refusal is cheap to
+    ask again: one more request, made on a 403 only, not retried and not cached. Through the same HTTP stack as
+    `post_file`; the headers are sent with the request and not kept in the client, so the credential never reaches the
+    key the filesystem is cached under, and no message names it.
+
+    The body is held to the limits of a download: no more than ``max_bytes`` of it (refused at once if the answer says
+    it is longer, as it arrives if not) and ``max_seconds`` in all, which a client timeout, bounding each silence only,
+    does not give (GH-2258).
+
+    Returns:
+        The first ``max_chars`` of the body, or None where the answer is no 4xx, has no body within the limits, or could
+        not be had (a timeout, a lost connection): the caller then falls back on the status alone.
+
+    """
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0,
+        use_certifi=use_certifi,
+        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
+    )
+
+    async def _get() -> str | None:
+        session = await filesystem.set_session()
+        async with _within_time(max_seconds), session.get(url, headers=headers, allow_redirects=False) as response:
+            if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
+                return None
+            body = await _read_capped(response, max_bytes)
+        return body.decode("utf-8", errors="replace")[:max_chars]
+
+    try:
+        return sync(filesystem.loop, _get)
+    except Exception:  # noqa: BLE001 -- a refusal that cannot be read again is still a refusal; nothing of it is raised
+        return None
 
 
 def download_files(

@@ -64,6 +64,20 @@ the [Official Copyright](https://www.dwd.de/EN/service/legal_notice/legal_notice
 before using the data. Every answer of the REST API names the licence and the credit line in its
 [response metadata](../../../usage/restapi.md#response-metadata).
 
+The rules for acknowledging the DWD (read 2026-11-06) say the source details are due for data "used without
+alteration" and also "if extracts of the data/services are used or if the data format is changed"; "In the event of more
+advanced alterations or any processing, layout redesigns or other adaptation of the data/services, the DWD at least
+expects to be mentioned in a central list of references or in the imprint/publishing details", with wordings such as
+"Based on data from Deutscher Wetterdienst, averaged over individual values"; and the source details "must be placed
+immediately next to the information used". For the official warnings the rule is stricter: "If any of the official
+weather warnings issued by the DWD is changed, the source details provided with the data/services have to be deleted."
+The `alerts` network reshapes the warnings into a table and leaves their content as the CAP files give it, which is our
+reading of "not changed"; that is not DWD's. The
+[open data page](https://www.dwd.de/EN/ourservices/opendata/opendata.html) adds that "service and availability levels
+cannot be guaranteed" for opendata.dwd.de. DWD states no limit on requests on the pages read; the library fetches the
+files of the next four stations while it parses one (`fetch_ahead`), and the page on
+[what it does with the data](../data-use.md#how-it-asks-the-provider) says what else it does.
+
 ```{toctree}
 :hidden:
 

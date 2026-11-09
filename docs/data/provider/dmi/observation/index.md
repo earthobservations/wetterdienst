@@ -162,11 +162,6 @@ them and stamped by `from`, so a reading at minute 0 lies an hour after its stam
 value may lie up to one hour from its stamp, and the library does not tell the two apart (this would need a second
 request to metObs for each station).
 
-DMI lists `no_days_fog` ("No. of days with fog (vis. < 1 km)") for 10 stations in Greenland, but the service holds no
-value of it at any resolution (hour, day, month, year; read on 2026-11-02 for each of the 10), so it is not served.
-`no_days_snowfall`, `no_days_thunder` and `mean_absolute_humidity` are not served either, until DMI has said what they
-count and measure.
-
 DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
 by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
 holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
@@ -188,6 +183,19 @@ directly, but codes are changed to %": all 62,399 values of 91 stations from 201
 0, 25, 50, 75 and 100 the commonest (1,382 of 25 %, 997 of 50 %, 1,231 of 75 %, 4,696 of 100 %), and a 99 is a value
 and no code, as 98 is. DMI publishes no snow cover from 2015-11-22 on and none by the month or the year, and the hours
 of 15 January of each year from 2005 to 2026 hold none.
+
+## Parameters DMI lists that are not served
+
+DMI's station list names four parameters that the library does not serve (maintainer decision of 2026-11-08, GH-3762):
+
+- `no_days_fog` ("No. of days with fog (vis. < 1 km)"), `no_days_thunder` and `no_days_snowfall` are held only as
+  climate normals: 130, 130 and 117 records of `timeResolution` `30years`, 1961-1990, for 10, 10 and 9 stations, all
+  in Greenland. The service holds no value of any of them at `hour`, `day`, `month` or `year` (read live and key-less
+  on 2026-11-08). The library has no 30-year-normal resolution, and a normal is no time series, so they are not
+  served.
+- `mean_absolute_humidity` states no statistic and no interval (a mean, a reading at minute 0, over an hour or a day),
+  so the library cannot say what a value is and does not serve it. DMI holds it only as 13 records of
+  `30years` (1961-1990) for one station, none at `hour`, `day`, `month` or `year` (same day).
 
 ## The source's own verdict (`source`)
 

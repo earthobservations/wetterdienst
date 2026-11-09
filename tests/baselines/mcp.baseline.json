@@ -578,6 +578,10 @@
             }
           ]
         },
+        "datasets": {
+          "type": "boolean",
+          "default": true
+        },
         "pretty": {
           "type": "boolean",
           "default": false
@@ -1697,6 +1701,22 @@
           ],
           "default": "soft"
         },
+        "plausibility_step": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "plausibility_relations": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
         "limits": {
           "anyOf": [
             {
@@ -1742,5 +1762,5 @@
       ]
     }
   },
-  "x-release": "0.183.0"
+  "x-release": "0.185.0"
 }

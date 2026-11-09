@@ -46,6 +46,7 @@ from wetterdienst.exceptions import (
     RequestError,
     ReversedTimeIntervalError,
     StartDateEndDateError,
+    StationListingIncompleteError,
     StationNotFoundError,
     UnknownFormatError,
     UpstreamError,
@@ -73,6 +74,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     IssueNotFoundError: (NotFoundError, (IndexError, LookupError)),
     NotEnoughDataError: (RequestError, (ValueError,)),
     ProviderNotFoundError: (NotFoundError, (Exception,)),
+    StationListingIncompleteError: (UpstreamError, (Exception,)),
     StationNotFoundError: (NotFoundError, (Exception,)),
     ApiNotFoundError: (NotFoundError, (Exception,)),
     MetadataNotFoundError: (NotFoundError, (LookupError,)),
@@ -174,6 +176,7 @@ _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     DownloadError: ("https://example.com/a", "timed out"),
     ImageTimeoutError: (120.0,),
     ImageTooLargeError: (1, 2, 3),
+    StationListingIncompleteError: ("00044", {"`a/`": "its listing came back empty or missing"}),
     UnknownFormatError: ("xml", ("csv", "json")),
 }
 

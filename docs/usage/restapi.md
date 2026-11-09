@@ -22,12 +22,28 @@ and a glossary; its page says what is in it and how to run it.
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
 `with_metadata=true` for its heavier parts, and (for the endpoints of values and `history`)
-`with_stations=true` to include the queried stations' metadata; a listing of `stations` is the
-stations, and takes no `with_stations`. With `with_metadata=true`, the JSON and GeoJSON of `values`,
+`with_stations=true` to include the stations' metadata; a listing of `stations` is the
+stations, and takes no `with_stations`. In `values` the `stations` block lists the stations that have rows
+in the answer, one entry for each resolution and dataset that has rows (a row of nulls is a row, so a
+station read with `drop_nulls=false` is listed): the stations that `metadata.request.stations.ids` and
+`counts.stations` name, and those of the GeoJSON. Where the wide shape merged several datasets of a resolution
+into one row, which names no dataset, the block has an entry for each of the datasets, and the GeoJSON one
+feature for the station. A station of the request with no rows, or whose rows `sql_values` cut away, is not in
+the block, and the block is an empty list where there are no rows. A station named in `stations` that has no
+rows while other named stations do is told by a `station-without-rows` warning ([below](#response-metadata)). To find a
+requested station that has no rows otherwise, compare the ids the answer names (`metadata.request.stations.ids`, up to 100 stations, padded as the answer pads them: `1048` is `01048`) with yours, or ask `stations` for it without `timestamp`
+(with `rank`, `stations` lists the N closest by distance, not the ones the walk took). The `history` block
+lists the stations of the request. With `with_metadata=true`, the JSON and GeoJSON of `values`,
 `interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
 was got with, named as the endpoint's query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
+
+For `interpolate` and `summarize`, `with_stations=true` lists the stations (once for each dataset of the request),
+each with its `distance` from the point (km) and its `elevation_difference` to it (m); the GeoJSON always lists them.
+The rows name their stations by id (`taken_station_ids`, `taken_station_id`) and decide which station gave a value;
+this list says where each stands: see
+[Interpolation](interpolation.md#which-stations-an-answer-was-made-from). A CSV holds the rows only.
 
 The command line renders through the same function, so the same request gives the same body there:
 `wetterdienst values ... --with-metadata=true` writes the `settings` block too, `--pretty` the
@@ -47,7 +63,8 @@ What the endpoints share about which stations a request names:
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
   warning of the response's `metadata`, and in the server's log. The one reference station
-  of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404.
+  of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404 (a 502 for `dwd/observation` and
+  `dwd/derived` where a directory of the lookup was skipped, below).
 - **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
   `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
   exit means the request failed.
@@ -194,7 +211,7 @@ what the answer is missing:
   and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
   provider states none or asks for none.
-  `copyright` stays the free text it was. All providers are listed with their licence and credit line on
+  `copyright` stays the free text it was, the rights holder's notice, shown for information: cite `attribution`. All providers are listed with their licence and credit line on
   [licences and credit lines](../data/provider/licenses.md).
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
@@ -303,9 +320,72 @@ what the answer is missing:
   an estimate, only if the station has a record in the window),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
-  `parameter-without-rows` (a requested parameter that the source holds no values for, see below) and
-  `file-skipped` (the stations whose file the provider let go, see below). Codes are added as more are told; a
-  client reads the ones it knows.
+  `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
+  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  source has values for that the answer leaves out because they are of another series, see below),
+  `window-not-closed` (values of a window that had not closed when the request was served, see below),
+  `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
+  below) and `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are
+  added as more are told; a client reads the ones it knows.
+
+  `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
+  warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
+  stations around a point as candidates, nearest first, and stop when they have enough, so the walk of a values request
+  that tells `file-skipped`, `other-window-left-out` and `window-not-closed` at its end does not apply to them, and none
+  of them is told of a station by an estimate. It carries `stations` (the stations that were affected, in the order
+  they were read, the first ten if there are more), and its message says `at N of the M stations it read`, then each cause that applies,
+  with the stations it affected:
+
+  - a file the provider could not use (the cases of `file-skipped`: a refused or failed download, a file withdrawn
+    since the listing, a maintenance page, a file that would not parse, a directory found empty). The values of the
+    station may be missing from the estimate. The message names the cause and advises by it, in the words of
+    `file-skipped` (below): try again later for a failed download, a withdrawn file, a maintenance page or an empty
+    directory; for a refused download (too large, too slow) or a file that would not parse, that retrying will not help
+    and that it is worth reporting to the provider; both, grouped, where both occurred;
+  - dates of another series of the source (the case of `other-window-left-out`, counted in dates for each parameter):
+    the source holds values for them, nothing is missing there, and they are not read because a value of another
+    window would be wrong under the parameter's name;
+  - values of a window that had not closed yet (the case of `window-not-closed`, counted in values for each window:
+    today, this month, this year): the day's, month's or year's value is partial and may still change, and the source
+    does not mark it. They are not missing at the source and come back once the window has closed. An estimate cannot
+    carry the `completeness:Incomplete` mark that `values` puts on a monthly or annual value of an open window, so it
+    leaves those out as it leaves a daily one out (`metno/frost`);
+  - values a hard [plausibility check](../data/plausibility.md) rejected (the case of `rejected-by-plausibility`,
+    counted in values and by check, a value several checks rejected counted under each): the source wrote a number
+    there, which the check made null and the estimate does not use. A value a soft check flags `suspect:` is left out
+    of an estimate in every mode, whatever is set, and is not counted.
+
+  The causes are told in the one warning, since a caller of an estimate asks one question of it, is it made from all
+  that the source holds, and a values request, which asks more, keeps its codes. A station is counted once whatever the
+  number of causes. A station that the walk read once it was done and did not use, because it had enough nearer
+  ones, is not counted, whether it came back with rows or, as a station whose file was lost does, with none, nor is one
+  it never read. Only the providers listed below tell the first three causes to the
+  walk, so an estimate without the warning is no proof that every file was read. It is told next to what the lookup of
+  the stations says, which `file-skipped` (a directory of `dwd/observation` or `dwd/derived` found empty, below) still
+  tells without a station: the two state different facts. In Python it is a log line at level `WARNING`, and
+  `recorded_warnings()` gives it after `begin_response()`, as the REST API, the command line and the MCP tools do; the
+  result of `interpolate()` and `summarize()` holds no warnings.
+
+  `other-window-left-out` says that the source holds values of a parameter on dates the answer has no row for, because
+  the values are of another series than the one the parameter is: `metno/frost` keeps two series of the daily and the
+  monthly precipitation sum, 06-06 UTC (the parameter) and 18-18 UTC, and a date that only the 18-18 series has would be
+  a sum of another window under the parameter's name; it keeps two of the daily maximum and minimum temperature, 18-18
+  UTC (the parameter) and the calendar day, and a date that only the calendar-day series has would be an extreme of
+  another window; it keeps two of the daily and monthly mean temperature, the calendar day (the parameter) and 06-06
+  UTC, and a date that only the 06-06 series has would be a mean of another window. They are no missing data, so this is not
+  `parameter-without-rows`, which is not told of a parameter this one names (a parameter asked for by its name, or any
+  parameter of a dataset asked for whole). It carries `parameter` (`resolution/dataset/parameter`) and `stations` (the
+  first ten); its message gives the number of dates at each station and says which series was left out. One for each
+  parameter and request. The dates beyond the window of the request are not counted.
+
+  `window-not-closed` says that the source served values of a window that had not closed when the request was served,
+  and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
+  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is
+  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
+  as a cause of `source-data-left-out`, above); the message says which, how many values at which
+  stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
+  (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
+  window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
 
   `parameter-without-rows` says that the request succeeded and the source has no values of a parameter that was
   asked for, so that it is not taken for a failure and asked again in a loop. It carries `parameter`
@@ -337,13 +417,45 @@ what the answer is missing:
   `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
-  another warning already names (`parameter-ended`) is not told again, nor is anything told for `interpolate` and
-  `summarize`. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
+  another warning already names (`parameter-ended`) is not told again, nor is `parameter-without-rows` told for
+  `interpolate` and `summarize`, for which a station without a parameter is the ordinary case. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
   than it asked for are, and `wetterdienst.util.response_warnings.recorded_warnings` gives it after
   `begin_response()`, as the REST API and the command line do.
 
+  `station-without-rows` says that stations the request named by id (`stations=`; `filter_by_station_id` in Python,
+  the same on the command line, in REST and in the MCP tool) returned no rows while other named stations returned
+  rows, which `values` alone does not say. It carries `stations` (the ids, in the order of the answer, which is the
+  catalogue's and not the order they were asked in, the first ten if there are more; the message then gives their
+  number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name, `sql` and `all` have
+  empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`,
+  `summarize` and `stripes` read stations as candidates or one station and do not tell it.
+
+  A station has no rows when the source holds no values of it in the window (a station the index says begins after
+  the window included), or, in the long shape with `drop_nulls` (the default), when all its values were null and
+  left out: with `drop_nulls=false`, and in the wide shape, which never drops a null row, such a station has rows
+  and is not named, and the message does not offer that reason. With `skip_empty` a station with any value in the
+  window is `station-skipped`'s, so a station named has none at all and the message does not offer it either. A null
+  that carries a `raw:` token is counted by `missing-value-marker`, `calm-wind-direction` or, where a hard check made
+  it, `rejected-by-plausibility`; one without is counted by none. The message gives the window and, as
+  `parameter-without-rows` does, what narrowed the request (`periods`, a run, a lead time, for any of its datasets,
+  the periods of the datasets in one phrase) with what to ask instead, since the values may be in what was left out.
+  Without a window it says "there" only when something narrowed the request. It does not say what the other stations
+  have: at least one returned rows, but a clause of `sql_values` that cuts rows afterwards may leave none of them
+  with rows in the answer, and the stations named had none before it either.
+  A station with a row of any requested parameter has rows, even if another parameter has none (that is
+  `parameter-without-rows`). It is not told when no named station has rows (`parameter-without-rows` is, where it
+  can be), for an id the network has no station for (`unknown-station` names it), for a station `file-skipped`
+  names (a file that serves every station is every station read's; a station the index says begins after the window
+  was not read and is still named), for one `skip_empty` dropped (`station-skipped`), or for one whose dates were
+  left out for another series (`other-window-left-out`: the source holds values of it, which that warning says);
+  `parameter-ended` names a parameter, not a station, and does not keep a station from being named. It is raised
+  once the walk has read every station, so a stream that the client stops, a walk that fails and a rank that ends
+  early name none; a limit (`max_rows`, `max_stream_rows`) refuses the request before any station is read. A
+  streamed answer (`ndjson`) carries it in the `end` line, and a streamed CSV, which has no place for warnings, not
+  at all.
+
   `file-skipped` says that the answer may be missing values for want of a file the provider let go: the cases just
-  listed (a refused download, a file withdrawn since the listing, a maintenance page answered with HTTP 200, a file
+  listed (a refused download, a file withdrawn since the listing, an error page answered with HTTP 200, a file
   that would not parse), so that a partial answer can be told from a whole one. There is one for the request. It
   carries `stations` (the stations whose file was let go, the first ten if there are more), and its message names the
   datasets the request read at them: a provider says which station, not which of its files. A file that serves every
@@ -352,12 +464,69 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  Retry later: what is missing may well be there then, which is the
+  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408, 425 or
+  429), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
+  report such as FMI's rate limit) and a directory found empty may be back, so it says to try again later; a refused
+  download (too large, too slow, an off-host redirect, or a request the server turns down for good: a 400, 401, 403 or
+  410, or an exception report that names a request error such as `InvalidParameterValue`) and a file that would not
+  parse mostly stay as they are, so it says that retrying will not help and that it is worth reporting to the
+  provider. Where both kinds occurred it groups them as
+  `source-data-left-out` does. The code and the members (`stations`) are the same for every cause. What is missing may
+  well be there on a retry for the first kind, which is the
   difference to `parameter-without-rows`, whose stations are never among them. It is told for the providers listed
   above, nothing is told when no file was let go (a 404 that is the source's answer of no data, a download made
-  again with success), and not for `interpolate` and `summarize`, which read the stations around a point as
-  candidates and fall back to the next one, as they do not tell `parameter-without-rows`. The provider logs each file
-  it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+  again with success), and not of each station for `interpolate` and `summarize`, which read the stations around a
+  point as candidates and fall back to the next one, and tell the stations they read whose file was let go in one
+  `source-data-left-out` warning (above). The provider logs each file it lets go at level `WARNING` as before. In Python the warning is a log line at that level too.
+
+  A file of `dwd/observation` or `dwd/derived` that the file index listed and the server answers with a 404 is told as
+  withdrawn, and the listing of its directory is dropped from the listing cache (kept for 12 hours otherwise; a year
+  directory of the 1 and 5 minute precipitation too), so that the retry the message advises lists the directory afresh
+  and finds the file under the name DWD gave it at its annual rollover (#3892). It is dropped once for each directory
+  in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
+  `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
+  run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
+  no run a file the reader cannot use, and an empty or missing one an empty directory.
+
+  `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
+  (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
+  first: the lookup goes on without it and the answer is partial, a 200 and not an error (#3819). So does a
+  `dwd/observation` directory that lists files and no description of its stations (for the extreme wind, none of its
+  FX3 or its FX6), which was skipped with a log line and nothing in the answer: the warning reads `The directory ...
+  lists no description of its stations` and the listing of that directory is not kept in the listing cache either, as
+  DWD uploads the description after the files (#3834). The warning has no
+  `stations`. It names the directory that was listed, the dataset and the periods that were skipped for it (`the
+  historical stations of daily/climate_summary were not looked up`): what is certain is that a station that only that
+  release lists is not in the answer, and its values or history are not read. What the directory was read for is not
+  always the period's own (the 1 minute precipitation reads the daily `more_precip` directory for the region of its
+  `historical` stations), so the period named is the one skipped. A dataset whose one directory is empty (the solar
+  datasets list the same for every period) answers no station. `values` and `history` say the rest at the stations they
+  read: a station found in another period whose `historical` file list is empty is named by `file-skipped` as for any
+  file the provider let go (`values`), or by a second warning of the directory that lists the stations whose history was
+  not read (`history`); the two state different facts and both are kept. A station that only the skipped release lists
+  is not found, and `interpolate`, `summarize`, `stripes/values` and `stripes/image` with such a `station` have no
+  answer to put a warning in: an error answer has no `warnings`. They answer a 502 of the kind `upstream-failed`
+  whose `detail` names the directory and why it was skipped (``No station found for 00044. The lookup of the stations
+  went without the directory `climate/monthly/kl/historical/` (its listing came back empty or missing), so a station
+  that only it lists is not found, and this may be one. Try again later.``), not the 404 that says the station does
+  not exist (#3834). What a skipped directory can say decides which id gets it: an empty or missing directory says
+  nothing of the stations it holds, so every id the lookup does not find is the 502; a directory that lists files and
+  no description names its stations in its file names, so only an id among them is, and any other id is the usual 404.
+  The MCP tools give the same text, the command line exits 1 with it, and Python raises
+  `StationListingIncompleteError`, an `UpstreamError`. A station that is not found where every directory was listed
+  is still the 404, and a name given to `stripes` that matches no station too: a name is the caller's input, not a gap
+  in a listing. A history with the warning is not cached (below). Only a listing that is missing, an index page with
+  no link or a link to itself only, or a directory with files and no description of its stations is told this way.
+  A connection that cannot be made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that
+  is no index of a directory (a CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never
+  a `file-skipped` and never "no data". No empty listing is kept in our listing cache, a year directory of a tree
+  included (`5_minutes/precipitation/historical/2022/`), so DWD filling a directory again is seen by the next request; a cache
+  written by an older version that holds an empty listing is read as a miss. A directory found empty is listed once
+  by a lookup and once by a walk (a walk over a hundred stations asked for it, five GETs at a time, at each station and
+  again for the fetch-ahead): a lookup or a walk remembers it for its own length and no longer, in Python as over REST,
+  so the next request asks again and nothing is kept in a context between calls. `describe_fields` stays an error. A
+  station with no file in a listing that is there (one that only has `recent` data) has no history of it, which is the
+  source's answer, and no warning.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
@@ -373,16 +542,19 @@ the terms are those of each provider it lists.
 
 - **`parameters`**: for each parameter read its `resolution`, `dataset`, canonical `name`,
   `name_original` (the source's), `description`, `quantity` and the `unit` of its values: the target of the
-  quantity, which `unit_targets` sets, where `convert_units` is on, else the unit the source publishes.
+  quantity, which `unit_targets` sets, where `convert_units` is on, else the unit the source publishes, its
+  `aggregation` and its `timestamp_position` (what they mean: [Aggregation and timestamp
+  position](../data/parameters.md#aggregation-and-timestamp-position-in-the-answers); `null` is not stated).
 - **`quality`**: what the `quality_flags` of a reading holds (its `format`), the `source_flags`, the
   quality flags the datasets read publish, whose code is the first token of `quality_flags`, and the
   `legend`: what each kind of token means for the network read, in the order of the column. An entry has
-  its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes first),
-  how it is `written` (`zone:<mez|woz>`, `raw:<text>`), its `meaning` and, where the source documents a closed
-  set, its `codes` with their meanings (DMI's `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and
-  `11`, CHMI's quality `0` to `5`, the MADIS flags of the NWS). Where the source tells the
-  codes itself (DWD's QN levels, Frost's `qualityCode`, GHCN's flags) the `meaning` names whose they are, and
-  `codes` is `null`. The legend is empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
+  its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes
+  first), how it is `written` (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`, `raw:<text>`), its
+  `meaning` and, where the source documents a closed set, its `codes` with their meanings (DMI's
+  `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and `11`, CHMI's quality `0` to `5`, the
+  MADIS flags of the NWS). Where the source tells the codes itself (DWD's QN levels, Frost's
+  `qualityCode`, GHCN's flags) the `meaning` names whose they are, and `codes` is `null`. The legend is
+  empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
@@ -433,6 +605,38 @@ release commit, with `uv run poe contracts:baseline`.
 - **Answers** have a schema everywhere: the health check (`Health`), the readiness check (`Ready`), the version (`VersionAnswer`) and the data
   routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
   (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
+- **Exclusive parameters** are stated on the operations that have them: `stations` and `values` (`all`, `stations`,
+  `name`, a point, a box or `sql`), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
+  point), and `stripes/values` and `stripes/image` (a `station` or a `name`). The document does not write it as a
+  `oneOf`. That is a keyword of one schema, and these are separate query parameters; the only place for it would be one
+  object parameter (`style: form`, `explode: true`) in place of them. Then the operation would no longer list `all`,
+  `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
+  argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
+    - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
+      and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
+      `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
+    - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
+      `Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is
+      required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+    - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
+      `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
+      there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
+      request made of them: `all=true` on `values` or `history` over a network with more stations than the server
+      allows for one request is a 400 (see [Limits](#limits)), and `sql` is a 403 unless the server enables it
+      (see [SQL filters](#sql-filters)).
+
+  The model that refuses a request, the extension, the sentences and the examples are written from one definition
+  (`Selection` in `ui/core.py`), which the model enforces whole, the `then` and `requires` as well as the groups.
+  Tests hold the groups to the rules as written for a client, over every combination of up to three of the
+  parameters, and the document to the 422 the server answers with. They hold the examples of each alternative to the
+  model and to the schema of the parameter, and run those of `stations` and `values` against a stand-in network of
+  eight stations; the other operations' examples are not run. The sentences and examples are on the parameters of the
+  operation and not on their schemas, which the MCP tools are built from, so the tools carry no more text than before.
+
+  `x-wetterdienst-selection` is informative. It may change in a minor release, as the descriptions and examples
+  may: what is promised is the refusal itself (the 422, its `type` and the alternatives it names), which is held by
+  the contract tests, and not this member of the document.
 - **Errors** are declared by status where the route can answer them, as references to the `responses` of
   `components`, each listing the kinds of problem that status is (see [Errors](#errors)). Every route under `/api/v1`
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
@@ -457,9 +661,11 @@ learnt on one holds on the others:
   not). The underscored spellings of the command line,
   `--convert_units` and the like, are refused with an error naming the hyphenated one.
 - **A parameter that takes a list is plural.** `parameters`, `periods`, `stations` and `sections`,
-  and `resolutions` and `datasets` of `coverage`, take a list; `station`, `parameter`, `period`,
-  `resolution` and `dataset` for them are refused with an error naming the plural
-  (`station was renamed to stations`). A parameter of one value is singular: the one reference
+  and `resolutions` and `datasets` of `coverage`, take a list; `station` for `stations` is refused
+  with an error naming the plural (`station was renamed to stations`) on the routes that took it in
+  0.139.0 (`stations`, `values`, `history`). A name a route never had is no rename there but an
+  unknown parameter: `date` of `stations`, which takes a `timestamp` only, `parameter` of `values`.
+  A parameter of one value is singular: the one reference
   `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
   `parameter` text `glossary` looks for.
 - **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,
@@ -487,7 +693,8 @@ learnt on one holds on the others:
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
   stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
-  command.
+  command. The OpenAPI document states the alternatives and gives an example of each parameter, see
+  [The OpenAPI document](#the-openapi-document).
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
@@ -525,12 +732,15 @@ list, nor is a provider none of whose networks can be; the server logs why. Aski
 by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
 optional package is missing, never a 404 as for a network that does not exist.
 
-With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`:
+With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`, and
+always an `aggregation` and a `timestamp_position`:
 
 | Field | |
 | --- | --- |
 | `unit` | the unit the `values` of the parameter come back in when the request gives no `unit_targets` or `convert_units`, which is the unit `glossary` gives for its `unit_type`: `degree_celsius` for a temperature, `percent` for a percentage, `hour` for a duration |
 | `unit_source` | the unit the provider publishes the parameter in (`degree_kelvin`, `one_eighth`, `minute`), which the values come in with `convert_units=false`. It is there only where it differs from `unit` (189 of 2132 parameters); absent means the same as `unit` |
+| `aggregation` | what the value is relative to its interval: `instant`, `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`; the name's where it states a statistic, else the provider's declaration. Always there; `null` means the source does not state it |
+| `timestamp_position` | where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle`; the parameter's own, else its dataset's (see [Time reference](../data/time_reference.md)). Always there; `null` means the source does not state it |
 
 `coverage` takes no options, so a `unit_targets` or `convert_units` a request to `values` gives changes what
 `values` return, not `unit`. The settings of the server (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`) are what a
@@ -555,20 +765,27 @@ ask the same question and give the same answer.
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
 by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
-(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
-credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
-whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
+(`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice, shown for
+information), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
+how many parameters they have (`parameters`). The answer is compact: `resolutions` of each network is null, which is all
+that a question about a licence or about which providers reach a place needs, and an answer about 40 % shorter: 20 kB
+for every provider where the full one is 34 kB. `datasets=true` lists the resolutions and datasets each network offers,
+with how many parameters each has (`dwd/radar` and `dwd/alerts` have an empty list); pass it where you read
+`resolutions` (it was the default up to 0.185.0). `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
+answers at once, and `auth` checks whether credentials are accepted.
 
 ```bash
-# Every provider, sorted by name.
+# Every provider, sorted by name, without the resolutions of their networks.
 http localhost:7890/api/providers
 
 # One provider.
 http localhost:7890/api/providers provider==dwd
+
+# With the resolutions and datasets of each network.
+http localhost:7890/api/providers provider==dwd datasets==true
 ```
 
-The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
+The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`.
 
 ### Extent
 
@@ -592,8 +809,8 @@ credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their b
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
-stations of Europe and the edges of Africa and Asia. `providers` shows the `extent` of a
-dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
+stations of Europe and the edges of Africa and Asia. `providers` (with `datasets=true`) shows the
+`extent` of a dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
 it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
 is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
@@ -601,7 +818,9 @@ lists what the network has.
 ### Glossary
 
 Coverage says which parameters a provider offers; the glossary says what any of them means and
-which unit it comes back in.
+which unit it comes back in. Each entry has the `aggregation` its name states (`mean`, `max`, `sum`, ...), `null` for a
+plain name; it is the canonical value, and `coverage` has the one of each provider and the `timestamp_position`, which
+the glossary does not know.
 
 ```bash
 # Look up every canonical parameter.
@@ -891,7 +1110,7 @@ and where an answer cannot be reasoned about it stays out.
 | Route | `Cache-Control` | `ETag` | `Last-Modified` | Why |
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
-| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A dataset the server skipped without a warning cannot be told from a station that has no file in it, so a partial history is kept like a whole one. |
+| `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history that met a directory whose listing came back empty or missing, or that lists no description of its stations, in the lookup of its stations or in the history itself, is a `file-skipped` warning on a 200, so that answer is not kept and carries no `ETag`; the empty or missing listing, and the listing of a directory with no description, is not kept in the listing cache either, so the next request lists the directory again (a listing with files is kept for twelve hours; nginx lists an empty directory as itself, which `list_remote_files_fsspec` turns into no file, and no empty listing is kept, a subdirectory's included); a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
@@ -923,8 +1142,8 @@ from one is never taken as proof by another that is newer; the worst case is a 2
 
 **What a 304 saves** is the transfer of the body, not the work of making it: the answer is built to be tagged. Measured
 against a server on the loopback interface, a request that sends the tag is answered with 309 bytes where the 200 is
-74,189 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,640 with `pretty=true`, 34,289 for `providers`
-and 130,848 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
+73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 33,806 for `providers` with `datasets=true`
+and 129,018 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
 `max-age` saves the request itself. A `history` is read again to be tagged, so for it too the saving is the body.
 
 **Behind the web app** the browser keeps an answer for its `max-age` and then asks the app, whose `/api` proxy passes
@@ -1032,6 +1251,13 @@ no provider: one that is down does not take the server out of the pool, its requ
 (`upstream-failed`, `upstream-unreachable`, `upstream-timeout`) and the rest are served. It does not look at the
 load either: a server working on as many requests as it allows answers those that count with a `server-busy` 503
 and stays ready. The answer is `Cache-Control: no-store`.
+
+`HEAD /health` and `HEAD /ready` answer as their `GET` does, with its status and headers (`Content-Length`, and for
+`/ready` the `no-store` and the 503 with `Retry-After`) and no body, for a monitor or `wget --spider` that probes with
+`HEAD` and reads a 405 as the server being down. They take the same path as the `GET`s: outside the host check, the cap
+and the timeout. The routes of the API, the index and `robots.txt` answer `HEAD` with a 405 as before (the pages
+FastAPI adds, `/openapi.json`, `/docs` and `/redoc`, answer it already). The document lists a `head` operation on the
+two probes alone, and a `POST` to one is a 405 with `Allow: GET, HEAD`.
 
 ## Errors
 

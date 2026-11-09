@@ -11,13 +11,16 @@ from zipfile import BadZipFile
 
 from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.provider.dwd.expiry import file_expiry
+from wetterdienst.provider.dwd.observation.fileindex import forget_listing_of_missing_file
 from wetterdienst.util.archive import gunzip, open_zip
 from wetterdienst.util.network import File, download_files
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     import polars as pl
 
+    from wetterdienst.metadata.period import Period
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -26,12 +29,17 @@ log = logging.getLogger(__name__)
 def download_climate_derived_data(
     remote_files: pl.Series,
     settings: Settings,
+    period: Period | None = None,
 ) -> list[File]:
-    """Download climate derived data from DWD server."""
+    """Download climate derived data from DWD server.
+
+    The files of the `historical` period are final by name and are kept a week, those of any other period (or of none
+    named) five minutes (GH-3929).
+    """
     files = download_files(
         urls=remote_files.to_list(),
         cache_dir=settings.cache_dir,
-        ttl=CacheExpiry.FIVE_MINUTES,
+        ttl=file_expiry(period),
         client_kwargs=settings.fsspec_client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
@@ -44,7 +52,10 @@ def download_climate_derived_data(
         if file.status != 404:
             file.raise_if_exception()
         else:
-            note_skipped_download()
+            note_skipped_download(SkipCause.WITHDRAWN)
+            # the listing is what named the file: drop it, so that the next request lists the directory again and
+            # finds the file where it is now, instead of this one until the listing expires (GH-3892)
+            forget_listing_of_missing_file(file.url, settings, CacheExpiry.TWELVE_HOURS)
             log.warning(
                 f"The file {file.url} that the file index lists is not on the server (404): its values are missing"
             )

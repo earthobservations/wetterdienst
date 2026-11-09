@@ -7,8 +7,8 @@ used (the licence and the credit line of the provider), what was asked as the li
 parameters that `daily/kl` meant, the periods, the window, the stations selected), when it was
 retrieved, what it is missing but did not fail on (`warnings`), how much of it there is (`counts`), the
 reference system of its positions (`crs`), and the versions of the API and of this shape. The block is
-always there; `with_metadata` only adds the heavier parts, the unit of every parameter and what
-`quality_flags` holds.
+always there; `with_metadata` only adds the heavier parts, the unit, the `aggregation` and the
+`timestamp_position` of every parameter and what `quality_flags` holds.
 
 Outside JSON the same information goes into headers (`response_headers`): a CSV or an image has no place
 in its body for it. This module imports no web framework, so the command line can use it without the
@@ -23,8 +23,9 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.metadata.period import Period
-from wetterdienst.model.metadata import is_quality_flag
+from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.quality_legend import QualityKind, quality_legend
 from wetterdienst.model.result import (
     StationsFilter,
@@ -150,6 +151,15 @@ class ParameterInfo(BaseModel):
         description="The symbol of the unit of the values: the target of the quantity where `convert_units` is "
         "on, else the unit the source publishes.",
     )
+    aggregation: Aggregation | None = Field(
+        description="What the value is relative to its interval: the name's, else the provider's declaration "
+        "where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not "
+        "stated, which is not a reading.",
+    )
+    timestamp_position: TimestampPosition | None = Field(
+        description="Where the timestamp sits in the row's interval: `instant` (when the value was observed), "
+        "`start`, `end` or `middle` of it. Null: not stated.",
+    )
 
 
 class SourceQualityFlag(BaseModel):
@@ -232,7 +242,8 @@ class ResponseMetadata(BaseModel):
     )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
-        "none) and with which credit line (`attribution`).",
+        "none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's "
+        "notice, shown for information.",
     )
     producer: _Producer
     processing_note: str = Field(
@@ -350,6 +361,8 @@ def result_metadata(
                 description=p.description,
                 quantity=p.unit_type,
                 unit=_unit_symbol(p, options, converter),
+                aggregation=p.effective_aggregation,
+                timestamp_position=p.effective_timestamp_position,
             )
             for p in parameters
         ]

@@ -3,7 +3,7 @@ import { TOOLS } from '~/utils/sections'
 
 const { t } = useI18n()
 
-// The four tools, as the logo's four tiles (app/utils/sections.ts): the first thing the home page offers, beside
+// The five tools, as tiles (app/utils/sections.ts): the first thing the home page offers, beside
 // the sentence that says what the site is. Explorer is a first-class entry point here (not hidden behind an
 // "advanced" section): it is made approachable through the Explorer's guided Simple mode.
 const TITLES: Record<string, string> = {
@@ -11,6 +11,7 @@ const TITLES: Record<string, string> = {
   explorer: 'home.explorerTitle',
   stripes: 'home.stripesTitle',
   history: 'history.title',
+  map: 'mapTool.title',
 }
 const tasks = computed(() => TOOLS.map(tool => ({
   key: tool.key,
@@ -97,7 +98,7 @@ const dataKinds = computed(() => [
 
 <template>
   <div class="frame home">
-    <!-- What the site is, and the four things to do with it: the logo's four tiles -->
+    <!-- What the site is, and the five things to do with it: the tools, each by its tile -->
     <section class="home-hero" aria-labelledby="home-title">
       <div class="home-intro">
         <h1 id="home-title" class="home-title">
@@ -133,7 +134,8 @@ const dataKinds = computed(() => [
           {{ t('home.tasksTitle') }}
         </h2>
         <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <li v-for="task in tasks" :key="task.key">
+          <!-- five cards in two columns: the last stands alone in its row, so it is the width of the two, which reads as meant -->
+          <li v-for="task in tasks" :key="task.key" class="sm:[&:last-child:nth-child(odd)]:col-span-2">
             <NuxtLink :to="task.to" class="tool-card group">
               <ToolTile :tile="task.tile" :icon="task.icon" size="3rem" />
               <span class="tool-card-title">

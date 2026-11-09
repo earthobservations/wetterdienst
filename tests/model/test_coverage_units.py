@@ -230,7 +230,15 @@ def test_an_answer_where_nothing_converts_has_no_unit_source_at_all() -> None:
     assert "unit_source" not in json.dumps(answer)
     for resolution, dataset, parameter in parameters:
         assert parameter["unit"] == api.metadata[resolution][dataset][parameter["name"]].unit
-        assert set(parameter) == {"name", "name_original", "unit_type", "unit", "description"}
+        assert set(parameter) == {
+            "name",
+            "name_original",
+            "unit_type",
+            "unit",
+            "description",
+            "aggregation",
+            "timestamp_position",
+        }
 
 
 def test_coverage_follows_the_unit_targets_of_the_environment_as_values_and_glossary_do(

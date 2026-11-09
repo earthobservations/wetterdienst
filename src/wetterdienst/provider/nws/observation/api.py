@@ -125,12 +125,16 @@ _NwsObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dewpoint",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_direction_mean_last_2min",
@@ -150,36 +154,42 @@ _NwsObservationMetadataSpec = {
                         {
                             "name": "pressure_air_site_reduced",
                             "name_original": "barometricpressure",
+                            "timestamp_position": "instant",
                             "unit": "pascal",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "sealevelpressure",
+                            "timestamp_position": "instant",
                             "unit": "pascal",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean_last_10min",
                             "name_original": "visibility",
                             "unit": "meter",
                         },
                         {
                             "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitationlasthour",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_3h",
                             "name_original": "precipitationlast3hours",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_6h",
                             "name_original": "precipitationlast6hours",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relativehumidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {

@@ -151,7 +151,8 @@
       "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",
       "glossary": "Co měří jednotlivé meteorologické a klimatické parametry a v jaké jednotce se vrací jejich hodnoty, s vyhledáváním podle názvu a veličiny.",
       "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
-      "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj."
+      "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj.",
+      "map": "Mapa stanic Německé meteorologické služby: vyber stanici nebo libovolný bod a uvidíš její předpověď, klimatické pruhy a měření."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
-    "support": "Podpora"
+    "support": "Podpora",
+    "map": "Mapa"
   },
   "shell": {
     "skipToContent": "Přejít na obsah",
@@ -216,7 +218,9 @@
       "docs": "Jak používat knihovnu pro Python, příkazový řádek a API",
       "github": "Kód, hlášení chyb a pull requesty",
       "pypi": "Nainstalovat knihovnu pro Python pomocí pip"
-    }
+    },
+    "stationsMap": "Stanice na mapě",
+    "stationOnMap": "Zobrazit stanici {id} na mapě"
   },
   "header": {
     "github": "GitHub",
@@ -278,7 +282,25 @@
     "unitMassPerVolume": "Hmotnost na objem",
     "unitSignificantWeather": "Významné počasí",
     "unitTurbidity": "Zákal",
-    "unitWindScale": "Stupnice větru"
+    "unitWindScale": "Stupnice větru",
+    "bar": {
+      "title": "Upravit lištu",
+      "hint": "Na telefonu zobrazuje lišta dole na obrazovce čtyři nástroje a Nabídku. Vyber, které čtyři. Ostatní zůstanou v Nabídce.",
+      "preview": "Náhled",
+      "previewLabel": "Náhled lišty: {tools}, Nabídka",
+      "menuOnly": "Pouze v Nabídce: {tools}",
+      "inBar": "V liště",
+      "inMenu": "Pouze v Nabídce",
+      "instructions": "Přetáhni nástroj za úchyt, nebo použij tlačítka se šipkami na jeho řádku. V liště jsou vždy čtyři nástroje: když jeden přibude, jiný odejde.",
+      "moveUp": "Posunout {tool} nahoru",
+      "moveDown": "Posunout {tool} dolů",
+      "reset": "Obnovit lištu",
+      "reorderedBar": "{tool} je nyní na místě {position} z {total} v liště.",
+      "reorderedMenu": "{tool} je nyní na místě {position} z {total} v Nabídce.",
+      "enteredBar": "{tool} je nyní v liště, na místě {position} z {total}. {other} je nyní jen v Nabídce.",
+      "leftBar": "{tool} je nyní jen v Nabídce. {other} je nyní v liště, na místě {position} z {total}.",
+      "resetDone": "Lišta je zpět ve výchozím stavu: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Stupně Celsia (°C)",
@@ -767,6 +789,47 @@
     "centerSelected": "Vycentrovat na vybranou stanici",
     "centerSelectedPlural": "Vycentrovat na vybrané stanice",
     "markersNotShown": "Stanice se nepodařilo zobrazit na mapě. Zkus stránku načíst znovu."
+  },
+  "mapTool": {
+    "title": "Mapa stanic",
+    "subtitle": "Vyber stanici nebo libovolný bod na mapě a uvidíš její předpověď, klimatické pruhy a měření.",
+    "aboutButton": "O mapě",
+    "about1": "Mapa ukazuje stanice Německé meteorologické služby (DWD): body, pro které dělá předpověď, nebo stanice, které měří, pro rozlišení a datovou sadu, které vybereš nad mapou. Každá je jeden bod; panel najde stanici podle jména a vypíše stanice poblíž středu mapy.",
+    "about2": "Vyber stanici nebo klikni na libovolný bod mapy: panel ukáže předpověď a klimatické pruhy nejbližší stanice, která je má, a otevře měření v Průzkumníku a historii stanice s touto stanicí už vybranou. Z klávesnice posouvej mapu šipkami, přibližuj plusem a mínusem a pak vyber místo uprostřed.",
+    "panelTitle": "Stanice",
+    "layers": "Vrstva",
+    "layerForecast": "Stanice předpovědi",
+    "layerMeasured": "Měření DWD",
+    "mapLabel": "Mapa stanic: {layer}",
+    "count": "Zobrazené stanice: {shown}",
+    "loadingStations": "Načítání stanic …",
+    "stationsFailed": "Stanice se nepodařilo načíst",
+    "noStations": "Tato datová sada nemá žádné stanice s polohou.",
+    "zoomIn": "Přiblížit",
+    "zoomOut": "Oddálit",
+    "search": "Najít stanici",
+    "searchPlaceholder": "Jméno nebo číslo stanice",
+    "nearCentre": "Stanice poblíž středu mapy",
+    "results": "Výsledky",
+    "noResults": "Žádná stanice neodpovídá tomuto hledání.",
+    "pickCentre": "Vybrat střed mapy",
+    "pickCentreHint": "Vybere místo uprostřed mapy, které posouvají šipky.",
+    "back": "Zpět na stanice",
+    "chosen": "Vybráno: {name}",
+    "pickedPlace": "Bod na mapě, {distance} od této stanice",
+    "elevation": "{value} m n. m.",
+    "at": "{name}, {distance} odtud",
+    "noneNearby": "Žádná stanice do {distance}.",
+    "noStationNear": "Žádná stanice do {distance} od tohoto bodu.",
+    "openForecast": "Otevřít předpověď",
+    "openStripes": "Otevřít klimatické pruhy",
+    "openExplorer": "Otevřít měření v Průzkumníku",
+    "openHistory": "Otevřít historii stanice",
+    "since": "od roku {year}",
+    "period": "od {from} do {to}",
+    "stripesFigure": "Klimatické pruhy: {name}",
+    "stripesNone": "Pro tuto stanici nejsou klimatické pruhy.",
+    "stationNotFound": "Na této mapě není stanice {id}."
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

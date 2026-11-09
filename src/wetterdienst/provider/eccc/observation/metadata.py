@@ -55,16 +55,19 @@ _EcccObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "temp",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temp",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
@@ -76,6 +79,7 @@ _EcccObservationMetadataSpec = {
                             # ECCC publishes hourly station pressure in kPa, not hPa
                             "name": "pressure_air_site",
                             "name_original": "station_pressure",
+                            "timestamp_position": "instant",
                             "unit": "kilopascal",
                         },
                         {
@@ -104,6 +108,7 @@ _EcccObservationMetadataSpec = {
                             # apparent temperature, always at or above the air temperature
                             "name": "temperature_humidex",
                             "name_original": "humidex",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                     ],
@@ -120,6 +125,7 @@ _EcccObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cooling_degree_day",
@@ -155,6 +161,7 @@ _EcccObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "snow_on_ground",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth_new",
@@ -200,6 +207,7 @@ _EcccObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     # The fields the climate-monthly collection actually publishes. This block used
                     # to carry bulk-CSV column headers ("total precip (mm)", "spd of max gust(km/h)")
                     # that the OGC API never returns, along with quality parameters -- quality
@@ -242,6 +250,7 @@ _EcccObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "snow_on_ground_last_day",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount",

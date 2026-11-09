@@ -32,6 +32,7 @@ from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
     FROST_ANTARCTIC,
     FROST_FOREIGN_WMO,
+    FROST_OFF_THE_BOX,
     Accepted,
     assert_covered,
     assert_in_extent,
@@ -43,6 +44,7 @@ from tests.provider.station_catalogue_stubs import (
     DWD_NAMES,
     EA_NO_POSITION,
     FMI_ANTARCTICA,
+    FROST_NO_POSITION,
     GHCN_NAMES,
     GHCN_NO_POSITION,
     HUBEAU_BLAVET,
@@ -59,6 +61,7 @@ from tests.provider.station_data_index import (
 )
 from wetterdienst import Wetterdienst
 from wetterdienst.ui.core import resolve_network
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 # the networks whose station list is not the same for every dataset of a resolution
 _EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix"}
@@ -94,21 +97,16 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
             where=lambda row: row["station_id"] == "151",
         ),
     ),
-    "metno/frost": (
-        Accepted(
-            "coordinates_missing",
-            "24 of the 2235 SensorSystem sources have no geometry and no position in any other field: ships, "
-            "rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), 20 with "
-            "shipCodes, which move; they stay in the list and no search picks them (GH-2655)",
-        ),
-    ),
+    "metno/frost": (FROST_NO_POSITION,),
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
     "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }
 
 # the stations a live list has outside the extent of its network, with the reason (GH-3456): the box is where the
 # network is, so a station elsewhere is the source's, and the box is not widened to it
-EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {"metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC)}
+EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {
+    "metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC, FROST_OFF_THE_BOX)
+}
 
 # the live catalogues that have no position for any station, by the source's design, and so no extent to hold them to
 # (the rule `coordinates_missing` of `ACCEPTED` says the same of them). Held only while that is so: a position that
@@ -168,7 +166,11 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
     request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    # a lookup that goes on without a directory that came back empty (GH-3819) answers fewer stations and a
+    # `file-skipped` warning, which is no live list of the stations: the test fails on it, as it did when that raised
+    begin_response()
     stations = request.all().df
+    assert [warning["message"] for warning in recorded_warnings() if warning["code"] == "file-skipped"] == []
     catalogue = f"{key} {resolution}/{dataset}"
     assert_sound(
         stations,

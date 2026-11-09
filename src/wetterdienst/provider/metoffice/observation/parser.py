@@ -39,6 +39,17 @@ _CALM = "0"
 _SKY_OBSCURED_COLUMNS = frozenset({"cld_ttl_amt_id"})
 _SKY_OBSCURED = "9"
 
+# a mean wind direction of 999 is a code, no bearing (a direction is 0 to 360). No MIDAS document words it: the WM page
+# says of `mean_wind_dir` only "The wind direction from which the wind blows, is measured in Degrees (true). The entry
+# for an east wind is 090, that for a south wind 180 and so on clockwise", the user guide (`ukmo_guide.html`, 5.5) names
+# the unit and the 10 degree precision and no code, and the QC tables (`QC_J_flags.html`) have none for it (all read
+# 2026-11-08). The data speak: 2,333 of 775,720 mean wind directions of 7 stations in 1970 to 1995 (GH-3909), every one
+# beside a mean wind speed of 1 to 6 knots (2 in 97 %), none beside a calm, and in the hourly weather's wind direction
+# and in the gust direction none at all (360 at most). A direction that could not be given in a light wind: null with
+# `raw:999`, which the range check rejected before (`rejected:range,raw:999`)
+_NO_BEARING_COLUMNS = frozenset({"mean_wind_dir"})
+_NO_BEARING = "999"
+
 
 def _data_section(content: bytes, *, na_is_null: bool = True) -> pl.DataFrame:
     """Split off the CSV table between the bare ``data`` and ``end data`` lines.
@@ -86,7 +97,7 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
 
 
 def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
-    """Give the codes of a column that are no reading: a 0 of a direction beside a speed of 0, the 9 of the sky."""
+    """Give the codes of a column that are no reading: a calm 0, the 9 of the sky and a 999 for a bearing."""
     codes = []
     speed = _CALM_SPEED_COLUMNS.get(raw_column)
     if speed in columns:
@@ -94,6 +105,8 @@ def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
         codes.append(Sentinel(_CALM, where=calm.fill_null(value=False)))
     if raw_column in _SKY_OBSCURED_COLUMNS:
         codes.append(Sentinel(_SKY_OBSCURED))
+    if raw_column in _NO_BEARING_COLUMNS:
+        codes.append(Sentinel(_NO_BEARING))
     return codes
 
 
@@ -102,24 +115,18 @@ def parse_values(
     time_column: str,
     columns: list[str],
     granularity: str,
-    min_columns: frozenset[str] = frozenset(),
     scale: dict[str, float] | None = None,
     period_count_column: str | None = None,
 ) -> pl.DataFrame:
     """Parse a per-station-year data file into long ``(timestamp, parameter, value, quality_flags)`` rows.
 
     Every reading is truncated to ``granularity`` (``1d`` for daily datasets, ``1h`` for hourly)
-    and aggregated to one value per ``(timestamp, parameter)``. This collapses MIDAS's *multiple
-    report types per period* -- confirmed live: a daily station may transmit an overnight and a
-    daytime 12-hour reading (``NCM``/``AWSDLY``) alongside a 24-hour one (``DLY3208``/``SYNOP``),
-    all for the same calendar day. Taking ``max`` for max-type parameters and ``min`` for
-    ``min_columns`` is idempotent over that duplication (``max(4.8, 5.4, 5.1)`` is exactly the
-    24-hour value ``5.4``) and yields one clean daily extreme per station-day. Hourly datasets have
-    a single reading per hour, so the aggregation is a no-op there.
+    and aggregated to one value per ``(timestamp, parameter)``, the ``max``, which collapses the second report of a
+    period (the files of the other datasets hold one reading per period, so it is a no-op there). The calendar day is
+    the date of the reading's ``ob_end_time``.
 
-    The calendar day is defined by the reading's ``ob_end_time`` date (a simple, documented choice;
-    MIDAS's climatological day can run 09-09, so a day's min is the low of the night that ended that
-    morning and its max the high of that afternoon).
+    The daily temperature is not read here: its rows are 12 and 24 hour windows, which `parse_window_rows` and
+    `climatological_days` turn into the 24 hours ending 09Z (GH-3137).
 
     Args:
         content: the raw file bytes.
@@ -131,9 +138,6 @@ def parse_values(
             ``model/values.py``'s ``_process_dataset()`` filters this column against the requested
             ``name_original`` values before humanizing it itself.
         granularity: polars truncation unit for the timestamp (``1d`` or ``1h``).
-        min_columns: the subset of ``columns`` aggregated with ``min`` (the min-type parameters);
-            all others use ``max``. The retained ``quality_flags`` is the flag of the row that supplied
-            the aggregated extreme.
         scale: optional ``{raw_column: factor}`` applied to a column's values to reach the unit
             declared in ``metadata.py``. Confirmed live: MIDAS ``visibility`` is stored in
             *decametres* (max ~7500 = 75 km at Heathrow), so it is scaled by 10 to metres -- there
@@ -144,8 +148,7 @@ def parse_values(
             *31-day accumulated total* on the read date with this column set to 31, not 1 -- and the
             hourly rain and radiation files hold 12 and 24 hour totals beside the hourly readings.
             Rows where it isn't exactly 1 are dropped so an accumulation is never mistaken for the
-            value of one day or hour. (Not applied to the daily temperature, whose ``ob_hour_count``
-            of 12 or 24 is the window of the extreme, which is no accumulation.)
+            value of one day or hour.
 
     Returns:
         The rows, or a frame without any when the file holds none: the core makes the empty long form of it.
@@ -189,16 +192,11 @@ def parse_values(
             sentinel.alias("sentinel"),
         )
         present = sub.filter(pl.col("value").is_not_null())
-        if raw_column in min_columns:
-            aggregated = present.group_by("timestamp").agg(
-                pl.col("value").min().alias("value"),
-                pl.col("quality_flags").sort_by("value").first(),
-            )
-        else:
-            aggregated = present.group_by("timestamp").agg(
-                pl.col("value").max().alias("value"),
-                pl.col("quality_flags").sort_by("value").last(),
-            )
+        # the `quality_flags` kept are those of the row that supplied the extreme
+        aggregated = present.group_by("timestamp").agg(
+            pl.col("value").max().alias("value"),
+            pl.col("quality_flags").sort_by("value").last(),
+        )
         # a day whose every report is an `NA` has no value to aggregate, and keeps the null with its text; a report
         # with neither value nor `NA` is a blank, which is dropped as before
         absent = (
@@ -221,3 +219,184 @@ def parse_values(
     if not frames:
         return pl.DataFrame()
     return pl.concat(frames)
+
+
+# The daily temperature file holds the extremes of 12 and 24 hour windows, each with the time its window ends
+# (`ob_end_time`) and its length (`ob_hour_count`): the TD page says "For air temperatures, the observation period will
+# usually be one of the following: 09-09Z, 09-21Z, 21-09Z"
+# (https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/TD_Table.html). A station reports either the 24 hour window
+# ending 09Z (09-09Z), or the two 12 hour halves of it (21-09Z, ending 09Z, and 09-21Z, ending 21Z), and a few both
+# (GH-3137: 96 station-years of 2015 and 2025, 64 of them with only 12 hour rows, 26 with only 24 hour rows, 6 with
+# both). The day is the 24 hours ending 09Z on the stamped day (09-09Z), the Met Office's usual climatological day:
+# the 24 hour row ending 09Z on D, or, at a 12 hour station, the extreme of the 21-09Z row ending 09Z on D and the
+# 09-21Z row ending 21Z on D-1. Where a day has a 24 hour row, that row is the day.
+_WINDOW_24 = "24h"
+_WINDOW_NIGHT = "night"  # 21-09Z, ending 09:00 on the stamped day
+_WINDOW_DAY = "day"  # 09-21Z, ending 21:00 the day before the stamped day
+
+_WINDOW_ROW_SCHEMA = {
+    "end_time": pl.Datetime("us", "UTC"),
+    "window": pl.String,
+    "parameter": pl.String,
+    "value": pl.Float64,
+    "quality_flags": pl.String,
+    "sentinel": pl.String,
+}
+_DAY_SCHEMA = {
+    "timestamp": pl.Datetime("us", "UTC"),
+    "parameter": pl.String,
+    "value": pl.Float64,
+    "quality_flags": pl.String,
+}
+_LEFT_OUT_SCHEMA = {"parameter": pl.String, "timestamp": pl.Datetime("us", "UTC")}
+
+
+def parse_window_rows(
+    content: bytes,
+    time_column: str,
+    columns: list[str],
+    hour_count_column: str = "ob_hour_count",
+) -> pl.DataFrame:
+    """Parse a daily temperature file into the rows of its windows: one for each ``(row, column)`` of a known window.
+
+    A row is of the window ``24h`` (24 hours ending 09:00), ``night`` (12 hours ending 09:00) or ``day`` (12 hours
+    ending 21:00) by ``ob_hour_count`` and the time of ``ob_end_time``; a row of any other window is no part of the
+    09-09Z day and is not returned. ``value`` is null for an `NA` and a text that is no number, with its text as
+    `sentinel` and as the `raw:` token of `quality_flags`, as `parse_values` does. `climatological_days` builds the
+    days from the rows of all the years of a station.
+    """
+    df = _data_section(content, na_is_null=False)
+    if df.is_empty() or hour_count_column not in df.columns:
+        return pl.DataFrame(schema=_WINDOW_ROW_SCHEMA)
+    end = (
+        pl.col(time_column)
+        .replace(_MISSING, None)
+        .str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us")
+        .dt.replace_time_zone("UTC")
+    )
+    hours = pl.col(hour_count_column).str.strip_chars().cast(pl.Float64, strict=False)
+    window = (
+        pl.when((hours == 24) & (end.dt.hour() == 9) & (end.dt.minute() == 0))
+        .then(pl.lit(_WINDOW_24))
+        .when((hours == 12) & (end.dt.hour() == 9) & (end.dt.minute() == 0))
+        .then(pl.lit(_WINDOW_NIGHT))
+        .when((hours == 12) & (end.dt.hour() == 21) & (end.dt.minute() == 0))
+        .then(pl.lit(_WINDOW_DAY))
+    )
+    frames = []
+    for raw_column in columns:
+        if raw_column not in df.columns:
+            continue
+        quality_column = f"{raw_column}_q"
+        value, sentinel = null_sentinels(pl.col(raw_column), Sentinel(_MISSING), non_numeric=True)
+        frames.append(
+            df.select(
+                end.alias("end_time"),
+                window.alias("window"),
+                pl.lit(raw_column, dtype=pl.String).alias("parameter"),
+                value.alias("value"),
+                join_quality_flags(
+                    pl.col(quality_column).replace(_MISSING, None) if quality_column in df.columns else None,
+                    raw=sentinel,
+                ),
+                sentinel.alias("sentinel"),
+            ).filter(pl.col("window").is_not_null())
+        )
+    if not frames:
+        return pl.DataFrame(schema=_WINDOW_ROW_SCHEMA)
+    return pl.concat(frames).select(list(_WINDOW_ROW_SCHEMA))
+
+
+def climatological_days(
+    rows: pl.DataFrame,
+    min_columns: frozenset[str],
+    night_only: frozenset[str] = frozenset(),
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Build the 24 hours ending 09Z of each stamped day from the window rows of `parse_window_rows` (GH-3137).
+
+    The day ``D`` of a column is, in this order:
+
+    - the 24 hour row ending 09:00 on ``D``, as given (a day with both kinds of row is this row);
+    - else the extreme of the ``night`` row ending 09:00 on ``D`` and the ``day`` row ending 21:00 on ``D-1``,
+      the ``max`` or, for ``min_columns``, the ``min``, whose `quality_flags` are those of the half that gave it;
+    - else, with only one of the halves, no value: the day is the second return, which the provider tells
+      (`note_left_out`), and is never an answer of "no values".
+
+    A column in ``night_only`` is never reported in the ``day`` half, so its 12 hour day needs the ``night`` row alone
+    (the extreme of both where a ``day`` row has a value). A day whose rows are all an `NA` is the null with its text,
+    as `parse_values` gives it.
+
+    Returns:
+        The days as ``(timestamp, parameter, value, quality_flags)``, and the days left out as ``(parameter,
+        timestamp)``; each a frame without rows when there is none.
+
+    """
+    if rows.is_empty():
+        return pl.DataFrame(schema=_DAY_SCHEMA), pl.DataFrame(schema=_LEFT_OUT_SCHEMA)
+    day = pl.col("end_time").dt.truncate("1d") + pl.when(pl.col("window") == _WINDOW_DAY).then(
+        pl.duration(days=1)
+    ).otherwise(pl.duration(days=0))
+    rows = rows.with_columns(day.alias("timestamp"))
+    is_min = pl.col("parameter").is_in(sorted(min_columns))
+
+    present = rows.filter(pl.col("value").is_not_null())
+    # one row for each (parameter, day, window): two reports of a window (NCM beside AWSDLY) are one extreme
+    per_window = present.group_by("parameter", "timestamp", "window").agg(
+        pl.col("value").min().alias("low"),
+        pl.col("value").max().alias("high"),
+        pl.col("quality_flags").sort_by("value").first().alias("low_flags"),
+        pl.col("quality_flags").sort_by("value").last().alias("high_flags"),
+    )
+    per_window = per_window.with_columns(
+        pl.when(is_min).then(pl.col("low")).otherwise(pl.col("high")).alias("value"),
+        pl.when(is_min).then(pl.col("low_flags")).otherwise(pl.col("high_flags")).alias("quality_flags"),
+    ).select("parameter", "timestamp", "window", "value", "quality_flags")
+
+    def of(window: str, column: str) -> pl.Expr:
+        return pl.col(column).filter(pl.col("window") == window).first()
+
+    wide = per_window.group_by("parameter", "timestamp").agg(
+        of(_WINDOW_24, "value").alias("v24"),
+        of(_WINDOW_24, "quality_flags").alias("f24"),
+        of(_WINDOW_NIGHT, "value").alias("vn"),
+        of(_WINDOW_NIGHT, "quality_flags").alias("fn"),
+        of(_WINDOW_DAY, "value").alias("vd"),
+        of(_WINDOW_DAY, "quality_flags").alias("fd"),
+    )
+    needs_day = ~pl.col("parameter").is_in(sorted(night_only))
+    has_halves = pl.col("vn").is_not_null() & (pl.col("vd").is_not_null() | ~needs_day)
+    halves_win = (
+        pl.when(pl.col("vd").is_null())
+        .then(pl.lit(value=True))
+        .when(pl.col("vn").is_null())
+        .then(pl.lit(value=False))
+        .when(is_min)
+        .then(pl.col("vn") <= pl.col("vd"))
+        .otherwise(pl.col("vn") >= pl.col("vd"))
+    )  # True: the night half gives the extreme
+    wide = wide.with_columns(
+        pl.when(pl.col("v24").is_not_null())
+        .then(pl.col("v24"))
+        .when(has_halves)
+        .then(pl.when(halves_win).then(pl.col("vn")).otherwise(pl.col("vd")))
+        .alias("value"),
+        pl.when(pl.col("v24").is_not_null())
+        .then(pl.col("f24"))
+        .when(has_halves)
+        .then(pl.when(halves_win).then(pl.col("fn")).otherwise(pl.col("fd")))
+        .alias("quality_flags"),
+    )
+    days = wide.filter(pl.col("value").is_not_null()).select("timestamp", "parameter", "value", "quality_flags")
+    left_out = wide.filter(pl.col("value").is_null()).select("parameter", "timestamp")
+
+    # a day whose every report is an `NA` has no value to build, and keeps the null with its text; a report with
+    # neither value nor `NA` is a blank, which is dropped
+    absent = (
+        rows.filter(pl.col("value").is_null() & pl.col("sentinel").is_not_null())
+        .group_by("parameter", "timestamp")
+        .agg(pl.col("value").first(), pl.col("quality_flags").first())
+        .join(wide.select("parameter", "timestamp"), on=["parameter", "timestamp"], how="anti")
+        .select("timestamp", "parameter", "value", "quality_flags")
+    )
+    days = pl.concat([days, absent.cast(days.schema)]).sort("parameter", "timestamp")
+    return days, left_out.sort("parameter", "timestamp")

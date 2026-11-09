@@ -14,7 +14,7 @@ import pytest
 
 from tests.provider import frames
 from tests.provider.physical_ranges import describe, out_of_range
-from tests.provider.timestamps import timestamp_problem
+from tests.provider.timestamps import LIBRARY_BUILT_START, library_built_problem, timestamp_problem
 from wetterdienst.model import result as results
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.unit import UnitConverter
@@ -278,6 +278,50 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
         pytest.fail(
             "a value outside the physical range of its parameter, which is what a missing-value sentinel that "
             f"reached the output looks like: {' | '.join(found)}",
+            pytrace=False,
+        )
+
+
+@pytest.fixture(autouse=True)
+def library_built_stamps() -> Generator[list[str]]:
+    """Fail a test whose reader stamps a dataset that is declared `start` on the library's word at another moment.
+
+    A dataset whose provider states nothing about its stamp but whose reader builds it as the first day of the month
+    or year, or of a phenology phase's reference year, is declared `timestamp_position: start` on that ground alone
+    (`LIBRARY_BUILT_START`, GH-3134). This holds the claim to the frame the reader builds, in every test that builds
+    one, remote ones included. It is collected and raised at teardown, because a provider may swallow what a raise
+    in its reader would be, and a test that shows what the check finds on purpose asks for the list and clears it.
+    """
+    found: list[str] = []
+    process_dataset = TimeseriesValues._process_dataset  # noqa: SLF001
+
+    def checked(
+        self: TimeseriesValues,
+        station_id: str,
+        dataset: DatasetModel,
+        parameters: Sequence[ParameterModel],
+    ) -> pl.DataFrame:
+        df = process_dataset(self, station_id, dataset, parameters)
+        # "wetterdienst.provider.<provider>.<network>.<module>"
+        provider, network = type(self).__module__.split(".")[2:4]
+        resolution = dataset.resolution.name
+        entry = LIBRARY_BUILT_START.get((provider, network, resolution))
+        if entry is not None and (entry[0] is None or dataset.name in entry[0]):
+            problem = library_built_problem(df, resolution)
+            if problem:
+                found.append(f"{provider}/{network} {resolution}/{dataset.name}: {problem}")
+        return df
+
+    # patched by hand rather than through `monkeypatch`, which a test may undo as a whole
+    TimeseriesValues._process_dataset = checked  # noqa: SLF001
+    try:
+        yield found
+    finally:
+        TimeseriesValues._process_dataset = process_dataset  # noqa: SLF001
+    if found:
+        pytest.fail(
+            "a stamp that is not the first moment of its period, in a dataset whose `timestamp_position` is `start` "
+            f"because the library builds it so: {' | '.join(sorted(set(found)))}",
             pytrace=False,
         )
 

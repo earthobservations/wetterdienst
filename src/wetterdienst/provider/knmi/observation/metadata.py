@@ -49,27 +49,35 @@ _KnmiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ta",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_0_1m",
                             "name_original": "tg",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_wet_mean_2m",
                             "name_original": "tb",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "rh",
+                            "timestamp_position": "end",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -84,46 +92,57 @@ _KnmiObservationMetadataSpec = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "fx",
+                            "timestamp_position": "end",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p0",
+                            "timestamp_position": "end",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp",
+                            "timestamp_position": "end",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
                             "name_original": "qg",
+                            "timestamp_position": "end",
                             "unit": "watt_per_square_meter",
                         },
                         {
                             "name": "sunshine_duration",
                             "name_original": "ss",
+                            "timestamp_position": "end",
                             "unit": "minute",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
+                            "timestamp_position": "end",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "visibility_mean",
                             "name_original": "vv",
+                            "timestamp_position": "end",
                             "unit": "meter",
                         },
                         {
                             "name": "precipitation_intensity_mean",
                             "name_original": "rg",
+                            "timestamp_position": "end",
                             "unit": "millimeter_per_hour",
                         },
                         {
                             "name": "precipitation_duration",
                             "name_original": "dr",
+                            "timestamp_position": "end",
                             "unit": "second",
                         },
                     ],
@@ -140,21 +159,25 @@ _KnmiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "temperature_air_2m",
                             "name_original": "T",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "TD",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "U",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -185,6 +208,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "P",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "sunshine_duration",
@@ -215,6 +239,7 @@ _KnmiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -257,7 +282,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "hour",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "PG",
                             "unit": "hectopascal",
                         },

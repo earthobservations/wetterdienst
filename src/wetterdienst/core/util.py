@@ -200,6 +200,43 @@ class DroppedForElevation(NamedTuple):
     nearest: float = math.inf
 
 
+class StationPlacement(NamedTuple):
+    """Where a station that gave a value stands against the point an interpolation or a summary is made for."""
+
+    #: how far the station is from the point, in km: the distance the answer's rows are made from
+    distance: float
+    #: the elevation of the point minus the station's, in metres, where an elevation was asked about and the station
+    #: has one for the answer's purposes; None otherwise. A reading of a quantity that falls with height was moved by
+    #: the rate of the quantity times this, and the others were not
+    elevation_difference: float | None
+
+
+def place_station(station: dict, elevation: float | None) -> StationPlacement:
+    """Place a station of the ranking, with the elevation it was read at, against the elevation asked about."""
+    station_elevation = station.get("elevation")
+    difference = None if elevation is None or station_elevation is None else elevation - station_elevation
+    return StationPlacement(distance=station["distance"], elevation_difference=difference)
+
+
+def with_placement(df_stations: pl.DataFrame, placements: dict[str, StationPlacement]) -> pl.DataFrame:
+    """Add to a stations frame how far each station is from the point, and its elevation against the point's.
+
+    The columns `distance` (km) and `elevation_difference` (m), rounded to two decimals as the distances of the rows
+    are. A station the placements do not hold, which is none that an answer names, has nulls.
+    """
+    placed = pl.DataFrame(
+        {
+            "station_id": list(placements),
+            "distance": [placement.distance for placement in placements.values()],
+            "elevation_difference": [placement.elevation_difference for placement in placements.values()],
+        },
+        schema={"station_id": pl.String, "distance": pl.Float64, "elevation_difference": pl.Float64},
+    ).with_columns(pl.col("distance", "elevation_difference").round(2))
+    return df_stations.drop(["distance", "elevation_difference"], strict=False).join(
+        placed, on="station_id", how="left", maintain_order="left"
+    )
+
+
 class StationsInReach(NamedTuple):
     """What a parameter has inside its own radius, read off the ranking before any download."""
 
@@ -426,6 +463,25 @@ def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) 
         and all(param_data.finished for param_data in param_dict.values())
         and not waiting_on.difference(param_dict)
     )
+
+
+def walk_was_done_at(
+    station_id: str,
+    *,
+    stations_by_id: dict[str, dict],
+    counts: dict,
+    param_dict: dict,
+    dropped_for_elevation: dict,
+    valid_group: bool = True,
+) -> bool:
+    """Whether `collection_is_done` held for the station: what is still in reach shrinks with its distance.
+
+    For `EstimateLeftOut.forget_since`, which asks it of the stations the walk read once the answer was complete and
+    passed over for want of rows. `valid_group` is the interpolation's other condition, that four stations surround
+    the point, which the stations the walk used have settled and which a station without rows cannot change.
+    """
+    in_reach = parameters_still_in_reach(counts, stations_by_id[station_id]["distance"])
+    return valid_group and collection_is_done(param_dict, dropped_for_elevation.keys() & in_reach)
 
 
 def report_elevation_exclusions(

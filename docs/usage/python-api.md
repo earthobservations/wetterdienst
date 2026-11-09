@@ -803,6 +803,7 @@ format takes is a `TypeError` too, and the formats by surface are in the table o
 | `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
 `indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
+`with_stations` adds a `stations` block to the values results: `df_stations`, the stations that have a row in the result, one for each resolution, dataset and station that has rows (a row of nulls is a row). A station of the request that returned no rows is not in it, nor is one whose rows `filtered_by_date` or `filtered_by_sql` cut away, and the block is an empty list where no row is left; the stations of the request are `result.stations.df`. Where the wide shape merged several datasets of a resolution into one row, which names no dataset, it has an entry for each of the datasets. In `HistoryResult` it lists the stations of the request.
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
 `InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which
 are importable from `wetterdienst.model.result` to annotate a function that takes or returns one. The block that
@@ -968,7 +969,7 @@ below it say what kind of failure it is:
 | `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, or an output format nothing renders (`UnknownFormatError`, also a `KeyError`) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
-| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
 | `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 

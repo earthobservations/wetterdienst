@@ -47,8 +47,28 @@ it hands over (it is reshaped into one table, parameters are renamed and units c
 [licences and credit lines](../licenses.md#what-wetterdienst-does-to-the-data)), which the licence allows and which
 every answer says in its `processing_note`. Section 9 says that the use of the information is governed by the licence in
 force on the date you accessed it, so a newer version of the licence than the one read here applies to a later access.
-The MSC Open Data pages also publish a Services Usage Policy that
-complements the licence; it has not been reviewed here.
+
+**What the usage policy asks of a caller.** The [MSC Open Data Services Usage Policy](https://eccc-msc.github.io/open-data/usage-policy/readme_en/)
+"complements the End-use licence" (read 2026-11-06). For MSC GeoMet, which serves the API the library reads, it asks you to:
+
+- "Clearly display the data source attribution as required by the End-use licence", and "Request and retrieve only data
+  you intend to use".
+- Contact ECCC if your use "involves 86,400 requests per day or higher (about 1 request per second)"; "Any consistent
+  usage over this limit may be subject to having access limited or otherwise revoked".
+- Pick the access mechanism that fits: "building a local archive of data should be performed using MSC Datamart
+  services, not MSC GeoMet services".
+- "Add a meaningful HTTP User-Agent header to HTTP requests", and use no `Cache-Control: no-cache` or
+  `Pragma: no-cache` header.
+- ECCC says "we reserve the right to block users who saturate our services". Its rules on bulk retrieval of
+  WMS tiles and on directory listings of Datamart do not concern the collections read here.
+
+What wetterdienst does: its requests carry the User-Agent `wetterdienst/<version> (<system>)` (see
+[what wetterdienst does with the data](../data-use.md#how-it-asks-the-provider)), send no `no-cache` header, and keep
+what they download for five minutes, which is a cache and no archive. Reading every station and year of the climate
+collections through it is bulk retrieval of the kind the policy sends to Datamart, which the library does not read;
+a use that builds an archive should contact ECCC first. The policy speaks of "you or your application" and does not say
+whether a server that answers many callers (the hosted instance, any instance you run for others) is one user: our
+reading is that it is.
 
 **What points the other way.** The climate collections' canonical link goes to Climate Data Online
 (`https://climate.weather.gc.ca`), and the

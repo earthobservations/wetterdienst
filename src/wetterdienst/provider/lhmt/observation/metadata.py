@@ -55,16 +55,19 @@ _LhmtObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "airTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relativeHumidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "wind_speed",
                             "name_original": "windSpeed",
+                            "timestamp_position": "instant",
                             "unit": "meter_per_second",
                         },
                         {
@@ -75,16 +78,19 @@ _LhmtObservationMetadataSpec = {
                         {
                             "name": "wind_direction",
                             "name_original": "windDirection",
+                            "timestamp_position": "instant",
                             "unit": "degree",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "cloudCover",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "seaLevelPressure",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
@@ -95,6 +101,7 @@ _LhmtObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "snowDepth",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                     ],

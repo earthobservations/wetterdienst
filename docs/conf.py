@@ -112,6 +112,4 @@ linkcheck_ignore = [
     r"https://en\.wikipedia\.org/.*",
     # 400 to a request without the session its form belongs to; howto.html of the site links this very URL
     r"https://frost\.met\.no/auth/requestCredentials\.html",
-    # the host no longer resolves; the page it held (the Environment Agency's terms) has no known new address
-    r"https://support\.environment\.data\.gov\.uk/.*",
 ]

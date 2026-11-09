@@ -9,7 +9,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | --- | --- | --- |
 | `InvalidParameterError`, exit 2, 400 `request-refused` | the request is understood and cannot be served as phrased | read the message, it names the entry and the close match |
 | 422 `invalid-parameters` | a query parameter is unknown or malformed | `errors` names each; check the spelling and the [vocabulary](restapi.md#one-vocabulary) |
-| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist | look it up with `coverage` or `about coverage` |
+| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look it up with `coverage` or `about coverage` |
 | `MissingDependencyError`, 501 `dependency-missing` | an extra is not installed | install the extra the message names, see [Installation](quickstart.md#installation) |
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
@@ -41,11 +41,59 @@ The usual reasons:
   Leave the parameter out, or ask for another station or window. Where the warning says it is of the periods asked
   for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
   maintenance page) is not named: its values may be missing for that, which a later request may clear.
+- **Dates are left out because they are of another series.** The answer carries an `other-window-left-out` warning
+  (`metno/frost` daily and monthly precipitation, daily maximum and minimum temperature, daily and monthly mean temperature): the source holds values for
+  those dates, in its other series (18-18 UTC for the precipitation, the calendar day for the temperature extremes, 06-06 UTC for the mean temperature),
+  and the parameter is the 06-06 UTC (the 18-18 UTC, the calendar-day) series, so the dates have no row rather than a value of another
+  window. The source is not
+  missing them, and the answer is not partial for a failure: do not try again.
+- **Values are left out, or marked incomplete, because their window has not closed.** The answer carries a
+  `window-not-closed` warning (`metno/frost`: the daily maximum and minimum temperature until 18 UTC of the date, the
+  precipitation sum until 06 UTC, the mean and every other daily element until the end of the date; the monthly values
+  until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
+  of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
+  The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
+  daily value, or end the window before the current month; the answer is not partial for a failure. `interpolate` and
+  `summarize` cannot carry the mark, so they leave the monthly and annual value of an open window out too and tell it as
+  a cause of their `source-data-left-out` warning (below).
+- **A station you named has no rows while others do.** A `station-without-rows` warning lists the ids of `stations`
+  that returned nothing in the window, in the order of the answer: the source holds no values of them there (the
+  message names the `periods`, run or lead time that narrowed the request, which may hold them; a station whose dates
+  were left out for another series is `other-window-left-out`'s, not named here), or, in the long shape
+  with `drop_nulls` on, all were null and left out (`drop_nulls=false` shows them; the wide shape keeps them already,
+  and the message does not offer the reason there). Ask `stations` for them without `timestamp` to see the span of
+  their record. It is told for a list of ids only, not for a point, box, name or `rank`, and not where every station
+  is empty.
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
-  would not parse): their values may be missing from an answer that is otherwise whole. Try again later. Only the
+  would not parse): their values may be missing from an answer that is otherwise whole. The message names the cause
+  and advises by it: try again later for a failed download, a withdrawn file, an error page or an empty body, or an empty directory;
+  for a refused download or a file that would not parse a retry gets the same, so report it to the provider. Only the
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
-  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read.
+  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read. For a file of
+  `dwd/observation` or `dwd/derived` that DWD renamed (a 404 of a listed file) the retry is worth it at once: the
+  listing of the directory is dropped, so the next request finds the file under its new name.
+  A `file-skipped` of `dwd/observation` or `dwd/derived` that names a directory and no station says that DWD's
+  server listed it empty or not at all, or (`dwd/observation`) that it lists files and no description of its
+  stations: the stations only it lists are not in the answer (a stations list, values or a history), and a later
+  request finds them once DWD has filled it again.
+- **An estimate says that source data was left out.** The answer of `interpolate` or `summarize` carries one
+  `source-data-left-out` warning with the number of the stations it read that lost something, and the causes: a file
+  the provider could not use (a refused download, a maintenance page, a file that would not parse, a directory found
+  empty), whose values may be missing from the estimate (the message names the cause and advises as `file-skipped`
+  does: try again later for a download, a page or a directory that may be back; for a refused download or a file that
+  would not parse, a retry gets the same, so report it); dates of another series of the source (`metno/frost`, as
+  `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
+  again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
+  `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
+  again then, or end the window before the current period); and values a hard plausibility check rejected, which the
+  estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
+  `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.
+- **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
+  directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
+  with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
+  404 for the same station means every directory was listed and none has it, or the directory that was skipped lists
+  files and names the stations of its files, and this is not one.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source

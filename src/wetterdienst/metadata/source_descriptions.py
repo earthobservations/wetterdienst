@@ -23,7 +23,9 @@ Six more providers publish descriptions of their own fields, in machine-readable
 are taken as they come:
 
 - MeteoSwiss: ``ogd-smn_meta_parameters.csv``, published beside the data, English column
-- MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``
+- MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``, and for the codes written into a value
+  https://frost.met.no/dataclarifications.html ("Explanations for some coded negative value elements"), which the
+  entry quotes where it states what the reader returns for one
 - KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files, and the longer
   ``description`` attribute where it states the window (hourly ``DD``)
 - FMI: the ``observableProperty`` metadata endpoint, ``language=eng``, composed from its label,
@@ -80,7 +82,11 @@ the DMI rows (GH-3136, the ninth group: from the canonical sentence of the quant
 of how each value is made, the type of day and the heights), and the DWD phenology rows (GH-3136, the tenth group:
 the phase names of ``PH_Beschreibung_Phase.txt`` were the whole description, and the definitions of the
 ``PH_Beschreibung_Phasendefinition_*.txt`` files now follow them; they are declared in the provider module, which wins
-over this table).
+over this table), and the MET Norway Frost rows (GH-3137, read against the ``/elements`` answer with a client ID:
+39 of the 49 equal it, 1 up to a trailing blank and 2 up to a blank before the final stop, and the other 7 add what
+the reader returns for a code of the data clarifications or of the element's own text; GH-3832 and GH-3833 added the
+series of the two precipitation sums that is returned and the calm of the wind direction, and removed the 10-minute
+``max(wind_from_direction_of_gust PT10M)``).
 CHMI describes its elements only by
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
@@ -155,9 +161,9 @@ _WSV_PEGEL_PARAMETERS = {
     "PH": f"pH (PH-WERT), a number without unit (the series' unit is --): {_WSV_PEGEL_RAW}.",
     "Q": (f"Discharge (ABFLUSS_ROHDATEN, or ABFLUSS at some stations), in m³/s: {_WSV_PEGEL_RAW}."),
     "R": (
-        "Direction of the water current (RICHTUNGSTROM). The series' unit is MGN, which the documentation does not "
-        "explain; the value is returned as published, taken as degrees, and may be from magnetic rather than true "
-        f"north: {_WSV_PEGEL_RAW}."
+        "Direction the water current flows towards (RICHTUNGSTROM), in degrees from 0 to 359 clockwise from magnetic "
+        "north (not true north), the meaning of the series' unit MGN as WSV confirmed; it is where the water goes, not "
+        f"where it comes from: {_WSV_PEGEL_RAW}."
     ),
     "SIGH": (f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}."),
     "SW": (
@@ -200,13 +206,22 @@ _WSV_PEGEL_PARAMETERS = {
 }
 
 
-# The daily temperature file of MIDAS Open mixes the 12 hour rows ending 09:00 (night) and 21:00 (day) with 24 hour rows
-# ending 09:00 (2,962 of the 14,334 rows of the daily temperature files of 25 stations, 2022), and the reader stamps
-# a row by the date of its `ob_end_time`, the source's 09Z climatological day (GH-3137)
+# The daily temperature file of MIDAS Open holds the extremes of 12 and 24 hour windows (`ob_hour_count`): the 24
+# hours ending 09:00 (09-09Z), or its two halves, 21-09Z ending 09:00 and 09-21Z ending 21:00. A day is the 24 hours
+# ending 09Z on the stamped day at every station: the 24 hour row, or the extreme of the two halves (GH-3137)
 _MO_DAILY_STAMP = (
-    "Stamped by the date of ob_end_time (the 09Z climatological day of the source). The file mixes 12 hour rows ending "
-    "09:00 and 21:00 with 24 hour rows ending 09:00 (2,962 of 14,334 rows), so a 24 hour 09-09Z row falls on the day "
-    "after most of its coverage."
+    "The 24 hours ending 09Z on the stamped day (09-09Z) at every station: a 24 hour row ending 09:00 as it is, "
+    "else the extreme of the 21-09Z row ending 09:00 on the day and the 09-21Z row ending 21:00 on the day before. "
+    "A day with both kinds of row is the 24 hour row; a day with only one 12 hour half has no value and is told "
+    "(other-window-left-out)."
+)
+# the grass minimum is in no row ending 21:00 (24,200 12 hour rows ending 09:00 and 4,394 24 hour rows have one, 96
+# station-years), so a 12 hour station's day is its 21-09Z row alone, which the maintainer decided (GH-3137) stands for
+# the 09-09Z window
+_MO_GRASS_STAMP = (
+    "The day ending 09Z on the stamped day: a 24 hour row ending 09:00 as it is (09-09Z); at a 12 hour station the "
+    "21-09Z row ending 09:00 on the day, which stands for the 09-09Z window, the only 12 hour window the file "
+    "reports it in. A day with both kinds of row is the 24 hour row."
 )
 
 # the window of a daily value of ECCC (the glossary, "Climatological Day"; Note 16 of the technical documentation)
@@ -463,12 +478,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Dew point temperature at 2 m above ground."
         ),
         ("hourly", "data", "diffuse_solar_radiation_last_hour"): (
-            'Diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
-            'Stunde)"): the energy of that hour divided by 3600 s, not a reading at one moment.'
+            'Mean diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
+            'Stunde)"): the energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one '
+            "moment."
         ),
         ("hourly", "data", "direct_solar_radiation_last_hour"): (
-            'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
-            'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
+            'Mean direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
+            'Stunde)", no surface stated): the energy of that hour divided by 3600 s, so the mean of the hour. It '
+            "exceeds the global irradiance in some reports, so it is not the "
             "component on a horizontal surface but the irradiance on a plane perpendicular to the sun's rays (direct "
             "normal irradiance, WMO-No. 8 chapter 7.2): multiplied by the cosine of the solar zenith angle it stays "
             "below the global irradiance."
@@ -479,8 +496,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Stunden)"), reported almost only at 06 UTC.'
         ),
         ("hourly", "data", "global_radiation_last_hour"): (
-            'Global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
-            "energy of that hour divided by 3600 s, not a reading at one moment."
+            'Mean global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
+            "energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one moment."
         ),
         ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
             "Height above the station of the base of the lowest cloud."
@@ -1095,7 +1112,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "large",
             "tg",
         ): "Minimum surface temperature at 5cm within the last 12 hours, given at the 06 UTC steps",
-        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tm"): (
+            "Mean temperature during the last 24 hours, given at the 06 UTC steps. Which 24 hours is not "
+            "stated: against the hourly TTT of the same run it fits the UTC day before the step's date (00 to "
+            "24 UTC, ending 6 hours before the step; 0.33 K, 10 stations, 100 values of the run of 2026-10-19) "
+            "better than the 24 hours ending at the step (0.55 K); unconfirmed by DWD"
+        ),
         ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
         ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
@@ -1620,7 +1642,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
             "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
             "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
-            "label calls plain MEZ that are MEZ in the values. "
+            "label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations "
+            "that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six "
+            "one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days "
+            "(1955 to 1997, almost all before 1991; the table is "
+            "`mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of "
+            "the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged "
+            "`zone:mez-1973-75`. "
+            "The 1,316 station-months of 17 East German stations whose `MEZ (MD)` stamps are in the local time of "
+            "the station's longitude (UTC plus the longitude over 15, 0.6 to 0.9 h: 1952 to 1961 at 16 stations, "
+            "Potsdam 1973-01 to 1975-05, GH-3910) are shifted by the same hour and so are still 0.2 to 0.5 h "
+            "early; their rows carry a `zone` token of their own instead of `zone:mez` (the legend of "
+            "`quality_flags` names it). "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_air", "tt_tu"): (
@@ -1630,7 +1663,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
             "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
             "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
-            "label calls plain MEZ that are MEZ in the values. "
+            "label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations "
+            "that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six "
+            "one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days "
+            "(1955 to 1997, almost all before 1991; the table is "
+            "`mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of "
+            "the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged "
+            "`zone:mez-1973-75`. "
+            "The 1,316 station-months of 17 East German stations whose `MEZ (MD)` stamps are in the local time of "
+            "the station's longitude (UTC plus the longitude over 15, 0.6 to 0.9 h: 1952 to 1961 at 16 stations, "
+            "Potsdam 1973-01 to 1975-05, GH-3910) are shifted by the same hour and so are still 0.2 to 0.5 h "
+            "early; their rows carry a `zone` token of their own instead of `zone:mez` (the legend of "
+            "`quality_flags` names it). "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_soil", "v_te002"): (
@@ -3599,7 +3643,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "FG"): "Mean wind speed",
         ("daily", "data", "FXX"): "Maximum wind gust",
         ("daily", "data", "NG"): "Mean cloud cover",
-        ("daily", "data", "PG"): "Mean sea level pressure",
+        ("daily", "data", "PG"): (
+            "Daily mean sea level pressure, calculated as a mean of the 24 pressure values of that day "
+            "(midnight to midnight UTC)."
+        ),
         ("daily", "data", "Q"): "Global solar radiation",
         ("daily", "data", "RH"): "Precipitation amount",
         ("daily", "data", "SQ"): "Sunshine duration",
@@ -3655,7 +3702,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "min_air_temp",
         ): f"Minimum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
         ("daily", "temperature", "min_grss_temp"): (
-            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}"
+            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_GRASS_STAMP}"
         ),
         ("daily", "weather", "drv_24hr_sun_dur"): (
             "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "
@@ -3721,7 +3768,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "wind", "max_gust_speed"): "Speed of the maximum gust, knots.",
         ("hourly", "wind", "mean_wind_dir"): (
             "Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind "
-            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null, and its 999 (no bearing: no "
+            "MIDAS table words it, it stands beside a light wind of 1 to 6 knots) is null."
         ),
         ("hourly", "wind", "mean_wind_speed"): "Mean wind speed, knots.",
     },
@@ -3908,14 +3956,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "MetnoFrostMetadata": {
         ("10_minutes", "data", "max(air_temperature PT10M)"): "Highest recorded air temperature per ten minutes",
         ("10_minutes", "data", "max(relative_humidity PT10M)"): "Maximum relative humidity per 10 min",
-        ("10_minutes", "data", "max(wind_from_direction_of_gust PT10M)"): (
-            "Varying wind direction last 10 minutes. Upper limit"
+        ("10_minutes", "data", "max(wind_speed_of_gust PT10M)"): (
+            "Maximum wind gust for the last ten minutes. At a station with several heights (the platforms have 10 m "
+            "and one or two more at 44 to 142 m, two stations on land 2 m and 10 m) the 10 m sensor, and the nearest "
+            "height where it has no value."
         ),
-        ("10_minutes", "data", "max(wind_speed_of_gust PT10M)"): "Maximum wind gust for the last ten minutes",
         ("10_minutes", "data", "min(air_temperature PT10M)"): "Lowest recorded air temperature per ten minutes",
         ("10_minutes", "data", "min(relative_humidity PT10M)"): "Minimum relative humidity per 10 min",
         ("10_minutes", "data", "sum(precipitation_amount PT10M)"): "Amount of precipitation per 10 minutes",
-        ("6_hours", "data", "sum(precipitation_amount PT6H)"): "Amount of precipitation per six hours",
+        ("6_hours", "data", "sum(precipitation_amount PT6H)"): (
+            "Amount of precipitation per six hours. Code -1 means no precipitation (Frost's data clarifications): "
+            "returned as 0 from 1982 on, and as null before, where the code is no information."
+        ),
         ("annual", "data", "max(air_temperature P1Y)"): "Highest recorded air temperature per year",
         ("annual", "data", "mean(air_temperature P1Y)"): (
             "Annual mean temperature. The mean is an arithmetic mean of daily values."
@@ -3925,7 +3977,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "data", "min(air_temperature P1Y)"): "Lowest recorded air temperature per year",
         ("annual", "data", "sum(precipitation_amount P1Y)"): "Annual precipitation sum.",
-        ("daily", "data", "max(air_temperature P1D)"): "Highest recorded air temperature per 24 hours",
+        ("daily", "data", "max(air_temperature P1D)"): (
+            "Highest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
+            "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
+        ),
         ("daily", "data", "max(wind_speed P1D)"): (
             "Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do "
             "not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available)."
@@ -3936,7 +3994,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "mean(air_temperature P1D)"): (
             "Daily mean temperature. The mean is an arithmetic mean of 24 hourly values (00-00 UTC), or a formula "
-            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC)."
+            "based mean value when only a limited number of observations is available (e.g. 06, 12, 18 UTC). Only "
+            "the calendar-day series is returned (`timeOffset` PT0H: the hourly readings stamped 00:00 to 23:00); "
+            "Frost also has a 06-06 UTC series (PT6H), at 1,063 stations of its listing that have both, which is "
+            "left out, and a station that has no PT0H series returns no values. A date that only PT6H has is not "
+            "returned and the answer says so (at least 3,694 days at 11 stations of the station list: a lower "
+            "bound) (GH-3855)."
         ),
         ("daily", "data", "mean(relative_humidity P1D)"): "Daily mean relative humidity.",
         ("daily", "data", "mean(surface_air_pressure P1D)"): (
@@ -3953,18 +4016,35 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not "
             "exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available)."
         ),
-        ("daily", "data", "min(air_temperature P1D)"): "Lowest recorded air temperature per 24 hours",
+        ("daily", "data", "min(air_temperature P1D)"): (
+            "Lowest recorded air temperature per 24 hours, 18-18 UTC: the 24 hours ending 18 UTC of the date "
+            "(`timeOffset` PT18H, which Frost's table of standard offsets calls 19-18 UTC after the hourly readings "
+            "stamped 19:00 to 18:00). Only this series is returned; Frost also has the series it files as the "
+            "calendar day (PT0H: the hourly readings stamped 00:00 to 23:00), which is left out, and a station "
+            "that has no PT18H series returns no values (GH-3843)."
+        ),
         ("daily", "data", "sum(duration_of_sunshine P1D)"): "Number of hours of sunshine over the last 24 hours.",
-        ("daily", "data", "sum(precipitation_amount P1D)"): "Daily precipitation sum (between 06-06 UTC).",
+        ("daily", "data", "sum(precipitation_amount P1D)"): (
+            "Daily precipitation sum (between 06-06 UTC). Only this series is returned (`timeOffset` PT6H, the day "
+            "from 06 UTC of the previous date); Frost also has the 18-18 UTC sum (PT18H). Code -1 means no "
+            "precipitation (Frost's data clarifications, 0.0 mm) and is returned as 0.0 with `raw:-1`, at "
+            "every station and in every year but one: SN81930 (Storstilla) up to and including 1993, a weekly reader "
+            "whose -1 marks a day nobody read the gauge on, is null with `raw:-1` (GH-3820)."
+        ),
         ("daily", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow, and is returned as a depth of 0."
+            'snow (Frost\'s data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth '
+            "of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible "
+            "to measure the depth, and is returned as null."
         ),
         ("hourly", "data", "air_pressure_at_sea_level"): (
             "Air pressure reduced to mean sea level. The parameter is usually called QFF in aviation and shows the "
             "measured air pressure reduced to mean sea level by applying actual atmospheric conditions."
         ),
-        ("hourly", "data", "air_temperature"): "Air temperature (default 2 m above ground), present value",
+        ("hourly", "data", "air_temperature"): (
+            "Air temperature (default 2 m above ground), present value. "
+            "At a station with several heights the 2 m sensor, and the nearest height where it has no value."
+        ),
         ("hourly", "data", "cloud_area_fraction"): (
             "Total cloud cover is registered using a code 0 - 8 describing how many eights of the sky are covered by "
             "clouds (0 = no clouds, 8 = completely overcast). Code -3 or 9 means the cloud cover cannot be estimated "
@@ -3980,24 +4060,40 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "visible and infrared light. The instrument measures the radiation flux through a horizontal surface "
             "(W/m2)."
         ),
-        ("hourly", "data", "relative_humidity"): "Relative humidity",
-        ("hourly", "data", "sum(precipitation_amount PT1H)"): "Amount of precipitation per hour",
+        ("hourly", "data", "relative_humidity"): (
+            "Relative humidity. At a station with several heights the 2 m sensor, and the nearest height where it "
+            "has no value."
+        ),
+        ("hourly", "data", "sum(precipitation_amount PT1H)"): (
+            "Amount of precipitation per hour. Code -1 is read as no precipitation (our reading: Frost's table lists "
+            "it for the sum over an undefined period only): returned as 0 from 1982 on, and as null before."
+        ),
         ("hourly", "data", "surface_air_pressure"): (
             "Air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air "
             "pressure reduced to the reference height of the station."
         ),
         ("hourly", "data", "surface_snow_thickness"): (
             "The depth of the snow is measured in cm from the ground to the top of the snow cover. Code -1 means no "
-            "snow, and is returned as a depth of 0."
+            'snow (Frost\'s data clarifications: "Zero snowdepth or partial snow cover") and is returned as a depth '
+            "of 0; code 0 means a depth of less than 0.5 cm and is returned as 0; code -3 means it was not possible "
+            "to measure the depth, and is returned as null."
         ),
         ("hourly", "data", "wind_from_direction"): (
             "Mean wind direction over the last ten minutes before the observation time. Wind direction is defined as "
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
-            "degrees is east."
+            "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
+            "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
+            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
+            "itself after a 404 of the whole dataset. At a station with several heights the speed and the direction "
+            "are of one height: 10 m if it has both, else the nearest height that has both; a calm or a -3 there "
+            "is the answer for the hour: no other height fills it. Where no height has both, each is the 10 m one "
+            "first, else the nearest."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "
-            "observation time. (default: 10 meters above ground, some stations have measurements at 2 meters)"
+            "observation time. (default: 10 meters above ground, some stations have measurements at 2 meters). "
+            "At a station with several heights the speed and the direction are of one height: 10 m if it has both, "
+            "else the nearest height that has both; where no height has both, each is the 10 m one first."
         ),
         ("monthly", "data", "max(air_temperature P1M)"): "Highest recorded air temperature per month",
         ("monthly", "data", "max(wind_speed P1M)"): (
@@ -4009,7 +4105,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions."
         ),
         ("monthly", "data", "mean(air_temperature P1M)"): (
-            "Monthly mean temperature. The mean is an arithmetic mean of daily values."
+            "Monthly mean temperature. The mean is an arithmetic mean of daily values. Only the calendar-month "
+            "series is returned (`timeOffset` PT0H); Frost also has a 06-06 UTC series (PT6H), which is left out, "
+            "and a month that only it has is not returned and the answer says so (901 months at 179 stations of the "
+            "station list) (GH-3855)."
         ),
         ("monthly", "data", "mean(cloud_area_fraction P1M)"): (
             "Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC)."
@@ -4032,7 +4131,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "min(air_temperature P1M)"): "Lowest recorded air temperature per month",
         ("monthly", "data", "sum(duration_of_sunshine P1M)"): "Number of hours of sunshine over the last month.",
-        ("monthly", "data", "sum(precipitation_amount P1M)"): "Monthly precipitation sum.",
+        ("monthly", "data", "sum(precipitation_amount P1M)"): (
+            "Monthly precipitation sum. Only the series of `timeOffset` PT6H is returned: from 06 UTC on the last day "
+            "of the previous month to 06 UTC on the last day of the month; Frost also has the 18-18 UTC series "
+            "(PT18H)."
+        ),
     },
     # The parameter listing of the metobs API ("summary", e.g. "medelvärde 1 dygn, 1 gång/dygn, kl 00"), translated:
     # the first sentence and the statistic. What the listing leaves out comes from the CSV of each station (read

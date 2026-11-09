@@ -187,12 +187,30 @@ LEGENDS: dict[str, list[QualityKind]] = {
         _DWD_QN,
         _kind(
             "zone",
-            "<mez|woz>",
+            "<mez|mez-1973-75|mez-local-mean-time|woz>",
             "The time zone the source stamped the row in, where it is not UTC. `mez`: the stamp was MEZ (UTC+1, the "
-            "eMD archive of East German stations up to 1991) and is shifted to UTC. `woz`: the stamp is the hour of "
-            "the station's local true solar time, which is no whole hour from UTC, and is returned as written. Rows "
-            "stamped in UTC carry no token.",
-            codes=_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC", woz="Stamp in local true solar time, unshifted"),
+            "eMD archive of East German stations up to 1991, and the months of the plain MEZ periods that comparisons "
+            "with NOAA ISD and a diurnal-phase test find in MEZ) and is shifted to UTC. `mez-1973-75`: the same "
+            "shift for the batch of 1973-01 to 1975-12 at 13 stations, of which 8 are about 0.4 h later than "
+            "the clock explains (the analog recorder's lag, which stays as in every other analog year). "
+            "`mez-local-mean-time`: the stamp of an East German `MEZ (MD)` period was in mean local time (UTC plus the "
+            "longitude over 15, 0.6 to 0.9 h, in 1952 to 1961 and at Potsdam 1973-01 to 1975-05); it is shifted by "
+            "the same hour as `mez` and so is still 0.2 to 0.5 h early, which an hourly grid cannot correct. `woz`: "
+            "the stamp is the hour of the station's local true solar time, which is no whole hour from UTC, and is "
+            "returned as written. Rows stamped in UTC carry no token.",
+            codes=[
+                *_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC"),
+                QualityCode(
+                    code="mez-1973-75",
+                    meaning="Stamp shifted from MEZ (UTC+1) to UTC; the analog recorder's lag of about 0.4 h "
+                    "remains at 8 stations",
+                ),
+                QualityCode(
+                    code="mez-local-mean-time",
+                    meaning="Stamp shifted by 1 h from mean local time (UTC + 0.6 to 0.9 h): still 0.2 to 0.5 h early",
+                ),
+                *_codes(woz="Stamp in local true solar time, unshifted"),
+            ],
         ),
         SUSPECT,
         REJECTED,
@@ -297,6 +315,16 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "meteoswiss/observation": [SUSPECT, REJECTED, RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
+        _kind(
+            "completeness",
+            "Incomplete",
+            "The monthly or annual value of a window that had not closed when the request was served (the "
+            "current month or year: the calendar one closes at its end, the `PT6H` sum at 06 UTC and the `PT18H` "
+            "extremes at 18 UTC of its last day): it is the period so far, partial, and may still change. Frost "
+            "marks no such value, so this library does. A value of a closed window has no token, which is no claim "
+            "that it is final; a daily value of an open window is not returned at all (`window-not-closed`).",
+            codes=_codes(Incomplete="Based on a window that had not closed"),
+        ),
         SUSPECT,
         REJECTED,
         RAW,

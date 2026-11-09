@@ -38,6 +38,10 @@ REMOVED: dict[tuple[str, str, str], str] = {
     ("MeteoFranceObservationMetadata", "hourly/core", "wind_direction_gust_max"): (
         "GH-2836: DXY is the direction of the hour's highest 10-minute mean and of no gust, not served"
     ),
+    ("MetnoFrostMetadata", "10_minutes/data", "wind_direction_gust_max"): (
+        "GH-3833: it read `max(wind_from_direction_of_gust PT10M)`, the upper limit of a varying wind direction and no "
+        "gust's direction, which Frost lists at PT30M and PT1M only"
+    ),
     # GH-3245: no station of the service answers for them (`stations.json?timeseries=CL`, `NIEDERSCHLAG` and
     # `NIEDERSCHLAGSINTENSITÄT` are each `[]`, 786 stations and 20 shortnames, 2026-10-21)
     **{
@@ -63,6 +67,7 @@ SOURCE_NAMES: dict[tuple[str, str, str], str] = {
     ("MetOfficeObservationMetadata", "hourly/weather", "wind_direction"): "the Met Office's own field name",
     ("MetOfficeObservationMetadata", "hourly/weather", "wind_speed"): "the Met Office's own field name",
     ("MetnoFrostMetadata", "hourly/data", "wind_speed"): "Frost's own element name",
+    ("NwsObservationMetadata", "hourly/data", "visibility"): "the NWS's own field name (GH-3134)",
 }
 
 _DATASETS = {

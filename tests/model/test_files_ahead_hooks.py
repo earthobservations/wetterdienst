@@ -17,6 +17,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
@@ -25,6 +26,7 @@ from wetterdienst.provider.dwd.derived import download as derived_download
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as observation_api
 from wetterdienst.provider.dwd.observation import download as observation_download
+from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
@@ -32,12 +34,12 @@ from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.cache import CacheExpiry
     from wetterdienst.metadata.period import Period
     from wetterdienst.model.values import TimeseriesValues
 
 UTC = dt.UTC
 STATION = "00001"
+_EMPTY_DIRECTORY = "https://x/historical/"
 
 
 def _settings() -> Settings:
@@ -92,7 +94,10 @@ def test_dwd_observation_names_the_archives_it_downloads(
 
     assert downloaded, "the collection downloaded nothing"
     assert list(named.urls) == [url for url, _ in downloaded]
-    assert {ttl for _, ttl in downloaded} == {named.ttl}
+    # each file is named with the expiry it is downloaded with, which follows its period (GH-3929)
+    assert [named.ttl_of(url) for url in named.urls] == [ttl for _, ttl in downloaded]
+    assert {ttl for url, ttl in downloaded if "historical" in url} == {CacheExpiry.ONE_WEEK}
+    assert {ttl for url, ttl in downloaded if "recent" in url} == {CacheExpiry.FIVE_MINUTES}
 
 
 def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dataset(
@@ -123,8 +128,76 @@ def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dat
 
     assert downloaded, "the collection downloaded nothing"
     assert list(named.urls) == [url for url, _ in downloaded]
-    assert {ttl for _, ttl in downloaded} == {named.ttl}
+    # each file is named with the expiry it is downloaded with, which follows its period (GH-3929)
+    assert [named.ttl_of(url) for url in named.urls] == [ttl for _, ttl in downloaded]
+    assert {ttl for url, ttl in downloaded if "historical" in url} == {CacheExpiry.ONE_WEEK}
+    assert {ttl for url, ttl in downloaded if "recent" in url} == {CacheExpiry.FIVE_MINUTES}
     assert list(technical.urls) == []
+
+
+def test_dwd_observation_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A period whose directory is empty (GH-3819) has no files to name, and the other periods are still named.
+
+    The hook raised the `EmptyListingError` the collection skips, which stopped the fetch-ahead of the whole walk.
+    """
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset_: object, period: Period, *_: object) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(observation_api, "create_file_list_for_climate_observations", file_list)
+    monkeypatch.setattr(observation_download, "download_files", download_files)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        periods=["historical", "recent"],
+        settings=_settings(),
+    )
+    values = stations_result(request, "daily", "climate_summary", STATION).values()
+    model = request.metadata["daily"]["climate_summary"]
+
+    values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
+
+
+def test_dwd_derived_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same for `dwd/derived`: the empty period has no files to name, the other one is named."""
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset: object, period: Period, settings: Settings) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(derived_api, "create_file_list_for_climate_derived", file_list)
+    monkeypatch.setattr(derived_download, "download_files", download_files)
+    request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], settings=_settings())
+    values = stations_result(request, "hourly", "radiation_global", STATION).values()
+    model = request.metadata["hourly"]["radiation_global"]
+
+    monkeypatch.setattr(derived_api, "parse_climate_derived_data", lambda *_: pl.LazyFrame({"timestamp": []}))
+    with contextlib.suppress(Exception):
+        values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
 
 
 @pytest.mark.parametrize(
@@ -157,7 +230,7 @@ def test_chmi_names_the_files_of_each_element_and_month_it_downloads(
 
     assert len(asked) > 1
     assert list(named.urls) == asked
-    assert set(expiries) == {named.ttl}
+    assert [named.ttl_of(url) for url in named.urls] == expiries
 
 
 def test_chmi_names_only_the_elements_that_were_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -222,7 +295,7 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
 
     assert downloaded == ["https://x/249180010.zip"]
     assert list(named.urls) == (downloaded if per_station else [])
-    assert expiries == [named.ttl]
+    assert [named.ttl_of(url) for url in downloaded] == expiries
 
 
 @pytest.mark.parametrize(
@@ -269,7 +342,13 @@ def test_smhi_names_the_series_of_each_parameter_and_period_it_downloads(
     # the collection reads a speed twice when it is asked for beside its direction: the cache holds it once
     assert list(named.urls) == list(dict.fromkeys(asked))
     assert len(named.urls) == per_parameter
-    assert set(expiries) == {named.ttl}
+    # a series the collection asks for twice is asked for with one expiry, the one the hook names it with
+    assert [named.ttl_of(url) for url in asked] == expiries
+    # the corrected archive is final by name and kept a week, the latest months are still written to (GH-3929)
+    assert {url: named.ttl_of(url) for url in named.urls if "/corrected-archive/" in url} == {
+        url: CacheExpiry.ONE_WEEK for url in named.urls if "/corrected-archive/" in url
+    }
+    assert {named.ttl_of(url) for url in named.urls if "/corrected-archive/" not in url} == {CacheExpiry.FIVE_MINUTES}
     assert all("/station/188790/period/" in url for url in named.urls)
 
 

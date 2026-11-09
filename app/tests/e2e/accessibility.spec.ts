@@ -60,6 +60,13 @@ const PAGES: Target[] = [
   { page: 'meteogram', path: '/meteogram' },
   { page: 'history', path: '/history' },
   {
+    // the map tool (GH-3650): its chips, its map and its panel with the list of the stations
+    page: 'map',
+    path: '/map',
+    // the list of stations is the panel's, at every width (the count over the map is not there on a phone)
+    ready: async (page) => { await expect(page.getByTestId('map-list')).toBeVisible() },
+  },
+  {
     page: 'widget',
     path: '/widget',
     // the widget has no heading: it says which parameter it lacks
@@ -110,6 +117,13 @@ const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
 /** A map with markers: Leaflet puts one icon, or a cluster, in the page for each */
 async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
+}
+
+/** The one station with climate stripes that the map tool's states have within reach of Berlin (the mock's are in the south and west) */
+const STRIPES_NEAR_BERLIN: Handlers = {
+  'stripes/stations': () => ({
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00` }],
+  }),
 }
 
 const STATES: State[] = [
@@ -509,6 +523,74 @@ const STATES: State[] = [
     viewport: { width: 390, height: 844 },
     reach: async (page, locale) => {
       await expect(page.getByRole('navigation').getByRole('link', { name: message(locale, 'nav.stripes') })).toHaveAttribute('aria-current', 'page')
+    },
+  },
+  {
+    // a place picked on the map tool: the forecast's day rows, the stripes and the links to the measurements (GH-3650)
+    page: 'map',
+    state: 'station-picked',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
+    reach: async (page) => {
+      await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
+      await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // the layer of the measurements, with the choices of its resolution and dataset
+    page: 'map',
+    state: 'measured-layer',
+    path: '/map?layer=measured',
+    reach: async (page) => {
+      await expect(page.getByTestId('map-count')).toBeVisible()
+      await expect(page.getByTestId('map-resolution')).toBeVisible()
+      await expect(page.getByTestId('map-dataset')).toBeVisible()
+    },
+  },
+  {
+    // the stations that could not be loaded
+    page: 'map',
+    state: 'stations-failed',
+    path: '/map',
+    handlers: { stations: () => new ApiFailure(500, 'The forecast stations are not available') },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-failure')).toBeVisible()
+    },
+  },
+  {
+    // on a phone: the map first and the panel under it as a sheet, with a station picked
+    page: 'map',
+    state: 'phone-station-picked',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
+      await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
+    // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
+    page: 'settings',
+    state: 'phone-bar-chooser',
+    path: '/settings#bar',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
+      await page.getByTestId('bar-chooser').locator('li[data-tool="map"] button[data-dir="up"]').click()
+      await expect(page.getByTestId('bar-status')).not.toHaveText('')
+    },
+  },
+  {
+    page: 'settings',
+    state: 'phone-bar-chooser-narrow',
+    path: '/settings#bar',
+    viewport: { width: 320, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
     },
   },
 ]

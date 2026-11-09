@@ -4,7 +4,10 @@
 
 `/api/coverage` lists the networks and, for one, its parameters; nothing said what a provider *is*. Every network's
 metadata model already holds it (`name_english`, `country`, the licence and the credit line of #3058), and this
-module reads it out, with the resolutions and datasets each network offers. Nothing is downloaded, no credential is
+module reads it out. By default (`datasets=False`) the answer is compact: everything but the resolutions and datasets
+each network offers (GH-3536), which are most of the answer, and a question about a licence or about which providers
+reach a place needs none of them (`/api/coverage` is the place for the lists); `datasets=True` lists them. Nothing is
+downloaded, no credential is
 read or probed, so the answer is as fast on a cold cache as on a warm one: whether a key is accepted is
 `/api/auth`'s question, for one network. This module imports no web framework, so the command line and MCP use it
 without the `restapi` extra.
@@ -80,13 +83,22 @@ class ProviderNetwork(BaseModel):
         description="Where the stations of the network are, which the `country` of its provider does not say.",
     )
     url: str = Field(description="Where the provider publishes the data of the network.")
-    copyright: str
+    copyright: str = Field(
+        description="The rights holder's notice, shown for information. The credit line to cite is `attribution` of "
+        "the provider.",
+    )
     auth: bool = Field(
         description="Whether the network needs credentials; `/api/auth` tells whether they are accepted.",
     )
     date_required: bool = Field(description="Whether a request for a dataset of the network has to give a date.")
     parameters: int = Field(description="How many parameters the network has in all of its datasets.")
-    resolutions: list[ProviderResolution]
+    # required and nullable, not optional: a member that was always there stays one for a client written against the
+    # schema, and the MCP tool validates what it returns against the schema, which a missing required member fails.
+    # `null` says the list was not asked for (`datasets=true` does), an empty list that the network has none
+    resolutions: list[ProviderResolution] | None = Field(
+        description="The resolutions of the network, each with its datasets and their numbers of parameters; empty "
+        "for a network that has none (`dwd/radar`, `dwd/alerts`), null unless `datasets=true` asks for them.",
+    )
 
 
 class Provider(BaseModel):
@@ -110,8 +122,9 @@ class Provider(BaseModel):
         description="The terms the provider publishes its data under; null where it states none.",
     )
     attribution: str | None = Field(
-        description="The credit line a user of the data has to give; null where the provider states none or asks for "
-        "none.",
+        description="The credit line to cite when the data is used, in the provider's own words where it states one; "
+        "null where the provider states none or asks for none. `copyright` of each network is the rights holder's "
+        "notice, shown for information.",
     )
     networks: list[ProviderNetwork]
 
@@ -125,8 +138,13 @@ class ProvidersAnswer(BaseModel):
     providers: list[Provider]
 
 
-def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataModel | None] | None:
-    """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning."""
+def _network(
+    provider: str, network: str, *, datasets: bool = False
+) -> tuple[ProviderNetwork, MetadataModel | None] | None:
+    """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning.
+
+    The resolutions and datasets are listed with `datasets` only; the number of parameters is always counted.
+    """
     try:
         if Wetterdienst.is_standalone(provider, network):
             standalone = Wetterdienst.resolve_standalone(provider, network)
@@ -141,7 +159,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
                     auth=False,
                     date_required=False,
                     parameters=0,
-                    resolutions=[],
+                    resolutions=[] if datasets else None,
                 ),
                 None,
             )
@@ -158,16 +176,20 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
             f"{provider}/{network} is left out of the providers, it cannot be imported on this server{missing}",
         )
         return None
-    resolutions = [
-        ProviderResolution(
-            name=resolution.name,
-            datasets=[
-                ProviderDataset(name=dataset.name, parameters=len(dataset.parameters), extent=dataset.extent)
-                for dataset in resolution
-            ],
-        )
-        for resolution in metadata
-    ]
+    resolutions = (
+        [
+            ProviderResolution(
+                name=resolution.name,
+                datasets=[
+                    ProviderDataset(name=dataset.name, parameters=len(list(dataset)), extent=dataset.extent)
+                    for dataset in resolution
+                ],
+            )
+            for resolution in metadata
+        ]
+        if datasets
+        else None
+    )
     return (
         ProviderNetwork(
             network=network,
@@ -177,15 +199,19 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
             copyright=metadata.copyright,
             auth=metadata.auth,
             date_required=any(dataset.date_required for resolution in metadata for dataset in resolution.datasets),
-            parameters=sum(dataset.parameters for resolution in resolutions for dataset in resolution.datasets),
+            parameters=sum(len(list(dataset)) for resolution in metadata for dataset in resolution),
             resolutions=resolutions,
         ),
         metadata,
     )
 
 
-def get_providers(provider: str | None = None) -> ProvidersAnswer:
+def get_providers(provider: str | None = None, *, datasets: bool = False) -> ProvidersAnswer:
     """Describe every provider of the registry, sorted by name, or the one named.
+
+    By default (`datasets=False`) the resolutions and datasets of each network are left out, `resolutions` is None,
+    and everything else stays, the number of parameters of the network among it. With `datasets=True` each network
+    lists its resolutions and datasets, with the number of parameters of each (GH-3536).
 
     A provider is what its networks say of it; they agree (`tests/ui/test_providers.py` holds the registry to it), so
     the first network's declaration speaks for the provider. The standalone networks of `dwd` say the same by their
@@ -204,7 +230,11 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
     providers: list[Provider] = []
     parameters: set[str] = set()
     for name in names:
-        networks = [described for network in Wetterdienst.registry[name] if (described := _network(name, network))]
+        networks = [
+            described
+            for network in Wetterdienst.registry[name]
+            if (described := _network(name, network, datasets=datasets))
+        ]
         declared = [metadata for _, metadata in networks if metadata is not None]
         if not declared:
             continue

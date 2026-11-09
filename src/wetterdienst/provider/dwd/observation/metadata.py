@@ -22,6 +22,7 @@ _DwdObservationMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "precipitation",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -62,6 +63,7 @@ _DwdObservationMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "precipitation",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -102,6 +104,7 @@ _DwdObservationMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "precipitation",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -129,6 +132,7 @@ _DwdObservationMetadataSpec = {
                     "name": "solar",
                     "name_original": "solar",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -175,12 +179,16 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "tt_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tm5_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {"name": "humidity_relative", "name_original": "rf_10", "unit": "percent"},
                         {
@@ -194,6 +202,7 @@ _DwdObservationMetadataSpec = {
                     "name": "temperature_extreme",
                     "name_original": "extreme_temperature",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -226,6 +235,7 @@ _DwdObservationMetadataSpec = {
                     "name": "wind",
                     "name_original": "wind",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -248,6 +258,7 @@ _DwdObservationMetadataSpec = {
                     "name": "wind_extreme",
                     "name_original": "extreme_wind",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -282,6 +293,7 @@ _DwdObservationMetadataSpec = {
                     "name": "urban_temperature_air",
                     "name_original": "urban_air_temperature",
                     "grouped": True,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -292,18 +304,26 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "tt_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
-                        {"name": "humidity_relative", "name_original": "rf_st_10", "unit": "percent"},
+                        {
+                            "name": "humidity_relative",
+                            "name_original": "rf_st_10",
+                            "unit": "percent",
+                            "aggregation": "instant",
+                        },
                         {
                             # "Strahlungstemperatur" -- radiant temperature at 2 m
                             "name": "temperature_radiant_2m",
                             "name_original": "strahl_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tt5_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -382,11 +402,13 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp_st_10",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p0_st_10",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -404,21 +426,25 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_soil_0_1m",
                             "name_original": "te_st_01m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "te_st_02m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_5m",
                             "name_original": "te_st_05m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_1m",
                             "name_original": "te_st_10m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -729,6 +755,7 @@ _DwdObservationMetadataSpec = {
                             "name": "sun_zenith_angle",
                             "name_original": "zenit",
                             "unit": "degree",
+                            "aggregation": "instant",
                         },
                         {
                             # the column holds a whole-hour timestamp; what is returned is its
@@ -916,6 +943,7 @@ _DwdObservationMetadataSpec = {
                     "name": "urban_precipitation",
                     "name_original": "urban_precipitation",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -948,6 +976,7 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "luftdruck_stationshoehe",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -972,6 +1001,7 @@ _DwdObservationMetadataSpec = {
                     "name": "urban_temperature_air",
                     "name_original": "urban_air_temperature",
                     "grouped": True,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -982,11 +1012,13 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "lufttemperatur",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "rel_feuchte",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -1004,26 +1036,31 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_soil_0_05m",
                             "name_original": "erdbt_005",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_1m",
                             "name_original": "erdbt_010",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "erdbt_020",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_5m",
                             "name_original": "erdbt_050",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_1m",
                             "name_original": "erdbt_100",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -1214,6 +1251,7 @@ _DwdObservationMetadataSpec = {
                     "name": "wind_extreme",
                     "name_original": "extreme_wind",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality_3",
@@ -1273,6 +1311,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rsk",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1288,6 +1327,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "shk_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -1341,6 +1381,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rs",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1351,6 +1392,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "sh_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -1364,6 +1406,7 @@ _DwdObservationMetadataSpec = {
                     "name": "solar",
                     "name_original": "solar",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1465,6 +1508,7 @@ _DwdObservationMetadataSpec = {
                     "name": "weather_phenomena",
                     "name_original": "weather_phenomena",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1522,6 +1566,7 @@ _DwdObservationMetadataSpec = {
                     "name": "weather_phenomena_more",
                     "name_original": "more_weather_phenomena",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1599,6 +1644,7 @@ _DwdObservationMetadataSpec = {
                     "name": "climate_summary",
                     "name_original": "kl",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality_general",
@@ -1815,6 +1861,7 @@ _DwdObservationMetadataSpec = {
                     "name": "climate_indices",
                     "name_original": "climate_indices/kl",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality_general",
@@ -1852,6 +1899,7 @@ _DwdObservationMetadataSpec = {
                     "name": "climate_summary",
                     "name_original": "kl",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality_general",
@@ -1924,6 +1972,7 @@ _DwdObservationMetadataSpec = {
                     "name": "precipitation_indices",
                     "name_original": "climate_indices/precip",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",
@@ -1976,6 +2025,7 @@ _DwdObservationMetadataSpec = {
                     "name": "precipitation_more",
                     "name_original": "more_precip",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",
@@ -2008,6 +2058,7 @@ _DwdObservationMetadataSpec = {
                     "name": "weather_phenomena",
                     "name_original": "weather_phenomena",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "quality",

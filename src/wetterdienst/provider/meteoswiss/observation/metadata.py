@@ -37,6 +37,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "wind_direction_mean",
@@ -62,16 +63,19 @@ _MeteoswissObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "prestas0",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp0qffs0",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_vapor",
                             "name_original": "pva200s0",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
@@ -97,41 +101,49 @@ _MeteoswissObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "htoauts0",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "tre200s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tre005s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_05m",
                             "name_original": "tso005s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_1m",
                             "name_original": "tso010s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "tso020s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "ure200s0",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "tde200s0",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -207,6 +219,7 @@ _MeteoswissObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "htoauths",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_2m",
@@ -237,16 +250,19 @@ _MeteoswissObservationMetadataSpec = {
                             "name": "temperature_soil_0_05m",
                             "name_original": "tso005hs",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_1m",
                             "name_original": "tso010hs",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "tso020hs",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative_mean",
@@ -272,6 +288,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_direction_mean",
@@ -332,6 +349,7 @@ _MeteoswissObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "htoautd0",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_2m",
@@ -402,6 +420,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_speed_mean",
@@ -512,6 +531,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_speed_mean",

@@ -43,22 +43,30 @@ _SmhiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "45",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "44",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "43",
+                            "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "52",
+                            "timestamp_position": "instant",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility_mean",
@@ -98,12 +106,16 @@ _SmhiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "1",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "39",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean_last_10min",
@@ -128,22 +140,30 @@ _SmhiObservationMetadataSpec = {
                         {
                             "name": "humidity_relative",
                             "name_original": "6",
+                            "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "9",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "16",
+                            "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "12",
+                            "timestamp_position": "instant",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -163,27 +183,33 @@ _SmhiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "2",
+                            "timestamp_position": "start",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "20",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "19",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "precipitation_amount",
                             "name_original": "5",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "8",
+                            "timestamp_position": "instant",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -199,6 +225,7 @@ _SmhiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",

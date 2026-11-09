@@ -41,10 +41,17 @@ function source(path: string): string {
   return readFileSync(`${repository}${path}`, 'utf-8')
 }
 
-/** The canonical parameter names: the first argument of each `CanonicalParameter(...)` in the table. */
+/**
+ * The canonical parameter names the glossary serves: the first argument of each `CanonicalParameter(...)` in the
+ * table, but the quality flags (`quality_flag=True`), which `/api/glossary` leaves out and the app never shows.
+ */
 function canonicalParameters(): string[] {
-  return [...source('src/wetterdienst/metadata/parameter_table.py').matchAll(/^ {4}CanonicalParameter\(\s*"([a-z0-9_]+)"/gm)]
-    .map(match => match[1] as string)
+  const table = source('src/wetterdienst/metadata/parameter_table.py')
+  return table
+    .split(/^ {4}CanonicalParameter\(/m)
+    .slice(1)
+    .filter(block => !block.includes('quality_flag=True'))
+    .map(block => /^\s*"([a-z0-9_]+)"/.exec(block)?.[1] as string)
 }
 
 /** The values of the `Resolution` enum, which ends where `Frequency` begins. */
@@ -236,10 +243,10 @@ describe('what a label says', () => {
     expect(wrong).toEqual([])
   })
 
-  // A soil temperature of a cover or a texture ("Maximum soil temperature under grass (5 cm)") is the
+  // A soil temperature of a cover or a texture ("Maximum soil temperature, grass (5 cm)") is the
   // plain soil temperature with more words. Every locale has its word for the soil in it; in the
   // Romance languages, where the variant is the words of the plain one followed by the cover
-  // ("Température maximale du sol sous gazon"), the label also opens with them. A language that puts an
+  // ("Température maximale du sol, gazon"), the label also opens with them. A language that puts an
   // adjective before the noun (cs "Maximální teplota holé půdy", pl "...temperatura odkrytej gleby") is
   // held to the soil word only, as a correct label of it has no fixed opening.
   const SOIL: Record<string, RegExp> = {

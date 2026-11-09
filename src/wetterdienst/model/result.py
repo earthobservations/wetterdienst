@@ -143,6 +143,14 @@ class _Station(TypedDict):
     region: str | None
 
 
+class _EstimateStation(_Station):
+    """A station an interpolation or a summary was made from: the station, and where it stands against the point."""
+
+    distance: float
+    # null where no elevation was asked about, or the station has none
+    elevation_difference: float | None
+
+
 class _StationsDictBody(TypedDict):
     """The members of `_StationsDict` other than `metadata`."""
 
@@ -424,6 +432,16 @@ def _fit_map_view(
     return center, max(0.0, min(zooms))
 
 
+def _station_rows(df: pl.DataFrame) -> list[_Station]:
+    """Write a stations frame as the rows of a `stations` block, its timestamps as text.
+
+    The one place that writes them: a listing of stations and the `stations` block of a values result, which
+    reads its frame off `df_stations`, give the same row for the same station.
+    """
+    # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
+    return cast("list[_Station]", timestamps_to_string(df, ["start_timestamp", "end_timestamp"]).to_dicts())
+
+
 @dataclass(frozen=True, kw_only=True, eq=False)
 class StationsResult(_EqualByFields, ExportMixin):
     """Result class for stations.
@@ -516,9 +534,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             Dictionary with station information.
 
         """
-        df = timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"])
-        # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
-        stations = cast("list[_Station]", df.to_dicts())
+        stations = _station_rows(self.df)
         if with_metadata:
             return {"metadata": _metadata_of(self), "stations": stations}
         return {"stations": stations}
@@ -770,6 +786,19 @@ class _ValuesDict(_ValuesDictBody):
 _ValuesResultT = TypeVar("_ValuesResultT", bound="_ValuesResult[Any, Any]")
 
 
+def _cut_to_stations(result: _ValuesResultT, taken: pl.Series) -> _ValuesResultT:
+    """Give the estimate with only the stations of its stations list that `taken` names, as they were first chosen.
+
+    A station is listed once for each dataset it was asked about, and stays listed under all of them while any of its
+    rows is left, as the list was made of the ids of the rows and nothing else (`TimeseriesRequest.interpolate`).
+    """
+    stations = result.stations
+    return replace(
+        result,
+        stations=replace(stations, df=stations.df.filter(pl.col("station_id").is_in(taken.drop_nulls().implode()))),
+    )
+
+
 def _undated_if_empty(result: _ValuesResultT) -> _ValuesResultT:
     """Give the result with no `data_updated_at` where it has no rows left: one of no rows is of no file."""
     return replace(result, data_updated_at=None) if result.df.is_empty() else result
@@ -805,14 +834,45 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values come from, one row per resolution, dataset and station.
 
-        Only the stations that returned values: a request for the stations nearest a point lists
-        every station with a position, and the walk stops at the ones with data. Read off the values,
-        so that a `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations
-        that are left. An interpolated or summarized result names the stations it was made from.
+        Only the stations, and the datasets of them, that have rows: a request for the stations nearest a point
+        lists every station with a position, and the walk stops at the ones with data; a station that returned
+        rows of one dataset and none of another has the row of the first only. Read off the values, so that a
+        `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left. A row
+        of nulls is a row. An interpolated or summarized result names the stations it was made from.
+
+        A series is matched to the rows of the stations frame by resolution, dataset and station, compared as
+        text. A station of the stations frame with a row is always listed, by at least one of its rows:
+
+        - a wide row of a resolution that merged several datasets has no dataset (`TimeseriesValues._widen_df`)
+          and stands for each dataset row of that resolution and station;
+        - a series that the stations frame does not hold for its station (a dataset it is not listed for, which
+          the collection does not produce, as it reads the datasets off that frame) stands for every row of the
+          station;
+        - a frame without the three key columns is matched on the station alone.
         """
+        stations = self.stations.df
         if "station_id" not in self.df.columns:
-            return self.stations.df.clear()
-        return self.stations.df.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
+            return stations.clear()
+        keys = ["resolution", "dataset", "station_id"]
+        if not (set(keys) <= set(self.df.columns) and set(keys) <= set(stations.columns)):
+            return stations.filter(
+                pl.col("station_id").cast(pl.String).is_in(self.df.get_column("station_id").cast(pl.String).implode())
+            )
+        # compared as text, whatever the frames hold the keys as (a null column, a categorical, an enum)
+        text = [pl.col(key).cast(pl.String) for key in keys]
+        held = stations.select(text).with_row_index("row")
+        series = self.df.select(text).unique()
+        unmatched = series.join(held.drop("row"), on=keys, how="anti")
+        merged = unmatched.filter(pl.col("dataset").is_null() & pl.col("resolution").is_not_null())
+        unplaced = unmatched.join(merged, on=keys, how="anti", nulls_equal=True)
+        rows = pl.concat(
+            [
+                held.join(series, on=keys, how="semi"),
+                held.join(merged.select("resolution", "station_id"), on=["resolution", "station_id"], how="semi"),
+                held.join(unplaced.select("station_id"), on="station_id", how="semi"),
+            ]
+        ).get_column("row")
+        return stations.filter(pl.int_range(pl.len()).is_in(rows.implode()))
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:
@@ -826,13 +886,25 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         return cast("_RowsT", timestamps_to_string(df, ["timestamp"]).to_dicts())
 
     def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _DictT:
-        """Format values as dictionary."""
+        """Format values as dictionary.
+
+        Args:
+            with_metadata: whether to include the `metadata` block
+            with_stations: whether to include the `stations` block: `df_stations`, the stations that have a row
+                in this result, one row per resolution, dataset and station. A station of the request that
+                returned nothing, or whose rows `filtered_by_date` or `filtered_by_sql` cut away, is not in it,
+                and the block is an empty list where no row is left. The stations of the request are `stations.df`.
+
+        Returns:
+            Dictionary with the optional `metadata` and `stations` blocks and the `values`.
+
+        """
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
             data["metadata"] = _metadata_of(self.stations, self.data_updated_at, derived=self._derived)
         if with_stations:
-            data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
+            data["stations"] = _station_rows(self.df_stations)
         data["values"] = self._to_dict(self.df)
         return cast("_DictT", data)
 
@@ -896,7 +968,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         the second, and a date carrying a time (``"2020-05-01T12"``) names one instant and is
         matched exactly. See :func:`wetterdienst.model.util.filter_by_date`.
         """
-        return _undated_if_empty(replace(self, df=filter_by_date(self.df, date=date)))
+        return _undated_if_empty(replace(self, df=filter_by_date(self.df, date=date))._with_stations_of_rows())  # noqa: SLF001
 
     def filtered_by_sql(self, sql: str) -> Self:
         """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
@@ -904,7 +976,15 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         This result is left as it is. The date the source states for the data is kept, and is none where no row is
         left: a result of no rows is of no file.
         """
-        return _undated_if_empty(super().filtered_by_sql(sql))
+        return _undated_if_empty(super().filtered_by_sql(sql)._with_stations_of_rows())  # noqa: SLF001
+
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result with the stations of the rows it holds: this one, which lists them from its values already.
+
+        An interpolated or a summarized result lists the stations its rows were made from, so a result cut down to
+        some of them lists only the stations of what is left.
+        """
+        return self
 
 
 class _ValuesOgcFeature(TypedDict):
@@ -1331,7 +1411,7 @@ class _InterpolatedValuesItemDict(TypedDict):
 class _InterpolatedValuesDictBody(TypedDict):
     """The members of `_InterpolatedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1347,7 +1427,7 @@ class _InterpolatedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1386,6 +1466,12 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         """Get the stations the values were interpolated from, which `stations` is already cut down to."""
         return self.stations.df
 
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result listing the stations that some row left names, after a cut of the rows."""
+        if "taken_station_ids" not in self.df.columns:
+            return self
+        return _cut_to_stations(self, self.df.get_column("taken_station_ids").explode())
+
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
         """Format interpolated values as OGC feature collection."""
         latitude, longitude = self.latlon
@@ -1412,7 +1498,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
@@ -1528,7 +1614,7 @@ class _SummarizedValuesItemDict(TypedDict):
 class _SummarizedValuesDictBody(TypedDict):
     """The members of `_SummarizedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1544,7 +1630,7 @@ class _SummarizedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1583,6 +1669,12 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         """Get the stations the values were summarized from, which `stations` is already cut down to."""
         return self.stations.df
 
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result listing the stations that some row left names, after a cut of the rows."""
+        if "taken_station_id" not in self.df.columns:
+            return self
+        return _cut_to_stations(self, self.df.get_column("taken_station_id"))
+
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
         """Export summarized values as OGC feature collection."""
         latitude, longitude = self.latlon
@@ -1609,7 +1701,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}

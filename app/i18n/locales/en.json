@@ -151,7 +151,8 @@
       "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",
       "glossary": "What each weather and climate parameter measures and the unit its values come back in, searchable by name and quantity.",
       "about": "About the open-source project Wetterdienst and the people who maintain it.",
-      "support": "Support Wetterdienst: report an issue, contribute code or donate."
+      "support": "Support Wetterdienst: report an issue, contribute code or donate.",
+      "map": "A map of the stations of the German Weather Service: pick a station or any point for its forecast, its climate stripes and its measurements."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
-    "support": "Support"
+    "support": "Support",
+    "map": "Map"
   },
   "shell": {
     "skipToContent": "Skip to content",
@@ -216,7 +218,9 @@
       "docs": "How to use the Python library, the command line and the API",
       "github": "The code, the issues and the pull requests",
       "pypi": "Install the Python library with pip"
-    }
+    },
+    "stationsMap": "Station on the map",
+    "stationOnMap": "Show station {id} on the map"
   },
   "header": {
     "github": "GitHub",
@@ -278,7 +282,25 @@
     "unitMassPerVolume": "Mass per volume",
     "unitSignificantWeather": "Significant weather",
     "unitTurbidity": "Turbidity",
-    "unitWindScale": "Wind scale"
+    "unitWindScale": "Wind scale",
+    "bar": {
+      "title": "Customise the bar",
+      "hint": "On a phone, the bar at the foot of the screen shows four tools and the Menu. Choose which four. The others stay in the Menu.",
+      "preview": "Preview",
+      "previewLabel": "Preview of the bar: {tools}, Menu",
+      "menuOnly": "Only in the Menu: {tools}",
+      "inBar": "In the bar",
+      "inMenu": "Only in the Menu",
+      "instructions": "Drag a tool by its handle, or press the arrow buttons on its row. Four tools are always in the bar: when one moves in, another moves out.",
+      "moveUp": "Move {tool} up",
+      "moveDown": "Move {tool} down",
+      "reset": "Reset the bar",
+      "reorderedBar": "{tool} moved to place {position} of {total} in the bar.",
+      "reorderedMenu": "{tool} moved to place {position} of {total} in the Menu.",
+      "enteredBar": "{tool} is now in the bar, at place {position} of {total}. {other} is now only in the Menu.",
+      "leftBar": "{tool} is now only in the Menu. {other} is now in the bar, at place {position} of {total}.",
+      "resetDone": "The bar is back to its default: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Degrees Celsius (°C)",
@@ -767,6 +789,47 @@
     "centerSelected": "Center on selected station",
     "centerSelectedPlural": "Center on selected stations",
     "markersNotShown": "The stations could not be shown on the map. Reload the page to try again."
+  },
+  "mapTool": {
+    "title": "Station map",
+    "subtitle": "Pick a station or any point on the map for its forecast, climate stripes and measurements.",
+    "aboutButton": "About the map",
+    "about1": "The map shows the stations of the German Weather Service (DWD): the points its forecast is made for, or the stations that measure, for the resolution and dataset you choose over the map. Each is a dot; the panel finds a station by its name and lists the ones near the centre of the map.",
+    "about2": "Pick a station, or click any point on the map: the panel shows the forecast and the climate stripes of the nearest station that has them, and opens the measurements in the Explorer and the station history with that station already chosen. By keyboard, move the map with the arrow keys and zoom with plus and minus, then pick the place at its centre.",
+    "panelTitle": "Stations",
+    "layers": "Layer",
+    "layerForecast": "Forecast stations",
+    "layerMeasured": "DWD measurements",
+    "mapLabel": "Station map: {layer}",
+    "count": "Stations shown: {shown}",
+    "loadingStations": "Loading stations …",
+    "stationsFailed": "The stations could not be loaded",
+    "noStations": "This dataset has no stations with a position.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "search": "Find a station",
+    "searchPlaceholder": "Name or number of a station",
+    "nearCentre": "Stations near the centre of the map",
+    "results": "Results",
+    "noResults": "No station matches this search.",
+    "pickCentre": "Pick the centre of the map",
+    "pickCentreHint": "Picks the place at the centre of the map, which the arrow keys move.",
+    "back": "Back to the stations",
+    "chosen": "{name} chosen",
+    "pickedPlace": "A point on the map, {distance} from this station",
+    "elevation": "{value} m above sea level",
+    "at": "{name}, {distance} away",
+    "noneNearby": "No station within {distance}.",
+    "noStationNear": "No station within {distance} of that point.",
+    "openForecast": "Open the forecast",
+    "openStripes": "Open the climate stripes",
+    "openExplorer": "Open the measurements in the Explorer",
+    "openHistory": "Open the station history",
+    "since": "since {year}",
+    "period": "{from} to {to}",
+    "stripesFigure": "Climate stripes of {name}",
+    "stripesNone": "No climate stripes for this station.",
+    "stationNotFound": "There is no station {id} on this map."
   },
   "dataViewer": {
     "loadingValues": "Loading values …",

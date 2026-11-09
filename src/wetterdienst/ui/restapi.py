@@ -13,12 +13,13 @@ import os
 import re
 from dataclasses import replace
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, with_config
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -41,6 +42,7 @@ from wetterdienst.exceptions import (
     MissingTimeIntervalError,
     NoInternetError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     UpstreamError,
     WetterdienstError,
 )
@@ -71,6 +73,7 @@ from wetterdienst.ui.caching import (
     validators,
 )
 from wetterdienst.ui.core import (
+    SELECTION_EXAMPLES,
     AlertsRequest,
     AuthAnswer,
     AuthRequest,
@@ -83,6 +86,7 @@ from wetterdienst.ui.core import (
     ProvidersRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
+    Selection,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -175,7 +179,7 @@ from wetterdienst.ui.streaming import (
     ndjson_stream,
     stream_response,
 )
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
@@ -186,7 +190,6 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 
-    from fastapi.routing import APIRoute
     from starlette.responses import StreamingResponse
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -241,11 +244,8 @@ app = FastAPI(
     ),
     version=__version__,
     contact={"name": "wetterdienst", "url": "https://github.com/earthobservations/wetterdienst/issues"},
-    license_info={
-        "name": "MIT",
-        "identifier": "MIT",
-        "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md",
-    },
+    # `identifier` and `url` are mutually exclusive in OpenAPI 3.1: the SPDX identifier says which licence
+    license_info={"name": "MIT", "identifier": "MIT"},
     servers=[
         {"url": "https://wetterdienst.eobs.org", "description": "The hosted instance."},
         {"url": "http://127.0.0.1:7890", "description": "A local server, as `wetterdienst restapi` starts it."},
@@ -402,6 +402,9 @@ def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
+    if exc.status_code == 405 and request.url.path in _HEAD_PROBES:
+        # Starlette lists the methods of the first route that matched the path, which is the `GET`: the probes take both
+        exc = StarletteHTTPException(405, exc.detail, {**(exc.headers or {}), "Allow": "GET, HEAD"})
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=exc.headers)
     if not isinstance(exc.detail, str):
@@ -1001,6 +1004,48 @@ def ready() -> Response:
     return JSONResponse(Ready(status="ready").model_dump(), headers=_NO_STORE)
 
 
+def _head_of(answer: Response) -> Response:
+    """Give the answer of a `GET` as the `HEAD` of it is: its status and headers (`Content-Length` too), no body."""
+    return Response(status_code=answer.status_code, headers=dict(answer.headers))
+
+
+#: the routes that answer `HEAD` as their `GET` does
+_HEAD_PROBES = ("/health", "/ready")
+
+_HEAD_ANSWER = {
+    "description": "The status and the headers of the `GET`, with no body.",
+}
+
+
+@app.head(
+    "/health",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Health check, headers only",
+    responses={200: _HEAD_ANSWER},
+)
+def health_head() -> Response:
+    """Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`."""
+    return _head_of(JSONResponse(health().model_dump()))
+
+
+@app.head(
+    "/ready",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Readiness check, headers only",
+    responses={
+        200: {**_HEAD_ANSWER, "headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}
+    },
+)
+def ready_head(request: Request) -> Response:
+    """Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`."""
+    try:
+        return _head_of(ready())
+    except ProblemError as e:
+        return _head_of(_problem_of(request, e))
+
+
 class VersionAnswer(BaseModel):
     """What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to."""
 
@@ -1185,6 +1230,17 @@ def _problem_components() -> dict[str, dict[str, Any]]:
     return components
 
 
+def _head_answer_of(status: int) -> dict[str, Any]:
+    """Describe the answer of a `HEAD` to a problem: the status and headers of the `GET`'s, and no body."""
+    name, title = _PROBLEM_COMPONENTS[status]
+    answer: dict[str, Any] = {
+        "description": f"{title}, as `GET` answers it, without the body (the problem of the component `{name}`).",
+    }
+    if status in RETRY_AFTER_STATUSES:
+        answer["headers"] = _RETRY_AFTER_HEADER
+    return answer
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
     """Describe the error body in the schema: the problem of `_problem_response`, and the routes that can answer it.
 
@@ -1260,7 +1316,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             answers = {503}
         else:
             answers = set()
-        for operation in item.values():
+        for method, operation in item.items():
             responses = operation.get("responses", {})
             if (invalid := responses.get("422")) is not None:
                 # the one status that FastAPI adds, kept as it describes it, with the problem as its content
@@ -1268,7 +1324,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             declared = {key: value for key, value in responses.items() if key not in map(str, _PROBLEM_COMPONENTS)}
             declared.update(
                 {
-                    str(status): {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    str(status): (
+                        _head_answer_of(status)
+                        if method == "head"
+                        else {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    )
                     for status in sorted(answers)
                 }
             )
@@ -1291,6 +1351,56 @@ def _declare_list_parameters(schema: dict[str, Any]) -> None:
                 if parameter.get("in") == "query" and any(option.get("type") == "array" for option in options):
                     parameter["style"] = "form"
                     parameter["explode"] = False
+
+
+def _selection_of(route: APIRoute) -> Selection | None:
+    """Give the exclusive parameters of the request model a route takes, if its model has some."""
+    for hint in get_type_hints(route.endpoint).values():
+        selection = getattr(hint, "selection", None)
+        if isinstance(selection, Selection):
+            return selection
+    return None
+
+
+def _declare_selections(schema: dict[str, Any]) -> None:
+    """State the exclusive parameters of each operation in the document, and an example of each (GH-3134).
+
+    Which parameters a request may not combine is a rule over several query parameters, and OpenAPI 3.1 cannot
+    say it of them: `oneOf` is a keyword of one schema, and the one thing that holds a schema for several
+    query parameters is one object parameter (`style: form`, `explode: true`), which takes the parameters away from
+    the operation, as they are there to a generated client, to the tools of the MCP server and to the check against
+    the last release. So the parameters stay as they are, and each operation whose request model has a `Selection`
+    says it in the three ways a document can carry:
+
+    - `x-wetterdienst-selection`, an extension of the operation: `exactly_one_of` the groups of parameters,
+      `then` the groups that one of them asks for in turn (a point wants a `rank` or a `distance`), and `requires`,
+      the parameters that need a group beside them. It is `Selection.document`, the definition the model's
+      validator checks the request by;
+    - the `description` of each parameter it names, in the words of the refusal (`Selection.sentences`). Only the
+      parameter's own `description` is changed, not that of its schema, which a tool of the MCP server is built
+      from, so the tools' schemas do not grow;
+    - the `examples` of each parameter, one value it takes (`SELECTION_EXAMPLES`), of the type of its
+      schema, a list as a list, which `explode: false` has a client write comma-separated. It is `examples`
+      and not `example`, which the MCP server copies into the schema of its tool: 745 characters more in the list
+      of the tools, which `examples` of the parameter does not.
+    """
+    # the routes of the router, which `app` includes under the prefix of the version (it holds them as an
+    # included router, not as routes), and not the alias, which the document leaves out
+    for route in router.routes:
+        if not isinstance(route, APIRoute) or not route.include_in_schema:
+            continue
+        selection = _selection_of(route)
+        if selection is None:
+            continue
+        for method in route.methods or ():
+            operation = schema["paths"][f"{API_PREFIX}{route.path}"][method.lower()]
+            operation["x-wetterdienst-selection"] = selection.document()
+            sentences = selection.sentences()
+            for parameter in operation["parameters"]:
+                name = parameter["name"]
+                if name in sentences:
+                    parameter["description"] = " ".join([parameter["description"].rstrip(), *sentences[name]])
+                    parameter["examples"] = {"example": {"value": SELECTION_EXAMPLES[name]}}
 
 
 def _openapi() -> dict[str, Any]:
@@ -1329,6 +1439,7 @@ def _openapi() -> dict[str, Any]:
     schema["info"]["x-api-version"] = API_VERSION
     _declare_problem_schema(schema)
     _declare_list_parameters(schema)
+    _declare_selections(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001
@@ -1543,6 +1654,12 @@ def coverage(
     for a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with
     `convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no
     options: a `unit_targets` of your own changes what `values` return, not this answer.
+
+    `aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the
+    others of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its
+    source states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`
+    (the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`
+    means the source does not state it: not a reading, not a mean.
     """
     provider, network = request.provider, request.network
 
@@ -1595,17 +1712,20 @@ def providers(
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
     of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
-    line to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:
-    `scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the
-    resolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer
-    than its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded
-    and no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`
-    checks whether its credentials are accepted.
+    line to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its
+    networks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,
+    `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.
+    The answer is short: each network's `resolutions` is null, which is all a question about a licence or about
+    the providers that reach a place needs. Pass `datasets=true` and each network lists its resolutions and
+    datasets, with how many parameters each has (a dataset whose stations are fewer than its network's has an
+    `extent` of its own, and one without has its network's).
+    Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a
+    network, and `auth` checks whether its credentials are accepted.
     """
     begin_response()
 
     try:
-        answer = get_providers(request.provider)
+        answer = get_providers(request.provider, datasets=request.datasets)
     except ApiNotFoundError as e:
         raise HTTPException(
             status_code=404,
@@ -1641,9 +1761,17 @@ def glossary(
     large response and a broad filter can still be a wide one (parameter="temperature" matches
     nearly two hundred).
 
+    These are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)
+    are not parameters and are not listed: they come back in the `quality_flags` column of the values, which the
+    quality-flags page of the documentation explains.
+
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
     including any `unit_targets` option override.
+
+    `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,
+    ...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each
+    provider and the `timestamp_position`, which the glossary does not know.
     """
     # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
@@ -2001,6 +2129,11 @@ def values(
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
+
+    With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
+    relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
+    (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
+    either means the source does not state it.
     """
     begin_response()
     _refuse_sql_unless_enabled(request)
@@ -2123,11 +2256,15 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     defect, so it is an error with one.
     """
     status = failure_status(e)
-    if isinstance(e, (NoInternetError, DownloadError)):
+    if isinstance(e, (NoInternetError, DownloadError, StationListingIncompleteError)):
         log.warning(f"Failed to {what}: {e}")
     else:
         log.error(f"Failed to {what}.", exc_info=e)
     detail = {503: _UPSTREAM_UNREACHABLE, 504: _UPSTREAM_TIMED_OUT}.get(status, _UPSTREAM_FAILED)
+    if isinstance(e, StationListingIncompleteError):
+        # names the directories of DWD's public tree that the lookup went without, and the id the caller asked for:
+        # what a 404 hid, and what `file-skipped` tells an answer that has a place for it (GH-3834)
+        detail = str(e)
     kind = {503: ProblemKind.UPSTREAM_UNREACHABLE, 504: ProblemKind.UPSTREAM_TIMEOUT}.get(
         status, ProblemKind.UPSTREAM_FAILED
     )
@@ -2553,8 +2690,8 @@ def history(
         raise _logged_server_error(e, "collect station history") from e
     if not metadata.counts.rows or metadata.warnings:
         # an empty history, or one that came with warnings, may be a source that answered nothing for the moment, or
-        # ids left out: the next request can give another, so it is not kept (a dataset skipped without a warning
-        # cannot be told from a station that has no file in it)
+        # ids left out: the next request can give another, so it is not kept (a listing that came back empty is a
+        # `file-skipped` warning, a station with no file in a listing that is there is the source's answer)
         return _answer(content, "json", metadata)
     return cached_json(
         http_request,
@@ -2727,4 +2864,13 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:_worker_app", factory=True, host=host, port=port, reload=reload or False)
+    # uvicorn colours the level of its log lines on a terminal and does not read NO_COLOR itself; None leaves it to
+    # its terminal check
+    run(
+        app="wetterdienst.ui.restapi:_worker_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload or False,
+        use_colors=False if no_color() else None,
+    )

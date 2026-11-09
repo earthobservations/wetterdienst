@@ -1863,9 +1863,54 @@ def _metoffice_hourly_weather(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
     return stations_result(request, "hourly", "weather", "00001").values().all().df
 
 
+def _metoffice_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # worded after the mean wind files of 1970 to 1995 read from the archive on 2026-11-08 (GH-3909): 2,333 of 775,720
+    # mean wind directions are 999 beside a mean wind speed of 1 to 6 knots (2 in 97 %), with the quality 9 as the row
+    # writes it. No MIDAS table words the 999: the WM page says "The wind direction from which the wind blows, is
+    # measured in Degrees (true). The entry for an east wind is 090, that for a south wind 180 and so on clockwise" and
+    # "zero values in both wind speed and wind direction fields indicate that there was no wind blowing". The
+    # 0 beside a speed of 0 is a calm, and north is 360
+    def badc(columns: str, rows: str) -> bytes:
+        return f"Conventions,G,BADC-CSV,1\ndata\n{columns}\n{rows}end data\n".encode()
+
+    stations = badc(
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year",
+        "00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
+    )
+    values = badc(
+        "ob_end_time,ob_hour_count,mean_wind_dir,mean_wind_speed,mean_wind_dir_q,mean_wind_speed_q",
+        "2000-01-01 01:00:00,1,250,12.0,0,0\n2000-01-01 02:00:00,1,999,2.0,9,2009\n"
+        "2000-01-01 03:00:00,1,0,0.0,0,0\n2000-01-01 04:00:00,1,360,3.0,0,0\n",
+    )
+
+    def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
+        if "station-metadata" in url:
+            return stations
+        return values if "qcv-1" in url else None
+
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_token", lambda _self, _settings: "token")
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_download", download)
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda *_args, **_kwargs: "202507")
+    request = MetOfficeObservationRequest(
+        parameters=[("hourly", "wind", "wind_direction_mean")],
+        start=_day(2000, 1, 1),
+        end=_day(2000, 1, 1, 4),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "wind", "00001").values().all().df
+
+
 def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the API needs a client id, so this is worded after the element descriptions Frost publishes, which state the codes
-    # of the reader: a cloud cover of 9 (and -3) could not be estimated, and a snow thickness of -1 is no snow
+    # the API needs a client id, so this is worded after what Frost publishes: the element descriptions, which state
+    # the codes of the cloud cover (9 and -3, the sky could not be estimated) and of the snow depth (-1), and the data
+    # clarifications (https://frost.met.no/dataclarifications.html), which state -3 for the wind direction ("No unique
+    # wind direction is given when winds are weak") and for the snow depth ("Not possible to measure snowdepth"), and 0
+    # for the snow depth ("Snowdepth less than 0.5 cm"), a reading of its own. The -3 of the direction was read at the
+    # WMO stations Frost lists since 2026-11-03 (GH-3137), beside a wind speed of 0.5 to 2.6 m/s. The 0 of the direction
+    # is a calm beside a speed of 0 ("360 degrees is north", and the 0 stands beside a speed of 0 in 1,014 of 1,030
+    # such readings at 20 Norwegian stations, GH-3833): null with the 0 kept in the flags
     payload = {
         "data": [
             {
@@ -1874,20 +1919,228 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
                 "observations": [
                     {"elementId": "cloud_area_fraction", "value": cloud, "qualityCode": 0},
                     {"elementId": "surface_snow_thickness", "value": snow, "qualityCode": 0},
+                    {"elementId": "wind_from_direction", "value": direction, "qualityCode": 0},
+                    {"elementId": "wind_speed", "value": speed, "qualityCode": 0},
                 ],
             }
-            for hour, (cloud, snow) in enumerate([(4, 12.0), (9, -1.0)])
+            for hour, (cloud, snow, direction, speed) in enumerate(
+                [(4, 12.0, 90.0, 3.1), (9, -1.0, -3.0, 1.0), (8, -3.0, 0.0, 0.0)]
+            )
         ],
     }
+    # 03:00 at a station that measures the wind at 10 m and 2 m (71 do, SN99460 among them), the 10 m first: a calm at
+    # 10 m beside a speed of 0, and a bearing of 170 at 2 m, which must not fill it (GH-3833)
+    heights = {"levelType": "height_above_ground", "unit": "m"}
+    payload["data"].append(
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T03:00:00.000Z",
+            "observations": [
+                {"elementId": "cloud_area_fraction", "value": 4, "qualityCode": 0},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_speed", "value": 0.0, "qualityCode": 0, "level": {**heights, "value": 2}},
+                {"elementId": "wind_from_direction", "value": 0, "qualityCode": 0, "level": {**heights, "value": 10}},
+                {"elementId": "wind_from_direction", "value": 170, "qualityCode": 0, "level": {**heights, "value": 2}},
+            ],
+        }
+    )
+    # 04:00 at a station that measures the air temperature at 10 m and 2 m (SN18700 does), the 10 m first as Frost
+    # answers: the 2 m reading is the temperature, 0.1 degC above the 10 m one (GH-3844)
+    payload["data"].append(
+        {
+            "sourceId": "SN18700:0",
+            "referenceTime": "2020-01-01T04:00:00.000Z",
+            "observations": [
+                {"elementId": "air_temperature", "value": 2.4, "qualityCode": 2, "level": {**heights, "value": 10}},
+                {"elementId": "air_temperature", "value": 2.5, "qualityCode": 0, "level": {**heights, "value": 2}},
+            ],
+        }
+    )
     serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
     request = MetnoFrostRequest(
-        parameters=[("hourly", "data", "cloud_cover_total"), ("hourly", "data", "snow_depth")],
+        parameters=[
+            ("hourly", "data", "cloud_cover_total"),
+            ("hourly", "data", "snow_depth"),
+            ("hourly", "data", "temperature_air_2m"),
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
+        ],
         start=_day(2020, 1, 1),
-        end=_day(2020, 1, 1, 1),
+        end=_day(2020, 1, 1, 4),
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "SN18700").values().all().df
+
+
+def _metno_frost_precipitation(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool,  # noqa: FBT001
+    *,
+    resolution: tuple[str, str, str],
+    station: str,
+    readings: list[tuple[str, float, int]],
+    window: tuple[dt.datetime, dt.datetime],
+) -> pl.DataFrame:
+    """Serve the readings of one Frost precipitation sum as Frost wrote them, and read them as a caller does.
+
+    ``resolution`` is (name, original name, time offset), ``readings`` are (reference time, value, quality code). Frost
+    states the value -1 that these carry as no precipitation for the 6-hourly sum (its data clarifications; GH-3748) and
+    does not list the hourly sum `sum(precipitation_amount PT1H)`, which is our reading. The year 1982 is ours.
+    """
+    name, original, offset = resolution
+    payload = {
+        "data": [
+            {
+                "sourceId": f"{station}:0",
+                "referenceTime": time,
+                "observations": [
+                    {
+                        "elementId": f"sum(precipitation_amount {original})",
+                        "value": value,
+                        "unit": "mm",
+                        "timeOffset": offset,
+                        "timeResolution": original,
+                        "timeSeriesId": 0,
+                        "performanceCategory": "C",
+                        "exposureCategory": "2",
+                        "qualityCode": quality,
+                    },
+                ],
+            }
+            for time, value, quality in readings
+        ],
+    }
+    serve(monkeypatch, frost_api, {"observations/v0.jsonld": json.dumps(payload).encode()})
+    request = MetnoFrostRequest(
+        parameters=[(name, "data", "precipitation_amount")],
+        start=window[0],
+        end=window[1],
+        settings=_settings(auth={"metno_frost": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, name, "data", station).values().all().df
+
+
+def _metno_frost_6_hours(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount PT6H)`, SN18700 (Oslo - Blindern), 2005-09-01 to 2010-09-01, as Frost wrote it: the
+    # eight readings that station has, three of them -1 (and a 0 that is no -1)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("6_hours", "PT6H", "PT0H"),
+        station="SN18700",
+        readings=[
+            ("2005-09-07T00:00:00.000Z", -1, 2),
+            ("2005-10-13T12:00:00.000Z", -1, 0),
+            ("2006-03-07T12:00:00.000Z", -1, 0),
+            ("2006-08-23T06:00:00.000Z", 0, 0),
+            ("2008-06-13T18:00:00.000Z", 1.3, 2),
+            ("2010-02-04T06:00:00.000Z", 0.4, 2),
+            ("2010-04-26T18:00:00.000Z", 0.1, 2),
+            ("2010-08-06T18:00:00.000Z", 3, 2),
+        ],
+        window=(_day(2005, 9, 1), _day(2010, 9, 1)),
+    )
+
+
+def _metno_frost_6_hours_before_1982(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # SN75410, 1981-05-01 to 1981-05-11 (all 11 readings), a year before the cut-off, as Frost wrote it: -1 there is
+    # not read (null, and the code in the flags). 0.5 and 0 are readings of the same days. In the 1940s and 1950s the
+    # same code is every reading of a station, wet days included (SN39040: 1,096 of 1,096 in 1950-52, 67.3 mm in the
+    # 12-hourly sum that holds the 6-hourly -1 of 1951-08-05 12 UTC)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("6_hours", "PT6H", "PT0H"),
+        station="SN75410",
+        readings=[
+            ("1981-05-01T12:00:00.000Z", -1, 2),
+            ("1981-05-02T12:00:00.000Z", -1, 2),
+            ("1981-05-03T12:00:00.000Z", -1, 2),
+            ("1981-05-04T12:00:00.000Z", 0.5, 2),
+            ("1981-05-05T12:00:00.000Z", -1, 2),
+            ("1981-05-06T12:00:00.000Z", -1, 2),
+            ("1981-05-07T12:00:00.000Z", -1, 2),
+            ("1981-05-08T12:00:00.000Z", 0, 2),
+            ("1981-05-09T12:00:00.000Z", -1, 2),
+            ("1981-05-10T12:00:00.000Z", -1, 2),
+            ("1981-05-11T12:00:00.000Z", -1, 2),
+        ],
+        window=(_day(1981, 5, 1), _day(1981, 5, 12)),
+    )
+
+
+def _metno_frost_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount PT1H)`, SN1193400 (a WMO station Frost lists since 2026-11-03), 2026-11-03 01:00 to
+    # 11:00 as Frost wrote it: -1 in the dry hours, rain in the others
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("hourly", "PT1H", "PT0H"),
+        station="SN1193400",
+        readings=[
+            ("2026-11-03T01:00:00.000Z", -1, 2),
+            ("2026-11-03T02:00:00.000Z", -1, 2),
+            ("2026-11-03T03:00:00.000Z", 0.1, 2),
+            ("2026-11-03T04:00:00.000Z", 0.5, 2),
+            ("2026-11-03T05:00:00.000Z", 0.6, 2),
+            ("2026-11-03T07:00:00.000Z", 0.2, 2),
+            ("2026-11-03T08:00:00.000Z", -1, 2),
+            ("2026-11-03T09:00:00.000Z", -1, 2),
+            ("2026-11-03T10:00:00.000Z", -1, 2),
+            ("2026-11-03T11:00:00.000Z", 0, 2),
+        ],
+        window=(_day(2026, 11, 3), _day(2026, 11, 3, 12)),
+    )
+
+
+def _metno_frost_daily_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `sum(precipitation_amount P1D)`, SN1193400, 2026-11-03 to 11-06 as Frost wrote it (stamped 06:00, the offset
+    # PT6H): a day of rain, one of 0.2 mm, then two days of -1. Frost states 0.0 mm for it ("converted to 0.0 mm" in
+    # its data clarifications, https://frost.met.no/dataclarifications.html), and the 12-hourly halves of a -1 of these
+    # WMO stations are both -1 in 472 of 472 days (GH-3820)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("daily", "P1D", "PT6H"),
+        station="SN1193400",
+        readings=[
+            ("2026-11-03T06:00:00.000Z", 1, 2),
+            ("2026-11-04T06:00:00.000Z", 0.2, 2),
+            ("2026-11-05T06:00:00.000Z", -1, 2),
+            ("2026-11-06T06:00:00.000Z", -1, 2),
+        ],
+        window=(_day(2026, 11, 3), _day(2026, 11, 6)),
+    )
+
+
+def _metno_frost_daily_precipitation_weekly_reader(
+    monkeypatch: pytest.MonkeyPatch,
+    drop_nulls: bool = True,  # noqa: FBT001, FBT002
+) -> pl.DataFrame:
+    # `sum(precipitation_amount P1D)`, SN81930 (Storstilla), 1990-03-01 to 03-09 as Frost wrote it (checked on
+    # 2026-11-07 for 03-01 to 03-11): a weekly reader (a median gap of 7 days between its readings) whose -1 up to and
+    # including 1993 is a day nobody read the gauge on, so that the week's rain, 31.5 mm on 03-06, sits in the next
+    # reading: null, with the code kept. The -1 of 1994 on is dry-like and 0.0 (GH-3820)
+    return _metno_frost_precipitation(
+        monkeypatch,
+        drop_nulls,
+        resolution=("daily", "P1D", "PT6H"),
+        station="SN81930",
+        readings=[
+            ("1990-03-01T06:00:00.000Z", -1, 2),
+            ("1990-03-02T06:00:00.000Z", -1, 2),
+            ("1990-03-03T06:00:00.000Z", -1, 2),
+            ("1990-03-04T06:00:00.000Z", -1, 2),
+            ("1990-03-05T06:00:00.000Z", -1, 2),
+            ("1990-03-06T06:00:00.000Z", 31.5, 2),
+            ("1990-03-07T06:00:00.000Z", -1, 2),
+            ("1990-03-08T06:00:00.000Z", -1, 2),
+            ("1990-03-09T06:00:00.000Z", -1, 2),
+        ],
+        window=(_day(1990, 3, 1), _day(1990, 3, 9)),
+    )
 
 
 def _knmi_netcdf(values: dict[str, float]) -> bytes:
@@ -2273,6 +2526,20 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         # the oktas in percent (GH-3622); none of 68,107 hourly values of the climate data carries it, so it is made up
         ("mean_cloud_cover", "2020-02-14T03:00:00+00:00", 112.0),
         ("mean_cloud_cover", "2020-02-14T06:00:00+00:00", 90.0),
+        # the mean wind direction at minute 0 (GH-3762), which DMI publishes for Greenland and the Faroe Islands only:
+        # the real records of 04220 (Aasiaat; read key-less 2026-11-08, 1006 records of 2025-11-20 to 2026-01-01, 58 of
+        # them 0, 2 of them 360, none without a value) with their real hours and mean wind speeds. The stub's one
+        # station is 06070, which has no minute 0 and whose id the reader does not look at in the records it is
+        # served, so these are 04220's records served under it. No speed comes with minute 0, so a 0 is calm or north
+        # and stays 0.0 as DMI gives it, beside a mean wind speed of 0.3 (2025-11-21 01:00) as of 0.0 (02:00): the calm
+        # rule of GH-2794 reads `mean_wind_dir` alone. The 360 of 2025-12-11 21:00 (5.8 m/s) stays 360
+        ("mean_wind_dir_min0", "2025-11-21T01:00:00+00:00", 0.0),
+        ("mean_wind_speed", "2025-11-21T01:00:00+00:00", 0.3),
+        ("mean_wind_dir_min0", "2025-11-21T02:00:00+00:00", 0.0),
+        ("mean_wind_speed", "2025-11-21T02:00:00+00:00", 0.0),
+        ("mean_wind_dir_min0", "2025-11-21T03:00:00+00:00", 133.0),
+        ("mean_wind_dir_min0", "2025-12-11T21:00:00+00:00", 360.0),
+        ("mean_wind_speed", "2025-12-11T21:00:00+00:00", 5.8),
     ]
     features = [
         {
@@ -2289,7 +2556,7 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     request = DmiObservationRequest(
         parameters=[("hourly", "data")],
         start=_day(2020, 2, 14),
-        end=_day(2020, 2, 14, 7),
+        end=_day(2025, 12, 12),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -2468,6 +2735,12 @@ def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
     return stations_result(request, "daily", "data", "6477").values().all().df
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # codz_2023.zip (read 2026-10-12): `;` separated, a station per row with the stage, the discharge and the water
     # temperature, which reads 99.9 in the first rows of the file (149180020, 2023-01-01 to 2023-01-03). The stage's
@@ -2818,12 +3091,74 @@ STUBS = [
         tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "9", None)),
     ),
     ValueStub(
+        "metoffice/observation hourly/wind",
+        _metoffice_hourly_wind,
+        reading=("wind_direction_mean", 250.0),
+        # the 999 is a code, no bearing (GH-3909); the 0 beside a speed of 0 is a calm
+        sentinels=(("wind_direction_mean", 999.0), ("wind_direction_mean", 0.0)),
+        tokens=(("wind_direction_mean", "999", None), ("wind_direction_mean", "0", None)),
+    ),
+    ValueStub(
         "metno/frost hourly/data",
         _metno_frost_hourly,
         reading=("cloud_cover_total", 50.0),
         # the cloud cover is converted from eighths to percent on its way
-        sentinels=(("cloud_cover_total", 112.5), ("snow_depth", -1.0)),
-        tokens=(("cloud_cover_total", "9", None), ("snow_depth", "-1", 0.0)),
+        sentinels=(
+            ("cloud_cover_total", 112.5),
+            ("snow_depth", -1.0),
+            ("snow_depth", -3.0),
+            ("wind_direction_mean_last_10min", -3.0),
+            # a calm: the 0 beside a speed of 0 (GH-3833)
+            ("wind_direction_mean_last_10min", 0.0),
+        ),
+        tokens=(
+            ("cloud_cover_total", "9", None),
+            ("snow_depth", "-1", 0.0),
+            # not a depth: it was returned as -3 cm, a number inside the range of the parameter
+            ("snow_depth", "-3", None),
+            # null before as well, as `rejected:range,raw:-3` by the range check; now the code and nothing else
+            ("wind_direction_mean_last_10min", "-3", None),
+            ("wind_direction_mean_last_10min", "0", None),
+        ),
+    ),
+    ValueStub(
+        "metno/frost 6_hours/data",
+        _metno_frost_6_hours,
+        reading=("precipitation_amount", 1.3),
+        # the -1 is a dry period, a sum of zero, which the range check no longer takes for a reading below 0 mm
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost 6_hours/data (before 1982)",
+        _metno_frost_6_hours_before_1982,
+        reading=("precipitation_amount", 0.5),
+        # before the cut-off year the -1 is a code of no information: null, with the code in the flags
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", None),),
+    ),
+    ValueStub(
+        "metno/frost hourly/data (precipitation)",
+        _metno_frost_hourly_precipitation,
+        reading=("precipitation_amount", 0.5),
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost daily/data (precipitation)",
+        _metno_frost_daily_precipitation,
+        reading=("precipitation_amount", 1.0),
+        # the daily -1 is a sum of zero, as Frost states (GH-3820)
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", 0.0),),
+    ),
+    ValueStub(
+        "metno/frost daily/data (precipitation, weekly reader)",
+        _metno_frost_daily_precipitation_weekly_reader,
+        reading=("precipitation_amount", 31.5),
+        # the -1 of a day nobody read is no value: null, with the code in the flags (GH-3820)
+        sentinels=(("precipitation_amount", -1.0),),
+        tokens=(("precipitation_amount", "-1", None),),
     ),
     ValueStub(
         "knmi/observation daily/data",

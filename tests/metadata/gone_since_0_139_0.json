@@ -263,6 +263,8 @@
   },
   "DwdPoiMetadata": {
    "hourly/data": [
+    "radiation_global_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
     "radiation_sky_short_wave_direct_intensity",
     "temperature_air_mean_0_05m",
     "temperature_air_mean_2m",
@@ -408,6 +410,7 @@
    "daily/data": [
     "cloud_cover_total",
     "humidity_relative",
+    "pressure_air_sea_level",
     "wind_speed"
    ],
    "hourly/data": [
@@ -540,6 +543,9 @@
    ]
   },
   "MetnoFrostMetadata": {
+   "10_minutes/data": [
+    "wind_direction_gust_max"
+   ],
    "annual/data": [
     "cloud_cover_total"
    ],
@@ -589,6 +595,7 @@
     "temperature_air_mean_2m",
     "temperature_air_min_2m_last_24h",
     "temperature_dew_point_mean_2m",
+    "visibility",
     "wind_direction",
     "wind_gust_max",
     "wind_speed"

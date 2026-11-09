@@ -478,6 +478,7 @@ def test_cli_glossary() -> None:
             "description": (
                 "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
             ),
+            "aggregation": "mean",
         },
     ]
 
@@ -502,7 +503,7 @@ def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
         result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
     assert result.exit_code == 0
     assert json.loads(result.output) == []
-    assert "No canonical parameter matches the given filters." in caplog.text
+    assert "No parameter matches the given filters." in caplog.text
 
 
 def test_cli_glossary_unknown_unit_type() -> None:
@@ -988,7 +989,8 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
         calls.append(kwargs)
         return Settings(**kwargs)
 
-    monkeypatch.setattr("wetterdienst.ui.cli.Settings", record)
+    # the commands read `Settings` from the package when they run, not when the command line is imported (GH-3809)
+    monkeypatch.setattr("wetterdienst.Settings", record)
     _settings_of(monkeypatch, args, {})
     assert calls
     assert all(not kwargs for kwargs in calls)
@@ -1290,7 +1292,6 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["stations", *_DWD_KL, "--stations=01048"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
         pytest.param(["interpolate", *_DWD_KL, "--station=01048"], id="interpolate"),
         pytest.param(["summarize", *_DWD_KL, "--station=01048"], id="summarize"),
@@ -1298,7 +1299,10 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
     ],
 )
 def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
-    """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438)."""
+    """Test --date, renamed to --timestamp, is refused by naming it, where click knew no such option (GH-2438).
+
+    Only on the commands that had it in 0.139.0: `stations` never did (GH-3869, `tests/ui/test_renamed_routes.py`).
+    """
     for date in ("--date=2020-06-30", "--date"):
         result = CliRunner().invoke(cli, [*args, date])
         assert result.exit_code == 2, result.output
@@ -1668,7 +1672,7 @@ def test_cli_stations_lead_time_is_not_answered_with_end_date() -> None:
     """The case of GH-3167: `stations --lead-time` names no refused option."""
     result = CliRunner().invoke(cli, ["stations", "--lead-time=long"])
     assert result.exit_code == 2, result.output
-    # click 8.2.0 writes `No such option: --lead-time`, later versions `No such option '--lead-time'`
+    # click before 8.4 writes `No such option: --lead-time`, from 8.4 on `No such option '--lead-time'`
     assert "No such option" in result.output
     assert "--lead-time" in result.output
     assert "--end-date" not in result.output

@@ -16,6 +16,71 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
+  eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
+  `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
+  and the plain `radiation_global_intensity` and `radiation_sky_short_wave_diffuse_intensity` are
+  gone (GH-3134). Needs the backend that serves the new names: release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
+### Fixed
+
+- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
+  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
+  "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)
+- `[Glossary]` The soil temperatures of loamy sand and loamy silt are labelled "Soil temperature,
+  loamy sand (5 cm)" and "..., loamy silt (5 cm)" in all eleven languages, where they said "under
+  loamy sand" (GH-3899)
+
+## [0.46.0] - 2026-11-08
+
+### Added
+
+- `[Navigation]` On a phone you choose which four tools are in the tab bar, and in which order:
+  "Customise the bar", a link in the Menu's sheet and a card of the Settings, a list with a line
+  between the four of the bar and the tools that are only in the Menu, and a preview of the bar that
+  follows it. Drag a tool by its handle, or press the arrow buttons of its row, which do the same by
+  keyboard and screen reader and say what moved. Forecast, Explorer, Stripes and History stay the
+  default. The choice stays in the browser with the settings, and the privacy policy says so; a
+  stored one that names a tool that is gone, or too few, is repaired. All eleven locales; all but
+  `en` machine-made, none read by a native speaker (GH-3846)
+
+### Changed
+
+- `[Navigation]` On a phone the Menu's tab is marked as the page you are on for every page that is
+  in its sheet and has no tab of its own: a tool that is not in your bar, Providers, Glossary, API,
+  About, Support and Settings, where it was the Map only. A tool in your bar marks its own tab; the
+  home page and the legal notices mark nothing (GH-3851)
+
+### Fixed
+
+- `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
+  Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
+  the settings hold for the visit and are the defaults at the next (GH-3846)
+
+## [0.45.0] - 2026-11-07
+
+### Added
+
+- `[Map]` A fifth tool, the station map (`/map`, violet tile): DWD's forecast stations or measuring
+  stations (by resolution and dataset) as dots, with a panel (a sheet under the map on a phone) that
+  finds a station by name or number. Pick a station or any point for its forecast, its climate
+  stripes, and links to its measurements in the Explorer and its history, chosen already. The
+  station offered is the nearest within 100 km, one that still reports (its end within 90 days of
+  its list's newest) before a closed one (shown with its years); a click on a dot is that station.
+  Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
+  it on a station, not yet a town (GH-3650, GH-3791). All eleven locales; all but `en`
+  machine-made, none read by a native speaker. The app of this release is paired with the backend
+  0.184.0, which it was run against, so release the backend first
+
+### Changed
+
+- `[Navigation]` On a phone the tab bar stays as it was, four tools and the Menu, and the map is in
+  the Menu's sheet (which lists all five tools); the Menu's tab is marked while you are on the map.
+  The header of a wide screen shows all five tools (GH-3650)
+
 ## [0.44.0] - 2026-11-03
 
 ### Added
@@ -1818,7 +1883,9 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...HEAD
+[0.46.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...app-v0.46.0
+[0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
 [0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
 [0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
 [0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0

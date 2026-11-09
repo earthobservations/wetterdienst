@@ -8,7 +8,7 @@ import json
 import logging
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -48,6 +48,31 @@ log = logging.getLogger(__name__)
 # The station list is not in `data/OBS/SYNOP/` (404): data.gouv.fr lists it under `synchro_ftp`
 _SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/synop_{year}.csv.gz"
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
+
+#: how long after a year has ended its file is still fetched again at the short expiry, before it is kept for good.
+#: Our choice (GH-3929): Météo-France states no time at which a year is final, so the last observations and the
+#: corrections of the turn of the year are given this long to arrive
+_YEAR_SETTLED_AFTER = timedelta(days=7)
+
+
+def _now() -> datetime:
+    """Give the time the age of a year is taken against (a seam for a test, which pins it)."""
+    return datetime.now(tz=ZoneInfo("UTC"))
+
+
+def _year_settled_at(year: int) -> datetime:
+    """Give the moment the file of a year is kept for good: `_YEAR_SETTLED_AFTER` after the year ended.
+
+    A year ends at 00:00 UTC on 1 January of the next one.
+    """
+    return datetime(year + 1, 1, 1, tzinfo=ZoneInfo("UTC")) + _YEAR_SETTLED_AFTER
+
+
+def _year_expiry(year: int) -> CacheExpiry:
+    """Say how long the file of a year is kept: five minutes until its grace is over, then for good."""
+    return CacheExpiry.FIVE_MINUTES if _now() < _year_settled_at(year) else CacheExpiry.INFINITE
+
+
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
 
@@ -200,7 +225,7 @@ _SYNOP_CSV_SCHEMA = {
 }
 
 
-def _download_year(year: int, current_year: int, settings: Settings) -> File:
+def _download_year(year: int, settings: Settings) -> File:
     """Download the file of a year; a finished year cached before dates were kept is fetched once more (GH-2567).
 
     The finished years are cached for good and are rewritten rarely, so a copy made by a version that did not keep the
@@ -210,9 +235,12 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
     lose them for a date. Where no copy is held there is nothing to fetch once more, and the year is downloaded as any.
     """
     url = _SYNOP_ENDPOINT.format(year=year)
-    ttl = CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE
+    ttl = _year_expiry(year)
+    # a copy that went into the directory of what is kept for good before the grace was over (by a version without
+    # it, or inside what is the grace now) may lack what was filed late: it is fetched once more
+    refetch_before = _year_settled_at(year).timestamp() if ttl is CacheExpiry.INFINITE else None
 
-    def fetch(*, once_more: bool = False) -> File:
+    def fetch(*, once_more: bool = False, held_copy: bool = False) -> File:
         return download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -222,6 +250,8 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
             use_certifi=settings.use_certifi,
             attempts=1 if once_more else 2,
             refetch_undated=once_more,
+            # the read of the held copy after a failed fetch takes it as it is, as for a copy with no date
+            refetch_before=None if held_copy else refetch_before,
         )
 
     held = cached_copy_is_held(
@@ -232,16 +262,15 @@ def _download_year(year: int, current_year: int, settings: Settings) -> File:
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
-    if year == current_year or not held:
+    # a year that is not kept for good yet is downloaded as any, and so is one that is not held
+    if ttl is not CacheExpiry.INFINITE or not held:
         return fetch()
     file = fetch(once_more=True)
     if not isinstance(file.content, Exception):
         return file
-    copy = fetch()
+    copy = fetch(held_copy=True)
     if not isinstance(copy.content, Exception):
-        log.warning(
-            f"{url} could not be downloaded again to date it ({file.content!r}): the copy held is read, with no date"
-        )
+        log.warning(f"{url} could not be downloaded again ({file.content!r}): the copy held is read as it is")
     return copy
 
 
@@ -290,9 +319,9 @@ class MeteoFranceSynopValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         dataset = cast("DatasetModel", parameter_or_dataset)
-        current_year = datetime.now(tz=ZoneInfo("UTC")).year
+        current_year = _now().year
         start_date = self.sr.start or datetime(_SYNOP_ARCHIVE_START_YEAR, 1, 1, tzinfo=ZoneInfo("UTC"))
-        end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
+        end_date = self.sr.end or _now()
         settings = cast("Settings", self.sr.request.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
         read_columns = ["geo_id_wmo", "validity_time", *dict.fromkeys(parameter_columns)]
@@ -303,7 +332,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         first_year = max(start_date.year, _SYNOP_ARCHIVE_START_YEAR)
         last_year = min(end_date.year, current_year)
         for year in range(first_year, last_year + 1):
-            file = _download_year(year, current_year, settings)
+            file = _download_year(year, settings)
             # the year range above is already clamped to the archive's known coverage and each year's
             # file holds every station, so only the current year's, not yet published in early January,
             # can be missing: that 404 is dropped. Any other failure is an outage, and is raised
@@ -311,7 +340,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
-                note_skipped_download()
+                note_skipped_download(file.skip_cause)
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)

@@ -151,7 +151,8 @@
       "providers": "I servizi meteorologici nazionali dietro i dati: paese, licenza, la fonte da citare e cosa offre ciascuno.",
       "glossary": "Cosa misura ogni parametro meteorologico e climatico e in quale unità tornano i suoi valori, con ricerca per nome e grandezza.",
       "about": "Informazioni sul progetto open source Wetterdienst e sulle persone che lo mantengono.",
-      "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare."
+      "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare.",
+      "map": "Una mappa delle stazioni del Servizio meteorologico tedesco: scegli una stazione o un punto qualsiasi per vedere le sue previsioni, le sue strisce climatiche e le sue misurazioni."
     }
   },
   "values": {
@@ -192,7 +193,8 @@
     "providers": "Fornitori",
     "api": "API",
     "glossary": "Glossario",
-    "support": "Supporto"
+    "support": "Supporto",
+    "map": "Mappa"
   },
   "shell": {
     "skipToContent": "Vai al contenuto",
@@ -216,7 +218,9 @@
       "docs": "Come usare la libreria Python, la riga di comando e l'API",
       "github": "Il codice, le segnalazioni e le pull request",
       "pypi": "Installa la libreria Python con pip"
-    }
+    },
+    "stationsMap": "Stazione sulla mappa",
+    "stationOnMap": "Mostra la stazione {id} sulla mappa"
   },
   "header": {
     "github": "GitHub",
@@ -278,7 +282,25 @@
     "unitMassPerVolume": "Massa per volume",
     "unitSignificantWeather": "Tempo significativo",
     "unitTurbidity": "Torbidità",
-    "unitWindScale": "Scala del vento"
+    "unitWindScale": "Scala del vento",
+    "bar": {
+      "title": "Personalizza la barra",
+      "hint": "Su un telefono, la barra in fondo allo schermo mostra quattro strumenti e il Menu. Scegli quali. Gli altri restano nel Menu.",
+      "preview": "Anteprima",
+      "previewLabel": "Anteprima della barra: {tools}, Menu",
+      "menuOnly": "Solo nel Menu: {tools}",
+      "inBar": "Nella barra",
+      "inMenu": "Solo nel Menu",
+      "instructions": "Trascina uno strumento dalla maniglia, oppure usa i pulsanti freccia della sua riga. Nella barra ci sono sempre quattro strumenti: quando uno entra, un altro esce.",
+      "moveUp": "Sposta {tool} in su",
+      "moveDown": "Sposta {tool} in giù",
+      "reset": "Ripristina la barra",
+      "reorderedBar": "{tool} è ora al posto {position} di {total} nella barra.",
+      "reorderedMenu": "{tool} è ora al posto {position} di {total} nel Menu.",
+      "enteredBar": "{tool} è ora nella barra, al posto {position} di {total}. {other} è ora solo nel Menu.",
+      "leftBar": "{tool} è ora solo nel Menu. {other} è ora nella barra, al posto {position} di {total}.",
+      "resetDone": "La barra è tornata come all'inizio: {tools}."
+    }
   },
   "units": {
     "degree_celsius": "Gradi Celsius (°C)",
@@ -767,6 +789,47 @@
     "centerSelected": "Centra sulla stazione selezionata",
     "centerSelectedPlural": "Centra sulle stazioni selezionate",
     "markersNotShown": "Impossibile mostrare le stazioni sulla mappa. Ricarica la pagina per riprovare."
+  },
+  "mapTool": {
+    "title": "Mappa delle stazioni",
+    "subtitle": "Scegli una stazione o un punto qualsiasi della mappa per vedere le sue previsioni, le sue strisce climatiche e le sue misurazioni.",
+    "aboutButton": "Informazioni sulla mappa",
+    "about1": "La mappa mostra le stazioni del Servizio meteorologico tedesco (DWD): i punti per i quali fa le sue previsioni, oppure le stazioni che misurano, per la risoluzione e il dataset che scegli sopra la mappa. Ognuna è un punto; il pannello trova una stazione dal suo nome ed elenca quelle vicine al centro della mappa.",
+    "about2": "Scegli una stazione o fai clic su un punto qualsiasi della mappa: il pannello mostra le previsioni e le strisce climatiche della stazione più vicina che le ha, e apre le misurazioni nell'Esploratore e la cronologia della stazione con quella stazione già scelta. Con la tastiera, sposta la mappa con le frecce, ingrandisci con più e meno, poi scegli il luogo al suo centro.",
+    "panelTitle": "Stazioni",
+    "layers": "Livello",
+    "layerForecast": "Stazioni di previsione",
+    "layerMeasured": "Misurazioni del DWD",
+    "mapLabel": "Mappa delle stazioni: {layer}",
+    "count": "Stazioni mostrate: {shown}",
+    "loadingStations": "Caricamento delle stazioni …",
+    "stationsFailed": "Impossibile caricare le stazioni",
+    "noStations": "Questo dataset non ha stazioni con una posizione.",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "search": "Trova una stazione",
+    "searchPlaceholder": "Nome o numero di una stazione",
+    "nearCentre": "Stazioni vicine al centro della mappa",
+    "results": "Risultati",
+    "noResults": "Nessuna stazione corrisponde a questa ricerca.",
+    "pickCentre": "Scegli il centro della mappa",
+    "pickCentreHint": "Sceglie il luogo al centro della mappa, che le frecce spostano.",
+    "back": "Torna alle stazioni",
+    "chosen": "{name} scelta",
+    "pickedPlace": "Un punto della mappa, a {distance} da questa stazione",
+    "elevation": "{value} m sul livello del mare",
+    "at": "{name}, a {distance}",
+    "noneNearby": "Nessuna stazione entro {distance}.",
+    "noStationNear": "Nessuna stazione entro {distance} da quel punto.",
+    "openForecast": "Apri le previsioni",
+    "openStripes": "Apri le strisce climatiche",
+    "openExplorer": "Apri le misurazioni nell'Esploratore",
+    "openHistory": "Apri la cronologia della stazione",
+    "since": "dal {year}",
+    "period": "dal {from} al {to}",
+    "stripesFigure": "Strisce climatiche di {name}",
+    "stripesNone": "Nessuna striscia climatica per questa stazione.",
+    "stationNotFound": "Non c'è nessuna stazione {id} su questa mappa."
   },
   "dataViewer": {
     "loadingValues": "Caricamento dei valori …",
