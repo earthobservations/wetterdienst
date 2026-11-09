@@ -54,6 +54,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     remembering_empty_directories,
     warn_skipped_listings,
 )
+from wetterdienst.provider.dwd.observation.local_mean_time_blocks import ZONE_LOCAL_MEAN_TIME
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
     DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
@@ -65,9 +66,11 @@ from wetterdienst.provider.dwd.observation.metaindex import (
 )
 from wetterdienst.provider.dwd.observation.mez_blocks import ZONE_MEZ, ZONE_MEZ_BATCH
 from wetterdienst.provider.dwd.observation.parser import (
+    LOCAL_MEAN_TIME_PREFIX,
     MEZ_BATCH_PREFIX,
     MEZ_MD_PREFIX,
     WOZ_COLUMN,
+    local_mean_time_column,
     mez_batch_column,
     mez_md_column,
     parse_climate_observations_data,
@@ -105,7 +108,7 @@ def _is_value_column(column: str) -> bool:
     return not (
         column.endswith(RAW_SUFFIX)
         or column in (WOZ_COLUMN, _PERIOD_RANK)
-        or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, "qn", "qualitaet"))
+        or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, LOCAL_MEAN_TIME_PREFIX, "qn", "qualitaet"))
     )
 
 
@@ -296,7 +299,7 @@ class DwdObservationValues(TimeseriesValues):
             if (
                 column.endswith(RAW_SUFFIX)
                 or column == WOZ_COLUMN
-                or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX))
+                or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, LOCAL_MEAN_TIME_PREFIX))
             ):
                 continue
             if column.startswith(("qn", "qualitaet")):
@@ -305,7 +308,9 @@ class DwdObservationValues(TimeseriesValues):
                 # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816), those of a
                 # period the archive calls MEZ (MD), the soil periods of the eMD archive and the air temperature
                 # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029), those of
-                # the 1973-01 to 1975-12 batch of the table of GH-3776 `zone:mez-1973-75`
+                # the 1973-01 to 1975-12 batch of the table of GH-3776 `zone:mez-1973-75`, and those of the months of
+                # the table of GH-3910 whose stamps are mean local time `zone:mez-local-mean-time` (shifted all the
+                # same)
                 shifted = (
                     pl.col(mez_md_column(column)).fill_null(value=False)
                     if mez_md_column(column) in df.columns
@@ -319,6 +324,12 @@ class DwdObservationValues(TimeseriesValues):
                     zone = (
                         pl.when(shifted & pl.col(mez_batch_column(column)).fill_null(value=False))
                         .then(pl.lit(ZONE_MEZ_BATCH))
+                        .otherwise(zone)
+                    )
+                if local_mean_time_column(column) in df.columns:
+                    zone = (
+                        pl.when(shifted & pl.col(local_mean_time_column(column)).fill_null(value=False))
+                        .then(pl.lit(ZONE_LOCAL_MEAN_TIME))
                         .otherwise(zone)
                     )
                 zone = zone.alias("zone")

@@ -546,12 +546,13 @@ the terms are those of each provider it lists.
 - **`quality`**: what the `quality_flags` of a reading holds (its `format`), the `source_flags`, the
   quality flags the datasets read publish, whose code is the first token of `quality_flags`, and the
   `legend`: what each kind of token means for the network read, in the order of the column. An entry has
-  its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes first),
-  how it is `written` (`zone:<mez|woz>`, `raw:<text>`), its `meaning` and, where the source documents a closed
-  set, its `codes` with their meanings (DMI's `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and
-  `11`, CHMI's quality `0` to `5`, the MADIS flags of the NWS). Where the source tells the
-  codes itself (DWD's QN levels, Frost's `qualityCode`, GHCN's flags) the `meaning` names whose they are, and
-  `codes` is `null`. The legend is empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
+  its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes
+  first), how it is `written` (`zone:<mez|mez-1973-75|mez-local-mean-time|woz>`, `raw:<text>`), its
+  `meaning` and, where the source documents a closed set, its `codes` with their meanings (DMI's
+  `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and `11`, CHMI's quality `0` to `5`, the
+  MADIS flags of the NWS). Where the source tells the codes itself (DWD's QN levels, Frost's
+  `qualityCode`, GHCN's flags) the `meaning` names whose they are, and `codes` is `null`. The legend is
+  empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
