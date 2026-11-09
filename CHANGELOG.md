@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `knmi/observation` keeps a file whose timestamp is older than 6 hours for 12 hours, and a newer
+  one for 5 minutes as before, under the file's own name and not its pre-signed link: a second
+  query makes no request to KNMI for a file it has read, where it downloaded it again after
+  5 minutes. `cache_disable` still turns it off (GH-3927)
 - **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
   `get_providers`) answers compact by default: `resolutions` of each network is null and everything
   else stays, the number of `parameters` among it. 20 kB for every provider where the answer was

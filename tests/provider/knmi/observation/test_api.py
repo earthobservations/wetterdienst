@@ -694,8 +694,10 @@ def _serve_knmi(
     data = _write_netcdf(tmp_path / "data.nc")
     asked: list[str] = []
 
-    def download(url: str, *_args: object, **_kwargs: object) -> File:
+    def download(url: str, *_args: object, fetch_url: str | None = None, **_kwargs: object) -> File:
         status = getattr(failure, "status", 500)
+        # a copy is kept under the name of its file and fetched from its link, which is where the store names it
+        url = fetch_url or url
         if "/files?maxKeys=1" in url:
             return File(
                 url=url, content=BytesIO(json.dumps({"files": [{"filename": "latest.nc"}]}).encode()), status=200
@@ -1000,7 +1002,9 @@ def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception
     """Answer the KNMI file downloads with `answers` in order, the last for all after; return the filenames."""
     attempted: list[str] = []
 
-    def fake_fetch_netcdf(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
+    def fake_fetch_netcdf(
+        _dataset: str, _version: str, filename: str, _settings: Settings, _moment: dt.datetime | None
+    ) -> bytes | Exception:
         attempted.append(filename)
         return answers[min(len(attempted), len(answers)) - 1]
 
@@ -1066,7 +1070,9 @@ def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(
     }
     asked: list[str] = []
 
-    def fetch(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
+    def fetch(
+        _dataset: str, _version: str, filename: str, _settings: Settings, _moment: dt.datetime | None
+    ) -> bytes | Exception:
         asked.append(filename)
         return files.get(filename, FileNotFoundError(filename))
 
@@ -1119,7 +1125,7 @@ def test_knmi_10_minute_and_hourly_files_of_the_same_instant_agree_on_the_stamp(
     )
     monkeypatch.setattr(
         "wetterdienst.provider.knmi.observation.api._fetch_netcdf",
-        lambda _dataset, _version, filename, _settings: files.get(filename, FileNotFoundError(filename)),
+        lambda _dataset, _version, filename, _settings, _moment: files.get(filename, FileNotFoundError(filename)),
     )
 
     def values(resolution: str, start: dt.datetime, end: dt.datetime) -> dict[dt.datetime, float]:
@@ -1243,8 +1249,8 @@ def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
     """The pre-signed link is the resolve answer's to name, and is asked only where it leads to KNMI or its store."""
     asked: list[str] = []
 
-    def download(url: str, *_args: object, **_kwargs: object) -> File:
-        asked.append(url)
+    def download(url: str, *_args: object, fetch_url: str | None = None, **_kwargs: object) -> File:
+        asked.append(fetch_url or url)
         if url.endswith("/url"):
             return File(url=url, content=BytesIO(json.dumps({"temporaryDownloadUrl": link}).encode()), status=200)
         return File(url=url, content=BytesIO(b"netcdf"), status=200)
@@ -1255,7 +1261,7 @@ def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
         "wetterdienst.provider.knmi.observation.api.drop_cached_file", lambda url, *_a, **_k: dropped.append(url)
     )
     settings = Settings(auth={"knmi": "dummy-key-for-test"})
-    payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings)
+    payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings, None)
     if fetched:
         assert payload == b"netcdf"
         assert asked[-1] == link.replace("http://", "https://")  # a link over http is asked over https

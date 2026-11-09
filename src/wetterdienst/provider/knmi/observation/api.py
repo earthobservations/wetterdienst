@@ -18,6 +18,7 @@ import contextlib
 import datetime as dt
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
@@ -43,6 +44,7 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    read_cached_copy,
     skip_cause_of_failure,
 )
 from wetterdienst.util.response_warnings import note_skipped_download
@@ -153,8 +155,61 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
         current += step
 
 
-def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, client_kwargs: dict | None = None) -> File:
+#: How old the timestamp of a file must be for its content to be kept long: KNMI may still fill in a younger one
+_SETTLED_AFTER = dt.timedelta(hours=6)
+
+
+def _file_expiry(moment: dt.datetime | None) -> CacheExpiry:
+    """Say how long the content of the file named for `moment` is kept (GH-3927).
+
+    A file whose timestamp is younger than `_SETTLED_AFTER` is kept for `CacheExpiry.FIVE_MINUTES`, as it was before:
+    it is fetched again for what KNMI has added since. An older one is no longer changed and is kept for
+    `CacheExpiry.TWELVE_HOURS`. A file whose moment is not known (the latest file of a listing) counts as young.
+    """
+    if moment is None:
+        return CacheExpiry.FIVE_MINUTES
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=dt.UTC)
+    if dt.datetime.now(dt.UTC) - moment < _SETTLED_AFTER:
+        return CacheExpiry.FIVE_MINUTES
+    return CacheExpiry.TWELVE_HOURS
+
+
+#: The moment a filename is named for, as `_filename_for` writes it: the 10-minute, the hourly and the daily layout
+_FILENAME_MOMENT = re.compile(r"(?:_(\d{12})|-(\d{8}-\d{2})|-(\d{8}))\.nc$")
+
+
+def _moment_of(filename: str) -> dt.datetime | None:
+    """Read the moment `_filename_for` named a file for, in UTC; None for a name that has none."""
+    found = _FILENAME_MOMENT.search(filename)
+    if found is None:
+        return None
+    for text, layout in zip(found.groups(), ("%Y%m%d%H%M", "%Y%m%d-%H", "%Y%m%d"), strict=True):
+        if text is not None:
+            return dt.datetime.strptime(text, layout).replace(tzinfo=dt.UTC)
+    return None
+
+
+def _file_key(dataset_name: str, version: str, filename: str) -> str:
+    """Name a file by its dataset, version and filename: the KNMI API's address of the file, which is never asked for.
+
+    The name its content is kept under, which no resolve changes and which holds no secret (`_fetch_netcdf`). The
+    resolve of its download link is this and `/url`.
+    """
+    return f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files/{filename}"
+
+
+def _download_with_retry(
+    url: str,
+    settings: Settings,
+    ttl: CacheExpiry,
+    *,
+    client_kwargs: dict | None = None,
+    fetch_url: str | None = None,
+) -> File:
     """Download a URL, retrying on retryable failures (rate limiting, transient network errors).
+
+    `fetch_url` is where a copy that is not held is fetched from, where `url` is the name it is kept under.
 
     Mirrors AEMET's retry design: a deliberately modest couple of short-backoff
     retries, not an attempt to wait out a sustained outage. A failure `download_file`
@@ -177,6 +232,7 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                     client_kwargs=client_kwargs if client_kwargs is not None else settings.fsspec_client_kwargs,
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
+                    fetch_url=fetch_url,
                 )
                 # no network is not a blip two more retries clear: report it at once (the 503
                 # `download_file` gives it would otherwise match)
@@ -224,8 +280,10 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
     return files[0]["filename"]
 
 
-def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Settings) -> bytes | Exception:
-    """Resolve a temporary download URL for a dataset file, then download it.
+def _fetch_netcdf(
+    dataset_name: str, version: str, filename: str, settings: Settings, moment: dt.datetime | None
+) -> bytes | Exception:
+    """Read a dataset file from the cache, or resolve a temporary download URL for it and download it.
 
     The resolve step needs the API key (in the Authorization header); the resulting
     temporary S3 URL is pre-signed and needs no auth of its own.
@@ -238,18 +296,33 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     the same status of the pre-signed link says nothing of the key and is returned as it came.
 
     Each KNMI file covers the whole network for one timestamp, but the framework collects
-    values per station, so the same file would otherwise be downloaded once per station.
-    Both the resolve response and the (potentially large) file bytes are cached for the same
-    short window: within it, the resolve step returns the identical pre-signed URL for every
-    station, so the content download is a cache hit -- one download per file per query run
-    instead of one per station. The TTL is short because the pre-signed URL expires after an
-    hour; files are immutable, so a cache hit is always valid.
+    values per station, so the same file would otherwise be downloaded once per station, and
+    again by every later query. Its content is kept under a name made of its dataset, version and
+    filename (`_file_key`), not under the pre-signed URL, which is made anew by every resolve and is
+    gone within the hour (GH-3927): for 12 hours if the timestamp the file is named for (`moment`) is
+    older than six hours, for 5 minutes if it is younger, as KNMI may still fill it in (`_file_expiry`).
+    A copy that is held is returned without a request to KNMI, resolve included. Only a miss resolves a
+    link, which is cached for minutes (within them every station of a query is handed the same one) and
+    is fetched once for the copy. With `cache_disable` no copy is held, as for every download.
 
     The pre-signed URL is a secret for the hour it lasts: it is in the local cache (the resolve response
-    holds it, and the metadata file names the download by it), and in no log line and no error, which show
-    it without its query (GH-3341). fsspec's own debug line of a request is not ours to change.
+    holds it), and in no log line and no error, which show it without its query (GH-3341). The copy
+    is named by the key, so the metadata file of the cache does not hold it. fsspec's own debug line of
+    a request is not ours to change.
     """
-    resolve_url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files/{filename}/url"
+    key = _file_key(dataset_name, version, filename)
+    expiry = _file_expiry(moment)
+    kept = read_cached_copy(
+        key,
+        settings.cache_dir,
+        expiry,
+        settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    if kept is not None:
+        return kept
+    resolve_url = f"{key}/url"
     client_kwargs = {
         **settings.fsspec_client_kwargs,
         "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": reveal(settings.auth.knmi)},
@@ -281,7 +354,7 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
             use_certifi=settings.use_certifi,
         )
         return refused
-    content_file = _download_with_retry(download_url, settings, CacheExpiry.FIVE_MINUTES)
+    content_file = _download_with_retry(key, settings, expiry, fetch_url=download_url)
     if isinstance(content_file.content, Exception):
         return as_outage(content_file.content, content_file.url)
     return content_file.content.read()
@@ -316,7 +389,7 @@ class KnmiObservationValues(TimeseriesValues):
         frames = []
         for moment in _moments(start_date, end_date, resolution):
             filename = _filename_for(resolution, moment)
-            payload = _fetch_netcdf(dataset_name, version, filename, settings)
+            payload = _fetch_netcdf(dataset_name, version, filename, settings, moment)
             if isinstance(payload, _UNANSWERED):
                 # offline, every remaining moment would fail the same way (and an hourly month
                 # is 720 of them), nor would the next station's: the request ends here, with the
@@ -434,7 +507,7 @@ class KnmiObservationRequest(TimeseriesRequest):
         if isinstance(filename, Exception):
             log.warning(f"Failed to look up latest KNMI {resolution.value} file: {filename}")
             return None
-        payload = _fetch_netcdf(dataset_name, version, filename, settings)
+        payload = _fetch_netcdf(dataset_name, version, filename, settings, _moment_of(filename))
         if isinstance(payload, _UNANSWERED):
             raise payload
         if isinstance(payload, Exception):
