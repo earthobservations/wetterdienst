@@ -1496,10 +1496,9 @@ def _cell_segments(cell: str) -> list[tuple[str | None, str, int]]:
 
     A cell that begins with an answer gives that answer for the whole of its text; a `mixed` cell is read by the
     parts between its semicolons: one that begins with an answer gives it for the parameters it names, one that says
-    `not qualified`, `not stated`, `unstated`, `unverified`, `differ by period`, `differ by station` or `neither start nor end` names parameters that have no
-    answer
-    (None), and the others say something else (a period, a window) and name nothing; an `unverified` cell names
-    parameters that have none.
+    `not qualified`, `not stated`, `unstated`, `unverified`, `differ by period`, `differ by station` or `neither start
+    nor end` names parameters that have no answer (None), and the others say something else (a period, a window) and
+    name nothing; an `unverified` cell names parameters that have none.
     The shortest name is the length a word must have to be taken as a name where only the absence of an answer is at
     stake (a letter of prose is not a parameter), so that `n` is read where `instant (n, nh)` answers.
     """
