@@ -33,6 +33,7 @@ from wetterdienst.provider.dwd.derived.fileindex import (
 from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
+from wetterdienst.provider.dwd.expiry import expiries_of, file_expiry
 from wetterdienst.provider.dwd.observation.fileindex import (
     EMPTY_LISTING,
     EmptyListingError,
@@ -547,7 +548,7 @@ class DwdDerivedValues(TimeseriesValues):
                 downloaded_file = download_file(
                     url=url,
                     cache_dir=cast("Settings", self.sr.request.settings).cache_dir,
-                    ttl=CacheExpiry.FIVE_MINUTES,
+                    ttl=file_expiry(period),
                     client_kwargs=self.sr.settings.fsspec_client_kwargs,
                     cache_disable=self.sr.settings.cache_disable,
                     use_certifi=self.sr.settings.use_certifi,
@@ -605,16 +606,20 @@ class DwdDerivedValues(TimeseriesValues):
         stations = cast("DwdDerivedRequest", self.sr.request)
         settings = cast("Settings", stations.settings)
         urls: list[str] = []
+        ttls: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             if dataset in TECHNICAL_DATASETS:
                 continue
             for period in sorted(cast("set[Period]", stations.periods) or set()):
                 try:
-                    urls += create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
+                    of_period = create_file_list_for_climate_derived(station_id, dataset, period, settings).to_list()
                 except EmptyListingError:
                     # as the collection skips the period; the files ahead are only a head start
                     continue
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                urls += of_period
+                # the expiry of the period, as `download_climate_derived_data` downloads them with (GH-3929)
+                ttls |= expiries_of(of_period, period)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -659,7 +664,9 @@ class DwdDerivedValues(TimeseriesValues):
                 dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_derived_data(remote_files, cast("Settings", stations.settings))
+            filenames_and_files = download_climate_derived_data(
+                remote_files, cast("Settings", stations.settings), period
+            )
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))

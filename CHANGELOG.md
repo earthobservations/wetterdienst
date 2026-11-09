@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
+  12 hours: `historical` of `dwd/observation`, `dwd/derived`, `dwd/phenology`, SMHI
+  `corrected-archive`, Met Office station-years, MeteoSwiss `_historical` (from 1 February; 5
+  minutes in January). `lhmt` days and `meteofrance/synop` years are fetched every 5 minutes until
+  6 hours (day) or 7 days (year) after they ended, then kept for good. Hub'Eau's cache hits (GH-3929)
 - `knmi/observation` keeps the content of a file whose interval ended more than 6 hours ago for 12
   hours, and of a newer one for 5 minutes as before, under the file's own name and not its
   pre-signed link. Within that time a file already read is not requested from KNMI again, where it

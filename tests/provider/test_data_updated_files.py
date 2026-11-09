@@ -14,7 +14,7 @@ import gzip
 import logging
 import zipfile
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -420,9 +420,13 @@ def _synop_year_stub(
     held: bool,
     once_more: File | None = None,
 ) -> list[tuple[str, int, bool]]:
-    """Stand in for the downloads of the years and the cache, and give the calls made: file, attempts, undated."""
+    """Stand in for the downloads of the years and the cache, and give the calls made: file, attempts, undated.
+
+    The clock is pinned to the middle of this year, so the year before is past its grace (GH-3929) on any day.
+    """
     calls: list[tuple[str, int, bool]] = []
     year = dt.datetime.now(UTC).year - 1
+    monkeypatch.setattr(synop_api, "_now", lambda: dt.datetime(year + 1, 6, 15, tzinfo=UTC))
 
     def download_file(*, url: str, attempts: int = 2, refetch_undated: bool = False, **_: object) -> File:
         calls.append((url.rsplit("/", 1)[-1], attempts, refetch_undated))
@@ -500,7 +504,34 @@ def test_meteofrance_synop_a_year_held_that_cannot_be_fetched_again_is_read_unda
     assert not result.df.is_empty()
     assert result.data_updated_at is None
     assert calls == [(f"synop_{year}.csv.gz", 1, True), (f"synop_{year}.csv.gz", 2, False)]
-    assert "the copy held is read, with no date" in caplog.text
+    assert "the copy held is read as it is" in caplog.text
+
+
+def test_meteofrance_synop_the_held_copy_read_after_a_failed_fetch_is_not_asked_to_be_newer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The one more fetch asks for a copy newer than the end of the grace (GH-3929), the read of the held copy does not.
+
+    A copy kept for good inside what is the grace now is fetched once more; where that fails, the held copy is read as
+    it is, as one with no date is, and not an error.
+    """
+    failed = File(url="https://example.invalid/x", content=ConnectionError("down"), status=503)
+    _synop_year_stub(monkeypatch, held=True, once_more=failed)
+    stub = synop_api.download_file
+    asked: list[float | None] = []
+
+    def download_file(**kwargs: object) -> File:
+        asked.append(cast("float | None", kwargs.get("refetch_before")))
+        return stub(**kwargs)
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+
+    result = _synop_values_of_the_year_before()
+
+    assert not result.df.is_empty()
+    assert len(asked) == 2
+    assert asked[0] is not None
+    assert asked[1] is None
 
 
 def test_meteofrance_synop_a_year_not_held_that_cannot_be_downloaded_is_asked_for_once(

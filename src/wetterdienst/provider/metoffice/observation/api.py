@@ -125,6 +125,10 @@ def _station_path_url(
     )
 
 
+#: the expiry of a station-year file, whose address holds the dataset version, the QC version and the year
+_STATION_YEAR_EXPIRY = CacheExpiry.ONE_WEEK
+
+
 def _station_metadata_url(midas_dataset: str, version: str) -> str:
     return download_url(
         f"data/{midas_dataset}/dataset-version-{version}/midas-open_{midas_dataset}_dv-{version}_station-metadata.csv",
@@ -147,6 +151,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         token: str | None,
         *,
         missing_ok: bool = True,
+        ttl: CacheExpiry = CacheExpiry.TWELVE_HOURS,
     ) -> bytes | None:
         headers = {**settings.fsspec_client_kwargs.get("headers", {})}
         if token:
@@ -154,7 +159,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.TWELVE_HOURS,
+            ttl=ttl,
             client_kwargs={**settings.fsspec_client_kwargs, "headers": headers},
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
@@ -215,7 +220,9 @@ class MetOfficeObservationValues(TimeseriesValues):
         content = None
         for qc_version in (1, 0):  # prefer the QC'd version, fall back to the raw one
             url = _station_path_url(midas_dataset, version, county, station_id, slug, qc_version, year)
-            content = self._download(url, settings, token)
+            # the file of a station and a year of a dataset version and a QC version is addressed by all three: it is
+            # final by name, so a week (GH-3929). The station metadata of the version stays at twelve hours
+            content = self._download(url, settings, token, ttl=_STATION_YEAR_EXPIRY)
             if content is not None:
                 break
         if content is None:

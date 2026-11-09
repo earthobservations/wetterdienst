@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import re
@@ -33,6 +34,16 @@ log = logging.getLogger(__name__)
 # beside a speed of 0 is null, as in every provider (`calm`, GH-3222); the others stay
 _WIND_SPEED_OF_DIRECTION = {"dkl010z0": "fkl010z0", "dkl010h0": "fkl010h0", "dkl010d0": "fkl010d0"}
 
+#: the month (UTC) in which MeteoSwiss rewrites the `_historical` assets in place, once a year, to end on 31 December
+#: while `_recent` restarts on 1 January; the assets are kept five minutes in this month, and a week from the next on.
+#: The month is the maintainer's decision (GH-3929): MeteoSwiss states no day on which the rewrite is done
+_HISTORICAL_REWRITTEN_IN_MONTH = 1
+
+
+def _now() -> dt.datetime:
+    """Give the time the month of the year is taken from (a seam for a test, which pins it)."""
+    return dt.datetime.now(dt.UTC)
+
 
 class MeteoswissObservationValues(TimeseriesValues):
     """Values class for MeteoSwiss observation data."""
@@ -46,6 +57,21 @@ class MeteoswissObservationValues(TimeseriesValues):
     # the range is encoded in the filename, so those chunks that don't overlap the requested date range
     # can be skipped without an extra request, avoiding large unnecessary downloads for old stations
     _decade_pattern = re.compile(r"_historical_(\d{4})-(\d{4})\.csv$")
+
+    # the `_historical` assets (whole, or the decades of it) are final by name, so a week (GH-3929), but not in the
+    # month they are rewritten in (`_HISTORICAL_REWRITTEN_IN_MONTH`); `_recent` and `_now` are written to as the data
+    # comes in, and stay at five minutes
+    _historical_pattern = re.compile(r"_historical(_\d{4}-\d{4})?\.csv$")
+
+    @classmethod
+    def _asset_expiry(cls, asset_name: str) -> CacheExpiry:
+        """Give the expiry an asset is downloaded with: a week for the `_historical` ones, else five minutes.
+
+        The `_historical` ones are five minutes too in the month they are rewritten in.
+        """
+        if cls._historical_pattern.search(asset_name) and _now().month != _HISTORICAL_REWRITTEN_IN_MONTH:
+            return CacheExpiry.ONE_WEEK
+        return CacheExpiry.FIVE_MINUTES
 
     def _asset_overlaps_request(self, asset_name: str) -> bool:
         """Check whether a decade-chunked historical asset overlaps the requested date range."""
@@ -86,18 +112,18 @@ class MeteoswissObservationValues(TimeseriesValues):
         pattern = re.compile(rf"^ogd-smn_{re.escape(station_id_lower)}_{granularity}(_.*)?\.csv$")
         urls = sorted(
             # the asset's address is the answer's to name: fetched at the host of the catalogue (GH-3339)
-            fetchable_link(asset["href"], item_url)
+            (fetchable_link(asset["href"], item_url), self._asset_expiry(name))
             for name, asset in assets.items()
             if pattern.match(name) and self._asset_overlaps_request(name)
         )
         if not urls:
             return pl.DataFrame()
         dfs = []
-        for url in urls:
+        for url, expiry in urls:
             csv_file = download_file(
                 url=url,
                 cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
+                ttl=expiry,
                 client_kwargs=settings.fsspec_client_kwargs,
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,

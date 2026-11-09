@@ -72,6 +72,14 @@ _CLOUD_COVER_PARAMETER = "16"
 
 #: the expiry the series are downloaded with: the data is rolling, so it is short
 _SERIES_TTL = CacheExpiry.FIVE_MINUTES
+#: the expiry of the `corrected-archive`, the quality-controlled series up to a few months ago: final by name, so a
+#: week (GH-3929); `latest-months` is still under quality control and stays at `_SERIES_TTL`
+_CORRECTED_ARCHIVE_TTL = CacheExpiry.ONE_WEEK
+
+
+def _series_ttl(period: str) -> CacheExpiry:
+    """Give the expiry the series of one period is downloaded with."""
+    return _CORRECTED_ARCHIVE_TTL if period == "corrected-archive" else _SERIES_TTL
 
 
 def _series_names(name_original: str) -> tuple[str, ...]:
@@ -123,6 +131,7 @@ class SmhiObservationValues(TimeseriesValues):
         has its speed fetched for nothing, as the collection does not go on to it.
         """
         urls: dict[str, None] = {}
+        ttls: dict[str, CacheExpiry] = {}
         for dataset, parameters in group_parameters_by_dataset(
             cast("Iterable[ParameterModel]", self.sr.request.parameters)
         ):
@@ -130,8 +139,10 @@ class SmhiObservationValues(TimeseriesValues):
                 continue
             for parameter in parameters:
                 for name in _series_names(parameter.name_original):
-                    urls.update(dict.fromkeys(_series_urls(station_id, name, dataset.resolution.value).values()))
-        return FilesAhead(urls=list(urls), ttl=_SERIES_TTL)
+                    for period, url in _series_urls(station_id, name, dataset.resolution.value).items():
+                        urls[url] = None
+                        ttls[url] = _series_ttl(period)
+        return FilesAhead(urls=list(urls), ttl=_SERIES_TTL, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -191,7 +202,7 @@ class SmhiObservationValues(TimeseriesValues):
         """Read the series of one parameter of a station, of every period, one row per timestamp as SMHI writes it."""
         frames = []
         for period, url in _series_urls(station_id, name_original, resolution).items():
-            payload = _fetch(url, settings)
+            payload = _fetch(url, settings, _series_ttl(period))
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
                 # parameter -- routine, since not every SMHI station measures everything. A failed
