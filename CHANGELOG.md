@@ -27,6 +27,11 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `metoffice/observation` hourly `wind_direction_mean` is null with `raw:999` where
+  the file holds 999, a code and no bearing, which no MIDAS table words (2,333 of 775,720 readings,
+  1970 to 1995, all beside a wind of 1 to 6 knots), in any window. It was null as
+  `rejected:range,raw:999` with `range: hard`, and `999.0` with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:999` (GH-3909)
 - `dwd/observation` ends the `historical` period at midnight of 1 January, not at 1 January at the
   time of day of the request: a window starting on 1 January of this year read `historical` at 23
   hours of the day and not between 00:00 and 01:00 Berlin. It now never does, as the period holds

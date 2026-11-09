@@ -1863,6 +1863,45 @@ def _metoffice_hourly_weather(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool 
     return stations_result(request, "hourly", "weather", "00001").values().all().df
 
 
+def _metoffice_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # worded after the mean wind files of 1970 to 1995 read from the archive on 2026-11-08 (GH-3909): 2,333 of 775,720
+    # mean wind directions are 999 beside a mean wind speed of 1 to 6 knots (2 in 97 %), with the quality 9 as the row
+    # writes it. No MIDAS table words the 999: the WM page says "The wind direction from which the wind blows, is
+    # measured in Degrees (true). The entry for an east wind is 090, that for a south wind 180 and so on clockwise" and
+    # "zero values in both wind speed and wind direction fields indicate that there was no wind blowing". The
+    # 0 beside a speed of 0 is a calm, and north is 360
+    def badc(columns: str, rows: str) -> bytes:
+        return f"Conventions,G,BADC-CSV,1\ndata\n{columns}\n{rows}end data\n".encode()
+
+    stations = badc(
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year",
+        "00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
+    )
+    values = badc(
+        "ob_end_time,ob_hour_count,mean_wind_dir,mean_wind_speed,mean_wind_dir_q,mean_wind_speed_q",
+        "2000-01-01 01:00:00,1,250,12.0,0,0\n2000-01-01 02:00:00,1,999,2.0,9,2009\n"
+        "2000-01-01 03:00:00,1,0,0.0,0,0\n2000-01-01 04:00:00,1,360,3.0,0,0\n",
+    )
+
+    def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
+        if "station-metadata" in url:
+            return stations
+        return values if "qcv-1" in url else None
+
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_token", lambda _self, _settings: "token")
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_download", download)
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda *_args, **_kwargs: "202507")
+    request = MetOfficeObservationRequest(
+        parameters=[("hourly", "wind", "wind_direction_mean")],
+        start=_day(2000, 1, 1),
+        end=_day(2000, 1, 1, 4),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "wind", "00001").values().all().df
+
+
 def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the API needs a client id, so this is worded after what Frost publishes: the element descriptions, which state
     # the codes of the cloud cover (9 and -3, the sky could not be estimated) and of the snow depth (-1), and the data
@@ -3050,6 +3089,14 @@ STUBS = [
         # the oktas are converted to percent on their way
         sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 112.5)),
         tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "9", None)),
+    ),
+    ValueStub(
+        "metoffice/observation hourly/wind",
+        _metoffice_hourly_wind,
+        reading=("wind_direction_mean", 250.0),
+        # the 999 is a code, no bearing (GH-3909); the 0 beside a speed of 0 is a calm
+        sentinels=(("wind_direction_mean", 999.0), ("wind_direction_mean", 0.0)),
+        tokens=(("wind_direction_mean", "999", None), ("wind_direction_mean", "0", None)),
     ),
     ValueStub(
         "metno/frost hourly/data",
