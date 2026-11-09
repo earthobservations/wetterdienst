@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the months of the East German hourly air temperature whose `MEZ (MD)` stamps are mean local time (GH-3910).
 
-The table is `local_mean_time_blocks.csv`: 1,321 station-months at 17 stations, mostly 1952 to 1961, which the shift of
+The table is `local_mean_time_blocks.csv`: 1,316 station-months at 17 stations, mostly 1952 to 1961, which the shift of
 -1 h leaves 0.2 to 0.5 h early. The values and the stamps are those of any `MEZ (MD)` period; the rows carry
 `zone:mez-local-mean-time` instead of `zone:mez`.
 """
@@ -28,7 +28,7 @@ from tests.provider.dwd.observation.test_temperature_air_mez_blocks import (
 )
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation import download as dwd_observation_download
-from wetterdienst.provider.dwd.observation.download import LOCAL_MEAN_TIME_SPANS
+from wetterdienst.provider.dwd.observation.download import _MEZ_COMPARED_WITH_ISD, LOCAL_MEAN_TIME_SPANS
 from wetterdienst.provider.dwd.observation.local_mean_time_blocks import (
     ZONE_LOCAL_MEAN_TIME,
     local_mean_time_blocks,
@@ -68,10 +68,10 @@ _MEZ = f"3,zone:{ZONE_MEZ}"
 
 
 def test_the_table_has_the_months_of_the_research() -> None:
-    """Test the size of the table: 1,321 station-months in 26 blocks at 17 stations."""
+    """Test the size of the table: 1,316 station-months in 25 blocks at 17 stations."""
     blocks = local_mean_time_blocks()
-    assert len(blocks) == 26
-    assert sum(block.n_months for block in blocks) == 1321
+    assert len(blocks) == 25
+    assert sum(block.n_months for block in blocks) == 1316
     assert {block.station_id for block in blocks} == set(_MD_PERIODS)
     assert all(len(block.station_id) == 5 and block.station_id.isdigit() for block in blocks)
 
@@ -111,20 +111,23 @@ def test_the_months_lie_in_the_years_the_research_covers_and_inside_the_md_perio
 
 
 def test_the_values_of_a_block_are_what_the_research_found() -> None:
-    """Test the numbers of a row: the offset to ISD -0.5 to -0.8 h (Gardelegen 1952 -1.0), the lag 0 to 0.5 h."""
+    """Test the numbers of a row: the offset to ISD -0.5 to -0.8 h, the lag 0.2 to 0.5 h."""
     blocks = local_mean_time_blocks()
     for block in blocks:
         # west and centre of the old DDR, and Potsdam at 13.06
         assert 10.1 <= block.longitude <= 13.1, block
-        assert -1.0 <= block.isd_delta <= -0.5, block
-        assert 0.0 <= block.early_by <= 0.5, block
+        assert -0.85 <= block.isd_delta <= -0.5, block
+        assert 0.2 <= block.early_by <= 0.5, block
         assert -1.0 <= block.phase_vs_mez <= 0.5, block
-    assert sum(1 for block in blocks if block.isd_delta == -1.0) == 1
+    # Gardelegen 1952-01 to 1952-05 (offset -1.00 h, MEZ) is not in it
+    assert not any(block.station_id == "01544" and block.start < "1953-03" for block in blocks)
 
 
 def test_the_months_are_in_no_block_of_the_table_of_gh_3776_or_the_comparison_with_isd() -> None:
-    """Test that the plain MEZ periods of the other table and the East German MD periods shift no stamp twice."""
-    other = mez_block_spans()
+    """Test that the plain MEZ blocks of GH-3776 and the five of the comparison with ISD hold none of these stamps."""
+    other = {station: list(spans) for station, spans in mez_block_spans().items()}
+    for station, span in _MEZ_COMPARED_WITH_ISD.items():
+        other.setdefault(station, []).append(span)
     for station, spans in local_mean_time_spans().items():
         for first, last in spans:
             for other_first, other_last in other.get(station, ()):
