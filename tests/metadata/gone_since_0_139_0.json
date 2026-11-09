@@ -410,6 +410,7 @@
    "daily/data": [
     "cloud_cover_total",
     "humidity_relative",
+    "pressure_air_sea_level",
     "wind_speed"
    ],
    "hourly/data": [

@@ -259,7 +259,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "hour",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "PG",
                             "unit": "hectopascal",
                         },

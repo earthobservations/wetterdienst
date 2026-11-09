@@ -23,7 +23,7 @@
 | {term}`wind_gust_max`                         | FXX           | Maximum wind gust                      | m/s   |
 | {term}`precipitation_amount`                  | RH            | Precipitation amount                   | mm    |
 | {term}`precipitation_duration`                | DR            | Precipitation duration                 | h     |
-| {term}`pressure_air_sea_level`                | PG            | Mean sea level pressure                | hPa   |
+| {term}`pressure_air_sea_level_mean`           | PG            | Daily mean sea level pressure, calculated as a mean of the 24 pressure values of that day (midnight to midnight UTC). | hPa   |
 | {term}`sunshine_duration`                     | SQ            | Sunshine duration                      | h     |
 | {term}`radiation_global`                      | Q             | Global solar radiation                 | J/cm² |
 | {term}`cloud_cover_total_mean`                | NG            | Mean cloud cover                       | 1/8   |
