@@ -49,51 +49,61 @@ _MeteoFranceSynopMetadataSpec = {
                         {
                             "name": "wind_gust_max_last_10min",
                             "name_original": "raf10",
+                            "timestamp_position": "end",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "t",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
                             "name_original": "tn12",
+                            "timestamp_position": "end",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_air_max_2m_last_12h",
                             "name_original": "tx12",
+                            "timestamp_position": "end",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_air_min_2m_last_24h",
                             "name_original": "tn24",
+                            "timestamp_position": "end",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "temperature_air_max_2m_last_24h",
                             "name_original": "tx24",
+                            "timestamp_position": "end",
                             "unit": "degree_kelvin",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "u",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "visibility",
                             "name_original": "vv",
+                            "timestamp_position": "instant",
                             "unit": "meter",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
+                            "timestamp_position": "instant",
                             # source already publishes the WMO okta code as a percentage
                             # class (0, 10, 25, 40, 50, 60, 75, 90, 100), not raw eighths
                             "unit": "percent",
@@ -101,36 +111,43 @@ _MeteoFranceSynopMetadataSpec = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "pres",
+                            "timestamp_position": "instant",
                             "unit": "pascal",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pmer",
+                            "timestamp_position": "instant",
                             "unit": "pascal",
                         },
                         {
                             "name": "precipitation_amount_last_1h",
                             "name_original": "rr1",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_3h",
                             "name_original": "rr3",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_6h",
                             "name_original": "rr6",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_12h",
                             "name_original": "rr12",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_last_24h",
                             "name_original": "rr24",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                     ],

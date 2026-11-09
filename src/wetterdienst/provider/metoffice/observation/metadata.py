@@ -58,9 +58,9 @@ _DAILY_TEMPERATURE_PARAMETERS = [
 # codes (e.g. 0/9), not the boolean occurrence the WEATHER_TYPE_* parameters denote, so exposing
 # them would misrepresent the data.
 _DAILY_WEATHER_PARAMETERS = [
-    {"name": "sunshine_duration", "name_original": "drv_24hr_sun_dur", **_SUNSHINE},
-    {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
-    {"name": "snow_depth_new", "name_original": "frsh_snw_amt", **_SNOW_DEPTH},
+    {"name": "sunshine_duration", "timestamp_position": "start", "name_original": "drv_24hr_sun_dur", **_SUNSHINE},
+    {"name": "snow_depth", "timestamp_position": "instant", "name_original": "snow_depth", **_SNOW_DEPTH},
+    {"name": "snow_depth_new", "timestamp_position": "instant", "name_original": "frsh_snw_amt", **_SNOW_DEPTH},
 ]
 
 _HOURLY_RAIN_PARAMETERS = [
@@ -76,16 +76,21 @@ _HOURLY_WEATHER_PARAMETERS = [
     {"name": "wind_speed_mean_last_10min", "name_original": "wind_speed", **_WIND_SPEED},
     {"name": "wind_gust_max_last_10min", "name_original": "q10mnt_mxgst_spd", **_WIND_SPEED},
     # native decametres; scaled to metres in api.py (_SCALE)
-    {"name": "visibility", "name_original": "visibility", "unit": "meter"},
-    {"name": "pressure_air_sea_level", "name_original": "msl_pressure", **_PRESSURE},
-    {"name": "pressure_air_site", "name_original": "stn_pres", **_PRESSURE},
-    {"name": "temperature_air_2m", "name_original": "air_temperature", **_TEMPERATURE},
-    {"name": "temperature_dew_point_2m", "name_original": "dewpoint", **_TEMPERATURE},
-    {"name": "humidity_relative", "name_original": "rltv_hum", **_HUMIDITY},
-    {"name": "sunshine_duration", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
-    {"name": "snow_depth", "name_original": "snow_depth", **_SNOW_DEPTH},
-    {"name": "cloud_cover_total", "name_original": "cld_ttl_amt_id", "unit": "one_eighth"},
-    {"name": "weather", "name_original": "prst_wx_id", "unit": "dimensionless"},
+    {"name": "visibility", "timestamp_position": "instant", "name_original": "visibility", "unit": "meter"},
+    {"name": "pressure_air_sea_level", "timestamp_position": "instant", "name_original": "msl_pressure", **_PRESSURE},
+    {"name": "pressure_air_site", "timestamp_position": "instant", "name_original": "stn_pres", **_PRESSURE},
+    {"name": "temperature_air_2m", "timestamp_position": "instant", "name_original": "air_temperature", **_TEMPERATURE},
+    {"name": "temperature_dew_point_2m", "timestamp_position": "instant", "name_original": "dewpoint", **_TEMPERATURE},
+    {"name": "humidity_relative", "timestamp_position": "instant", "name_original": "rltv_hum", **_HUMIDITY},
+    {"name": "sunshine_duration", "timestamp_position": "end", "name_original": "wmo_hr_sun_dur", **_SUNSHINE},
+    {"name": "snow_depth", "timestamp_position": "instant", "name_original": "snow_depth", **_SNOW_DEPTH},
+    {
+        "name": "cloud_cover_total",
+        "timestamp_position": "instant",
+        "name_original": "cld_ttl_amt_id",
+        "unit": "one_eighth",
+    },
+    {"name": "weather", "timestamp_position": "instant", "name_original": "prst_wx_id", "unit": "dimensionless"},
 ]
 
 _MEAN_WIND_PARAMETERS = [
@@ -173,7 +178,7 @@ _MetOfficeObservationMetadataSpec = {
             "hourly",
             [
                 _dataset("rain", "uk-hourly-rain-obs", _HOURLY_RAIN_PARAMETERS, "end"),
-                _dataset("weather", "uk-hourly-weather-obs", _HOURLY_WEATHER_PARAMETERS, "instant"),
+                _dataset("weather", "uk-hourly-weather-obs", _HOURLY_WEATHER_PARAMETERS),
                 _dataset("wind", "uk-mean-wind-obs", _MEAN_WIND_PARAMETERS, "end"),
                 _dataset("radiation", "uk-radiation-obs", _RADIATION_PARAMETERS, "end"),
                 _dataset("soil_temperature", "uk-soil-temperature-obs", _SOIL_TEMPERATURE_PARAMETERS, "instant"),

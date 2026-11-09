@@ -50,18 +50,21 @@ _FmiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "t2m",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                             "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                             "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "rh",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                             "aggregation": "instant",
                         },
@@ -94,12 +97,14 @@ _FmiObservationMetadataSpec = {
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "p_sea",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                             "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "vis",
+                            "timestamp_position": "instant",
                             "unit": "meter",
                             "aggregation": "instant",
                         },

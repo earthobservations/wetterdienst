@@ -441,6 +441,78 @@ _MONTHLY_PARAMETERS = [
 _ANNUAL_PARAMETERS = list(_MONTHLY_PARAMETERS)
 
 
+# The place of the stamp in the period of a value (GH-3134), by canonical name, where `docs/data/time_reference.md`
+# gives one: the hourly stamp is DMI's `from`, the start of the hour, but for the 12 and 24 hour values and the
+# minute-0 wind direction (stamped by `to`, the end of their window) and the cloud cover (the reading at minute 0). A
+# parameter that the page leaves open (`mean_pressure`, and the Greenland values of the hour or of minute 0) has none.
+# The base lists are shared by all resolutions, so the positions are put on copies.
+_HOURLY_POSITIONS = {
+    "precipitation_amount_last_12h": "end",
+    "precipitation_amount_last_24h": "end",
+    "temperature_air_max_2m_last_12h": "end",
+    "temperature_air_min_2m_last_12h": "end",
+    "wind_direction_mean_last_10min": "end",
+    "cloud_cover_total": "instant",
+    "leaf_wetness_duration": "start",
+    "precipitation_amount": "start",
+    "radiation_global_intensity_mean": "start",
+    "sunshine_duration": "start",
+    "temperature_air_max_2m": "start",
+    "temperature_air_mean_grass_height": "start",
+    "temperature_air_min_2m": "start",
+    "temperature_soil_mean_0_1m": "start",
+    "vapor_pressure_deficit_mean": "start",
+    "wind_speed_mean": "start",
+    "wind_speed_rolling_mean_max": "start",
+}
+
+# The daily stamp is the date the local civil day begins on; the 30-minute maximum precipitation is a window that
+# ends on it. The snow values read by hand have none.
+_DAILY_POSITIONS = {
+    "precipitation_amount_max_30min": "end",
+    "cloud_cover_total_mean": "start",
+    "count_days_cloud_cover_total_mean_gt_80pct": "start",
+    "count_days_cloud_cover_total_mean_lt_20pct": "start",
+    "heating_degree_day": "start",
+    "humidity_relative_max": "start",
+    "humidity_relative_mean": "start",
+    "humidity_relative_min": "start",
+    "leaf_wetness_duration": "start",
+    "precipitation_amount": "start",
+    "pressure_air_sea_level_max": "start",
+    "pressure_air_sea_level_mean": "start",
+    "pressure_air_sea_level_min": "start",
+    "pressure_vapor_mean": "start",
+    "radiation_global": "start",
+    "sunshine_duration": "start",
+    "temperature_air_max_2m": "start",
+    "temperature_air_mean_2m": "start",
+    "temperature_air_mean_grass_height": "start",
+    "temperature_air_min_2m": "start",
+    "temperature_soil_mean_0_1m": "start",
+    "temperature_soil_mean_0_3m": "start",
+    "vapor_pressure_deficit_mean": "start",
+    "wind_direction_mean": "start",
+    "wind_gust_max": "start",
+    "wind_speed_mean": "start",
+    "wind_speed_rolling_mean_max": "start",
+}
+
+
+def _positioned(parameters: list[dict], positions: dict[str, str]) -> list[dict]:
+    """Return copies of the parameters that carry the position of their name in `positions`."""
+    unknown = set(positions) - {parameter["name"] for parameter in parameters}
+    if unknown:
+        msg = f"positions for parameters that are not declared: {sorted(unknown)}"
+        raise ValueError(msg)
+    return [
+        {**parameter, "timestamp_position": positions[parameter["name"]]}
+        if parameter["name"] in positions
+        else parameter
+        for parameter in parameters
+    ]
+
+
 def _default_dataset(parameters: list[dict], timestamp_position: str | None = None) -> dict:
     return {
         "name": DATASET_NAME_DEFAULT,
@@ -481,14 +553,14 @@ _DmiObservationMetadataSpec = {
             "name_original": "hour",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_HOURLY_PARAMETERS)],
+            "datasets": [_default_dataset(_positioned(_HOURLY_PARAMETERS, _HOURLY_POSITIONS))],
         },
         {
             "name": "daily",
             "name_original": "day",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_DAILY_PARAMETERS)],
+            "datasets": [_default_dataset(_positioned(_DAILY_PARAMETERS, _DAILY_POSITIONS))],
         },
         {
             "name": "monthly",
