@@ -293,6 +293,9 @@ jobs:
     needs: merge
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # the environment `production` carries the deployment tag patterns `v*` and `app-v*` and, once the
+    # secrets are moved into it, the Coolify secrets: only a run on a release tag reads them (GH-3344)
+    environment: production
     steps:
       # the secrets are read from the environment, not written into the script: a template in `run:`
       # is expanded into the shell source before it runs
