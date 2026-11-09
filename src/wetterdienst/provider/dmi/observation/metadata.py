@@ -439,11 +439,12 @@ _MONTHLY_PARAMETERS = [
 _ANNUAL_PARAMETERS = list(_MONTHLY_PARAMETERS)
 
 
-def _default_dataset(parameters: list[dict]) -> dict:
+def _default_dataset(parameters: list[dict], timestamp_position: str | None = None) -> dict:
     return {
         "name": DATASET_NAME_DEFAULT,
         "name_original": DATASET_NAME_DEFAULT,
         "grouped": True,
+        "timestamp_position": timestamp_position,
         "parameters": parameters,
     }
 
@@ -492,14 +493,14 @@ _DmiObservationMetadataSpec = {
             "name_original": "month",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_MONTHLY_PARAMETERS)],
+            "datasets": [_default_dataset(_MONTHLY_PARAMETERS, "start")],
         },
         {
             "name": "annual",
             "name_original": "year",
             "periods": ["historical"],
             "date_required": True,
-            "datasets": [_default_dataset(_ANNUAL_PARAMETERS)],
+            "datasets": [_default_dataset(_ANNUAL_PARAMETERS, "start")],
         },
     ],
 }

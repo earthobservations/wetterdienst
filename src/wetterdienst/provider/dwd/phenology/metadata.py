@@ -1440,6 +1440,8 @@ def _dataset(
         # the path to the file, minus the period directory and the period-dependent suffix
         "name_original": f"{reporter}/{group}/{stem}",
         "grouped": True,
+        # the library dates a phase to 1 January of its reference year (`_parse_values` in api.py)
+        "timestamp_position": "start",
         "periods": list(periods),
         "date_required": False,
         "description": f"Phenological phases of {subject}, observed by the DWD {reporter_prose}.",

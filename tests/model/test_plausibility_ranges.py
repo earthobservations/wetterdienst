@@ -93,6 +93,8 @@ def _datasets(network: str) -> list:
         # DMI's slightly negative hours and days (-0.3 kPa at 06193 at 06:00 UTC on 2025-07-25)
         ("vapor_pressure_deficit_mean", "hourly", (-10.0, 200.0)),
         ("temperature_dew_point_2m", "hourly", (-100.0, 60.0)),
+        # a bearing, in degrees from magnetic north for WSV's current (MGN, as WSV confirmed in GH-3364)
+        ("flow_direction", "5_minutes", (0.0, 360.0)),
         ("radiation_global_intensity_mean", "hourly", (0.0, 2000.0)),
         # a family without a record is held to its definition: at least 0, no upper end
         ("oxygen_level", "hourly", (0.0, INF)),
@@ -146,7 +148,6 @@ def test_the_other_humidities_keep_the_bounds_of_their_own(name: str, expected: 
         "groundwater_level",
         "distance_river_gauge_height",
         "flow_speed",
-        "flow_direction",
         # derived quantities follow from checked inputs (D8)
         "temperature_wind_chill",
         "temperature_humidex",
@@ -202,7 +203,7 @@ _HELD_TO_NOTHING = (
     "discharge",
     "groundwater_level",
     "distance_river_gauge",
-    "flow_",
+    "flow_speed",
 )
 
 

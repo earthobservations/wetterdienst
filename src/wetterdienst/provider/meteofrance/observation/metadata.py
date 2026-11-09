@@ -255,6 +255,7 @@ _MeteoFranceObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "MENSQ",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",

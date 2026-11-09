@@ -95,6 +95,7 @@ _ImgwHydrologyMetadataSpec = {
                     "name": "hydrology",
                     "name_original": "hydrology",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "discharge_max",
