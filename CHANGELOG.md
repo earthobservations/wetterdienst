@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `knmi/observation` keeps the content of a file whose interval ended more than 6 hours ago for 12
+  hours, and of a newer one for 5 minutes as before, under the file's own name and not its
+  pre-signed link. Within that time a file already read is not requested from KNMI again, where it
+  was downloaded again after 5 minutes. `cache_disable` still turns it off (GH-3927)
 - **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
   `get_providers`) answers compact by default: `resolutions` of each network is null and everything
   else stays, the number of `parameters` among it. 20 kB for every provider where the answer was
@@ -65,6 +69,10 @@ Types of changes:
   "running 10-minute harmonic mean") is `visibility_mean_last_10min`. Values and units are
   unchanged; POI's old names are refused with the new one named, a request for NWS `visibility`
   still selects the row. Use the new names to filter and key the result (Part of GH-3134)
+- **Breaking**: `knmi/observation` daily `pressure_air_sea_level` (`PG`) is
+  `pressure_air_sea_level_mean`: KNMI defines it as the "Daily mean sea level pressure ...
+  calculated from 24 hourly values". Values and unit are unchanged; the old name is refused with
+  the new one named. Use the new name to filter and key the result (GH-3925)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour

@@ -1452,6 +1452,7 @@
   "tests/provider/knmi/observation/test_api.py::test_knmi_values_skip_a_file_whose_download_link_is_refused[401]": [["KnmiObservationRequest", "c03657e6", 2, "332ccb05f14abce9"]],
   "tests/provider/knmi/observation/test_api.py::test_knmi_values_skip_a_file_whose_download_link_is_refused[403]": [["KnmiObservationRequest", "c03657e6", 2, "332ccb05f14abce9"]],
   "tests/provider/knmi/observation/test_api.py::test_knmi_values_skip_a_missing_day_and_keep_the_others": [["KnmiObservationRequest", "c03657e6", 2, "332ccb05f14abce9"]],
+  "tests/provider/knmi/observation/test_file_cache.py::test_a_body_that_is_no_netcdf_is_not_kept_for_the_next_read": [["KnmiObservationRequest", "d2b50626", 1, "22b313bb975cc3e8"], ["KnmiObservationRequest", "d2b50626", 1, "22b313bb975cc3e8"]],
   "tests/provider/lhmt/observation/test_api.py::test_lhmt_observation_a_text_or_nan_value_is_null_and_the_day_kept": [["LhmtObservationRequest", "61767a67", 2, "f40f871c92953cf7"]],
   "tests/provider/lhmt/observation/test_api.py::test_lhmt_observation_stations_have_a_position_and_no_period_or_elevation": [["LhmtObservationRequest", "61767a67", 1, "96bfa377ca5ef524"]],
   "tests/provider/lhmt/observation/test_api.py::test_lhmt_observation_stations_of_a_list_without_a_usable_entry_are_the_empty_frame[[]]": [["LhmtObservationRequest", "61767a67", 0, "e3b0c44298fc1c14"]],

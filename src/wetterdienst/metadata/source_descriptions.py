@@ -3643,7 +3643,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "FG"): "Mean wind speed",
         ("daily", "data", "FXX"): "Maximum wind gust",
         ("daily", "data", "NG"): "Mean cloud cover",
-        ("daily", "data", "PG"): "Mean sea level pressure",
+        ("daily", "data", "PG"): (
+            "Daily mean sea level pressure, calculated as a mean of the 24 pressure values of that day "
+            "(midnight to midnight UTC)."
+        ),
         ("daily", "data", "Q"): "Global solar radiation",
         ("daily", "data", "RH"): "Precipitation amount",
         ("daily", "data", "SQ"): "Sunshine duration",

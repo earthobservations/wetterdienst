@@ -2164,6 +2164,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # usable copy: asking it again here would be the cost of a big directory a second time. Anyone else who opens
         # a file (the reader of a forecast does) has not asked
         checked = kwargs.pop("checked", False)
+        # where a miss is fetched from, for a copy that is kept under a name that is no address (`download_file`)
+        fetch_url = kwargs.pop("fetch_url", None)
         path = self._strip_protocol(path)
         cached = super()._check_file(path) if checked else self._check_file(path, refetch_before)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
@@ -2193,9 +2195,14 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # entry when the fetch is over)
             started = time.time()
             try:
-                self.fs.get_file(path, temp, **fetch_kwargs)
+                origin = path if fetch_url is None else fetch_url
+                self.fs.get_file(origin, temp, **fetch_kwargs)
                 # the date this fetch brought, and the file as written, which is what names the blob it becomes
-                last_modified = None if registry is None else registry.get(path)
+                last_modified = None if registry is None else registry.get(origin)
+                if registry is not None and origin != path:
+                    # noted by the address it came from, where `download_file` takes it by the name of the copy
+                    registry.pop(origin, None)
+                    _remember_last_modified(registry, path, last_modified)
                 written = Path(temp).stat()
                 # the rename onto the blob and the row that names it are one step for the lock file of the directory
                 # (GH-3485): a sweep of another process that reads the old row between the two would delete the new
@@ -3047,6 +3054,7 @@ def download_file(
     max_bytes: int | None = None,
     refetch_before: float | None = None,
     refetch_undated: bool = False,
+    fetch_url: str | None = None,
 ) -> File:
     """Download a specified file from the server.
 
@@ -3074,6 +3082,12 @@ def download_file(
         refetch_undated: Whether a copy that no version which kept the date of a download (`File.last_modified`) made is
             fetched again, once. Such a copy has no record of its date beside it, not even of a missing one, where a
             copy made since has one, so the new copy is held for good. Held in the same way as for `refetch_before`.
+
+        fetch_url: The address a copy that is not held is fetched from, where `url` is only the name the copy is kept
+            under (the key of the cache, never asked for). For a file whose address is made for the request and is
+            gone within the hour, a pre-signed link: kept under a name of its own, the copy is found again by a
+            request that has no link yet (`read_cached_copy`). The address is not logged and is in no error, which
+            name `url`. Where nothing is cached (`cache_disable`, `NO_CACHE`) the file is fetched from it all the same.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -3135,14 +3149,20 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
+                    fetch_kwargs: dict[str, float | str] = {} if max_bytes is None else {"max_bytes": max_bytes}
                     if isinstance(filesystem, _LockedWholeFileCacheFileSystem):
                         fetch_kwargs["checked"] = True
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before
                     if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_undated"] = True
-                    payload = filesystem.cat_file(url, **fetch_kwargs)
+                    if fetch_url is not None and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["fetch_url"] = fetch_url
+                    # a filesystem that keeps no copy has no name for one: it reads the address
+                    read_url = (
+                        url if fetch_url is None or isinstance(filesystem, WholeFileCacheFileSystem) else fetch_url
+                    )
+                    payload = filesystem.cat_file(read_url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
@@ -3156,7 +3176,7 @@ def download_file(
                     content=BytesIO(payload),
                     status=200,
                     from_cache=served_from_cache,
-                    last_modified=_take_last_modified(filesystem, url),
+                    last_modified=_take_last_modified(filesystem, read_url),
                     cached_at=float(copy[0]["time"]) if copy else None,
                 )
     except Exception as e:
@@ -3247,6 +3267,45 @@ def cached_copy_is_held(
         return isinstance(filesystem, WholeFileCacheFileSystem) and bool(filesystem._check_file(url))  # noqa: SLF001
     except Exception:  # noqa: BLE001 -- best effort, a copy not seen is a download made
         return False
+
+
+def read_cached_copy(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bytes | None:
+    """Read the copy `download_file` holds under a name, without a request; None where there is none.
+
+    For a copy kept under a name that is no address (`download_file`'s `fetch_url`), which a caller that needs a
+    request to learn the address (a pre-signed link) asks for first, to make that request only on a miss. Takes the
+    arguments the download was made with, as `drop_cached_file` does, since they name the cache. Reads the copy as a
+    cache hit does, so a copy that has expired is none. None too where nothing is cached (`NO_CACHE`,
+    `cache_disable`), where the copy cannot be read, and where the cache cannot be: never raises.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return None
+        held = filesystem._check_file(url)  # noqa: SLF001
+        if not held:
+            return None
+        with _open_blob(Path(held[1]), "rb") as blob:
+            payload = blob.read()
+    except Exception:  # noqa: BLE001 -- best effort: a copy not read is a download made
+        log.debug("Could not read the cached copy of %s", _without_url_secrets(url), exc_info=False)
+        return None
+    log.info(f"Read file {_without_url_secrets(url)} from cache")
+    return payload
 
 
 def drop_cached_file(
