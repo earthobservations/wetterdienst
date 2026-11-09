@@ -1303,6 +1303,8 @@ TIME_REFERENCE = ROOT / "docs" / "data" / "time_reference.md"
 # documentation does not state: the cell holds no guess, and a comparison with a second source goes in
 # brackets behind it as an observation.
 _REFERENCE_TIMES = frozenset(["start", "end", "middle", "instant", "mixed", "unverified"])
+# the ones of them that say where the stamp sits, which is what `timestamp_position` of the metadata can be (GH-3134)
+_POSITIONS = _REFERENCE_TIMES - {"mixed", "unverified"}
 
 # `dwd/radar` is left out of the other docs pages and of `_resolution_pages` on purpose, but its stamps
 # are file names and BUFR times that can be read wrongly like any other, so the table has a row for it,
@@ -1440,6 +1442,101 @@ def test_time_reference_rows_are_complete() -> None:
         for cells, note in zip(provider_rows, notes[provider], strict=False):
             errors.extend(_time_reference_row_problems(provider, cells, note))
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def _declared_datasets() -> Iterator[tuple[str, str, str, object]]:
+    """Give (provider, network, resolution, dataset model) for every dataset the registry's networks declare."""
+    pages, _ = _resolution_pages()
+    for provider, network, resolution, _page in pages:
+        for dataset in resolution:
+            yield provider, network, resolution.name, dataset
+
+
+def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str, str, str, str], list[str]]:
+    """Give, per (provider, network, resolution, dataset), the first word of the reference time of its rows."""
+    tokens: dict[tuple[str, str, str, str], list[str]] = {}
+    for provider, network, resolution, dataset in _declared_datasets():
+        tokens[provider, network, resolution, dataset.name] = [
+            cells[4].split(" ")[0]
+            for row_provider, cells in rows
+            if row_provider == provider
+            and cells[0] == network
+            and cells[1] == resolution
+            and (cells[2] == "all" or dataset.name in [name.strip() for name in cells[2].split(",")])
+        ]
+    return tokens
+
+
+def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() -> None:
+    """Test that `timestamp_position` of the metadata and the `reference time` of the page say the same (GH-3134).
+
+    The token a caller reads is declared once, in the provider's metadata (a dataset, and a parameter where the
+    dataset is mixed); the page keeps the evidence, the quoted sentence and the observation. This holds the two
+    together, by the first word of the cell of each row that names a dataset (`all` names every dataset of its
+    resolution):
+
+    - one answer in all of a dataset's rows (`start`, `end`, `instant`, `middle`): the dataset declares it, and no
+      parameter of it declares another;
+    - `unverified` in all of them: the dataset declares nothing, unless the library builds the stamp itself
+      (`LIBRARY_BUILT_START`), where it declares `start`; no parameter declares anything;
+    - rows that disagree, mix `unverified` with an answer, or say `mixed`: the dataset declares nothing, and a
+      parameter declares only what a row of its dataset says (any answer where a row is `mixed`, whose qualifier
+      says which parameters it means and is not parsed).
+
+    A dataset with several rows is held by the weaker check of the last case, since the qualifiers of its rows say
+    which parameters each is about.
+    """
+    from tests.provider.timestamps import LIBRARY_BUILT_START  # noqa: PLC0415
+
+    rows, _ = _time_reference_tables()
+    tokens = _time_reference_tokens(rows)
+    errors = []
+    built = set()
+    for provider, network, resolution, dataset in _declared_datasets():
+        tag = f"{provider}/{network}/{resolution}/{dataset.name}"
+        found = tokens[provider, network, resolution, dataset.name]
+        answers = {token for token in found if token in _POSITIONS}
+        entry = LIBRARY_BUILT_START.get((provider, network, resolution))
+        library_built = entry is not None and (entry[0] is None or dataset.name in entry[0])
+        if library_built:
+            built.add((provider, network, resolution))
+            if set(found) != {"unverified"}:
+                errors.append(
+                    f"{tag}: is listed in LIBRARY_BUILT_START but its rows say {sorted(set(found))}; "
+                    "a row that states the position backs the declaration, so the entry goes"
+                )
+            expected = "start"
+        else:
+            expected = next(iter(answers)) if len(set(found)) == 1 and answers else None
+        if dataset.timestamp_position != expected:
+            errors.append(f"{tag}: declares {dataset.timestamp_position!r} but its rows say {sorted(set(found))}")
+        allowed = _POSITIONS if "mixed" in found else answers
+        for parameter in dataset.parameters:
+            if expected is not None:
+                if parameter.effective_timestamp_position != expected:
+                    errors.append(
+                        f"{tag}/{parameter.name}: {parameter.effective_timestamp_position!r}, not {expected!r}"
+                    )
+            elif parameter.timestamp_position is not None and parameter.timestamp_position not in allowed:
+                errors.append(
+                    f"{tag}/{parameter.name}: declares {parameter.timestamp_position!r} but its rows say "
+                    f"{sorted(set(found))}"
+                )
+    errors.extend(
+        f"LIBRARY_BUILT_START has {'/'.join(key)}, which no dataset has"
+        for key in sorted(set(LIBRARY_BUILT_START) - built)
+    )
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+def test_the_positions_are_the_answers_the_page_allows() -> None:
+    """Test that the `Literal` of the model and the answers of the page, less `mixed` and `unverified`, are the same."""
+    from typing import get_args  # noqa: PLC0415
+
+    from wetterdienst.model.metadata import TimestampPosition  # noqa: PLC0415
+
+    assert set(get_args(TimestampPosition)) == _POSITIONS
+    assert _REFERENCE_TIMES - {"mixed", "unverified"} == _POSITIONS
 
 
 def test_time_reference_links_match_the_issues_it_lists() -> None:

@@ -166,6 +166,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "opad",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",
@@ -273,6 +274,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "climate",
                     "name_original": "klimat",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",
@@ -340,6 +342,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "opad",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",
@@ -357,6 +360,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "synop",
                     "name_original": "synop",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",

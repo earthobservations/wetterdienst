@@ -77,6 +77,13 @@ Continent = Literal["africa", "antarctica", "asia", "europe", "north_america", "
 #: territories) or `regional` (everything between: one or several countries or continents); see `Extent`
 ExtentScope = Literal["global", "national", "regional"]
 
+#: where a timestamp sits in the interval its value covers: `instant` (a reading at the stamp), `start` or `end` (an
+#: aggregate over the interval that begins or ends at it; for a date stamp, the interval begins or ends on that date)
+#: or `middle` (centred on it). Not stated is None, never one of these, and a dataset whose parameters differ declares
+#: None and a value on each parameter (`ParameterModel.timestamp_position`). The page `docs/data/time_reference.md`
+#: keeps the evidence and `tests/test_docs.py` holds the two together (GH-3134).
+TimestampPosition = Literal["instant", "start", "end", "middle"]
+
 #: the box of the Earth, `[west, south, east, north]`, which the bbox of a global network is
 WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
 
@@ -392,6 +399,9 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     name_original: str
     unit: str
     description: str | None = None
+    #: where this parameter's stamp sits in the interval its value covers, for a dataset whose parameters differ; None
+    #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
+    timestamp_position: TimestampPosition | None = None
     # the back-reference its dataset sets once it holds this parameter, so it is None until then; typing
     # it optional would put a None check in front of every read of `parameter.dataset`
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
@@ -416,6 +426,11 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
             msg = f"'{self.name}' is not a canonical parameter name"
             raise KeyError(msg) from None
 
+    @property
+    def effective_timestamp_position(self) -> TimestampPosition | None:
+        """Where the stamp of this parameter sits in its interval: its own declaration, else its dataset's."""
+        return self.timestamp_position or self.dataset.timestamp_position
+
     def __eq__(self, other: object) -> bool:
         """Compare two parameters."""
         if not isinstance(other, ParameterModel):
@@ -426,6 +441,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
             # unit_type is derived from name, so comparing it would be redundant
             and self.unit == other.unit
             and self.description == other.description
+            and self.timestamp_position == other.timestamp_position
             # don't compare the dataset object itself because it'd be circular
             and self.dataset.name == other.dataset.name
             and self.dataset.resolution.name == other.dataset.resolution.name
@@ -544,6 +560,9 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
+    #: where the stamp of every parameter sits in the interval its value covers, null where that is not stated or the
+    #: parameters differ (they then declare it themselves); declared here once, held to `docs/data/time_reference.md`
+    timestamp_position: TimestampPosition | None = None
     #: where the stations of the dataset are where that is less than the network's (`dwd/dmo` is global, its `icon_eu`
     #: dataset is Europe): null for a dataset that has the extent of its network (GH-3456)
     extent: Extent | SkipJsonSchema[None] = None
@@ -566,6 +585,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             and self.grouped == other.grouped
             and self.periods == other.periods
             and self.description == other.description
+            and self.timestamp_position == other.timestamp_position
             and self.parameters == other.parameters
             # don't compare the resolution object itself because it'd be circular
             and self.resolution.name == other.resolution.name
