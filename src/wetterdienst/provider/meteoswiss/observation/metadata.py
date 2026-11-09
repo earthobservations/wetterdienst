@@ -37,6 +37,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "wind_direction_mean",
@@ -272,6 +273,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_direction_mean",
@@ -402,6 +404,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_speed_mean",
@@ -512,6 +515,7 @@ _MeteoswissObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "ogd-smn",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "wind_speed_mean",

@@ -64,6 +64,7 @@ _EAHydrologyMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "discharge",
