@@ -155,8 +155,14 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
         current += step
 
 
-#: How old the timestamp of a file must be for its content to be kept long: KNMI may still fill in a younger one
+#: How old the end of the interval a file covers must be for its content to be kept long: KNMI may still fill in a
+#: file whose interval ended later
 _SETTLED_AFTER = dt.timedelta(hours=6)
+
+
+def _now() -> dt.datetime:
+    """Give the time the age of a file is taken against (a seam for a test, which pins it)."""
+    return dt.datetime.now(dt.UTC)
 
 
 def _file_expiry(end: dt.datetime | None) -> CacheExpiry:
@@ -170,7 +176,7 @@ def _file_expiry(end: dt.datetime | None) -> CacheExpiry:
         return CacheExpiry.FIVE_MINUTES
     if end.tzinfo is None:
         end = end.replace(tzinfo=dt.UTC)
-    if dt.datetime.now(dt.UTC) - end < _SETTLED_AFTER:
+    if _now() - end < _SETTLED_AFTER:
         return CacheExpiry.FIVE_MINUTES
     return CacheExpiry.TWELVE_HOURS
 

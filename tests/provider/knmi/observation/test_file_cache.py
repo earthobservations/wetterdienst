@@ -102,27 +102,34 @@ def _settings(tmp_path: Path, *, cache_disable: bool = False) -> Settings:
     return Settings(auth={"knmi": "key-for-test"}, cache_dir=tmp_path / "cache", cache_disable=cache_disable)
 
 
-def _ago(**age: float) -> dt.datetime:
-    return dt.datetime.now(dt.UTC) - dt.timedelta(**age)
+#: The time the provider takes the age of a file against, pinned: a name built from the wall clock would be older
+#: than six hours once the clock passed the top of an hour
+NOW = dt.datetime(2026, 11, 9, 12, 30, tzinfo=dt.UTC)
+
+
+@pytest.fixture(autouse=True)
+def _pinned_now(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin what `_file_expiry` reads as now, and nothing else: `time.time` stays the clock of the cache (`_later`)."""
+    monkeypatch.setattr(api, "_now", lambda: NOW)
 
 
 def _ago(**age: float) -> dt.datetime:
-    return dt.datetime.now(dt.UTC) - dt.timedelta(**age)
+    return NOW - dt.timedelta(**age)
 
 
 def _hourly(**age: float) -> str:
     """Name the hourly file of the hour that began `age` ago (to the hour), which ends an hour after it."""
-    start = (dt.datetime.now(dt.UTC) - dt.timedelta(**age)).replace(minute=0, second=0, microsecond=0)
+    start = _ago(**age).replace(minute=0, second=0, microsecond=0)
     return _filename_for(Resolution.HOURLY, start)
 
 
 #: A file that has settled, and one KNMI may still fill in
 OLD = _hourly(days=2)
 RECENT = _hourly(hours=1)
-#: Named for a start 6 to 7 hours ago, so that the stamp of its values (an hour on) is 5 to 6 hours old: young. The
-#: name is older than six hours, which is what an age taken from the name alone would go by
+#: Named for 06:00 against a now of 12:30: the name is 6.5 hours old, the stamp of its values (an hour on) 5.5: young.
+#: The name is older than six hours, which is what an age taken from the name alone would go by
 NAMED_BEYOND_SIX_HOURS = _hourly(hours=6)
-#: Its end is 6 to 7 hours old: settled
+#: Named for 05:00: its end is 6.5 hours old, settled
 ENDED_BEYOND_SIX_HOURS = _hourly(hours=7)
 
 
@@ -311,6 +318,9 @@ def test_a_body_that_is_no_netcdf_is_not_kept_for_the_next_read(
     platform: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A 200 whose body the reader cannot open (BODY is no NetCDF) is dropped, not served until it expires."""
+    # the reader of the body, which is missing without the knmi extra: that is no failure of the body
+    pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
+    pytest.importorskip("h5py", reason="h5py not installed")
     monkeypatch.setattr(
         KnmiObservationRequest,
         "_station_frame",
@@ -327,7 +337,7 @@ def test_a_body_that_is_no_netcdf_is_not_kept_for_the_next_read(
         request.filter_by_station_id("06260").values().all()
 
     for expected in (1, 2):
-        with pytest.raises(Exception):  # noqa: B017, PT011 -- whatever the reader raises for a body that is no file
+        with pytest.raises(OSError, match="signature"):  # h5py: the body is no HDF5 file
             read()
         assert len(_store_requests(platform)) == expected
 
