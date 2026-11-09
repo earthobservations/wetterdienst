@@ -75,16 +75,17 @@ goes on to the next one (`StationsResult._rank`).
 
 **Fetch-ahead.** A provider whose files are one set per station can name them beforehand by implementing
 `TimeseriesValues._files_ahead(station_id, datasets)`, which returns a `FilesAhead` (the URLs and the cache expiry the
-provider downloads them with, `ttl`, and `ttls` for the URLs it downloads with another, as a file that is final by
-name is kept longer than one that is still written to). `query()` then has the files of the next `Settings.fetch_ahead` stations (4 by default,
-at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station is parsed, and the
-provider's own download at the station's turn finds them there: `_collect_station_parameter_or_dataset` is not changed
-and is still what raises, at the station it raises at. A thread fetches the files of a station one after the other; when
-the walk comes to the station, it ends the file it is at and the provider's own download, which fetches a station's
-files side by side, takes the rest, so a provider whose stations have many files gains little (at the default of 4 it is
-not slower; with 1 or 2 stations ahead it can be). A fetch ahead raises nothing itself; after a failure other than a 404 (or a failing
-hook) nothing more is fetched ahead for that read. A file that is missing or failed is asked for again at its station's
-turn, so an outage can show up later than the first failed request, by up to twice the client timeout.
+provider downloads them with, `ttl`, and `ttls` for the URLs it downloads with another, as a file that is final by name
+is kept longer than one that is still written to). `query()` then has the files of the next `Settings.fetch_ahead`
+stations (4 by default, at most 8, 0 for none) downloaded into the cache by that many daemon threads while one station
+is parsed, and the provider's own download at the station's turn finds them there:
+`_collect_station_parameter_or_dataset` is not changed and is still what raises, at the station it raises at. A thread
+fetches the files of a station one after the other; when the walk comes to the station, it ends the file it is at and
+the provider's own download, which fetches a station's files side by side, takes the rest, so a provider whose stations
+have many files gains little (at the default of 4 it is not slower; with 1 or 2 stations ahead it can be). A fetch ahead
+raises nothing itself; after a failure other than a 404 (or a failing hook) nothing more is fetched ahead for that read.
+A file that is missing or failed is asked for again at its station's turn, so an outage can show up later than the first
+failed request, by up to twice the client timeout.
 
 What is limited: the fetch-ahead's own connections, to `fetch_ahead` for a read and to 8 per host for all the reads of a
 process (`HOST_CONNECTIONS` in `model/fetch_ahead.py`). What is not: the connections of the station in hand (the

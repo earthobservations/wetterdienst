@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any
@@ -45,6 +48,8 @@ from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
     from types import ModuleType
 
 UTC = dt.UTC
@@ -174,6 +179,43 @@ _STATIONS = (
 )
 
 
+_MS_ASSETS = [
+    "ogd-smn_ber_h_historical_2000-2009.csv",
+    "ogd-smn_ber_h_historical_2010-2019.csv",
+    "ogd-smn_ber_h_recent.csv",
+    "ogd-smn_ber_h_now.csv",
+]
+
+
+def _meteoswiss_expiries(monkeypatch: pytest.MonkeyPatch, now: dt.datetime) -> dict[str, CacheExpiry]:
+    """Give the expiry each asset of BER is downloaded with when it is ``now``."""
+    item = json.dumps({"assets": {name: {"href": f"{_BASE}/ber/{name}"} for name in _MS_ASSETS}}).encode()
+    asked: dict[str, CacheExpiry] = {}
+
+    def download_file(url: str, ttl: CacheExpiry, **_: object) -> File:
+        if "ogd-smn_meta_stations.csv" in url:
+            return File(url=url, content=BytesIO(_STATIONS.encode("windows-1252")), status=200)
+        if "/items/ber" in url:
+            return File(url=url, content=BytesIO(item), status=200)
+        asked[url.rsplit("/", 1)[-1]] = ttl
+        body = "station_abbr;reference_timestamp;tre200h0\nBER;01.01.2010 00:00;4.9\n"
+        return File(url=url, content=BytesIO(body.encode("windows-1252")), status=200)
+
+    monkeypatch.setattr(meteoswiss_api, "download_file", download_file)
+    _pin(monkeypatch, meteoswiss_api, now)
+    request = MeteoswissObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
+        start="2005-01-01T00:00:00+00:00",
+        end="2015-01-01T00:00:00+00:00",
+        settings=_settings(),
+    )
+    model = request.metadata["hourly"]["data"]
+
+    request.filter_by_station_id("BER").values()._collect_station_parameter_or_dataset("BER", model)  # noqa: SLF001
+    assert sorted(asked) == sorted(_MS_ASSETS)
+    return asked
+
+
 @pytest.mark.parametrize(
     ("asset", "expiry"),
     [
@@ -187,37 +229,28 @@ def test_meteoswiss_downloads_a_historical_asset_for_a_week_and_the_others_for_f
     monkeypatch: pytest.MonkeyPatch, asset: str, expiry: CacheExpiry
 ) -> None:
     """The asset is kept by what its name says it is, the decades of the historical file included."""
-    names = [
-        "ogd-smn_ber_h_historical_2000-2009.csv",
-        "ogd-smn_ber_h_historical_2010-2019.csv",
-        "ogd-smn_ber_h_recent.csv",
-        "ogd-smn_ber_h_now.csv",
-    ]
-    item = json.dumps({"assets": {name: {"href": f"{_BASE}/ber/{name}"} for name in names}}).encode()
-    asked: dict[str, CacheExpiry] = {}
+    assert _meteoswiss_expiries(monkeypatch, dt.datetime(2026, 11, 9, 12, tzinfo=UTC))[asset] == expiry
 
-    def download_file(url: str, ttl: CacheExpiry, **_: object) -> File:
-        if "ogd-smn_meta_stations.csv" in url:
-            return File(url=url, content=BytesIO(_STATIONS.encode("windows-1252")), status=200)
-        if "/items/ber" in url:
-            return File(url=url, content=BytesIO(item), status=200)
-        asked[url.rsplit("/", 1)[-1]] = ttl
-        body = "station_abbr;reference_timestamp;tre200h0\nBER;01.01.2010 00:00;4.9\n"
-        return File(url=url, content=BytesIO(body.encode("windows-1252")), status=200)
 
-    monkeypatch.setattr(meteoswiss_api, "download_file", download_file)
-    request = MeteoswissObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_mean_2m")],
-        start="2005-01-01T00:00:00+00:00",
-        end="2015-01-01T00:00:00+00:00",
-        settings=_settings(),
-    )
-    model = request.metadata["hourly"]["data"]
+@pytest.mark.parametrize(
+    ("now", "historical"),
+    [
+        # MeteoSwiss rewrites the historical files in place in January: five minutes for the whole of it
+        (dt.datetime(2026, 1, 1, 0, 0, tzinfo=UTC), FIVE),
+        (dt.datetime(2026, 1, 2, 12, 0, tzinfo=UTC), FIVE),
+        (dt.datetime(2026, 1, 31, 23, 59, tzinfo=UTC), FIVE),
+        (dt.datetime(2026, 2, 1, 0, 0, tzinfo=UTC), WEEK),
+        (dt.datetime(2026, 12, 15, tzinfo=UTC), WEEK),
+    ],
+)
+def test_meteoswiss_keeps_the_historical_assets_five_minutes_in_january_and_a_week_after(
+    monkeypatch: pytest.MonkeyPatch, now: dt.datetime, historical: CacheExpiry
+) -> None:
+    """The month is read in UTC; the assets that are written to all year are five minutes in it."""
+    asked = _meteoswiss_expiries(monkeypatch, now)
 
-    request.filter_by_station_id("BER").values()._collect_station_parameter_or_dataset("BER", model)  # noqa: SLF001
-
-    assert sorted(asked) == sorted(names)
-    assert asked[asset] == expiry
+    assert {asked[name] for name in _MS_ASSETS if "historical" in name} == {historical}
+    assert {asked[name] for name in _MS_ASSETS if "historical" not in name} == {FIVE}
 
 
 # DWD phenology: the historical release is final by its end year in the name, `recent` is written to
@@ -381,6 +414,136 @@ def test_synop_does_not_date_again_a_year_that_is_not_kept_for_good_yet(monkeypa
 
     assert [call["refetch_undated"] for call in inside] == [False]
     assert after[0]["refetch_undated"] is True
+
+
+# A copy held in the directory of what is kept for good, made before the grace is over, is fetched once more
+
+
+class _Counting(BaseHTTPRequestHandler):
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep the test output quiet."""
+
+    def do_GET(self) -> None:
+        """Answer every path with a small body, and count it."""
+        self.server.requests.append(self.path)  # ty: ignore[unresolved-attribute]
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"[]")
+
+
+@pytest.fixture
+def counting_server() -> Iterator[ThreadingHTTPServer]:
+    """Serve a body for any path on a port of its own, and record the requests in ``server.requests``."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Counting)
+    server.requests = []  # ty: ignore[unresolved-attribute]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _settled_around_the_copy(*, copy_inside_grace: bool) -> dt.datetime:
+    """Give the moment a file is settled at, an hour after the copy that is made now (inside) or before it (after)."""
+    shift = dt.timedelta(hours=1) if copy_inside_grace else -dt.timedelta(hours=1)
+    return dt.datetime.fromtimestamp(time.time(), tz=UTC) + shift
+
+
+@pytest.mark.parametrize(("copy_inside_grace", "again"), [(True, 1), (False, 0)])
+def test_lhmt_fetches_a_held_copy_made_inside_the_grace_once_more_and_one_made_after_it_not(
+    monkeypatch: pytest.MonkeyPatch,
+    counting_server: ThreadingHTTPServer,
+    tmp_path: Path,
+    *,
+    copy_inside_grace: bool,
+    again: int,
+) -> None:
+    """A copy of a day that went in as kept for good before its grace was over may lack what was filed late."""
+    monkeypatch.setattr(lhmt_api, "_BASE_URL", f"http://127.0.0.1:{counting_server.server_port}/v1")
+    day = (dt.datetime.now(UTC) - dt.timedelta(days=30)).date()
+    end = dt.datetime.combine(day + dt.timedelta(days=1), dt.time(), tzinfo=UTC)
+    settings = Settings(cache_dir=tmp_path)
+    request = LhmtObservationRequest(
+        parameters=[("hourly", "data")], start=day.isoformat(), end=day.isoformat(), settings=settings
+    )
+    values = stations_result(request, "hourly", "data", "vilniaus-ams").values()
+
+    # the copy goes into the directory of what is kept for good, now
+    _pin(monkeypatch, lhmt_api, end + dt.timedelta(days=2))
+    values._download_day("vilniaus-ams", day, settings)  # noqa: SLF001
+    assert len(counting_server.requests) == 1  # ty: ignore[unresolved-attribute]
+    # the grace that is in force now ends an hour after the copy was made, or an hour before
+    settled = _settled_around_the_copy(copy_inside_grace=copy_inside_grace)
+    monkeypatch.setattr(lhmt_api, "_DAY_SETTLED_AFTER", settled - end)
+    _pin(monkeypatch, lhmt_api, settled + dt.timedelta(seconds=1))
+    values._download_day("vilniaus-ams", day, settings)  # noqa: SLF001
+
+    assert len(counting_server.requests) - 1 == again  # ty: ignore[unresolved-attribute]
+
+
+@pytest.mark.parametrize(("copy_inside_grace", "again"), [(True, 1), (False, 0)])
+def test_synop_fetches_a_held_copy_made_inside_the_grace_once_more_and_one_made_after_it_not(
+    monkeypatch: pytest.MonkeyPatch,
+    counting_server: ThreadingHTTPServer,
+    tmp_path: Path,
+    *,
+    copy_inside_grace: bool,
+    again: int,
+) -> None:
+    """The same for the file of a year, which is downloaded once more to be dated or to be after its grace."""
+    monkeypatch.setattr(
+        synop_api, "_SYNOP_ENDPOINT", f"http://127.0.0.1:{counting_server.server_port}/synop_{{year}}.csv.gz"
+    )
+    year = 2020
+    end = dt.datetime(year + 1, 1, 1, tzinfo=UTC)
+    settings = Settings(cache_dir=tmp_path)
+
+    _pin(monkeypatch, synop_api, end + dt.timedelta(days=30))
+    synop_api._download_year(year, settings)  # noqa: SLF001
+    assert len(counting_server.requests) == 1  # ty: ignore[unresolved-attribute]
+    settled = _settled_around_the_copy(copy_inside_grace=copy_inside_grace)
+    monkeypatch.setattr(synop_api, "_YEAR_SETTLED_AFTER", settled - end)
+    _pin(monkeypatch, synop_api, settled + dt.timedelta(seconds=1))
+    synop_api._download_year(year, settings)  # noqa: SLF001
+
+    assert len(counting_server.requests) - 1 == again  # ty: ignore[unresolved-attribute]
+
+
+def test_lhmt_and_synop_ask_for_a_copy_before_the_end_of_the_grace_only_where_the_file_is_kept_for_good(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`refetch_before` is the end of the grace for a settled file, and none for one that is still fetched afresh."""
+    asked: list[dict] = []
+
+    def download_file(**kwargs: Any) -> File:  # noqa: ANN401
+        asked.append(kwargs)
+        return _not_found(kwargs["url"])
+
+    monkeypatch.setattr(lhmt_api, "download_file", download_file)
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    monkeypatch.setattr(synop_api, "cached_copy_is_held", lambda *_args, **_kwargs: False)
+    now = dt.datetime(2026, 11, 9, 12, tzinfo=UTC)
+    _pin(monkeypatch, lhmt_api, now)
+    _pin(monkeypatch, synop_api, now)
+    request = LhmtObservationRequest(
+        parameters=[("hourly", "data")], start="2026-11-08", end="2026-11-08", settings=_settings()
+    )
+    values = stations_result(request, "hourly", "data", "vilniaus-ams").values()
+
+    values._download_day("vilniaus-ams", dt.date(2026, 11, 8), _settings())  # noqa: SLF001
+    values._download_day("vilniaus-ams", dt.date(2026, 11, 9), _settings())  # noqa: SLF001
+    synop_api._download_year(2025, _settings())  # noqa: SLF001
+    synop_api._download_year(2026, _settings())  # noqa: SLF001
+
+    assert [call["refetch_before"] for call in asked] == [
+        dt.datetime(2026, 11, 9, 6, tzinfo=UTC).timestamp(),
+        None,
+        dt.datetime(2026, 1, 8, tzinfo=UTC).timestamp(),
+        None,
+    ]
 
 
 # Hub'Eau: the URLs of the last 30 days are the same for as long as the answers are cached

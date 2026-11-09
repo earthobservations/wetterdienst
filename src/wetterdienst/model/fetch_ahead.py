@@ -54,8 +54,8 @@ class FilesAhead:
     ttl: CacheExpiry
     """The expiry the provider downloads them with: the cache they are fetched into is the one of this expiry."""
     ttls: Mapping[str, CacheExpiry] = field(default_factory=dict)
-    """The URLs the provider downloads with another expiry than ``ttl`` (a settled file is kept longer than one that
-    is still written to, GH-3929), each with its own."""
+    """The expiry of the URLs whose own is named here, a settled file being kept longer than one that is still written
+    to (GH-3929): a hook may name every URL, or only those that differ from ``ttl``, and the rest have ``ttl``."""
 
     def ttl_of(self, url: str) -> CacheExpiry:
         """Give the expiry the provider downloads ``url`` with."""
@@ -263,10 +263,12 @@ class FetchAhead:
         station_id, datasets = station
         # a hook that raises is guarded by `advance`: it stops the fetching, the station's own collection meets it
         files = self._files_of(station_id, datasets)
-        if files is None or files.ttl is CacheExpiry.NO_CACHE:
+        if files is None:
             return
-        urls = [url for url in dict.fromkeys(files.urls) if url not in self._seen]
-        self._seen.update(files.urls)
+        # a file that is not cached is not fetched ahead, whatever the expiry of the others
+        named = [url for url in dict.fromkeys(files.urls) if files.ttl_of(url) is not CacheExpiry.NO_CACHE]
+        urls = [url for url in named if url not in self._seen]
+        self._seen.update(named)
         if not fetch or not urls:
             return
         if self._workers is None:

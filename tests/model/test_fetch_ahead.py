@@ -856,10 +856,38 @@ def test_a_file_is_fetched_with_the_expiry_the_hook_names_it_with(
     list(results)
 
     assert asked
+    assert any(url.endswith("/0") for url in asked)
     assert {url: ttl for url, ttl in asked.items() if url.endswith("/0")} == {
         url: CacheExpiry.ONE_WEEK for url in asked if url.endswith("/0")
     }
     assert {ttl for url, ttl in asked.items() if url.endswith("/1")} == {CacheExpiry.FIVE_MINUTES}
+
+
+def test_a_file_that_is_not_cached_is_not_fetched_ahead_whatever_the_expiry_of_the_others(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The skip of a file that is not cached is the file's own, as its expiry is (GH-3929)."""
+    reader = _reader(monkeypatch, tmp_path, stations=3, urls_of=_files(upstream, 2), depth=1)
+    asked: set[str] = set()
+
+    def spy(**kwargs: object) -> object:
+        asked.add(str(kwargs["url"]))
+        return download_file(**kwargs)  # ty: ignore[invalid-argument-type]
+
+    def files_ahead(self: object, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:  # noqa: ARG001
+        urls = _files(upstream, 2)(station_id)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls={urls[0]: CacheExpiry.NO_CACHE})
+
+    monkeypatch.setattr(fetch_ahead, "download_file", spy)
+    monkeypatch.setattr(type(reader), "_files_ahead", files_ahead)
+
+    results = reader.query()
+    next(results)
+    upstream.settle()
+    list(results)
+
+    assert any(url.endswith("/1") for url in asked)
+    assert not any(url.endswith("/0") for url in asked)
 
 
 def test_a_station_with_many_files_is_read_no_slower_than_without_the_fetch_ahead(

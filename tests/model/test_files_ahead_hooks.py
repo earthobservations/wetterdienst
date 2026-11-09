@@ -343,7 +343,7 @@ def test_smhi_names_the_series_of_each_parameter_and_period_it_downloads(
     assert list(named.urls) == list(dict.fromkeys(asked))
     assert len(named.urls) == per_parameter
     # a series the collection asks for twice is asked for with one expiry, the one the hook names it with
-    assert dict(zip(asked, expiries, strict=True)) == {url: named.ttl_of(url) for url in named.urls}
+    assert [named.ttl_of(url) for url in asked] == expiries
     # the corrected archive is final by name and kept a week, the latest months are still written to (GH-3929)
     assert {url: named.ttl_of(url) for url in named.urls if "/corrected-archive/" in url} == {
         url: CacheExpiry.ONE_WEEK for url in named.urls if "/corrected-archive/" in url

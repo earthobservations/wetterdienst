@@ -48,15 +48,17 @@ def _now() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
 
 
-def _day_expiry(day: dt.date) -> CacheExpiry:
-    """Say how long the file of a UTC day is kept: five minutes until `_DAY_SETTLED_AFTER` after the day, then for good.
+def _day_settled_at(day: dt.date) -> dt.datetime:
+    """Give the moment the file of a UTC day is kept for good: `_DAY_SETTLED_AFTER` after the day ended.
 
     A day ends at 00:00 UTC of the next one.
     """
-    end = dt.datetime.combine(day + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC)
-    if _now() - end < _DAY_SETTLED_AFTER:
-        return CacheExpiry.FIVE_MINUTES
-    return CacheExpiry.INFINITE
+    return dt.datetime.combine(day + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC) + _DAY_SETTLED_AFTER
+
+
+def _day_expiry(day: dt.date) -> CacheExpiry:
+    """Say how long the file of a UTC day is kept: five minutes until its grace is over, then for good."""
+    return CacheExpiry.FIVE_MINUTES if _now() < _day_settled_at(day) else CacheExpiry.INFINITE
 
 
 def _days(start: dt.datetime, end: dt.datetime) -> Iterator[dt.date]:
@@ -100,6 +102,9 @@ class LhmtObservationValues(TimeseriesValues):
         # the one that ended not long ago, need a short cache. This keeps repeated historical queries off the network
         # and well under the api.meteo.lt request-rate limit.
         ttl = _day_expiry(day)
+        # a copy that went into the directory of what is kept for good before the grace was over (by a version without
+        # it, or inside what is the grace now) may lack what was filed late: it is fetched once more
+        refetch_before = _day_settled_at(day).timestamp() if ttl is CacheExpiry.INFINITE else None
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
@@ -107,6 +112,7 @@ class LhmtObservationValues(TimeseriesValues):
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
+            refetch_before=refetch_before,
         )
         # a day before the station's record is a 404 and simply contributes no rows; any other
         # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as

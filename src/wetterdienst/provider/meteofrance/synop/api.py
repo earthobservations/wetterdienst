@@ -60,15 +60,17 @@ def _now() -> datetime:
     return datetime.now(tz=ZoneInfo("UTC"))
 
 
-def _year_expiry(year: int) -> CacheExpiry:
-    """Say how long the file of a year is kept: five minutes until `_YEAR_SETTLED_AFTER` after the year, then for good.
+def _year_settled_at(year: int) -> datetime:
+    """Give the moment the file of a year is kept for good: `_YEAR_SETTLED_AFTER` after the year ended.
 
     A year ends at 00:00 UTC on 1 January of the next one.
     """
-    end = datetime(year + 1, 1, 1, tzinfo=ZoneInfo("UTC"))
-    if _now() - end < _YEAR_SETTLED_AFTER:
-        return CacheExpiry.FIVE_MINUTES
-    return CacheExpiry.INFINITE
+    return datetime(year + 1, 1, 1, tzinfo=ZoneInfo("UTC")) + _YEAR_SETTLED_AFTER
+
+
+def _year_expiry(year: int) -> CacheExpiry:
+    """Say how long the file of a year is kept: five minutes until its grace is over, then for good."""
+    return CacheExpiry.FIVE_MINUTES if _now() < _year_settled_at(year) else CacheExpiry.INFINITE
 
 
 # earliest year for which a yearly archive is published
@@ -234,6 +236,9 @@ def _download_year(year: int, settings: Settings) -> File:
     """
     url = _SYNOP_ENDPOINT.format(year=year)
     ttl = _year_expiry(year)
+    # a copy that went into the directory of what is kept for good before the grace was over (by a version without
+    # it, or inside what is the grace now) may lack what was filed late: it is fetched once more
+    refetch_before = _year_settled_at(year).timestamp() if ttl is CacheExpiry.INFINITE else None
 
     def fetch(*, once_more: bool = False) -> File:
         return download_file(
@@ -245,6 +250,7 @@ def _download_year(year: int, settings: Settings) -> File:
             use_certifi=settings.use_certifi,
             attempts=1 if once_more else 2,
             refetch_undated=once_more,
+            refetch_before=refetch_before,
         )
 
     held = cached_copy_is_held(
