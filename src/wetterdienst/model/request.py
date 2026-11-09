@@ -855,6 +855,10 @@ class TimeseriesRequest:
                 # the source's own words for its own field, where we have them; the canonical,
                 # provider-independent sentence lives in the glossary
                 "description": parameter.description,
+                # null is "not stated", never a reading: the provider's own declaration where the name states no
+                # statistic, and the position of the parameter or else of its dataset (GH-3134)
+                "aggregation": parameter.effective_aggregation,
+                "timestamp_position": parameter.effective_timestamp_position,
             }
             # only where it says something: absent is the same as `unit`, as most are (GH-3537)
             if parameter.unit != unit:

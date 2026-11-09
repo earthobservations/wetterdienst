@@ -61,7 +61,8 @@ One list for every surface. A change of any of these to something a frozen surfa
 Not breaking, and so possible in a minor release:
 
 - adding an optional argument, parameter, option, command, tool, endpoint, member of an answer, column, environment
-  variable, enum member, exception class below an existing one, provider, network, dataset or parameter;
+  variable, enum member (not of `aggregation` or `timestamp_position`, which are closed), exception class below an
+  existing one, provider, network, dataset or parameter;
 - a new `warnings` code in the `metadata` block and a new problem `type`: a client reads the ones it knows, and the
   `status` of a problem is there for the rest;
 - improving a message, a description, a hint, the text of `--help`, the descriptions and instructions of the MCP
@@ -240,10 +241,14 @@ is narrowed when a union loses one (`number | null` that becomes `number`), and 
 client already handles the case that no longer comes. An enum of a response that loses a member is no break either,
 where it is one for a request. A response enum that becomes a free string is a break, a type change for a typed client,
 while a new enum member stays allowed in a minor release, also when the document writes it as an alternative of its
-own.
+own. The two enums of a parameter's `aggregation` and `timestamp_position` are the exception: they are closed and
+complete at 1.0.0, and a member added to either in an answer after it is a break (`CLOSED_RESPONSE_ENUMS` in
+`tests/ui/openapi_diff.py` holds it).
 
-What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
-a problem kind, a warning `code`, a header, a looser bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions and examples of the
+What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member
+(not of `aggregation` or `timestamp_position`, which are closed), a problem kind, a warning `code`, a header, a looser
+bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions
+and examples of the
 document, and its `x-wetterdienst-selection` (the groups of exclusive parameters of an operation, informative: the
 refusal of a request is what is promised, see [The OpenAPI document](restapi.md#the-openapi-document)); and the defaults of the server's limits, which `GET /api/version` reports.
 
@@ -314,6 +319,11 @@ whoever reports it. Frozen: a name that was released keeps meaning what it meant
   wrong one is announced as such in a minor release (see [Which release a break takes](#which-release-a-break-takes)).
 - **Timestamps** mean what [Time reference](../data/time_reference.md) says for each provider and resolution; a change
   of the stamp is breaking, and so is a correction of a wrong one, in a minor release.
+- **`aggregation` and `timestamp_position`** of a parameter (`coverage`, the `metadata` block of every answer that has one, and `glossary`, which has the
+  `aggregation` only) say what the value is relative to its interval and where its timestamp sits in it, and `null`
+  means not stated. A
+  `null` that becomes a value is an addition, and a value that changes is a correction, Breaking in a minor release,
+  as a stamp is. The two enums are closed at 1.0.0.
 - **Quality flags** are one string, `quality_flags`, of comma-separated tokens: the source's flag plain, further kinds
   as `kind:code`, the text of a missing value as the last token `raw:<text>`. What a code means is the provider's.
 

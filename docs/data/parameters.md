@@ -105,6 +105,25 @@ request, of the `parameter` column, of the wide column names and of `Options(geo
 ones to change: a distance given for `wind_speed` applies to the rows that are still plain `wind_speed` and not to
 `wind_speed_mean`.
 
+### Aggregation and timestamp position in the answers
+
+`coverage` gives every parameter an `aggregation` and a `timestamp_position`, and the `metadata` block of every answer
+that has one gives them in `metadata.parameters` (with `with_metadata`); `glossary` gives
+the `aggregation` of the name only, since it knows no dataset, and `coverage` has the one of each provider. Both are
+always there, and **`null` means the source does not state it**: not a reading, not a mean. The `aggregation` is the
+name's value where the name states a statistic, else what the provider declares for the row, and says alone what the
+value is. The `timestamp_position` says where the timestamp sits in the row's interval, whatever the value is.
+
+```{aggregation-definitions}
+```
+
+```{timestamp-position-definitions}
+```
+
+The position of a parameter is its own where its dataset's parameters differ, else its dataset's; it is read from
+[Time reference](time_reference.md), which keeps the evidence. The two sets are closed from 1.0.0: a member is not added
+to either after that. The definitions above are the ones of the code, rendered at the docs build.
+
 ### Renamed for the rule
 
 #### Wind

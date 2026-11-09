@@ -357,6 +357,7 @@ def test_glossary(client: TestClient) -> None:
             "description": (
                 "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
             ),
+            "aggregation": "mean",
         },
     ]
 
@@ -8711,7 +8712,7 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     )
     assert components["CoverageDataset"]["properties"]["extent"] == {"$ref": "#/components/schemas/Extent"}
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
-    required = {"name", "name_original", "unit_type", "unit", "description"}
+    required = {"name", "name_original", "unit_type", "unit", "description", "aggregation", "timestamp_position"}
     # `unit_source` is the provider's unit where that is not `unit`, absent where it is the same (GH-3537)
     assert shape("CoverageParameter") == (required | {"lead_times", "unit_source"}, required)
     parameter = components["CoverageParameter"]["properties"]

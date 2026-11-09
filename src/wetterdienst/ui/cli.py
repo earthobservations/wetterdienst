@@ -557,7 +557,8 @@ with_metadata_opt = _bool_opt(
     "--with-metadata",
     default=False,
     help=(
-        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
         "which is always there. Default: false"
     ),
 )
@@ -566,7 +567,8 @@ with_metadata_target_opt = _bool_opt(
     "--with-metadata",
     default=False,
     help=(
-        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
         "which is always there. With a file --target it writes the block beside the file as "
         "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
         "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
@@ -1589,7 +1591,9 @@ def coverage(
     back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `percent` for a
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
-    not this answer.
+    not this answer. `aggregation` is what the value is relative to its interval (`mean`, `max`, `sum`, ...,
+    `instant` for a single reading) and `timestamp_position` where its timestamp sits in the row's interval
+    (`instant`, `start`, `end`, `middle`); `null` in either: the source does not state it.
     """
     from wetterdienst import Settings
     from wetterdienst.api import Wetterdienst
@@ -1749,7 +1753,8 @@ def glossary(
     """Look up what a parameter measures and which unit it is returned in.
 
     The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
-    override.
+    override. `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...),
+    null for a plain name; `coverage` has the one of each provider.
     """
     from wetterdienst import Settings
 

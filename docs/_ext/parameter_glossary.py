@@ -5,6 +5,10 @@
 Provides a ``parameter-glossary`` directive so ``docs/data/parameters.md`` builds the glossary from
 ``wetterdienst.metadata.parameter_table`` at build time. Every canonical name becomes a ``term``
 target, which provider metadata tables link to with the MyST term role, {term}`name`.
+
+The directives ``aggregation-definitions`` and ``timestamp-position-definitions`` render the one-line definition of
+every member of the two closed sets of the answers (``AGGREGATION_DEFINITIONS``, ``TIMESTAMP_POSITION_DEFINITIONS``) as
+the tables of ``docs/data/parameters.md``, so that the page says what the code says. Nothing generated is committed.
 """
 
 from __future__ import annotations
@@ -13,7 +17,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sphinx.util.docutils import SphinxDirective
 
-from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
+from wetterdienst.metadata.parameter_table import AGGREGATION_DEFINITIONS, PARAMETER_TABLE
+from wetterdienst.model.metadata import TIMESTAMP_POSITION_DEFINITIONS
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import (
     _STATION_DISTANCE_HETEROGENEOUS,
@@ -23,6 +28,8 @@ from wetterdienst.options import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from docutils import nodes
     from sphinx.application import Sphinx
 
@@ -64,6 +71,10 @@ class ParameterGlossaryDirective(SphinxDirective):
                 continue
             lines.append(f"  Unit type `{parameter.unit_type}`, returned in `{target.name}` ({target.symbol}).")
             lines.append("")
+            if parameter.aggregation:
+                # the canonical value, which `glossary` gives; a provider's `coverage` has its own for a plain name
+                lines.append(f"  Aggregation `{parameter.aggregation}`.")
+                lines.append("")
             if not parameter.interpolation:
                 lines.append("  Not interpolatable.")
             else:
@@ -91,7 +102,38 @@ class ParameterGlossaryDirective(SphinxDirective):
         return self.parse_text_to_nodes("\n".join(lines))
 
 
+def definitions_table(header: str, definitions: Mapping[str, str]) -> str:
+    """Make a table of a member and its definition, in the order of the set."""
+    lines = [f"| `{header}` | meaning |", "| --- | --- |"]
+    lines += [f"| `{member}` | {definition} |" for member, definition in definitions.items()]
+    return "\n".join(lines)
+
+
+class AggregationDefinitionsDirective(SphinxDirective):
+    """Render the members of `aggregation` with their definitions."""
+
+    has_content = False
+    option_spec: ClassVar[dict] = {}
+
+    def run(self) -> list[nodes.Node]:
+        """Build the table from `AGGREGATION_DEFINITIONS`."""
+        return self.parse_text_to_nodes(definitions_table("aggregation", AGGREGATION_DEFINITIONS))
+
+
+class TimestampPositionDefinitionsDirective(SphinxDirective):
+    """Render the members of `timestamp_position` with their definitions."""
+
+    has_content = False
+    option_spec: ClassVar[dict] = {}
+
+    def run(self) -> list[nodes.Node]:
+        """Build the table from `TIMESTAMP_POSITION_DEFINITIONS`."""
+        return self.parse_text_to_nodes(definitions_table("timestamp_position", TIMESTAMP_POSITION_DEFINITIONS))
+
+
 def setup(app: Sphinx) -> dict[str, Any]:
     """Register the directive."""
     app.add_directive("parameter-glossary", ParameterGlossaryDirective)
+    app.add_directive("aggregation-definitions", AggregationDefinitionsDirective)
+    app.add_directive("timestamp-position-definitions", TimestampPositionDefinitionsDirective)
     return {"version": "1.0", "parallel_read_safe": True, "parallel_write_safe": True}

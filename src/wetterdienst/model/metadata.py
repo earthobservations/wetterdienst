@@ -77,12 +77,32 @@ Continent = Literal["africa", "antarctica", "asia", "europe", "north_america", "
 #: territories) or `regional` (everything between: one or several countries or continents); see `Extent`
 ExtentScope = Literal["global", "national", "regional"]
 
-#: where a timestamp sits in the interval its value covers: `instant` (a reading at the stamp), `start` or `end` (an
-#: aggregate over the interval that begins or ends at it; for a date stamp, the interval begins or ends on that date)
-#: or `middle` (centred on it). Not stated is None, never one of these, and a dataset whose parameters differ declares
-#: None and a value on each parameter (`ParameterModel.timestamp_position`). The page `docs/data/time_reference.md`
-#: keeps the evidence and `tests/test_docs.py` holds the two together (GH-3134).
+#: where a timestamp sits in the interval of its row: `instant` (when the value was observed), `start`, `end` or
+#: `middle` (the start, end or middle of the interval; for a date stamp, the interval begins or ends on that date).
+#: What the value is, a reading or an aggregate, is its `aggregation`. Not stated is None, never one of these, and a
+#: dataset whose parameters differ declares None and a value on each parameter (`ParameterModel.timestamp_position`).
+#: The page `docs/data/time_reference.md` keeps the evidence and `tests/test_docs.py` holds the two together (GH-3134).
 TimestampPosition = Literal["instant", "start", "end", "middle"]
+
+#: one line per member, written once: the docs build renders them into the table of `docs/data/parameters.md`
+#: (`docs/_ext/parameter_glossary.py`), and `tests/ui/test_aggregation_surfaces.py` holds the keys to
+#: `TimestampPosition`. The two read the dict; the descriptions of the fields in the answers are short and say the same
+TIMESTAMP_POSITION_DEFINITIONS: dict[TimestampPosition, str] = {
+    "instant": "The timestamp is when the value was observed.",
+    "start": (
+        "The timestamp is the start of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states. A stamp the library builds itself (the first day "
+        "of a month, a year or a reference year) is `start`."
+    ),
+    "end": (
+        "The timestamp is the end of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
+    ),
+    "middle": (
+        "The timestamp is the middle of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
+    ),
+}
 
 #: the box of the Earth, `[west, south, east, north]`, which the bbox of a global network is
 WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
@@ -172,6 +192,21 @@ class CoverageParameter(TypedDict):
         ]
     ]
     description: str | None
+    aggregation: Annotated[
+        Aggregation | None,
+        Field(
+            description="What the value is relative to its interval: the name's, else the provider's declaration "
+            "where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not "
+            "stated, which is not a reading.",
+        ),
+    ]
+    timestamp_position: Annotated[
+        TimestampPosition | None,
+        Field(
+            description="Where the timestamp sits in the row's interval: `instant` (when the value was observed), "
+            "`start`, `end` or `middle` of it. Null: not stated.",
+        ),
+    ]
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
 
@@ -399,7 +434,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     name_original: str
     unit: str
     description: str | None = None
-    #: where this parameter's stamp sits in the interval its value covers, for a dataset whose parameters differ; None
+    #: where this parameter's stamp sits in the row's interval, for a dataset whose parameters differ; None
     #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
     timestamp_position: TimestampPosition | None = None
     #: what this value is relative to its interval, declared only where the canonical name states none (a plain name:
@@ -584,7 +619,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
-    #: where the stamp of every parameter sits in the interval its value covers, null where that is not stated or the
+    #: where the stamp of every parameter sits in the row's interval, null where that is not stated or the
     #: parameters differ (they then declare it themselves); declared here once, held to `docs/data/time_reference.md`
     timestamp_position: TimestampPosition | None = None
     #: where the stations of the dataset are where that is less than the network's (`dwd/dmo` is global, its `icon_eu`

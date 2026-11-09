@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `coverage` and `metadata.parameters` of every answer that has a `metadata` block (with
+  `with_metadata`) give every parameter an `aggregation` (`mean`, `max`, `sum`, `instant` for a
+  single reading, ...) and a `timestamp_position` (`instant`, `start`, `end`, `middle`); `glossary`
+  gives the `aggregation` of the name. `null` is not stated. Both sets are closed from 1.0.0
+  (GH-3134)
+
 ### Changed
 
 - Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
