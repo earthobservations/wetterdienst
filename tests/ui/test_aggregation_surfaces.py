@@ -296,7 +296,13 @@ def test_the_tools_and_instructions_say_what_the_members_are(client: TestClient)
     from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
 
     flat = " ".join(INSTRUCTIONS.split())
-    for phrase in ("`aggregation`", "`timestamp_position`", "`instant` is a single reading", "`null`", "not a reading"):
+    for phrase in (
+        "`aggregation`",
+        "`timestamp_position`",
+        "its `instant` is a single reading",
+        "`null`",
+        "not a reading",
+    ):
         assert phrase in flat, phrase
     paths = client.get("/openapi.json").json()["paths"]
     for path, members in [

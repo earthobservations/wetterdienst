@@ -33,7 +33,7 @@ export type Aggregation
     | 'code'
     | 'at_max'
 
-/** Where a timestamp sits in the interval its value covers, as the backend's `TimestampPosition`: a closed set */
+/** Where a timestamp sits in the row's interval, as the backend's `TimestampPosition`: a closed set */
 export type TimestampPosition = 'instant' | 'start' | 'end' | 'middle'
 
 // ============================================================================
@@ -57,7 +57,7 @@ export interface CoverageParameter {
    * read it, and it is optional for a server that does not send it yet
    */
   aggregation?: Aggregation | null
-  /** Where the timestamp sits in the interval the value covers; null: not stated. Optional as `aggregation` */
+  /** Where the timestamp sits in the row's interval; null: not stated. Optional as `aggregation` */
   timestamp_position?: TimestampPosition | null
   /**
    * DWD DMO only: the lead times whose run carries the parameter. Values refuse a parameter asked

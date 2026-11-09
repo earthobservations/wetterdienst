@@ -90,17 +90,17 @@ TimestampPosition = Literal["instant", "start", "end", "middle"]
 TIMESTAMP_POSITION_DEFINITIONS: dict[TimestampPosition, str] = {
     "instant": "The timestamp is when the value was observed.",
     "start": (
-        "The timestamp is the start of the row's interval. An aggregate covers that interval, a single reading was "
-        "taken at that point. A stamp the library builds itself (the first day of a month, a year or a reference year) "
-        "is `start`."
+        "The timestamp is the start of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states. A stamp the library builds itself (the first day "
+        "of a month, a year or a reference year) is `start`."
     ),
     "end": (
-        "The timestamp is the end of the row's interval. An aggregate covers that interval, a single reading was "
-        "taken at that point."
+        "The timestamp is the end of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
     ),
     "middle": (
-        "The timestamp is the middle of the row's interval. An aggregate covers that interval, a single reading was "
-        "taken at that point."
+        "The timestamp is the middle of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
     ),
 }
 
@@ -434,7 +434,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     name_original: str
     unit: str
     description: str | None = None
-    #: where this parameter's stamp sits in the interval its value covers, for a dataset whose parameters differ; None
+    #: where this parameter's stamp sits in the row's interval, for a dataset whose parameters differ; None
     #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
     timestamp_position: TimestampPosition | None = None
     #: what this value is relative to its interval, declared only where the canonical name states none (a plain name:
@@ -619,7 +619,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
-    #: where the stamp of every parameter sits in the interval its value covers, null where that is not stated or the
+    #: where the stamp of every parameter sits in the row's interval, null where that is not stated or the
     #: parameters differ (they then declare it themselves); declared here once, held to `docs/data/time_reference.md`
     timestamp_position: TimestampPosition | None = None
     #: where the stations of the dataset are where that is less than the network's (`dwd/dmo` is global, its `icon_eu`

@@ -99,9 +99,9 @@ Aggregation = Literal[
     "at_max",
 ]
 
-# one line per member, in the words of the naming page, written once: the docs build renders them into the table of
-# ``docs/data/parameters.md`` (``docs/_ext/parameter_glossary.py``), and ``tests/metadata/test_aggregation.py`` holds
-# the keys to ``Aggregation``. The descriptions of the fields in the answers are short and say the same
+# one line per member, written once: the docs build renders them into the table of ``docs/data/parameters.md``
+# (``docs/_ext/parameter_glossary.py``), and ``tests/metadata/test_aggregation.py`` holds the keys to ``Aggregation``.
+# The descriptions of the fields in the answers are short and say the same
 AGGREGATION_DEFINITIONS: dict[Aggregation, str] = {
     "instant": (
         "A single reading, not a statistic over a window (a mean over at most 5 minutes counts as a reading, GH-2660). "

@@ -776,3 +776,51 @@ def test_a_closed_response_enum_may_lose_a_member() -> None:
     _at(current, *_THINGS)["properties"]["aggregation"]["anyOf"][0]["enum"].remove("b")
 
     assert breaking_changes(baseline, current) == []
+
+
+def _grown(baseline: dict[str, Any], *path: str) -> dict[str, Any]:
+    """Copy a document and add a member `c` to the enum at `path`."""
+    current = copy.deepcopy(baseline)
+    _at(current, *path)["enum"].append("c")
+    return current
+
+
+def test_a_new_member_of_a_request_member_called_aggregation_is_an_addition() -> None:
+    """The closure is of the answers: a request body member of that name may take more, as every enum of a request."""
+    baseline = _document()
+    _at(baseline, *_FILTER)["properties"]["aggregation"] = {"type": "string", "enum": ["a", "b"]}
+
+    assert breaking_changes(baseline, _grown(baseline, *_FILTER, "properties", "aggregation")) == []
+
+
+def test_a_response_aggregation_that_was_a_free_string_and_is_an_enum_now_is_no_break() -> None:
+    """A free string that becomes an enum is narrowed, not grown: no member was added to a closed set."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"]["aggregation"] = {"type": "string"}
+    current = copy.deepcopy(baseline)
+    _at(current, *_THINGS)["properties"]["aggregation"] = {"type": "string", "enum": ["a", "b"]}
+
+    assert breaking_changes(baseline, current) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "node"),
+    [
+        pytest.param(
+            "aggregation_method", {"type": "string", "enum": ["a", "b"]}, id="a-name-that-only-starts-with-it"
+        ),
+        pytest.param("unaggregation", {"type": "string", "enum": ["a", "b"]}, id="a-name-that-only-ends-with-it"),
+        pytest.param(
+            "aggregation",
+            {"type": "object", "properties": {"mode": {"type": "string", "enum": ["a", "b"]}}},
+            id="an-enum-under-an-object-called-so",
+        ),
+    ],
+)
+def test_a_new_member_of_another_enum_that_has_the_name_in_it_passes(name: str, node: dict[str, Any]) -> None:
+    """Only the member that is called `aggregation` or `timestamp_position` itself is closed, not one near it."""
+    baseline = _document()
+    _at(baseline, *_THINGS)["properties"][name] = node
+    path = ("properties", name) if "enum" in node else ("properties", name, "properties", "mode")
+
+    assert breaking_changes(baseline, _grown(baseline, *_THINGS, *path)) == []

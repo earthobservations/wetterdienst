@@ -10,10 +10,11 @@ does with it.
 How to read the tables:
 
 - **source time zone**: the zone in which the provider states its stamps.
-- **reference time**: where the stamp sits in the period a value covers, which `coverage` and the `metadata` block of
-  `values` serve as `timestamp_position` (`instant`, `start`, `end`, `middle`; `unverified` is `null`, and a `mixed`
-  row is given per parameter, where it is known). `instant` is a reading at the stamp, `start`
-  and `end` an aggregate over the period that begins or ends at it, `middle` one centred on it, and `mixed` that the
+- **reference time**: where the stamp sits in the row's interval, which `coverage` and the `metadata` block of every
+  answer that has one serve as `timestamp_position` (`instant`, `start`, `end`, `middle`; `unverified` is `null`, and a
+  `mixed` row is given per parameter, where it is known). `instant`: the timestamp is when the value was observed;
+  `start`, `end` and `middle`: the timestamp is the start, end or middle of the row's interval. What the value is, is
+  its `aggregation`, which a reading or an aggregate says. `mixed` means that the
   datasets, parameters or periods of the row differ (the qualifier says how; a row that gives its answer for some of
   the parameters only and leaves the others unqualified or unverified is `mixed`). A daily stamp is mostly a date at
   00:00 UTC, and for it `start` and `end` say that the day's window begins or ends on that date, and the qualifier gives the window. The day is the source's own, in its local time or MOZ, not the UTC date: a window of 0-24 MOZ (23 UTC of the day before to 23 UTC) is `start`, as a CET day is.

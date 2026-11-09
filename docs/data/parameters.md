@@ -107,8 +107,8 @@ ones to change: a distance given for `wind_speed` applies to the rows that are s
 
 ### Aggregation and timestamp position in the answers
 
-`coverage` gives every parameter an `aggregation` and a `timestamp_position`, and the `metadata` block of `values`,
-`stations`, `interpolate` and `summarize` gives them in `metadata.parameters` (with `with_metadata`); `glossary` gives
+`coverage` gives every parameter an `aggregation` and a `timestamp_position`, and the `metadata` block of every answer
+that has one gives them in `metadata.parameters` (with `with_metadata`); `glossary` gives
 the `aggregation` of the name only, since it knows no dataset, and `coverage` has the one of each provider. Both are
 always there, and **`null` means the source does not state it**: not a reading, not a mean. The `aggregation` is the
 name's value where the name states a statistic, else what the provider declares for the row, and says alone what the
