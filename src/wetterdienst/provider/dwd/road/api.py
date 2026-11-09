@@ -67,6 +67,7 @@ _DwdRoadMetadataSpec = {
                             "name_original": "relativeHumidity",
                             "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             # not `precipitation_form`, which every other provider fills with a
@@ -111,18 +112,21 @@ _DwdRoadMetadataSpec = {
                             "name_original": "airTemperature",
                             "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point",
                             "name_original": "dewpointTemperature",
                             "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_surface",
                             "name_original": "roadSurfaceTemperature",
                             "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",

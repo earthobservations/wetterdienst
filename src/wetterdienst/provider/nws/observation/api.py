@@ -126,11 +126,13 @@ _NwsObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "temperature",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dewpoint",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_direction_mean_last_2min",

@@ -138,17 +138,20 @@ _DwdDerivedMetadataSpec = {
                             "name": "frozen_ground_layer_thickness",
                             "name_original": "zfumi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "thawing_thickness_plant_cover",  # Auftauschicht am Mittag unter Bestand (BEKLIMA)
                             "name_original": "ztkmi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             # Auftauschicht am Mittag unter unbewachsenem Boden
                             "name": "thawing_thickness_bare_ground",
                             "name_original": "ztumi",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "soil_moisture_grass_loamy_silt_00cm_10cm",  # _silt_loam

@@ -92,6 +92,13 @@ the source does not state. `tests/metadata/test_mean_names.py` holds the rule to
 field name. The rule was applied to temperature first (GH-2651, GH-2657) and to the other quantities with GH-3151;
 the renames of that change are listed below.
 
+A plain name says nothing about the statistic, so a provider may state it for a row where its source does (GH-3134).
+`instant` is a single reading, not a statistic over a window: a mean over at most 5 minutes counts as one, as the
+1-minute means of FMI, KNMI and DWD's urban stations do (GH-2660). The description of the row says when the reading
+was taken (at 06:00 UTC, at midday), and the `timestamp_position` of the dataset, where it is `instant`, that it is at
+the timestamp. A row whose source states nothing, or only where the timestamp sits (a forecast step, a report time),
+declares none (null: not stated). A name that states a statistic (`_mean`, `_max`, `count_`) cannot be overridden by a provider.
+
 A name that was renamed is refused with the new name in the message (`'wind_speed' was renamed to
 'wind_speed_mean' in this dataset`), and the plain name stays where the source states no mean. The old names of a
 request, of the `parameter` column, of the wide column names and of `Options(geo_station_distance=...)` are the

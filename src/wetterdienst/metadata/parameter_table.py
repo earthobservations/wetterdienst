@@ -103,8 +103,9 @@ Aggregation = Literal[
 # the MCP instructions) read them from here, so that the definition is written once
 AGGREGATION_DEFINITIONS: dict[Aggregation, str] = {
     "instant": (
-        "A reading at the timestamp, or a mean over a window of at most 5 minutes that the naming rules treat as a "
-        "reading (GH-2660)."
+        "A single reading, not a statistic over a window (a mean over at most 5 minutes counts as a reading, GH-2660). "
+        "The description of the row says when it was taken, and the timestamp position, where it is `instant`, that it "
+        "is at the timestamp."
     ),
     "mean": "The mean over the interval or over the window the name states.",
     "max": "The largest value over the interval or over the window the name states.",
