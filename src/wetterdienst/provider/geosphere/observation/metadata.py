@@ -49,6 +49,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rr",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
@@ -179,6 +180,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rr",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {

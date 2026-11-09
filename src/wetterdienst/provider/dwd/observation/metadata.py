@@ -611,6 +611,7 @@ _DwdObservationMetadataSpec = {
                     "name": "dew_point",
                     "name_original": "dew_point",
                     "grouped": True,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -633,6 +634,7 @@ _DwdObservationMetadataSpec = {
                     "name": "moisture",
                     "name_original": "moisture",
                     "grouped": True,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -685,6 +687,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "r1",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
@@ -703,6 +706,7 @@ _DwdObservationMetadataSpec = {
                     "name": "pressure",
                     "name_original": "pressure",
                     "grouped": True,
+                    "timestamp_position": "instant",
                     "parameters": [
                         {
                             "name": "quality",
@@ -744,16 +748,19 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "radiation_global",
                             "name_original": "fg_lberg",
+                            "timestamp_position": "end",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "sunshine_duration",
                             "name_original": "sd_lberg",
+                            "timestamp_position": "end",
                             "unit": "minute",
                         },
                         {
                             "name": "sun_zenith_angle",
                             "name_original": "zenit",
+                            "timestamp_position": "end",
                             "unit": "degree",
                             "aggregation": "instant",
                         },
@@ -907,6 +914,7 @@ _DwdObservationMetadataSpec = {
                     "name": "wind_extreme",
                     "name_original": "extreme_wind",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -924,6 +932,7 @@ _DwdObservationMetadataSpec = {
                     "name": "wind_synoptic",
                     "name_original": "wind_synop",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
