@@ -135,7 +135,7 @@ knows nothing about providers or stations, so `coverage` remains the tool for "w
 does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
 where its stations are), the licence of its data and the credit line to cite \
 (`attribution`, not `copyright`), and its networks with the `extent` of each -- and is the tool for \
-"may I reuse this data" and "which providers' networks reach a place". `datasets=false` omits each \
+"may I reuse this data" and "which providers' networks reach a place". `datasets=true` adds each \
 network's resolutions and datasets.
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
