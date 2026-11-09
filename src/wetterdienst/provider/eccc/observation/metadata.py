@@ -156,6 +156,7 @@ _EcccObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "snow_on_ground",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth_new",
@@ -244,6 +245,7 @@ _EcccObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "snow_on_ground_last_day",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount",

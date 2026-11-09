@@ -70,11 +70,13 @@ _EAHydrologyMetadataSpec = {
                             "name": "discharge",
                             "name_original": "flow-i-900",
                             "unit": "cubic_meter_per_second",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "stage",
                             "name_original": "level-i-900",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "groundwater_level",

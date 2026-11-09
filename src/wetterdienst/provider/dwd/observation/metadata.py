@@ -179,12 +179,16 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "tt_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tm5_10",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {"name": "humidity_relative", "name_original": "rf_10", "unit": "percent"},
                         {
@@ -300,18 +304,26 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "tt_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
-                        {"name": "humidity_relative", "name_original": "rf_st_10", "unit": "percent"},
+                        {
+                            "name": "humidity_relative",
+                            "name_original": "rf_st_10",
+                            "unit": "percent",
+                            "aggregation": "instant",
+                        },
                         {
                             # "Strahlungstemperatur" -- radiant temperature at 2 m
                             "name": "temperature_radiant_2m",
                             "name_original": "strahl_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "tt5_st_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -390,11 +402,13 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp_st_10",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p0_st_10",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -412,21 +426,25 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_soil_0_1m",
                             "name_original": "te_st_01m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "te_st_02m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_5m",
                             "name_original": "te_st_05m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_1m",
                             "name_original": "te_st_10m_10",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -737,6 +755,7 @@ _DwdObservationMetadataSpec = {
                             "name": "sun_zenith_angle",
                             "name_original": "zenit",
                             "unit": "degree",
+                            "aggregation": "instant",
                         },
                         {
                             # the column holds a whole-hour timestamp; what is returned is its
@@ -957,6 +976,7 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "luftdruck_stationshoehe",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -992,11 +1012,13 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "lufttemperatur",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "rel_feuchte",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -1014,26 +1036,31 @@ _DwdObservationMetadataSpec = {
                             "name": "temperature_soil_0_05m",
                             "name_original": "erdbt_005",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_1m",
                             "name_original": "erdbt_010",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_2m",
                             "name_original": "erdbt_020",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_0_5m",
                             "name_original": "erdbt_050",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_soil_1m",
                             "name_original": "erdbt_100",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -1284,6 +1311,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rsk",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1299,6 +1327,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "shk_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -1352,6 +1381,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rs",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -1362,6 +1392,7 @@ _DwdObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "sh_tag",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {

@@ -65,7 +65,9 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "humidity_relative",
                             "name_original": "relativeHumidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             # not `precipitation_form`, which every other provider fills with a
@@ -76,16 +78,19 @@ _DwdRoadMetadataSpec = {
                             # name the two would be one quantity with two incomparable encodings
                             "name": "precipitation_type_flags",
                             "name_original": "precipitationType",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "precipitation_amount",
                             "name_original": "totalPrecipitationOrTotalWaterEquivalent",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_intensity",
                             "name_original": "intensityOfPrecipitation",
+                            "timestamp_position": "instant",
                             # BUFR `0 13 055` gives this as `kg m-2 s-1`, a mass flux per area which
                             # for water is millimetres per second, and nothing in this parser
                             # converts. Its own width settles it: 8 bits at a scale of 4, in every
@@ -99,26 +104,34 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "road_surface_condition",
                             "name_original": "roadSurfaceCondition",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                         {
                             "name": "temperature_air",
                             "name_original": "airTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point",
                             "name_original": "dewpointTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_surface",
                             "name_original": "roadSurfaceTemperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "horizontalVisibility",
+                            "timestamp_position": "instant",
                             # BUFR 0 20 001 horizontalVisibility is metres, and nothing in this
                             # parser converts; the docs page already said m
                             "unit": "meter",
@@ -126,6 +139,7 @@ _DwdRoadMetadataSpec = {
                         {
                             "name": "water_film_thickness",
                             "name_original": "waterFilmThickness",
+                            "timestamp_position": "instant",
                             # metres whichever descriptor carries it, and nothing in this parser
                             # converts. These files come in two layouts: the road one names the film
                             # with DWD's own local `0 13 241`, metres to a scale of 3, and the WMO
