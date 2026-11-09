@@ -167,7 +167,6 @@ _DwdMosmixMetadataSpec = {
                         {
                             "name": "radiation_global",
                             "name_original": "rad1h",
-                            "timestamp_position": "end",
                             "unit": "kilojoule_per_square_meter",
                         },
                         {
@@ -776,7 +775,6 @@ _DwdMosmixMetadataSpec = {
                         {
                             "name": "radiation_global",
                             "name_original": "rad1h",
-                            "timestamp_position": "end",
                             "unit": "kilojoule_per_square_meter",
                         },
                         {
@@ -823,7 +821,6 @@ _DwdMosmixMetadataSpec = {
                         {
                             "name": "temperature_air_mean_2m_last_24h",
                             "name_original": "tm",
-                            "timestamp_position": "end",
                             "unit": "degree_kelvin",
                         },
                         {

@@ -276,6 +276,7 @@ _DwdPoiMetadataSpec = {
                         {
                             "name": "wind_speed_rolling_mean_max",
                             "name_original": "maximum_wind_speed_as_10_minutes_mean_during_last_hour",
+                            "timestamp_position": "end",
                             **_WIND_SPEED,
                         },
                         {
