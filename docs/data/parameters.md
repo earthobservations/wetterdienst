@@ -203,7 +203,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | `cloud_cover_total_sunrise_to_sunset` | `cloud_cover_total_mean_sunrise_to_sunset` | 1 |
 | `cloud_cover_total_sunrise_to_sunset_manual` | `cloud_cover_total_mean_sunrise_to_sunset_manual` | 1 |
 | `humidity_relative` | `humidity_relative_mean` | 26 |
-| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 14 |
+| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 15 |
 | `pressure_air_site` | `pressure_air_site_mean` | 11 |
 | `pressure_vapor` | `pressure_vapor_mean` | 11 |
 | `visibility` | `visibility_mean` | 2 |
@@ -254,6 +254,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | knmi/observation | 10_minutes/data | `vv` | `visibility` | `visibility_mean` |
 | knmi/observation | daily/data | `NG` | `cloud_cover_total` | `cloud_cover_total_mean` |
 | knmi/observation | daily/data | `UG` | `humidity_relative` | `humidity_relative_mean` |
+| knmi/observation | daily/data | `PG` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
 | meteofrance/observation | daily/others | `UM` | `humidity_relative` | `humidity_relative_mean` |
 | meteofrance/observation | daily/others | `PMERM` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
 | meteofrance/observation | daily/others | `TSVM` | `pressure_vapor` | `pressure_vapor_mean` |

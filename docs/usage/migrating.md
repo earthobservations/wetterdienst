@@ -220,6 +220,7 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | `dwd/poi` (`direct_solar_radiation_last_hour`: above the global radiation at French stations, 603 against 297 W/m2 at 07280 on 2026-10-22, because it is the irradiance on a plane perpendicular to the sun's rays, not the component on a horizontal surface); the values and the unit are unchanged | 0.169.0, GH-3263 |
 | `radiation_global_intensity`, `radiation_sky_short_wave_diffuse_intensity`, `radiation_sky_short_wave_direct_perpendicular_intensity` (and `radiation_sky_short_wave_direct_intensity` of 0.139.0) | `radiation_global_intensity_mean`, `radiation_sky_short_wave_diffuse_intensity_mean`, `radiation_sky_short_wave_direct_perpendicular_intensity_mean` | `dwd/poi` (`global_radiation_last_hour`, `diffuse_solar_radiation_last_hour`, `direct_solar_radiation_last_hour`: the energy of the hour divided by 3600 s, the hour's mean); the values and the unit are unchanged | unreleased, GH-3134 |
 | `visibility` | `visibility_mean_last_10min` | `nws/observation` hourly (the ASOS's "running 10-minute harmonic mean" of the 1-minute visibilities); `visibility` is the API's own field name, so a request for it still selects the row and the values come back under the new name; the values and the unit are unchanged | unreleased, GH-3134 |
+| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | `knmi/observation` daily (`PG`, KNMI: "Daily mean sea level pressure (in 0.1 hPa) calculated from 24 hourly values"); a request for the old name is refused with the new one named; the values and the unit are unchanged | unreleased, GH-3925 |
 | `radiation_sky_short_wave_direct` | `radiation_sky_short_wave_direct_perpendicular` | `metoffice/observation` hourly `radiation` (`direct_irad`: MIDAS table RO defines it as measured by a pyrheliometer "at normal incidence", so it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal surface); the values and units are unchanged | 0.173.0, GH-3316 |
 | `cloud_cover_below_1000ft` | `cloud_cover_below_2km` | `dwd/mosmix`, `dwd/dmo` (`nl`) | 0.140.0, GH-1977 |
 | `count_weather_type_sleet` | `count_weather_type_graupel` | `dwd/observation` daily, monthly, annual `weather_phenomena` and `weather_phenomena_more` | 0.145.0, GH-2696 |
@@ -422,10 +423,10 @@ arguments are the query parameters. In addition:
 
 ## Verified
 
-The parameter tables above were checked against the code of both releases. 408 parameters that a dataset of 0.139.0
+The parameter tables above were checked against the code of both releases. 409 parameters that a dataset of 0.139.0
 has are not in the current release under the same name; each is requested from it, and a test
 (`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below; the numbers of this paragraph are
-computed from the same list. 375 of the refusals name a replacement, and that replacement exists in the same network, resolution
+computed from the same list. 376 of the refusals name a replacement, and that replacement exists in the same network, resolution
 and dataset. The other 33 are:
 
 - the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of

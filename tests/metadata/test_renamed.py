@@ -1086,3 +1086,18 @@ def test_a_plain_wind_name_is_refused_in_a_dataset_whose_source_states_the_mean(
     """The plain name stays for the datasets that state no statistic and names the mean one in the others (GH-3151)."""
     assert parse_parameters(value, metadata, on_unknown="warn") == []
     assert f"It was renamed to '{new}' in this dataset." in caplog.text
+
+
+def test_the_knmi_daily_sea_level_pressure_is_named_for_the_mean_it_states(caplog: pytest.LogCaptureFixture) -> None:
+    """KNMI's daily `PG` is "Daily mean sea level pressure (in 0.1 hPa) calculated from 24 hourly values" (GH-3925).
+
+    The plain name stays for the hourly `P`, a reading, and the 10-minute `pp`, a mean over one minute; in the daily
+    dataset the old name is refused with the mean one named.
+    """
+    knmi = {p.name_original: p.name for p in KnmiObservationMetadata["daily"]["data"]}
+    assert knmi["PG"] == "pressure_air_sea_level_mean"
+    assert PARAMETERS["pressure_air_sea_level_mean"].aggregation == "mean"
+    assert parse_parameters("daily/data/pressure_air_sea_level", KnmiObservationMetadata, on_unknown="warn") == []
+    assert "It was renamed to 'pressure_air_sea_level_mean' in this dataset." in caplog.text
+    hourly = {p.name_original: p.name for p in KnmiObservationMetadata["hourly"]["data"]}
+    assert hourly["P"] == "pressure_air_sea_level"
