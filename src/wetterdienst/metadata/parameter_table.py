@@ -104,8 +104,8 @@ Aggregation = Literal[
 AGGREGATION_DEFINITIONS: dict[Aggregation, str] = {
     "instant": (
         "A single reading, not a statistic over a window (a mean over at most 5 minutes counts as a reading, GH-2660). "
-        "When it was taken is said by the timestamp position of its dataset and by the description of the row: at the "
-        "timestamp, or at the moment the source states."
+        "The description of the row says when it was taken, and the timestamp position, where it is `instant`, that it "
+        "is at the timestamp."
     ),
     "mean": "The mean over the interval or over the window the name states.",
     "max": "The largest value over the interval or over the window the name states.",

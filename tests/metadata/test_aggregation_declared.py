@@ -150,19 +150,14 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         section="dwd",
         network="observation",
     ),
-    # the road weather stations: "no time period or statistic attached" (BUFR) and the page's instant row
+    # the road weather stations: the BUFR descriptors of these four rows carry "no time period or statistic
+    # attached"; the page's instant cell of the road row names the other fields too but only places the stamp
     _entry(
         "DwdRoadMetadata",
         "15_minutes",
-        (
-            "airTemperature dewpointTemperature relativeHumidity horizontalVisibility roadSurfaceTemperature "
-            "waterFilmThickness intensityOfPrecipitation"
-        ),
-        "page",
-        "instant (airTemperature, dewpointTemperature, relativeHumidity, horizontalVisibility, "
-        "roadSurfaceTemperature/-Condition, waterFilmThickness, precipitationType/intensity)",
-        section="dwd",
-        network="road",
+        "airTemperature dewpointTemperature relativeHumidity roadSurfaceTemperature",
+        "description",
+        "no time period or statistic attached",
     ),
     # KNMI's hourly values are 'past 1 minute' values (a mean over at most 5 minutes)
     _entry(
@@ -193,17 +188,6 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "Level 15min instantaneous m",
         section="ea",
         network="hydrology",
-        note=True,
-    ),
-    # Hub'Eau's `date_obs` is the date "d'occurence de la donnee": the value of that moment
-    _entry(
-        "HubeauMetadata",
-        "5_minutes 6_minutes 10_minutes 15_minutes hourly",
-        "Q H",
-        "page",
-        "d'occurence de la donnée",
-        section="eaufrance",
-        network="hubeau",
         note=True,
     ),
     _entry(
@@ -326,17 +310,31 @@ def _page_sections() -> dict[str, list[str]]:
     return sections
 
 
+_TABLE_CELLS = 6  # network, resolution, datasets, source time zone, reference time, verified
+_NOTE_LABEL = re.compile(r"^- \*\*([^/*]+)/([^ *(]+)(?: \(([^)]*)\))?\*\*")
+
+
 def _page_says(entry: InstantEvidence, resolution: str, dataset: str) -> bool:
-    """Say whether the page states `entry.quote` in the section and the row (or note) the entry names."""
+    """Say whether the page states `entry.quote` where the entry names: the reference time of the row, or a note.
+
+    A table row is the row of `network` and `resolution` that names the dataset, and the quote must be in its
+    `reference time` cell (the fifth), not in its notes of the time zone. A note is the one of `network/resolution`,
+    and of the dataset where the note names datasets.
+    """
     lines = _page_sections().get(entry.section, [])
-    if entry.note:
-        prefix = f"- **{entry.network}/{resolution}"
-        return any(line.startswith(prefix) and entry.quote in line for line in lines)
     for line in lines:
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if not line.startswith("|") or len(cells) < 5 or (cells[0], cells[1]) != (entry.network, resolution):
+        if entry.note:
+            label = _NOTE_LABEL.match(line)
+            if not label or (label.group(1), label.group(2)) != (entry.network, resolution):
+                continue
+            named = label.group(3)
+            if (named is None or dataset in {name.strip() for name in named.split(",")}) and entry.quote in line:
+                return True
             continue
-        if entry.quote in line and (cells[2] == "all" or dataset in {name.strip() for name in cells[2].split(",")}):
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not line.startswith("|") or len(cells) < _TABLE_CELLS or (cells[0], cells[1]) != (entry.network, resolution):
+            continue
+        if entry.quote in cells[4] and (cells[2] == "all" or dataset in {name.strip() for name in cells[2].split(",")}):
             return True
     return False
 
@@ -442,14 +440,21 @@ def test_every_reference_entry_is_quoted_and_used() -> None:
 
 
 def test_a_page_quote_is_tied_to_its_row() -> None:
-    """The check of the quote reads the section, the network and the resolution: the same words elsewhere fail."""
-    road = next(entry for entry in INSTANT_BY_REFERENCE_TIME if entry.provider == "DwdRoadMetadata")
-    assert _page_says(road, "15_minutes", "data")
-    assert not _page_says(road, "hourly", "data")
-    assert not _page_says(InstantEvidence(**{**road.__dict__, "network": "poi"}), "15_minutes", "data")
-    assert not _page_says(InstantEvidence(**{**road.__dict__, "section": "knmi"}), "15_minutes", "data")
-    # a quote of a note is not found in a table row, and the other way round
-    assert not _page_says(InstantEvidence(**{**road.__dict__, "note": True}), "15_minutes", "data")
+    """The check of the quote reads the section, the network, the resolution, the dataset and the cell or note."""
+    knmi = next(entry for entry in INSTANT_BY_REFERENCE_TIME if entry.provider == "KnmiObservationMetadata")
+    assert _page_says(knmi, "hourly", "data")
+    assert not _page_says(knmi, "daily", "data")
+    assert not _page_says(knmi, "hourly", "other_dataset")
+    assert not _page_says(InstantEvidence(**{**knmi.__dict__, "network": "poi"}), "hourly", "data")
+    assert not _page_says(InstantEvidence(**{**knmi.__dict__, "section": "dwd"}), "hourly", "data")
+    # a quote of a note is not found in a table row, and a quote of the time zone cell is no reference time
+    assert not _page_says(InstantEvidence(**{**knmi.__dict__, "note": True}), "hourly", "data")
+    assert not _page_says(InstantEvidence(**{**knmi.__dict__, "quote": "UTC"}), "hourly", "data")
+    # a note that names its datasets speaks for those only
+    note = InstantEvidence(**{**knmi.__dict__, "section": "dwd", "network": "observation", "note": True})
+    subdaily = InstantEvidence(**{**note.__dict__, "quote": "Parsed as UTC"})
+    assert _page_says(subdaily, "subdaily", "moisture")
+    assert not _page_says(subdaily, "subdaily", "temperature_air")
 
 
 def test_a_plain_name_left_null_does_not_state_a_mean_or_a_maximum() -> None:

@@ -403,10 +403,11 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
     timestamp_position: TimestampPosition | None = None
     #: what this value is relative to its interval, declared only where the canonical name states none (a plain name:
-    #: `temperature_air_2m`) and the source says it: `instant` is a single reading, not a statistic over a window,
-    #: taken at the stamp or at the moment the description states (`timestamp_position` and the description say when).
-    #: None for a name the table decides (a provider cannot override `_mean`), and for a source that states nothing;
-    #: read it through `effective_aggregation`. `tests/metadata/test_aggregation_declared.py` holds both (GH-3134)
+    #: `temperature_air_2m`) and the source says it: `instant` is a single reading, not a statistic over a window (a
+    #: mean over at most 5 minutes counts as one, GH-2660). The description of the row says when it was taken, and the
+    #: `timestamp_position`, where it is `instant`, that it is at the stamp. None for a name the table decides (a
+    #: provider cannot override `_mean`), and for a source that states nothing; read it through `effective_aggregation`.
+    #: `tests/metadata/test_aggregation_declared.py` holds both (GH-3134)
     aggregation: Aggregation | None = None
     # the back-reference its dataset sets once it holds this parameter, so it is None until then; typing
     # it optional would put a None check in front of every read of `parameter.dataset`

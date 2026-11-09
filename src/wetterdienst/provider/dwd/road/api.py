@@ -96,7 +96,6 @@ _DwdRoadMetadataSpec = {
                             # write in every reading, a placeholder and no confirmation of the
                             # unit, GH-3771.) It was declared `millimeter_per_hour` until GH-1984
                             "unit": "millimeter_per_second",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "road_surface_condition",
@@ -127,7 +126,6 @@ _DwdRoadMetadataSpec = {
                             # BUFR 0 20 001 horizontalVisibility is metres, and nothing in this
                             # parser converts; the docs page already said m
                             "unit": "meter",
-                            "aggregation": "instant",
                         },
                         {
                             "name": "water_film_thickness",
@@ -143,7 +141,6 @@ _DwdRoadMetadataSpec = {
                             # centimetres they would top out at 0.02 mm. It was declared `centimeter`
                             # until GH-1984
                             "unit": "meter",
-                            "aggregation": "instant",
                         },
                         # The three wind quantities keep the names of an interval, `wind_speed`,
                         # `wind_direction` and `wind_gust_max`, because the BUFR template does not state one
