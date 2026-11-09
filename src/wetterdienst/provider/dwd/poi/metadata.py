@@ -82,6 +82,7 @@ _DwdPoiMetadataSpec = {
                             "name": "cloud_cover_total",
                             "name_original": "cloud_cover_total",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_height_layer1",
@@ -97,6 +98,7 @@ _DwdPoiMetadataSpec = {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount_last_1h",
@@ -127,6 +129,7 @@ _DwdPoiMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pressure_reduced_to_mean_sea_level",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
@@ -147,6 +150,7 @@ _DwdPoiMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "total_snow_depth",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth_new",
@@ -167,11 +171,13 @@ _DwdPoiMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "dry_bulb_temperature_at_2_meter_above_ground",
                             **_TEMPERATURE,
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_0_05m",
                             "name_original": "temperature_at_5_cm_above_ground",
                             **_TEMPERATURE,
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_max_2m_last_12h",
@@ -212,6 +218,7 @@ _DwdPoiMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature_at_2_meter_above_ground",
                             **_TEMPERATURE,
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_water",
@@ -222,6 +229,7 @@ _DwdPoiMetadataSpec = {
                             "name": "visibility",
                             "name_original": "horizontal_visibility",
                             "unit": "kilometer",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "weather",

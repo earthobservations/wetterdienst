@@ -445,11 +445,13 @@ _PARAMETERS = [
         "name": "discharge",
         "name_original": "Q",
         "unit": "liter_per_second",
+        "aggregation": "instant",
     },
     {
         "name": "stage",
         "name_original": "H",
         "unit": "millimeter",
+        "aggregation": "instant",
     },
 ]
 

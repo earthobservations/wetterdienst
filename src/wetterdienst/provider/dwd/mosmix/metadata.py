@@ -33,31 +33,37 @@ _DwdMosmixMetadataSpec = {
                             "name": "cloud_cover_above_7km",
                             "name_original": "nh",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_500ft",
                             "name_original": "n05",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_2km",
                             "name_original": "nl",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_effective",
                             "name_original": "neff",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount_significant_weather_last_1h",
@@ -73,6 +79,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "probability_fog_last_1h",
@@ -163,11 +170,13 @@ _DwdMosmixMetadataSpec = {
                             "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_min_2m_last_12h",
@@ -178,11 +187,13 @@ _DwdMosmixMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "water_equivalent_snow_depth_new_last_1h",
@@ -208,6 +219,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "wind_direction",
                             "name_original": "dd",
                             "unit": "degree",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_gust_max_last_1h",
@@ -228,6 +240,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "wind_speed",
                             "name_original": "ff",
                             "unit": "meter_per_second",
+                            "aggregation": "instant",
                         },
                     ],
                 },
@@ -240,36 +253,43 @@ _DwdMosmixMetadataSpec = {
                             "name": "cloud_cover_above_7km",
                             "name_original": "nh",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_500ft",
                             "name_original": "n05",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_2km",
                             "name_original": "nl",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_between_2km_and_7km",
                             "name_original": "nm",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_below_7km",
                             "name_original": "nlm",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_effective",
                             "name_original": "neff",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "error_absolute_pressure_air_site",
@@ -340,6 +360,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "probability_drizzle_last_1h",
@@ -700,11 +721,13 @@ _DwdMosmixMetadataSpec = {
                             "name": "temperature_air_0_05m",
                             "name_original": "t5cm",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ttt",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_2m_last_24h",
@@ -725,11 +748,13 @@ _DwdMosmixMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_kelvin",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "visibility",
                             "name_original": "vv",
                             "unit": "meter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "water_equivalent_snow_depth_new_last_1h",
@@ -785,6 +810,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "wind_direction",
                             "name_original": "dd",
                             "unit": "degree",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_gust_max_last_1h",
@@ -805,6 +831,7 @@ _DwdMosmixMetadataSpec = {
                             "name": "wind_speed",
                             "name_original": "ff",
                             "unit": "meter_per_second",
+                            "aggregation": "instant",
                         },
                     ],
                 },

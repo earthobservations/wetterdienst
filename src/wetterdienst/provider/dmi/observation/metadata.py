@@ -337,6 +337,7 @@ _HOURLY_PARAMETERS = [
         "name": "cloud_cover_total",
         "name_original": "mean_cloud_cover",
         "unit": "percent",
+        "aggregation": "instant",
     },
     # the extremes and the sums of the 12 and 24 hours up to the report, at 06 and 18 UTC (12 hours; the temperatures
     # also at 12 and 00 UTC for a few stations) and at 00, 06, 12 and 18 UTC (24 hours). DMI's `from` is the start of
@@ -393,6 +394,7 @@ _DAILY_PARAMETERS = [
         "name": "snow_depth_manual",
         "name_original": "snow_depth",
         "unit": "centimeter",
+        "aggregation": "instant",
     },
     {
         # maximum 30-minute precipitation within the day, from 23:31 local time of the previous day (GH-2614)

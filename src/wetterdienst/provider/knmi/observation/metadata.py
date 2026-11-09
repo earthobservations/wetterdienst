@@ -50,6 +50,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "ta",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_0_1m",
@@ -60,6 +61,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_wet_mean_2m",
@@ -70,6 +72,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "humidity_relative",
                             "name_original": "rh",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -90,11 +93,13 @@ _KnmiObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "p0",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
@@ -146,16 +151,19 @@ _KnmiObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "T",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "TD",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "U",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -186,6 +194,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "P",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "sunshine_duration",

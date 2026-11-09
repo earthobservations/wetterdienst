@@ -1133,6 +1133,7 @@ _NoaaGhcnMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "tobs",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         # Daily total sunshine (minutes)
                         {

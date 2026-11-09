@@ -46,7 +46,7 @@ _DAILY_PARAMETERS = [
     {"name": "pressure_air_site_mean", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed_mean", "name_original": "F", **_WIND_SPEED},
     {"name": "wind_speed_max", "name_original": "Fmax", **_WIND_SPEED},
-    {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter"},
+    {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter", "aggregation": "instant"},
     {"name": "sunshine_duration", "name_original": "SSV", "unit": "hour"},
 ]
 
