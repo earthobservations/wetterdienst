@@ -694,8 +694,10 @@ def _serve_knmi(
     data = _write_netcdf(tmp_path / "data.nc")
     asked: list[str] = []
 
-    def download(url: str, *_args: object, **_kwargs: object) -> File:
+    def download(url: str, *_args: object, fetch_url: str | None = None, **_kwargs: object) -> File:
         status = getattr(failure, "status", 500)
+        # a copy is kept under the name of its file and fetched from its link, which is where the store names it
+        url = fetch_url or url
         if "/files?maxKeys=1" in url:
             return File(
                 url=url, content=BytesIO(json.dumps({"files": [{"filename": "latest.nc"}]}).encode()), status=200
@@ -1243,8 +1245,8 @@ def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
     """The pre-signed link is the resolve answer's to name, and is asked only where it leads to KNMI or its store."""
     asked: list[str] = []
 
-    def download(url: str, *_args: object, **_kwargs: object) -> File:
-        asked.append(url)
+    def download(url: str, *_args: object, fetch_url: str | None = None, **_kwargs: object) -> File:
+        asked.append(fetch_url or url)
         if url.endswith("/url"):
             return File(url=url, content=BytesIO(json.dumps({"temporaryDownloadUrl": link}).encode()), status=200)
         return File(url=url, content=BytesIO(b"netcdf"), status=200)

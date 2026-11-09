@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `knmi/observation` keeps the content of a file whose interval ended more than 6 hours ago for 12
+  hours, and of a newer one for 5 minutes as before, under the file's own name and not its
+  pre-signed link. Within that time a file already read is not requested from KNMI again, where it
+  was downloaded again after 5 minutes. `cache_disable` still turns it off (GH-3927)
 - **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
   `get_providers`) answers compact by default: `resolutions` of each network is null and everything
   else stays, the number of `parameters` among it. 20 kB for every provider where the answer was
