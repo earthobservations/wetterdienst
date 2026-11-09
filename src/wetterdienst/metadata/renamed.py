@@ -557,6 +557,7 @@ _MEAN_HUMIDITY_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
         ("daily", "data"): {
             "cloud_cover_total": "cloud_cover_total_mean",
             "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
         },
     },
     "MeteoFranceObservationMetadata": {

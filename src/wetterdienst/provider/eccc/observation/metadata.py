@@ -55,16 +55,19 @@ _EcccObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "temp",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temp",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
@@ -76,6 +79,7 @@ _EcccObservationMetadataSpec = {
                             # ECCC publishes hourly station pressure in kPa, not hPa
                             "name": "pressure_air_site",
                             "name_original": "station_pressure",
+                            "timestamp_position": "instant",
                             "unit": "kilopascal",
                         },
                         {
@@ -104,6 +108,7 @@ _EcccObservationMetadataSpec = {
                             # apparent temperature, always at or above the air temperature
                             "name": "temperature_humidex",
                             "name_original": "humidex",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                     ],

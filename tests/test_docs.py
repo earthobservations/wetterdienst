@@ -1484,7 +1484,9 @@ def _time_reference_tokens(rows: list[tuple[str, list[str]]]) -> dict[tuple[str,
 
 
 # The words of a segment of a cell that say it names the parameters it does not answer for (GH-3134).
-_NOT_ONE_ANSWER = re.compile(r"not qualified|not stated|unstated|unverified|differs? by period")
+_NOT_ONE_ANSWER = re.compile(
+    r"not qualified|not stated|unstated|unverified|differs? by (?:period|station)|neither start nor end"
+)
 _CELL_WORDS = re.compile(r"[\s,;:()\[\]'\"`]+")
 _LEADING_POSITION = re.compile(r"^\s*(start|end|instant|middle)\b")
 
@@ -1494,9 +1496,9 @@ def _cell_segments(cell: str) -> list[tuple[str | None, str, int]]:
 
     A cell that begins with an answer gives that answer for the whole of its text; a `mixed` cell is read by the
     parts between its semicolons: one that begins with an answer gives it for the parameters it names, one that says
-    `not qualified`, `not stated`, `unstated`, `unverified` or `differ by period` names parameters that have no answer
-    (None), and the others say something else (a period, a window) and name nothing; an `unverified` cell names
-    parameters that have none.
+    `not qualified`, `not stated`, `unstated`, `unverified`, `differ by period`, `differ by station` or `neither start
+    nor end` names parameters that have no answer (None), and the others say something else (a period, a window) and
+    name nothing; an `unverified` cell names parameters that have none.
     The shortest name is the length a word must have to be taken as a name where only the absence of an answer is at
     stake (a letter of prose is not a parameter), so that `n` is read where `instant (n, nh)` answers.
     """
@@ -1632,32 +1634,6 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
 
 
-#: The providers with a `mixed` cell or several rows for a dataset that are not yet held to the positions their page
-#: names (GH-3134). A provider leaves the list in the PR that writes its cells so that they name the parameters and
-#: gives the parameters their values, and the list is empty when the last one has; a provider that is not on it, a new
-#: one included, is held from the start. A dataset of a pending provider is held once one of its parameters declares a
-#: position.
-_PER_PARAMETER_PENDING = frozenset(
-    [
-        "aemet",
-        "dmi",
-        "eccc",
-        "fmi",
-        "geosphere",
-        "imgw",
-        "knmi",
-        "lhmt",
-        "meteofrance",
-        "meteoswiss",
-        "metno",
-        "metoffice",
-        "noaa",
-        "nws",
-        "smhi",
-    ]
-)
-
-
 def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
     """Test that a dataset without a position of its own declares, per parameter, what its rows name (GH-3134).
 
@@ -1668,9 +1644,8 @@ def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
     answer, and None where the page names it as not stated, not qualified, differing by period or unverified. A
     parameter no row names declares nothing, a value on it is an error (what the page does not state is not
     guessed), and the test of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it
-    that what is declared is one of the answers of the rows. A dataset is held here unless it is of a provider in
-    `_PER_PARAMETER_PENDING`, where it is held once one of its parameters declares a position; a dataset with one
-    answer for all its rows declares it itself.
+    that what is declared is one of the answers of the rows. A dataset with one answer for all its rows declares it
+    itself, and every other dataset is held here, of every provider.
     """
     rows, _ = _time_reference_tables()
     cells_of = _time_reference_cells(rows)
@@ -1679,8 +1654,6 @@ def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
         if dataset.timestamp_position is not None:
             continue
         declared = {parameter.name: parameter.timestamp_position for parameter in dataset.parameters}
-        if provider in _PER_PARAMETER_PENDING and not any(declared.values()):
-            continue
         tag = f"{provider}/{network}/{resolution}/{dataset.name}"
         named = _page_positions(cells_of[provider, network, resolution, dataset.name], dataset)
         for name, answers in named.items():

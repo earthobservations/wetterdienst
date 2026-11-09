@@ -195,7 +195,7 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "daily",
         "NEIGETOT06",
         "page",
-        "NEIGETOT06 instant at 06 h",
+        "instant: NEIGETOT06 at 06 h",
         datasets="others",
         section="meteofrance",
         network="observation",
@@ -244,10 +244,6 @@ ALLOWED_UNDECLARED: dict[tuple[str, str, str], str] = {
     ),
     ("NoaaGhcnMetadata", "hourly", "altimeter"): (
         "'average conditions' describe the standard atmosphere of the reduction, not the value"
-    ),
-    ("KnmiObservationMetadata", "daily", "PG"): (
-        "KNMI's 'Mean sea level pressure' is the daily mean of the 24 hourly values, under a plain name: a naming "
-        "defect, tracked in GH-3925"
     ),
 }
 
