@@ -304,12 +304,6 @@ ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
     ),
     "meteoswiss/observation": (
         Accepted(
-            "data_missing",
-            "the STAC item of MLJ lists a daily, an hourly and a 10 minute file and no monthly or annual one "
-            "(read 2026-10-21)",
-            where=lambda row: row["station_id"] == "MLJ" and row["resolution"] in {"monthly", "annual"},
-        ),
-        Accepted(
             "data_orphan",
             "MLJ is a precipitation station that had been filed among the SMN stations by mistake (MeteoSwiss, "
             "2026-11-09); it moved to ogd-smn-precip on 2026-11-03, and its ogd-smn item, last updated 2026-11-02, was "
