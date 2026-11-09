@@ -906,7 +906,9 @@ class DwdObservationRequest(TimeseriesRequest):
         Historical data is typically release once in a year somewhere in the first few months with updated quality
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
-        historical_end = now_local.replace(month=1, day=1)
+        # midnight of 1 January, not the time of day of now: else the overlap with a window that starts on 1 January
+        # depends on the hour the request is made (GH-3914)
+        historical_end = now_local.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         # a year that is way before any data is collected
         historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
         return portion.closed(historical_begin, historical_end)
@@ -918,7 +920,7 @@ class DwdObservationRequest(TimeseriesRequest):
         Recent data is released every day somewhere after midnight with data reaching back 500 days.
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
-        recent_end = now_local.replace(hour=0, minute=0, second=0)
+        recent_end = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         recent_begin = recent_end - dt.timedelta(days=500)
         return portion.closed(recent_begin, recent_end)
 

@@ -26,6 +26,10 @@ Types of changes:
   `zone:mez-1973-75`: the shift is the 1 h of the clock, about 0.4 h of the recorder's lag stays at 8 of them.
   Months only one method finds in MEZ stay as written. A stored series needs a re-read: add an hour
   to flagged stamps for the old ones. The blocks are `mez_blocks.csv` (GH-3776)
+- `dwd/observation` ends the `historical` period at midnight of 1 January, not at 1 January at the
+  time of day of the request: a window starting on 1 January of this year read `historical` at 23
+  hours of the day and not between 00:00 and 01:00 Berlin. It now never does, as the period holds
+  the years before; a window that reaches into last year reads it as ever (GH-3914)
 - **Breaking**: `metoffice/observation` daily `temperature_air_max_2m` and `temperature_air_min_2m`
   are the 24 hours ending 09Z on the stamped day (09-09Z) at every station. The extreme of all rows
   ending that day was 21Z to 21Z at a 12-hour station and 09Z to 09Z, a day behind, at a 24-hour
