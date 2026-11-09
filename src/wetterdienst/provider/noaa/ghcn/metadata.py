@@ -45,6 +45,7 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         # total liquid precipitation (rain or melted snow); totals are nominally for the hour, but a
@@ -54,6 +55,7 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitation",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         # 3-hour total liquid precipitation (rain or melted snow) accumulation
@@ -106,6 +108,7 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "sea_level_pressure",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         # the pressure that is observed at a specific elevation and is the true barometric pressure
@@ -114,6 +117,7 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "pressure_air_site",
                             "name_original": "station_level_pressure",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         # change in atmospheric pressure measured at the beginning and end of a three-hour period;
@@ -129,36 +133,42 @@ _NoaaGhcnMetadataSpec = {
                         {
                             "name": "pressure_air_site_reduced",
                             "name_original": "altimeter",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         # depth of snowpack on the ground (millimeters)
                         {
                             "name": "snow_depth",
                             "name_original": "snow_depth",
+                            "timestamp_position": "instant",
                             "unit": "millimeter",
                         },
                         # 2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)
                         {
                             "name": "temperature_air_2m",
                             "name_original": "temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         # Dew Point Temperature (⁰C to tenths)
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         # Wet bulb temperature (⁰C to tenths)
                         {
                             "name": "temperature_wet_2m",
                             "name_original": "wet_bulb_temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         # horizontal distance at which an object can be seen and identified (kilometers)
                         {
                             "name": "visibility",
                             "name_original": "visibility",
+                            "timestamp_position": "instant",
                             "unit": "kilometer",
                         },
                         # Wind Direction from true north using compass directions (e.g. 360=true north, 180=south,

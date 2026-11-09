@@ -1632,32 +1632,6 @@ def test_the_positions_of_the_metadata_are_those_of_the_time_reference_page() ->
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
 
 
-#: The providers with a `mixed` cell or several rows for a dataset that are not yet held to the positions their page
-#: names (GH-3134). A provider leaves the list in the PR that writes its cells so that they name the parameters and
-#: gives the parameters their values, and the list is empty when the last one has; a provider that is not on it, a new
-#: one included, is held from the start. A dataset of a pending provider is held once one of its parameters declares a
-#: position.
-_PER_PARAMETER_PENDING = frozenset(
-    [
-        "aemet",
-        "dmi",
-        "eccc",
-        "fmi",
-        "geosphere",
-        "imgw",
-        "knmi",
-        "lhmt",
-        "meteofrance",
-        "meteoswiss",
-        "metno",
-        "metoffice",
-        "noaa",
-        "nws",
-        "smhi",
-    ]
-)
-
-
 def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
     """Test that a dataset without a position of its own declares, per parameter, what its rows name (GH-3134).
 
@@ -1668,9 +1642,8 @@ def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
     answer, and None where the page names it as not stated, not qualified, differing by period or unverified. A
     parameter no row names declares nothing, a value on it is an error (what the page does not state is not
     guessed), and the test of `test_the_positions_of_the_metadata_are_those_of_the_time_reference_page` sees to it
-    that what is declared is one of the answers of the rows. A dataset is held here unless it is of a provider in
-    `_PER_PARAMETER_PENDING`, where it is held once one of its parameters declares a position; a dataset with one
-    answer for all its rows declares it itself.
+    that what is declared is one of the answers of the rows. A dataset with one answer for all its rows declares it
+    itself, and every other dataset is held here, of every provider.
     """
     rows, _ = _time_reference_tables()
     cells_of = _time_reference_cells(rows)
@@ -1679,8 +1652,6 @@ def test_the_parameters_the_page_names_have_the_positions_it_gives() -> None:
         if dataset.timestamp_position is not None:
             continue
         declared = {parameter.name: parameter.timestamp_position for parameter in dataset.parameters}
-        if provider in _PER_PARAMETER_PENDING and not any(declared.values()):
-            continue
         tag = f"{provider}/{network}/{resolution}/{dataset.name}"
         named = _page_positions(cells_of[provider, network, resolution, dataset.name], dataset)
         for name, answers in named.items():

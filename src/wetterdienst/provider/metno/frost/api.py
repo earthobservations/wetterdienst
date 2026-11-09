@@ -156,42 +156,50 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "air_temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                             "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "dew_point_temperature",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "relative_humidity",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "wind_speed_mean_last_10min",
                             "name_original": "wind_speed",
+                            "timestamp_position": "end",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "wind_direction_mean_last_10min",
                             "name_original": "wind_from_direction",
+                            "timestamp_position": "end",
                             "unit": "degree",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "air_pressure_at_sea_level",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "surface_air_pressure",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "cloud_area_fraction",
+                            "timestamp_position": "instant",
                             "unit": "one_eighth",
                         },
                         {
@@ -207,6 +215,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "surface_snow_thickness",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                     ],
@@ -247,16 +256,19 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "mean(air_temperature P1D)",
+                            "timestamp_position": "start",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "max(air_temperature P1D)",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "min(air_temperature P1D)",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
@@ -297,6 +309,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "surface_snow_thickness",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -322,6 +335,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "mean(air_temperature P1M)",
+                            "timestamp_position": "start",
                             "unit": "degree_celsius",
                         },
                         {
