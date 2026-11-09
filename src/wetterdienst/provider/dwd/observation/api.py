@@ -36,6 +36,7 @@ from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.coverage import warn_files_without_description
+from wetterdienst.provider.dwd.expiry import expiries_of
 from wetterdienst.provider.dwd.observation.download import (
     MEZ_BY_COMPARISON,
     download_climate_observations_data,
@@ -182,17 +183,21 @@ class DwdObservationValues(TimeseriesValues):
         """Name the archives of the station, which `download_climate_observations_data` downloads (GH-3454)."""
         settings = cast("Settings", self.sr.request.settings)
         urls: list[str] = []
+        ttls: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
                 if period in dataset.periods:
                     try:
-                        urls += create_file_list_for_climate_observations(
+                        of_period = create_file_list_for_climate_observations(
                             station_id, dataset, period, settings, date_ranges
                         ).to_list()
                     except EmptyListingError:
                         # as the collection skips the period; the files ahead are only a head start
                         continue
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                    urls += of_period
+                    # the expiry of the period, as `download_climate_observations_data` downloads them with (GH-3929)
+                    ttls |= expiries_of(of_period, period)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -238,7 +243,7 @@ class DwdObservationValues(TimeseriesValues):
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_observations_data(remote_files, settings, dataset)
+            filenames_and_files = download_climate_observations_data(remote_files, settings, dataset, period)
             if not filenames_and_files:
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue

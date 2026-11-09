@@ -1370,7 +1370,7 @@ def test_dwd_derived_period_precedence_does_not_depend_on_the_order_of_the_perio
     monkeypatch.setattr(
         dwd_derived_api,
         "download_climate_derived_data",
-        lambda files, _settings: [
+        lambda files, _settings, _period=None: [
             File(url=url, content=BytesIO(_OVERLAPPING_PERIOD_FILES[url].encode("latin-1")), status=200)
             for url in files
         ],
