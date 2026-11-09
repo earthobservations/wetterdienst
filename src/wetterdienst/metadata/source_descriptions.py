@@ -161,9 +161,9 @@ _WSV_PEGEL_PARAMETERS = {
     "PH": f"pH (PH-WERT), a number without unit (the series' unit is --): {_WSV_PEGEL_RAW}.",
     "Q": (f"Discharge (ABFLUSS_ROHDATEN, or ABFLUSS at some stations), in m³/s: {_WSV_PEGEL_RAW}."),
     "R": (
-        "Direction of the water current (RICHTUNGSTROM). The series' unit is MGN, which the documentation does not "
-        "explain; the value is returned as published, taken as degrees, and may be from magnetic rather than true "
-        f"north: {_WSV_PEGEL_RAW}."
+        "Direction the water current flows towards (RICHTUNGSTROM), in degrees from 0 to 359 clockwise from magnetic "
+        "north (not true north), the meaning of the series' unit MGN as WSV confirmed; it is where the water goes, not "
+        f"where it comes from: {_WSV_PEGEL_RAW}."
     ),
     "SIGH": (f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}."),
     "SW": (

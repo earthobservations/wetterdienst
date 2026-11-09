@@ -27,6 +27,11 @@ Types of changes:
 
 ### Fixed
 
+- `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
+  unit `MGN` is degrees from 0 to 359, clockwise from magnetic north, and that the value is the
+  direction the current flows towards. The values are unchanged. A value outside 0 to 360 is now
+  judged by the `range` check, as the wind direction is: null as `rejected:range,raw:<number>`, or
+  flagged `suspect:range` with `plausibility_range=soft`. Before, none was judged (GH-3364)
 - **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
   `humidity_relative`: 808 station-months at 26 stations (1955 to 1997, almost all before 1991; the
   854 of an ISD fit and a diurnal-phase test that agree in each of six one-at-a-time variants of
