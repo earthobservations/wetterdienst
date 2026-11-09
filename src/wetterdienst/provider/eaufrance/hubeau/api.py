@@ -486,6 +486,7 @@ _HubeauMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
+                    "timestamp_position": "instant",
                     "parameters": _PARAMETERS,
                 },
             ],

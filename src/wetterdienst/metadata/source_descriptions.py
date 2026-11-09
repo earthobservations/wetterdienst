@@ -478,12 +478,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Dew point temperature at 2 m above ground."
         ),
         ("hourly", "data", "diffuse_solar_radiation_last_hour"): (
-            'Diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
-            'Stunde)"): the energy of that hour divided by 3600 s, not a reading at one moment.'
+            'Mean diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
+            'Stunde)"): the energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one '
+            "moment."
         ),
         ("hourly", "data", "direct_solar_radiation_last_hour"): (
-            'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
-            'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
+            'Mean direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
+            'Stunde)", no surface stated): the energy of that hour divided by 3600 s, so the mean of the hour. It '
+            "exceeds the global irradiance in some reports, so it is not the "
             "component on a horizontal surface but the irradiance on a plane perpendicular to the sun's rays (direct "
             "normal irradiance, WMO-No. 8 chapter 7.2): multiplied by the cosine of the solar zenith angle it stays "
             "below the global irradiance."
@@ -494,8 +496,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Stunden)"), reported almost only at 06 UTC.'
         ),
         ("hourly", "data", "global_radiation_last_hour"): (
-            'Global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
-            "energy of that hour divided by 3600 s, not a reading at one moment."
+            'Mean global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
+            "energy of that hour divided by 3600 s, so the mean of the hour, not a reading at one moment."
         ),
         ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
             "Height above the station of the base of the lowest cloud."
@@ -1640,7 +1642,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
             "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
             "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
-            "label calls plain MEZ that are MEZ in the values. "
+            "label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations "
+            "that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six "
+            "one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days "
+            "(1955 to 1997, almost all before 1991; the table is "
+            "`mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of "
+            "the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged "
+            "`zone:mez-1973-75`. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_air", "tt_tu"): (
@@ -1650,7 +1658,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "and so are those of Diepholz from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, Nürnberg from "
             "1986-01-01 01 to 1988-11-01 00, Frankfurt/Main from 1990-05-01 01 to 1990-06-01 00, Trier-Petrisberg "
             "from 1989-08-01 01 to 1989-09-01 00 and Bremen from 1990-11-01 01 to 1991-03-01 00, periods the "
-            "label calls plain MEZ that are MEZ in the values. "
+            "label calls plain MEZ that are MEZ in the values. So are the 808 station-months of 26 stations "
+            "that an ISD offset fit and a diurnal-phase test both find in MEZ under each of the six "
+            "one-at-a-time variants of the scan's constants (a full grid keeps 748), as blocks of whole UTC days "
+            "(1955 to 1997, almost all before 1991; the table is "
+            "`mez_blocks.csv`, GH-3776); of the 1973-01 to 1975-12 batch at 13 stations the shift is the 1 h of "
+            "the clock, and the analog recorder's lag (about 0.4 h at 8 of them) stays in the values, flagged "
+            "`zone:mez-1973-75`. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_soil", "v_te002"): (

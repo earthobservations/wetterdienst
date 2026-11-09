@@ -80,11 +80,9 @@ export const parameters: Record<string, string> = {
   radiation_global: 'Global radiation',
   radiation_sky_short_wave_diffuse: 'Diffuse sky radiation',
   radiation_sky_long_wave: 'Long-wave radiation',
-  radiation_global_intensity: 'Global irradiance',
   radiation_global_intensity_mean: 'Mean global irradiance',
-  radiation_sky_short_wave_diffuse_intensity: 'Diffuse sky irradiance',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Mean diffuse sky irradiance',
-  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direct normal irradiance',
+  radiation_sky_short_wave_direct_perpendicular_intensity_mean: 'Mean direct normal irradiance',
   radiation_sky_long_wave_intensity_mean: 'Mean long-wave irradiance',
 
   // Snow
@@ -101,6 +99,7 @@ export const parameters: Record<string, string> = {
   cloud_height_layer1: 'Cloud base height (1st layer)',
   visibility: 'Visibility',
   visibility_mean: 'Mean visibility',
+  visibility_mean_last_10min: 'Mean visibility (last 10 min)',
   visibility_index: 'Visibility class',
   visibility_measurement_method: 'Visibility, how measured',
 

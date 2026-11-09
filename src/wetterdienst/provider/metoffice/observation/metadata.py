@@ -110,12 +110,13 @@ _SOIL_TEMPERATURE_PARAMETERS = [
 ]
 
 
-def _dataset(name: str, midas_dataset: str, parameters: list[dict]) -> dict:
+def _dataset(name: str, midas_dataset: str, parameters: list[dict], timestamp_position: str | None = None) -> dict:
     return {
         "name": name,
         # the MIDAS Open dataset slug, e.g. "uk-daily-rain-obs" -- used to build archive paths
         "name_original": midas_dataset,
         "grouped": True,
+        "timestamp_position": timestamp_position,
         "parameters": parameters,
     }
 
@@ -163,19 +164,19 @@ _MetOfficeObservationMetadataSpec = {
         _resolution(
             "daily",
             [
-                _dataset("rain", "uk-daily-rain-obs", _DAILY_RAIN_PARAMETERS),
-                _dataset("temperature", "uk-daily-temperature-obs", _DAILY_TEMPERATURE_PARAMETERS),
+                _dataset("rain", "uk-daily-rain-obs", _DAILY_RAIN_PARAMETERS, "end"),
+                _dataset("temperature", "uk-daily-temperature-obs", _DAILY_TEMPERATURE_PARAMETERS, "end"),
                 _dataset("weather", "uk-daily-weather-obs", _DAILY_WEATHER_PARAMETERS),
             ],
         ),
         _resolution(
             "hourly",
             [
-                _dataset("rain", "uk-hourly-rain-obs", _HOURLY_RAIN_PARAMETERS),
-                _dataset("weather", "uk-hourly-weather-obs", _HOURLY_WEATHER_PARAMETERS),
-                _dataset("wind", "uk-mean-wind-obs", _MEAN_WIND_PARAMETERS),
-                _dataset("radiation", "uk-radiation-obs", _RADIATION_PARAMETERS),
-                _dataset("soil_temperature", "uk-soil-temperature-obs", _SOIL_TEMPERATURE_PARAMETERS),
+                _dataset("rain", "uk-hourly-rain-obs", _HOURLY_RAIN_PARAMETERS, "end"),
+                _dataset("weather", "uk-hourly-weather-obs", _HOURLY_WEATHER_PARAMETERS, "instant"),
+                _dataset("wind", "uk-mean-wind-obs", _MEAN_WIND_PARAMETERS, "end"),
+                _dataset("radiation", "uk-radiation-obs", _RADIATION_PARAMETERS, "end"),
+                _dataset("soil_temperature", "uk-soil-temperature-obs", _SOIL_TEMPERATURE_PARAMETERS, "instant"),
             ],
         ),
     ],

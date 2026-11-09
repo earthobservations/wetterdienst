@@ -68,18 +68,19 @@ def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
     assert "no period" in snow
 
 
-def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None:
-    """The global and diffuse irradiance of the hour is that hour's energy over 3600 s, not a reading at one moment.
+def test_the_poi_radiation_of_the_hour_is_the_mean_of_that_hour() -> None:
+    """The global, diffuse and direct irradiance of the hour is that hour's energy over 3600 s: its mean (GH-3134).
 
-    It equals the sum of DWD's 10-minute radiation (J/cm2) of the hour, times 10000 and over 3600, to within 0.9 W/m2 on
-    all 250 hourly values of 10 stations. The word "mean" stays out of the description: DWD does not say it and
-    `test_mean_names` holds the name to what the source states.
+    The global and diffuse one equal the sum of DWD's 10-minute radiation (J/cm2) of the hour, times 10000 and over
+    3600, to within 0.9 W/m2 on all 250 hourly values of 10 stations. DWD does not use the word "mean": its column is
+    "Globalstrahlung (letzte Stunde)" in W/m2. An energy over the hour's seconds is the hour's mean power, and the
+    description says so, so the names carry `_mean` (GH-3151) and `test_mean_names` holds them to it.
     """
-    for name in ("global_radiation_last_hour", "diffuse_solar_radiation_last_hour"):
+    for name in ("global_radiation_last_hour", "diffuse_solar_radiation_last_hour", "direct_solar_radiation_last_hour"):
         text = _description(DwdPoiMetadata, "hourly", "data", name)
         assert "divided by 3600 s" in text
-        assert "mean" not in text.lower()
-        assert "averag" not in text.lower()
+        assert "mean of the hour" in text
+        assert "reading at one moment" not in text or "not a reading at one moment" in text
 
 
 @pytest.mark.parametrize(

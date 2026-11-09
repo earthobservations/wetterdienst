@@ -31,6 +31,7 @@ MEAN_NAMED = (
     "radiation_global_intensity",
     "radiation_sky_long_wave_intensity",
     "radiation_sky_short_wave_diffuse_intensity",
+    "radiation_sky_short_wave_direct_perpendicular_intensity",
     "snow_depth",
     "visibility",
     "wind_direction",
@@ -40,7 +41,12 @@ MEAN_NAMED = (
 # a family of quantities by the start of the plain name: one per ground cover, soil type and layer
 MEAN_NAMED_PREFIXES = ("soil_moisture_",)
 # quantities of which every row states a mean, so that no plain name is left
-_NO_PLAIN_ROW = {"radiation_sky_long_wave_intensity"}
+_NO_PLAIN_ROW = {
+    "radiation_global_intensity",
+    "radiation_sky_long_wave_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
+    "radiation_sky_short_wave_direct_perpendicular_intensity",
+}
 
 _MEAN_IN_THE_FIELD_NAME = re.compile(r"mittel|średni|media\b|moyen|gemiddeld|medel", re.IGNORECASE)
 
