@@ -311,8 +311,9 @@ ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
         ),
         Accepted(
             "data_orphan",
-            "MeteoSwiss publishes the STAC item and files of MLJ, and ogd-smn_meta_stations.csv has no row for it "
-            "(read 2026-11-08, 158 rows against 159 items; GH-3783); remove once the CSV lists MLJ",
+            "MLJ is a precipitation station that had been filed among the SMN stations by mistake (MeteoSwiss, "
+            "2026-11-09); it moved to ogd-smn-precip on 2026-11-03, and its ogd-smn item, last updated 2026-11-02, was "
+            "left behind (read 2026-11-09; GH-3783); remove once that item is gone",
             where=lambda row: row["station_id"] == "MLJ",
         ),
     ),
