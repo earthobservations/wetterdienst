@@ -157,6 +157,7 @@ _MetnoFrostMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "air_temperature",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",

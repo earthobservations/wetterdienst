@@ -31,6 +31,19 @@ Types of changes:
 
 ### Fixed
 
+- `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
+  unit `MGN` is degrees from 0 to 359 from magnetic north, and that the value is the direction the
+  current flows towards. A value outside 0 to 360 is now judged by the `range` check, as the wind
+  direction is: null as `rejected:range,raw:<number>`, or flagged `suspect:range` with
+  `plausibility_range=soft`. Before, none was judged; no value read so far lies outside (GH-3364)
+- **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
+  `humidity_relative`: the 1,316 station-months of the East German "Stundenwerte in MEZ (MD)"
+  periods whose stamps are in mean local time (UTC + 0.6 to 0.9 h: 16 stations in 1952 to 1961,
+  Potsdam 1973-01 to 1975-05) carry `zone:mez-local-mean-time` instead of `zone:mez`. Values and
+  timestamps are unchanged: the -1 h shift is right to the hour from 1962 (Potsdam from 1975-06)
+  and leaves these stamps 0.2 to 0.5 h early. A test of `zone:mez` for equality loses them: match
+  it as a prefix or add the new token. The docs said NOAA ISD has no East German reports before
+  1976; the 10xxxx files have them from 1952 (GH-3910)
 - **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
   `humidity_relative`: 808 station-months at 26 stations (1955 to 1997, almost all before 1991; the
   854 of an ISD fit and a diurnal-phase test that agree in each of six one-at-a-time variants of

@@ -110,6 +110,7 @@ _MeteoFranceObservationMetadataSpec = {
                             "name": "snow_depth",
                             "name_original": "NEIGETOT06",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth_new",
@@ -174,6 +175,7 @@ _MeteoFranceObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "T",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean_last_10min",

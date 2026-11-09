@@ -51,26 +51,54 @@ _DwdSwsmosMetadataSpec = {
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
-                        {"name": "temperature_air", "name_original": "TL", **_TEMPERATURE},
-                        {"name": "temperature_dew_point", "name_original": "TD", **_TEMPERATURE},
-                        {"name": "temperature_surface", "name_original": "TS", **_TEMPERATURE},
-                        {"name": "precipitation_amount_liquid", "name_original": "RRL1c", **_PRECIPITATION},
+                        {
+                            "name": "temperature_air",
+                            "name_original": "TL",
+                            "timestamp_position": "instant",
+                            **_TEMPERATURE,
+                        },
+                        {
+                            "name": "temperature_dew_point",
+                            "name_original": "TD",
+                            "timestamp_position": "instant",
+                            **_TEMPERATURE,
+                        },
+                        {
+                            "name": "temperature_surface",
+                            "name_original": "TS",
+                            "timestamp_position": "instant",
+                            **_TEMPERATURE,
+                        },
+                        {
+                            "name": "precipitation_amount_liquid",
+                            "name_original": "RRL1c",
+                            "timestamp_position": "end",
+                            **_PRECIPITATION,
+                        },
                         # DWD says the liquid precipitation of the last 6 hours, accumulated
-                        {"name": "precipitation_amount_liquid_last_6h", "name_original": "RR6", **_PRECIPITATION},
+                        {
+                            "name": "precipitation_amount_liquid_last_6h",
+                            "name_original": "RR6",
+                            "timestamp_position": "end",
+                            **_PRECIPITATION,
+                        },
                         {
                             "name": "probability_precipitation_liquid_last_6h",
                             "name_original": "WWL6",
+                            "timestamp_position": "end",
                             "unit": "percent",
                         },
                         {
                             # R650: probability of > 5 mm liquid+solid precipitation in the last 6 h
                             "name": "probability_precipitation_amount_gt_5mm_last_6h",
                             "name_original": "R650",
+                            "timestamp_position": "end",
                             "unit": "percent",
                         },
                         {
                             "name": "road_surface_condition_forecast",
                             "name_original": "RC",
+                            "timestamp_position": "instant",
                             "unit": "dimensionless",
                         },
                     ],

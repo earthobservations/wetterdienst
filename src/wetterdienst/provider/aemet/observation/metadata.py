@@ -101,6 +101,7 @@ _AemetObservationMetadataSpec = {
                             "name": "temperature_air_2m",
                             "name_original": "ta",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_max_2m",
@@ -116,6 +117,7 @@ _AemetObservationMetadataSpec = {
                             "name": "temperature_dew_point_2m",
                             "name_original": "tpr",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "precipitation_amount",
@@ -146,16 +148,19 @@ _AemetObservationMetadataSpec = {
                             "name": "pressure_air_site",
                             "name_original": "pres",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pres_nmar",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "hr",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                     ],
                 },

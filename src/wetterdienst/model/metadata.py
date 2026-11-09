@@ -32,7 +32,7 @@ from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
 from wetterdienst.metadata.aliases import find_alias, use_alias
-from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.metadata.parameter_table import PARAMETERS, Aggregation
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
@@ -402,6 +402,13 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     #: where this parameter's stamp sits in the interval its value covers, for a dataset whose parameters differ; None
     #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
     timestamp_position: TimestampPosition | None = None
+    #: what this value is relative to its interval, declared only where the canonical name states none (a plain name:
+    #: `temperature_air_2m`) and the source says it: `instant` is a single reading, not a statistic over a window (a
+    #: mean over at most 5 minutes counts as one, GH-2660). The description of the row says when it was taken, and the
+    #: `timestamp_position`, where it is `instant`, that it is at the stamp. None for a name the table decides (a
+    #: provider cannot override `_mean`), and for a source that states nothing; read it through `effective_aggregation`.
+    #: `tests/metadata/test_aggregation_declared.py` holds both (GH-3134)
+    aggregation: Aggregation | None = None
     # the back-reference its dataset sets once it holds this parameter, so it is None until then; typing
     # it optional would put a None check in front of every read of `parameter.dataset`
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
@@ -437,6 +444,16 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
         """
         return self.timestamp_position or self.dataset.timestamp_position
 
+    @property
+    def effective_aggregation(self) -> Aggregation | None:
+        """What the value is relative to its interval: the canonical value of its name, else its own declaration.
+
+        A name the table decides (`_mean`, `_max`, `count_`, ...) always has the canonical value, since a declaration on
+        such a name is refused by the tests; a plain name has the provider's declaration where the source states a
+        statistic or a reading, and None where it states nothing ("not stated", not "a reading").
+        """
+        return PARAMETERS[self.name].aggregation or self.aggregation
+
     def __eq__(self, other: object) -> bool:
         """Compare two parameters."""
         if not isinstance(other, ParameterModel):
@@ -448,6 +465,7 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
             and self.unit == other.unit
             and self.description == other.description
             and self.timestamp_position == other.timestamp_position
+            and self.aggregation == other.aggregation
             # don't compare the dataset object itself because it'd be circular
             and self.dataset.name == other.dataset.name
             and self.dataset.resolution.name == other.dataset.resolution.name
