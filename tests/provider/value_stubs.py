@@ -2165,7 +2165,7 @@ def _knmi_serve(monkeypatch: pytest.MonkeyPatch, payloads: dict[str, bytes]) -> 
     monkeypatch.setattr(
         knmi_api,
         "_fetch_netcdf",
-        lambda _dataset, _version, filename, _settings, _moment: next(
+        lambda _dataset, _version, filename, _settings: next(
             payload for moment, payload in payloads.items() if moment in filename
         ),
     )

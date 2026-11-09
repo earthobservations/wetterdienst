@@ -1002,9 +1002,7 @@ def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception
     """Answer the KNMI file downloads with `answers` in order, the last for all after; return the filenames."""
     attempted: list[str] = []
 
-    def fake_fetch_netcdf(
-        _dataset: str, _version: str, filename: str, _settings: Settings, _moment: dt.datetime | None
-    ) -> bytes | Exception:
+    def fake_fetch_netcdf(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
         attempted.append(filename)
         return answers[min(len(attempted), len(answers)) - 1]
 
@@ -1070,9 +1068,7 @@ def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(
     }
     asked: list[str] = []
 
-    def fetch(
-        _dataset: str, _version: str, filename: str, _settings: Settings, _moment: dt.datetime | None
-    ) -> bytes | Exception:
+    def fetch(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
         asked.append(filename)
         return files.get(filename, FileNotFoundError(filename))
 
@@ -1125,7 +1121,7 @@ def test_knmi_10_minute_and_hourly_files_of_the_same_instant_agree_on_the_stamp(
     )
     monkeypatch.setattr(
         "wetterdienst.provider.knmi.observation.api._fetch_netcdf",
-        lambda _dataset, _version, filename, _settings, _moment: files.get(filename, FileNotFoundError(filename)),
+        lambda _dataset, _version, filename, _settings: files.get(filename, FileNotFoundError(filename)),
     )
 
     def values(resolution: str, start: dt.datetime, end: dt.datetime) -> dict[dt.datetime, float]:
@@ -1261,7 +1257,7 @@ def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
         "wetterdienst.provider.knmi.observation.api.drop_cached_file", lambda url, *_a, **_k: dropped.append(url)
     )
     settings = Settings(auth={"knmi": "dummy-key-for-test"})
-    payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings, None)
+    payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings)
     if fetched:
         assert payload == b"netcdf"
         assert asked[-1] == link.replace("http://", "https://")  # a link over http is asked over https

@@ -17,16 +17,21 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
+import polars as pl
 import pytest
 
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation import api
 from wetterdienst.provider.knmi.observation.api import (
+    KnmiObservationRequest,
+    _end_of,
     _fetch_netcdf,
     _file_expiry,
     _file_key,
-    _moment_of,
+    _filename_for,
+    _forgotten_if_unreadable,
 )
 from wetterdienst.settings import Settings
 
@@ -36,7 +41,6 @@ if TYPE_CHECKING:
 
 DATASET = "hourly-observations-validated"
 VERSION = "1"
-FILENAME = "hourly-observations-validated-20261014-08.nc"
 BODY = b"the content of the netcdf file"
 
 
@@ -102,13 +106,28 @@ def _ago(**age: float) -> dt.datetime:
     return dt.datetime.now(dt.UTC) - dt.timedelta(**age)
 
 
-#: The timestamp of a file that has settled, and of one KNMI may still fill in
-OLD = _ago(days=2)
-RECENT = _ago(hours=1)
+def _ago(**age: float) -> dt.datetime:
+    return dt.datetime.now(dt.UTC) - dt.timedelta(**age)
 
 
-def _fetch(settings: Settings, moment: dt.datetime | None, filename: str = FILENAME) -> bytes | Exception:
-    return _fetch_netcdf(DATASET, VERSION, filename, settings, moment)
+def _hourly(**age: float) -> str:
+    """Name the hourly file of the hour that began `age` ago (to the hour), which ends an hour after it."""
+    start = (dt.datetime.now(dt.UTC) - dt.timedelta(**age)).replace(minute=0, second=0, microsecond=0)
+    return _filename_for(Resolution.HOURLY, start)
+
+
+#: A file that has settled, and one KNMI may still fill in
+OLD = _hourly(days=2)
+RECENT = _hourly(hours=1)
+#: Named for a start 6 to 7 hours ago, so that the stamp of its values (an hour on) is 5 to 6 hours old: young. The
+#: name is older than six hours, which is what an age taken from the name alone would go by
+NAMED_BEYOND_SIX_HOURS = _hourly(hours=6)
+#: Its end is 6 to 7 hours old: settled
+ENDED_BEYOND_SIX_HOURS = _hourly(hours=7)
+
+
+def _fetch(settings: Settings, filename: str = OLD) -> bytes | Exception:
+    return _fetch_netcdf(DATASET, VERSION, filename, settings)
 
 
 def _store_requests(platform: ThreadingHTTPServer) -> list[str]:
@@ -186,21 +205,19 @@ def test_another_file_is_a_miss(platform: ThreadingHTTPServer, tmp_path: Path) -
     settings = _settings(tmp_path)
 
     _fetch(settings, OLD)
-    _fetch(settings, OLD, FILENAME.replace("-08", "-09"))
+    _fetch(settings, _hourly(days=3))
 
     assert len(_resolve_requests(platform)) == 2
     assert len(_store_requests(platform)) == 2
 
 
-@pytest.mark.parametrize("moment", [OLD, RECENT], ids=["old", "recent"])
-def test_cache_disable_asks_knmi_for_every_read(
-    platform: ThreadingHTTPServer, tmp_path: Path, moment: dt.datetime
-) -> None:
+@pytest.mark.parametrize("filename", [OLD, RECENT], ids=["old", "recent"])
+def test_cache_disable_asks_knmi_for_every_read(platform: ThreadingHTTPServer, tmp_path: Path, filename: str) -> None:
     """With the cache disabled no copy is kept, so every read resolves a link (the answer is not cached either)."""
     settings = _settings(tmp_path, cache_disable=True)
 
-    assert _fetch(settings, moment) == BODY
-    assert _fetch(settings, moment) == BODY
+    assert _fetch(settings, filename) == BODY
+    assert _fetch(settings, filename) == BODY
 
     assert len(_resolve_requests(platform)) == 2
     assert len(_store_requests(platform)) == 2
@@ -216,32 +233,32 @@ def test_the_copy_is_kept_under_the_name_of_the_file_and_the_link_is_nowhere_in_
     directory = next((tmp_path / "cache" / "fsspec").glob("*-ttl-TWELVE_HOURS"))
     held = "".join(path.read_text(errors="replace") for path in directory.iterdir() if path.is_file())
 
-    assert _file_key(DATASET, VERSION, FILENAME) in held
+    assert _file_key(DATASET, VERSION, OLD) in held
     assert "/store/" not in held
     assert "X-Amz-Signature" not in held
 
 
-@pytest.mark.parametrize("moment", [OLD, RECENT], ids=["old", "recent"])
+@pytest.mark.parametrize("filename", [OLD, RECENT], ids=["old", "recent"])
 def test_a_failed_download_names_the_file_and_not_the_link_and_keeps_no_copy(
-    platform: ThreadingHTTPServer, tmp_path: Path, moment: dt.datetime
+    platform: ThreadingHTTPServer, tmp_path: Path, filename: str
 ) -> None:
     """A store that does not answer is the `DownloadError` of the file, without the signature; nothing is kept."""
     platform.store_status = 503
     settings = _settings(tmp_path)
 
-    failure = _fetch(settings, moment)
+    failure = _fetch(settings, filename)
 
     assert isinstance(failure, DownloadError)
-    assert FILENAME in failure.url
+    assert filename in failure.url
     assert "?" not in failure.url
     assert "secret" not in str(failure)
     assert "secret" not in repr(failure.__cause__)
     platform.store_status = 200
-    assert _fetch(settings, moment) == BODY  # not served from a copy of the failure
+    assert _fetch(settings, filename) == BODY  # not served from a copy of the failure
 
 
 @pytest.mark.parametrize(
-    ("moment", "expected"),
+    ("end", "expected"),
     [
         pytest.param(None, CacheExpiry.FIVE_MINUTES, id="unknown"),
         pytest.param(_ago(minutes=10), CacheExpiry.FIVE_MINUTES, id="10 minutes"),
@@ -251,22 +268,84 @@ def test_a_failed_download_names_the_file_and_not_the_link_and_keeps_no_copy(
         pytest.param(_ago(hours=7).replace(tzinfo=None), CacheExpiry.TWELVE_HOURS, id="without a zone"),
     ],
 )
-def test_the_age_of_the_timestamp_says_how_long_a_file_is_kept(
-    moment: dt.datetime | None, expected: CacheExpiry
-) -> None:
-    """Younger than six hours is five minutes, older is twelve hours; a timestamp without a zone is UTC."""
-    assert _file_expiry(moment) == expected
+def test_the_age_of_the_end_says_how_long_a_file_is_kept(end: dt.datetime | None, expected: CacheExpiry) -> None:
+    """Ended less than six hours ago is five minutes, earlier is twelve hours; a time without a zone is UTC."""
+    assert _file_expiry(end) == expected
 
 
 @pytest.mark.parametrize(
-    ("filename", "moment"),
+    ("filename", "end"),
     [
+        # the 10-minute name is the end of its interval
         ("KMDS__OPER_P___10M_OBS_L2_202610140900.nc", dt.datetime(2026, 10, 14, 9, 0, tzinfo=dt.UTC)),
-        ("hourly-observations-validated-20261014-08.nc", dt.datetime(2026, 10, 14, 8, 0, tzinfo=dt.UTC)),
-        ("daily-observations-validated-20261014.nc", dt.datetime(2026, 10, 14, tzinfo=dt.UTC)),
+        # the hourly name is the start of its hour, whose values are stamped with its end
+        ("hourly-observations-validated-20261014-08.nc", dt.datetime(2026, 10, 14, 9, 0, tzinfo=dt.UTC)),
+        # the daily name is its date, and the day ends at the next midnight
+        ("daily-observations-validated-20261014.nc", dt.datetime(2026, 10, 15, tzinfo=dt.UTC)),
         ("latest.nc", None),
     ],
 )
-def test_the_moment_of_a_file_is_read_from_its_name(filename: str, moment: dt.datetime | None) -> None:
-    """The latest file of a listing is asked for by name only, and its age is read from it."""
-    assert _moment_of(filename) == moment
+def test_the_end_of_a_file_is_read_from_its_name(filename: str, end: dt.datetime | None) -> None:
+    """The age of a file is the age of the end of its interval, taken from its name in one place."""
+    assert _end_of(filename) == end
+
+
+def test_an_hourly_file_named_beyond_six_hours_ago_whose_stamp_is_younger_is_kept_for_five_minutes(
+    platform: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The name says 6 to 7 hours, the stamp of its values 5 to 6: KNMI may still fill it in, so 5 minutes."""
+    settings = _settings(tmp_path)
+    assert _file_expiry(_end_of(NAMED_BEYOND_SIX_HOURS)) == CacheExpiry.FIVE_MINUTES
+    assert _file_expiry(_end_of(ENDED_BEYOND_SIX_HOURS)) == CacheExpiry.TWELVE_HOURS
+
+    _fetch(settings, NAMED_BEYOND_SIX_HOURS)
+    _later(monkeypatch, minutes=4)
+    _fetch(settings, NAMED_BEYOND_SIX_HOURS)
+    assert len(_store_requests(platform)) == 1
+    _later(monkeypatch, minutes=5, seconds=30)
+    _fetch(settings, NAMED_BEYOND_SIX_HOURS)
+    assert len(_store_requests(platform)) == 2
+
+
+def test_a_body_that_is_no_netcdf_is_not_kept_for_the_next_read(
+    platform: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 200 whose body the reader cannot open (BODY is no NetCDF) is dropped, not served until it expires."""
+    monkeypatch.setattr(
+        KnmiObservationRequest,
+        "_station_frame",
+        staticmethod(lambda *_args: pl.DataFrame({"station_id": ["06260"], "name": ["De Bilt"]})),
+    )
+
+    def read() -> None:
+        request = KnmiObservationRequest(
+            parameters=[("daily", "data", "temperature_air_mean_2m")],
+            start=dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
+            end=dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
+            settings=_settings(tmp_path),
+        )
+        request.filter_by_station_id("06260").values().all()
+
+    for expected in (1, 2):
+        with pytest.raises(Exception):  # noqa: B017, PT011 -- whatever the reader raises for a body that is no file
+            read()
+        assert len(_store_requests(platform)) == expected
+
+
+def _unreadable(settings: Settings, filename: str) -> None:
+    with _forgotten_if_unreadable(DATASET, VERSION, filename, settings):
+        msg = "no file"
+        raise ValueError(msg)
+
+
+def test_the_copy_of_a_file_is_dropped_whichever_age_chose_its_directory(
+    platform: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """`_forgotten_if_unreadable` drops the copy of either expiry and raises what the reader raised."""
+    settings = _settings(tmp_path)
+    for filename in (OLD, RECENT):
+        assert _fetch(settings, filename) == BODY
+        with pytest.raises(ValueError, match="no file"):
+            _unreadable(settings, filename)
+        assert _fetch(settings, filename) == BODY
+    assert len(_store_requests(platform)) == 4
