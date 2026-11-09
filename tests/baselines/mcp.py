@@ -35,7 +35,12 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "tool providers: argument datasets: default changed from true to false": (
+        "GH-3536, step 2 of 2, announced in 0.185.0: `providers` answers compact by default, `resolutions` of "
+        "each network is null; pass `datasets=true` where you read them"
+    ),
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

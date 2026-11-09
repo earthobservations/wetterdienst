@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
+  `get_providers`) answers compact by default: `resolutions` of each network is null and everything
+  else stays, the number of `parameters` among it. 20 kB for every provider where the answer was
+  34 kB (44 kB where 109 kB with `pretty`). Where you read `resolutions`, pass `datasets=true`
+  (`--datasets`, `get_providers(datasets=True)`), which gives the answer as before; `coverage` lists
+  the parameters (GH-3536)
+
 ### Fixed
 
 - `dwd/observation` ends the `historical` period at midnight of 1 January, not at 1 January at the

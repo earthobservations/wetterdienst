@@ -38,7 +38,12 @@ from tests.baselines.common import DIRECTORY, read, write
 BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "wetterdienst about providers: --datasets: default changed from True to False": (
+        "GH-3536, step 2 of 2, announced in 0.185.0: `providers` answers compact by default, `resolutions` of "
+        "each network is null; pass `datasets=true` where you read them"
+    ),
+}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")
