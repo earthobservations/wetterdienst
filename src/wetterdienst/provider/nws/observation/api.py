@@ -158,7 +158,7 @@ _NwsObservationMetadataSpec = {
                             "unit": "pascal",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean_last_10min",
                             "name_original": "visibility",
                             "unit": "meter",
                         },

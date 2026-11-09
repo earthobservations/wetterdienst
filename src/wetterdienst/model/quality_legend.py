@@ -187,12 +187,23 @@ LEGENDS: dict[str, list[QualityKind]] = {
         _DWD_QN,
         _kind(
             "zone",
-            "<mez|woz>",
+            "<mez|mez-1973-75|woz>",
             "The time zone the source stamped the row in, where it is not UTC. `mez`: the stamp was MEZ (UTC+1, the "
-            "eMD archive of East German stations up to 1991) and is shifted to UTC. `woz`: the stamp is the hour of "
-            "the station's local true solar time, which is no whole hour from UTC, and is returned as written. Rows "
-            "stamped in UTC carry no token.",
-            codes=_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC", woz="Stamp in local true solar time, unshifted"),
+            "eMD archive of East German stations up to 1991, and the months of the plain MEZ periods that comparisons "
+            "with NOAA ISD and a diurnal-phase test find in MEZ) and is shifted to UTC. `mez-1973-75`: the same "
+            "shift for the batch of 1973-01 to 1975-12 at 13 stations, of which 8 are about 0.4 h later than "
+            "the clock explains (the analog recorder's lag, which stays as in every other analog year). `woz`: "
+            "the stamp is the hour of the station's local true solar time, which is no whole hour from UTC, and is "
+            "returned as written. Rows stamped in UTC carry no token.",
+            codes=[
+                *_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC"),
+                QualityCode(
+                    code="mez-1973-75",
+                    meaning="Stamp shifted from MEZ (UTC+1) to UTC; the analog recorder's lag of about 0.4 h "
+                    "remains at 8 stations",
+                ),
+                *_codes(woz="Stamp in local true solar time, unshifted"),
+            ],
         ),
         SUSPECT,
         REJECTED,

@@ -590,4 +590,8 @@ def test_the_block_is_returned_as_written_once_its_period_is_not_plain_mez_any_m
         pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
     )
     assert isinstance(file, ProductFile)
-    assert file.mez_md_spans == {}
+    # the blocks of the table of GH-3776 that the station has in its earlier years are not what this is about: none
+    # reaches the rows of the block of the comparison with ISD
+    stamps = [dt.datetime.strptime(row[0], "%Y%m%d%H").replace(tzinfo=dt.UTC) for row in rows]
+    for spans in file.mez_md_spans.values():
+        assert not any(first <= stamp <= last for first, last in spans for stamp in stamps)

@@ -351,6 +351,32 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | rmi/observation | hourly/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
 
 
+#### DWD POI and NWS: a mean the source gives in other words
+
+Two sources state a mean without the word, and had kept the plain name (GH-3134, unreleased):
+
+- DWD POI's three irradiances of the preceding hour, `global_radiation_last_hour` ("Globalstrahlung (letzte Stunde)"),
+  `diffuse_solar_radiation_last_hour` ("Diffuse Strahlung (letzte Stunde)") and `direct_solar_radiation_last_hour`
+  ("Direkte Strahlung (letzte Stunde)"), in W/m2. DWD gives the energy of the hour (J/cm2 in the 10-minute data) and
+  the column is that energy over the 3600 s of the hour: the global and the diffuse one equal the 10-minute J/cm2 of
+  the hour times 10000 over 3600 within 0.9 W/m2 at 250 of 250 hourly values of 10 stations. An energy over the
+  seconds of the hour is the hour's mean power, so the three take `_mean` like every other irradiance of a stated
+  mean. DWD itself does not use the word.
+- NWS's `visibility`: the ASOS User's Guide, 4.2.2, "ASOS computes a running 10-minute harmonic mean once per minute"
+  of the 1-minute visibilities. It is a mean over a window shorter than the hourly row, so it keeps the window
+  (`_mean_last_10min`) as the wind of the same dataset does, and the plain `visibility` stays where a source states
+  no statistic.
+
+| network | resolution/dataset | field | old name | new name |
+| --- | --- | --- | --- | --- |
+| dwd/poi | hourly/data | `global_radiation_last_hour` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| dwd/poi | hourly/data | `diffuse_solar_radiation_last_hour` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` |
+| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_perpendicular_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity_mean` |
+| nws/observation | hourly/data | `visibility` | `visibility` | `visibility_mean_last_10min` |
+
+Values and units are unchanged. A request for an old POI name is refused with the new one named. `visibility` is also
+the field name of the NWS API, so a request for it still selects the row, and the values come back under the new name.
+
 ### Renamed for what the number is
 
 GH-2614 asked of each row whether its name says what the source's number is, and not only its statistic. Four names
@@ -481,7 +507,7 @@ normal everywhere else (`sunshine_duration_normal`), so the perpendicular plane 
 
 | network | resolution/dataset | field | old name | new name | what the number is |
 | --- | --- | --- | --- | --- | --- |
-| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | "Direkte Strahlung (letzte Stunde)", W/m2, on a plane perpendicular to the sun's rays |
+| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity_mean` (`..._intensity` until GH-3134) | "Direkte Strahlung (letzte Stunde)", W/m2, on a plane perpendicular to the sun's rays |
 
 Values and units are unchanged, and a request for the old name is refused with the new one named. To get the component
 on a horizontal surface, multiply the values by the cosine of the solar zenith angle.

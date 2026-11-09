@@ -383,6 +383,16 @@ def mez_md_column(parameter: str) -> str:
     return f"{MEZ_MD_PREFIX}{parameter}"
 
 
+#: the prefix of the boolean column that says which of those stamps only the 1973-01 to 1975-12 batch of the table of
+#: GH-3776 shifted: the rows `zone:mez-1973-75` flags, not those a MEZ (MD) period shifts too
+MEZ_BATCH_PREFIX = "mez_batch__"
+
+
+def mez_batch_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are of the batch."""
+    return f"{MEZ_BATCH_PREFIX}{parameter}"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
@@ -557,6 +567,18 @@ def _parse_climate_observations_data(  # noqa: C901
                 if file.mez_md_spans.get(column)
                 else pl.lit(value=False)
             ).alias(mez_md_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.mez_batch_spans[column]
+                )
+                if file.mez_batch_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(mez_batch_column(column))
             for column in parameters
             if column in columns
         )

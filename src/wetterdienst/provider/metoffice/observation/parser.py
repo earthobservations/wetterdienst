@@ -39,6 +39,17 @@ _CALM = "0"
 _SKY_OBSCURED_COLUMNS = frozenset({"cld_ttl_amt_id"})
 _SKY_OBSCURED = "9"
 
+# a mean wind direction of 999 is a code, no bearing (a direction is 0 to 360). No MIDAS document words it: the WM page
+# says of `mean_wind_dir` only "The wind direction from which the wind blows, is measured in Degrees (true). The entry
+# for an east wind is 090, that for a south wind 180 and so on clockwise", the user guide (`ukmo_guide.html`, 5.5) names
+# the unit and the 10 degree precision and no code, and the QC tables (`QC_J_flags.html`) have none for it (all read
+# 2026-11-08). The data speak: 2,333 of 775,720 mean wind directions of 7 stations in 1970 to 1995 (GH-3909), every one
+# beside a mean wind speed of 1 to 6 knots (2 in 97 %), none beside a calm, and in the hourly weather's wind direction
+# and in the gust direction none at all (360 at most). A direction that could not be given in a light wind: null with
+# `raw:999`, which the range check rejected before (`rejected:range,raw:999`)
+_NO_BEARING_COLUMNS = frozenset({"mean_wind_dir"})
+_NO_BEARING = "999"
+
 
 def _data_section(content: bytes, *, na_is_null: bool = True) -> pl.DataFrame:
     """Split off the CSV table between the bare ``data`` and ``end data`` lines.
@@ -86,7 +97,7 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
 
 
 def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
-    """Give the codes of a column that are no reading: a 0 of a direction beside a speed of 0, the 9 of the sky."""
+    """Give the codes of a column that are no reading: a calm 0, the 9 of the sky and a 999 for a bearing."""
     codes = []
     speed = _CALM_SPEED_COLUMNS.get(raw_column)
     if speed in columns:
@@ -94,6 +105,8 @@ def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
         codes.append(Sentinel(_CALM, where=calm.fill_null(value=False)))
     if raw_column in _SKY_OBSCURED_COLUMNS:
         codes.append(Sentinel(_SKY_OBSCURED))
+    if raw_column in _NO_BEARING_COLUMNS:
+        codes.append(Sentinel(_NO_BEARING))
     return codes
 
 

@@ -104,7 +104,7 @@ two different units.
 This means the canonical `name` you pick has to already exist in that table. If your service reports
 a quantity that is not in it yet, add it there first. If it reports something that looks like an
 existing name but is a *different* physical quantity, give it its own name rather than reusing the
-existing one -- see the `radiation_global` and `radiation_global_intensity` pair, which are
+existing one -- see the `radiation_global` and `radiation_global_intensity_mean` pair, which are
 irradiation (accumulated energy per area) and irradiance (power per area) and are not convertible
 into one another without the accumulation interval.
 
