@@ -195,7 +195,7 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "daily",
         "NEIGETOT06",
         "page",
-        "NEIGETOT06 instant at 06 h",
+        "instant: NEIGETOT06 at 06 h",
         datasets="others",
         section="meteofrance",
         network="observation",
