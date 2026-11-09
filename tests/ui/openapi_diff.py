@@ -51,7 +51,12 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "GET /api/v1/providers: parameter datasets (query): default changed from true to false": (
+        "GH-3536, step 2 of 2, announced in 0.185.0: `providers` answers compact by default, `resolutions` of each "
+        "network is null; a client that reads them passes `datasets=true`"
+    ),
+}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

@@ -133,6 +133,30 @@ def test_request_period_historical_recent_now(default_settings: Settings) -> Non
     }
 
 
+@pytest.mark.parametrize("hour", [0, 23])
+def test_a_window_from_1_january_reads_the_same_periods_at_any_hour(hour: int, default_settings: Settings) -> None:
+    """`historical` ends at midnight of 1 January, not at the time of day of now (GH-3914).
+
+    It ended at 1 January with the hour of the request, so between 00:00 and 01:00 Berlin a window starting on
+    1 January UTC did not reach it, and at every other hour it did.
+    """
+    with freeze_time(dt.datetime(2026, 11, 9, hour, 30, tzinfo=ZoneInfo("Europe/Berlin"))):
+        this_year = DwdObservationRequest(
+            parameters=[("monthly", "climate_summary")],
+            start="2026-01-01",
+            end="2026-03-01",
+            settings=default_settings,
+        )
+        from_last_year = DwdObservationRequest(
+            parameters=[("monthly", "climate_summary")],
+            start="2025-12-01",
+            end="2026-03-01",
+            settings=default_settings,
+        )
+        assert this_year.periods == {Period.RECENT}
+        assert from_last_year.periods == {Period.HISTORICAL, Period.RECENT}
+
+
 @freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo("Europe/Berlin")))
 def test_request_period_recent_now(default_settings: Settings) -> None:
     """Test for recent and now period."""

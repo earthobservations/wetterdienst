@@ -1645,11 +1645,12 @@ class ProvidersRequest(_RefusesRenamedParameters):
     datasets: Annotated[
         bool,
         Field(
-            description="List the resolutions and datasets of each network, with the number of parameters of each "
-            "(the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything "
-            "else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
+            description="List the resolutions and datasets of each network, with the number of parameters of each. "
+            "Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: "
+            "everything else stays, among it the number of parameters of each network. `coverage` lists the "
+            "parameters.",
         ),
-    ] = True
+    ] = False
     pretty: _PrettyField = False
 
 

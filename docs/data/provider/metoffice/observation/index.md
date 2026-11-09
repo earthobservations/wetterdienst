@@ -24,8 +24,11 @@ BADC-CSV file per station and year. The day of the daily quantities is the date 
 `ob_end_time`; the temperature is built from windows (below), and the others (sunshine, snow depth,
 precipitation) are reported once per day, so the aggregation is effectively a de-duplication there.
 Hourly datasets keep only the readings of one hour (`ob_hour_count` 1): the files of the rain and
-radiation datasets also hold 12 and 24-hour totals. A wind direction of 0 beside a wind speed of 0 (a calm) and a total
-cloud amount of 9 (the sky obscured) are null, with the text the file wrote in `quality_flags`.
+radiation datasets also hold 12 and 24-hour totals. A wind direction of 0 beside a wind speed of 0 (a calm), a mean
+wind direction of 999 (a code, no bearing: no MIDAS table words it, it stands beside a light wind of 1 to 6 knots, in
+the files of 1970 to 1995) and a total cloud amount of 9 (the sky obscured) are null, with the text the file wrote in
+`quality_flags`. A relative humidity of 100.1 or 100.2 and a visibility of 8047 dam (50 miles) are no code of the
+tables: the first is rejected as out of range, the second is kept.
 
 Not every station measures every parameter — a station/parameter combination MIDAS doesn't have
 simply contributes no rows.
