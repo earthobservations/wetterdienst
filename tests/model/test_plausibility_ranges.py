@@ -203,7 +203,7 @@ _HELD_TO_NOTHING = (
     "discharge",
     "groundwater_level",
     "distance_river_gauge",
-    "flow_",
+    "flow_speed",
 )
 
 
