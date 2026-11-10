@@ -1046,6 +1046,25 @@ describe('why a farther station was picked, and which place the pick is for (GH-
     })
   })
 
+  it('keeps the origin of the place through a dataset that has no station within reach: the position of the station chosen from the list is not told as a click', async () => {
+    DAILY_STATIONS.push(CLOSED)
+    // the solar radiation of this test has stations in the Black Forest only, 700 km from Hamburg
+    solarStations = [FELDBERG, FREIBURG]
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await wrapper.find('[data-station-id="10147"]').trigger('click')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    await layerButton(wrapper, 'measured').trigger('click')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+    ;(wrapper.vm as any).source = { resolution: 'daily', dataset: 'solar' }
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    ;(wrapper.vm as any).source = { resolution: 'daily', dataset: 'more_precip' }
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+    const place = wrapper.find('[data-testid="map-place"]')
+    expect(place.text()).toMatch(/^The position of HAMBURG-FUHLSBUETTEL, .* from this station$/)
+    expect(place.text()).not.toContain('point')
+  })
+
   describe('the dots of the stations that have stopped', () => {
     it('are drawn apart from the dots that report on the measuring layer, which the map is told by the rule of its list, and the legend says what each is', async () => {
       DAILY_STATIONS.push(CLOSED)

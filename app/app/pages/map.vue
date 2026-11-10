@@ -349,7 +349,7 @@ function pickAgain(list: PlacedStation[]) {
   const point = anchor.value!
   const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
   if (!found)
-    return tellNoStationNear(point)
+    return tellNoStationNear(point, origin.value)
   selectedId.value = found.station_id
   pickedIn = viewKey.value
   unknownStation.value = null
