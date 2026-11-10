@@ -2,9 +2,10 @@
 import type { Station } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
+import { UnexpectedAnswerError } from '~/utils/api-answer'
 import { describeFetchError } from '~/utils/api-error'
 import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
-import { backendFailure, describeRequestError } from '~/utils/request-error'
+import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -54,7 +55,7 @@ async function loadStation(id: string) {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         stations: id,
       },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     station.value = (res.stations ?? [])[0] ?? null
     // the backend answers a station id it does not know with no station, not with a failure
@@ -67,7 +68,9 @@ async function loadStation(id: string) {
     const response: Response | undefined = e?.response
     failure.value = response
       ? backendFailure(response.status, response.statusText, e.data)
-      : { kind: 'text', text: describeFetchError(e) }
+      : e instanceof UnexpectedAnswerError
+        ? failureOfError(e)
+        : { kind: 'text', text: describeFetchError(e) }
   }
 }
 
@@ -88,11 +91,11 @@ async function fetchValues(s: Station) {
       failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
       return
     }
-    const json = await res.json()
+    const json = await readJsonAnswer<{ values?: any[] }>('/api/values', res)
     values.value = json.values ?? []
   }
   catch (e: any) {
-    failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+    failure.value = failureOfError(e)
   }
   finally {
     pending.value = false

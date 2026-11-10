@@ -122,7 +122,7 @@ describe('stripes Page', () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
       series: { station },
-      years: [{ year: 2000, value: 9.5 }],
+      values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }],
     }))
 
     const wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
@@ -1070,7 +1070,7 @@ describe('stripes Page requests answered with a 503 once', () => {
 
   it('asks /api/stripes/values once more, and plots what that answer brings', async () => {
     endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
-    const { asked, handler } = flaky({ series: { station }, years: [{ year: 2000, value: 9.5 }] })
+    const { asked, handler } = flaky({ series: { station }, values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }] })
     endpoints.push(registerEndpoint('/api/stripes/values', handler))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
