@@ -9,7 +9,7 @@ import { mockBackend, STATIONS } from './accessibility/mock-backend'
 // over a page that scrolls, and a touch drag in them must move their own list and nothing behind them -- not by
 // chaining on to the page once the list is at its end, and not from a drag on the backdrop. Run on a phone
 // (Pixel 7, touch, mobile) in Chromium, the `chromium-touch` project of playwright.config.ts: the drag is a gesture
-// of the browser's compositor (CDP `Input.synthesizeScrollGesture`, source touch), which is what a finger is, and
+// of the browser's input (CDP `Input.dispatchTouchEvent`), which is what a finger is, and
 // which a wheel event or `scrollTo` is not. The page behind is scrolled down once the dialog is open, since a page at
 // the top that does not move proves nothing about a lock. Chromium holds the page still by the `overflow: hidden` the
 // dialog library sets on the body, so the same drags are made once more with that lock taken off: a contract for the
@@ -59,14 +59,27 @@ async function scrollPage(page: Page) {
 const scrollY = (page: Page) => page.evaluate(() => window.scrollY)
 const scrollTop = (box: Locator) => box.evaluate(element => element.scrollTop)
 
-/** A finger dragged from (x, y) by `up` pixels, upwards (so that what is under it scrolls down), as a touch gesture */
-async function swipeUp(cdp: CDPSession, x: number, y: number, up: number) {
-  await cdp.send('Input.synthesizeScrollGesture', { x, y, yDistance: -up, speed: 1200, gestureSourceType: 'touch', preventFling: true })
+/**
+ * A finger dragged from (x, y) by `distance` pixels (negative: upwards, so that what is under it scrolls down), as touch
+ * events of the browser's input (CDP `Input.dispatchTouchEvent`): a start, a move every 16 ms and an end after a stop, so
+ * that it is a drag and not a fling. Not `Input.synthesizeScrollGesture` with source touch, which moved the list on
+ * macOS and not in CI's headless Chromium on Linux (the likely reason: there the gesture is injected through the
+ * platform's window, which a headless one does not have; these events go to the page's input directly)
+ */
+async function drag(cdp: CDPSession, x: number, y: number, distance: number) {
+  const steps = Math.max(1, Math.ceil(Math.abs(distance) / 20))
+  const point = (step: number) => [{ x, y: y + (distance * step) / steps, id: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(0) })
+  for (let step = 1; step <= steps; step++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(step) })
+    await new Promise(resolve => setTimeout(resolve, 16))
+  }
+  await new Promise(resolve => setTimeout(resolve, 120))
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 }
 
-async function swipeDown(cdp: CDPSession, x: number, y: number, down: number) {
-  await cdp.send('Input.synthesizeScrollGesture', { x, y, yDistance: down, speed: 1200, gestureSourceType: 'touch', preventFling: true })
-}
+const swipeUp = (cdp: CDPSession, x: number, y: number, up: number) => drag(cdp, x, y, -up)
+const swipeDown = (cdp: CDPSession, x: number, y: number, down: number) => drag(cdp, x, y, down)
 
 async function centre(box: Locator) {
   const rect = (await box.boundingBox())!
@@ -122,22 +135,28 @@ async function holds(page: Page, dialog: Locator, list: Locator, options: { stil
   await swipeDown(cdp, x, y, 300)
   expect(await scrollY(page), 'a drag past the top of the list does not chain to the page').toBe(PAGE_OFFSET)
 
-  // a drag on the parts that do not scroll: the field and the line under the list
+  // a drag on the parts that do not scroll: the field and the line under the list. Each way is looked at on its own: one
+  // way after the other would bring a page that had moved back to where it was
   for (const box of still) {
     const at = await centre(box)
     await swipeUp(cdp, at.x, at.y, 200)
+    expect(await scrollY(page), 'a drag up on a part of the dialog that does not scroll does not scroll the page').toBe(PAGE_OFFSET)
     await swipeDown(cdp, at.x, at.y, 200)
-    expect(await scrollY(page), 'a drag on a part of the dialog that does not scroll does not scroll the page').toBe(PAGE_OFFSET)
+    expect(await scrollY(page), 'a drag down on a part of the dialog that does not scroll does not scroll the page').toBe(PAGE_OFFSET)
   }
   // a drag on the backdrop, both ways, does not move the page, and the dialog is still there
   const point = await backdropPoint(page, dialog)
   await swipeUp(cdp, point.x, point.y, 200)
+  expect(await scrollY(page), 'a drag up on the backdrop does not scroll the page').toBe(PAGE_OFFSET)
   await swipeDown(cdp, point.x, point.y, 200)
-  expect(await scrollY(page), 'a drag on the backdrop does not scroll the page').toBe(PAGE_OFFSET)
+  expect(await scrollY(page), 'a drag down on the backdrop does not scroll the page').toBe(PAGE_OFFSET)
   await expect(dialog).toBeVisible()
   // nothing of the document scrolls either (the window is not the only thing that can)
   expect(await page.evaluate(() => [document.documentElement.scrollTop, document.body.scrollTop])).toEqual([PAGE_OFFSET, 0])
 }
+
+// a drag takes its time (a step every 16 ms), and a runner of CI is slow
+test.setTimeout(90_000)
 
 test.describe('the dialogs on a phone', () => {
   test('the search scrolls its own list and leaves the page behind alone', async ({ page, baseURL }) => {
