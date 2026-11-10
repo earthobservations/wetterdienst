@@ -20,13 +20,14 @@ Types of changes:
 
 - `[Explorer, Settings]` The Explorer's own "General settings" (readable names, convert to SI, unit
   targets) are gone: its requests send the plain-language labels, the conversion and the units of
-  the Settings page, which were stored there and used by nothing, so a change there reaches the
-  next request. The Explorer shows them in one line with a link to the page. A first visit starts
-  the settings from the server's (`GET /api/settings`), kept from then on. The defaults for power
-  per area (W/m²), conductivity (µS/cm), fraction (percent) and energy per area (MJ/m²) are the
-  backend's: a stored W/cm², S/m, decimal or J/cm² is read as the default. A link copied now
-  carries no names or units (the recipient's settings apply); one of an earlier version keeps its
-  choice only where it differs from the recipient's, until "Use my app settings" (GH-3878)
+  the Settings page, which were stored there and used by nothing, so a change there reaches the next
+  request. The Explorer shows them in one line with a link to the page. A first visit starts the
+  settings from the server's (`GET /api/settings`, tried again at the next load if it failed), kept
+  from then on; Reset goes back to them. The defaults for power per area (W/m²), conductivity
+  (µS/cm), fraction (percent) and energy per area (MJ/m²) are the backend's: a stored W/cm², S/m,
+  decimal or J/cm² is read as the default. A link copied now carries no names or units (the
+  recipient's settings apply); one of an earlier version keeps its choice only where it differs from
+  the recipient's, until "Use my app settings" (GH-3878)
 - `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
   the notifications, the number fields' description for a screen reader) are in the language of
   the page in all eleven languages (they were English in all but German; Hamburg German uses the

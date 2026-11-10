@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { clearNuxtState, useServerSettings } from '#imports'
+import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 
 // A first visit starts from the server's settings (`GET /api/settings`, GH-3878); from then on the stored settings are
 // the visitor's. `useSettings` keeps its store in the module, so each test loads a module of its own, and gives the
@@ -139,5 +140,91 @@ describe('the settings of a first visit', () => {
     expect(asked).toBe(0)
     expect(settings.value.friendlyLabels).toBe(false)
     expect(settings.value.units.temperature).toBe('degree_celsius')
+  })
+
+  it('mark themselves as started from the server once it has answered, and keep the mark from then on', async () => {
+    answer = FAHRENHEIT
+    const { settings } = await visit()
+    expect(settings.value.seededFromServer).toBe(false)
+    await vi.waitFor(() => expect(settings.value.seededFromServer).toBe(true))
+    await nextTick()
+    expect(stored().seededFromServer).toBe(true)
+  })
+
+  it('are tried again at the next load where the server failed, and take its settings then', async () => {
+    answer = () => {
+      throw createError({ statusCode: 500 })
+    }
+    const first = await visit()
+    await expect(useServerSettings()).resolves.toBeNull()
+    await nextTick()
+    expect(first.settings.value.units.temperature).toBe('degree_celsius')
+    expect(stored().seededFromServer).toBe(false)
+
+    clearNuxtState('server-settings')
+    answer = FAHRENHEIT
+    const second = await visit()
+    await vi.waitFor(() => expect(second.settings.value.units.temperature).toBe('degree_fahrenheit'))
+    expect(second.settings.value.seededFromServer).toBe(true)
+    await nextTick()
+    expect(stored().units.temperature).toBe('degree_fahrenheit')
+    expect(asked).toBe(2)
+  })
+
+  it('keep a choice made meanwhile when the retry comes, and take the rest', async () => {
+    answer = () => {
+      throw createError({ statusCode: 500 })
+    }
+    const first = await visit()
+    await expect(useServerSettings()).resolves.toBeNull()
+    first.settings.value.units.temperature = 'degree_kelvin'
+    await nextTick()
+
+    clearNuxtState('server-settings')
+    answer = FAHRENHEIT
+    const second = await visit()
+    await vi.waitFor(() => expect(second.settings.value.units.speed).toBe('knots'))
+    expect(second.settings.value.units.temperature).toBe('degree_kelvin')
+  })
+
+  it('are not tried again where the server has no such endpoint (404)', async () => {
+    answer = () => {
+      throw createError({ statusCode: 404 })
+    }
+    const first = await visit()
+    await expect(useServerSettings()).resolves.toBeNull()
+    await vi.waitFor(() => expect(first.settings.value.seededFromServer).toBe(true))
+    await nextTick()
+    expect(stored().seededFromServer).toBe(true)
+
+    clearNuxtState('server-settings')
+    answer = FAHRENHEIT
+    const second = await visit()
+    await nextTick()
+    expect(asked).toBe(1)
+    expect(second.settings.value.units.temperature).toBe('degree_celsius')
+  })
+
+  describe('reset', () => {
+    it('goes back to the server\'s settings where it has answered in this load, not to the app\'s defaults', async () => {
+      answer = FAHRENHEIT
+      const { settings, reset } = await visit()
+      await vi.waitFor(() => expect(settings.value.seededFromServer).toBe(true))
+      settings.value.units.temperature = 'degree_kelvin'
+      settings.value.friendlyLabels = true
+      reset()
+      expect(settings.value.units.temperature).toBe('degree_fahrenheit')
+      expect(settings.value.friendlyLabels).toBe(false)
+      expect(settings.value.seededFromServer).toBe(true)
+    })
+
+    it('goes back to the app\'s defaults with no answer, and has the next load ask again', async () => {
+      storage.setItem('wd_settings', JSON.stringify({ version: 2, units: { ...SETTINGS_DEFAULTS.units, temperature: 'degree_kelvin' } }))
+      answer = FAHRENHEIT
+      const { settings, reset } = await visit()
+      reset()
+      expect(settings.value.units.temperature).toBe('degree_celsius')
+      expect(settings.value.seededFromServer).toBe(false)
+    })
   })
 })

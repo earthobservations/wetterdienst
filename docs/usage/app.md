@@ -55,8 +55,12 @@ Explorer link of an earlier version may carry `humanize` and `convertUnits`: whe
 page they apply to that view over it, and "Use my app settings" in the Explorer's Settings drops them; a link copied
 now carries neither, so its recipient's settings apply. A visitor with no saved settings starts from the server's
 (`GET /api/settings`: `humanize`, `convert_units`, and the `unit_targets` of the types the page lists); the page is
-not held for the answer, and where it is slow or fails the defaults of the app apply. From then on the settings are the
-visitor's own, whatever the server says. The forecast, its widget and the
+not held for the answer, and where it is slow or fails the defaults of the app apply. The next load tries again, field
+by field and only for a setting still at the app's default, until the server has answered (its settings, or a 404);
+from then on the settings are the visitor's own, whatever the server says. A link of an earlier version is compared
+with the settings once the server has answered for them. **Reset** on the Settings page goes back to the server's
+settings where it has answered in that load, and else to the defaults of the app, and the next load asks the server
+again. The forecast, its widget and the
 map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
 the Settings page does not change.
 

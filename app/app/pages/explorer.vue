@@ -190,8 +190,8 @@ const leadTimeOptions = computed(() => [
 ])
 
 // Data settings: wetterdienst's defaults, the server's in their place once it reports them, and the
-// link's over both. The names and units are not among the defaults: they are the app settings', and a link's
-// `humanize` and `convertUnits` are held as they came, over the app settings, for this view (GH-3878)
+// link's over both. The names and units are not among them: they are the app settings', and a link's `humanize` and
+// `convertUnits` override them for this view only where they differ (see `applyLinkChoices`, GH-3878)
 const startingSettings = ref<DataSettings>({
   shape: 'long',
   skipEmpty: false,
@@ -206,33 +206,12 @@ const startingSettings = ref<DataSettings>({
   numAdditionalStations: 3,
 })
 const settingsFromLink: Partial<DataSettings> = {}
-// The names and the conversion a link carries are an override of the app settings only where they differ from them
-// (GH-3878): an address the page wrote before wrote both at any value, `humanize=true&convertUnits=true` in nearly
-// every one, which is no choice of the link's.
-const { settings: appSettings } = useSettings()
-if (route.query.humanize != null) {
-  const humanize = route.query.humanize.toString() === 'true'
-  if (humanize !== appSettings.value.friendlyLabels)
-    settingsFromLink.humanize = humanize
+// What the link carries of the names and the conversion, read now: the address is rewritten as the page's state settles
+const linkChoices = {
+  humanize: route.query.humanize == null ? undefined : route.query.humanize.toString() === 'true',
+  convertUnits: route.query.convertUnits == null ? undefined : route.query.convertUnits.toString() === 'true',
 }
-if (route.query.convertUnits != null) {
-  const convertUnits = route.query.convertUnits.toString() === 'true'
-  if (convertUnits !== appSettings.value.convertUnits)
-    settingsFromLink.convertUnits = convertUnits
-}
-// One of them that is no override leaves the address at once, so that the page read again from it (a visit to the
-// settings and back) is not given a choice that was never the link's
-const unneeded = (['humanize', 'convertUnits'] as const).filter(key => route.query[key] != null && !(key in settingsFromLink))
-if (unneeded.length) {
-  const { humanize: _humanize, convertUnits: _convertUnits, ...rest } = route.query
-  void router.replace({
-    query: {
-      ...rest,
-      ...('humanize' in settingsFromLink ? { humanize: route.query.humanize } : {}),
-      ...('convertUnits' in settingsFromLink ? { convertUnits: route.query.convertUnits } : {}),
-    },
-  }).catch(() => {})
-}
+const { settings: appSettings, seeded } = useSettings()
 const shapeFromLink = route.query.shape?.toString()
 if (shapeFromLink === 'long' || shapeFromLink === 'wide')
   settingsFromLink.shape = shapeFromLink
@@ -241,6 +220,31 @@ if (route.query.skipEmpty != null)
 if (route.query.dropNulls != null)
   settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
+
+// The names and the conversion a link carries are an override of the app settings only where they differ from them
+// (GH-3878): an address the page wrote before wrote both at any value, `humanize=true&convertUnits=true` in nearly
+// every one, which is no choice of the link's. One that is no override leaves the address, so that the page read again
+// from it (a visit to the settings and back) is not given a choice that was never the link's. A first visit's settings
+// are compared once the server has answered for the app settings, so that a link is held against the values they start
+// from, not against the app's defaults.
+function applyLinkChoices() {
+  const app = { humanize: appSettings.value.friendlyLabels, convertUnits: appSettings.value.convertUnits }
+  for (const key of ['humanize', 'convertUnits'] as const) {
+    if (linkChoices[key] !== undefined && linkChoices[key] !== app[key])
+      dataSettings.value[key] = linkChoices[key]
+  }
+  const { humanize: _humanize, convertUnits: _convertUnits, ...rest } = router.currentRoute.value.query
+  const kept = {
+    ...(dataSettings.value.humanize === undefined ? {} : { humanize: String(dataSettings.value.humanize) }),
+    ...(dataSettings.value.convertUnits === undefined ? {} : { convertUnits: String(dataSettings.value.convertUnits) }),
+  }
+  if (route.query.humanize != null || route.query.convertUnits != null)
+    void router.replace({ query: { ...rest, ...kept } }).catch(() => {})
+}
+if (appSettings.value.seededFromServer)
+  applyLinkChoices()
+else
+  void seeded.then(applyLinkChoices)
 
 // The readable names, the unit conversion and the unit targets are the app settings' (GH-3878): `DataViewer` reads
 // them for each request, and the Explorer says here what they are, with a link to the page that changes them.

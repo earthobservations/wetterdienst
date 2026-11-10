@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Enheder: {units}",
     "settingsUnitsOff": "Enheder som udgivet",
     "settingsChange": "Skift i appens indstillinger",
-    "settingsLinkOverride": "Dette link bestemmer selv, om navne er læsbare, og om værdier omregnes, i stedet for dine indstillinger i appen. Enhederne forbliver dine.",
+    "settingsLinkOverride": "Dette link bestemmer selv, om navne er læsbare, og om værdier omregnes, i stedet for dine indstillinger i appen, som forbliver uændrede.",
     "settingsUseMine": "Brug mine indstillinger i appen",
     "valuesOptions": "Værdimuligheder",
     "shape": "Form",

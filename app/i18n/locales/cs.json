@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Jednotky: {units}",
     "settingsUnitsOff": "Jednotky tak, jak jsou publikovány",
     "settingsChange": "Změnit v nastavení aplikace",
-    "settingsLinkOverride": "Tento odkaz sám určuje, zda jsou názvy čitelné a zda se hodnoty převádějí, místo tvého nastavení aplikace. Jednotky zůstávají tvoje.",
+    "settingsLinkOverride": "Tento odkaz sám určuje, zda jsou názvy čitelné a zda se hodnoty převádějí, místo tvého nastavení aplikace, které zůstává beze změny.",
     "settingsUseMine": "Použít moje nastavení aplikace",
     "valuesOptions": "Možnosti hodnot",
     "shape": "Tvar",

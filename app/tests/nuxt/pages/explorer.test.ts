@@ -1065,6 +1065,20 @@ describe('explorer Page names and units are the app settings\' (GH-3878)', () =>
       expect(vm.dataSettings.convertUnits).toBeUndefined()
     })
 
+    it('holds a link against the app settings once the server has answered for them, on a first visit', async () => {
+      // the settings of a first visit whose seeding is under way, the server having made names plain, as the link has
+      const { settings } = useSettings()
+      settings.value.seededFromServer = false
+      settings.value.friendlyLabels = false
+      const { wrapper, vm } = await openLink(`/explorer?${SELECTION}&humanize=false&convertUnits=true&shape=long`)
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize'))
+      expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+      expect(vm.dataSettings.humanize).toBeUndefined()
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+      await openSettings(wrapper)
+      expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+    })
+
     it('reads a link that names only one of them', async () => {
       const { vm } = await openLink('/explorer?convertUnits=false')
       expect(vm.dataSettings.convertUnits).toBe(false)

@@ -74,6 +74,12 @@ export const wdSettingsSchema = z.object({
    * is stored is made a valid order by `normalizeToolOrder` where it is read and here.
    */
   tabBar: z.array(z.string()).default([...DEFAULT_TOOL_ORDER]),
+  /**
+   * Whether the settings have been started from the server's (GH-3878): false on a first visit until the server has
+   * answered for good (its settings, or a 404), so that a visit whose answer failed is tried again at the next load. A
+   * default, so that settings stored before it are read, and are the visitor's already.
+   */
+  seededFromServer: z.boolean().default(true),
 })
 export type WdSettings = z.infer<typeof wdSettingsSchema>
 
@@ -110,6 +116,7 @@ export const SETTINGS_DEFAULTS: WdSettings = {
     showTrendline: false,
   },
   tabBar: [...DEFAULT_TOOL_ORDER],
+  seededFromServer: true,
 }
 
 const STORAGE_KEY = 'wd_settings'
@@ -159,6 +166,8 @@ export function coerceSettings(raw: unknown): WdSettings {
     if (stripes.success)
       result.stripes = stripes.data
     result.tabBar = normalizeToolOrder(r.tabBar)
+    if (typeof r.seededFromServer === 'boolean')
+      result.seededFromServer = r.seededFromServer
   }
   return result
 }
@@ -220,6 +229,9 @@ function holdsNoSettings(): boolean {
 }
 
 let store: RemovableRef<WdSettings> | null = null
+// the answer of the server this load has seen, which `reset` starts from, and the attempt to seed from it
+let serverAnswer: unknown = null
+let seeding: Promise<void> = Promise.resolve()
 
 export function useSettings() {
   if (!store) {
@@ -237,26 +249,38 @@ export function useSettings() {
     store.value = coerceSettings(store.value)
     // A first visit starts from what the server reports (GH-3878), so that an instance that converts to Fahrenheit
     // shows its readers Fahrenheit. The page is not held for it: until the answer comes, and where it does not, the app's
-    // defaults are the settings, and what the visitor chose meanwhile is kept. From the next visit on, the stored
-    // settings are the visitor's.
+    // defaults are the settings, and what the visitor chose meanwhile is kept. `seededFromServer` stays false until the
+    // server has answered for good: a visit whose answer failed is tried again at the next load, field by field.
     if (firstVisit)
-      void seedStoreFromServer(store)
+      store.value = { ...store.value, seededFromServer: false }
+    if (!store.value.seededFromServer)
+      seeding = seedStoreFromServer(store)
   }
 
+  /** The settings the app starts from: the server's where it has answered in this load, else the app's defaults. */
   function reset() {
-    store!.value = structuredClone(SETTINGS_DEFAULTS)
+    const fresh = structuredClone(SETTINGS_DEFAULTS)
+    // with no answer at hand the next load asks again, as it does where a first visit's answer failed
+    store!.value = serverAnswer
+      ? { ...seedFromServer(fresh, serverAnswer), seededFromServer: true }
+      : { ...fresh, seededFromServer: false }
   }
 
-  return { settings: store, reset }
+  return { settings: store, reset, seeded: seeding }
 }
 
 async function seedStoreFromServer(target: RemovableRef<WdSettings>) {
   try {
-    const server = await useServerSettings()
-    if (server)
-      target.value = seedFromServer(target.value, server)
+    const { settings: server, answered } = await useServerSettingsAnswer()
+    if (server) {
+      serverAnswer = server
+      target.value = { ...seedFromServer(target.value, server), seededFromServer: true }
+    }
+    else if (answered) {
+      target.value = { ...target.value, seededFromServer: true }
+    }
   }
   catch {
-    // no answer, or no app to ask it in: the app's defaults stay
+    // no answer, or no app to ask it in: the app's defaults stay, and the next load asks again
   }
 }

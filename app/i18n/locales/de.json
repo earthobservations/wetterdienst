@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Einheiten: {units}",
     "settingsUnitsOff": "Einheiten wie veröffentlicht",
     "settingsChange": "In den App-Einstellungen ändern",
-    "settingsLinkOverride": "Dieser Link legt fest, ob Namen verständlich sind und Werte umgerechnet werden, abweichend von deinen App-Einstellungen. Die Einheiten bleiben deine.",
+    "settingsLinkOverride": "Dieser Link legt fest, ob Namen verständlich sind und Werte umgerechnet werden, abweichend von deinen App-Einstellungen, die unverändert bleiben.",
     "settingsUseMine": "Meine App-Einstellungen verwenden",
     "valuesOptions": "Werte-Optionen",
     "shape": "Form",

@@ -121,6 +121,16 @@ describe('settings schema', () => {
     })
   })
 
+  describe('the mark of a start from the server (GH-3878)', () => {
+    it('is true for settings stored before it, which are the visitor\'s already, and kept where stored', () => {
+      const { seededFromServer: _seeded, ...earlier } = structuredClone(SETTINGS_DEFAULTS)
+      expect(coerceSettings(earlier).seededFromServer).toBe(true)
+      expect(coerceSettings({ ...earlier, version: 1 }).seededFromServer).toBe(true)
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), seededFromServer: false }).seededFromServer).toBe(false)
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), seededFromServer: 'no' }).seededFromServer).toBe(true)
+    })
+  })
+
   describe('the settings a server reports (GH-3878)', () => {
     const server = { values: { humanize: false, convert_units: false, unit_targets: { temperature: 'degree_fahrenheit', speed: 'furlong', duration: 'minute', nothing: 'x' } } }
 
