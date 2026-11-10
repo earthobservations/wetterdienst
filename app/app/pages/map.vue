@@ -871,9 +871,12 @@ watch(() => route.query, (query) => {
   background: var(--color-tile-navy);
   color: #ffffff;
 }
-.dark .map-segment[aria-pressed="true"] {
-  background: var(--color-brand-300);
-  color: var(--color-ink-950);
+/* at night only: a print is the light page */
+@media not print {
+  .dark .map-segment[aria-pressed="true"] {
+    background: var(--color-brand-300);
+    color: var(--color-ink-950);
+  }
 }
 .map-select {
   /* the two choices share a row where it is narrow, and share what is left of it */
