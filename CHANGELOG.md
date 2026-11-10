@@ -33,14 +33,6 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: `timestamp_position` of the hourly `urban_temperature_air` of `dwd/observation` is
-  `end`, was `instant`: the value is the reading 10 minutes before the stamp, as DWD's sheet says
-  ("the hour x corresponds to the measurement from 10min before"). Read the stamp as the end of the
-  hour; `aggregation` stays `instant` (Part of GH-3134)
-- **Breaking**: `timestamp_position` of `snow_depth_new` (`frsh_snw_amt`) of the daily `weather`
-  dataset of `metoffice/observation` is `end`, was `instant`: the MIDAS user guide gives the fresh
-  snow depth the period 0900-0900. Read the value as the fresh snow of the 24 hours to 09 UTC on
-  the stamped day (Part of GH-3134)
 - Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
   12 hours: `historical` of `dwd/observation`, `dwd/derived`, `dwd/phenology`, SMHI
   `corrected-archive`, Met Office station-years, MeteoSwiss `_historical` (from 1 February; 5

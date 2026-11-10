@@ -121,18 +121,21 @@ _SOIL_EMD_ZONE = (
 
 # When the hourly readings of the DWD moisture, dew point and pressure datasets were taken (GH-3134)
 _DWD_HOURLY_READING_T = (
-    " A reading taken before the stamp: the value at the stamp minus 10 min from 2001-04-01 (UTC) and at the"
-    " stamp minus 30 min from 1991 to 2001-03-31, measured against the 10-minute series of the same station; before"
-    " 1991 the SYNOP report of the stamp hour (NOAA ISD)."
+    " A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp"
+    " minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute"
+    " series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC."
 )
-_DWD_HOURLY_READING_P = _DWD_HOURLY_READING_T.replace("minus 30 min", "minus 20 min")
+_DWD_HOURLY_READING_P = (
+    " A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp"
+    " minus 20 min from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), measured against the 10-minute"
+    " series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC."
+)
 
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
 # name that drifts out of step leaves its parameters with the canonical sentence in place of the
 # source's, which `test_wsv_every_parameter_is_described` catches.
-
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
 _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
 
@@ -1779,9 +1782,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "wind_synoptic", "ff"): (
             '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"): the mean of the 10 '
-            "minutes (T-20, T-10] min from 2001-04-01 and of (T-30, T-20] from 1991 to 2001-03-31 (T the stamp), "
-            "measured against "
-            "the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD)."
+            "minutes (T-20, T-10] from 2001-04-01 and (T-30, T-20] from 1995 to 2001-03-31 (1991-1994 not one offset, "
+            "0 to 30 min), T the stamp, measured against the 10-minute series of the same station; before 1991 the "
+            "report of the stamp hour where NOAA ISD holds DWD's report (Stuttgart 1949-1965: 0.5 to 0.8 h before an "
+            "independent USAF record). Times are UTC."
         ),
         ("monthly", "climate_indices", "mo_eistage"): "Monthly number of ice days.",
         ("monthly", "climate_indices", "mo_frosttage"): "Monthly number of frost days.",
