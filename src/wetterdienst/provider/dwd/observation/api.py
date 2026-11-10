@@ -247,7 +247,10 @@ class DwdObservationValues(TimeseriesValues):
             if not filenames_and_files:
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
-            period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
+            interval = stations.interval
+            period_df = parse_climate_observations_data(
+                filenames_and_files, dataset, period, (interval.lower, interval.upper) if interval else None
+            )
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),
