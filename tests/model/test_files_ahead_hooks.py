@@ -319,6 +319,54 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
     assert set(expiries) == {CacheExpiry.TWELVE_HOURS, CacheExpiry.FIVE_MINUTES}
 
 
+def test_imgw_names_the_monthly_archives_of_the_year_under_way_and_the_files_of_the_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The daily synop of the year under way is one file per month for every station, which the hook names (GH-3941).
+
+    The listing holds the per-station files of the years that are over (and of a year whose months are still there:
+    the per-station file is read for it alone), the months of 2026 and a file of another station. A window from
+    March 2025 to the start of September 2026 takes the months of 2026 it overlaps, each with the expiry the
+    collection downloads it with, and the hook names the same URLs.
+    """
+    downloaded: list[str] = []
+    expiries: dict[str, CacheExpiry] = {}
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend(urls)
+        expiries.update(dict.fromkeys(urls, ttl))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    # the folders the window does not reach (2024) are not listed
+    listing = [
+        "2025_010_s.zip",
+        "2025_020_s.zip",
+        *(f"2025_{month:02d}_s.zip" for month in range(1, 13)),
+        *(f"2026_{month:02d}_s.zip" for month in range(1, 11)),
+    ]
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 9, 2, tzinfo=UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "synop")], start="2025-03-01", end="2026-09-01", settings=_settings()
+    )
+    values: TimeseriesValues = stations_result(request, "daily", "synop", "249180010").values()
+    model = request.metadata["daily"]["synop"]
+
+    values._collect_station_parameter_or_dataset("249180010", model)  # noqa: SLF001
+    named = values._files_ahead("249180010", [model])  # noqa: SLF001
+
+    # 2025 is the station's file (its months are not downloaded, nor is the file of the other station), and of 2026 the
+    # months up to the one the window ends in
+    expected = ["2025_010_s.zip", *(f"2026_{month:02d}_s.zip" for month in range(1, 10))]
+    assert downloaded == [f"https://x/{name}" for name in expected]
+    assert list(named.urls) == downloaded
+    assert {url: named.ttl_of(url) for url in named.urls} == expiries
+    # the months that are over are kept 12 hours, the month under way 5 minutes
+    assert expiries["https://x/2026_08_s.zip"] == CacheExpiry.TWELVE_HOURS
+    assert expiries["https://x/2026_09_s.zip"] == CacheExpiry.FIVE_MINUTES
+
+
 @pytest.mark.parametrize(
     ("resolution", "parameters", "per_parameter"),
     [
