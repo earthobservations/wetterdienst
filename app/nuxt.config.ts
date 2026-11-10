@@ -1,6 +1,7 @@
 import * as process from 'node:process'
 
 import tailwindcss from '@tailwindcss/vite'
+import { ICON_SCAN } from './icon-scan'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
 import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
@@ -149,7 +150,7 @@ export default defineNuxtConfig({
       collections: ['ph', 'simple-icons'],
     },
     clientBundle: {
-      scan: true,
+      scan: ICON_SCAN,
     },
     localApiEndpoint: '/_nuxt_icon',
     fallbackToApi: false,
