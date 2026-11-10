@@ -65,7 +65,7 @@ const aboutId = useId()
           </p>
         </div>
       </div>
-      <div v-if="slots.actions || (slots.about && aboutLabel)" class="flex shrink-0 flex-wrap items-center gap-2" data-print="hide">
+      <div v-if="slots.actions || (slots.about && aboutLabel)" class="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:shrink-0" data-print="hide">
         <slot name="actions" />
         <UButton
           v-if="slots.about && aboutLabel"
@@ -76,6 +76,7 @@ const aboutId = useId()
           :trailing-icon="showAbout ? 'i-ph-caret-up' : 'i-ph-caret-down'"
           :aria-expanded="showAbout"
           :aria-controls="showAbout ? aboutId : undefined"
+          :ui="{ base: 'max-w-full whitespace-normal text-left', label: 'whitespace-normal' }"
           @click="showAbout = !showAbout"
         />
       </div>
