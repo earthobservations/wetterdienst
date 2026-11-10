@@ -48,6 +48,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
+  (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
+  (GH-3969)
 - `[Climate stripes]` In a narrow window (a phone) the stripes' title is broken into lines (a long
   station name after its hyphens) instead of being cut off at the edges, and the source line is on a
   row of its own below the years instead of over them (GH-3961)

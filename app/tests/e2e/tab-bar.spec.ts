@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
+import { expectAtLeastPx } from './target-size'
 
 // The choice of the four tools in the phone's tab bar (GH-3846) and the Menu's mark on the pages of its sheet
 // (GH-3851), in a browser: the list with its line and the preview of the bar, drag by the handle with the mouse (and,
@@ -187,8 +188,8 @@ for (const size of SIZES) {
         }))
         expect(targets).toHaveLength(15)
         for (const target of targets) {
-          expect(target.width, JSON.stringify(target)).toBeGreaterThanOrEqual(24)
-          expect(target.height, JSON.stringify(target)).toBeGreaterThanOrEqual(24)
+          expectAtLeastPx(target.width, 24, JSON.stringify(target))
+          expectAtLeastPx(target.height, 24, JSON.stringify(target))
         }
         // the app's own measure is 40 px, which is room for a thumb
         for (const target of targets.filter(item => item.kind === 'button')) {
