@@ -42,7 +42,7 @@ const isInitializing = ref(true)
 // `ssr: false` the nearest Suspense boundary is the page itself -- so the Explorer rendered
 // nothing at all, not even its own headings, until the backend had answered this request. The
 // selects render empty-and-loading instead, and `initializeFromProps()` waits for the answer.
-const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/api/coverage')
+const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/api/coverage', API_ANSWER)
 // Nothing derived from `coverage` means anything until the request has settled: an empty answer
 // and an answer that has not arrived yet are indistinguishable in the data, but not to a reader.
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
@@ -104,6 +104,7 @@ async function checkCredentials(providerName: string, networkName: string) {
       query: { provider: providerName, network: networkName },
       retry: 0,
       signal: credentialChecks.signal,
+      ...API_ANSWER,
     })
     if (answer.valid === false)
       rejectedNetworks.value = { ...rejectedNetworks.value, [networkKey(providerName, networkName)]: true }
@@ -172,6 +173,7 @@ const { data: providerNetworkCoverage, pending: networkCoveragePending, refresh:
     })),
     immediate: false,
     watch: false,
+    ...API_ANSWER,
   },
 )
 

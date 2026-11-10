@@ -71,7 +71,7 @@ const { data: stationsData, pending: stationsPending } = useFetch<StripesStation
   '/api/stripes/stations',
   {
     query: { kind },
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
   },
 )
 
@@ -196,7 +196,7 @@ async function fetchAndPlotStripes() {
 
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
     // nothing
