@@ -1409,17 +1409,39 @@ def test_imgw_meteorology_daily_synop_reads_a_closed_year_from_the_per_station_f
     hold both: the listing decides, and a year with a per-station file for the station is read from it alone, so that
     no day is read twice and no all-station file is downloaded for nothing. Another station's file is not read.
     """
-    # the folder of 2025 as it may look for a while: the per-station files and the months they replace
-    listing = [*_SYNOP_LISTING, *(f"2025_{month:02d}_s.zip" for month in range(1, 13))]
+    # the folder of 2025 as it may look for a while: the per-station files and the months they replace; and the decade
+    # file of 1996 to 2000 beside a month of 1998, which it covers although the year is neither end of its name
+    listing = [
+        *_SYNOP_LISTING,
+        *(f"2025_{month:02d}_s.zip" for month in range(1, 13)),
+        "1996_2000_375_s.zip",
+        "1998_05_s.zip",
+    ]
     downloaded, expiries = _serve_synop(monkeypatch, listing)
 
-    values, df = _synop_values("352200375", "2025-01-01", "2025-01-02")
+    values, df = _synop_values("352200375", "1998-05-01", "2025-01-02")
 
-    assert downloaded == ["https://x/2025_375_s.zip"]
-    assert expiries == {"https://x/2025_375_s.zip": CacheExpiry.TWELVE_HOURS}
+    assert downloaded == ["https://x/2025_375_s.zip", "https://x/1996_2000_375_s.zip"]
+    assert expiries == dict.fromkeys(downloaded, CacheExpiry.TWELVE_HOURS)
     assert df.select("timestamp", "value").rows() == [(dt.datetime(2025, 1, 1, tzinfo=dt.UTC), 6.5)]
     named = values._files_ahead("352200375", [values.sr.request.metadata["daily"]["synop"]])  # noqa: SLF001
     assert list(named.urls) == downloaded
+
+
+def test_imgw_meteorology_daily_synop_a_month_is_skipped_only_for_the_stations_own_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-station file of another station does not stand in for the months of the station asked for (GH-3941).
+
+    A year with the file of the station ending in 100 only has no file of station 375: its months are read for it,
+    and the file of the other station is not.
+    """
+    listing = ["2025_100_s.zip", *(f"2025_{month:02d}_s.zip" for month in range(1, 13))]
+    downloaded, _ = _serve_synop(monkeypatch, listing)
+
+    _synop_values("352200375", "2025-01-01", "2025-01-02")
+
+    assert downloaded == ["https://x/2025_01_s.zip"]
 
 
 def test_imgw_meteorology_daily_synop_names_of_the_two_kinds_are_told_apart() -> None:
