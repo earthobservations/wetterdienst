@@ -322,7 +322,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
           <UCard>
             <template #header>
               <div class="flex items-center gap-2 flex-wrap">
-                <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
                 <div class="ml-auto flex items-center gap-2">
                   <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
@@ -361,12 +361,12 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               <template #content>
                 <ClientOnly>
                   <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-                    <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-500" />
+                    <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-600 dark:text-primary-500" />
                     <span>{{ t('stationSelection.loading') }}</span>
                   </div>
                   <template v-else-if="mapStations.length">
                     <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                      <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
+                      <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
                       {{ t('meteogram.mapHint') }}
                     </p>
                     <MapStations
@@ -384,7 +384,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
         <template #result>
           <!-- Loading state -->
           <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
-            <UIcon name="i-ph-circle-notch" class="w-6 h-6 animate-spin text-primary-500" />
+            <UIcon name="i-ph-circle-notch" class="w-6 h-6 animate-spin text-primary-600 dark:text-primary-500" />
             <span>{{ t('meteogram.loading') }}</span>
           </div>
 
@@ -401,7 +401,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
           <UCard v-else-if="selectedStation && values.length > 0">
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-cloud-sun" class="text-primary-500" />
+                <UIcon name="i-ph-cloud-sun" class="text-primary-600 dark:text-primary-500" />
                 <span class="text-lg font-bold">{{ selectedStation.name }}</span>
                 <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
                 <UButton

@@ -61,7 +61,7 @@ const entries = computed<GlossaryEntry[]>(() => {
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-book-open-text" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-book-open-text" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('glossary.parametersTitle') }}
             </h2>
