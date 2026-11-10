@@ -286,7 +286,7 @@
     "unitTurbidity": "Torbidità",
     "unitWindScale": "Scala del vento",
     "bar": {
-      "title": "Personalizza la barra",
+      "title": "Ordina gli strumenti",
       "hint": "Su un telefono, la barra in fondo allo schermo mostra quattro strumenti e il Menu. Scegli quali. Gli altri restano nel Menu.",
       "preview": "Anteprima",
       "previewLabel": "Anteprima della barra: {tools}, Menu",

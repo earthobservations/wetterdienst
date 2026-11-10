@@ -286,7 +286,7 @@
     "unitTurbidity": "Mętność",
     "unitWindScale": "Skala wiatru",
     "bar": {
-      "title": "Dostosuj pasek",
+      "title": "Uporządkuj narzędzia",
       "hint": "Na telefonie pasek na dole ekranu pokazuje cztery narzędzia i Menu. Wybierz, które cztery. Pozostałe zostają w Menu.",
       "preview": "Podgląd",
       "previewLabel": "Podgląd paska: {tools}, Menu",
@@ -304,7 +304,7 @@
       "resetDone": "Pasek wrócił do ustawień początkowych: {tools}.",
       "hintHeader": "Na szerokim ekranie nagłówek pokazuje wszystkie narzędzia jako karty, w tej kolejności. Pierwsze cztery to także pasek na telefonie, pozostałe zostają tam w Menu.",
       "instructionsHeader": "Przeciągnij narzędzie za uchwyt albo użyj przycisków ze strzałkami w jego wierszu.",
-      "listHeader": "Narzędzia w nagłówku, po kolei",
+      "listHeader": "Narzędzia w nagłówku, w kolejności",
       "reorderedHeader": "{tool} jest teraz na miejscu {position} z {total} w nagłówku.",
       "resetHeader": "Przywróć kolejność",
       "resetDoneHeader": "Kolejność wróciła do ustawień początkowych: {tools}."

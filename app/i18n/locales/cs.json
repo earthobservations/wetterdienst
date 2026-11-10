@@ -286,7 +286,7 @@
     "unitTurbidity": "Zákal",
     "unitWindScale": "Stupnice větru",
     "bar": {
-      "title": "Upravit lištu",
+      "title": "Uspořádat nástroje",
       "hint": "Na telefonu zobrazuje lišta dole na obrazovce čtyři nástroje a Nabídku. Vyber, které čtyři. Ostatní zůstanou v Nabídce.",
       "preview": "Náhled",
       "previewLabel": "Náhled lišty: {tools}, Nabídka",

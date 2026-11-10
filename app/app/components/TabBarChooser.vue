@@ -2,16 +2,18 @@
 import type { Section } from '~/utils/sections'
 import type { MoveNote } from '~/utils/tab-bar'
 import { TOOLS } from '~/utils/sections'
-import { BAR_SIZE, describeMove, HEADER_SIZE, moveTool, slotAt } from '~/utils/tab-bar'
+import { BAR_SIZE, barKeys, describeMove, HEADER_SIZE, menuKeys, moveTool, slotAt } from '~/utils/tab-bar'
 
 // The choice of the four tools in the phone's tab bar (GH-3846, on the settings page): all the tools in one list, the
 // four of the bar above a line and the ones that are only in the Menu below it, and a preview of the bar that follows
 // the list, also while a tool is being dragged. From the header's breakpoint (64 rem, GH-3936) there is no bar and no
 // Menu, so the chooser is the one list in the order of the header's tabs: the same split with the header's size
 // (`HEADER_SIZE`, all the tools today, so no second group, no line and no preview). A "more tools" entry would only
-// set a smaller size there, and the second group would come from the same list. It is the same setting. A tool moves by its handle (a pointer: mouse, finger, pen), and by the
-// arrow buttons on its row, which do all that dragging does and are the way for a keyboard and a screen reader
-// (WCAG 2.5.7 Dragging Movements, 2.1.1): a move by them is said in a polite status, and the focus stays on the button
+// set a smaller size there, and the second group would come from the same list. It is the same setting.
+//
+// A tool moves by its handle (a pointer: mouse, finger, pen), and by the arrow buttons on its row, which do all that
+// dragging does and are the way for a keyboard and a screen reader (WCAG 2.5.7 Dragging Movements, 2.1.1): a move by
+// them is said in a polite status, and the focus stays on the button
 // that was pressed, though its row is built again where it crosses the line.
 //
 // Only the handle starts a drag and holds `touch-action: none`, so a finger anywhere else scrolls the sheet or the
@@ -40,14 +42,14 @@ const drag = ref<{ key: string, pointerId: number, target: number, y: number } |
 const shown = computed(() => drag.value
   ? moveTool(order.value, order.value.indexOf(drag.value.key), drag.value.target)
   : order.value)
-const previewBar = computed(() => shown.value.slice(0, BAR_SIZE))
-const previewMenu = computed(() => shown.value.slice(BAR_SIZE))
+const previewBar = computed(() => barKeys(shown.value, BAR_SIZE))
+const previewMenu = computed(() => menuKeys(shown.value, BAR_SIZE))
 
 // The labels are the phone's: with the header's size the second group is empty. A "more tools" entry brings the
 // header's own labels for both with it.
 const groups = computed(() => [
-  { id: 'bar', label: wide.value ? t('settings.bar.listHeader') : t('settings.bar.inBar'), keys: order.value.slice(0, size.value), first: 0 },
-  { id: 'menu', label: t('settings.bar.inMenu'), keys: order.value.slice(size.value), first: size.value },
+  { id: 'bar', label: wide.value ? t('settings.bar.listHeader') : t('settings.bar.inBar'), keys: barKeys(order.value, size.value), first: 0 },
+  { id: 'menu', label: t('settings.bar.inMenu'), keys: menuKeys(order.value, size.value), first: size.value },
 ].filter(group => group.keys.length))
 
 /** Where the row at `index` would be dropped on, for the bar that marks it: before the row when the tool comes from below it, after it when from above */
@@ -98,8 +100,8 @@ async function step(key: string, delta: -1 | 1) {
 function reset() {
   resetOrder()
   announcement.value = wide.value
-    ? t('settings.bar.resetDoneHeader', { tools: names(order.value.slice(0, size.value)) })
-    : t('settings.bar.resetDone', { tools: names(order.value.slice(0, size.value)) })
+    ? t('settings.bar.resetDoneHeader', { tools: names(barKeys(order.value, size.value)) })
+    : t('settings.bar.resetDone', { tools: names(barKeys(order.value, size.value)) })
 }
 
 function rowRects() {

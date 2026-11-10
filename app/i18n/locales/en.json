@@ -286,7 +286,7 @@
     "unitTurbidity": "Turbidity",
     "unitWindScale": "Wind scale",
     "bar": {
-      "title": "Customise the bar",
+      "title": "Arrange tools",
       "hint": "On a phone, the bar at the foot of the screen shows four tools and the Menu. Choose which four. The others stay in the Menu.",
       "preview": "Preview",
       "previewLabel": "Preview of the bar: {tools}, Menu",

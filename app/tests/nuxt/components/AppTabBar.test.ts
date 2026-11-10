@@ -65,7 +65,7 @@ describe('the tab bar of the narrow layout', () => {
 
     it('has all five tools, the Home page and the link to the chooser, with the default choice', async () => {
       const tools = links(await openSheet())
-      expect(tools.map(link => link.textContent!.replace(/, (in the bar|only in the Menu)$/, '').trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'History', 'Map', 'Customise the bar'])
+      expect(tools.map(link => link.textContent!.replace(/, (in the bar|only in the Menu)$/, '').trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'History', 'Map', 'Arrange tools'])
       expect(tools.map(link => link.getAttribute('href'))).toEqual(['/', '/meteogram', '/explorer', '/stripes', '/history', '/map', '/settings#bar'])
     })
 
@@ -88,11 +88,11 @@ describe('the tab bar of the narrow layout', () => {
 
     it('marks the four tools of the bar with the bar\'s line, the others with the lighter one, and has no heading or rule between them', async () => {
       const sheet = await openSheet(['stripes', 'map', 'history', 'forecast', 'explorer'])
-      const groups = toolItems(sheet).map(item => [item.dataset.tool, item.dataset.group])
+      const groups = toolItems(sheet).map(item => [item.dataset.tool, item.querySelector('a')!.dataset.group])
       expect(groups).toEqual([['stripes', 'bar'], ['map', 'bar'], ['history', 'bar'], ['forecast', 'bar'], ['explorer', 'menu']])
       for (const item of toolItems(sheet)) {
         const link = item.querySelector('a')!
-        expect(link.dataset.group).toBe(item.dataset.group)
+        expect(item.dataset.group, 'the group is on the link only').toBeUndefined()
         // one line, drawn by CSS from the group, and no information in it for a screen reader
         const marks = link.querySelectorAll('.tool-mark')
         expect(marks).toHaveLength(1)

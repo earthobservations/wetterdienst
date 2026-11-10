@@ -122,7 +122,7 @@ const inSheet = computed(() => [...menuTools.value, ...REFERENCE, ...PROJECT].so
                 {{ t('nav.home') }}
               </NuxtLink>
             </li>
-            <li v-for="tool in sheetTools" :key="tool.key" :data-tool="tool.key" :data-group="tool.group">
+            <li v-for="tool in sheetTools" :key="tool.key" :data-tool="tool.key">
               <NuxtLink :to="tool.to" class="sheet-link sheet-tool" :data-group="tool.group" :aria-current="isCurrent(tool.to) ? 'page' : undefined" @click="open = false">
                 <span class="tool-mark" aria-hidden="true" />
                 <ToolTile :tile="tool.tile" :icon="tool.icon" size="2rem" />

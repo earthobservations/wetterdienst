@@ -286,7 +286,7 @@
     "unitTurbidity": "Turbiditet",
     "unitWindScale": "Vindskala",
     "bar": {
-      "title": "Tilpas bjælken",
+      "title": "Sortér værktøjer",
       "hint": "På en telefon viser bjælken nederst på skærmen fire værktøjer og Menuen. Vælg hvilke fire. De andre bliver i Menuen.",
       "preview": "Forhåndsvisning",
       "previewLabel": "Forhåndsvisning af bjælken: {tools}, Menu",

@@ -286,7 +286,7 @@
     "unitTurbidity": "Troebelheid",
     "unitWindScale": "Windschaal",
     "bar": {
-      "title": "Balk aanpassen",
+      "title": "Hulpmiddelen ordenen",
       "hint": "Op een telefoon toont de balk onderaan het scherm vier hulpmiddelen en het Menu. Kies welke vier. De andere blijven in het Menu.",
       "preview": "Voorbeeld",
       "previewLabel": "Voorbeeld van de balk: {tools}, Menu",
@@ -302,10 +302,10 @@
       "enteredBar": "{tool} staat nu in de balk, op plaats {position} van {total}. {other} staat nu alleen nog in het Menu.",
       "leftBar": "{tool} staat nu alleen nog in het Menu. {other} staat nu in de balk, op plaats {position} van {total}.",
       "resetDone": "De balk is weer zoals aan het begin: {tools}.",
-      "hintHeader": "Op een breed scherm toont de kop alle hulpmiddelen als tabbladen, in deze volgorde. De eerste vier zijn ook de balk op een telefoon, de andere blijven daar in het Menu.",
+      "hintHeader": "Op een breed scherm toont de koptekst alle hulpmiddelen als tabbladen, in deze volgorde. De eerste vier zijn ook de balk op een telefoon, de andere blijven daar in het Menu.",
       "instructionsHeader": "Sleep een hulpmiddel aan zijn handvat, of gebruik de pijlknoppen op zijn rij.",
-      "listHeader": "Hulpmiddelen in de kop, op volgorde",
-      "reorderedHeader": "{tool} staat nu op plaats {position} van {total} in de kop.",
+      "listHeader": "Hulpmiddelen in de koptekst, op volgorde",
+      "reorderedHeader": "{tool} staat nu op plaats {position} van {total} in de koptekst.",
       "resetHeader": "Volgorde herstellen",
       "resetDoneHeader": "De volgorde is weer zoals aan het begin: {tools}."
     }

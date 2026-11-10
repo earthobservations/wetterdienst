@@ -286,7 +286,7 @@
     "unitTurbidity": "Trübung",
     "unitWindScale": "Windskala",
     "bar": {
-      "title": "Leiste anpassen",
+      "title": "Werkzeuge anordnen",
       "hint": "Auf dem Smartphone zeigt die Leiste am unteren Bildschirmrand vier Werkzeuge und das Menü. Wähle, welche vier. Die anderen bleiben im Menü.",
       "preview": "Vorschau",
       "previewLabel": "Vorschau der Leiste: {tools}, Menü",

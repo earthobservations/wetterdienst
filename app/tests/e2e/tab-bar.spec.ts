@@ -611,25 +611,45 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
       await menuTab(page).click()
       await expect(sheet(page)).toBeVisible()
       const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
-      expect(await sheetOrder(page)).toEqual(expected)
-      expect(await sheetTools(page).evaluateAll(items => items.map(item => (item as HTMLElement).dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu'])
+      await expect.poll(() => sheetOrder(page)).toEqual(expected)
+      expect(await sheetTools(page).evaluateAll(items => items.map(item => item.querySelector('a')!.dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu'])
       // no heading says where a tool is: the words are visually hidden, and they are part of the link's name (a browser may put a space before the comma)
       await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.map} ?, ${en.shell.toolInBar}$`) })).toBeVisible()
       await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.history} ?, ${en.shell.toolMenuOnly}$`) })).toBeVisible()
       await expect(sheet(page).locator('h3')).toHaveCount(0)
-      // two lines of two colours: both drawn, the bar's the stronger, and each narrow
-      const marks = await sheetTools(page).evaluateAll(items => items.map((item) => {
-        const mark = item.querySelector('.tool-mark')!
-        const box = mark.getBoundingClientRect()
-        return { colour: getComputedStyle(mark).backgroundColor, width: Math.round(box.width), height: Math.round(box.height) }
-      }))
+      // two lines of two colours: both drawn and narrow; the bar's the stronger against the sheet and the longer, so
+      // that the groups differ by shape as well as by colour (WCAG 1.4.1)
+      const marks = await sheetTools(page).evaluateAll((items) => {
+        const channels = (colour: string) => (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+        const luminance = (colour: string) => {
+          const [r, g, b] = channels(colour).map(c => c / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+        }
+        const contrast = (a: string, b: string) => {
+          const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+          return (hi! + 0.05) / (lo! + 0.05)
+        }
+        const ground = getComputedStyle(items[0]!.closest('[role="dialog"]')!).backgroundColor
+        return items.map((item) => {
+          const mark = item.querySelector('.tool-mark')!
+          const box = mark.getBoundingClientRect()
+          const colour = getComputedStyle(mark).backgroundColor
+          return { colour, width: Math.round(box.width), height: box.height, contrast: contrast(colour, ground) }
+        })
+      })
       expect(new Set(marks.slice(0, 4).map(mark => mark.colour)).size).toBe(1)
       expect(marks[4]!.colour).not.toBe(marks[0]!.colour)
+      expect(marks[0]!.contrast, 'the bar line against the sheet').toBeGreaterThanOrEqual(3)
+      expect(marks[4]!.contrast, 'the menu-only line against the sheet').toBeGreaterThanOrEqual(3)
+      expect(marks[0]!.contrast, 'the bar line is the stronger').toBeGreaterThan(marks[4]!.contrast)
       for (const mark of marks) {
         expect(mark.width).toBe(3)
-        expect(mark.height).toBeGreaterThan(10)
         expect(mark.colour).not.toBe('rgba(0, 0, 0, 0)')
       }
+      // the bar line is 1.25 rem and the menu-only one 0.75 rem
+      expect(marks[0]!.height).toBeCloseTo(20, 0)
+      expect(marks[4]!.height).toBeCloseTo(12, 0)
+      expect(marks[4]!.height).toBeLessThan(marks[0]!.height)
       // the chooser's dashed line is in the bar's colour
       await page.keyboard.press('Escape')
       await expect(sheet(page)).toBeHidden()
@@ -641,15 +661,15 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
   test('follows a move made in the settings, and keeps its order across a reload', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(DEFAULT_ORDER) })
     await menuTab(page).click()
-    expect(await sheetOrder(page)).toEqual(DEFAULT_ORDER)
+    await expect.poll(() => sheetOrder(page)).toEqual(DEFAULT_ORDER)
     await page.keyboard.press('Escape')
     await move(page, 'stripes', 'up').click()
     await move(page, 'stripes', 'up').click()
     await menuTab(page).click()
-    expect(await sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
     await page.reload()
     await menuTab(page).click()
-    expect(await sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
   })
 })
 

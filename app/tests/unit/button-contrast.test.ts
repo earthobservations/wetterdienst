@@ -182,6 +182,23 @@ describe('the two lines of the bar\'s tools and the menu-only tools (GH-3934)', 
     expect(shade(night, 'app-mark-bar')).not.toBe(shade(night, 'app-mark-menu'))
   })
 
+  it('has the bar\'s line the stronger of the two against the sheet, by day and at night', () => {
+    expect(contrast(shade(day, 'app-mark-bar'), CARD)).toBeGreaterThan(contrast(shade(day, 'app-mark-menu'), CARD))
+    expect(contrast(shade(night, 'app-mark-bar'), NIGHT_CARD)).toBeGreaterThan(contrast(shade(night, 'app-mark-menu'), NIGHT_CARD))
+  })
+
+  it('draws the menu-only line shorter than the bar\'s, so that the groups differ by shape as well (WCAG 1.4.1)', () => {
+    const height = (rule: RegExp) => Number(rule.exec(css)?.[1])
+    expect(height(/\.tool-mark\s*\{[^}]*height:\s*([\d.]+)rem/)).toBe(1.25)
+    expect(height(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*height:\s*([\d.]+)rem/)).toBe(0.75)
+  })
+
+  it('keeps the two lines apart in forced colours, where a background is replaced: text colour and grey', () => {
+    const forced = css.slice(css.indexOf('@media (forced-colors: active)'))
+    expect(forced).toMatch(/\.tool-mark\s*\{[^}]*forced-color-adjust:\s*none;[^}]*background:\s*CanvasText/)
+    expect(forced).toMatch(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*background:\s*GrayText/)
+  })
+
   it('draws the chooser\'s dashed line in the bar\'s colour, so the sheet and the chooser mark the groups alike', () => {
     expect(css).toMatch(/\.bar-line\s*\{[^}]*border-top:\s*2px dashed var\(--app-mark-bar\)/)
     expect(css).toMatch(/\.tool-mark\s*\{[^}]*background:\s*var\(--app-mark-bar\)/)

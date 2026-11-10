@@ -286,7 +286,7 @@
     "unitTurbidity": "Turbidez",
     "unitWindScale": "Escala de viento",
     "bar": {
-      "title": "Personalizar la barra",
+      "title": "Ordenar herramientas",
       "hint": "En un teléfono, la barra del pie de la pantalla muestra cuatro herramientas y el Menú. Elige cuáles. Las demás quedan en el Menú.",
       "preview": "Vista previa",
       "previewLabel": "Vista previa de la barra: {tools}, Menú",

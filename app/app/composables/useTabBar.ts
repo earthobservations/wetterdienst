@@ -29,5 +29,5 @@ export function useTabBar() {
     settings.value.tabBar = [...DEFAULT_TOOL_ORDER]
   }
 
-  return { order, barTools, menuTools, headerTools, isDefault, setOrder, resetOrder, size: BAR_SIZE, headerSize: HEADER_SIZE }
+  return { order, barTools, menuTools, headerTools, isDefault, setOrder, resetOrder, size: BAR_SIZE }
 }
