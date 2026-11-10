@@ -13,7 +13,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
 import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
-import { estimateRows, untilToday, windowForRefusal } from '~/utils/row-window'
+import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -274,6 +274,8 @@ interface RefusalContext {
   parameterCount: number
   tidy: boolean
   range: { startDate?: string, endDate?: string }
+  /** the network's data lie ahead of today (a forecast), so a range is not ended at today */
+  future: boolean
 }
 
 const refusalContext = computed((): RefusalContext => {
@@ -286,6 +288,7 @@ const refusalContext = computed((): RefusalContext => {
     parameterCount: parameterSelection.value.parameters.length,
     tidy: point || props.settings.shape !== 'wide',
     range: { startDate: stationSelection.value.dateRange?.startDate, endDate: stationSelection.value.dateRange?.endDate },
+    future: parameterSelection.value.kind === 'forecast',
   }
 })
 
@@ -374,12 +377,22 @@ const limitNotice = computed(() => {
         parameterCount: context.parameterCount,
         tidy: context.tidy,
         range: context.range,
+        future: context.future,
       })
     : null
+  // a range that reaches past today and has no reading up to it: said, as there is no window to offer
+  const noReadings = refusal.limit === 'rows' && !window && !!context.resolution && hasNoReadingsYet({
+    resolution: context.resolution,
+    records: context.records,
+    parameterCount: context.parameterCount,
+    tidy: context.tidy,
+    range: context.range,
+    future: context.future,
+  })
   // not even the shortest window fits: said only where the span is known (else the page cannot tell).
   // The span is the one up to today, as the window is (a range that lies wholly after it has none)
-  const untilNow = untilToday(context.range)
-  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && untilNow !== null && estimateRows({
+  const untilNow = context.future ? context.range : untilToday(context.range)
+  const noWindow = refusal.limit === 'rows' && !window && !noReadings && !!context.resolution && untilNow !== null && estimateRows({
     resolution: context.resolution,
     records: context.records,
     parameterCount: context.parameterCount,
@@ -398,6 +411,7 @@ const limitNotice = computed(() => {
     parameterCount: context.parameterCount,
     window,
     noWindow,
+    noReadings,
     // the window is for the selection the refusal was for, not one made since
     canApply: requestKey(request) === requestKey(selectedRequest.value),
     csvHref: csv,

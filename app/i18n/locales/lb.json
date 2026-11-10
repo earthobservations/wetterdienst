@@ -889,6 +889,7 @@
     "limitNarrowPoint": "Fir d'Daten hei ze gesinn, schränk d'Auswiel an: Wiel e méi kuerzen Datumberäich oder manner Parameter. Du hues {parameters} gewielt.",
     "limitNarrowStations": "Huel Statioune aus der Auswiel eraus a kuck de Rescht an engem weidere Schrëtt. Du hues {stations} gewielt.",
     "limitApply": "Nëmmen déi neisten Daten uweisen ({span}, ongeféier {rows} Zeilen)",
+    "limitNoReadings": "An dësem Datumberäich gëtt et bis haut keng Miesswäerter. Wiel e fréiere Startdatum.",
     "limitNoWindow": "Och dee kuerzsten Datumberäich passt net an eng Äntwert.",
     "limitDownload": "Alles als CSV eroflueden",
     "limitDownloadHint": "De CSV gëtt gestreamt an dofir kann en méi Zeilen enthalen wéi eng Äntwert.",

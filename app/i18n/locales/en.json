@@ -889,6 +889,7 @@
     "limitNarrowPoint": "To see it here, narrow the selection: choose a shorter date range or fewer parameters. You have selected {parameters}.",
     "limitNarrowStations": "Remove stations from the selection and look at the rest in a further step. You have selected {stations}.",
     "limitApply": "Show only the newest data ({span}, about {rows} rows)",
+    "limitNoReadings": "There are no readings in this date range up to today. Choose an earlier start date.",
     "limitNoWindow": "Not even the shortest date range fits into one answer.",
     "limitDownload": "Download everything as CSV",
     "limitDownloadHint": "The CSV is streamed, so it can hold more rows than one answer.",

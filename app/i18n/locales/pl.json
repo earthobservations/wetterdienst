@@ -889,6 +889,7 @@
     "limitNarrowPoint": "Aby zobaczyć dane tutaj, zawęź wybór: wybierz krótszy zakres dat lub mniej parametrów. Aktualny wybór: {parameters}.",
     "limitNarrowStations": "Usuń stacje z wyboru i obejrzyj resztę w kolejnym kroku. Aktualny wybór: {stations}.",
     "limitApply": "Pokaż tylko najnowsze dane ({span}, około {rows} wierszy)",
+    "limitNoReadings": "W tym zakresie dat nie ma do dziś żadnych odczytów. Wybierz wcześniejszą datę początkową.",
     "limitNoWindow": "Nawet najkrótszy zakres dat nie mieści się w jednej odpowiedzi.",
     "limitDownload": "Pobierz wszystko jako CSV",
     "limitDownloadHint": "Plik CSV jest przesyłany strumieniowo, więc może zawierać więcej wierszy niż jedna odpowiedź.",

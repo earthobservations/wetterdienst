@@ -889,6 +889,7 @@
     "limitNarrowPoint": "Per vederli qui, riduci la selezione: scegli un intervallo di date più breve o meno parametri. Hai selezionato {parameters}.",
     "limitNarrowStations": "Togli delle stazioni dalla selezione e guarda il resto in un passaggio successivo. Hai selezionato {stations}.",
     "limitApply": "Mostra solo i dati più recenti ({span}, circa {rows} righe)",
+    "limitNoReadings": "Non ci sono letture in questo intervallo di date fino a oggi. Scegli una data di inizio precedente.",
     "limitNoWindow": "Nemmeno l'intervallo di date più breve entra in una risposta.",
     "limitDownload": "Scarica tutto come CSV",
     "limitDownloadHint": "Il CSV viene trasmesso in streaming, quindi può contenere più righe di una risposta.",
