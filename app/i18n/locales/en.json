@@ -507,6 +507,7 @@
       "viewCompact": "Compact",
       "viewTable": "Table",
       "today": "TODAY",
+      "partialDay": "partial, {hours} h",
       "summaryMinMaxTemp": "Min / Max Temp",
       "summaryTotalPrecip": "Total Precip",
       "summaryMaxGust": "Max Gust Speed",

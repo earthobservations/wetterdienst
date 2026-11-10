@@ -358,7 +358,12 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  // the morning of the 14th: the day of the values is a day ahead, as the day cards start at today (GH-3840)
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-14T08:00:00Z') })
+  })
   afterEach(async () => {
+    vi.useRealTimers()
     wrapper?.unmount()
     wrapper = undefined
     // the URL back to none, which the next test's chart would read its compact view from
@@ -561,6 +566,37 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
   })
 
+  // the 14th from 18:00 to the 16th 05:00 UTC: a stub of yesterday above today, and a last day of six hours
+  it('lists no card for the day before today, and marks the last day as partial with its hours (GH-3840)', async () => {
+    const hours = Array.from({ length: 36 }, (_, hour) => ({
+      ...day[0]!,
+      timestamp: new Date(Date.UTC(2026, 9, 14, 18 + hour)).toISOString(),
+      value: 10,
+    }))
+    vi.setSystemTime(new Date('2026-10-15T08:00:00Z'))
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: hours })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await showCompact()
+    const cards = [...document.body.querySelectorAll('.rounded-2xl')].map(card => card.textContent ?? '')
+    expect(cards).toHaveLength(2)
+    expect(cards[0]).toMatch(/today/i)
+    expect(cards[0]).toContain('15/10')
+    expect(cards[0]).not.toContain('partial')
+    expect(cards[1]).toContain('16/10')
+    expect(cards[1]).toContain('partial, 6 h')
+    expect(cards.some(card => card.includes('14/10'))).toBe(false)
+  })
+
+  it('says there is no data in place of the cards where every day of the run is before today (GH-3840)', async () => {
+    vi.setSystemTime(new Date('2026-10-20T08:00:00Z'))
+    await showMeteogram()
+    await showCompact()
+    expect(document.body.querySelectorAll('.rounded-2xl')).toHaveLength(0)
+    expect(wrapper!.text()).toContain('No data available for the selected query')
+  })
+
   // the weather of a day card is a symbol, which a screen reader does not read: the words are in the
   // card, and the symbol is hidden from it (WCAG 1.1.1)
   const symbolsOf = () => [...document.body.querySelectorAll('[aria-hidden="true"]')].map(node => node.textContent?.trim())
@@ -691,6 +727,8 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   // Node's own `localStorage` global stands in the test document's way and holds nothing: one that does
   beforeEach(() => {
+    // the first of October, which the values start on: the day cards start at today (GH-3840)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T06:00:00Z') })
     const store = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => store.get(key) ?? null,
@@ -700,6 +738,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
     })
   })
   afterEach(async () => {
+    vi.useRealTimers()
     wrapper?.unmount()
     wrapper = undefined
     document.body.innerHTML = ''

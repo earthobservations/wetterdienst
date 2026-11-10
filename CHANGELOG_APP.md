@@ -38,6 +38,16 @@ Types of changes:
 - `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
   hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
   500 (3.5:1); at night they are unchanged (GH-3952)
+- `[Forecast]` The day cards and the day rows of the map's panel start at today: a stub of
+  yesterday, with the minimum and maximum of its last hours, is no longer listed above it. A last
+  day is marked "partial" with the hours it has where a run ends within the days shown (a run of
+  240 hours runs past the seven rows, and then none is marked), so that its minimum and maximum are
+  not read as a whole day's. A page that stays open moves its Today on at the station's midnight,
+  and a forecast with no day from today on says there is no data (GH-3840)
+- `[Forecast]` Picking another station while a run is selected asks for the values once, not
+  twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
+  and the run list show what was picked last. A link to `/meteogram` without a station, such as
+  the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
 - `[Explorer]` The window offered for a refused date range that reaches past today ends today at
   the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
   and answers empty. The rows it names are those of the part up to today, and where that part fits

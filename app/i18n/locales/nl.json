@@ -507,6 +507,7 @@
       "viewCompact": "Compact",
       "viewTable": "Tabel",
       "today": "VANDAAG",
+      "partialDay": "gedeeltelijk, {hours} u",
       "summaryMinMaxTemp": "Min./max. temp.",
       "summaryTotalPrecip": "Totale neerslag",
       "summaryMaxGust": "Max. windstoot",

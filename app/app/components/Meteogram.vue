@@ -246,8 +246,36 @@ onBeforeUnmount(() => {
 // Toolbar timezone label (updated when chart renders)
 const toolbarTzLabel = ref<string>('UTC')
 
+// The station's time zone, which the times of the table are written in, as the chart's axis is
+const stationTimeZone = computed(() => {
+  const { latitude, longitude } = props.stationCoords ?? {}
+  if (latitude == null || longitude == null)
+    return 'UTC'
+  try {
+    return tzLookup(latitude, longitude)
+  }
+  catch {
+    return 'UTC'
+  }
+})
+
+// The date it is today at the station: a computed of its own, so that what reads it runs again at the station's
+// midnight and not with every tick of the clock below (GH-3840)
+const now = ref(Date.now())
+const localToday = computed(() => DateTime.fromMillis(now.value, { zone: stationTimeZone.value }).toISODate()!)
+// a page that stays open past midnight moves its Today on
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => {
+    now.value = Date.now()
+  }, 60_000)
+})
+onBeforeUnmount(() => {
+  clearInterval(clock)
+})
+
 const compactDays = computed(() => {
-  const out: { date: any, kind: WeatherKind, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
+  const out: { date: any, kind: WeatherKind, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean, partialHours: number | null }[] = []
   const series = seriesCache.value
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
@@ -255,18 +283,9 @@ const compactDays = computed(() => {
   const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
   const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
 
-  // determine timezone
-  let stationTZ = 'UTC'
-  if (props.stationCoords?.latitude != null && props.stationCoords?.longitude != null) {
-    try {
-      stationTZ = tzLookup(props.stationCoords.latitude, props.stationCoords.longitude)
-    }
-    catch {
-      stationTZ = 'UTC'
-    }
-  }
-
-  const localNow = DateTime.now().setZone(stationTZ)
+  const stationTZ = stationTimeZone.value
+  // the start of today at the station: where the rows start, and the row that is marked as today
+  const today = DateTime.fromISO(localToday.value, { zone: stationTZ }).startOf('day')
 
   const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
   if (!allTimes.length) {
@@ -275,8 +294,15 @@ const compactDays = computed(() => {
   const minTime = Math.min(...allTimes)
   const maxTime = Math.max(...allTimes)
 
-  let dt = DateTime.fromMillis(minTime, { zone: stationTZ }).startOf('day')
+  // The rows start at today (the station's local day): the run begins before midnight, and what is left of
+  // the day before it is a stub of a day that is over (GH-3840)
+  const first = DateTime.fromMillis(minTime, { zone: stationTZ }).startOf('day')
+  let dt = first < today ? today : first
   const last = DateTime.fromMillis(maxTime, { zone: stationTZ }).startOf('day')
+  // the step the run ends with, from its last two times: the run is hourly and then 3-hourly, which the span says
+  // nothing of
+  const times = [...new Set(allTimes)].sort((a, b) => a - b)
+  const endStep = times.length > 1 ? times[times.length - 1]! - times[times.length - 2]! : 3_600_000
   while (dt.toMillis() <= last.toMillis()) {
     const startUTC = dt.toUTC().toMillis()
     const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
@@ -411,8 +437,14 @@ const compactDays = computed(() => {
 
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
     const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
-    const isToday = dt.hasSame(localNow, 'day')
-    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
+    const isToday = dt.hasSame(today, 'day')
+    // The last day of the run, when the run ends before it does: its minimum and maximum are those of the hours
+    // the run reaches, so the row says how many they are, and is not read as a day's own
+    let partialHours: number | null = null
+    if (dt.toMillis() === last.toMillis() && maxTime + endStep < endUTC) {
+      partialHours = Math.max(1, Math.round((maxTime + endStep - Math.max(startUTC, minTime)) / 3_600_000))
+    }
+    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
   // Limit number of days shown in compact mode for readability
@@ -420,19 +452,6 @@ const compactDays = computed(() => {
     return out.slice(0, MAX_COMPACT_DAYS)
   }
   return out
-})
-
-// The station's time zone, which the times of the table are written in, as the chart's axis is
-const stationTimeZone = computed(() => {
-  const { latitude, longitude } = props.stationCoords ?? {}
-  if (latitude == null || longitude == null)
-    return 'UTC'
-  try {
-    return tzLookup(latitude, longitude)
-  }
-  catch {
-    return 'UTC'
-  }
 })
 
 // What the chart draws, as a table and a sentence (WCAG 1.1.1, 1.3.1, and 1.4.13 for the values that appear
@@ -2221,11 +2240,16 @@ watch(
       </div>
 
       <!-- in the map's panel, one row a day: the day, its weather, its rain and its temperatures -->
+      <!-- every day of the run is before today at the station: no row to show -->
+      <p v-else-if="daysOnly && !compactDays.length" class="text-sm text-muted" data-testid="day-rows-empty">
+        {{ t('widget.noData') }}
+      </p>
       <ul v-else-if="daysOnly" class="divide-y divide-default" data-testid="day-rows">
         <li v-for="(d, idx) in compactDays" :key="idx" class="grid grid-cols-[minmax(4.5rem,auto)_2rem_1fr_auto] items-center gap-x-3 py-2">
           <span class="text-sm" :class="d.isToday ? 'font-bold text-highlighted' : 'text-toned'">
             {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
             <span class="block text-xs font-normal text-muted tabular-nums">{{ d.dayMonth }}</span>
+            <span v-if="d.partialHours" class="block text-xs font-normal text-muted" data-testid="partial-day">{{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}</span>
           </span>
           <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
           <span class="text-2xl leading-none select-none" aria-hidden="true">{{ WEATHER_SYMBOLS[d.kind] }}</span>
@@ -2238,6 +2262,8 @@ watch(
           <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
         </li>
       </ul>
+
+      <UEmpty v-else-if="!compactDays.length" icon="i-ph-cloud-slash" :title="t('meteogram.chart.noData')" />
 
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
@@ -2263,6 +2289,9 @@ watch(
               </div>
               <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
                 {{ d.dayMonth }}
+              </div>
+              <div v-if="d.partialHours" class="text-xs text-gray-600 dark:text-gray-400 mb-2" data-testid="partial-day">
+                {{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}
               </div>
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
                 {{ d.tempLabel }}
