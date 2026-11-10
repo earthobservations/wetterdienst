@@ -3672,7 +3672,9 @@ NO_STUB = {
         "2010 to 2011 (10,234 rows), the monthly synop 2000 to 2011 (2,465) and the monthly climate (4,238) hold "
         "no value outside the physical range, and no value repeated at the end of its parameter's range; the daily "
         "climate files timed out at danepubliczne.imgw.pl that day (FSTimeoutError), so they stay read as on "
-        "2026-10-12 only"
+        "2026-10-12 only. The monthly all-station files of the daily synop in the year under way (2026_09_s.zip, "
+        "2026_10_s.zip, GH-3941) are the layout of the per-station ones, and have no new sentinel: read through the "
+        "reader on 2026-11-10 for 352200375 (304 days of 2026-01-01 to 2026-10-31, mean temperature)"
     ),
     "lhmt/observation": (
         "no sentinel: the source writes null, and the hourly values of vilniaus-ams, kauno-ams and klaipedos-ams "

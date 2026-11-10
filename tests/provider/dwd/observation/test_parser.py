@@ -212,6 +212,239 @@ def test_parse_dwd_data_encodes_true_local_time_offset() -> None:
     assert df.get_column("mess_datum_woz").to_list() == ["40", "70"]
 
 
+SOLAR_HEADER = "STATIONS_ID;MESS_DATUM;QN_592;ATMO_LBERG;FD_LBERG;FG_LBERG;SD_LBERG;ZENIT;MESS_DATUM_WOZ;eor\n"
+
+# Frankfurt/Main (01420), 2022-08-17, as DWD wrote it: the rows 1091 to 1107 of
+# produkt_st_stunde_20220508_20260930_01420.txt. The minute that ends the hour falls from :30 to :29 at 13:29, so that
+# 12:30 and 13:29 are both nearest to 13:00 (GH-3938)
+FRANKFURT_2022_08_17 = """\
+       1420;2022081709:30;    1;  144.0;   42.0;   43.0;   0;    47.70;2022081710:00;eor
+       1420;2022081710:30;    1;  142.0;  109.0;  111.0;   0;    41.02;2022081711:00;eor
+       1420;2022081711:30;    1;  144.0;   80.0;   87.0;   2;    37.19;2022081712:00;eor
+       1420;2022081712:30;    1;  139.0;  136.0;  218.0;  39;    37.21;2022081713:00;eor
+       1420;2022081713:29;    1;  142.0;  112.0;  182.0;  48;    41.06;2022081714:00;eor
+       1420;2022081714:29;    1;  141.0;  110.0;  209.0;  54;    47.75;2022081715:00;eor
+       1420;2022081715:29;    1;  136.0;   61.0;  180.0;  60;    56.17;2022081716:00;eor
+       1420;2022081716:29;    1;  136.0;   41.0;  140.0;  60;    65.47;2022081717:00;eor
+       1420;2022081717:29;    1;  142.0;   47.0;   72.0;  60;    75.09;2022081718:00;eor
+       1420;2022081718:29;    1;  140.0;   18.0;   24.0;  52;    84.61;2022081719:00;eor
+       1420;2022081719:29;    1;  139.0;    1.0;    1.0;   0;    93.66;2022081720:00;eor
+       1420;2022081720:29;    1;  138.0;    0.0;    0.0;   0;   101.86;2022081721:00;eor
+       1420;2022081721:29;    1;  133.0;    0.0;    0.0;   0;   108.73;2022081722:00;eor
+       1420;2022081722:29;    1;  136.0;    0.0;    0.0;   0;   113.76;2022081723:00;eor
+       1420;2022081723:29;    1;  137.0;    0.0;    0.0;   0;   116.45;2022081800:00;eor
+       1420;2022081801:29;    1;  140.0;    0.0;    0.0;   0;   113.80;2022081802:00;eor
+       1420;2022081802:29;    1;  140.0;    0.0;    0.0;   0;   108.79;2022081803:00;eor
+"""
+
+# Hamburg-Fuhlsbuettel (01975), 2005-03-11: the rows 1662 to 1682 of produkt_st_stunde_20050101_20260930_01975.txt. The
+# minute is :30 until 13:30 and :29 from 14:29, so that 13:30 and 14:29 are both nearest to 14:00. The minute crosses
+# :30 in the same way in January or March of every year of this file, 22 times, and DWD's Frankfurt file does it 7 times
+HAMBURG_2005_03_11 = """\
+       1975;2005031104:30;    1;  116.0;    0.0;    0.0;   0;   106.16;2005031105:00;eor
+       1975;2005031105:30;    1;  116.0;    0.0;    0.0;   0;    97.40;2005031106:00;eor
+       1975;2005031106:30;    1;  117.0;    0.0;    0.0;   0;    88.52;2005031107:00;eor
+       1975;2005031107:30;    1;  117.0;    2.0;    3.0;   0;    79.91;2005031108:00;eor
+       1975;2005031108:30;    1;  117.0;    8.0;    8.0;   0;    71.98;2005031109:00;eor
+       1975;2005031109:30;    1;  116.0;   14.0;   14.0;   0;    65.24;2005031110:00;eor
+       1975;2005031110:30;    1;  117.0;   17.0;   17.0;   0;    60.25;2005031111:00;eor
+       1975;2005031111:30;    1;  118.0;   14.0;   14.0;   0;    57.56;2005031112:00;eor
+       1975;2005031112:30;    1;  119.0;   16.0;   16.0;   0;    57.54;2005031113:00;eor
+       1975;2005031113:30;    1;  119.0;   21.0;   21.0;   0;    60.20;2005031114:00;eor
+       1975;2005031114:29;    1;  114.0;   45.0;   46.0;   4;    65.17;2005031115:00;eor
+       1975;2005031115:29;    1;   99.0;   50.0;   69.0;  28;    71.88;2005031116:00;eor
+       1975;2005031116:29;    1;  102.0;   34.0;   45.0;  23;    79.78;2005031117:00;eor
+       1975;2005031117:29;    1;  111.0;    8.0;    8.0;   0;    88.37;2005031118:00;eor
+       1975;2005031118:29;    1;  109.0;    0.0;    0.0;   0;    97.23;2005031119:00;eor
+       1975;2005031119:29;    1;  109.0;    0.0;    0.0;   0;   105.96;2005031120:00;eor
+       1975;2005031120:29;    1;  111.0;    0.0;    0.0;   0;   114.11;2005031121:00;eor
+       1975;2005031121:29;    1;  110.0;    0.0;    0.0;   0;   121.17;2005031122:00;eor
+       1975;2005031122:29;    1;  103.0;    0.0;    0.0;   0;   126.48;2005031123:00;eor
+       1975;2005031123:29;    1;   98.0;    0.0;    0.0;   0;   129.37;2005031200:00;eor
+       1975;2005031200:29;    1;  109.0;    0.0;    0.0;   0;   129.35;2005031201:00;eor
+"""
+
+
+def _parse_solar(rows: str, window: tuple[dt.datetime | None, dt.datetime | None] | None = None) -> pl.DataFrame:
+    """Parse the rows of a station's hourly solar file, as the library does, for the window of a request."""
+    file = File(
+        url="https://example.invalid/solar.zip", content=BytesIO((SOLAR_HEADER + rows).encode("utf8")), status=200
+    )
+    return parse_climate_observations_data(
+        files=[file], dataset=DwdObservationMetadata.hourly.solar, period=Period.HISTORICAL, window=window
+    ).collect()
+
+
+def _solar_rows(stamps: list[str], station: str = "1420") -> str:
+    """Write rows of the file for the raw stamps (`YYYYMMDDHH:MM`), the global radiation of each being its number.
+
+    MESS_DATUM_WOZ is the whole hour after the raw stamp, as in DWD's files.
+    """
+    lines = []
+    for number, stamp in enumerate(stamps, 1):
+        woz = dt.datetime.strptime(stamp, "%Y%m%d%H:%M").replace(minute=0) + dt.timedelta(hours=1)  # noqa: DTZ007
+        lines.append(
+            f"{station:>11};{stamp};    1;  100.0;    0.0;{number:>7}.0;   0;    50.00;{woz:%Y%m%d%H:%M};eor\n"
+        )
+    return "".join(lines)
+
+
+def _solar_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Give the warnings the hourly solar parse logged."""
+    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+
+
+def test_solar_hourly_keeps_the_row_nearer_the_hour_of_two_that_round_to_it(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 12:30 and 13:29 of Frankfurt, which both round to 13:00, leave the nearer row, and a warning (GH-3938).
+
+    13:29 (182 J/cm2) is 29 min from 13:00 and 12:30 (218 J/cm2) is 30 min from it. Before, one of the two was dropped
+    by the merge of the periods without a word, whichever it happened to keep. Every other row keeps the hour it was
+    stamped before.
+    """
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(FRANKFURT_2022_08_17)
+    assert df.height == 16
+    assert df.get_column("timestamp").is_unique().all()
+    assert df.get_column("timestamp").dt.hour().to_list() == [10, 11, 12, *range(13, 24), 1, 2]
+    served = dict(
+        zip(df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("timestamp").to_list(), strict=True)
+    )
+    assert 218.0 not in served
+    assert served[182.0] == dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))
+    (warning,) = _solar_warnings(caplog)
+    for text in (
+        "station 1420",
+        "2022081712:30",
+        "2022081713:29",
+        "2022-08-17 13:00 UTC",
+        "FG_LBERG=218.0",
+        "SD_LBERG=39",
+    ):
+        assert text in warning
+
+
+def test_solar_hourly_keeps_the_nearer_row_at_hamburg(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 13:30 and 14:29 of Hamburg, which both round to 14:00, leave 14:29 and name 13:30 (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(HAMBURG_2005_03_11)
+    assert df.height == 20
+    assert df.get_column("timestamp").is_unique().all()
+    assert 21.0 not in df.get_column("fg_lberg").cast(pl.Float64).to_list()
+    (warning,) = _solar_warnings(caplog)
+    assert "2005031113:30" in warning
+    assert "FG_LBERG=21.0" in warning
+
+
+def test_solar_hourly_keeps_the_earlier_row_of_a_tie(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that of two rows as near the hour, the earlier raw end is kept and the warning says so (GH-3938).
+
+    12:40 and 13:20 are both 20 min from 13:00.
+    """
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:40", "2022081713:20"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0]
+    assert df.get_column("timestamp").to_list() == [dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))]
+    (warning,) = _solar_warnings(caplog)
+    assert "MESS_DATUM 2022081713:20 -> 2022-08-17 13:00 UTC, as near as 2022081712:40 (20 min)" in warning
+    assert "which is earlier and is kept" in warning
+    assert "FG_LBERG=2.0" in warning
+
+
+def test_solar_hourly_counts_a_repeated_raw_stamp_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a raw stamp that a station lists twice is one source hour: one row, and no warning (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:22", "2022081712:22", "2022081713:22"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0, 3.0]
+    assert df.get_column("timestamp").dt.hour().to_list() == [12, 13]
+    assert _solar_warnings(caplog) == []
+
+
+def test_solar_hourly_rounds_rows_that_do_not_collide_to_the_nearest_hour(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that rows that no other row shares an hour with are rounded as they were, :30 up (GH-3938)."""
+    stamps = ["2022081700:22", "2022081701:41", "2022081702:30", "2022081705:59"]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(stamps))
+    assert df.get_column("timestamp").dt.hour().to_list() == [0, 2, 3, 6]
+    assert _solar_warnings(caplog) == []
+
+
+UTC = ZoneInfo("UTC")
+
+
+def _two_collisions_in_two_years() -> str:
+    """Give the rows of a station that has one collision in 2022 and one in 2023, 12:30 and 13:29 each time."""
+    return _solar_rows(["2022081712:30", "2022081713:29", "2023081712:30", "2023081713:29"])
+
+
+def test_solar_hourly_warns_only_for_the_collisions_in_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a collision in a year that the request does not ask for is no warning (GH-3938).
+
+    The file holds the station's whole record, so a request for 2023 would else repeat the warnings for the years
+    before. Both rows are served as for any window: the window decides what is said, not what is dropped.
+    """
+    with caplog.at_level(logging.DEBUG):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2023, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2023081712:30" in warning
+    assert "2022081712:30" not in warning
+    assert "1 source hour(s)" in warning
+    assert any("2022081712:30" in record.getMessage() and record.levelno == logging.DEBUG for record in caplog.records)
+
+
+def test_solar_hourly_names_the_collisions_of_a_window_in_one_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two collisions in the window give one warning for the station that names both (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2 source hour(s)" in warning
+    assert "2022081712:30" in warning
+    assert "2023081712:30" in warning
+
+
+def test_solar_hourly_says_nothing_of_collisions_outside_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a window that holds no collision hour gives no warning at all (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_two_collisions_in_two_years(), (dt.datetime(2024, 1, 1, tzinfo=UTC), None))
+    assert df.height == 2
+    assert _solar_warnings(caplog) == []
+
+
+def test_solar_hourly_keeps_the_true_local_time_of_the_kept_row() -> None:
+    """Test that `true_local_time_offset` is the minutes from the kept row's raw stamp to MESS_DATUM_WOZ (GH-3938).
+
+    13:29 to 14:00 WOZ is 31 min, 60 minus the raw minute; the dropped 12:30 row's 30 is not served.
+    """
+    df = _parse_solar(FRANKFURT_2022_08_17)
+    offsets = dict(
+        zip(
+            df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("mess_datum_woz").to_list(), strict=True
+        )
+    )
+    assert offsets[182.0] == "31"
+    assert df.get_column("mess_datum_woz").cast(pl.Int64).to_list() == [30] * 3 + [31] * 13
+
+
+def test_solar_hourly_decides_the_hours_of_each_station_apart(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two stations in one file do not take each other's hours, and each is named in its own warning."""
+    stamps = ["2022081712:30", "2022081713:29"]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(stamps, "1420") + _solar_rows(stamps, "1975"))
+    assert df.height == 2
+    assert sorted(df.get_column("station_id").to_list()) == ["1420", "1975"]
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [2.0, 2.0]
+    warnings = _solar_warnings(caplog)
+    assert len(warnings) == 2
+    assert {"1420", "1975"} == {
+        station for station in ("1420", "1975") if any(f"station {station}" in w for w in warnings)
+    }
+
+
 def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptureFixture) -> None:
     """Test that a true local time that no longer parses is reported rather than quietly nulled.
 

@@ -620,8 +620,10 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
     def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
         """Name the archives of the station that only it reads, which are those of the daily synop (GH-3454).
 
-        The files of the other datasets are one for each month or year for every station, which the first station to
-        need one downloads, and which the station after it finds in the cache.
+        These are its per-station files of the periods that have ended, and the monthly files of the year under way
+        (GH-3941), which hold every station and which the fetch-ahead fetches once for the walk. The files of the other
+        datasets are one for each month or year for every station, which the first station to need one downloads, and
+        which the station after it finds in the cache.
         """
         archives: dict[str, CacheExpiry] = {}
         for dataset in datasets:
@@ -809,15 +811,44 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
         start, end = _file_period(dataset)
         if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
-            # unlike every other IMGW meteorology dataset, synop daily is archived per
-            # station rather than per month: one file per period (year, or decade for
-            # older data) *per station*, e.g. "2024_100_s.zip" for the station whose
-            # 9-digit id ends in "100", not "2024_08_k.zip" for August across all stations
-            station_code = station_id[-3:]
-            df_files = df_files.filter(pl.col("file").str.contains(rf"_{station_code}_"))
+            df_files = _select_synop_archives(df_files, station_id, start, end, interval)
         elif interval is not None:
             df_files = keep_files_overlapping(df_files, start, end, interval)
         return archive_expiries(df_files, end)
+
+
+#: the closed periods of the daily synop, one file per station: "2024_100_s.zip" (a year), "1951_1955_100_s.zip"
+_SYNOP_STATION_ARCHIVE = r"^\d{4}(?:_\d{4})?_(?P<code>\d{3})_s\.zip$"
+#: the year under way of the daily synop, one file per month for every station: "2026_10_s.zip" (GH-3941)
+_SYNOP_MONTH_ARCHIVE = r"^\d{4}_\d{2}_s\.zip$"
+
+
+def _select_synop_archives(
+    df_files: pl.DataFrame, station_id: str, start: pl.Expr, end: pl.Expr, interval: portion.Interval | None
+) -> pl.DataFrame:
+    """Keep the archives of the daily synop that hold the station: its own files, and the months of a year without one.
+
+    IMGW archives the daily synop per station for a period that has ended (a year or a decade, ``YYYY_NNN_s.zip``,
+    ``NNN`` the last three digits of the station id), but publishes the year under way per month for every station
+    (``YYYY_MM_s.zip``, one file with all the stations, in the same layout as the per-station ones). The monthly files
+    of a year are replaced by the per-station file when IMGW consolidates the year, and for a while the folder may hold
+    both. The listing decides: a monthly file is read only for a year that no per-station file of the station covers,
+    so that no day is read twice, and the all-station file is not downloaded for nothing. Of those the months the
+    window ``interval`` overlaps are kept (``start`` and ``end`` give the period of a name); the per-station files are
+    all kept, as the folders of the listing are already cut to the window.
+    """
+    code = station_id[-3:]
+    # a name that carries the code is the station's, whether or not its period can be read (it is then kept 5 minutes)
+    station = df_files.filter(pl.col("file").str.contains(f"_{code}_"))
+    monthly = df_files.filter(pl.col("file").str.contains(_SYNOP_MONTH_ARCHIVE))
+    covered: set[int] = set()
+    for name in station.filter(pl.col("file").str.extract(_SYNOP_STATION_ARCHIVE, 1) == code).get_column("file"):
+        years = [int(year) for year in name.split("_")[:2] if len(year) == 4]
+        covered.update(range(years[0], years[-1] + 1))
+    monthly = monthly.filter(~pl.col("file").str.slice(0, 4).cast(pl.Int64).is_in(covered))
+    if interval is not None:
+        monthly = keep_files_overlapping(monthly, start, end, interval).select(monthly.columns)
+    return pl.concat([station, monthly])
 
 
 def _file_period(dataset: DatasetModel) -> tuple[pl.Expr, pl.Expr]:
@@ -827,6 +858,9 @@ def _file_period(dataset: DatasetModel) -> tuple[pl.Expr, pl.Expr]:
     period, which `keep_files_overlapping` refuses and `archive_expiries` keeps five minutes.
     """
     parts = pl.col("file").str.split("_")
+    # "2024_01_k.zip" covers one month, "1951_k.zip" one year
+    year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
+    month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
     if dataset.resolution.value == Resolution.MONTHLY or (
         dataset.resolution.value == Resolution.DAILY and dataset.name == "synop"
     ):
@@ -836,10 +870,15 @@ def _file_period(dataset: DatasetModel) -> tuple[pl.Expr, pl.Expr]:
         last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1, null_on_oob=True))
         start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
         end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
-        return start, end
-    # "1951_k.zip" covers one year, "2024_01_k.zip" one month
-    year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
-    month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
+        if dataset.resolution.value == Resolution.MONTHLY:
+            return start, end
+        # but the year under way of the daily synop is one file per month, "2026_10_s.zip" (GH-3941): the one name of
+        # three parts whose second part is two digits, where the station code of a per-station file has three
+        is_month = (parts.list.len() == 3) & (parts.list.get(1, null_on_oob=True).str.len_chars() == 2)
+        return (
+            pl.when(is_month).then(month).otherwise(start),
+            pl.when(is_month).then(month.dt.offset_by("1mo").dt.offset_by("-1d")).otherwise(end),
+        )
     one_year = parts.list.len() == 2
     start = pl.when(one_year).then(year).otherwise(month)
     end = pl.when(one_year).then(year.dt.offset_by("1y")).otherwise(month.dt.offset_by("1mo")).dt.offset_by("-1d")
