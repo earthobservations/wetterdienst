@@ -2196,10 +2196,10 @@ watch(
           <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
                no controls of Plotly's to keep reachable. Described by what it shows; the table has the values -->
           <div
-            ref="chartRef" tabindex="-1" role="figure"
+            ref="chartRef" tabindex="-1" role="figure" :class="widget ? 'w-full' : 'app-chart'"
             :aria-label="chartLabel"
             :aria-describedby="chartTable ? summaryId : undefined"
-            :style="{ width: '100%', height: chartHeight, position: 'relative' }"
+            :style="{ height: chartHeight, position: 'relative' }"
           />
         </div>
         <template v-if="chartTable">

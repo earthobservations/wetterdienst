@@ -978,7 +978,7 @@ onBeforeUnmount(() => {
               <div
                 ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
                 :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
-                class="w-full overflow-hidden" style="min-height: 400px;"
+                class="app-chart overflow-hidden" style="min-height: 400px;"
               />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}

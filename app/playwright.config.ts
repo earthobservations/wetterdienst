@@ -4,6 +4,9 @@ import { defineConfig, devices } from '@playwright/test'
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
 
+// the spec that prints charts to a PDF and reads the sizes of their text: it runs in Chromium, the others in Firefox
+const PDF_SPEC = /chart-print\.spec\.ts$/
+
 export default defineConfig({
   testDir: './tests/e2e',
   // The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
@@ -23,22 +26,21 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  projects: [
-    process.env.E2E_BROWSER === 'chrome'
-      // for a machine where Playwright's Firefox does not start: the system's Chrome (its layout
-      // differs from Firefox's, so the accessibility baseline is only of Firefox on Linux)
-      ? { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }
-      : { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    // Uncomment to test in multiple browsers:
-    // {
-    //   name: 'chromium',
-    //   use: { ...devices['Desktop Chrome'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-  ],
+  projects: process.env.E2E_BROWSER === 'chrome'
+    // for a machine where Playwright's Firefox does not start: the system's Chrome (its layout
+    // differs from Firefox's, so the accessibility baseline is only of Firefox on Linux); it runs the
+    // print spec as well
+    ? [{ name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }]
+    : [
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: PDF_SPEC },
+        // the print spec measures a PDF, and `page.pdf` is Chromium's alone
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC },
+        // Uncomment to test in multiple browsers:
+        // {
+        //   name: 'webkit',
+        //   use: { ...devices['Desktop Safari'] },
+        // },
+      ],
 
   webServer: {
     // In CI, test against the real production build (catches bundling/build

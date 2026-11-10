@@ -18,6 +18,14 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
+  column, so that they print larger: the Explorer's tick labels come out at 6.3 pt on A4 with 1 in
+  margins (5.2 pt from a 1100 px window before), the stripes' smallest text at 5.7 pt (4.8 pt), the
+  Forecast's tick labels at 4.7 pt (3.9 pt). The widget's chart keeps the width of its frame
+  (GH-3558)
+- `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
+  and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
+  page and the glossary) is dark now, as in light mode (GH-3558)
 - `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
   eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
   `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,

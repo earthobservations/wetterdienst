@@ -6,7 +6,7 @@ This directory contains end-to-end (E2E) tests using Playwright that test the ap
 
 **Playwright comes with its own browsers** - no system browser installation needed!
 
-Currently configured to use **Firefox**. You can easily switch or test multiple browsers:
+Currently configured to use **Firefox**, and **Chromium** for `chart-print.spec.ts` alone (it prints charts to a PDF with `page.pdf`, which only Chromium has; `npx playwright install firefox chromium`). You can easily switch or test multiple browsers:
 
 ```typescript
 // playwright.config.ts
@@ -21,7 +21,7 @@ projects: [
 
 ```bash
 # Install Firefox (current default)
-npx playwright install firefox
+npx playwright install firefox chromium
 
 # Or install all browsers
 npx playwright install
