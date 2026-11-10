@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { askHandlers } from './accessibility/ask-backend'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+import { expectAtLeastPx } from './target-size'
 
 // Ask the weather (GH-3518): the home page's suggestions, each answered from the data, with the way into the tool
 // that holds it. The backend is the mock of the accessibility spec with the answers of the questions, so nothing here
@@ -241,6 +242,6 @@ test.describe('on a phone', () => {
     }
     // each suggestion is a target of 44 px or more (WCAG 2.5.8 asks 24)
     for (const box of await Promise.all(['rain', 'summer', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
-      expect(box!.height).toBeGreaterThanOrEqual(44)
+      expectAtLeastPx(box!.height, 44)
   })
 })

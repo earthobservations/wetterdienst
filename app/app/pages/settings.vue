@@ -105,7 +105,8 @@ function unitItems(units: readonly string[]) {
             </h2>
           </div>
         </template>
-        <UFieldGroup>
+        <!-- toggle buttons: the chosen theme is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3969) -->
+        <UFieldGroup role="group" :aria-label="t('settings.theme')">
           <UButton
             v-for="opt in themeOptions"
             :key="opt.value"
@@ -113,6 +114,7 @@ function unitItems(units: readonly string[]) {
             :label="opt.label"
             color="neutral"
             :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
+            :aria-pressed="colorMode.preference === opt.value"
             @click="colorMode.preference = opt.value"
           />
         </UFieldGroup>

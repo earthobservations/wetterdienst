@@ -44,6 +44,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
+  (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
+  (GH-3969)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)
