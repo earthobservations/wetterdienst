@@ -32,6 +32,12 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
+  the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
+  not only a tooltip (GH-3951)
+- `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
+  hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
+  500 (3.5:1); at night they are unchanged (GH-3952)
 - `[Forecast]` The day cards and the day rows of the map's panel start at today: a stub of
   yesterday, with the minimum and maximum of its last hours, is no longer listed above it. A last
   day is marked "partial" with the hours it has where a run ends within the days shown (a run of
@@ -47,6 +53,7 @@ Types of changes:
   and answers empty. The rows it names are those of the part up to today, and where that part fits
   the limit by itself it is the window. A range with no readings up to today says so.
   Forecasts are unchanged: their range is not ended at today (GH-3740)
+
 - `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
   cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
   take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at
