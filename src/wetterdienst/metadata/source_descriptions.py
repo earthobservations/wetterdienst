@@ -134,8 +134,9 @@ _DWD_HOURLY_READING_P = (
 # What the hourly soil temperatures of the DWD urban stations say about their stamp, and what the one station shows
 _DWD_URBAN_SOIL_STAMP = (
     " DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending"
-    " UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50"
-    " (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated."
+    " UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H"
+    " equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours,"
+    " 2015-08 to 2026-11), so wetterdienst leaves the position null."
 )
 
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
@@ -1270,9 +1271,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "DwdObservationMetadata": {
         ("hourly", "urban_pressure", "luftdruck_nn"): (
-            "Air pressure reduced to sea level. DWD's sheet does not list it; it carries the stamp of the station "
-            "pressure of the same row: the reading 10 min before (at UTC 11 the value from UTC 10:50), as the "
-            "10-minute series of the same station shows."
+            "Air pressure reduced to sea level. DWD's German sheet says for all pressure values: \"Stündliche "
+            "Druckwerte sind entsprechend den SYNOP-Konventionen abgelegt. Dabei wird der Stunde x der Messwert von "
+            '10 min vorher zugeordnet" (at UTC 11 the value from UTC 10:50); the English sheet names the station '
+            "height only. Confirmed at Berlin-Alexanderplatz (00399), the network's only station: it equals the "
+            "10-minute value of the stamp minus 10 min in 93,898 of 93,898 hours, 2015-08 to 2026-11."
         ),
         ("10_minutes", "precipitation", "rws_10"): "Sum of the precipitation height of the previous 10 minutes.",
         ("10_minutes", "precipitation", "rws_dau_10"): "Duration of precipitation during the previous 10 minutes.",

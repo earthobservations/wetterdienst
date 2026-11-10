@@ -228,14 +228,16 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "the hour x corresponds to the measurement from 10 min before",
         datasets="urban_pressure",
     ),
-    # the sea level pressure of the same file is not in that sheet; measured against PP_ST_10 of the 10-minute series
-    # of the same station at the stamp minus 10 min (all 12,520 hours, GH-3939), the note of the page says so
+    # the German sheet of the same dataset says it for all pressure values ("Stündliche Druckwerte sind entsprechend den
+    # SYNOP-Konventionen abgelegt. Dabei wird der Stunde x der Messwert von 10 min vorher zugeordnet"), and the sea
+    # level pressure of the file equals PP_ST_10 of the 10-minute series at the stamp minus 10 min in every hour
+    # (93,898 of 93,898, GH-3939); the note of the page quotes the sentence
     _entry(
         "DwdObservationMetadata",
         "hourly",
         "luftdruck_nn",
         "page",
-        "LUFTDRUCK_NN, which the sheet does not list, is a reading as well",
+        "Stündliche Druckwerte sind entsprechend den SYNOP-Konventionen abgelegt",
         datasets="urban_pressure",
         section="dwd",
         network="observation",
