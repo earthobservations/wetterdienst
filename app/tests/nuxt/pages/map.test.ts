@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getQuery, setResponseHeader, setResponseStatus } from 'h3'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { clearNuxtData, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
@@ -511,6 +511,53 @@ describe('the answers that fail', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-count"]').exists()).toBe(true))
     expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(false)
     expect(stage.props.stations).toHaveLength(4)
+  })
+
+  it('tells a 200 page of HTML for the stations as a failure, not as a list with no stations (GH-3841)', async () => {
+    // a `NUXT_API_BASE` that points at another site, or a proxy's error page: status 200, a page, no JSON
+    registerEndpoint('/api/stations', (event) => {
+      setResponseHeader(event, 'content-type', 'text/html')
+      return '<!doctype html><html><body>Service is starting</body></html>'
+    })
+    // whatever way the test ends
+    onTestFinished(() => {
+      registerEndpoint('/api/stations', stationsOf)
+    })
+    const wrapper = await mountMap()
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="map-failure"]').text()).toContain('The stations could not be loaded')
+    expect(wrapper.find('[data-testid="map-failure"]').text()).toContain('The API answered with a web page, not data')
+    // not the answer of a layer that has no stations, and nothing is drawn or counted
+    expect(wrapper.find('[data-testid="map-empty"]').exists()).toBe(false)
+    expect(stage.props.stations).toEqual([])
+    expect(wrapper.find('[data-testid="map-count"]').exists()).toBe(false)
+    // a retry that is answered with the stations brings them
+    registerEndpoint('/api/stations', stationsOf)
+    await wrapper.find('[data-testid="map-failure"] button').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-count"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(false)
+  })
+
+  it('tells JSON without the list of stations as a failure as well, and a real empty list as no stations (GH-3841)', async () => {
+    registerEndpoint('/api/stations', () => ({ detail: 'something else' }))
+    onTestFinished(() => {
+      registerEndpoint('/api/stations', stationsOf)
+    })
+    const failed = await mountMap()
+    await vi.waitFor(() => expect(failed.find('[data-testid="map-failure"]').exists()).toBe(true))
+    expect(failed.find('[data-testid="map-failure"]').text()).toContain('no list of `stations`')
+    expect(failed.find('[data-testid="map-empty"]').exists()).toBe(false)
+    failed.unmount()
+    mounted.pop()
+    clearNuxtData()
+
+    // the control: the list the backend gives for a layer with no stations is empty, and that is no failure
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    const empty = await mountMap()
+    await vi.waitFor(() => expect(empty.find('[data-testid="map-empty"]').exists()).toBe(true))
+    expect(empty.find('[data-testid="map-empty"]').text()).toBe('This dataset has no stations with a position.')
+    expect(empty.find('[data-testid="map-failure"]').exists()).toBe(false)
+    registerEndpoint('/api/stations', stationsOf)
   })
 
   it('tells where the forecast could not be read, in the card, and reads it again on Retry', async () => {

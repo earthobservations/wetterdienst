@@ -84,15 +84,15 @@ let pickedIn = viewKey.value
 // ---- the lists of stations ------------------------------------------------------------------------------------
 
 const forecast = useStationList(() => 'forecast', async () =>
-  (await $fetch<{ stations: Station[] }>('/api/stations', { query: FORECAST_STATIONS_QUERY, ...RETRY_TRANSIENT })).stations ?? [])
+  (await $fetch<{ stations: Station[] }>('/api/stations', { query: FORECAST_STATIONS_QUERY, ...API_FETCH })).stations ?? [])
 // the stations that have climate stripes, which the panel asks the nearest of; no layer of the map
 const stripes = useStationList(() => STRIPES_KIND, async () =>
-  ((await $fetch<StripesStationsResponse>('/api/stripes/stations', { query: { kind: STRIPES_KIND }, ...RETRY_TRANSIENT })).stations ?? [])
+  ((await $fetch<StripesStationsResponse>('/api/stripes/stations', { query: { kind: STRIPES_KIND }, ...API_FETCH })).stations ?? [])
     .map(station => ({ ...station, elevation: station.elevation ?? null })))
 const measured = useStationList(() => `${source.value.resolution}/${source.value.dataset}`, async () =>
   (await $fetch<{ stations: Station[] }>('/api/stations', {
     query: { ...MEASURED_NETWORK, parameters: `${source.value.resolution}/${source.value.dataset}`, all: 'true' },
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
   })).stations ?? [])
 
 const lists = { forecast, measured }
@@ -116,7 +116,7 @@ const layerLabel = computed(() => layerItems.value.find(item => item.value === l
 const coverage = shallowRef<ProviderNetworkCoverageResponse | null>(null)
 let coverageRequest: Promise<void> | null = null
 function loadCoverage() {
-  coverageRequest ??= $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: MEASURED_NETWORK, ...RETRY_TRANSIENT })
+  coverageRequest ??= $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: MEASURED_NETWORK, ...API_FETCH })
     .then((answer) => {
       coverage.value = answer
     })

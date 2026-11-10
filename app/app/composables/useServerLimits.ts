@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import type { RowLimits } from '~/utils/row-window'
-import { RETRY_TRANSIENT } from '~/utils/fetch-retry'
+import { API_FETCH } from '~/utils/api-answer'
 import { DEFAULT_ROW_LIMITS } from '~/utils/row-window'
 
 /** A limit as `GET /api/version` reports it: a whole number, 0 for none; anything else is left to the default. */
@@ -29,7 +29,7 @@ export function useServerLimits(): Ref<RowLimits> {
   const asked = useState<boolean>('server-limits-asked', () => false)
   if (!asked.value) {
     asked.value = true
-    $fetch<unknown>('/api/version', { ...RETRY_TRANSIENT })
+    $fetch<unknown>('/api/version', { ...API_FETCH })
       .then((answer) => {
         limits.value = limitsOf(answer)
       })
