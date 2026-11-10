@@ -101,23 +101,55 @@ export function stripesSummaryParams(years: StripeYear[], format: (value: number
   }
 }
 
+/** How wide `text` is in px in `font` (a CSS font shorthand, `16px Arial, sans-serif`): null where there is no canvas to measure with */
+export type TextMeasure = (text: string, font: string) => number | null
+
+let measureContext: CanvasRenderingContext2D | null | undefined
+
+/** The browser's own measure, in the font the chart draws with; null without a canvas (a unit test, a server) */
+export const measureWithCanvas: TextMeasure = (text, font) => {
+  if (measureContext === undefined) {
+    try {
+      measureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+    }
+    catch {
+      measureContext = null
+    }
+  }
+  if (!measureContext)
+    return null
+  measureContext.font = font
+  return measureContext.measureText(text).width
+}
+
 /**
- * `text` broken into lines of at most `width` px at `fontSize` px, joined with the `<br>` Plotly's titles take: a title
- * as wide as the chart is cut off by its edges where the chart is narrow (320 px: GH-3961). Breaks at spaces only, so
- * a word wider than a line stays whole on a line of its own. The width of a character is estimated (Arial's digits and
- * letters are 0.5 em, a little above what a title in Arial measures (0.47 em), so that a line is rather short than cut.
+ * `text` broken into lines no wider than `width` px in `font` (a CSS font shorthand such as `16px Arial, sans-serif`),
+ * joined with the `<br>` Plotly's titles take: a title as wide as the chart is cut off by its edges where the chart is
+ * narrow (320 px: GH-3961). Breaks at spaces. A word wider than a line is broken after its `-` and `/` (kept at the end
+ * of the line: `Mallersdorf-` / `Pfaffenberg-`), and one without either stays whole on a line of its own. The width is
+ * measured with `measure` (the canvas's, in the font the chart draws with); where that has none the width of a
+ * character is estimated at 0.5 em, a little above what a title in Arial measures (0.47 em), so that a line is rather
+ * short than cut.
  */
-export function wrapChartTitle(text: string, width: number, fontSize: number): { text: string, lines: number } {
-  const perLine = Math.max(1, Math.floor(width / (fontSize * 0.5)))
+export function wrapChartTitle(text: string, width: number, font: string, measure: TextMeasure = measureWithCanvas): { text: string, lines: number } {
+  const size = Number.parseFloat(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] ?? '16')
+  const widthOf = (value: string) => measure(value, font) ?? value.length * size * 0.5
+  // [the text, whether a space comes before it]: the pieces of a word that is too wide are joined to each other
+  const pieces: [string, boolean][] = []
+  for (const word of text.split(' ')) {
+    const parts = widthOf(word) > width ? word.split(/(?<=[-/])/) : [word]
+    parts.forEach((part, index) => pieces.push([part, index === 0]))
+  }
   const lines: string[] = []
   let line = ''
-  for (const word of text.split(' ')) {
-    if (line && line.length + 1 + word.length > perLine) {
+  for (const [piece, spaced] of pieces) {
+    const joined = line && spaced ? `${line} ${piece}` : `${line}${piece}`
+    if (line && widthOf(joined) > width) {
       lines.push(line)
-      line = word
+      line = piece
     }
     else {
-      line = line ? `${line} ${word}` : word
+      line = joined
     }
   }
   lines.push(line)

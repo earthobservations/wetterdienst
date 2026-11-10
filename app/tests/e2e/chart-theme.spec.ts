@@ -668,12 +668,12 @@ test('the stripes\' "data availability" label reaches contrast in both schemes',
 // source has a row of its own below the years. Measured on the boxes of the drawn text, in the window sizes of a phone and a tablet.
 interface Box { left: number, top: number, right: number, bottom: number }
 
-for (const [width, scheme] of [[320, 'light'], [320, 'dark'], [390, 'light'], [768, 'light']] as const) {
-  test(`the stripes' title is whole and their source clears the years, in a ${width} px window (${scheme})`, async ({ page, baseURL, context }) => {
+for (const [width, scheme, availability] of [[320, 'light', true], [320, 'dark', true], [320, 'light', false], [390, 'light', true], [768, 'light', true]] as const) {
+  test(`the stripes' title is whole and their source clears the years, in a ${width} px window (${scheme}, data availability ${availability ? 'on' : 'off'})`, async ({ page, baseURL, context }) => {
     await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
     await page.setViewportSize({ width, height: 900 })
     await mockBackend(page, baseURL!)
-    await page.goto('/stripes?kind=temperature&station=00011&show_data_availability=true')
+    await page.goto(`/stripes?kind=temperature&station=00011&show_data_availability=${availability}`)
     await fetchButton(page).click()
     await expect(plotly(page)).toBeVisible()
     // the title is set after the chart is drawn
@@ -703,7 +703,8 @@ for (const [width, scheme] of [[320, 'light'], [320, 'dark'], [390, 'light'], [7
     expect(boxes.source, 'the source is drawn').toBeTruthy()
     for (const year of boxes.years)
       expect(intersects(boxes.source!, year), `the source and a year: ${JSON.stringify([boxes.source, year])}`).toBe(false)
-    expect(intersects(boxes.source!, boxes.availability!), 'the source and "Data availability"').toBe(false)
+    if (availability)
+      expect(intersects(boxes.source!, boxes.availability!), 'the source and "Data availability"').toBe(false)
     // the source is whole inside the chart, the years above it
     expect(boxes.source!.left).toBeGreaterThanOrEqual(boxes.chart.left)
     expect(boxes.source!.right).toBeLessThanOrEqual(boxes.chart.right)

@@ -266,6 +266,7 @@ const TITLE_LINE = 20
 const TITLE_PADDING = 10
 const TITLE_DROP = 18
 const STRIPES_HEIGHT = 600
+const FONT_FAMILY = 'Arial, sans-serif'
 
 // What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
 // theme the page is in, and for a saved image in the light one (see saveStripes)
@@ -293,8 +294,9 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   const minYear = Math.min(...years)
   const maxYear = Math.max(...years)
 
-  // the source's distance below the plot, and the margin that holds it (14 px type, as a line of 20 px): the
-  // years above it take 18 px type from 20 px below the plot
+  // below the plot, in px from its bottom edge, so that they keep their distances in an image of another height:
+  // the years (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
+  const yearsOffset = 20
   const sourceOffset = showYears.value ? 48 : 28
   const marginBottom = showSource.value ? Math.max(60, sourceOffset + 32) : 60
 
@@ -306,7 +308,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     annotations.push(
       {
         x: minYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(minYear),
@@ -317,7 +320,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       },
       {
         x: maxYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(maxYear),
@@ -333,7 +337,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   if (showDataAvailability.value) {
     annotations.push({
       x: minYear,
-      y: -0.03,
+      y: 0,
+      yshift: -14,
       xref: 'x',
       yref: 'paper',
       text: t('stripes.plotDataAvailability'),
@@ -445,17 +450,18 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
 
   // Layout configuration
   // a title that does not fit the chart's width is broken into lines (GH-3961), and the top margin holds them
-  const wrapped = wrapChartTitle(plotTitle(data), width - 2 * TITLE_PADDING, TITLE_SIZE)
+  const wrapped = wrapChartTitle(plotTitle(data), width - 2 * TITLE_PADDING, `${TITLE_SIZE}px ${FONT_FAMILY}`)
   const titleText = wrapped.text
-  // Plotly puts the first line of a title of several lines 10 px above where a single line is, under the modebar
-  // (28 px high, as wide as the chart is narrow): the title is lowered by what clears it
+  // Plotly puts the first line of a title of several lines 10 px above where a single line is (10-27 px), under the
+  // modebar (22 px high, y 2-24, seven buttons over 184 px, so as wide as a narrow chart): a wrapped title's first
+  // line is at one place whatever else is drawn, lowered by what clears the modebar
   const titleDrop = wrapped.lines > 1 ? TITLE_DROP : 0
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     font: {
-      family: 'Arial, sans-serif',
+      family: FONT_FAMILY,
       size: 14,
     },
     xaxis: {
@@ -521,7 +527,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       ? {
           text: titleText,
           font: { size: TITLE_SIZE, color: theme.text },
-          y: (showDataAvailability.value ? 0.96 : 0.99) - titleDrop / STRIPES_HEIGHT,
+          y: wrapped.lines > 1 ? 0.96 - titleDrop / STRIPES_HEIGHT : (showDataAvailability.value ? 0.96 : 0.99),
           x: 0.5,
           xanchor: 'center',
           yanchor: 'top',
