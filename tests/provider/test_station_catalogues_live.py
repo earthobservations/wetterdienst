@@ -63,8 +63,9 @@ from wetterdienst import Wetterdienst
 from wetterdienst.ui.core import resolve_network
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
-# the networks whose station list is not the same for every dataset of a resolution
-_EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix"}
+# the networks whose station list is not the same for every dataset of a resolution (`imgw/meteorology`: the synop
+# stations are a part of it, GH-3944)
+_EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix", "imgw/meteorology"}
 # the networks that are not held, with the reason
 _NOT_HELD = {
     "eaufrance/hubeau": "building its catalogue takes minutes; its referential is held by "

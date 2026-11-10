@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 import polars as pl
 import portion
 
+from wetterdienst.exceptions import MetaFileFormatError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
@@ -900,10 +901,35 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
     )
 
     def _all(self) -> pl.LazyFrame:
-        """Get all available stations."""
+        """Get all available stations: every dataset the whole catalogue, the synop one the synop stations only."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
+        catalogue = self._catalogue(settings)
+        if catalogue.is_empty():
+            return pl.LazyFrame()
+        # `kody_stacji.csv` is one list of the climate, precipitation and synop stations. The synop archives hold the
+        # synop stations alone, so a synop request lists those (GH-3944), and the stations of the other datasets stay
+        # as the list gives them. The core copies a frame without ``resolution`` and ``dataset`` once per dataset, so
+        # the frames are tagged here, as the stations differ.
+        synop_ids: pl.Series | None = None
+        frames = []
+        for resolution, dataset in self._requested_datasets:
+            stations = catalogue
+            if dataset == "synop":
+                if synop_ids is None:
+                    synop_ids = _synop_station_ids(settings)
+                stations = catalogue.filter(pl.col("station_id").is_in(synop_ids.implode()))
+            frames.append(
+                stations.with_columns(
+                    pl.lit(resolution, dtype=pl.String).alias("resolution"),
+                    pl.lit(dataset, dtype=pl.String).alias("dataset"),
+                )
+            )
+        return pl.concat(frames).lazy() if frames else catalogue.lazy()
+
+    def _catalogue(self, settings: Settings) -> pl.DataFrame:
+        """Read `kody_stacji.csv`, the list of the stations with their positions."""
         file = download_file(
             url=self._endpoint,
             cache_dir=settings.cache_dir,
@@ -914,7 +940,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            return pl.LazyFrame()
+            return pl.DataFrame()
         # the list has a single header line: skip it and read every row after it as a station, so
         # that the first station is not taken for the header
         df = pl.read_csv(
@@ -937,7 +963,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "longitude",
             "elevation",
         ]
-        df = df.with_columns(
+        return df.with_columns(
             # the list pads some names with a trailing blank (`RADZIECHOWY `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
@@ -947,5 +973,49 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             convert_dms_string_to_dd(pl.col("longitude")),
             pl.col("elevation").str.replace(" ", ""),
         )
-        # the station list is shared across all datasets: the core tags each row once per requested resolution/dataset
-        return df.lazy()
+
+
+#: IMGW's own list of the stations of its meteorological archives (`Opis.txt`: the station code, the name and the
+#: five-character code), which gives every station once, the synop stations among them. `Opis.txt` also names the
+#: maps of what each station type holds, keyed by that code (`mapa_zawartosci_synop.pdf`, `_klimat.pdf`, `_opad.pdf`)
+_STATION_LIST_URL = (
+    "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/wykaz_stacji.csv"
+)
+#: a row of that list whose five-character code is of at most three digits: the code of a synop station, as the map
+#: `mapa_zawartosci_synop.pdf` documents it (read 2026-11-10, dated 2026-10-06: its 68 codes have three digits and are
+#: all among the 73 of the list; the klimat and opad maps carry four and five), which is the
+#: ``NNN`` of its per-station files in `dobowe/synop` (``"352200375","WARSZAWA","  375"``). The climate and the
+#: precipitation stations carry four and five digits (``"250180460","ADAMOWICE","95414"``), and none had fewer when
+#: the list was read (2026-11-10: 73 synop codes, all different, 59 of them with data in 2026; for the 63 of them
+#: in `kody_stacji.csv` the code is the last three digits of the id, which is how the values find the files) (GH-3944)
+_SYNOP_ROW = re.compile(r'^"(\d{9})","[^"]*","\s*\d{1,3}\s*"\s*$', re.MULTILINE)
+
+
+def _synop_station_ids(settings: Settings) -> pl.Series:
+    """Give the ids of the stations that report synop, read from IMGW's list of its stations (GH-3944).
+
+    The synop archives hold per-station files for the stations that report synop, which are a small part of the
+    stations of `kody_stacji.csv` (59 of about 800). IMGW documents them by the five-character code of its map
+    `mapa_zawartosci_synop.pdf` (three digits for each of its 68 stations, where the klimat and opad maps carry four
+    and five). The listings of the archives give that three-digit code only, which many stations of the other kinds
+    share (250240010 and 253150010 end in 010): the nine-digit id is what tells them apart, and `wykaz_stacji.csv`
+    gives it with the code. One small file, kept as long as the catalogue, and no directory is listed for it.
+    """
+    file = download_file(
+        url=_STATION_LIST_URL,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    file.raise_if_exception()
+    if isinstance(file.content, Exception):
+        return pl.Series("station_id", [], dtype=pl.String)
+    ids = _SYNOP_ROW.findall(file.content.read().decode("cp1250", errors="replace"))
+    if not ids:
+        # a list that names no synop station is a list that has changed its layout, and read as no stations it would
+        # empty every synop answer without a word
+        msg = f"The IMGW station list {_STATION_LIST_URL} names no synop station: its layout has changed"
+        raise MetaFileFormatError(msg)
+    return pl.Series("station_id", ids, dtype=pl.String)
