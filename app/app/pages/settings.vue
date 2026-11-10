@@ -29,6 +29,8 @@ const selectedLanguage = computed({
   set: (v: string) => setLocale(v as typeof locale.value),
 })
 
+// a unit's name is read in full, in the trigger and in the list (which is as wide as the trigger)
+const unitSelectUi = { value: 'whitespace-normal text-left', itemLabel: 'whitespace-normal' }
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
   { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
@@ -106,12 +108,13 @@ function unitItems(units: readonly string[]) {
           </div>
         </template>
         <!-- toggle buttons: the chosen theme is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3969) -->
-        <UFieldGroup role="group" :aria-label="t('settings.theme')">
+        <UFieldGroup role="group" :aria-label="t('settings.theme')" class="w-full sm:w-auto">
           <UButton
             v-for="opt in themeOptions"
             :key="opt.value"
             :icon="opt.icon"
             :label="opt.label"
+            :ui="{ base: 'flex-auto justify-center max-[24rem]:px-1.5 sm:flex-none', leadingIcon: 'max-[24rem]:hidden' }"
             color="neutral"
             :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
             :aria-pressed="colorMode.preference === opt.value"
@@ -179,14 +182,15 @@ function unitItems(units: readonly string[]) {
               <div
                 v-for="group in weatherUnitGroups"
                 :key="group.key"
-                class="flex items-center justify-between gap-4"
+                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
                 <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  :ui="unitSelectUi"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -198,14 +202,15 @@ function unitItems(units: readonly string[]) {
               <div
                 v-for="group in otherUnitGroups"
                 :key="group.key"
-                class="flex items-center justify-between gap-4"
+                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
                 <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  :ui="unitSelectUi"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -213,7 +218,7 @@ function unitItems(units: readonly string[]) {
         </div>
       </UCard>
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <p class="text-xs text-gray-500 dark:text-gray-400">
           {{ t('settings.savedHint') }}
         </p>
@@ -223,6 +228,7 @@ function unitItems(units: readonly string[]) {
           color="neutral"
           variant="outline"
           size="sm"
+          :ui="{ base: 'max-w-full whitespace-normal text-left', label: 'whitespace-normal' }"
           @click="reset"
         />
       </div>
