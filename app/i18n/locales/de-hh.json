@@ -507,6 +507,7 @@
       "viewCompact": "Kompakt",
       "viewTable": "Tabell",
       "today": "VUNDAAG",
+      "partialDay": "Deeldag, {hours} h",
       "summaryMinMaxTemp": "Sietst-/Hööchsttemperatur",
       "summaryTotalPrecip": "Nedderslag tosamen",
       "summaryMaxGust": "Starkste Bö",

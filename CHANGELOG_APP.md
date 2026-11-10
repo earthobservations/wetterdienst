@@ -27,6 +27,14 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` The day cards and the day rows of the map's panel start at today: a stub of
+  yesterday, with the minimum and maximum of its last hours, is no longer listed above it. A last
+  day that the run ends in before it is over stays, marked "partial" with the hours it has, so that
+  its minimum and maximum are not read as a whole day's (GH-3840)
+- `[Forecast]` Picking another station while a run is selected asks for the values once, not
+  twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
+  and the run list show what was picked last. A link to `/meteogram` without a station, such as
+  the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
 - `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
   cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
   take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at

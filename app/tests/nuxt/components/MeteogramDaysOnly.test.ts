@@ -37,6 +37,8 @@ async function mountRows(props: Record<string, unknown> = {}, route = '/') {
 
 // Node's own `localStorage` global stands in the test document's way and holds nothing: one that does
 beforeEach(() => {
+  // the first of October, as the values start on it: the rows start at today, which is a day of the run
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T10:00:00Z') })
   plotly.newPlot.mockClear()
   const store = new Map<string, string>()
   vi.stubGlobal('localStorage', {
@@ -48,6 +50,7 @@ beforeEach(() => {
 })
 afterEach(async () => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   await useRouter().replace({ query: {} })
 })
@@ -91,5 +94,75 @@ describe('the meteogram as day rows (days-only)', () => {
     await new Promise(resolve => setTimeout(resolve, 20))
     expect(localStorage.getItem('meteogram.view')).toBe('table')
     expect(localStorage.getItem('meteogram.compact')).toBeNull()
+  })
+})
+
+// The day rows start at today and mark a last day the run does not reach the end of (GH-3840). The values are those
+// above: hourly from the 1st of October 00:00 UTC to the 3rd 23:00 UTC, at Berlin (UTC+2 in October)
+describe('the days the rows list', () => {
+  const rowsOf = (wrapper: Awaited<ReturnType<typeof mountRows>>) => wrapper.findAll('[data-testid="day-rows"] li').map(row => row.text())
+
+  it('starts at today, and lists no day before it', async () => {
+    vi.setSystemTime(new Date('2026-10-02T09:00:00Z'))
+    const rows = rowsOf(await mountRows())
+    expect(rows[0]).toContain('TODAY')
+    expect(rows[0]).toContain('02/10')
+    expect(rows.some(row => row.includes('01/10'))).toBe(false)
+    expect(rows).toHaveLength(3)
+  })
+
+  it('takes today in the time zone of the station, where it is already the next day by the clock of UTC', async () => {
+    // 22:30 UTC on the 1st is 00:30 on the 2nd at Berlin: the 1st is yesterday there, and a stub of it must not be listed
+    vi.setSystemTime(new Date('2026-10-01T22:30:00Z'))
+    const rows = rowsOf(await mountRows())
+    expect(rows[0]).toContain('TODAY')
+    expect(rows[0]).toContain('02/10')
+    expect(rows.some(row => row.includes('01/10'))).toBe(false)
+  })
+
+  it('takes today in the time zone of the station, where it is still the day before by the clock of UTC', async () => {
+    // 23:30 UTC on the 1st is 01:30 on the 2nd at Berlin, and at a station in the west (Reykjavik, UTC) still the 1st
+    vi.setSystemTime(new Date('2026-10-01T23:30:00Z'))
+    const berlin = rowsOf(await mountRows())
+    expect(berlin[0]).toContain('02/10')
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    const reykjavik = rowsOf(await mountRows({ stationCoords: { latitude: 64.13, longitude: -21.9 } }))
+    expect(reykjavik[0]).toContain('TODAY')
+    expect(reykjavik[0]).toContain('01/10')
+  })
+
+  it('lists the first day of the run where it is today, whole', async () => {
+    const rows = rowsOf(await mountRows({ stationCoords: null }))
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toContain('TODAY')
+    expect(rows.some(row => /partial/.test(row))).toBe(false)
+  })
+
+  it('marks the last day, which the run ends in, as partial with the hours it has', async () => {
+    // at Berlin the run ends at 01:00 on the 4th: the hours 00:00 and 01:00 of a day of their own
+    const wrapper = await mountRows()
+    const rows = wrapper.findAll('[data-testid="day-rows"] li')
+    const last = rows[rows.length - 1]!
+    expect(last.text()).toContain('04/10')
+    expect(last.find('[data-testid="partial-day"]').text()).toBe('partial, 2 h')
+    // and only it: the days before are whole
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
+  })
+
+  it('marks a last day of six hours as partial for six hours, and a day of its own that ends at 23:00 as whole', async () => {
+    const six = values.slice(0, 48 + 6)
+    const partial = await mountRows({ values: six, stationCoords: null })
+    expect(partial.find('[data-testid="partial-day"]').text()).toBe('partial, 6 h')
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    const whole = await mountRows({ values: values.slice(0, 48), stationCoords: null })
+    expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
+  })
+
+  it('does not mark a day that is the last one it lists but not the last of the run', async () => {
+    // eight days of hourly values: the rows are cut at seven, and the eighth day, which the run has, is not listed
+    const long = Array.from({ length: 8 * 24 - 5 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
+    const wrapper = await mountRows({ values: long, stationCoords: null })
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(0)
   })
 })

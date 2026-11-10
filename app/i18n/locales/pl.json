@@ -507,6 +507,7 @@
       "viewCompact": "Kompaktowy",
       "viewTable": "Tabela",
       "today": "DZIŚ",
+      "partialDay": "częściowo, {hours} h",
       "summaryMinMaxTemp": "Temp. min / maks.",
       "summaryTotalPrecip": "Suma opadów",
       "summaryMaxGust": "Maks. poryw",
