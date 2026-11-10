@@ -1,25 +1,32 @@
 /**
- * What a day card of the compact view shows for the weather: a symbol, and the words it stands for
- * (`meteogram.chart.weather.<kind>`), which the card gives to a screen reader as the symbol is hidden
- * from it (WCAG 1.1.1). The name has to be right for every code the symbol is drawn for.
+ * What a day card of the compact view shows for the weather: an icon, and the words it stands for
+ * (`meteogram.chart.weather.<kind>`), which the card gives to a screen reader as the icon is hidden
+ * from it (WCAG 1.1.1). The name has to be right for every code the icon is drawn for.
  */
 export type WeatherKind = 'thunderstorm' | 'rain' | 'snow' | 'sleet' | 'drizzle' | 'fog' | 'wind' | 'dust' | 'blowingSnow' | 'cloudy' | 'partlyCloudy' | 'clear'
 
 export const WEATHER_KINDS: readonly WeatherKind[] = ['thunderstorm', 'rain', 'snow', 'sleet', 'drizzle', 'fog', 'wind', 'dust', 'blowingSnow', 'cloudy', 'partlyCloudy', 'clear']
 
-export const WEATHER_SYMBOLS: Record<WeatherKind, string> = {
-  thunderstorm: '⛈',
-  rain: '🌧',
-  snow: '🌨',
-  sleet: '🌨',
-  drizzle: '💧',
-  fog: '🌫',
-  wind: '💨',
-  dust: '🌪',
-  blowingSnow: '🌨',
-  cloudy: '☁',
-  partlyCloudy: '⛅',
-  clear: '☀',
+/**
+ * The Phosphor icon drawn for each kind (GH-3527). They are literals, which @nuxt/icon bundles with the page
+ * only because the scan of the build reads `.ts` files (`ICON_SCAN` in `icon-scan.ts`; its default reads
+ * components only, and an icon it does not find is asked of the server at first paint). `tests/unit/icon-scan.test.ts`
+ * and `tests/unit/icon-names.test.ts` hold every one to the scan and to the installed set. The icon is hidden
+ * from a screen reader; the words above are its name. A day card spans a whole day, so there is no night variant.
+ */
+export const WEATHER_ICONS: Record<WeatherKind, string> = {
+  thunderstorm: 'i-ph-cloud-lightning',
+  rain: 'i-ph-cloud-rain',
+  snow: 'i-ph-cloud-snow',
+  sleet: 'i-ph-cloud-snow',
+  drizzle: 'i-ph-drop-half',
+  fog: 'i-ph-cloud-fog',
+  wind: 'i-ph-wind',
+  dust: 'i-ph-tornado',
+  blowingSnow: 'i-ph-snowflake',
+  cloudy: 'i-ph-cloud',
+  partlyCloudy: 'i-ph-cloud-sun',
+  clear: 'i-ph-sun',
 }
 
 /**
