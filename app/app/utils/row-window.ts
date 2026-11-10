@@ -325,6 +325,47 @@ export interface RefusalWindowInput extends Omit<RowEstimateInput, 'range'> {
   requested: number
   maximum: number
   range?: DateWindow
+  /** the network's data lie ahead of today (a forecast): its range is not ended at today */
+  future?: boolean
+}
+
+/**
+ * The window of dates with its end at today (UTC) at the latest: a station that is still going on has
+ * readings up to today and none beyond (GH-3740). The window itself where it reaches no further, or is
+ * not one with both dates (which `estimateRows` ignores); `null` where all of it lies after today, so
+ * that nothing in it can be read.
+ */
+export function untilToday(range: DateWindow | undefined, now: number = Date.now()): DateWindow | null | undefined {
+  const bounds = rangeBounds(range)
+  if (!range || !bounds)
+    return range
+  const today = dayOf(new Date(now))
+  if (bounds.end < today + DAY)
+    return range
+  if (bounds.start > today + DAY - 1)
+    return null
+  return { ...range, endDate: isoDay(today) }
+}
+
+/** The range the readings of a network are in: up to today, except for a forecast, whose readings lie ahead of it. */
+function readableRange(range: DateWindow | undefined, future: boolean | undefined, now: number | undefined): DateWindow | null | undefined {
+  return future ? range : untilToday(range, now)
+}
+
+/**
+ * Whether the range the user gave has no readings up to today, where it reaches past it: it lies wholly
+ * after today, or the part up to today holds no reading of the resolution (a monthly one that begins on
+ * the 2nd). Said only where the page can count: not for a forecast, and not for a selection it cannot
+ * (no station with a record, no interval).
+ */
+export function hasNoReadingsYet(input: Omit<RefusalWindowInput, 'requested' | 'maximum'>): boolean {
+  const { range, future, ...rest } = input
+  const clamped = readableRange(range, future, input.now)
+  if (clamped === range)
+    return false
+  if (clamped === null)
+    return true
+  return estimateRows({ ...rest, range: clamped }).rows === 0
 }
 
 /**
@@ -332,24 +373,64 @@ export interface RefusalWindowInput extends Omit<RowEstimateInput, 'range'> {
  * within the window the user gave, the newest part of it that comes to 90 % of the limit by the
  * server's own count. The shape of the rows over time is the page's estimate, scaled to the server's
  * total, as the server counts what the page does not know (the periods a dataset reads).
+ *
+ * The window ends at today at the latest, where the range reaches past it: a station that is going on
+ * has no readings after today, so a window there would come back empty (GH-3740). The server's count
+ * is scaled to the part up to today, as the page estimates it, so that the rows named are not those of
+ * the future part, but not below the page's own count of it, as the server may read less of a long
+ * range (the periods of a dataset, counted back from its end) than the page's share says. Where that
+ * part fits the limit by itself, it is the window. A forecast (`future`) is not ended at today.
  */
 export function windowForRefusal(input: RefusalWindowInput): FittingWindow | null {
-  const { range, ...base } = input
+  const { range: given, future, ...base } = input
   // a high resolution is held to the form's count, which is never below the server's: what fits it fits the server
   const asForm = HIGH_RESOLUTIONS.includes(input.resolution)
-  const { requested, ...rest } = { ...base, asForm }
+  const { requested: counted, ...rest } = { ...base, asForm }
+  const range = readableRange(given, future, input.now)
+  if (range === null)
+    return null
   const whole = estimateRows({ ...rest, range })
   const maximum = effectiveMaximum(input.resolution, input.maximum)
-  return labelledAsServed(fittingWindow({
+  const rowsWithin = (start: number, end: number): number | null => estimateRows({ ...rest, range: { startDate: isoDay(start), endDate: isoDay(end) } }).rows
+  let requested = counted
+  if (asForm && whole.span) {
     // the form's count over the span the window is fitted to, so that the share of a window is exact
-    requested: asForm && whole.span
-      ? (estimateRows({ ...rest, range: { startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) } }).rows ?? requested)
-      : requested,
-    maximum,
-    resolution: input.resolution,
-    span: whole.span,
-    rowsWithin: (start, end) => estimateRows({ ...rest, range: { startDate: isoDay(start), endDate: isoDay(end) } }).rows,
-  }), { ...rest, range })
+    requested = estimateRows({ ...rest, range: { startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) } }).rows ?? counted
+  }
+  else if (range !== given) {
+    // the server counted up to the end the user gave: the part up to today is that share of it, and
+    // not less than the page counts of it
+    const unclamped = estimateRows({ ...rest, range: given }).rows
+    if (unclamped && whole.rows !== null)
+      requested = Math.max(counted * whole.rows / unclamped, Math.min(counted, whole.rows))
+  }
+  const window = fittingWindow({ requested, maximum, resolution: input.resolution, span: whole.span, rowsWithin })
+  // the part up to today fits by itself: that is what to ask for instead of the range that reaches past it
+  if (!window && range !== given && whole.span && maximum > 0 && requested > 0 && requested <= Math.floor(maximum * ROW_MARGIN))
+    return labelledAsServed(wholeSpanWindow(whole.span, input.resolution, requested), { ...rest, range })
+  return labelledAsServed(window, { ...rest, range })
+}
+
+/**
+ * The window that holds the whole span, from its first day to its last. Its label is the unit that
+ * reaches back exactly to the span's start (the largest first; days always do, so they are not tried
+ * for this: 2,491 days are no better said than as 6 years), else the largest unit's count rounded down, which says slightly less than the window
+ * holds and never more (a year or less of annual data is "1 year", the smallest it names).
+ */
+function wholeSpanWindow(span: Span, resolution: Resolution, rows: number): FittingWindow {
+  const units = unitsOf(resolution)
+  // the most whole units that begin on or after the span's start
+  const countIn = (unit: WindowUnit): number => {
+    let count = 0
+    while (windowStart(span.end, count + 1, unit) >= span.start)
+      count++
+    return count
+  }
+  const counts = units.map(unit => ({ unit, count: countIn(unit) }))
+  const label = counts.find(({ unit, count }) => count >= 1 && unit !== 'days' && windowStart(span.end, count, unit) === span.start)
+    ?? counts.find(({ count }) => count >= 1)
+    ?? { unit: units[units.length - 1]!, count: 1 }
+  return { ...label, startDate: isoDay(span.start), endDate: isoDay(span.end), rows: aboutRows(rows) }
 }
 
 /** What the explorer starts the date range with, once a selection is made. */

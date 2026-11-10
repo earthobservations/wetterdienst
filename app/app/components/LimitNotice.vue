@@ -17,6 +17,8 @@ const props = defineProps<{
   window: FittingWindow | null
   /** the page knows the span of the selection and not even its shortest window fits; false where it cannot tell */
   noWindow?: boolean
+  /** the range reaches past today and holds no reading up to it: a window up to today has nothing in it */
+  noReadings?: boolean
   /** whether applying it is still what the page selects: not after the selection moved on */
   canApply: boolean
   /** the streamed CSV of the refused request, where the server streams that many rows */
@@ -67,6 +69,8 @@ const applyLabel = computed(() => {
 // where the page could count the span: without one (no station publishes its record) it cannot tell
 const showNoWindow = computed(() => !isStations.value && !props.window && props.noWindow === true)
 
+const showNoReadings = computed(() => !isStations.value && !props.window && props.noReadings === true)
+
 const headingId = useId()
 </script>
 
@@ -88,6 +92,9 @@ const headingId = useId()
       </p>
       <p class="text-sm text-gray-700 dark:text-gray-300">
         {{ narrow }}
+      </p>
+      <p v-if="showNoReadings" class="text-sm text-gray-700 dark:text-gray-300" data-testid="limit-no-readings">
+        {{ t('dataViewer.limitNoReadings') }}
       </p>
       <p v-if="showNoWindow" class="text-sm text-gray-700 dark:text-gray-300" data-testid="limit-no-window">
         {{ t('dataViewer.limitNoWindow') }}

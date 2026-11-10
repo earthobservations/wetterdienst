@@ -890,6 +890,7 @@
     "limitNarrowPoint": "Um die Daten hier zu sehen, schränke die Auswahl ein: Wähle einen kürzeren Zeitraum oder weniger Parameter. Ausgewählt sind {parameters}.",
     "limitNarrowStations": "Nimm Stationen aus der Auswahl und sieh dir den Rest in einem weiteren Schritt an. Ausgewählt sind {stations}.",
     "limitApply": "Nur die neuesten Daten anzeigen ({span}, etwa {rows} Zeilen)",
+    "limitNoReadings": "In diesem Zeitraum gibt es bis heute keine Messwerte. Wähle ein früheres Startdatum.",
     "limitNoWindow": "Nicht einmal der kürzeste Zeitraum passt in eine Antwort.",
     "limitDownload": "Alles als CSV herunterladen",
     "limitDownloadHint": "Die CSV-Datei wird gestreamt und kann deshalb mehr Zeilen enthalten als eine Antwort.",

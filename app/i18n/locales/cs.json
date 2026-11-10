@@ -890,6 +890,7 @@
     "limitNarrowPoint": "Aby se data zobrazila zde, zuž výběr: vyber kratší rozsah dat nebo méně parametrů. Aktuální výběr: {parameters}.",
     "limitNarrowStations": "Odeber stanice z výběru a zbytek si prohlédni v dalším kroku. Aktuální výběr: {stations}.",
     "limitApply": "Zobrazit jen nejnovější data ({span}, asi {rows} řádků)",
+    "limitNoReadings": "V tomto rozsahu dat nejsou do dneška žádná měření. Zvol dřívější počáteční datum.",
     "limitNoWindow": "Ani nejkratší rozsah dat se nevejde do jedné odpovědi.",
     "limitDownload": "Stáhnout vše jako CSV",
     "limitDownloadHint": "Soubor CSV se přenáší průběžně, proto může obsahovat více řádků než jedna odpověď.",

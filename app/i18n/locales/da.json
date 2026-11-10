@@ -890,6 +890,7 @@
     "limitNarrowPoint": "For at se dem her skal du indsnævre valget: Vælg et kortere datointerval eller færre parametre. Du har valgt {parameters}.",
     "limitNarrowStations": "Fjern stationer fra valget, og se resten i et ekstra trin. Du har valgt {stations}.",
     "limitApply": "Vis kun de nyeste data ({span}, omkring {rows} rækker)",
+    "limitNoReadings": "Der er ingen målinger i dette datointerval frem til i dag. Vælg en tidligere startdato.",
     "limitNoWindow": "Ikke engang det korteste datointerval passer i ét svar.",
     "limitDownload": "Download alt som CSV",
     "limitDownloadHint": "CSV-filen streames og kan derfor indeholde flere rækker end ét svar.",
