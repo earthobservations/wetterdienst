@@ -12,7 +12,7 @@ useHead({ title: () => t('support.title') })
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-bug" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-bug" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('support.reportTitle') }}
             </h2>
@@ -31,7 +31,7 @@ useHead({ title: () => t('support.title') })
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-git-pull-request" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-git-pull-request" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('support.contributeTitle') }}
             </h2>
@@ -50,7 +50,7 @@ useHead({ title: () => t('support.title') })
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-chat-circle" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-chat-circle" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('support.discussionsTitle') }}
             </h2>
@@ -69,7 +69,7 @@ useHead({ title: () => t('support.title') })
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-heart" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-heart" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('support.donateTitle') }}
             </h2>

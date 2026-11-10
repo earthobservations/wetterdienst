@@ -507,6 +507,7 @@
       "viewCompact": "Compact",
       "viewTable": "Tableau",
       "today": "AUJOURD'HUI",
+      "partialDay": "partiel, {hours} h",
       "summaryMinMaxTemp": "Temp. min / max",
       "summaryTotalPrecip": "Précip. totales",
       "summaryMaxGust": "Rafale max",

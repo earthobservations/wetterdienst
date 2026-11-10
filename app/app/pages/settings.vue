@@ -81,7 +81,7 @@ function unitItems(units: readonly string[]) {
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-translate" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-translate" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('settings.language') }}
             </h2>
@@ -99,7 +99,7 @@ function unitItems(units: readonly string[]) {
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-palette" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-palette" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('settings.theme') }}
             </h2>
@@ -123,7 +123,7 @@ function unitItems(units: readonly string[]) {
       <UCard id="bar" :ui="{ root: 'overflow-visible' }">
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-sliders-horizontal" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-sliders-horizontal" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 ref="barHeading" tabindex="-1" class="text-lg font-bold outline-none">
               {{ t('settings.bar.title') }}
             </h2>
@@ -136,7 +136,7 @@ function unitItems(units: readonly string[]) {
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-ruler" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-ruler" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('settings.units') }}
             </h2>

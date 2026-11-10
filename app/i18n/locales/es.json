@@ -507,6 +507,7 @@
       "viewCompact": "Compacto",
       "viewTable": "Tabla",
       "today": "HOY",
+      "partialDay": "parcial, {hours} h",
       "summaryMinMaxTemp": "Temp. mín / máx",
       "summaryTotalPrecip": "Precip. total",
       "summaryMaxGust": "Racha máx",

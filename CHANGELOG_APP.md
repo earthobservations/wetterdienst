@@ -32,16 +32,32 @@ Types of changes:
 
 ### Fixed
 
-- `[Navigation]` On a phone, a finger dragged on an open dialog (the search, the place dialog of
-  "Ask the weather", the Menu's sheet) moves only the list in it and never the page behind: not
-  from the backdrop, not from a part of the dialog that does not scroll, and not by going on past
-  the end of the list, also in a browser that does not hold the page still by `overflow: hidden`
-  on the body. Pinch zoom stays (GH-3761)
+- `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
+  the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
+  not only a tooltip (GH-3951)
+- `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
+  hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
+  500 (3.5:1); at night they are unchanged (GH-3952)
+- `[Forecast]` The day cards and the day rows of the map's panel start at today: a stub of
+  yesterday, with the minimum and maximum of its last hours, is no longer listed above it. A last
+  day is marked "partial" with the hours it has where a run ends within the days shown (a run of
+  240 hours runs past the seven rows, and then none is marked), so that its minimum and maximum are
+  not read as a whole day's. A page that stays open moves its Today on at the station's midnight,
+  and a forecast with no day from today on says there is no data (GH-3840)
+- `[Forecast]` Picking another station while a run is selected asks for the values once, not
+  twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
+  and the run list show what was picked last. A link to `/meteogram` without a station, such as
+  the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
+- `[Navigation]` On a phone, the dialogs (the search, the place dialog of "Ask the weather", the
+  Menu's sheet) hold the page behind them themselves: a finger dragged on the backdrop, on a part
+  of the dialog that does not scroll, or on past the end of its list does not move the page, where
+  that rested on the body's `overflow: hidden` alone. Pinch zoom stays (GH-3761)
 - `[Explorer]` The window offered for a refused date range that reaches past today ends today at
   the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
   and answers empty. The rows it names are those of the part up to today, and where that part fits
   the limit by itself it is the window. A range with no readings up to today says so.
   Forecasts are unchanged: their range is not ended at today (GH-3740)
+
 - `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
   cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
   take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at

@@ -142,7 +142,7 @@ onMounted(async () => {
       </i18n-t>
 
       <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-500 dark:text-gray-400 text-sm">
-        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-primary-500" />
+        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-primary-600 dark:text-primary-500" />
         {{ t('widget.loading') }}
       </div>
 

@@ -358,7 +358,12 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  // the morning of the 14th: the day of the values is a day ahead, as the day cards start at today (GH-3840)
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-14T08:00:00Z') })
+  })
   afterEach(async () => {
+    vi.useRealTimers()
     wrapper?.unmount()
     wrapper = undefined
     // the URL back to none, which the next test's chart would read its compact view from
@@ -561,6 +566,37 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
   })
 
+  // the 14th from 18:00 to the 16th 05:00 UTC: a stub of yesterday above today, and a last day of six hours
+  it('lists no card for the day before today, and marks the last day as partial with its hours (GH-3840)', async () => {
+    const hours = Array.from({ length: 36 }, (_, hour) => ({
+      ...day[0]!,
+      timestamp: new Date(Date.UTC(2026, 9, 14, 18 + hour)).toISOString(),
+      value: 10,
+    }))
+    vi.setSystemTime(new Date('2026-10-15T08:00:00Z'))
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: hours })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await showCompact()
+    const cards = [...document.body.querySelectorAll('.rounded-2xl')].map(card => card.textContent ?? '')
+    expect(cards).toHaveLength(2)
+    expect(cards[0]).toMatch(/today/i)
+    expect(cards[0]).toContain('15/10')
+    expect(cards[0]).not.toContain('partial')
+    expect(cards[1]).toContain('16/10')
+    expect(cards[1]).toContain('partial, 6 h')
+    expect(cards.some(card => card.includes('14/10'))).toBe(false)
+  })
+
+  it('says there is no data in place of the cards where every day of the run is before today (GH-3840)', async () => {
+    vi.setSystemTime(new Date('2026-10-20T08:00:00Z'))
+    await showMeteogram()
+    await showCompact()
+    expect(document.body.querySelectorAll('.rounded-2xl')).toHaveLength(0)
+    expect(wrapper!.text()).toContain('No data available for the selected query')
+  })
+
   // the weather of a day card is a symbol, which a screen reader does not read: the words are in the
   // card, and the symbol is hidden from it (WCAG 1.1.1)
   const symbolsOf = () => [...document.body.querySelectorAll('[aria-hidden="true"]')].map(node => node.textContent?.trim())
@@ -691,6 +727,8 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
   // Node's own `localStorage` global stands in the test document's way and holds nothing: one that does
   beforeEach(() => {
+    // the first of October, which the values start on: the day cards start at today (GH-3840)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T06:00:00Z') })
     const store = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => store.get(key) ?? null,
@@ -700,6 +738,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
     })
   })
   afterEach(async () => {
+    vi.useRealTimers()
     wrapper?.unmount()
     wrapper = undefined
     document.body.innerHTML = ''
@@ -1254,6 +1293,41 @@ describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 
     expect(wind.getAttribute('aria-pressed')).toBe('false')
     expect(wind.getAttribute('style') ?? '').toBe('')
     expect(wind.className).toContain('text-gray-500')
+  })
+
+  // GH-3951: a toggle that is on differs from one that is off by shape (the filled icon), not by colour alone (1.4.1), and is
+  // named by an aria-label of the same words as its title (4.1.2)
+  it('draws the filled icon on a toggle that is on and the outline on one that is off, and only then', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    const icon = (button: HTMLElement) => button.querySelector('[class*="i-ph"]')?.className ?? ''
+    const isFilled = (button: HTMLElement) => /-fill\b/.test(icon(button))
+    for (const button of toggles())
+      expect(isFilled(button), `${button.dataset.panel} on`).toBe(true)
+    const wind = toggles().find(button => button.dataset.panel === 'wind')!
+    wind.click()
+    await nextTick()
+    expect(wind.getAttribute('aria-pressed')).toBe('false')
+    expect(isFilled(wind), 'wind off').toBe(false)
+    expect(icon(wind)).toMatch(/i-ph[:-]wind(?!-fill)/)
+    // the others stay on, and filled
+    expect(toggles().filter(button => button !== wind).every(isFilled)).toBe(true)
+    wind.click()
+    await nextTick()
+    expect(isFilled(wind), 'wind on again').toBe(true)
+  })
+
+  it('names each toggle by an aria-label that is its title, in the language of the page', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    expect(toggles()).toHaveLength(Object.keys(SERIES).length)
+    const names = toggles().map(button => button.getAttribute('aria-label'))
+    for (const button of toggles()) {
+      expect(button.getAttribute('aria-label'), button.dataset.panel).toBeTruthy()
+      expect(button.getAttribute('aria-label'), button.dataset.panel).toBe(button.getAttribute('title'))
+    }
+    expect(new Set(names).size).toBe(names.length)
+    expect(names).toEqual(['Temperature', 'Wind', 'Precipitation', 'Cloud cover', 'Pressure'])
   })
 
   it('colours the icons of the summary line in the label colours, in the dark scheme the dark ones', async () => {

@@ -507,6 +507,7 @@
       "viewCompact": "Kompakt",
       "viewTable": "Tabel",
       "today": "I DAG",
+      "partialDay": "delvis, {hours} t",
       "summaryMinMaxTemp": "Min./maks. temp.",
       "summaryTotalPrecip": "Samlet nedbør",
       "summaryMaxGust": "Maks. vindstød",

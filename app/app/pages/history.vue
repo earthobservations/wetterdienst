@@ -216,7 +216,7 @@ function clear() {
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
                   {{ t('explorer.dataSource') }}
                 </h2>
@@ -238,7 +238,7 @@ function clear() {
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-funnel" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-funnel" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
                   {{ t('history.sectionsTitle') }}
                 </h2>
@@ -271,7 +271,7 @@ function clear() {
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-table" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-table" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
                   {{ t('history.resultsTitle') }}
                 </h2>
@@ -350,7 +350,7 @@ function clear() {
                         <!-- Station Info Card Header displays basic station info -->
                         <template #header>
                           <div class="flex items-center gap-2 flex-wrap">
-                            <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
+                            <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                             <h3 class="text-lg font-bold">
                               {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
                               <span

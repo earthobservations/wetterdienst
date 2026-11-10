@@ -54,16 +54,24 @@ const runItems = computed(() => [
   })),
 ])
 
+// The request of the run list that is the latest, and that of the values: the answer of an earlier one, which a
+// newer pick has left behind, is not applied (GH-3732)
+let issuesTicket = 0
+let valuesTicket = 0
+
 async function loadAvailableIssues(stationId: string) {
+  const ticket = ++issuesTicket
   try {
     const res = await $fetch<{ issues: string[] }>('/api/issues', {
       query: { provider: MOSMIX.provider, network: MOSMIX.network, station: stationId },
       ...RETRY_TRANSIENT,
     })
-    availableIssues.value = res.issues ?? []
+    if (ticket === issuesTicket)
+      availableIssues.value = res.issues ?? []
   }
   catch {
-    availableIssues.value = []
+    if (ticket === issuesTicket)
+      availableIssues.value = []
   }
 }
 
@@ -110,6 +118,7 @@ function onMapSelectedStations(val: Station[]) {
 }
 
 async function fetchMeteogram(station: Station) {
+  const ticket = ++valuesTicket
   pending.value = true
   failure.value = null
   values.value = []
@@ -121,28 +130,27 @@ async function fetchMeteogram(station: Station) {
 
   try {
     const res = await fetch(`/api/values?${params}`)
+    if (ticket !== valuesTicket)
+      return
     if (!res.ok) {
-      failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
+      const body = await res.json().catch(() => null)
+      if (ticket === valuesTicket)
+        failure.value = backendFailure(res.status, res.statusText, body)
       return
     }
     const json = await res.json()
-    values.value = json.values ?? []
+    if (ticket === valuesTicket)
+      values.value = json.values ?? []
   }
   catch (e: any) {
-    failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+    if (ticket === valuesTicket)
+      failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
   }
   finally {
-    pending.value = false
+    if (ticket === valuesTicket)
+      pending.value = false
   }
 }
-
-watch(selectedIssue, () => {
-  // restoring from the URL sets the run and the station together: the station's watch fetches, once
-  if (applyingUrl)
-    return
-  if (selectedStation.value)
-    void fetchMeteogram(selectedStation.value)
-})
 
 // the station the URL asked for last, whether it is answered, still coming or failed: asked for once, not again
 // until the reader has chosen (or cleared) another
@@ -168,9 +176,10 @@ watch(selectedStation, (station) => {
   }
   if (station) {
     void loadAvailableIssues(station.station_id)
-    void fetchMeteogram(station)
   }
   else {
+    // no answer of an earlier request is applied to the empty page
+    issuesTicket++
     values.value = []
     failure.value = null
     availableIssues.value = []
@@ -178,6 +187,21 @@ watch(selectedStation, (station) => {
     // this one resolves) would otherwise be an unhandled promise rejection.
     void router.replace({ query: {} }).catch(() => {})
   }
+})
+
+// The values of the station and the run: one request for a change of either, or of both together. For a station the
+// reader chose, the watcher above resets the run, and as it is queued first it does so before this one runs, so the
+// new station is fetched once, for the latest run. Where the URL sets the run first (`restoreFromUrl`) the flag
+// `applyingUrl` keeps that watcher from resetting it. Should two requests go out anyway, the ticket keeps the latest
+// answer (GH-3732)
+watch([selectedStation, selectedIssue], ([station]) => {
+  if (station) {
+    void fetchMeteogram(station)
+    return
+  }
+  // a request that is under way answers a station that is no longer there
+  valuesTicket++
+  pending.value = false
 })
 
 // Sync station + issue to URL (fires once when both change together)
@@ -252,6 +276,12 @@ onMounted(restoreFromUrl)
 // the page's own choice is written to the URL as well (the watch above): only a station it did not choose is loaded
 // and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
 watch(() => route.query.station, (stationId) => {
+  // a link without a station (the tab bar's) while the lookup of one is under way: the lookup is not wanted any
+  // more, and the station it names may be asked for again
+  if (!stationId && isRestoringFromUrl.value) {
+    cancelRestore()
+    requestedFromUrl = undefined
+  }
   // the URL is back at the station that is shown (the page wrote it): what it asked for before is no longer pending
   if (stationId && stationId === selectedStation.value?.station_id) {
     requestedFromUrl = undefined
@@ -292,7 +322,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
           <UCard>
             <template #header>
               <div class="flex items-center gap-2 flex-wrap">
-                <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
                 <div class="ml-auto flex items-center gap-2">
                   <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
@@ -331,12 +361,12 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               <template #content>
                 <ClientOnly>
                   <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-                    <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-500" />
+                    <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-600 dark:text-primary-500" />
                     <span>{{ t('stationSelection.loading') }}</span>
                   </div>
                   <template v-else-if="mapStations.length">
                     <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                      <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
+                      <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
                       {{ t('meteogram.mapHint') }}
                     </p>
                     <MapStations
@@ -354,7 +384,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
         <template #result>
           <!-- Loading state -->
           <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
-            <UIcon name="i-ph-circle-notch" class="w-6 h-6 animate-spin text-primary-500" />
+            <UIcon name="i-ph-circle-notch" class="w-6 h-6 animate-spin text-primary-600 dark:text-primary-500" />
             <span>{{ t('meteogram.loading') }}</span>
           </div>
 
@@ -371,7 +401,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
           <UCard v-else-if="selectedStation && values.length > 0">
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-cloud-sun" class="text-primary-500" />
+                <UIcon name="i-ph-cloud-sun" class="text-primary-600 dark:text-primary-500" />
                 <span class="text-lg font-bold">{{ selectedStation.name }}</span>
                 <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
                 <UButton
