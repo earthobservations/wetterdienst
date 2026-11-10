@@ -18,6 +18,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.exceptions import DownloadError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
     _ABSENT_DAY_NO_PHENOMENON,
@@ -1110,18 +1111,18 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
-    from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
 
     missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
     values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
-    monkeypatch.setattr(values, "_get_urls", lambda _dataset, _station_id: ["unused"])
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset, _station_id: {"unused": CacheExpiry.FIVE_MINUTES})
     dataset = ImgwMeteorologyMetadata.daily.climate
-    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing, failed])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing, failed])
     with pytest.raises(DownloadError):
         values._collect_station_parameter_or_dataset("249180010", dataset)  # noqa: SLF001
-    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("249180010", dataset).is_empty()  # noqa: SLF001
 
 

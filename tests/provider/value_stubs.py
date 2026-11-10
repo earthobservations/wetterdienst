@@ -66,6 +66,7 @@ from wetterdienst.provider.fmi.observation import FmiObservationRequest
 from wetterdienst.provider.fmi.observation import api as fmi_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.geosphere.observation import api as geosphere_api
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
@@ -2762,7 +2763,7 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
         lambda *args, **kwargs: ["https://example.invalid/codz_2023.zip"],  # noqa: ARG005
     )
     monkeypatch.setattr(
-        imgw_hydrology_api,
+        imgw_fileindex,
         "download_files",
         lambda *args, **kwargs: [  # noqa: ARG005
             File(url="https://example.invalid/codz_2023.zip", content=BytesIO(archive.getvalue()), status=200)

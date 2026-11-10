@@ -20,11 +20,16 @@ from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
+from wetterdienst.provider.imgw.fileindex import (
+    archive_expiries,
+    download_archives,
+    keep_files_overlapping,
+    list_files_for_interval,
+)
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
@@ -618,11 +623,12 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         The files of the other datasets are one for each month or year for every station, which the first station to
         need one downloads, and which the station after it finds in the cache.
         """
-        urls: list[str] = []
+        archives: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
-                urls += self._get_urls(dataset, station_id)
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                archives |= self._get_archives(dataset, station_id)
+        # each archive has the expiry the collection downloads it with (GH-3931)
+        return FilesAhead(urls=list(archives), ttl=CacheExpiry.FIVE_MINUTES, ttls=archives)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -633,15 +639,8 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        urls = self._get_urls(parameter_or_dataset, station_id)
-        files = download_files(
-            urls=urls,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
+        # an archive of a period that has ended is kept 12 hours, that of the period under way 5 minutes (GH-3931)
+        files = download_archives(self._get_archives(parameter_or_dataset, station_id), settings)
         # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx
         # after the retries -- is an outage, which dropped would read as a station without data
         for file in files:
@@ -798,12 +797,21 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
 
     def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
         """Get URLs for the given dataset."""
+        return list(self._get_archives(dataset, station_id))
+
+    def _get_archives(self, dataset: DatasetModel, station_id: str) -> dict[str, CacheExpiry]:
+        """Get the URL of each archive of the dataset the request reads, with the expiry it is downloaded with.
+
+        The expiry follows the period of the archive (`archive_expiries`), which is read from its name once, by
+        `_file_period`, the expressions that select the archives of the request's window.
+        """
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = portion.closed(self.sr.start, self.sr.end) if self.sr.start else None
         files = list_files_for_interval(url, self.sr.settings, interval)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
+        start, end = _file_period(dataset)
         if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
             # unlike every other IMGW meteorology dataset, synop daily is archived per
             # station rather than per month: one file per period (year, or decade for
@@ -811,29 +819,35 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             # 9-digit id ends in "100", not "2024_08_k.zip" for August across all stations
             station_code = station_id[-3:]
             df_files = df_files.filter(pl.col("file").str.contains(rf"_{station_code}_"))
-            return df_files.get_column("url").to_list()
-        if interval is not None:
-            parts = pl.col("file").str.split("_")
-            if dataset.resolution.value == Resolution.MONTHLY:
-                # "1951_m_k.zip" covers one year, "1951_1955_m_k.zip" the years from the first to the second
-                first_year = parts.list.first()
-                last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1))
-                start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
-                end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
-            else:
-                # "1951_k.zip" covers one year, "2024_01_k.zip" one month
-                year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
-                month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                one_year = parts.list.len() == 2
-                start = pl.when(one_year).then(year).otherwise(month)
-                end = (
-                    pl.when(one_year)
-                    .then(year.dt.offset_by("1y"))
-                    .otherwise(month.dt.offset_by("1mo"))
-                    .dt.offset_by("-1d")
-                )
+        elif interval is not None:
             df_files = keep_files_overlapping(df_files, start, end, interval)
-        return df_files.get_column("url").to_list()
+        return archive_expiries(df_files, end)
+
+
+def _file_period(dataset: DatasetModel) -> tuple[pl.Expr, pl.Expr]:
+    """Give the first and last instant an archive covers, as expressions on the ``file`` column of its name.
+
+    The last instant is 00:00 UTC of the last day the archive covers. A name the expressions cannot read has a null
+    period, which `keep_files_overlapping` refuses and `archive_expiries` keeps five minutes.
+    """
+    parts = pl.col("file").str.split("_")
+    if dataset.resolution.value == Resolution.MONTHLY or (
+        dataset.resolution.value == Resolution.DAILY and dataset.name == "synop"
+    ):
+        # "1951_m_k.zip" covers one year, "1951_1955_m_k.zip" the years from the first to the second, and the same
+        # for the per-station daily synop, "2024_100_s.zip" and "1951_1955_100_s.zip"
+        first_year = parts.list.first()
+        last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1, null_on_oob=True))
+        start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
+        end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
+        return start, end
+    # "1951_k.zip" covers one year, "2024_01_k.zip" one month
+    year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
+    month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
+    one_year = parts.list.len() == 2
+    start = pl.when(one_year).then(year).otherwise(month)
+    end = pl.when(one_year).then(year.dt.offset_by("1y")).otherwise(month.dt.offset_by("1mo")).dt.offset_by("-1d")
+    return start, end
 
 
 @dataclass

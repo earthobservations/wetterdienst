@@ -27,6 +27,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as observation_api
 from wetterdienst.provider.dwd.observation import download as observation_download
 from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
@@ -268,24 +269,39 @@ def test_chmi_names_no_sub_daily_file_where_the_window_is_open() -> None:
 
 
 @pytest.mark.parametrize(
-    ("resolution", "dataset", "per_station"), [("daily", "synop", True), ("monthly", "synop", False)]
+    ("resolution", "dataset", "per_station", "listing"),
+    [
+        # the per-station archives, of years and of the decades of the older data, and one of another station
+        (
+            "daily",
+            "synop",
+            True,
+            ["1951_1955_010_s.zip", "2020_010_s.zip", "2026_010_s.zip", "2026_020_s.zip"],
+        ),
+        ("monthly", "synop", False, ["1951_m_s.zip", "2020_m_s.zip", "2026_m_s.zip"]),
+    ],
 )
 def test_imgw_names_only_the_archives_that_one_station_reads(
-    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, *, per_station: bool
+    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, listing: list[str], *, per_station: bool
 ) -> None:
-    """The daily synop is archived per station; the files of the other datasets are those of every station."""
+    """The daily synop is archived per station; the files of the other datasets are those of every station.
+
+    Each archive is named with the expiry the collection downloads it with, which follows its period (GH-3931): the
+    years that are over for 12 hours, the year that is under way for 5 minutes.
+    """
     downloaded: list[str] = []
     expiries: list[CacheExpiry] = []
 
     def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
         downloaded.extend(urls)
-        expiries.append(ttl)
-        return []
+        expiries.extend([ttl] * len(urls))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
 
-    monkeypatch.setattr(imgw_api, "download_files", download_files)
-    monkeypatch.setattr(imgw_api.ImgwMeteorologyValues, "_get_urls", lambda *args: [f"https://x/{args[-1]}.zip"])
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 11, 10, tzinfo=UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
     request = ImgwMeteorologyRequest(
-        parameters=[(resolution, dataset)], start="2020-01-01", end="2020-01-03", settings=_settings()
+        parameters=[(resolution, dataset)], start="2020-01-01", end="2026-11-03", settings=_settings()
     )
     values: TimeseriesValues = stations_result(request, resolution, dataset, "249180010").values()
     model = request.metadata[resolution][dataset]
@@ -293,9 +309,13 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
     values._collect_station_parameter_or_dataset("249180010", model)  # noqa: SLF001
     named = values._files_ahead("249180010", [model])  # noqa: SLF001
 
-    assert downloaded == ["https://x/249180010.zip"]
+    # the other station's archive is not downloaded, nor is the file of 1951 that lies outside the window of the monthly
+    expected = [name for name in listing if "_020_" not in name and (per_station or not name.startswith("1951"))]
+    assert downloaded == [f"https://x/{name}" for name in expected]
     assert list(named.urls) == (downloaded if per_station else [])
-    assert [named.ttl_of(url) for url in downloaded] == expiries
+    # a hook names each URL with the expiry the collection downloads it with, URL by URL
+    assert [named.ttl_of(url) for url in named.urls] == (expiries if per_station else [])
+    assert set(expiries) == {CacheExpiry.TWELVE_HOURS, CacheExpiry.FIVE_MINUTES}
 
 
 @pytest.mark.parametrize(

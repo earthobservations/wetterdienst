@@ -734,8 +734,8 @@ def _read_imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> object:
     """Read the monthly archive of a station."""
     from tests.provider.imgw.hydrology.test_values_frames import STATION, _serve  # noqa: PLC0415
     from tests.provider.value_stubs import _day  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_api  # noqa: PLC0415
     from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest  # noqa: PLC0415
-    from wetterdienst.provider.imgw.hydrology import api as imgw_api  # noqa: PLC0415
 
     _serve(monkeypatch, "mies_2023.zip", "mies_2023_03.csv", "149180020,CHALUPKI,Odra,2023,03,2,141,12.5,9.9\n")
     _dated(monkeypatch, imgw_api, "download_files")
@@ -752,8 +752,8 @@ def _read_imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> object:
     """Read the daily archive of a station."""
     from tests.provider.imgw.meteorology.test_values_frames import _K_D, _K_D_T, _serve  # noqa: PLC0415
     from tests.provider.value_stubs import _day  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_api  # noqa: PLC0415
     from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest  # noqa: PLC0415
-    from wetterdienst.provider.imgw.meteorology import api as imgw_api  # noqa: PLC0415
 
     _serve(monkeypatch, "2024_04_k.zip", {"k_d_04_2024.csv": _K_D, "k_d_t_04_2024.csv": _K_D_T})
     _dated(monkeypatch, imgw_api, "download_files")
