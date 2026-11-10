@@ -55,6 +55,11 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` hourly `solar`: where the minute that ends the hour drifts across :30, two
+  source hours round to one stamp (12:30 and 13:29 at Frankfurt, about once a year per station) and
+  one was dropped without a word. The row nearer the hour is now kept, the earlier on a tie, and
+  the dropped rows of the request's window are logged in one warning per station. No stamp moves
+  (GH-3938)
 - `imgw/meteorology` daily `synop` now returns the current year, whose files IMGW publishes per
   month for all stations (it returned nothing for it before) (GH-3941)
 - `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the

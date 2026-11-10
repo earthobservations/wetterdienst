@@ -336,6 +336,80 @@ def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
     return (true_local_time - stamp).dt.total_minutes().cast(pl.String)
 
 
+def _round_solar_stamps(
+    df: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
+) -> pl.DataFrame:
+    """Stamp the hourly solar rows (`YYYYMMDDHH:MM`) with the clock hour their raw end is nearest to (GH-3938).
+
+    The raw stamp is the minute the source hour ended, which differs by station and date (:00 to :59), and the clock
+    hour is that stamp rounded to the nearest hour (:30 up), as it always was. Where the minute drifts across :30,
+    two source hours round to one clock hour (12:30 and 13:29 are both 13:00). One row per station and hour is
+    served: the one whose raw end is nearest the hour (13:29), the earlier one if both are as near. Before, one of
+    them was dropped without a word, whichever the merge happened to keep.
+
+    The rows that are dropped for it are logged: one warning for each station of the file, with the number and each
+    row's raw `MESS_DATUM`, hour and values, for those whose hour lies in the `window` of the request (a bound that
+    is None is open; no window is the whole file). The file holds the station's whole record, so a collision in a
+    year nobody asked for is a debug line only.
+
+    A raw stamp that the file lists twice for one station is one source hour: the first row is kept, and the
+    duplicates are only counted in a debug line. A row is never moved to another hour.
+    """
+    raw = df.get_column("timestamp").str.to_datetime(TIME_FORMAT_SOLAR, time_zone="UTC")
+    frame = df.with_row_index("_position").with_columns(raw.alias("_raw"), raw.dt.round("1h").alias("_hour"))
+    frame = frame.unique(subset=["station_id", "_raw"], keep="first", maintain_order=True)
+    if (duplicates := df.height - frame.height) > 0:
+        log.debug(f"{duplicates} row(s) of {filename} repeat the raw stamp of another row of the station and are one.")
+    frame = frame.with_columns((pl.col("_raw") - pl.col("_hour")).dt.total_seconds().abs().alias("_distance"))
+    frame = frame.sort(["station_id", "_hour", "_distance", "_raw"], maintain_order=True)
+    frame = frame.with_columns(
+        pl.col("_position").first().over(["station_id", "_hour"]).alias("_kept"),
+        pl.col("_distance").first().over(["station_id", "_hour"]).alias("_kept_distance"),
+        pl.col("timestamp").first().over(["station_id", "_hour"]).alias("_kept_stamp"),
+    )
+    _log_dropped_solar_rows(frame.filter(pl.col("_position") != pl.col("_kept")), filename, window)
+    return (
+        frame.filter(pl.col("_position") == pl.col("_kept"))
+        .sort("_position")
+        .with_columns(pl.col("_hour").dt.strftime("%Y%m%d%H%M").alias("timestamp"))
+        .drop("_position", "_raw", "_hour", "_distance", "_kept", "_kept_distance", "_kept_stamp")
+    )
+
+
+def _log_dropped_solar_rows(
+    dropped: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None,
+) -> None:
+    """Say which hourly solar rows were dropped for a nearer one: a warning for each station for those in the window."""
+    lower, upper = (bound.astimezone(dt.UTC) if bound else None for bound in (window or (None, None)))
+    for (station,), rows in dropped.group_by("station_id", maintain_order=True):
+        inside = []
+        for row in rows.iter_rows(named=True):
+            minutes, kept_minutes = row["_distance"] // 60, row["_kept_distance"] // 60
+            how = (
+                f"as near as {row['_kept_stamp']} ({minutes} min), which is earlier and is kept"
+                if row["_distance"] == row["_kept_distance"]
+                else f"{minutes} min from it against {kept_minutes} min of {row['_kept_stamp']}"
+            )
+            text = (
+                f"MESS_DATUM {row['timestamp']} -> {row['_hour']:%Y-%m-%d %H:%M} UTC, {how} "
+                f"(FG_LBERG={row['fg_lberg']}, SD_LBERG={row['sd_lberg']})"
+            )
+            if (lower and row["_hour"] < lower) or (upper and row["_hour"] > upper):
+                log.debug(f"Hourly solar of station {station} ({filename}) outside the window: {text}")
+            else:
+                inside.append(text)
+        if inside:
+            message = (
+                f"Hourly solar of station {station} ({filename}): {len(inside)} source hour(s) round to an hour that a "
+                f"nearer source hour of the station also rounds to, and are dropped: {'; '.join(inside)}."
+            )
+            log.warning(message)
+
+
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
     "mess_datum": "timestamp",
@@ -408,10 +482,15 @@ def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
-    """Parse the climate observations data from the DWD."""
+    """Parse the climate observations data from the DWD.
+
+    `window` is the request's (start, end), which the rows of a file that are left out for another are reported for
+    (the hourly solar, GH-3938); without it every row of the file is.
+    """
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
-        data = [_parse_climate_observations_data(file, dataset, period) for file in files]
+        data = [_parse_climate_observations_data(file, dataset, period, window) for file in files]
         if not data:
             return pl.LazyFrame()
         try:
@@ -423,7 +502,7 @@ def parse_climate_observations_data(
     else:
         data = []
         for file in files:
-            data.append(_parse_climate_observations_data(file, dataset, period))
+            data.append(_parse_climate_observations_data(file, dataset, period, window))
         if not data:
             return pl.LazyFrame()
         return pl.concat(_drop_mez_copies_of_utc_rows(files, data, dataset, period))
@@ -433,6 +512,7 @@ def _parse_climate_observations_data(  # noqa: C901
     file: File,
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if isinstance(file.content, Exception):
@@ -524,16 +604,13 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns
     elif dataset == DwdObservationMetadata.hourly.solar:
-        # Fix timestamps of hourly solar data
-        # The timestamps are sometimes given as e.g. 2024-12-08 17:59:00 instead of 2024-12-08 18:00:00
-        # Other times they are off by 10 minutes, e.g. 2024-12-08 17:50:00 or 2024-12-08 17:10:00
-        # @nkiessling proposed to round the timestamps to the nearest hour
-        # Until further discussion, we will apply this rounding
-        df = df.with_columns(
-            pl.col("timestamp")
-            .str.to_datetime("%Y%m%d%H:%M", time_zone="UTC")
-            .dt.round(dt.timedelta(hours=1))
-            .dt.strftime("%Y%m%d%H%M")
+        # The raw stamp is the minute the hour ended and differs by station and date (:00 to :59). It is rounded to the
+        # nearest hour, and of two rows that round to one hour the nearer one is kept and the other is logged (GH-3938)
+        df = df.map_batches(
+            lambda frame: _round_solar_stamps(frame, file.filename, window),
+            predicate_pushdown=False,
+            projection_pushdown=False,
+            streamable=False,
         )
     elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
         if "FX3" in file.filename:
