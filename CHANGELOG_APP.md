@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `[Explorer, Forecast, Climate stripes, History, Map]` On a wide window the "About" panel of a tool
+  opens under its button, right-aligned and at the width of text, so that the two read as one
+  control (it opened at the left edge, up to 750 px from the button at 2,450 px). On a phone it is
+  still the full width under the title (GH-3872)
+
 - `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
   the notifications, the number fields' description for a screen reader) are in the language of
   the page in all eleven languages (they were English in all but German; Hamburg German uses the
