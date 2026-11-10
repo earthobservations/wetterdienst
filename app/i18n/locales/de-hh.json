@@ -889,7 +889,7 @@
     "limitNarrowPoint": "Üm de Daten hier to sehn, maak de Utwahl lütter: Wähl en körtern Tietruum oder weniger Parameter. Du hest {parameters} utwählt.",
     "limitNarrowStations": "Nimm Stationen ut de Utwahl rut un kiek di den Rest in en annern Schritt an. Du hest {stations} utwählt.",
     "limitApply": "Blots de niegsten Daten wiesen ({span}, rund {rows} Reegen)",
-    "limitNoReadings": "In de Tietruum gifft dat bit vundaag keen Metwarten. Wähl en fröheren Startdag.",
+    "limitNoReadings": "In dissen Tietruum gifft dat bit vundaag keen Meten. Wähl en fröheret Anfangsdatum.",
     "limitNoWindow": "Nich mal de körtste Tietruum passt in een Antwoort.",
     "limitDownload": "Allens as CSV daalladen",
     "limitDownloadHint": "De CSV warrt streamt un kann dorüm mehr Reegen hebben as een Antwoort.",

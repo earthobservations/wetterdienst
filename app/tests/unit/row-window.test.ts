@@ -330,34 +330,46 @@ describe('windowForRefusal', () => {
       expect(window.rows).toBe(aboutRows(share * inside / clamped))
     })
 
-    it('offers the range up to today where that fits by itself, in the unit that says it exactly', () => {
+    it('offers the range up to today where that fits by itself, from its first day, in a unit that says no more than it holds', () => {
       const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
       const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
       const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: Math.ceil(clamped / 0.9) + 10, now: NOW })
-      // 2020-01-01 to 2026-10-26 is 6 whole years and some: 6 years, from 2020-10-27 (the window may be shorter than the span)
-      expect(window).toMatchObject({ unit: 'years', count: 6, startDate: '2020-10-27', endDate: '2026-10-26' })
-      const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window!.startDate, endDate: window!.endDate }, now: NOW }).rows!
-      expect(window!.rows).toBe(aboutRows(inside))
+      // 2020-01-01 to 2026-10-26 is 6 whole years and some: no unit ends on the start, so 6 years (rounded down), the whole span
+      expect(window).toMatchObject({ unit: 'years', count: 6, startDate: '2020-01-01', endDate: '2026-10-26', rows: aboutRows(clamped) })
     })
 
-    it('says a span shorter than a year in months or days, not as one year', () => {
+    it('keeps every reading of a monthly or annual range that fits up to today', () => {
+      // the server's count is the page's (80 readings up to today of the range's 130; 2 of 6), at limits just above the part
+      const refused = (resolution: 'monthly' | 'annual', startDate: string, maximum: number) => {
+        const given = { startDate, endDate: '2030-12-31' }
+        const requested = estimateRows({ resolution, records, parameterCount: 1, range: given, now: NOW }).rows!
+        return windowForRefusal({ resolution, records, parameterCount: 1, range: given, requested, maximum, now: NOW })
+      }
+      // March 2020 to October 2026 is 80 readings: all of them, labelled by the 6 whole years they hold
+      expect(refused('monthly', '2020-03-01', 100)).toMatchObject({ unit: 'years', count: 6, startDate: '2020-03-01', endDate: '2026-10-26', rows: 80 })
+      // 2025 and 2026 begin in it: 2 readings, from 2025-01-01, and never fewer than 1 year in the label
+      expect(refused('annual', '2025-01-01', 3)).toMatchObject({ unit: 'years', count: 1, startDate: '2025-01-01', endDate: '2026-10-26', rows: 2 })
+    })
+
+    it('says a span in months or days, not as one year', () => {
       const short = { startDate: '2026-10-01', endDate: '2030-12-31' }
       const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: short, now: NOW }).rows!
       const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: short, requested, maximum: 1000, now: NOW })
-      // 26 days of 2026-10: no whole month (from 2026-09-27 on is 1 month, 2026-10-01 is not reached)
+      // 26 days of 2026-10: no whole month, and the days reach back exactly to the start
       expect(window).toMatchObject({ unit: 'days', count: 26, startDate: '2026-10-01', endDate: '2026-10-26', rows: 26 })
-      const twoMonths = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: { startDate: '2026-08-01', endDate: '2030-12-31' }, requested: 5000, maximum: 1000, now: NOW })
-      // 2026-08-01 to 2026-10-26 is 87 days: 2 months (from 2026-08-27)
-      expect(twoMonths).toMatchObject({ unit: 'months', count: 2, startDate: '2026-08-27', endDate: '2026-10-26' })
+      const long = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: { startDate: '2026-08-01', endDate: '2030-12-31' }, requested: 5000, maximum: 1000, now: NOW })
+      // 2026-08-01 to 2026-10-26 is 87 days: 2 whole months (it says less than the window holds, never more)
+      expect(long).toMatchObject({ unit: 'months', count: 2, startDate: '2026-08-01', endDate: '2026-10-26' })
     })
 
     it('does not count the server\'s narrowed count below the page\'s own for the part up to today (periods read back from the range end)', () => {
-      // 100 hourly stations, March to today of 2026 within a range that reaches 2030: the server reads only
-      // the last two years of it, so it counts 576,000, where the page's share of the long range is far less
+      // 100 hourly stations, 2026-03-01 to 2030-12-31: the server counts 1,754,500 rows of the long range, of
+      // which 576,000 are the part up to today (it reads only the last years of the range, counted back from its
+      // end), where the page's share of the long range (a fraction of 1,754,500) is far less
       const many = Array.from({ length: 100 }, () => record('2000-01-01', null))
       const long = { startDate: '2026-03-01', endDate: '2030-12-31' }
       const toNow = { startDate: '2026-03-01', endDate: '2026-10-26' }
-      const requested = 576_000
+      const requested = 1_754_500
       const window = windowForRefusal({ resolution: 'hourly', records: many, parameterCount: 1, range: long, requested, maximum: 500_000, now: NOW })!
       expect(window).not.toBeNull()
       const inside = estimateRows({ resolution: 'hourly', records: many, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!

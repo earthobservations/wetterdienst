@@ -407,34 +407,30 @@ export function windowForRefusal(input: RefusalWindowInput): FittingWindow | nul
   const window = fittingWindow({ requested, maximum, resolution: input.resolution, span: whole.span, rowsWithin })
   // the part up to today fits by itself: that is what to ask for instead of the range that reaches past it
   if (!window && range !== given && whole.span && maximum > 0 && requested > 0 && requested <= Math.floor(maximum * ROW_MARGIN))
-    return labelledAsServed(wholeSpanWindow(whole.span, input.resolution, requested, rowsWithin), { ...rest, range })
+    return labelledAsServed(wholeSpanWindow(whole.span, input.resolution, requested), { ...rest, range })
   return labelledAsServed(window, { ...rest, range })
 }
 
 /**
- * The window of the span as a count of a unit, chosen as `fittingWindow` does (the largest unit that has
- * a window), so that its label is exact: it ends where the span does and may begin a little after it.
+ * The window that holds the whole span, from its first day to its last. Its label is the unit that
+ * reaches back exactly to the span's start (the largest first; days always do, so they are not tried
+ * for this: 2,491 days are no better said than as 6 years), else the largest unit's count rounded down, which says slightly less than the window
+ * holds and never more (a year or less of annual data is "1 year", the smallest it names).
  */
-function wholeSpanWindow(span: Span, resolution: Resolution, rows: number, rowsWithin: (start: number, end: number) => number | null): FittingWindow {
+function wholeSpanWindow(span: Span, resolution: Resolution, rows: number): FittingWindow {
   const units = unitsOf(resolution)
-  const found = (unit: WindowUnit, count: number): FittingWindow => {
-    const start = windowStart(span.end, count, unit)
-    // the share of the rows the window holds, as the span's days' share where the page cannot say
-    const within = rowsWithin(start, span.end + DAY - 1)
-    const total = rowsWithin(span.start, span.end + DAY - 1)
-    const share = Math.min(1, within !== null && total ? within / total : ((span.end - start) / DAY + 1) / ((span.end - span.start) / DAY + 1))
-    return { unit, count, startDate: isoDay(start), endDate: isoDay(span.end), rows: aboutRows(rows * share) }
-  }
-  for (const unit of units) {
+  // the most whole units that begin on or after the span's start
+  const countIn = (unit: WindowUnit): number => {
     let count = 0
     while (windowStart(span.end, count + 1, unit) >= span.start)
       count++
-    if (count >= 1)
-      return found(unit, count)
+    return count
   }
-  // a span shorter than the smallest unit (a year of annual data): that unit, from where the span begins
-  const unit = units[units.length - 1]!
-  return { ...found(unit, 1), startDate: isoDay(span.start) }
+  const counts = units.map(unit => ({ unit, count: countIn(unit) }))
+  const label = counts.find(({ unit, count }) => count >= 1 && unit !== 'days' && windowStart(span.end, count, unit) === span.start)
+    ?? counts.find(({ count }) => count >= 1)
+    ?? { unit: units[units.length - 1]!, count: 1 }
+  return { ...label, startDate: isoDay(span.start), endDate: isoDay(span.end), rows: aboutRows(rows) }
 }
 
 /** What the explorer starts the date range with, once a selection is made. */
