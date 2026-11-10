@@ -29,6 +29,8 @@ const selectedLanguage = computed({
   set: (v: string) => setLocale(v as typeof locale.value),
 })
 
+// a unit's name is read in full, in the trigger and in the list (which is as wide as the trigger)
+const unitSelectUi = { value: 'whitespace-normal text-left', itemLabel: 'whitespace-normal' }
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
   { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
@@ -111,7 +113,7 @@ function unitItems(units: readonly string[]) {
             :key="opt.value"
             :icon="opt.icon"
             :label="opt.label"
-            :ui="{ base: 'min-w-0 flex-1 justify-center max-[24rem]:px-1.5 sm:flex-none', leadingIcon: 'max-[24rem]:hidden' }"
+            :ui="{ base: 'flex-auto justify-center max-[24rem]:px-1.5 sm:flex-none', leadingIcon: 'max-[24rem]:hidden' }"
             color="neutral"
             :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
             @click="colorMode.preference = opt.value"
@@ -185,7 +187,7 @@ function unitItems(units: readonly string[]) {
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  :ui="{ value: 'whitespace-normal text-left' }"
+                  :ui="unitSelectUi"
                   class="w-full sm:w-56"
                 />
               </div>
@@ -205,7 +207,7 @@ function unitItems(units: readonly string[]) {
                   :id="`settings-unit-${group.key}`"
                   v-model="settings.units[group.key]"
                   :items="unitItems(group.units)"
-                  :ui="{ value: 'whitespace-normal text-left' }"
+                  :ui="unitSelectUi"
                   class="w-full sm:w-56"
                 />
               </div>
