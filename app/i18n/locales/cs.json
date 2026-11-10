@@ -507,6 +507,7 @@
       "viewCompact": "Kompaktní",
       "viewTable": "Tabulka",
       "today": "DNES",
+      "partialDay": "částečně, {hours} h",
       "summaryMinMaxTemp": "Min. / max. teplota",
       "summaryTotalPrecip": "Celkové srážky",
       "summaryMaxGust": "Max. náraz",

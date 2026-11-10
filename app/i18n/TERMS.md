@@ -183,6 +183,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Feilen` for the arrow keys, `ewech`); `pl` and `cs` (`Wybrano: {name}` and `Vybráno: {name}` for "chosen", `n.p.m.` and
   `n. m.` for "above sea level"); and in every language the sentence of the about text that explains the keyboard.
 
+- The partial last day of the forecast's day cards and rows (`meteogram.chart.partialDay`, GH-3840: "partial, {hours} h"),
+  written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and read by no person.
+  Least certain: `de-hh` `Deeldag`, then `lb` `deelweis` and `cs` `částečně`; `de` `unvollständig` is plain German for
+  "incomplete".
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

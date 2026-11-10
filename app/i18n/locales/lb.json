@@ -507,6 +507,7 @@
       "viewCompact": "Kompakt",
       "viewTable": "Tabell",
       "today": "HAUT",
+      "partialDay": "deelweis, {hours} h",
       "summaryMinMaxTemp": "Min./Max. Temp.",
       "summaryTotalPrecip": "Gesamtnéierschlag",
       "summaryMaxGust": "Max. Bö",
