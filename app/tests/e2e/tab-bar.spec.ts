@@ -71,6 +71,11 @@ function settingsWith(tabBar: unknown) {
 const bar = (page: Page) => page.locator('.app-tabbar')
 const barTexts = (page: Page) => bar(page).locator('li').allInnerTexts()
 const menuTab = (page: Page) => bar(page).getByRole('button', { name: en.header.menu, exact: true })
+/** A link of the Menu's sheet by the name of its page: a tool's name carries where it is, in visually hidden text (GH-3934) */
+function sheetLink(page: Page, name: string) {
+  return page.getByRole('dialog', { name: en.header.menu })
+    .getByRole('link', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( ?, (${en.shell.toolInBar}|${en.shell.toolMenuOnly}))?$`) })
+}
 const chooser = (page: Page) => page.getByTestId('bar-chooser')
 const row = (page: Page, tool: string) => chooser(page).locator(`li[data-row][data-tool="${tool}"]`)
 const handle = (page: Page, tool: string) => row(page, tool).getByTestId('bar-handle')
@@ -422,7 +427,7 @@ test.describe('the Menu, on a phone', () => {
     await expect(bar(page).locator('[aria-current]')).toHaveCount(0)
     const goBySheet = async (name: string, url: RegExp) => {
       await menuTab(page).click()
-      await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name, exact: true }).click()
+      await sheetLink(page, name).click()
       await expect(page).toHaveURL(url)
     }
     await goBySheet(en.nav.glossary, /\/glossary$/)
@@ -454,7 +459,7 @@ test.describe('the Menu, on a phone', () => {
     await expect(bar(page).getByRole('link', { name: en.nav.history })).toHaveCount(0)
     // History is in the sheet now, and its page is the Menu's
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.history, exact: true }).click()
+    await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(0)
@@ -467,7 +472,7 @@ test.describe('the Menu, on a phone', () => {
     // History left the bar for the Menu: its tab is gone, and the pages of the sheet go on marking the Menu
     expect(await barTexts(page)).toEqual([...names(['forecast', 'explorer', 'stripes', 'map']), en.header.menu])
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.history, exact: true }).click()
+    await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     // the choice stays after the navigation, and a page of a tool in the bar marks its tab
@@ -523,7 +528,7 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
     // the pages of the sheet are still marked, and a page of the app still opens
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.glossary, exact: true }).click()
+    await sheetLink(page, en.nav.glossary).click()
     await expect(page).toHaveURL(/\/glossary$/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
