@@ -265,13 +265,13 @@ HAMBURG_2005_03_11 = """\
 """
 
 
-def _parse_solar(rows: str) -> pl.DataFrame:
-    """Parse the rows of a station's hourly solar file, as the library does."""
+def _parse_solar(rows: str, window: tuple[dt.datetime | None, dt.datetime | None] | None = None) -> pl.DataFrame:
+    """Parse the rows of a station's hourly solar file, as the library does, for the window of a request."""
     file = File(
         url="https://example.invalid/solar.zip", content=BytesIO((SOLAR_HEADER + rows).encode("utf8")), status=200
     )
     return parse_climate_observations_data(
-        files=[file], dataset=DwdObservationMetadata.hourly.solar, period=Period.HISTORICAL
+        files=[file], dataset=DwdObservationMetadata.hourly.solar, period=Period.HISTORICAL, window=window
     ).collect()
 
 
@@ -289,126 +289,136 @@ def _solar_rows(stamps: list[str], station: str = "1420") -> str:
     return "".join(lines)
 
 
-def _stamps(day: str, start: int, minute: int, count: int) -> list[str]:
-    """Give `count` raw stamps an hour apart from `start` o'clock of `day` (`YYYYMMDD`), all at the same minute."""
-    return [f"{day}{start + hour:02d}:{minute:02d}" for hour in range(count)]
+def _solar_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Give the warnings the hourly solar parse logged."""
+    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
 
 
-def test_solar_hourly_gives_each_frankfurt_hour_its_own_stamp() -> None:
-    """Test that 12:30 and 13:29 of Frankfurt, which round to the same hour, each keep a row (GH-3938).
+def test_solar_hourly_keeps_the_row_nearer_the_hour_of_two_that_round_to_it(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 12:30 and 13:29 of Frankfurt, which both round to 13:00, leave the nearer row, and a warning (GH-3938).
 
-    The two rows (218 and 182 J/cm2) were both stamped 13:00 and only 218 was served, which left 14:00 with
-    nothing beside it. The rows lead in with the hours that end at :30, which, being as near to the hour before as to
-    the hour after, are the ones that move: back by one hour, up to 12:30 at 12:00, so that 13:29 keeps 13:00.
+    13:29 (182 J/cm2) is 29 min from 13:00 and 12:30 (218 J/cm2) is 30 min from it. Before, one of the two was dropped
+    by the merge of the periods without a word, whichever it happened to keep. Every other row keeps the hour it was
+    stamped before.
     """
-    df = _parse_solar(FRANKFURT_2022_08_17)
-    assert df.height == 17
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(FRANKFURT_2022_08_17)
+    assert df.height == 16
     assert df.get_column("timestamp").is_unique().all()
+    assert df.get_column("timestamp").dt.hour().to_list() == [10, 11, 12, *range(13, 24), 1, 2]
     served = dict(
         zip(df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("timestamp").to_list(), strict=True)
     )
-    assert served[218.0] == dt.datetime(2022, 8, 17, 12, tzinfo=ZoneInfo("UTC"))
+    assert 218.0 not in served
     assert served[182.0] == dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))
-    # 23:29 and 01:29 keep the 23:00 and 01:00 that they are nearest to, with 00:00 free between them
-    assert df.get_column("timestamp").dt.hour().to_list() == [9, 10, 11, 12, *range(13, 24), 1, 2]
+    (warning,) = _solar_warnings(caplog)
+    for text in (
+        "station 1420",
+        "2022081712:30",
+        "2022081713:29",
+        "2022-08-17 13:00 UTC",
+        "FG_LBERG=218.0",
+        "SD_LBERG=39",
+    ):
+        assert text in warning
 
 
-def test_solar_hourly_gives_each_hamburg_hour_its_own_stamp() -> None:
-    """Test that the rows of Hamburg, whose minute falls from :30 to :29, are each stamped once (GH-3938).
-
-    13:30 and 14:29 are both nearest to 14:00. The ten rows that end at :30 lead to the collision, and the eleven that
-    end at :29 follow it up to 00:29 (00:00, the day after), so the ten move back by one hour, which is fewer than the
-    eleven that would move on, and each lies 30 min from its raw end, as near as before.
-    """
-    df = _parse_solar(HAMBURG_2005_03_11)
-    assert df.height == 21
+def test_solar_hourly_keeps_the_nearer_row_at_hamburg(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 13:30 and 14:29 of Hamburg, which both round to 14:00, leave 14:29 and name 13:30 (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(HAMBURG_2005_03_11)
+    assert df.height == 20
     assert df.get_column("timestamp").is_unique().all()
-    assert df.get_column("timestamp").dt.hour().to_list() == [*range(4, 24), 0]
-    # the global radiation of 13:30 (21) is at 13:00 and that of 14:29 (46) at 14:00: neither is lost or doubled
-    served = dict(
-        zip(
-            df.get_column("fg_lberg").cast(pl.Float64).to_list(),
-            df.get_column("timestamp").dt.hour().to_list(),
-            strict=True,
-        )
-    )
-    assert served[21.0] == 13
-    assert served[46.0] == 14
+    assert 21.0 not in df.get_column("fg_lberg").cast(pl.Float64).to_list()
+    (warning,) = _solar_warnings(caplog)
+    assert "2005031113:30" in warning
+    assert "FG_LBERG=21.0" in warning
 
 
-@pytest.mark.parametrize(
-    ("stamps", "hours"),
-    [
-        pytest.param(
-            [*_stamps("20220817", 0, 22, 5), *_stamps("20220817", 5, 41, 3)],
-            [0, 1, 2, 3, 4, 6, 7, 8],
-            id="no collision: each at the hour it ends nearest to",
-        ),
-        pytest.param(
-            # 12:30 and 13:29 are both nearest to 13:00; 10:20 leaves 12:00 free, and 14:29 and 15:29 follow 13:29
-            ["2022081710:20", "2022081712:30", "2022081713:29", "2022081714:29", "2022081715:29"],
-            [10, 12, 13, 14, 15],
-            id="the free hour is before: the earlier row moves back, one row",
-        ),
-        pytest.param(
-            # 15:20 leaves 14:00 free, and 10:30 to 12:30 lead up to 13:29
-            ["2022081710:30", "2022081711:30", "2022081712:30", "2022081713:29", "2022081715:20"],
-            [11, 12, 13, 14, 15],
-            id="the free hour is after: the later row moves on, one row",
-        ),
-        pytest.param(
-            # as near as it gets either way (40 + 20 min against 20 + 40 min), and one row moves either way: the later
-            ["2022081712:40", "2022081713:20"],
-            [13, 14],
-            id="a tie goes to the later stamps",
-        ),
-    ],
-)
-def test_solar_hours_move_the_fewest_rows_to_the_nearest_free_hour(stamps: list[str], hours: list[int]) -> None:
-    """Test the rule that gives two source hours that end in one clock hour a stamp each (GH-3938)."""
-    df = _parse_solar(_solar_rows(stamps))
-    assert df.height == len(stamps)
-    assert df.get_column("timestamp").is_unique().all()
-    assert df.get_column("timestamp").dt.hour().to_list() == hours
+def test_solar_hourly_keeps_the_earlier_row_of_a_tie(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that of two rows as near the hour, the earlier raw end is kept and the warning says so (GH-3938).
 
-
-def test_solar_hours_move_the_shorter_run_of_a_collision() -> None:
-    """Test that a collision at the end of a long run of :30 stamps moves the rows after it, not the run (GH-3938).
-
-    As in the Frankfurt file for 2022: the minute is :30 for 40 hours (nearest to the hour after, as near as to the
-    hour before) and then :29 for 8 hours. The 40 rows keep the hours that rounding gave them, and the 8 follow them
-    an hour on, each 31 min from the raw end instead of 29, so that 8 stamps change and not 40.
+    12:40 and 13:20 are both 20 min from 13:00.
     """
-    stamps = [*_stamps("20220815", 0, 30, 24), *_stamps("20220816", 0, 30, 16), *_stamps("20220816", 16, 29, 8)]
-    df = _parse_solar(_solar_rows(stamps))
-    assert df.height == 48
-    assert df.get_column("timestamp").is_unique().all()
-    origin = dt.datetime(2022, 8, 15, tzinfo=ZoneInfo("UTC"))
-    served = [int((timestamp - origin).total_seconds() // 3600) for timestamp in df.get_column("timestamp")]
-    assert served == [*range(1, 41), *range(41, 49)]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:40", "2022081713:20"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0]
+    assert df.get_column("timestamp").to_list() == [dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))]
+    (warning,) = _solar_warnings(caplog)
+    assert "MESS_DATUM 2022081713:20 -> 2022-08-17 13:00 UTC, as near as 2022081712:40 (20 min)" in warning
+    assert "which is earlier and is kept" in warning
+    assert "FG_LBERG=2.0" in warning
 
 
-def test_solar_hourly_says_when_a_row_has_no_free_hour_near_it(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that rows that cannot get an hour within one of their own are kept, apart, and a warning says so (GH-3938).
+def test_solar_hourly_counts_a_repeated_raw_stamp_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a raw stamp that a station lists twice is one source hour: one row, and no warning (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:22", "2022081712:22", "2022081713:22"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0, 3.0]
+    assert df.get_column("timestamp").dt.hour().to_list() == [12, 13]
+    assert _solar_warnings(caplog) == []
 
-    Four hours that all end between 12:30 and 12:45 are nearest to 13:00, and within an hour of it are 12:00, 13:00
-    and 14:00, which are three. They are stamped the hour after the one before them, as far as it needs to be, and
-    none is dropped.
-    """
-    stamps = ["2022081712:30", "2022081712:35", "2022081712:40", "2022081712:45"]
+
+def test_solar_hourly_rounds_rows_that_do_not_collide_to_the_nearest_hour(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that rows that no other row shares an hour with are rounded as they were, :30 up (GH-3938)."""
+    stamps = ["2022081700:22", "2022081701:41", "2022081702:30", "2022081705:59"]
     with caplog.at_level(logging.WARNING):
         df = _parse_solar(_solar_rows(stamps))
-    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0, 2.0, 3.0, 4.0]
-    assert df.get_column("timestamp").dt.hour().to_list() == [13, 14, 15, 16]
-    assert "3 source hour(s) of solar.zip" in caplog.text
-    assert "no row is lost" in caplog.text
+    assert df.get_column("timestamp").dt.hour().to_list() == [0, 2, 3, 6]
+    assert _solar_warnings(caplog) == []
 
 
-def test_solar_hourly_keeps_the_true_local_time_of_a_moved_row() -> None:
-    """Test that `true_local_time_offset` stays the minutes from the raw stamp to MESS_DATUM_WOZ for a moved row.
+UTC = ZoneInfo("UTC")
 
-    The offset is taken from the raw stamps before the hour is assigned: 12:30 to 13:00 WOZ is 30 min, as 60 minus
-    the raw minute, whatever hour the row is served at (12:00 after it was moved) (GH-3938).
+
+def _two_collisions_in_two_years() -> str:
+    """Give the rows of a station that has one collision in 2022 and one in 2023, 12:30 and 13:29 each time."""
+    return _solar_rows(["2022081712:30", "2022081713:29", "2023081712:30", "2023081713:29"])
+
+
+def test_solar_hourly_warns_only_for_the_collisions_in_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a collision in a year that the request does not ask for is no warning (GH-3938).
+
+    The file holds the station's whole record, so a request for 2023 would else repeat the warnings for the years
+    before. Both rows are served as for any window: the window decides what is said, not what is dropped.
+    """
+    with caplog.at_level(logging.DEBUG):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2023, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2023081712:30" in warning
+    assert "2022081712:30" not in warning
+    assert "1 source hour(s)" in warning
+    assert any("2022081712:30" in record.getMessage() and record.levelno == logging.DEBUG for record in caplog.records)
+
+
+def test_solar_hourly_names_the_collisions_of_a_window_in_one_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two collisions in the window give one warning for the station that names both (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2 source hour(s)" in warning
+    assert "2022081712:30" in warning
+    assert "2023081712:30" in warning
+
+
+def test_solar_hourly_says_nothing_of_collisions_outside_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a window that holds no collision hour gives no warning at all (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_two_collisions_in_two_years(), (dt.datetime(2024, 1, 1, tzinfo=UTC), None))
+    assert df.height == 2
+    assert _solar_warnings(caplog) == []
+
+
+def test_solar_hourly_keeps_the_true_local_time_of_the_kept_row() -> None:
+    """Test that `true_local_time_offset` is the minutes from the kept row's raw stamp to MESS_DATUM_WOZ (GH-3938).
+
+    13:29 to 14:00 WOZ is 31 min, 60 minus the raw minute; the dropped 12:30 row's 30 is not served.
     """
     df = _parse_solar(FRANKFURT_2022_08_17)
     offsets = dict(
@@ -416,21 +426,23 @@ def test_solar_hourly_keeps_the_true_local_time_of_a_moved_row() -> None:
             df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("mess_datum_woz").to_list(), strict=True
         )
     )
-    assert offsets[218.0] == "30"
     assert offsets[182.0] == "31"
-    assert df.get_column("mess_datum_woz").cast(pl.Int64).to_list() == [30] * 4 + [31] * 13
+    assert df.get_column("mess_datum_woz").cast(pl.Int64).to_list() == [30] * 3 + [31] * 13
 
 
-def test_solar_hourly_assigns_the_hours_of_each_station_apart() -> None:
-    """Test that two stations in one file do not take each other's hours (GH-3938).
-
-    12:30 and 13:29 are 59 min apart: 12:00 and 13:00 keep them nearer to their ends than 13:00 and 14:00 do.
-    """
+def test_solar_hourly_decides_the_hours_of_each_station_apart(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two stations in one file do not take each other's hours, and each is named in its own warning."""
     stamps = ["2022081712:30", "2022081713:29"]
-    df = _parse_solar(_solar_rows(stamps, "1420") + _solar_rows(stamps, "1975"))
-    assert df.height == 4
-    for station in ("1420", "1975"):
-        assert df.filter(pl.col("station_id") == station).get_column("timestamp").dt.hour().to_list() == [12, 13]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(stamps, "1420") + _solar_rows(stamps, "1975"))
+    assert df.height == 2
+    assert sorted(df.get_column("station_id").to_list()) == ["1420", "1975"]
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [2.0, 2.0]
+    warnings = _solar_warnings(caplog)
+    assert len(warnings) == 2
+    assert {"1420", "1975"} == {
+        station for station in ("1420", "1975") if any(f"station {station}" in w for w in warnings)
+    }
 
 
 def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptureFixture) -> None:

@@ -336,139 +336,78 @@ def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
     return (true_local_time - stamp).dt.total_minutes().cast(pl.String)
 
 
-#: how far from its natural hour a row may be moved when a collision is resolved
-SOLAR_MOVE_HOURS = 1
-#: what a row that is not stamped its natural hour costs, which is more than the distances of all the rows of a file
-#: together, so that the rows that are moved are counted before their distances (see `_best_hours`)
-_MOVE_COST = 10**10
-_UNREACHABLE = 10**30
+def _round_solar_stamps(
+    df: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
+) -> pl.DataFrame:
+    """Stamp the hourly solar rows (`YYYYMMDDHH:MM`) with the clock hour their raw end is nearest to (GH-3938).
 
+    The raw stamp is the minute the source hour ended, which differs by station and date (:00 to :59), and the clock
+    hour is that stamp rounded to the nearest hour (:30 up), as it always was. Where the minute drifts across :30,
+    two source hours round to one clock hour (12:30 and 13:29 are both 13:00). One row per station and hour is
+    served: the one whose raw end is nearest the hour (13:29), the earlier one if both are as near. Before, one of
+    them was dropped without a word, whichever the merge happened to keep.
 
-def _natural_hour(minute: int) -> int:
-    """Give the clock hour (since the epoch) that a stamp (minutes since the epoch) is nearest to, :30 rounding up."""
-    return (minute + 30) // 60
+    The rows that are dropped for it are logged: one warning for each station of the file, with the number and each
+    row's raw `MESS_DATUM`, hour and values, for those whose hour lies in the `window` of the request (a bound that
+    is None is open; no window is the whole file). The file holds the station's whole record, so a collision in a
+    year nobody asked for is a debug line only.
 
-
-def _best_hours(minutes: list[int], natural: list[int], first: int, last: int) -> list[int] | None:
-    """Give the hours of the rows `first` to `last` that lie nearest their raw stamps, or None if none fit.
-
-    The hours are strictly increasing, each at most `SOLAR_MOVE_HOURS` from its natural hour, above the hour of the
-    row before the segment and below that of the row after it, both of which keep their natural hours. The fewest
-    rows are moved from their natural hour (a stamp that was no collision stays as it was, so the collision is
-    settled at the nearest free hour), and of the assignments that move as few, the one whose stamps lie nearest
-    the raw stamps (the sum of the distances in minutes) is taken. Where two are as near, the one with the later
-    stamps at the first row they differ at is taken, which is what rounding :30 up does for a single row.
-
-    It is found from the end (the least total of the rows from a row on, for each hour the row can have) and then
-    read off from the front, which keeps the tie rule and costs a few steps for each row.
+    A raw stamp that the file lists twice for one station is one source hour: the first row is kept, and the
+    duplicates are only counted in a debug line. A row is never moved to another hour.
     """
-    low = natural[first - 1] if first > 0 else None
-    high = natural[last + 1] if last + 1 < len(natural) else None
-    reach = range(-SOLAR_MOVE_HOURS, SOLAR_MOVE_HOURS + 1)
-    rows = last - first + 1
-    # suffix[j][k]: the least total distance of the rows from first + j on, when row first + j has the hour
-    # natural + reach[k] and the rows after it have greater ones
-    suffix = [[_UNREACHABLE] * len(reach) for _ in range(rows)]
-    for j in range(rows - 1, -1, -1):
-        row = first + j
-        for k, move in enumerate(reach):
-            hour = natural[row] + move
-            if j == rows - 1:
-                rest = 0 if high is None or hour < high else _UNREACHABLE
+    raw = df.get_column("timestamp").str.to_datetime(TIME_FORMAT_SOLAR, time_zone="UTC")
+    frame = df.with_row_index("_position").with_columns(raw.alias("_raw"), raw.dt.round("1h").alias("_hour"))
+    frame = frame.unique(subset=["station_id", "_raw"], keep="first", maintain_order=True)
+    if (duplicates := df.height - frame.height) > 0:
+        log.debug(f"{duplicates} row(s) of {filename} repeat the raw stamp of another row of the station and are one.")
+    frame = frame.with_columns((pl.col("_raw") - pl.col("_hour")).dt.total_seconds().abs().alias("_distance"))
+    frame = frame.sort(["station_id", "_hour", "_distance", "_raw"], maintain_order=True)
+    frame = frame.with_columns(
+        pl.col("_position").first().over(["station_id", "_hour"]).alias("_kept"),
+        pl.col("_distance").first().over(["station_id", "_hour"]).alias("_kept_distance"),
+        pl.col("timestamp").first().over(["station_id", "_hour"]).alias("_kept_stamp"),
+    )
+    _log_dropped_solar_rows(frame.filter(pl.col("_position") != pl.col("_kept")), filename, window)
+    return (
+        frame.filter(pl.col("_position") == pl.col("_kept"))
+        .sort("_position")
+        .with_columns(pl.col("_hour").dt.strftime("%Y%m%d%H%M").alias("timestamp"))
+        .drop("_position", "_raw", "_hour", "_distance", "_kept", "_kept_distance", "_kept_stamp")
+    )
+
+
+def _log_dropped_solar_rows(
+    dropped: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None,
+) -> None:
+    """Say which hourly solar rows were dropped for a nearer one: a warning for each station for those in the window."""
+    lower, upper = (bound.astimezone(dt.UTC) if bound else None for bound in (window or (None, None)))
+    for (station,), rows in dropped.group_by("station_id", maintain_order=True):
+        inside = []
+        for row in rows.iter_rows(named=True):
+            minutes, kept_minutes = row["_distance"] // 60, row["_kept_distance"] // 60
+            how = (
+                f"as near as {row['_kept_stamp']} ({minutes} min), which is earlier and is kept"
+                if row["_distance"] == row["_kept_distance"]
+                else f"{minutes} min from it against {kept_minutes} min of {row['_kept_stamp']}"
+            )
+            text = (
+                f"MESS_DATUM {row['timestamp']} -> {row['_hour']:%Y-%m-%d %H:%M} UTC, {how} "
+                f"(FG_LBERG={row['fg_lberg']}, SD_LBERG={row['sd_lberg']})"
+            )
+            if (lower and row["_hour"] < lower) or (upper and row["_hour"] > upper):
+                log.debug(f"Hourly solar of station {station} ({filename}) outside the window: {text}")
             else:
-                rest = min(
-                    (suffix[j + 1][m] for m, after in enumerate(reach) if natural[row + 1] + after > hour),
-                    default=_UNREACHABLE,
-                )
-            if rest < _UNREACHABLE:
-                suffix[j][k] = (_MOVE_COST if move else 0) + abs(hour * 60 - minutes[row]) + rest
-    hours: list[int] = []
-    previous = low
-    for j in range(rows):
-        row = first + j
-        options = [
-            (suffix[j][k], -(natural[row] + move))
-            for k, move in enumerate(reach)
-            if suffix[j][k] < _UNREACHABLE and (previous is None or natural[row] + move > previous)
-        ]
-        if not options:
-            return None
-        previous = -min(options)[1]
-        hours.append(previous)
-    return hours
-
-
-def _keep_stamps_distinct(hours: list[int]) -> int:
-    """Make the hours strictly increasing in place, moving a row to the hour after the row before it, and count them."""
-    moved = 0
-    for row in range(1, len(hours)):
-        if hours[row] <= hours[row - 1]:
-            hours[row] = hours[row - 1] + 1
-            moved += 1
-    return moved
-
-
-def solar_hours(minutes: list[int], filename: str = "") -> list[int]:
-    """Give each source row of the hourly solar file its own clock hour: stamps as hours since the epoch, in order.
-
-    The rule (GH-3938): the stamp of a source row is the clock hour that its raw end is nearest to (:30 rounds up),
-    and a row is only moved where two of them would share a stamp. The rows around the collision, up to the free
-    hours (hours that no row has) on either side of it, are then given the hours that move the fewest rows from their
-    natural hour, each by at most one hour (`_best_hours`): a collision between 12:30 and 13:29 (13:00 twice) is
-    settled by the free hour next to it, 12:00 or 14:00, whichever of the two moves one row and keeps it the nearer
-    to its raw end, and where the free hour is further off, the rows between are moved along, as many as there are.
-    Of the assignments that move as many rows, the nearest to the raw ends is taken, and then the later stamps.
-    Stretches that share a free hour are settled as one. Whatever cannot be placed this way (there is no free hour
-    within one hour) is made distinct by `_keep_stamps_distinct`, which says so. Nothing but the raw stamps goes
-    into the result, and no row is dropped.
-    """
-    natural = [_natural_hour(minute) for minute in minutes]
-    collisions = [row for row in range(1, len(natural)) if natural[row] == natural[row - 1]]
-    if not collisions:
-        return natural
-    stretches: list[list[int]] = []
-    for row in collisions:
-        if stretches and row <= stretches[-1][1]:
-            continue
-        first = row - 1
-        while first > 0 and natural[first] - natural[first - 1] < 2:
-            first -= 1
-        last = row
-        while last < len(natural) - 1 and natural[last + 1] - natural[last] < 2:
-            last += 1
-        # two stretches that have one free hour between them share it, so they are settled together
-        if stretches and natural[first] - natural[stretches[-1][1]] <= 2:
-            stretches[-1][1] = last
-        else:
-            stretches.append([first, last])
-    hours = list(natural)
-    for first, last in stretches:
-        best = _best_hours(minutes, natural, first, last)
-        if best is not None:
-            hours[first : last + 1] = best
-    moved = _keep_stamps_distinct(hours)
-    if moved:
-        log.warning(
-            f"{moved} source hour(s) of {filename or 'the hourly solar file'} could not be given a stamp within one "
-            "hour of their raw end, as the hours around them are taken; each is stamped the hour after the row "
-            "before it, so that no row is lost.",
-        )
-    return hours
-
-
-def _assign_solar_hours(df: pl.DataFrame, filename: str) -> pl.DataFrame:
-    """Replace the raw stamp of the hourly solar rows (`YYYYMMDDHH:MM`) by the clock hour of its own (`solar_hours`)."""
-    raw = df.get_column("timestamp").str.to_datetime(TIME_FORMAT_SOLAR, time_zone="UTC").dt.epoch("s") // 60
-    frame = df.select("station_id", raw.alias("minute")).with_row_index("position")
-    hours = [0] * df.height
-    # a file holds the one station of its name, but a series is only ever one station's
-    for (_station,), series in frame.group_by("station_id", maintain_order=True):
-        series = series.sort("minute", maintain_order=True)
-        assigned = solar_hours(series.get_column("minute").to_list(), filename)
-        for position, hour in zip(series.get_column("position").to_list(), assigned, strict=True):
-            hours[position] = hour
-    stamp = pl.from_epoch(pl.Series(hours, dtype=pl.Int64) * 3600, time_unit="s").dt.replace_time_zone("UTC")
-    return df.with_columns(stamp.dt.strftime("%Y%m%d%H%M").alias("timestamp"))
+                inside.append(text)
+        if inside:
+            message = (
+                f"Hourly solar of station {station} ({filename}): {len(inside)} source hour(s) round to an hour that a "
+                f"nearer source hour of the station also rounds to, and are dropped: {'; '.join(inside)}."
+            )
+            log.warning(message)
 
 
 COLUMNS_MAPPING = {
@@ -543,10 +482,15 @@ def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
-    """Parse the climate observations data from the DWD."""
+    """Parse the climate observations data from the DWD.
+
+    `window` is the request's (start, end), which the rows of a file that are left out for another are reported for
+    (the hourly solar, GH-3938); without it every row of the file is.
+    """
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
-        data = [_parse_climate_observations_data(file, dataset, period) for file in files]
+        data = [_parse_climate_observations_data(file, dataset, period, window) for file in files]
         if not data:
             return pl.LazyFrame()
         try:
@@ -558,7 +502,7 @@ def parse_climate_observations_data(
     else:
         data = []
         for file in files:
-            data.append(_parse_climate_observations_data(file, dataset, period))
+            data.append(_parse_climate_observations_data(file, dataset, period, window))
         if not data:
             return pl.LazyFrame()
         return pl.concat(_drop_mez_copies_of_utc_rows(files, data, dataset, period))
@@ -568,6 +512,7 @@ def _parse_climate_observations_data(  # noqa: C901
     file: File,
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if isinstance(file.content, Exception):
@@ -659,12 +604,10 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns
     elif dataset == DwdObservationMetadata.hourly.solar:
-        # The raw stamp is the minute the hour ended, and the minute differs by station and date (:00 to :59). The
-        # served stamp is the clock hour that ends nearest to it, but two source hours can end in one clock hour
-        # (12:30 and 13:29 are both 13:00), so the hours are assigned to the rows together (GH-3938), never
-        # one by one: a row that shared its stamp with another was dropped as a duplicate
+        # The raw stamp is the minute the hour ended and differs by station and date (:00 to :59). It is rounded to the
+        # nearest hour, and of two rows that round to one hour the nearer one is kept and the other is logged (GH-3938)
         df = df.map_batches(
-            lambda frame: _assign_solar_hours(frame, file.filename),
+            lambda frame: _round_solar_stamps(frame, file.filename, window),
             predicate_pushdown=False,
             projection_pushdown=False,
             streamable=False,
