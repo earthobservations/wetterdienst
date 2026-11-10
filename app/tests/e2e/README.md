@@ -23,6 +23,9 @@ projects: [
 # Install Firefox (current default)
 npx playwright install firefox
 
+# The specs of the dialogs on a phone (dialog-touch-scroll.spec.ts) run in Chromium, the `chromium-touch` project
+npx playwright install chromium
+
 # Or install all browsers
 npx playwright install
 

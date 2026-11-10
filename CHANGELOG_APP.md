@@ -32,6 +32,11 @@ Types of changes:
 
 ### Fixed
 
+- `[Navigation]` On a phone, a finger dragged on an open dialog (the search, the place dialog of
+  "Ask the weather", the Menu's sheet) moves only the list in it and never the page behind: not
+  from the backdrop, not from a part of the dialog that does not scroll, and not by going on past
+  the end of the list, also in a browser that does not hold the page still by `overflow: hidden`
+  on the body. Pinch zoom stays (GH-3761)
 - `[Explorer]` The window offered for a refused date range that reaches past today ends today at
   the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
   and answers empty. The rows it names are those of the part up to today, and where that part fits

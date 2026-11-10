@@ -325,7 +325,7 @@ function onKeydown(event: KeyboardEvent) {
       tabindex="0"
       :aria-label="t('shell.results')"
       :aria-activedescendant="activeId"
-      class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+      class="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain p-2"
       @keydown="onKeydown"
     >
       <div v-for="group in shown" :key="group.id" role="group" :aria-labelledby="`${listId}-group-${group.id}`">

@@ -42,7 +42,12 @@ export default defineAppConfig({
     },
     modal: {
       slots: {
-        content: 'rounded-2xl',
+        // a finger on a dialog moves what is scrolling in it and nothing behind it (GH-3761): where nothing in the dialog
+        // scrolls under it, it pans nothing (pinch-zoom stays, WCAG 1.4.4), and a scrolling part says so itself
+        // (`touch-pan-y`), so that this does not rest on the library's `overflow: hidden` of the body alone, which
+        // iOS Safari did not honour for touch
+        overlay: 'touch-pinch-zoom overscroll-contain',
+        content: 'rounded-2xl touch-pinch-zoom overscroll-contain',
       },
     },
     popover: {
