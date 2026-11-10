@@ -1722,7 +1722,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                 <div
                   :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" tabindex="-1" class="app-chart"
                   role="figure" :aria-label="t('dataViewer.facetChartLabel', { parameter: facet.label })"
-                  style="height: 300px;"
+                  style="height: 300px; --app-chart-max-width: 760px;"
                 />
               </div>
             </div>

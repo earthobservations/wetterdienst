@@ -354,11 +354,14 @@
 /* The width of a Plotly chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
    wider it is drawn on the screen the smaller its type comes out on the sheet. At 820 px the Explorer's 12 px tick
    labels print at 6.3 pt on A4 with 1 in margins (5.2 pt from a window with a 980 px column, uncapped). The chart
-   stays in the middle of its column; the widget's chart is not capped (it fills its frame). The sizes are measured
+   stays in the middle of its column. A chart in a box of its own (the Explorer's facets: 34 px of padding and border)
+   is narrower (760 px, `--app-chart-max-width`: the print is scaled to the box, which is 34 px narrower, so a width of
+   820 - 34 prints at 6.1 pt), so that it prints as large as the others. The widget's chart
+   is not capped (it fills its frame). The sizes are measured
    in a printed PDF by tests/e2e/chart-print.spec.ts. */
 .app-chart {
   width: 100%;
-  max-width: 820px;
+  max-width: var(--app-chart-max-width, 820px);
   margin-inline: auto;
 }
 
@@ -1052,6 +1055,12 @@
     --ui-border-accented: var(--color-ink-400);
     --ui-border-inverted: var(--color-ink-950);
     --ui-primary: var(--color-brand-600);
+    /* Nuxt UI's colours of text and fills are shade 500 by day and 400 at night */
+    --ui-secondary: var(--ui-color-secondary-500);
+    --ui-success: var(--ui-color-success-500);
+    --ui-info: var(--ui-color-info-500);
+    --ui-warning: var(--ui-color-warning-500);
+    --ui-error: var(--ui-color-error-500);
     --app-focus-ring: var(--color-brand-700);
     --app-current: var(--color-tile-navy);
     --app-mark-bar: var(--color-brand-700);

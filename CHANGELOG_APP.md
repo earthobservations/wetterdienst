@@ -19,13 +19,13 @@ Types of changes:
 ### Changed
 
 - `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
-  column (not the widget's), and the Forecast's tick labels, axis titles and day names (8 to 10 px)
-  and the stripes' "Data availability" (11 px) are 12 px, so that they print legibly: on A4 with
-  1 in margins the smallest text of each chart is 6.2 pt (from a 1100 px window it was 5.2 pt for
-  the Explorer, 4.8 pt for the stripes and 3.9 pt for the Forecast) (GH-3558)
-- `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
-  and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
-  page and the glossary) is dark now, as in light mode (GH-3558)
+  column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
+  (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
+  stripes' "Data availability" (11 px) are 12 px (the day names 10 px where days are narrow, the
+  titles 10 px in the compact view; a long title is broken in two lines, and the time labels are
+  spaced out on a phone), so that they print legibly: on A4 with 1 in margins the smallest text of
+  each chart is 6.2 pt (from a 1100 px window it was 5.2 pt for the Explorer, 4.8 pt for the
+  stripes and 3.9 pt for the Forecast) (GH-3558)
 - `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
   eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
   `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
@@ -40,6 +40,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
+  and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
+  page and the glossary) is dark now, as in light mode (GH-3558)
 - `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
   the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
   not only a tooltip (GH-3951)

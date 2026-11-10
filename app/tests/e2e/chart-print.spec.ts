@@ -70,11 +70,11 @@ const SHEETS = [
   { format: 'Letter', margin: '1in' },
 ] as const
 
-/** Every piece of text the first chart draws: its tick labels, titles, legend and annotations, one string per line */
+/** Every piece of text the charts of the page draw: their tick labels, titles, legend and annotations, one string per line */
 async function chartTexts(page: Page): Promise<string[]> {
-  const texts = await page.locator('.js-plotly-plot').first().evaluate((chart) => {
+  const texts = await page.locator('.js-plotly-plot').evaluateAll((charts) => {
     const found = new Set<string>()
-    for (const text of chart.querySelectorAll('svg.main-svg text')) {
+    for (const text of charts.flatMap(chart => [...chart.querySelectorAll('svg.main-svg text')])) {
       const lines = text.querySelectorAll('tspan')
       for (const part of lines.length ? lines : [text]) {
         const value = part.textContent?.trim()
@@ -85,6 +85,24 @@ async function chartTexts(page: Page): Promise<string[]> {
     return [...found]
   })
   return texts
+}
+
+/** Prints the page on every sheet and holds the smallest of `texts` to `floor` points (and finds every one of them) */
+async function expectPrintedAtLeast(page: Page, texts: string[], floor: number) {
+  for (const sheet of SHEETS) {
+    const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+    const sizes = new Map<string, number>()
+    for (const run of pdfTextRuns(await page.pdf({ format: sheet.format, margin }))) {
+      // a string the chart draws that is also drawn elsewhere on the page counts at its smallest
+      const text = run.text.trim()
+      if (texts.includes(text))
+        sizes.set(text, Math.min(sizes.get(text) ?? Infinity, run.size))
+    }
+    // every string of the chart is in the PDF (a string that is not is a measurement that missed it)
+    expect(texts.filter(text => !sizes.has(text)), `${sheet.format} ${sheet.margin}: not in the PDF`).toEqual([])
+    const [text, size] = [...sizes.entries()].sort((a, b) => a[1] - b[1])[0]!
+    expect(size, `${sheet.format} ${sheet.margin}: ${JSON.stringify(text)} in points`).toBeGreaterThanOrEqual(floor)
+  }
 }
 
 for (const chart of CHARTS) {
@@ -119,26 +137,13 @@ for (const chart of CHARTS) {
         const texts = await chartTexts(page)
         expect(texts.length).toBeGreaterThan(0)
 
-        for (const sheet of SHEETS) {
-          const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
-          const sizes = new Map<string, number>()
-          for (const run of pdfTextRuns(await page.pdf({ format: sheet.format, margin }))) {
-            // a string the chart draws that is also drawn elsewhere on the page counts at its smallest
-            const text = run.text.trim()
-            if (texts.includes(text))
-              sizes.set(text, Math.min(sizes.get(text) ?? Infinity, run.size))
-          }
-          // every string of the chart is in the PDF (a string that is not is a measurement that missed it)
-          expect(texts.filter(text => !sizes.has(text)), `${sheet.format} ${sheet.margin}: not in the PDF`).toEqual([])
-          const [text, size] = [...sizes.entries()].sort((a, b) => a[1] - b[1])[0]!
-          expect(size, `${sheet.format} ${sheet.margin}: ${JSON.stringify(text)} in points`).toBeGreaterThanOrEqual(chart.floor)
-        }
+        await expectPrintedAtLeast(page, texts, chart.floor)
       })
     }
   })
 }
 
-test('the explorer\'s faceted charts are capped as well', async ({ page, baseURL }) => {
+test('the explorer\'s faceted charts are capped as well, and print as large as the single one', async ({ page, baseURL, browserName }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await mockBackend(page, baseURL!)
   await page.goto(EXPLORER)
@@ -146,7 +151,10 @@ test('the explorer\'s faceted charts are capped as well', async ({ page, baseURL
   await page.getByLabel('Facet by parameter').check()
   await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
   for (const chart of await page.locator('.js-plotly-plot').all())
-    expect((await chart.boundingBox())!.width).toBeLessThanOrEqual(MAX_WIDTH)
+    expect((await chart.boundingBox())!.width).toBeLessThanOrEqual(MAX_WIDTH - 34)
+  // the box of a facet has 34 px of padding and border, which the print is scaled with: the chart is narrower by them
+  test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+  await expectPrintedAtLeast(page, await chartTexts(page), CHARTS[0]!.floor)
 })
 
 // A page printed from the dark theme is the light page (#3615 made the charts light; the rest of the page was pale
@@ -161,6 +169,14 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   // the charts are drawn light for the print, which takes a drawing for some of them
   if (await page.locator('.js-plotly-plot').count())
     await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'light')
+  // the semantic colours (an alert, a badge, a link): probes that wear them, where the page has no such state to reach
+  await page.evaluate(() => {
+    const probes = document.createElement('div')
+    probes.innerHTML = ['text-primary', 'text-secondary', 'text-success', 'text-info', 'text-warning', 'text-error', 'bg-warning', 'bg-error', 'text-muted', 'border-default']
+      .map(name => `<span class="${name}" style="border: 1px solid">${name}</span>`)
+      .join('')
+    document.querySelector('#__nuxt')!.append(probes)
+  })
   // and the colours of the page, which the buttons and links transition to (a style read before is a mix of both)
   await page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))))
   return page.evaluate(() => {

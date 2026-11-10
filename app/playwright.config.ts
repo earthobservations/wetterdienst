@@ -7,11 +7,14 @@ const PORT = process.env.E2E_PORT || '4000'
 // the spec that prints charts to a PDF and reads the sizes of their text: it runs in Chromium, the others in Firefox
 const PDF_SPEC = /chart-print\.spec\.ts$/
 
+// The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
+// A project's own `testIgnore` replaces the top-level one, so every project carries this list.
+const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']
+
 export default defineConfig({
   testDir: './tests/e2e',
-  // The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
-  // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md)
-  testIgnore: process.env.A11Y === '1' ? undefined : '**/accessibility.spec.ts',
+  testIgnore: A11Y_IGNORE,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -32,9 +35,9 @@ export default defineConfig({
     // print spec as well
     ? [{ name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }]
     : [
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: PDF_SPEC },
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC] },
         // the print spec measures a PDF, and `page.pdf` is Chromium's alone
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC },
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC, testIgnore: A11Y_IGNORE },
         // Uncomment to test in multiple browsers:
         // {
         //   name: 'webkit',

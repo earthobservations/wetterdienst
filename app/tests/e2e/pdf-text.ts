@@ -129,6 +129,12 @@ function contentRuns(content: string, font: (name: string) => { bytes: number, m
     for (let at = 0; at < hex.length; at += bytes * 2)
       text.value += map.get(Number.parseInt(hex.slice(at, at + bytes * 2), 16)) ?? '�'
   }
+  /** Hands over the run gathered so far, if it holds text */
+  const flush = () => {
+    if (text && text.value)
+      runs.push({ text: text.value, size: text.size, page, x: text.x, y: text.y })
+    text = null
+  }
   const start = () => {
     const matrix = multiply(tm, ctm)
     // the size is the font size times the length of the matrix's unit vector across the line (its determinant's root)
@@ -158,13 +164,15 @@ function contentRuns(content: string, font: (name: string) => { bytes: number, m
         ctm = multiply(numbers(), ctm)
         break
       case 'BT':
+        flush()
         tm = IDENTITY
-        text = null
         break
       case 'Tf':
         current = { name: operands.at(-2)!.slice(1), size: Number(operands.at(-1)) }
         break
       case 'Tm':
+        // a new text matrix starts a new run (one `BT` can hold several): the one gathered so far is done
+        flush()
         tm = numbers()
         start()
         break
@@ -190,11 +198,7 @@ function contentRuns(content: string, font: (name: string) => { bytes: number, m
         }
         break
       case 'ET':
-        if (text && (text as { value: string }).value) {
-          const done: { value: string, size: number, x: number, y: number } = text
-          runs.push({ text: done.value, size: done.size, page, x: done.x, y: done.y })
-        }
-        text = null
+        flush()
         break
     }
     operands.length = 0

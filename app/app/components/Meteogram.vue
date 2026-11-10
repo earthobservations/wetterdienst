@@ -9,6 +9,7 @@ import tzLookup from 'tz-lookup'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { fitAxisTitle, MARGIN_LEFT, MARGIN_RIGHT, plotWidth, tickStepHours } from '~/utils/meteogram-ticks'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
@@ -49,7 +50,6 @@ const view = ref<MeteogramView>(props.daysOnly ? 'compact' : 'chart')
 const compact = computed(() => view.value === 'compact')
 // The chart's type in px (GH-3558): a printed chart is scaled down, so 12 px ticks print at about 6 pt
 const TICK_FONT = 12
-const TITLE_FONT = 12
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
 const MAX_COMPACT_DAYS = 7
@@ -1164,34 +1164,12 @@ async function renderChartActual() {
   const extraRight = 0
   const annotations: any[] = []
 
-  // Available plot width drives tick density — avoids overlap on narrow mobile screens.
-  const plotInnerWidth = Math.max(200, (chartRef.value?.clientWidth ?? 800) - 68)
+  // Available plot width drives tick density: it avoids overlap on narrow mobile screens
+  const plotInnerWidth = plotWidth(chartRef.value?.clientWidth || 800)
   const rangeHours = (displayMaxTime - minTime) / 3_600_000
 
   if (isoDates.length > 0) {
-    // Each "HH:mm" label (12 px) needs ~46 px minimum to avoid overlap.
-    const maxTicks = Math.floor(plotInnerWidth / 46)
-    let tickMs: number
-    if (rangeHours <= 24) {
-      tickMs = 1 * 3_600_000
-    }
-    else if (rangeHours <= 48 && maxTicks >= 16) {
-      tickMs = 3 * 3_600_000
-    }
-    else if (rangeHours <= 48) {
-      tickMs = 6 * 3_600_000
-    }
-    else {
-      // Pick the coarsest granularity that still fits within maxTicks.
-      const candidates = [6, 12, 24, 48]
-      tickMs = 24 * 3_600_000
-      for (const h of candidates) {
-        if (Math.ceil(rangeHours / h) <= maxTicks) {
-          tickMs = h * 3_600_000
-          break
-        }
-      }
-    }
+    const tickMs = tickStepHours(rangeHours, plotInnerWidth) * 3_600_000
 
     const startTick = Math.ceil(minTime / tickMs) * tickMs
     const tickVals: string[] = []
@@ -1882,12 +1860,29 @@ async function renderChartActual() {
     return !panelId || visiblePanels.value[panelId as keyof typeof visiblePanels.value] !== false
   })
 
+  // The axis titles are written along their panel (88 px of a 540 px chart), which a long one of 12 px does not
+  // fit (German "Niederschlag mm"): such a title is broken into two lines, and the left margin grows by the second
+  const titleFont = compact.value ? 10 : TICK_FONT
+  const plotHeight = (chartRef.value?.clientHeight ?? 540) - ((compact.value ? 44 : 72) + extraTop) - (compact.value ? 4 : 8)
+  const axisTitleTexts = {
+    wind: t('meteogram.chart.axisWind'),
+    precip: t('meteogram.chart.axisPrecip'),
+    cloud: t('meteogram.chart.axisCloud'),
+    temp: t('meteogram.chart.axisTemp'),
+    pressure: t('meteogram.chart.axisPressure'),
+  }
+  const axisTitles = Object.fromEntries(Object.entries(axisTitleTexts).map(([key, title]) => {
+    const domain = domains[key]
+    return [key, fitAxisTitle(title, domain ? (domain[1] - domain[0]) * plotHeight : Infinity, titleFont)]
+  })) as Record<keyof typeof axisTitleTexts, ReturnType<typeof fitAxisTitle>>
+  const wrapsTitle = Object.values(axisTitles).some(title => title.lines === 2)
+
   // Layout
   const layout: any = {
     autosize: true,
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
-    margin: { l: 68, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
+    margin: { l: MARGIN_LEFT + (wrapsTitle ? titleFont + 2 : 0), r: MARGIN_RIGHT + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
     font: { family: '"Inter", system-ui, sans-serif', size: 11 },
     hovermode: 'x unified',
     hoverlabel: { font: { family: '"Inter", system-ui, sans-serif' } },
@@ -1917,7 +1912,7 @@ async function renderChartActual() {
     yaxis: {
       visible: !!domains.wind,
       domain: domains.wind ?? [0, 0],
-      title: { text: t('meteogram.chart.axisWind'), font: { size: TITLE_FONT, color: LABEL('cyan') }, standoff: 2 },
+      title: { text: axisTitles.wind.text, font: { size: titleFont, color: LABEL('cyan') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1933,7 +1928,7 @@ async function renderChartActual() {
     yaxis2: {
       visible: !!domains.precip,
       domain: domains.precip ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPrecip'), font: { size: TITLE_FONT, color: LABEL('blue') }, standoff: 2 },
+      title: { text: axisTitles.precip.text, font: { size: titleFont, color: LABEL('blue') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1949,7 +1944,7 @@ async function renderChartActual() {
     yaxis5: {
       visible: !!domains.cloud,
       domain: domains.cloud ?? [0, 0],
-      title: { text: t('meteogram.chart.axisCloud'), font: { size: TITLE_FONT, color: theme.value.textMuted }, standoff: 2 },
+      title: { text: axisTitles.cloud.text, font: { size: titleFont, color: theme.value.textMuted }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
@@ -1964,7 +1959,7 @@ async function renderChartActual() {
     yaxis3: {
       visible: !!domains.temp,
       domain: domains.temp ?? [0, 0],
-      title: { text: t('meteogram.chart.axisTemp'), font: { size: TITLE_FONT, color: LABEL('red') }, standoff: 2 },
+      title: { text: axisTitles.temp.text, font: { size: titleFont, color: LABEL('red') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
@@ -1980,7 +1975,7 @@ async function renderChartActual() {
     yaxis4: {
       visible: !!domains.pressure,
       domain: domains.pressure ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPressure'), font: { size: TITLE_FONT, color: LABEL('lime') }, standoff: 2 },
+      title: { text: axisTitles.pressure.text, font: { size: titleFont, color: LABEL('lime') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
