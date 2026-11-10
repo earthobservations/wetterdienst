@@ -10,7 +10,7 @@ useHead({ title: () => t('api.title') })
 // `$fetch` rather than `useFetch`: the answer is a fact about the backend, not page state, and
 // `useFetch` would key it by URL and hand back whatever the app shell already cached for
 // /api/version -- which is the version, fetched before this page existed.
-const backend = await $fetch<{ version: string, mcp_enabled?: boolean, mcp_path?: string | null }>('/api/version').catch(() => null)
+const backend = await $fetch<{ version: string, mcp_enabled?: boolean, mcp_path?: string | null }>('/api/version', API_ANSWER).catch(() => null)
 const mcpEnabled = computed(() => backend?.mcp_enabled === true)
 
 // The MCP endpoint is served on this app's own origin: the app proxies /mcp through to the

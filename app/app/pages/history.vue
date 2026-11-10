@@ -156,7 +156,7 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   immediate: false,
   // fetched by Show alone, not whenever the selection changes
   watch: false,
-  ...RETRY_TRANSIENT,
+  ...API_FETCH,
   query: computed(() => sent.value?.query ?? {}),
   // the answer carries the stations it was fetched for: the overview lists them, not the live selection,
   // which may have moved on since. Only the last Show's fetch answers, one Show superseded is cancelled.

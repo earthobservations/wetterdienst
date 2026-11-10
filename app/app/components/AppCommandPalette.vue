@@ -67,6 +67,7 @@ watchDebounced(query, async (value) => {
       query: placeMode.value
         ? { ...PLACE_NETWORK, name: text }
         : { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
+      ...API_ANSWER,
     })
     if (ticket === stationTicket) {
       // a station that stopped reporting years ago has no recent weather to ask about

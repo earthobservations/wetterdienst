@@ -44,9 +44,14 @@ Types of changes:
 
 ### Fixed
 
-- `[Print]` Printed with Chrome's default, without "Background graphics", the pages keep their icons
-  and the white labels of solid buttons and of the tool tiles, which came out blank or white on
-  white. The start page's navy band is white with an outline and black text on paper (GH-3960)
+- `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
+  site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
+  page's error card, where it read as no data ("no stations" on the map, an empty table or
+  forecast). The app's own `/api` proxy answers such a page with a 502 problem (GH-3841)
+- `[Print]` Printed with Chrome's default, without "Background graphics", the pages keep their icons,
+  the white labels of solid buttons, selected chips and map layers, the tool tiles and the on/off
+  state of the switches of the settings, which came out blank or white on white. The start page's
+  navy band is white with an outline and black text on paper (GH-3960)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)
