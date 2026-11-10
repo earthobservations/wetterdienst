@@ -24,6 +24,11 @@ Types of changes:
   and the plain `radiation_global_intensity` and `radiation_sky_short_wave_diffuse_intensity` are
   gone (GH-3134). Needs the backend that serves the new names: release the backend first. The Low
   German and Luxembourgish labels are not reviewed by a native speaker
+- `[App]` Nuxt UI is 4.12.0 (Reka UI 2.11.0). The station picker's list is announced by a screen
+  reader as a list of options, with the search field outside it, where it held a non-option child;
+  the error toasts no longer leave two hidden but focusable proxies in the page. The page-number
+  buttons of the tables are labelled by Nuxt UI's translations ("Letzte Seite", "Nächste Seite" and
+  so on) where they were English in every language. The accessibility baseline is empty (GH-3950)
 
 ### Fixed
 
