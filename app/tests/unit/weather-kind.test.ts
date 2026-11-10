@@ -109,7 +109,7 @@ describe('the icons and words of the weather kinds', () => {
       drizzle: 'i-ph-drop-half',
       fog: 'i-ph-cloud-fog',
       wind: 'i-ph-wind',
-      dust: 'i-ph-dots-nine',
+      dust: 'i-ph-wind',
       funnelCloud: 'i-ph-tornado',
       blowingSnow: 'i-ph-snowflake',
       cloudy: 'i-ph-cloud',

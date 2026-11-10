@@ -44,11 +44,6 @@ Types of changes:
 
 ### Fixed
 
-- `[Forecast]` A day with a funnel cloud (present weather 19, a tornado or waterspout) is named
-  "Funnel cloud" and drawn with the tornado icon in its day card, where it was "Sunny" if no rain
-  or cloud was forecast. The dust or sand storm, which had the tornado icon, is drawn as dots in
-  the air; the new word is in all eleven languages, the Low German, Luxembourgish, Czech and Polish
-  ones not reviewed by a native speaker (GH-3965)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)

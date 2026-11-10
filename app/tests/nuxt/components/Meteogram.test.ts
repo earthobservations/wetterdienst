@@ -629,7 +629,7 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     [71, 'snow', 'i-ph:cloud-snow', 'Snow'],
     [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
-    [33, 'dust', 'i-ph:dots-nine', 'Dust or sand storm'],
+    [33, 'dust', 'i-ph:wind', 'Dust or sand storm'],
     [38, 'blowingSnow', 'i-ph:snowflake', 'Blowing snow'],
     [69, 'sleet', 'i-ph:cloud-snow', 'Sleet'],
     // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965)
