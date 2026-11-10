@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<{
     dataset?: string
     parameters?: string[]
     dateRequired?: boolean
+    kind?: NetworkKind
   }
   showParameters?: boolean
   /** When set, restricts the provider select to this single value (e.g. Explorer is DWD-observation-only). */
@@ -223,6 +224,13 @@ const datasetDescription = computed<string>(() => {
   return resolutionData?.datasets[dataset.value]?.description ?? ''
 })
 
+// what the network serves (a forecast's readings lie ahead of today), where the coverage says
+const networkKind = computed<NetworkKind | undefined>(() => {
+  if (!coverage.value || !provider.value || !network.value)
+    return undefined
+  return coverage.value[provider.value]?.[network.value]?.kind
+})
+
 const dateRequired = computed<boolean>(() => {
   if (!coverage.value || !provider.value || !network.value)
     return false
@@ -421,10 +429,11 @@ function emitUpdate() {
     dataset: dataset.value,
     parameters: parameters.value,
     dateRequired: dateRequired.value,
+    kind: networkKind.value,
   })
 }
 
-watch([provider, network, resolution, dataset, parameters, dateRequired], () => {
+watch([provider, network, resolution, dataset, parameters, dateRequired, networkKind], () => {
   if (isInitializing.value)
     return
   emitUpdate()

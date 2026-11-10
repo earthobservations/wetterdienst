@@ -5,6 +5,8 @@ export interface ParameterSelection {
   dataset: string | undefined
   parameters: string[]
   dateRequired?: boolean
+  /** what the network serves, from the coverage: a forecast's readings lie ahead of today */
+  kind?: NetworkKind
 }
 
 export interface ParameterSelectionState {
