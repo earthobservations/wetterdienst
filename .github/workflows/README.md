@@ -124,6 +124,19 @@ release workflows tell their tags apart differently: `app-release.yml` by an `if
 job (the tag starts with `app-v`), so a backend release shows it as skipped, and `release.yml` by
 the strict `^v[0-9]+\.[0-9]+\.[0-9]+$` check job, which guards the PyPI publish.
 
+### Environments
+
+The jobs that hold a publishing credential name an environment, so that the repository can say which refs
+may use it (GH-3344): `publish` in `release.yml` is in `pypi` (deployment tag pattern `v*`, and the PyPI
+trusted publisher is bound to that name), and the two `deploy` jobs of `docker-publish.yml` and
+`docker-publish-app.yml` are in `production` (patterns `v*` and `app-v*`; the Coolify secrets are
+environment secrets there). A release is a tag, so a run from a branch, a pull request or a dispatch is
+refused the environment and does not read the secrets or mint the token. The tags themselves are guarded by
+a tag ruleset; `.github/RELEASE_STRATEGY.md` ("Who can release") lists the settings. A job that needs
+a new credential names an environment of its own rather than a repository secret, and every workflow keeps
+its top-level `permissions: {}`: the repository default of the token is read-only, so a workflow that forgets
+the line has no write access.
+
 ## App CI
 
 The app has two workflows, split along what each of them reads.
