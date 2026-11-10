@@ -55,6 +55,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` hourly `solar` no longer gives two source hours the same stamp and drops one:
+  where the minute that ends the hour crosses :30 (12:30 and 13:29 at Frankfurt), each source row
+  gets its own stamp, and the fewest rows next to the collision move by an hour to a free hour.
+  6 more values at Frankfurt since 2022, 22 at Hamburg since 2005 (GH-3938)
 - `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
   unit `MGN` is degrees from 0 to 359 from magnetic north, and that the value is the direction the
   current flows towards. A value outside 0 to 360 is now judged by the `range` check, as the wind
