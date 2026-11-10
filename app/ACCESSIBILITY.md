@@ -108,9 +108,10 @@ the Tailwind shades they had (cyan-500, lime-500, red-500, blue-500 and slate-40
 and 3.9:1 or more on the wash behind a toggle that is on (a mark that carries a state: 3:1, 1.4.11); the card of today
 has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`) and is named by an `aria-label` that
 is its `title`, the same i18n key (4.1.2, GH-3951). Colour is not the only cue of the state (1.4.1, GH-3951): a toggle that
-is on draws the filled variant of its icon (`i-ph-wind-fill`), one that is off the outline (`i-ph-wind`), which also
-differs in forced colours, where the wash and the edge are gone. `tests/nuxt/components/Meteogram.test.ts`
-holds that, the colours and the card's edge in the rendered component. The same test reads every `text-<colour>-<step>`
+is on draws the filled variant of its icon (`i-ph-wind-fill`), one that is off the outline (`i-ph-wind`). In forced colours the
+border is recoloured and is the same on and off, so only the icon's shape tells on from off there.
+`tests/nuxt/components/Meteogram.test.ts` holds that, the colours and the card's edge in the rendered component.
+`tests/unit/button-contrast.test.ts` reads every `text-<colour>-<step>`
 class of the markup from Tailwind's palette, `gray` (the app's `ink`) and, since GH-3952, `primary` and `brand` (the app's
 `brand` scale, read through `main.css`; `app.config.ts` makes `brand` the primary colour, and `.dark` changes which shade is
 `--ui-primary` but redefines no shade) and fails for one under 4.5:1 where it

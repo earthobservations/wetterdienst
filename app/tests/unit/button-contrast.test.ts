@@ -269,10 +269,12 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
   // Their shades are the same by day and at night: `.dark` changes which shade is `--ui-primary` (what `text-primary`
   // and the fill of a button say), never a `--color-brand-*` or `--color-ink-*`, which a test below holds
   function shade(hue: string, step: string) {
+    // a step that is not in the scale (`text-primary-150`) is no colour, which the scan reports, and no crash
+    const own = (scale: 'brand' | 'ink') => new RegExp(`--color-${scale}-${step}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)?.[1]
     if (hue === 'gray')
-      return ink(Number(step))
+      return own('ink')
     if (hue === 'primary' || hue === 'brand')
-      return token(`color-brand-${step}`)
+      return own('brand')
     const value = new RegExp(`--color-${hue}-${step}:\\s*(oklch\\([^)]*\\))`).exec(theme)?.[1]
     return value ? oklchToHex(value) : undefined
   }
@@ -388,6 +390,28 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
 
     it('has no icon in shade 500 by day, which is 3.47:1 on white', () => {
       expect(uses.filter(use => /^(?:[a-z0-9-]+:)*text-(?:primary|brand)-500$/.test(use.name) && !use.name.startsWith('dark:') && use.ground === 'white')).toEqual([])
+    })
+
+    // the icons are painted on a card, but a move onto the page's paper, a tinted or a night's wash must still read:
+    // shade 600 by day on `bg-gray-50` (the paper, ink-50) and `bg-primary-50`, shade 500 at night on the page canvas and
+    // on `bg-gray-800/50` over it
+    it.each([
+      ['600 by day, on the page paper (ink-50)', brand(600), PAPER],
+      ['600 by day, on bg-gray-50', brand(600), ink(50)],
+      ['600 by day, on bg-primary-50', brand(600), brand(50)],
+      ['500 at night, on the page canvas (ink-950)', brand(500), ink(950)],
+      ['500 at night, on bg-gray-800/50 over the canvas', brand(500), over(ink(800), ink(950), 0.5)],
+    ])('clears 4.5:1 for the icon in %s', (_where, color, ground) => {
+      expect(contrast(color, ground)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('reports a shade that is not in the scale, where it would otherwise throw', () => {
+      const found = collect([['x.vue', '<i class="text-primary-150 text-gray-150 text-brand-975 dark:text-primary-600">']])
+      expect(found.unreadable).toEqual([
+        'x.vue: text-primary-150 (not in the palette)',
+        'x.vue: text-gray-150 (not in the palette)',
+        'x.vue: text-brand-975 (not in the palette)',
+      ])
     })
 
     it('holds a primary class that is too light, by day and at night', () => {

@@ -27,17 +27,18 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
+  the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
+  not only a tooltip (GH-3951)
+- `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
+  hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
+  500 (3.5:1); at night they are unchanged (GH-3952)
 - `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
   cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
   take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at
   the least on a toggle that is on. A toggle tells a screen reader whether it is on
   (`aria-pressed`). The edge of the card of today is blue-600 by day (blue-400 before, 2.6:1) and
   blue-400 at night (blue-800 before, 1.8:1; now 6.0:1) (GH-3642)
-- `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon, one that is off
-  the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
-  not only a tooltip. `[App]` The icons and spinners in the primary colour (page headings, loading
-  spinners, hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the
-  lighter shade 500 (3.5:1); at night they are unchanged (GH-3951, GH-3952)
 - `[Explorer]` The warning icon beside a parameter that is not selected is red-600 by day and
   red-400 at night, where it was red-500 (3.8:1) (GH-3642)
 - `[History]` The error text is red-400 at night, where it was red-600 (3.3:1) (GH-3642)
