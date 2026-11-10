@@ -20,11 +20,16 @@ from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
+from wetterdienst.provider.imgw.fileindex import (
+    archive_expiries,
+    download_archives,
+    keep_files_overlapping,
+    list_files_for_interval,
+)
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
@@ -151,6 +156,11 @@ _ImgwHydrologyMetadataSpec = {
 ImgwHydrologyMetadata = build_metadata_model(_ImgwHydrologyMetadataSpec, "ImgwHydrologyMetadata")
 
 
+#: the name of a daily archive (``codz_2023_03.zip``, ``codz_2023.zip``): a prefix, the year, and the month where the
+#: archive is one of a month. The whole name is matched, so one with more or other tokens has no period
+_DAILY_FILE_NAME = r"^[^_]+_(\d{4})(?:_(\d{1,2}))?\.zip$"
+
+
 def _hydrology_daily_file_period() -> tuple[pl.Expr, pl.Expr]:
     """Give the first and last instant a hydrology daily zip file covers, from the ``year`` and ``month`` of its name.
 
@@ -247,15 +257,8 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        urls = self._get_urls(parameter_or_dataset)
-        files = download_files(
-            urls=urls,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
+        # an archive of a period that has ended is kept 12 hours, that of the period under way 5 minutes (GH-3931)
+        files = download_archives(self._get_archives(parameter_or_dataset), settings)
         # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx
         # after the retries -- is an outage, which dropped would read as a station without data
         for file in files:
@@ -369,8 +372,12 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             )
         return df
 
-    def _get_urls(self, dataset: DatasetModel) -> list[str]:
-        """Get all urls for the given dataset."""
+    def _get_archives(self, dataset: DatasetModel) -> dict[str, CacheExpiry]:
+        """Get the url of each archive of the dataset the request reads, with the expiry it is downloaded with.
+
+        The expiry follows the period of the archive (`archive_expiries`), which is read from its name once, by the
+        same expressions that select the archives of the request's window.
+        """
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = None
         folder_interval = None
@@ -387,33 +394,32 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip") & ~pl.col("file").str.starts_with("zjaw"))
+        if dataset.resolution.value == Resolution.DAILY:
+            # daily files are either per-month ("codz_YYYY_MM.zip", historical) or a single
+            # consolidated file per year ("codz_YYYY.zip", used from 2023 onwards); month is
+            # null for the latter and _hydrology_daily_file_period() covers the whole year. One anchored
+            # pattern reads both: a name that is neither (a third token, a second that is no month) has a null
+            # period, which is refused where the window selects and kept 5 minutes elsewhere
+            df_files = df_files.with_columns(
+                pl.col("file").str.extract(_DAILY_FILE_NAME, 1).cast(pl.Int64).alias("year"),
+                pl.col("file").str.extract(_DAILY_FILE_NAME, 2).cast(pl.Int64).alias("month"),
+            )
+            start, end = _hydrology_daily_file_period()
+        else:
+            # the hydrological year of the file's year starts two months before it, in November; it is kept
+            # until the end of the November after, a month past its end, as it always was
+            year = (
+                pl.col("file")
+                .str.strip_chars_end(".zip")
+                .str.split("_")
+                .list.last()
+                .str.to_datetime("%Y", time_zone="UTC", strict=False)
+            )
+            start = year.dt.offset_by("-2mo")
+            end = year.dt.offset_by("11mo").dt.offset_by("-1d")
         if interval is not None:
-            if dataset.resolution.value == Resolution.DAILY:
-                # daily files are either per-month ("codz_YYYY_MM.zip", historical) or a single
-                # consolidated file per year ("codz_YYYY.zip", used from 2023 onwards); month is
-                # null for the latter and _hydrology_daily_file_period() covers the whole year
-                df_files = df_files.with_columns(
-                    pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
-                )
-                df_files = df_files.with_columns(
-                    pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
-                    pl.col("year_month").list.get(1, null_on_oob=True).cast(pl.Int64).alias("month"),
-                )
-                start, end = _hydrology_daily_file_period()
-            else:
-                # the hydrological year of the file's year starts two months before it, in November; it is kept
-                # until the end of the November after, a month past its end, as it always was
-                year = (
-                    pl.col("file")
-                    .str.strip_chars_end(".zip")
-                    .str.split("_")
-                    .list.last()
-                    .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                )
-                start = year.dt.offset_by("-2mo")
-                end = year.dt.offset_by("11mo").dt.offset_by("-1d")
             df_files = keep_files_overlapping(df_files, start, end, interval)
-        return df_files.get_column("url").to_list()
+        return archive_expiries(df_files, end)
 
 
 @dataclass

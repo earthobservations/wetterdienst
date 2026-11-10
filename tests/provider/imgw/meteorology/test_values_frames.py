@@ -26,6 +26,7 @@ import polars as pl
 
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.util.network import File
@@ -86,7 +87,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, name: str, files: dict[str, str]) ->
     url = f"https://example.invalid/{name}"
     monkeypatch.setattr(imgw_meteorology_api, "list_files_for_interval", lambda *args, **kwargs: [url])  # noqa: ARG005
     monkeypatch.setattr(
-        imgw_meteorology_api,
+        imgw_fileindex,
         "download_files",
         lambda *args, **kwargs: [File(url=url, content=BytesIO(archive.getvalue()), status=200)],  # noqa: ARG005
     )
