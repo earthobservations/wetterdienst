@@ -55,6 +55,8 @@ Types of changes:
 
 ### Fixed
 
+- `imgw/meteorology` daily `synop` now returns the current year, whose files IMGW publishes per
+  month for all stations (it returned nothing for it before) (GH-3941)
 - `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
   unit `MGN` is degrees from 0 to 359 from magnetic north, and that the value is the direction the
   current flows towards. A value outside 0 to 360 is now judged by the `range` check, as the wind

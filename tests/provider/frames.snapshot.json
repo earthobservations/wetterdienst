@@ -270,6 +270,8 @@
   "tests/provider/imgw/hydrology/test_values_frames.py::test_imgw_hydrology_a_station_without_a_row_comes_out_as_the_empty_long_form": [["ImgwHydrologyValues daily/hydrology", "d9b22919", 0, "e3b0c44298fc1c14"]],
   "tests/provider/imgw/hydrology/test_values_frames.py::test_imgw_hydrology_a_value_that_is_no_number_is_null_and_does_not_raise": [["ImgwHydrologyValues daily/hydrology", "d9b22919", 6, "df9faeee78d52975"]],
   "tests/provider/imgw/hydrology/test_values_frames.py::test_imgw_hydrology_monthly_values_come_out_as_the_long_form": [["ImgwHydrologyValues monthly/hydrology", "d9b22919", 8, "aa349a1b2183a103"], ["ImgwHydrologyValues monthly/hydrology", "d9b22919", 9, "3109c2344ac71455"]],
+  "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_daily_synop_reads_a_closed_year_from_the_per_station_file": [["ImgwMeteorologyValues daily/synop", "d9b22919", 1, "5527409c70233be8"]],
+  "tests/provider/imgw/meteorology/test_api.py::test_imgw_meteorology_daily_synop_reads_the_year_under_way_from_its_monthly_files": [["ImgwMeteorologyValues daily/synop", "d9b22919", 2, "6950c5c09f624bf8"]],
   "tests/provider/imgw/meteorology/test_values_frames.py::test_imgw_meteorology_a_station_without_a_row_comes_out_as_the_empty_long_form": [["ImgwMeteorologyValues daily/precipitation", "d9b22919", 0, "e3b0c44298fc1c14"]],
   "tests/provider/imgw/meteorology/test_values_frames.py::test_imgw_meteorology_a_value_that_is_no_number_is_null_and_does_not_raise": [["ImgwMeteorologyValues daily/precipitation", "d9b22919", 34, "e37bbf202e2b7230"]],
   "tests/provider/imgw/meteorology/test_values_frames.py::test_imgw_meteorology_daily_climate_comes_out_as_the_long_form": [["ImgwMeteorologyValues daily/climate", "d9b22919", 9, "7d55efb0b579b492"]],

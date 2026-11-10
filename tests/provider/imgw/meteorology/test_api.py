@@ -1281,3 +1281,156 @@ def test_imgw_meteorology_a_file_name_without_a_period_is_an_error(monkeypatch: 
     files = ["https://example.invalid/2023_k.zip", "https://example.invalid/abcd_k.zip"]
     with pytest.raises(ValueError, match=r"abcd_k\.zip"):
         _meteorology_urls(monkeypatch, "daily", files, _utc(2023, 1, 1), _utc(2023, 2, 1))
+
+
+# The daily synop of the year under way is one file for every station and month, "2026_10_s.zip", in the layout of the
+# per-station "2025_375_s.zip" (65 columns, the station id first); the clock is set to 15 October 2026. Rows modelled
+# on those read on 2026-11-10 from both, of two stations.
+# BIELSKO-BIALA (349190600) and WARSZAWA (352200375), whose three last digits are the code of the per-station names.
+_S_D_ROWS = {
+    ("349190600", "BIELSKO-BIA£A", "2026", "09", "30"): "21.1,,8.4,,14.5,,6.0",
+    ("352200375", "WARSZAWA", "2026", "09", "30"): "17.0,,9.0,,12.0,,7.5",
+    ("349190600", "BIELSKO-BIA£A", "2026", "10", "01"): "21.5,,8.0,,13.9,,4.7",
+    ("352200375", "WARSZAWA", "2026", "10", "01"): "18.2,,10.1,,13.3,,5.0",
+    ("352200375", "WARSZAWA", "2025", "01", "01"): "6.5,,-1.8,,3.8,,-4.5",
+}
+
+
+def _s_d(*keys: tuple[str, str, str, str, str]) -> bytes:
+    lines = []
+    for key in keys:
+        station, name, year, month, day = key
+        lines.append(f'"{station}",{name},"{year}","{month}","{day}",{_S_D_ROWS[key]},,,"9",,,"9",,"9"')
+    return "\n".join(lines).encode("latin-1")
+
+
+def _synop_zips() -> dict[str, bytes]:
+    """Give the archives of the listing by name: the months of 2026 hold both stations, the closed year one."""
+
+    def archive(entry: str, content: bytes) -> bytes:
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr(entry, content)
+        return buffer.getvalue()
+
+    september = ("349190600", "BIELSKO-BIA£A", "2026", "09", "30"), ("352200375", "WARSZAWA", "2026", "09", "30")
+    october = ("349190600", "BIELSKO-BIA£A", "2026", "10", "01"), ("352200375", "WARSZAWA", "2026", "10", "01")
+    return {
+        "2025_375_s.zip": archive("s_d_375_2025.csv", _s_d(("352200375", "WARSZAWA", "2025", "01", "01"))),
+        "2026_09_s.zip": archive("s_d_09_2026.csv", _s_d(*september)),
+        "2026_10_s.zip": archive("s_d_10_2026.csv", _s_d(*october)),
+    }
+
+
+#: what the folders of 2025 and 2026 hold: the per-station files of the closed year (two stations), the months of 2026
+_SYNOP_LISTING = [
+    "2025_100_s.zip",
+    "2025_375_s.zip",
+    *(f"2026_{month:02d}_s.zip" for month in range(1, 11)),
+]
+
+
+def _serve_synop(monkeypatch: pytest.MonkeyPatch, listing: list[str]) -> tuple[list[str], dict[str, CacheExpiry]]:
+    """Serve ``listing`` and the archives of `_synop_zips` (404 for the rest), and record what is downloaded."""
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
+    from wetterdienst.provider.imgw.meteorology import api as imgw_api  # noqa: PLC0415
+
+    zips = _synop_zips()
+    downloaded: list[str] = []
+    expiries: dict[str, CacheExpiry] = {}
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend(urls)
+        expiries.update(dict.fromkeys(urls, ttl))
+        return [
+            File(url=url, content=BytesIO(zips[name]), status=200)
+            if (name := url.rsplit("/", 1)[-1]) in zips
+            else File(url=url, content=FileNotFoundError(url), status=404)
+            for url in urls
+        ]
+
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 10, 15, tzinfo=dt.UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
+    return downloaded, expiries
+
+
+def _synop_values(station_id: str, start: str, end: str) -> tuple[ImgwMeteorologyValues, pl.DataFrame]:
+    from tests.provider.value_stubs import stations_result  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "synop", "temperature_air_max_2m")],
+        start=start,
+        end=end,
+        settings=Settings(cache_disable=True),
+    )
+    values = stations_result(request, "daily", "synop", station_id).values()
+    return values, values.all().df
+
+
+def test_imgw_meteorology_daily_synop_reads_the_year_under_way_from_its_monthly_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The months of the year under way hold every station and are read for the one asked for (GH-3941).
+
+    The listing holds the per-station files of the closed year and the monthly files of 2026. A window in 2026 takes
+    the months it overlaps, September (final, 12 hours) and October (under way, 5 minutes), and the rows of the
+    station asked for only; the fetch-ahead names the same files with the same expiries.
+    """
+    # the folder of 2025 is not listed for a window in 2026 (`list_files_for_interval` descends into the folders that
+    # overlap it), so its files are not in the listing the stub serves
+    listing = [name for name in _SYNOP_LISTING if name.startswith("2026")]
+    downloaded, expiries = _serve_synop(monkeypatch, listing)
+
+    values, df = _synop_values("352200375", "2026-09-30", "2026-10-01")
+
+    assert downloaded == ["https://x/2026_09_s.zip", "https://x/2026_10_s.zip"]
+    assert expiries == {
+        "https://x/2026_09_s.zip": CacheExpiry.TWELVE_HOURS,
+        "https://x/2026_10_s.zip": CacheExpiry.FIVE_MINUTES,
+    }
+    assert set(df.get_column("station_id")) == {"352200375"}
+    assert df.sort("timestamp").select("timestamp", "value").rows() == [
+        (dt.datetime(2026, 9, 30, tzinfo=dt.UTC), 17.0),
+        (dt.datetime(2026, 10, 1, tzinfo=dt.UTC), 18.2),
+    ]
+    named = values._files_ahead("352200375", [values.sr.request.metadata["daily"]["synop"]])  # noqa: SLF001
+    assert list(named.urls) == downloaded
+    assert {url: named.ttl_of(url) for url in named.urls} == expiries
+
+
+def test_imgw_meteorology_daily_synop_reads_a_closed_year_from_the_per_station_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A closed year is the per-station file; no monthly file is downloaded for a year it covers (GH-3941).
+
+    IMGW replaces the monthly files by the per-station one when it closes the year, and for a while the folder may
+    hold both: the listing decides, and a year with a per-station file for the station is read from it alone, so that
+    no day is read twice and no all-station file is downloaded for nothing. Another station's file is not read.
+    """
+    # the folder of 2025 as it may look for a while: the per-station files and the months they replace
+    listing = [*_SYNOP_LISTING, *(f"2025_{month:02d}_s.zip" for month in range(1, 13))]
+    downloaded, expiries = _serve_synop(monkeypatch, listing)
+
+    values, df = _synop_values("352200375", "2025-01-01", "2025-01-02")
+
+    assert downloaded == ["https://x/2025_375_s.zip"]
+    assert expiries == {"https://x/2025_375_s.zip": CacheExpiry.TWELVE_HOURS}
+    assert df.select("timestamp", "value").rows() == [(dt.datetime(2025, 1, 1, tzinfo=dt.UTC), 6.5)]
+    named = values._files_ahead("352200375", [values.sr.request.metadata["daily"]["synop"]])  # noqa: SLF001
+    assert list(named.urls) == downloaded
+
+
+def test_imgw_meteorology_daily_synop_names_of_the_two_kinds_are_told_apart() -> None:
+    """``2026_10_s.zip`` is October of every station, ``2026_100_s.zip`` the year of the station ending in 100."""
+    from wetterdienst.provider.imgw.meteorology.api import _file_period  # noqa: PLC0415
+
+    names = pl.DataFrame({"file": ["2026_10_s.zip", "2026_100_s.zip", "1996_2000_100_s.zip"]})
+    start, end = _file_period(ImgwMeteorologyMetadata.daily.synop)
+    periods = names.select("file", start.alias("start"), end.alias("end"))
+    assert periods.select("start", "end").rows() == [
+        (dt.datetime(2026, 10, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 31, tzinfo=dt.UTC)),
+        (dt.datetime(2026, 1, 1, tzinfo=dt.UTC), dt.datetime(2026, 12, 31, tzinfo=dt.UTC)),
+        (dt.datetime(1996, 1, 1, tzinfo=dt.UTC), dt.datetime(2000, 12, 31, tzinfo=dt.UTC)),
+    ]
