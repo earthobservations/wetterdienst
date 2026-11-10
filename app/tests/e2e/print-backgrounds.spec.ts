@@ -1,0 +1,238 @@
+import type { Page } from '@playwright/test'
+import type { Handlers } from './accessibility/mock-backend'
+import { expect, test } from '@playwright/test'
+import { askHandlers } from './accessibility/ask-backend'
+import { mockBackend } from './accessibility/mock-backend'
+import { pdfFillColors, pdfTextRuns } from './pdf-text'
+
+// A print without background graphics (GH-3960). Chrome's print dialog has "Background graphics" off, and so has
+// `page.pdf` unless it is asked for them: every background is left out. The icons of the app are masks over a
+// background colour (@nuxt/icon), so they print as nothing; a label that is white on a solid fill (a solid button, a
+// tool's tile) prints white on white; and so would the white text of the start page's navy band. The small marks
+// keep their fill (`print-color-adjust: exact`, main.css), the band is white with an outline in print (index.vue).
+//
+// What this holds, on the pages that carry them, in a print from the light theme and from the dark one:
+// - the computed style under the print medium: every icon is `exact`, and so is the fill behind everything that is
+//   light (a white label, a white glyph), which is the rule that finds an element that is neither forced nor dark;
+//   nothing light stands on the paper itself (white on white)
+//   and a switch (a track and a thumb, which are fills only) keeps both
+// - the PDF printed with `printBackground: false`: the fill of every such element is drawn in it (the weaker check:
+//   a colour is found, not seen), and so is the text of the buttons (the labels are text in the PDF whatever their
+//   colour, so this alone would not see a white one)
+
+// a page of the list is loaded and scanned and printed twice: more than the 30 s of a test on a loaded machine
+test.setTimeout(60_000)
+
+const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
+
+interface Target {
+  name: string
+  path: string
+  reach?: (page: Page) => Promise<void>
+  /** What the mock backend answers beyond its own */
+  handlers?: Handlers
+}
+
+const PAGES: Target[] = [
+  { name: 'the start page', path: '/' },
+  {
+    name: 'the start page, with a question asked',
+    path: '/',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await page.getByTestId('question-rain').click()
+      await expect(page.getByTestId('question-rain')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  { name: 'the map', path: '/map' },
+  {
+    name: 'the explorer, with its table',
+    path: EXPLORER,
+    reach: async (page) => {
+      await page.getByRole('button', { name: 'Show', exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+    },
+  },
+  { name: 'the climate stripes', path: '/stripes?kind=temperature&station=00011' },
+  { name: 'the meteogram', path: '/meteogram?station=01001' },
+  { name: 'the about page', path: '/about' },
+  { name: 'the API page', path: '/api' },
+  { name: 'the glossary', path: '/glossary' },
+  { name: 'the providers', path: '/providers' },
+  { name: 'the settings', path: '/settings' },
+  { name: 'the support page', path: '/support' },
+]
+
+type Rgb = [number, number, number]
+
+interface Backing {
+  /** What stands on the fill: a label or an icon, and what it stands on */
+  what: string
+  /** The `print-color-adjust` of the element that has the fill */
+  adjust: string
+  /** The paper itself: nothing has a fill behind it, or the fill is light */
+  paper: boolean
+}
+
+interface Scan {
+  icons: Array<{ icon: string, adjust: string }>
+  /** Every light label or glyph and the fill it stands on */
+  light: Backing[]
+  /** The dark fills that something light stands on, which the PDF is looked into for */
+  solids: Array<{ what: string, fill: Rgb }>
+  /** The switches: a track and a thumb, which are fills and nothing else */
+  switches: Array<{ what: string, parts: Array<{ part: string, adjust: string, fill: Rgb }> }>
+}
+
+/** Reads the page under the print medium (the caller emulates it): the icons, and what stands on what */
+async function scan(page: Page): Promise<Scan> {
+  return page.evaluate(() => {
+    const canvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+    // any colour Chrome writes (`rgb`, the `oklab` of a tint, `color(srgb ...)`) as sRGB 0 to 1, and its opacity
+    const parse = (value: string): { rgb: Rgb, alpha: number } => {
+      canvas.clearRect(0, 0, 1, 1)
+      canvas.fillStyle = '#000000'
+      canvas.fillStyle = value
+      canvas.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = canvas.getImageData(0, 0, 1, 1).data
+      return { rgb: [r! / 255, g! / 255, b! / 255], alpha: a! / 255 }
+    }
+    const luminance = ([r, g, b]: Rgb) => {
+      const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    }
+    const label = (element: Element) => `${element.tagName.toLowerCase()}.${(element.getAttribute('class') ?? '').split(/\s+/).slice(0, 3).join('.')}`
+    const visible = (element: Element) => {
+      const box = element.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+    }
+    /** The nearest element that has an opaque fill, from `element` itself (a label that is the text of its own fill) or above it (an icon in one) */
+    const backing = (element: Element, own: boolean) => {
+      for (let up: Element | null = own ? element : element.parentElement; up; up = up.parentElement) {
+        const { rgb, alpha } = parse(getComputedStyle(up).backgroundColor)
+        if (alpha > 0.5)
+          return { element: up, rgb, adjust: getComputedStyle(up).getPropertyValue('print-color-adjust') }
+      }
+      return null
+    }
+
+    const result: Scan = { icons: [], light: [], solids: [], switches: [] }
+    const seen = new Set<Element>()
+    const note = (element: Element, what: string, color: Rgb, own: boolean) => {
+      if (luminance(color) <= 0.5)
+        return
+      const behind = backing(element, own)
+      const paper = !behind || luminance(behind.rgb) > 0.5
+      result.light.push({ what: `${what} on ${behind ? label(behind.element) : 'the paper'}`, adjust: behind?.adjust ?? 'economy', paper })
+      if (behind && !paper && !seen.has(behind.element)) {
+        seen.add(behind.element)
+        result.solids.push({ what: label(behind.element), fill: behind.rgb })
+      }
+    }
+
+    for (const element of document.querySelectorAll('#__nuxt *')) {
+      if (element.closest('svg, .leaflet-container, .js-plotly-plot') || !visible(element))
+        continue
+      const style = getComputedStyle(element)
+      if (element.classList.contains('iconify')) {
+        result.icons.push({ icon: label(element), adjust: style.getPropertyValue('print-color-adjust') })
+        // an icon is drawn in its background colour
+        note(element, `icon ${label(element)}`, parse(style.backgroundColor).rgb, false)
+      }
+      else if ([...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
+        note(element, `text of ${label(element)}`, parse(style.color).rgb, true)
+      }
+    }
+    for (const element of document.querySelectorAll('#__nuxt [role="switch"]')) {
+      if (!visible(element))
+        continue
+      const part = (name: string, target: Element) => {
+        const style = getComputedStyle(target)
+        return { part: name, adjust: style.getPropertyValue('print-color-adjust'), fill: parse(style.backgroundColor).rgb }
+      }
+      const thumb = element.firstElementChild
+      result.switches.push({ what: `${label(element)} ${element.getAttribute('data-state')}`, parts: [part('track', element), ...(thumb ? [part('thumb', thumb)] : [])] })
+    }
+    return result
+  })
+}
+
+async function printed(page: Page, baseURL: string, theme: 'light' | 'dark', target: Pick<Target, 'path' | 'reach' | 'handlers'>) {
+  await page.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), theme)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await mockBackend(page, baseURL, target.handlers)
+  await page.goto(target.path)
+  await target.reach?.(page)
+  await page.waitForLoadState('networkidle')
+  await page.emulateMedia({ media: 'print' })
+  // the colours of the page, which the buttons and links transition to (a style read before is a mix of both)
+  await page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))))
+}
+
+const close = (a: Rgb, b: Rgb) => a.every((value, index) => Math.abs(value - b[index]!) < 0.003)
+
+for (const theme of ['light', 'dark'] as const) {
+  for (const target of PAGES) {
+    test(`${target.name} keeps its icons and the labels on its fills when printed without background graphics, from the ${theme} theme`, async ({ page, baseURL, browserName }) => {
+      test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+      await printed(page, baseURL!, theme, target)
+      const found = await scan(page)
+
+      // every icon is a mask over a background, and prints
+      expect(found.icons.length, 'icons on the page').toBeGreaterThan(0)
+      expect(found.icons.filter(({ adjust }) => adjust !== 'exact').map(({ icon }) => icon), 'icons that print without their fill').toEqual([])
+      // nothing light is on the paper itself (it is white on white), and the fill a light thing stands on is forced
+      expect(found.light.filter(({ paper }) => paper).map(({ what }) => what), 'light on the paper').toEqual([])
+      expect(found.light.filter(({ adjust }) => adjust !== 'exact').map(({ what }) => what), 'light on a fill that is left out').toEqual([])
+
+      // a switch is a track and a thumb, both fills: both are forced, and have a fill to draw
+      expect(found.switches.flatMap(({ what, parts }) => parts.filter(({ adjust }) => adjust !== 'exact').map(({ part }) => `${what} ${part}`)), 'switch parts that print without their fill').toEqual([])
+      if (target.path === '/settings')
+        expect(found.switches.length, 'switches on the page').toBe(2)
+
+      // and the PDF, printed as Chrome prints by default: the fills those stand on are in it
+      const fills = pdfFillColors(await page.pdf({ format: 'A4', printBackground: false }))
+      expect(fills.length).toBeGreaterThan(0)
+      const missing = found.solids.filter(({ fill }) => !fills.some(drawn => close(drawn, fill)))
+      expect(missing.map(({ what, fill }) => `${what} ${fill.map(value => value.toFixed(3)).join(' ')}`), 'fills missing from the PDF').toEqual([])
+      const switchFills = found.switches.flatMap(({ what, parts }) => parts.filter(({ fill }) => !fills.some(drawn => close(drawn, fill))).map(({ part, fill }) => `${what} ${part} ${fill.map(value => value.toFixed(3)).join(' ')}`))
+      expect(switchFills, 'switch fills missing from the PDF').toEqual([])
+    })
+  }
+}
+
+test('the start page prints its band as black text on white with an outline, and the PDF has its text', async ({ page, baseURL, browserName }) => {
+  test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+  await printed(page, baseURL!, 'light', PAGES[0]!)
+  const band = await page.locator('.values-band').evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      background: style.backgroundColor,
+      color: style.color,
+      heading: getComputedStyle(element.querySelector('.home-heading')!).color,
+      border: style.borderTopWidth,
+    }
+  })
+  // it costs no ink and needs no background graphics
+  expect(band).toEqual({ background: 'rgb(255, 255, 255)', color: 'rgb(0, 0, 0)', heading: 'rgb(0, 0, 0)', border: '1px' })
+
+  const words = pdfTextRuns(await page.pdf({ format: 'A4', printBackground: false })).map(run => run.text).join(' ')
+  for (const heading of await page.locator('.values-band .home-heading').allInnerTexts())
+    expect(words).toContain(heading.trim())
+})
+
+test('the explorer prints the label and the fill of its solid button without background graphics', async ({ page, baseURL, browserName }) => {
+  test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+  await printed(page, baseURL!, 'light', { path: EXPLORER })
+  const [fill, adjust] = await page.getByRole('button', { name: 'Show', exact: true }).evaluate((element) => {
+    const style = getComputedStyle(element)
+    return [style.backgroundColor, style.getPropertyValue('print-color-adjust')]
+  })
+  expect(adjust).toBe('exact')
+  const rgb = fill!.match(/\d+/g)!.slice(0, 3).map(value => Number(value) / 255) as Rgb
+  const pdf = await page.pdf({ format: 'A4', printBackground: false })
+  expect(pdfFillColors(pdf).some(drawn => close(drawn, rgb)), `the fill ${fill} of the button`).toBe(true)
+  expect(pdfTextRuns(pdf).some(run => run.text.trim() === 'Show')).toBe(true)
+})

@@ -4,7 +4,7 @@ import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
 import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
-import { COLOR_MAPS, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { COLOR_MAPS, stripesSummaryParams, stripeYears, wrapChartTitle } from '~/utils/stripes'
 import { unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale, localeProperties } = useI18n()
@@ -260,6 +260,14 @@ function plotLocaleOfPage() {
   return plotlyLocaleConfig(locale.value, localeProperties.value.language ?? locale.value)
 }
 
+// the stripes' title: its type size, the line it takes and the room it leaves at either side, in px
+const TITLE_SIZE = 16
+const TITLE_LINE = 20
+const TITLE_PADDING = 10
+const TITLE_DROP = 18
+const STRIPES_HEIGHT = 600
+const FONT_FAMILY = 'Arial, sans-serif'
+
 // What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
 // theme the page is in, and for a saved image in the light one (see saveStripes)
 function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number, plotLocale: PlotlyLocaleConfig): StripesFigure | null {
@@ -286,6 +294,12 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   const minYear = Math.min(...years)
   const maxYear = Math.max(...years)
 
+  // below the plot, in px from its bottom edge, so that they keep their distances in an image of another height:
+  // the years (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
+  const yearsOffset = 20
+  const sourceOffset = showYears.value ? 48 : 28
+  const marginBottom = showSource.value ? Math.max(60, sourceOffset + 32) : 60
+
   // Create annotations array BEFORE creating layout
   const annotations: Partial<Plotly.Annotations>[] = []
 
@@ -294,7 +308,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     annotations.push(
       {
         x: minYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(minYear),
@@ -305,7 +320,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       },
       {
         x: maxYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(maxYear),
@@ -321,7 +337,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
   if (showDataAvailability.value) {
     annotations.push({
       x: minYear,
-      y: -0.03,
+      y: 0,
+      yshift: -14,
       xref: 'x',
       yref: 'paper',
       text: t('stripes.plotDataAvailability'),
@@ -332,11 +349,13 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     })
   }
 
-  // Add source annotation
+  // Add source annotation: on a row of its own below the years (GH-3961), which are on the plot's bottom edge
+  // and 18 px high, as it is on a chart too narrow to hold the two side by side
   if (showSource.value) {
     annotations.push({
       x: 0.5,
-      y: -0.05,
+      y: 0,
+      yshift: -sourceOffset,
       text: t('stripes.plotSource'),
       showarrow: false,
       xref: 'paper',
@@ -430,13 +449,19 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     traces.push(trendlineTrace as Plotly.Data)
 
   // Layout configuration
-  const titleText = plotTitle(data)
+  // a title that does not fit the chart's width is broken into lines (GH-3961), and the top margin holds them
+  const wrapped = wrapChartTitle(plotTitle(data), width - 2 * TITLE_PADDING, `${TITLE_SIZE}px ${FONT_FAMILY}`)
+  const titleText = wrapped.text
+  // Plotly puts the first line of a title of several lines 10 px above where a single line is (10-27 px), under the
+  // modebar (22 px high, y 2-24, seven buttons over 184 px, so as wide as a narrow chart): a wrapped title's first
+  // line is at one place whatever else is drawn, lowered by what clears the modebar
+  const titleDrop = wrapped.lines > 1 ? TITLE_DROP : 0
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     font: {
-      family: 'Arial, sans-serif',
+      family: FONT_FAMILY,
       size: 14,
     },
     xaxis: {
@@ -458,13 +483,13 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     margin: {
       l: 20,
       r: 20,
-      t: showTitle.value ? 30 : 20,
-      b: 60,
+      t: showTitle.value ? 30 + (wrapped.lines - 1) * TITLE_LINE + titleDrop : 20,
+      b: marginBottom,
     },
     showlegend: false,
     autosize: false,
     width,
-    height: showTitle.value ? 600 : 550,
+    height: showTitle.value ? STRIPES_HEIGHT : 550,
     annotations,
   }
 
@@ -501,8 +526,8 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     title: showTitle.value
       ? {
           text: titleText,
-          font: { size: 16, color: theme.text },
-          y: showDataAvailability.value ? 0.96 : 0.99,
+          font: { size: TITLE_SIZE, color: theme.text },
+          y: wrapped.lines > 1 ? 0.96 - titleDrop / STRIPES_HEIGHT : (showDataAvailability.value ? 0.96 : 0.99),
           x: 0.5,
           xanchor: 'center',
           yanchor: 'top',
@@ -549,15 +574,16 @@ async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest
 async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
   if (!Plotly || !lastFetchedData.value || !plotContainer.value)
     return
-  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), plotContainer.value.clientWidth, await plotLocaleOfPage())
+  const { format, filename, width, height, scale } = options
+  // laid out for the width of the image: its title is broken into lines where the image is narrow, not where the page is
+  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), width, await plotLocaleOfPage())
   if (!figure)
     return
-  const { format, filename, width, height, scale } = options
   // as the page shows them: the range the stripes are zoomed to is the image's
   const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
   // in the language of the page, as the chart is
   const { locale: copyLocale, locales } = figure.config
-  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width: plotContainer.value.clientWidth, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
+  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
   try {
     if (figure.title)
       await Plotly.relayout(copy.element, { title: figure.title })

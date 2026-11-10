@@ -467,4 +467,16 @@ const dataKinds = computed(() => [
     background: #1a2d4d;
   }
 }
+/* On paper the band is white with an outline: a print without background graphics (Chrome's default) leaves out its
+   fill and prints its white text on white, and forcing the fill would print the largest dark area of the app (GH-3960) */
+@media print {
+  .values-band {
+    background: #ffffff;
+    border: 1px solid var(--color-ink-400);
+    color: #000000;
+  }
+  .values-band .home-heading {
+    color: #000000;
+  }
+}
 </style>
