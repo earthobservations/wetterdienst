@@ -26,9 +26,9 @@ Types of changes:
   German and Luxembourgish labels are not reviewed by a native speaker
 - `[App]` Nuxt UI is 4.12.0 (Reka UI 2.11.0). The station picker's list is announced by a screen
   reader as a list of options, with the search field outside it, where it held a non-option child;
-  the error toasts no longer leave two hidden but focusable proxies in the page. The page-number
-  buttons of the tables are labelled by Nuxt UI's translations ("Letzte Seite", "Nächste Seite" and
-  so on) where they were English in every language. The accessibility baseline is empty (GH-3950)
+  the error toasts no longer leave two hidden but focusable proxies in the page. The buttons of
+  the table's pager are labelled in German ("Letzte Seite") and English ("Last page") as the page
+  is, where they were English in every language; the other languages follow in GH-3955 (GH-3950)
 
 ### Fixed
 
