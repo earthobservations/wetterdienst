@@ -44,6 +44,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Print]` Printed with Chrome's default, without "Background graphics", the pages keep their icons
+  and the white labels of solid buttons and of the tool tiles, which came out blank or white on
+  white. The start page's navy band is white with an outline and black text on paper (GH-3960)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)

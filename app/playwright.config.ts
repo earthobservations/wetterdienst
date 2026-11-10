@@ -4,8 +4,9 @@ import { defineConfig, devices } from '@playwright/test'
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
 
-// the spec that prints charts to a PDF and reads the sizes of their text: it runs in Chromium, the others in Firefox
-const PDF_SPEC = /chart-print\.spec\.ts$/
+// the specs that print pages to a PDF (the sizes of the charts' text; the icons and labels of a print without
+// background graphics): they run in Chromium, the others in Firefox
+const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
 
 // The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
 // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).

@@ -65,6 +65,18 @@ function readObjects(pdf: Buffer): Map<number, PdfObject> {
   return objects
 }
 
+/** Every colour the PDF sets as the fill (`r g b rg`, 0 to 1), once: what is drawn in a colour (a background, a path, a text) is among them */
+export function pdfFillColors(pdf: Buffer): Array<[number, number, number]> {
+  const found = new Map<string, [number, number, number]>()
+  for (const { stream } of readObjects(pdf).values()) {
+    if (!stream)
+      continue
+    for (const [, r, g, b] of stream.toString('latin1').matchAll(/([\d.]+) ([\d.]+) ([\d.]+) rg\b/g))
+      found.set(`${r} ${g} ${b}`, [Number(r), Number(g), Number(b)])
+  }
+  return [...found.values()]
+}
+
 /** The code -> text map of a font's `ToUnicode`, and how many bytes a code is */
 function readToUnicode(cmap: string): { bytes: number, map: Map<number, string> } {
   const map = new Map<number, string>()
