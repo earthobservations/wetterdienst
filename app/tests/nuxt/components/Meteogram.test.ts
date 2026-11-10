@@ -1256,6 +1256,41 @@ describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 
     expect(wind.className).toContain('text-gray-500')
   })
 
+  // GH-3951: a toggle that is on differs from one that is off by shape (the filled icon), not by colour alone (1.4.1), and is
+  // named by an aria-label of the same words as its title (4.1.2)
+  it('draws the filled icon on a toggle that is on and the outline on one that is off, and only then', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    const icon = (button: HTMLElement) => button.querySelector('[class*="i-ph"]')?.className ?? ''
+    const isFilled = (button: HTMLElement) => /-fill\b/.test(icon(button))
+    for (const button of toggles())
+      expect(isFilled(button), `${button.dataset.panel} on`).toBe(true)
+    const wind = toggles().find(button => button.dataset.panel === 'wind')!
+    wind.click()
+    await nextTick()
+    expect(wind.getAttribute('aria-pressed')).toBe('false')
+    expect(isFilled(wind), 'wind off').toBe(false)
+    expect(icon(wind)).toMatch(/i-ph[:-]wind(?!-fill)/)
+    // the others stay on, and filled
+    expect(toggles().filter(button => button !== wind).every(isFilled)).toBe(true)
+    wind.click()
+    await nextTick()
+    expect(isFilled(wind), 'wind on again').toBe(true)
+  })
+
+  it('names each toggle by an aria-label that is its title, in the language of the page', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    expect(toggles()).toHaveLength(Object.keys(SERIES).length)
+    const names = toggles().map(button => button.getAttribute('aria-label'))
+    for (const button of toggles()) {
+      expect(button.getAttribute('aria-label'), button.dataset.panel).toBeTruthy()
+      expect(button.getAttribute('aria-label'), button.dataset.panel).toBe(button.getAttribute('title'))
+    }
+    expect(new Set(names).size).toBe(names.length)
+    expect(names).toEqual(['Temperature', 'Wind', 'Precipitation', 'Cloud cover', 'Pressure'])
+  })
+
   it('colours the icons of the summary line in the label colours, in the dark scheme the dark ones', async () => {
     wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
     await flushPromises()

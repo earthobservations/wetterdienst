@@ -31,7 +31,7 @@ const hasPlaceholders = computed(() =>
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-user" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-user" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('impressum.providerTitle') }}
             </h2>
@@ -53,7 +53,7 @@ const hasPlaceholders = computed(() =>
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-envelope-simple" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-envelope-simple" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('impressum.contactTitle') }}
             </h2>
@@ -72,7 +72,7 @@ const hasPlaceholders = computed(() =>
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-scales" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-scales" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('impressum.mstvTitle') }}
             </h2>
@@ -88,7 +88,7 @@ const hasPlaceholders = computed(() =>
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-file-text" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-file-text" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('impressum.disclaimerTitle') }}
             </h2>
@@ -117,7 +117,7 @@ const hasPlaceholders = computed(() =>
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-code" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-code" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('impressum.openSourceTitle') }}
             </h2>

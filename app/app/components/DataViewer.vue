@@ -1636,7 +1636,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Content -->
       <UCard ref="card" tabindex="-1" role="group" :aria-labelledby="dataTitleId" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
-          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-500" />
+          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-600 dark:text-primary-500" />
         </div>
         <template v-else>
           <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->

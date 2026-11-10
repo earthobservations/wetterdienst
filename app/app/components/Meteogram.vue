@@ -69,12 +69,14 @@ const visiblePanels = ref({
 })
 
 // The panel toggles, in the order of the panels: the colour of each is that of its series' labels
-const panelToggles: { panel: keyof typeof visiblePanels.value, icon: string, title: string, series: SeriesLabel }[] = [
-  { panel: 'temp', icon: 'i-ph-thermometer', title: 'meteogram.chart.panelTemperature', series: 'red' },
-  { panel: 'wind', icon: 'i-ph-wind', title: 'meteogram.chart.panelWind', series: 'cyan' },
-  { panel: 'precip', icon: 'i-ph-cloud-rain', title: 'meteogram.chart.panelPrecipitation', series: 'blue' },
-  { panel: 'cloud', icon: 'i-ph-cloud', title: 'meteogram.chart.panelCloud', series: 'slate' },
-  { panel: 'pressure', icon: 'i-ph-gauge', title: 'meteogram.chart.panelPressure', series: 'lime' },
+// `icon` is the outline, `iconOn` the filled variant of the same icon: a toggle that is on draws the filled one, so that on
+// and off differ by shape and not by colour alone (WCAG 1.4.1, GH-3951)
+const panelToggles: { panel: keyof typeof visiblePanels.value, icon: string, iconOn: string, title: string, series: SeriesLabel }[] = [
+  { panel: 'temp', icon: 'i-ph-thermometer', iconOn: 'i-ph-thermometer-fill', title: 'meteogram.chart.panelTemperature', series: 'red' },
+  { panel: 'wind', icon: 'i-ph-wind', iconOn: 'i-ph-wind-fill', title: 'meteogram.chart.panelWind', series: 'cyan' },
+  { panel: 'precip', icon: 'i-ph-cloud-rain', iconOn: 'i-ph-cloud-rain-fill', title: 'meteogram.chart.panelPrecipitation', series: 'blue' },
+  { panel: 'cloud', icon: 'i-ph-cloud', iconOn: 'i-ph-cloud-fill', title: 'meteogram.chart.panelCloud', series: 'slate' },
+  { panel: 'pressure', icon: 'i-ph-gauge', iconOn: 'i-ph-gauge-fill', title: 'meteogram.chart.panelPressure', series: 'lime' },
 ]
 // a toggle that is on: the icon in the label colour, on a wash and in an edge of it
 const activeToggleStyle = (series: SeriesLabel) => panelToggleStyle(seriesLabelColor(series, isDark.value))
@@ -2083,6 +2085,7 @@ watch(
               :key="toggle.panel"
               type="button"
               :title="t(toggle.title)"
+              :aria-label="t(toggle.title)"
               :data-panel="toggle.panel"
               :aria-pressed="visiblePanels[toggle.panel]"
               class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
@@ -2093,7 +2096,7 @@ watch(
               :disabled="toggle.panel === 'cloud' && compact"
               @click="visiblePanels[toggle.panel] = !visiblePanels[toggle.panel]"
             >
-              <UIcon :name="toggle.icon" class="w-3.5 h-3.5" />
+              <UIcon :name="visiblePanels[toggle.panel] ? toggle.iconOn : toggle.icon" class="w-3.5 h-3.5" />
             </button>
           </div>
 

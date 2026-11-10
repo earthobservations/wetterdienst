@@ -35,7 +35,7 @@ const operator = OPERATOR
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-user" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-user" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ policy.controller.title }}
             </h2>
@@ -63,7 +63,7 @@ const operator = OPERATOR
       <UCard v-for="section in policy.sections" :id="section.id" :key="section.id">
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon :name="section.icon" class="text-primary-500 shrink-0" />
+            <UIcon :name="section.icon" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ section.title }}
             </h2>

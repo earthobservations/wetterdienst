@@ -106,12 +106,21 @@ The Meteogram's own chrome (GH-3642): the icons of its panel toggles and of its 
 colours (`SERIES_LABEL` in `utils/chart-theme.ts`: cyan, lime, blue, red and slate for the cloud cover), not in
 the Tailwind shades they had (cyan-500, lime-500, red-500, blue-500 and slate-400), which are 1.9:1 to 3.8:1 on white. Each is 4.6:1 or more on the toolbar by day and at night
 and 3.9:1 or more on the wash behind a toggle that is on (a mark that carries a state: 3:1, 1.4.11); the card of today
-has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`; `tests/nuxt/components/Meteogram.test.ts`
-holds that, the colours and the card's edge in the rendered component). The same test reads every `text-<colour>-<step>`
-class of the markup from Tailwind's palette (and `gray`, which is the app's `ink`) and fails for one under 4.5:1 where it
+has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`) and is named by an `aria-label` that
+is its `title`, the same i18n key (4.1.2, GH-3951). Colour is not the only cue of the state (1.4.1, GH-3951): a toggle that
+is on draws the filled variant of its icon (`i-ph-wind-fill`), one that is off the outline (`i-ph-wind`), which also
+differs in forced colours, where the wash and the edge are gone. `tests/nuxt/components/Meteogram.test.ts`
+holds that, the colours and the card's edge in the rendered component. The same test reads every `text-<colour>-<step>`
+class of the markup from Tailwind's palette, `gray` (the app's `ink`) and, since GH-3952, `primary` and `brand` (the app's
+`brand` scale, read through `main.css`; `app.config.ts` makes `brand` the primary colour, and `.dark` changes which shade is
+`--ui-primary` but redefines no shade) and fails for one under 4.5:1 where it
 is painted: on white, and on the dark card for a `dark:` class and for a class that has no `dark:` partner in its class
-string. A class it cannot read (an opacity, `text-[#hex]`) fails too. The app's own `primary` scale is not checked there:
-`text-primary-500` is 3.47:1 on white and is used 48 times, for icons and spinners, which is a finding of its own and not of this test.
+string. A class it cannot read (an opacity, `text-[#hex]`) fails too. No class of the primary scale is exempt. The
+48 icons and spinners in `text-primary-500` (3.47:1 on white, enough as a mark that carries meaning, 3:1 by 1.4.11, but not
+as the text-coloured icon the test takes it for) are `text-primary-600 dark:text-primary-500` now: 4.87:1 on white by
+day, and at night the shade they had, 4.53:1 on a card (600 would be 3.22:1 there). Links stay `text-primary-700` by day
+(6.9:1) and 400 or 500 at night (6.3:1 and 4.5:1). An allow-list of non-text uses at 3:1 was not written: darkening costs
+the look next to nothing, and a list of exemptions is something to keep.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`: shade 700 of the primary colour on light, 6.9:1 on white, shade 300 on dark, 9.6:1; the map takes

@@ -265,9 +265,14 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
       return Math.round(Math.min(1, Math.max(0, encoded)) * 255).toString(16).padStart(2, '0')
     }).join('')}`
   }
+  // `gray` is the app's `ink` and `primary` its `brand` (`app.config.ts`: `colors: { primary: 'brand' }`), both of main.css.
+  // Their shades are the same by day and at night: `.dark` changes which shade is `--ui-primary` (what `text-primary`
+  // and the fill of a button say), never a `--color-brand-*` or `--color-ink-*`, which a test below holds
   function shade(hue: string, step: string) {
     if (hue === 'gray')
       return ink(Number(step))
+    if (hue === 'primary' || hue === 'brand')
+      return token(`color-brand-${step}`)
     const value = new RegExp(`--color-${hue}-${step}:\\s*(oklch\\([^)]*\\))`).exec(theme)?.[1]
     return value ? oklchToHex(value) : undefined
   }
@@ -295,19 +300,19 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
   // - a class with `dark:` is painted on the dark card;
   // - a class without it on white, and, where its class string has no `dark:` partner of the same variants (`hover:` and
   //   so on), on the dark card too, as it is painted there as well.
-  // Only Tailwind's palette and `gray` (the app's `ink`) are read. `primary` is the app's own scale (`app.config.ts`, the
-  // `brand-*` tokens of main.css) and is not checked here: `text-primary-500` is 3.47:1 on white, used for icons.
+  // Tailwind's palette, `gray` (the app's `ink`) and `primary` and `brand` (the app's `brand` scale) are read; the last
+  // two through main.css (GH-3952). There is no class of them that is exempt: an icon in the primary colour is held to 4.5:1
+  // like text, since darkening it from shade 500 (3.47:1 on white) to 600 (4.87:1) costs the look nothing, and an
+  // exemption for the icons that need only 3:1 (1.4.11) would be a list to keep for no gain.
   // A class this test cannot read (an opacity, `text-[#hex]`) fails, so that none is skipped without a word.
   const sources = (readdirSync(fileURLToPath(new URL('../../app', import.meta.url)), { recursive: true }) as string[])
     .filter(file => /\.(?:vue|ts)$/.test(file))
     .map(file => [file, readFileSync(fileURLToPath(new URL(`../../app/${file}`, import.meta.url)), 'utf-8')] as const)
-  const NOT_CHECKED = ['primary', 'brand']
   interface Use { file: string, name: string, ground: 'white' | 'card', color: string }
   /** The uses of a colour, and what the scan could not read: one entry for each class of each string of the sources */
   function collect(files: readonly (readonly [string, string])[]) {
     const uses: Use[] = []
     const unreadable: string[] = []
-    const notChecked = new Set<string>()
     for (const [file, text] of files) {
       // between two quotes lies a class string, or code that has no such class: a partner in another literal is no partner
       for (const segment of text.split(/["'`]/)) {
@@ -317,8 +322,6 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
         for (const [, variants, hue, step, opacity] of found) {
           if (opacity)
             unreadable.push(`${file}: ${variants}text-${hue}-${step}${opacity}`)
-          else if (NOT_CHECKED.includes(hue!))
-            notChecked.add(hue!)
           else if (shade(hue!, step!) === undefined)
             unreadable.push(`${file}: ${variants}text-${hue}-${step} (not in the palette)`)
         }
@@ -329,7 +332,7 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
           .filter(([, variants]) => variants!.split(':').includes('dark'))
           .map(([, variants]) => variants!.split(':').filter(variant => variant && variant !== 'dark').join(':')))
         for (const [, variants, hue, step, opacity] of found) {
-          const color = opacity || NOT_CHECKED.includes(hue!) ? undefined : shade(hue!, step!)
+          const color = opacity ? undefined : shade(hue!, step!)
           if (!color)
             continue
           const dark = variants!.split(':').includes('dark')
@@ -345,9 +348,9 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
         }
       }
     }
-    return { uses, unreadable, notChecked }
+    return { uses, unreadable }
   }
-  const { uses, unreadable, notChecked } = collect(sources)
+  const { uses, unreadable } = collect(sources)
   const below = (list: readonly Use[]) => [...new Set(list
     .map(use => ({ ...use, ratio: contrast(use.color, use.ground === 'card' ? CARD : WHITE) }))
     .filter(use => use.ratio < 4.5)
@@ -359,9 +362,41 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
     expect(uses.some(use => use.name.startsWith('dark:text-'))).toBe(true)
   })
 
-  it('reads every text colour class of the markup, and leaves out only the app\'s own primary scale', () => {
+  it('reads every text colour class of the markup, the app\'s own primary scale included', () => {
     expect(unreadable).toEqual([])
-    expect([...notChecked].every(hue => NOT_CHECKED.includes(hue))).toBe(true)
+  })
+
+  describe('the primary scale (GH-3952)', () => {
+    it('is the brand scale of main.css, which `.dark` does not redefine, so that a class means the same shade at night', () => {
+      expect(readFileSync(fileURLToPath(new URL('../../app/app.config.ts', import.meta.url)), 'utf-8')).toMatch(/primary:\s*'brand'/)
+      // defined once each (the 22 shades of the two scales), none of them in the `.dark` block
+      expect(css.match(/^\s*--color-(?:brand|ink)-\d+\s*:/gm)).toHaveLength(22)
+      expect(night).not.toMatch(/--color-(?:brand|ink)-\d+\s*:/)
+      expect(shade('primary', '600')).toBe(brand(600))
+      expect(shade('brand', '700')).toBe(brand(700))
+    })
+
+    it('is used, for icons and for links, at the shades the test reads', () => {
+      const primary = uses.filter(use => /text-(?:primary|brand)-/.test(use.name))
+      expect(primary.length).toBeGreaterThan(80)
+      // an icon in the primary colour: shade 600 by day (4.87:1 on white) and 500 at night (4.53:1 on a card)
+      expect(primary.some(use => use.name === 'text-primary-600' && use.ground === 'white')).toBe(true)
+      expect(primary.some(use => use.name === 'dark:text-primary-500' && use.ground === 'card')).toBe(true)
+      // a link: 700 by day
+      expect(primary.some(use => use.name === 'text-primary-700')).toBe(true)
+    })
+
+    it('has no icon in shade 500 by day, which is 3.47:1 on white', () => {
+      expect(uses.filter(use => /^(?:[a-z0-9-]+:)*text-(?:primary|brand)-500$/.test(use.name) && !use.name.startsWith('dark:') && use.ground === 'white')).toEqual([])
+    })
+
+    it('holds a primary class that is too light, by day and at night', () => {
+      const scan = (markup: string) => collect([['x.vue', markup]])
+      expect(below(scan('<i class="text-primary-500 dark:text-primary-500">').uses)).toEqual(['x.vue: text-primary-500 3.47:1 on white'])
+      expect(below(scan('<i class="text-primary-600 dark:text-primary-600">').uses)).toEqual(['x.vue: dark:text-primary-600 3.22:1 on card'])
+      expect(below(scan('<i class="text-primary-600">').uses)).toEqual(['x.vue: text-primary-600 (no dark: partner, painted at night too) 3.22:1 on card'])
+      expect(below(scan('<i class="text-primary-600 dark:text-primary-500">').uses)).toEqual([])
+    })
   })
 
   it('has no text colour of the markup under 4.5:1 where it is painted, by day on white and at night on the dark card', () => {
