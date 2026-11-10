@@ -23,6 +23,13 @@ Types of changes:
   single reading, ...) and a `timestamp_position` (`instant`, `start`, `end`, `middle`); `glossary`
   gives the `aggregation` of the name. `null` is not stated. Both sets are closed from 1.0.0
   (GH-3134)
+- `timestamp_position` of `dwd/observation` hourly, measured against the same station's 10-minute
+  series and NOAA ISD: `end` for `dew_point`, `moisture` and `pressure` (their temperature,
+  humidity and pressure are readings taken 10 to 30 minutes before the stamp, `aggregation`
+  `instant`, and the descriptions say when), `wind_synoptic`, `precipitation_amount` and, in
+  `solar`, the global radiation, the sunshine duration and the zenith angle; `end` for
+  `precipitation_amount` of `geosphere/observation` at 10 minutes and hourly. The other hourly
+  datasets stay `null`; the numbers are on the time reference page (Part of GH-3134)
 
 ### Changed
 

@@ -98,8 +98,8 @@ Codes (cloud_cover_total_measurement_method):
 | name                                  | original name | description           | unit | constraints |
 |---------------------------------------|---------------|-----------------------|------|-------------|
 | {term}`quality` | qn_8 | Quality flag. | -             | - |
-| {term}`temperature_air_2m`      | tt | Air temperature. | °C | - |
-| {term}`temperature_dew_point_2m`      | td | Dew point temperature. | °C | - |
+| {term}`temperature_air_2m` | tt | Air temperature. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | °C | - |
+| {term}`temperature_dew_point_2m` | td | Dew point temperature. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | °C | - |
 
 ### moisture
 
@@ -120,10 +120,10 @@ Codes (cloud_cover_total_measurement_method):
 | {term}`humidity_absolute` | absf_std | Computed hourly value of absolute humidity. | g/m³ | >=0 |
 | {term}`pressure_vapor` | vp_std | Computed hourly value of vapour pressure. | hPa | >=0 |
 | {term}`temperature_wet_2m`      | tf_std | Computed hourly value of wet bulb temperature. | °C | - |
-| {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. A station without a barometer carries one station constant in every row of a file, which is no reading: a run of 72 hourly readings of one value is flagged `suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with `rejected:stuck,raw:997.3` where the check is hard. | hPa | >=0 |
-| {term}`temperature_air_2m`      | tt_std | Air temperatur in 2m above ground. | °C | - |
-| {term}`humidity_relative` | rf_std | Relative humidity. | % | >=0,<=100 |
-| {term}`temperature_dew_point_2m`      | td_std | Dew point temperature in 2m above ground. | °C | - |
+| {term}`pressure_air_site` | p_std | Hourly value of barometric pressure. A station without a barometer carries one station constant in every row of a file, which is no reading: a run of 72 hourly readings of one value is flagged `suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with `rejected:stuck,raw:997.3` where the check is hard. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 20 min from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | hPa | >=0 |
+| {term}`temperature_air_2m` | tt_std | Air temperatur in 2m above ground. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | °C | - |
+| {term}`humidity_relative` | rf_std | Relative humidity. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | % | >=0,<=100 |
+| {term}`temperature_dew_point_2m` | td_std | Dew point temperature in 2m above ground. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | °C | - |
 
 ### precipitation
 
@@ -140,7 +140,7 @@ Codes (cloud_cover_total_measurement_method):
 
 | name                         | original name | description           | unit | constraints                  |
 |------------------------------|---------------|-----------------------|------|------------------------------|
-| {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
+| {term}`precipitation_amount` | r1 | Precipitation height during the previous hour: the sum of the six 10-minute values of the window (T-70, T-10] min from 2001-04-01 and of (T-90, T-30] from 1995-09 to 2001-03-31 (UTC, T the stamp), measured against the 10-minute series of the same station. | mm | >=0 |
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ {0, 1} |
 | {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ {0, 1, 2, 3, 4, 6, 7, 8} |
 
@@ -180,8 +180,8 @@ Codes (precipitation_form):
 
 | name                           | original name | description             | unit | constraints |
 |--------------------------------|---------------|-------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | p | Barometric pressure at sea level NN. | hPa | >=0 |
-| {term}`pressure_air_site` | p0 | Barometric pressure at station height. | hPa | >=0 |
+| {term}`pressure_air_sea_level` | p | Barometric pressure at sea level NN, reduced from the station pressure and the air temperature of the same row. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 20 min from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | hPa | >=0 |
+| {term}`pressure_air_site` | p0 | Barometric pressure at station height. A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp minus 20 min from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), measured against the 10-minute series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC. | hPa | >=0 |
 
 ### solar
 
@@ -549,5 +549,5 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed_mean_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
+| {term}`wind_speed_mean_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"): the mean of the 10 minutes (T-20, T-10] from 2001-04-01 and (T-30, T-20] from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), T the stamp, measured against the 10-minute series of the same station; before 1991 the report of the stamp hour where NOAA ISD holds DWD's report (Stuttgart 1949-1965: 0.5 to 0.8 h before an independent USAF record). Times are UTC. | m/s | >=0 |
 | {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |

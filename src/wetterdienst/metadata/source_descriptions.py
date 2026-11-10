@@ -119,6 +119,18 @@ _SOIL_EMD_ZONE = (
     "`quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written."
 )
 
+# When the hourly readings of the DWD moisture, dew point and pressure datasets were taken (GH-3134)
+_DWD_HOURLY_READING_T = (
+    " A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp"
+    " minus 30 min from 1994 to 2001-03-31 (20 to 30 min in 1991-1993, by station), measured against the 10-minute"
+    " series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC."
+)
+_DWD_HOURLY_READING_P = (
+    " A reading taken at or before the stamp: the value at the stamp minus 10 min from 2001-04-01, at the stamp"
+    " minus 20 min from 1995 to 2001-03-31 (1991-1994 not one offset, 0 to 30 min), measured against the 10-minute"
+    " series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC."
+)
+
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
@@ -1586,21 +1598,25 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "cloudiness", "v_n_i"): (
             "Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I."
         ),
-        ("hourly", "dew_point", "td"): "Dew point temperature.",
-        ("hourly", "dew_point", "tt"): "Air temperature.",
+        ("hourly", "dew_point", "td"): ("Dew point temperature." + _DWD_HOURLY_READING_T),
+        ("hourly", "dew_point", "tt"): ("Air temperature." + _DWD_HOURLY_READING_T),
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
         ("hourly", "moisture", "p_std"): (
             "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
             "row of a file, which is no reading: a run of 72 hourly readings of one value is flagged "
             "`suspect:stuck` in quality_flags and kept (the check `stuck`, soft by default), or null with "
-            "`rejected:stuck,raw:997.3` where the check is hard."
+            "`rejected:stuck,raw:997.3` where the check is hard." + _DWD_HOURLY_READING_P
         ),
-        ("hourly", "moisture", "rf_std"): "Relative humidity.",
-        ("hourly", "moisture", "td_std"): "Dew point temperature in 2m above ground.",
+        ("hourly", "moisture", "rf_std"): ("Relative humidity." + _DWD_HOURLY_READING_T),
+        ("hourly", "moisture", "td_std"): ("Dew point temperature in 2m above ground." + _DWD_HOURLY_READING_T),
         ("hourly", "moisture", "tf_std"): "Computed hourly value of wet bulb temperature.",
-        ("hourly", "moisture", "tt_std"): "Air temperatur in 2m above ground.",
+        ("hourly", "moisture", "tt_std"): ("Air temperatur in 2m above ground." + _DWD_HOURLY_READING_T),
         ("hourly", "moisture", "vp_std"): "Computed hourly value of vapour pressure.",
-        ("hourly", "precipitation", "r1"): "Precipitation height during the previous hour.",
+        ("hourly", "precipitation", "r1"): (
+            "Precipitation height during the previous hour: the sum of the six 10-minute values of the window "
+            "(T-70, T-10] min from 2001-04-01 and of (T-90, T-30] from 1995-09 to 2001-03-31 (UTC, T the stamp), "
+            "measured against the 10-minute series of the same station."
+        ),
         ("hourly", "precipitation", "rs_ind"): "Precipitation indicator; 0 = no; 1 = yes.",
         ("hourly", "precipitation", "wrtr"): (
             "Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form"
@@ -1610,8 +1626,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             " automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The "
             "files also hold 2 and 3, which the current sheet does not define."
         ),
-        ("hourly", "pressure", "p"): "Barometric pressure at sea level NN.",
-        ("hourly", "pressure", "p0"): "Barometric pressure at station height.",
+        ("hourly", "pressure", "p"): (
+            "Barometric pressure at sea level NN, reduced from the station pressure and the air temperature of "
+            "the same row." + _DWD_HOURLY_READING_P
+        ),
+        ("hourly", "pressure", "p0"): ("Barometric pressure at station height." + _DWD_HOURLY_READING_P),
         ("hourly", "solar", "atmo_lberg"): "Hourly sum of longwave downward radiation.",
         ("hourly", "solar", "fd_lberg"): "Hourly sum of diffuse solar radiation.",
         ("hourly", "solar", "mess_datum_woz"): (
@@ -1762,7 +1781,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "The source's 0 (a calm or variable wind) is null."
         ),
         ("hourly", "wind_synoptic", "ff"): (
-            '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit").'
+            '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"): the mean of the 10 '
+            "minutes (T-20, T-10] from 2001-04-01 and (T-30, T-20] from 1995 to 2001-03-31 (1991-1994 not one offset, "
+            "0 to 30 min), T the stamp, measured against the 10-minute series of the same station; before 1991 the "
+            "report of the stamp hour where NOAA ISD holds DWD's report (Stuttgart 1949-1965: 0.5 to 0.8 h before an "
+            "independent USAF record). Times are UTC."
         ),
         ("monthly", "climate_indices", "mo_eistage"): "Monthly number of ice days.",
         ("monthly", "climate_indices", "mo_frosttage"): "Monthly number of frost days.",
@@ -3708,7 +3731,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "
             "radiation values to derive it."
         ),
-        ("daily", "weather", "frsh_snw_amt"): "Fresh snow amount, cm.",
+        ("daily", "weather", "frsh_snw_amt"): (
+            "Fresh snow amount, cm. The WD table lists fresh snow depth as a spot value at 0900Z (`ob_hour_count` 0); "
+            "the user guide (section 4.5) gives the period as 0900-0900, which the position `end` follows: the fresh "
+            "snow of the 24 hours to 09 UTC on the stamped day."
+        ),
         ("daily", "weather", "snow_depth"): "Snow depth, cm.",
         ("hourly", "radiation", "difu_irad_amt"): (
             "Diffuse solar irradiation amount, kJ per square metre over the observation period."
