@@ -157,6 +157,9 @@ meant to be understood, not to be the last word, and **a review by a native spea
   four locales. Least certain: `de-hh` `Dunnerwedder`, `Niesregen`, `Newel`, `Deelwies wulkig`,
   `Stoff- oder Sandstorm`, `Sneedrieven`; `lb` `Gewitter`, `Niselreen`, `Deelweis wollekeg`,
   `Schnéigestéber`; `cs` `Polojasno` for "partly cloudy"; `pl` `Zamieć śnieżna`.
+  The funnel cloud (`meteogram.chart.weather.funnelCloud`, GH-3965), in all four locales: `de-hh`
+  `Trechterwulk`, `lb` `Trechterwollek`, `cs` `Nálevkový oblak` (against `Trychtýřovitý oblak`), `pl`
+  `Chmura lejkowata`.
 
 - The footer link to the third-party licences (`footer.licenses`, GH-3469), in all four locales. Least
   certain: `de-hh` `Lizenzen vun annere` and `lb` `Lizenze vun Drëtten` ("licences of others"); `cs`

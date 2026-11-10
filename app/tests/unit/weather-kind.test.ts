@@ -23,8 +23,8 @@ const TABLE: [WeatherKind | null, number[]][] = [
   [null, range(13, 16)],
   ['thunderstorm', [17]],
   ['wind', [18]],
-  // 19 funnel cloud
-  [null, [19]],
+  // 19 funnel cloud (tornado or waterspout): what happened, not the sky of the day (GH-3965)
+  ['funnelCloud', [19]],
   // 20-29: the hour before, not at the observation
   ['drizzle', [20]],
   ['rain', [21, 24, 25]],
@@ -65,6 +65,14 @@ describe('the weather kind of a WMO present-weather code', () => {
     expect(weatherCodeToKind(code)).toBe(kind)
   })
 
+  // DWD's list of the codes MOSMIX and DMO deliver as `ww` (mosmix_element_weather_xls.xlsx, 15.03.2021): all of
+  // them name a kind, so the forecast never falls back on the heuristic for a code it was given
+  it('names a kind for every code DWD delivers in the forecasts', () => {
+    const delivered = [0, 1, 2, 3, 45, 49, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 71, 73, 75, 80, 81, 82, 83, 84, 85, 86, 95]
+    for (const code of delivered)
+      expect(weatherCodeToKind(code), `code ${code}`).not.toBeNull()
+  })
+
   it('names nothing for no code, a code outside the table or a number that is none', () => {
     for (const code of [null, undefined, Number.NaN, 100, 120, -1])
       expect(weatherCodeToKind(code)).toBeNull()
@@ -101,7 +109,8 @@ describe('the icons and words of the weather kinds', () => {
       drizzle: 'i-ph-drop-half',
       fog: 'i-ph-cloud-fog',
       wind: 'i-ph-wind',
-      dust: 'i-ph-tornado',
+      dust: 'i-ph-dots-nine',
+      funnelCloud: 'i-ph-tornado',
       blowingSnow: 'i-ph-snowflake',
       cloudy: 'i-ph-cloud',
       partlyCloudy: 'i-ph-cloud-sun',
@@ -116,6 +125,14 @@ describe('the icons and words of the weather kinds', () => {
   it('draws the sky, the rain, the snow and the fog differently', () => {
     const drawn = ['clear', 'partlyCloudy', 'cloudy', 'rain', 'snow', 'fog', 'thunderstorm', 'wind'] as const
     expect(new Set(drawn.map(kind => WEATHER_ICONS[kind])).size).toBe(drawn.length)
+  })
+
+  it('draws the funnel cloud and the dust storm differently: the words are all a reader of the icon has', () => {
+    expect(WEATHER_ICONS.funnelCloud).not.toBe(WEATHER_ICONS.dust)
+  })
+
+  it('names the funnel cloud for what it is, not as dust or as a clear sky', () => {
+    expect(en.meteogram.chart.weather[weatherCodeToKind(19)!]).toBe('Funnel cloud')
   })
 
   it('names the dust and the snow storms for what they are, not as a thunderstorm', () => {

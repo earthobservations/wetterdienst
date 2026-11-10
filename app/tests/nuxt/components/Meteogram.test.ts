@@ -629,11 +629,11 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     [71, 'snow', 'i-ph:cloud-snow', 'Snow'],
     [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
-    [33, 'dust', 'i-ph:tornado', 'Dust or sand storm'],
+    [33, 'dust', 'i-ph:dots-nine', 'Dust or sand storm'],
     [38, 'blowingSnow', 'i-ph:snowflake', 'Blowing snow'],
     [69, 'sleet', 'i-ph:cloud-snow', 'Sleet'],
-    // a funnel cloud names no weather the card could: it judges from the cloud cover and the rain, here none
-    [19, 'clear', 'i-ph:sun', 'Sunny'],
+    // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965)
+    [19, 'funnelCloud', 'i-ph:tornado', 'Funnel cloud'],
   ])('names the weather of weather code %i as %s (icon %s, words %s) in a day card', async (code, kind, icon, words) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
     plotly.newPlot.mockClear()
