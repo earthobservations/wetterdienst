@@ -12,10 +12,12 @@ import { mockBackend, STATIONS } from './accessibility/mock-backend'
 // of the browser's compositor (CDP `Input.synthesizeScrollGesture`, source touch), which is what a finger is, and
 // which a wheel event or `scrollTo` is not. The page behind is scrolled down once the dialog is open, since a page at
 // the top that does not move proves nothing about a lock. Chromium holds the page still by the `overflow: hidden` the
-// dialog library sets on the body, so the same drags are made once more with that lock taken off, as for a browser
-// that does not honour it for touch (iOS Safari long did not): then the dialog's own `touch-action` and
-// `overscroll-behavior` are what hold the page. The backend is the accessibility spec's mock, so nothing here reaches
-// a provider.
+// dialog library sets on the body, so the same drags are made once more with that lock taken off: a contract for the
+// dialog's own CSS (`touch-action` on the overlay, `overscroll-behavior` on the content and the body) in a browser that
+// ignores the body's lock. It is not a reproduction of the report: that is likeliest iOS Safari, where reka-ui already
+// guards `touchmove` and the search's list already had `overscroll-behavior`, and which this cannot run. The on-screen
+// keyboard (the field is focused on open, the visual viewport shrinks) is the open likely cause, and no test here covers
+// it. The backend is the accessibility spec's mock, so nothing here reaches a provider.
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 

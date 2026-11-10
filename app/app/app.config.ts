@@ -41,14 +41,21 @@ export default defineAppConfig({
       },
     },
     modal: {
+      // A finger on a dialog moves what scrolls in it and nothing behind it (GH-3761), by the dialog's own CSS, not by the
+      // body's `overflow: hidden` alone, which a browser may not honour for touch. Which property holds which part:
+      // `touch-action` of an element is intersected with its ancestors' only up to the nearest scroll container, so
+      // `pinch-zoom` (no one-finger pan; zooming stays, WCAG 1.4.4) on the overlay, which is no scroller, keeps a drag on
+      // the backdrop from panning the page; the content (`overflow: hidden`) and the body (`overflow-y: auto`) are scroll
+      // containers, so `overscroll-behavior: contain` is what stops a drag past the end of a list from going on to the
+      // page. A list that scrolls resets the pan itself, so it needs no `touch-action`.
       slots: {
-        // a finger on a dialog moves what is scrolling in it and nothing behind it (GH-3761): where nothing in the dialog
-        // scrolls under it, it pans nothing (pinch-zoom stays, WCAG 1.4.4), and a scrolling part says so itself
-        // (`touch-pan-y`), so that this does not rest on the library's `overflow: hidden` of the body alone, which
-        // iOS Safari did not honour for touch
-        overlay: 'touch-pinch-zoom overscroll-contain',
-        content: 'rounded-2xl touch-pinch-zoom overscroll-contain',
+        content: 'rounded-2xl overscroll-contain',
+        body: 'overscroll-contain',
       },
+      compoundVariants: [
+        // not where the overlay is the scroller (`scrollable`): `pinch-zoom` would stop it from panning
+        { scrollable: false, class: { overlay: 'touch-pinch-zoom' } },
+      ],
     },
     popover: {
       slots: {
