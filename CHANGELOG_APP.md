@@ -71,6 +71,10 @@ Types of changes:
   twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
   and the run list show what was picked last. A link to `/meteogram` without a station, such as
   the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
+- `[Navigation]` On a phone, the dialogs (the search, the place dialog of "Ask the weather", the
+  Menu's sheet) hold the page behind them themselves: a finger dragged on the backdrop, on a part
+  of the dialog that does not scroll, or on past the end of its list does not move the page, where
+  that rested on the body's `overflow: hidden` alone. Pinch zoom stays (GH-3761)
 - `[Explorer]` The window offered for a refused date range that reaches past today ends today at
   the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
   and answers empty. The rows it names are those of the part up to today, and where that part fits

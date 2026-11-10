@@ -20,7 +20,8 @@ projects: [
 ### Installing Browsers
 
 ```bash
-# Install Firefox (current default)
+# Install Firefox (current default) and Chromium, which two specs run in: chart-print.spec.ts (the `chromium`
+# project) and dialog-touch-scroll.spec.ts (the `chromium-touch` project, a Pixel 7 with touch)
 npx playwright install firefox chromium
 
 # Or install all browsers
