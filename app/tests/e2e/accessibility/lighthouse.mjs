@@ -1,15 +1,16 @@
 // Lighthouse's accessibility score of every page of the production build, by hand before an app release (ACCESSIBILITY.md).
 //
-//   pnpm build && pnpm lighthouse [--version 13.6.0] [--port 4413] [--mock-port 4412]
+//   pnpm build && pnpm lighthouse [--version 13.6.0] [--port 4413] [--mock-port 4412] [--only /api,/settings]
 //
 // The build is served by `.output/server/index.mjs`, with `NUXT_API_BASE` on a server of this script that answers every
 // `/api/*` request as the accessibility spec's mock backend does (`defaultHandlers` of mock-backend.ts), so that a page
 // shows what it shows with data and no provider is reached. Each of the 17 URLs is run twice, as Lighthouse's default
 // (mobile) and as `--preset=desktop`, with `npx lighthouse@<version>`, which needs the network and a Chrome (set
 // `CHROME_PATH` if Lighthouse does not find it). It prints a table and the line for ACCESSIBILITY.md, and exits 1 if
-// a run scores under 100.
+// a run scores under 100. A run that Lighthouse itself fails (a page it saw no paint of) is tried once more. `--only` keeps
+// the URLs that start with one of its comma-separated paths.
 
-import { spawn, spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -75,10 +76,13 @@ async function main() {
     }
 
     const scores = []
-    for (const path of URLS) {
+    const only = option('only', '').split(',').filter(Boolean)
+    for (const path of URLS.filter(url => !only.length || only.some(prefix => url.startsWith(prefix)))) {
       for (const device of ['mobile', 'desktop']) {
         const output = join(directory, `${scores.length}.json`)
-        const result = spawnSync('npx', ['--yes', `lighthouse@${version}`, `http://localhost:${port}${path}`, '--only-categories=accessibility', '--chrome-flags=--headless=new', '--output=json', `--output-path=${output}`, '--quiet', ...(device === 'desktop' ? ['--preset=desktop'] : [])], { stdio: 'inherit' })
+        // not `spawnSync`: it would stop this process's own mock backend, which the page being scored asks for its data
+        const run = () => new Promise(resolve => spawn('npx', ['--yes', `lighthouse@${version}`, `http://localhost:${port}${path}`, '--only-categories=accessibility', '--chrome-flags=--headless=new', '--output=json', `--output-path=${output}`, '--quiet', ...(device === 'desktop' ? ['--preset=desktop'] : [])], { stdio: 'inherit' }).on('close', status => resolve({ status })))
+        const result = (await run()).status === 0 ? { status: 0 } : await run()
         if (result.status !== 0)
           throw new Error(`lighthouse failed on ${path} (${device})`)
         const report = JSON.parse(readFileSync(output, 'utf-8'))
@@ -89,7 +93,7 @@ async function main() {
     }
     const below = scores.filter(entry => entry.score < 100)
     const counts = Object.entries(Object.groupBy(scores, entry => entry.score)).map(([score, list]) => `${list.length} x ${score}`).join(', ')
-    console.warn(`\nLighthouse ${scores[0].version}, ${scores[0].chrome}\n${URLS.length} URLs x mobile, desktop: ${counts}`)
+    console.warn(`\nLighthouse ${scores[0].version}, ${scores[0].chrome}\n${new Set(scores.map(entry => entry.path)).size} URLs x mobile, desktop: ${counts}`)
     for (const entry of below)
       console.warn(`  ${entry.score}: ${entry.path} (${entry.device}): ${entry.failed.join(', ')}`)
     process.exitCode = below.length ? 1 : 0
