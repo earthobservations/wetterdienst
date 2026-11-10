@@ -168,6 +168,12 @@
   --app-focus-ring: var(--color-brand-700);
   /* the bar under the tab of the page one is on: navy, as the logo's ground */
   --app-current: var(--color-tile-navy);
+  /* The two lines that say which tools are in the phone's tab bar (GH-3934): a short line at the left of a tool in the
+     Menu's sheet, and the dashed line between the two lists of the chooser. The bar's tools: shade 700, the menu-only
+     tools: a lighter shade 500. 1.4.11 asks 3:1 against the ground: white (the sheet and the card) 6.9:1 and 3.5:1,
+     and still 6.0:1 and 3.0:1 on the hovered link (ink-100). Held to it by `tests/unit/button-contrast.test.ts`. */
+  --app-mark-bar: var(--color-brand-700);
+  --app-mark-menu: var(--color-brand-500);
 
   /* The frame of every page (and of the header and the footer): the widest measure of a tool and the gutters at
      its sides. The gutters grow with the window from 1 rem to 2.5 rem; the measure of text is narrower. */
@@ -211,6 +217,10 @@
   --app-focus-ring: var(--color-brand-300);
   /* the sun rises at night: the bar under the current tab is the logo's yellow (10.2:1 on a card) */
   --app-current: var(--color-tile-sun);
+  /* the same two lines at night: shade 300 (8.7:1 on the sheet's #12233f, 7.6:1 on the hovered link) and the lighter,
+     which at night is the less bright one, shade 500 (4.5:1 and 4.0:1) */
+  --app-mark-bar: var(--color-brand-300);
+  --app-mark-menu: var(--color-brand-500);
 
   color-scheme: dark;
 }
@@ -582,6 +592,27 @@
   box-shadow: inset 3px 0 0 var(--app-current);
 }
 
+/* The line at the left of a tool in the sheet: its group, in the bar's colour or the lighter one of the tools that are
+   only in the Menu (GH-3934). Beside the tile and clear of the bar under the current link (3 px at the edge). */
+.sheet-tool {
+  position: relative;
+}
+.tool-mark {
+  position: absolute;
+  inset-inline-start: 0.3125rem;
+  top: 50%;
+  width: 3px;
+  height: 1.25rem;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--app-mark-bar);
+}
+/* a shorter line as well as a lighter one, so that the groups differ by shape and not by colour alone (WCAG 1.4.1) */
+.sheet-tool[data-group="menu"] .tool-mark {
+  height: 0.75rem;
+  background: var(--app-mark-menu);
+}
+
 /* The chooser of the phone bar's tools (settings page, GH-3846): the preview is the bar as it is drawn on a phone, the
    rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
 .bar-sticky {
@@ -646,7 +677,7 @@
 }
 .bar-line {
   padding-top: 1rem;
-  border-top: 2px dashed var(--ui-border-accented);
+  border-top: 2px dashed var(--app-mark-bar);
 }
 .bar-row {
   position: relative;
@@ -867,6 +898,15 @@
   }
   .skip-link {
     border: 2px solid ButtonText;
+  }
+  /* the lines of the Menu's sheet are fills: drawn in the system's colours, the bar's in the text colour, the shorter
+     line of the tools that are only in the Menu in the grey one */
+  .tool-mark {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .sheet-tool[data-group="menu"] .tool-mark {
+    background: GrayText;
   }
   [aria-current="page"],
   [aria-current="true"],

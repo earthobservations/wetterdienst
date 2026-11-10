@@ -118,7 +118,7 @@ function unitItems(units: readonly string[]) {
         </UFieldGroup>
       </UCard>
 
-      <!-- The tools of the phone's tab bar -->
+      <!-- The order of the tools: the phone's tab bar and Menu, the wide header (one title for every width, GH-3936) -->
       <!-- not clipped: the preview of the bar stays in view (`position: sticky`) while the rows are dragged under it -->
       <UCard id="bar" :ui="{ root: 'overflow-visible' }">
         <template #header>

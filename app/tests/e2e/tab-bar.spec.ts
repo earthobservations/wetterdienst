@@ -71,6 +71,11 @@ function settingsWith(tabBar: unknown) {
 const bar = (page: Page) => page.locator('.app-tabbar')
 const barTexts = (page: Page) => bar(page).locator('li').allInnerTexts()
 const menuTab = (page: Page) => bar(page).getByRole('button', { name: en.header.menu, exact: true })
+/** A link of the Menu's sheet by the name of its page: a tool's name carries where it is, in visually hidden text (GH-3934) */
+function sheetLink(page: Page, name: string) {
+  return page.getByRole('dialog', { name: en.header.menu })
+    .getByRole('link', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( ?, (${en.shell.toolInBar}|${en.shell.toolMenuOnly}))?$`) })
+}
 const chooser = (page: Page) => page.getByTestId('bar-chooser')
 const row = (page: Page, tool: string) => chooser(page).locator(`li[data-row][data-tool="${tool}"]`)
 const handle = (page: Page, tool: string) => row(page, tool).getByTestId('bar-handle')
@@ -422,7 +427,7 @@ test.describe('the Menu, on a phone', () => {
     await expect(bar(page).locator('[aria-current]')).toHaveCount(0)
     const goBySheet = async (name: string, url: RegExp) => {
       await menuTab(page).click()
-      await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name, exact: true }).click()
+      await sheetLink(page, name).click()
       await expect(page).toHaveURL(url)
     }
     await goBySheet(en.nav.glossary, /\/glossary$/)
@@ -454,7 +459,7 @@ test.describe('the Menu, on a phone', () => {
     await expect(bar(page).getByRole('link', { name: en.nav.history })).toHaveCount(0)
     // History is in the sheet now, and its page is the Menu's
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.history, exact: true }).click()
+    await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(0)
@@ -467,7 +472,7 @@ test.describe('the Menu, on a phone', () => {
     // History left the bar for the Menu: its tab is gone, and the pages of the sheet go on marking the Menu
     expect(await barTexts(page)).toEqual([...names(['forecast', 'explorer', 'stripes', 'map']), en.header.menu])
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.history, exact: true }).click()
+    await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     // the choice stays after the navigation, and a page of a tool in the bar marks its tab
@@ -523,7 +528,7 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
     // the pages of the sheet are still marked, and a page of the app still opens
     await menuTab(page).click()
-    await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.glossary, exact: true }).click()
+    await sheetLink(page, en.nav.glossary).click()
     await expect(page).toHaveURL(/\/glossary$/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
@@ -549,13 +554,122 @@ test.describe('every page, with the browser\'s storage blocked', () => {
 
 test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
+  const headerLinks = (page: Page) => page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav }).getByRole('link')
 
-  test('shows all five tools whatever the bar holds, and the chooser is still on the settings page', async ({ page, baseURL }) => {
+  test('shows all five tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(WITH_MAP) })
-    const header = page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav })
-    await expect(header.getByRole('link')).toHaveText(['meteogram', 'explorer', 'stripes', 'history', 'map'].map(key => en.nav[key]))
+    await expect(headerLinks(page)).toHaveText(WITH_MAP.map(key => NAMES[key]!))
     await expect(bar(page)).toBeHidden()
     await expect(chooser(page)).toBeVisible()
+  })
+
+  test('has a chooser of one ordered list, with no preview of a bar, no Menu, no groups and no line (GH-3936)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    await expect(chooser(page).locator('li[data-row]')).toHaveCount(5)
+    expect(await chooser(page).locator('li[data-row]').evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.tool))).toEqual(DEFAULT_ORDER)
+    await expect(chooser(page).getByTestId('bar-preview')).toHaveCount(0)
+    await expect(chooser(page).getByTestId('bar-preview-menu')).toHaveCount(0)
+    await expect(chooser(page).getByTestId('bar-group-menu')).toHaveCount(0)
+    await expect(chooser(page).locator('h3')).toHaveCount(0)
+    await expect(chooser(page).getByText(en.settings.bar.inMenu)).toHaveCount(0)
+    await expect(chooser(page).getByText(en.settings.bar.hintHeader)).toBeVisible()
+    await expect(chooser(page).getByRole('list', { name: en.settings.bar.listHeader })).toBeVisible()
+  })
+
+  test('moves the tabs of the header when a tool is moved in the chooser, kept after a reload, and the other places keep their order', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    await expect(headerLinks(page)).toHaveText(DEFAULT_ORDER.map(key => NAMES[key]!))
+    // the Map is the last of the list: there is no line to cross, so four steps take it to the first place
+    for (let step = 0; step < 4; step++)
+      await move(page, 'map', 'up').click()
+    const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    await expect(status(page)).toHaveText(`${en.nav.map} moved to place 1 of 5 in the header.`)
+    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    expect(await stored(page)).toEqual(expected)
+    await page.reload()
+    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    // the start page's tiles keep the fixed order of the tools
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
+    expect(await page.locator('.home-tasks li a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/meteogram', '/explorer', '/stripes', '/history', '/map'])
+  })
+})
+
+test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+  const sheet = (page: Page) => page.getByRole('dialog', { name: en.header.menu })
+  const sheetTools = (page: Page) => sheet(page).locator('li[data-tool]')
+  const sheetOrder = (page: Page) => sheetTools(page).evaluateAll(items => items.map(item => (item as HTMLElement).dataset.tool))
+
+  for (const mode of ['light', 'dark'] as const) {
+    test(`lists the tools in the order set in the settings, the bar's four first with a line and the rest with a lighter one, ${mode}`, async ({ page, baseURL }) => {
+      await open(page, baseURL!, '/settings', { mode })
+      // the Map goes to the first place: it is in the bar now and History is only in the Menu
+      for (let step = 0; step < 4; step++)
+        await move(page, 'map', 'up').click()
+      await menuTab(page).click()
+      await expect(sheet(page)).toBeVisible()
+      const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
+      await expect.poll(() => sheetOrder(page)).toEqual(expected)
+      expect(await sheetTools(page).evaluateAll(items => items.map(item => item.querySelector('a')!.dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu'])
+      // no heading says where a tool is: the words are visually hidden, and they are part of the link's name (a browser may put a space before the comma)
+      await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.map} ?, ${en.shell.toolInBar}$`) })).toBeVisible()
+      await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.history} ?, ${en.shell.toolMenuOnly}$`) })).toBeVisible()
+      await expect(sheet(page).locator('h3')).toHaveCount(0)
+      // two lines of two colours: both drawn and narrow; the bar's the stronger against the sheet and the longer, so
+      // that the groups differ by shape as well as by colour (WCAG 1.4.1)
+      const marks = await sheetTools(page).evaluateAll((items) => {
+        const channels = (colour: string) => (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+        const luminance = (colour: string) => {
+          const [r, g, b] = channels(colour).map(c => c / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+        }
+        const contrast = (a: string, b: string) => {
+          const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+          return (hi! + 0.05) / (lo! + 0.05)
+        }
+        const ground = getComputedStyle(items[0]!.closest('[role="dialog"]')!).backgroundColor
+        return items.map((item) => {
+          const mark = item.querySelector('.tool-mark')!
+          const box = mark.getBoundingClientRect()
+          const colour = getComputedStyle(mark).backgroundColor
+          return { colour, width: Math.round(box.width), height: box.height, contrast: contrast(colour, ground) }
+        })
+      })
+      expect(new Set(marks.slice(0, 4).map(mark => mark.colour)).size).toBe(1)
+      expect(marks[4]!.colour).not.toBe(marks[0]!.colour)
+      expect(marks[0]!.contrast, 'the bar line against the sheet').toBeGreaterThanOrEqual(3)
+      expect(marks[4]!.contrast, 'the menu-only line against the sheet').toBeGreaterThanOrEqual(3)
+      expect(marks[0]!.contrast, 'the bar line is the stronger').toBeGreaterThan(marks[4]!.contrast)
+      for (const mark of marks) {
+        expect(mark.width).toBe(3)
+        expect(mark.colour).not.toBe('rgba(0, 0, 0, 0)')
+      }
+      // the bar line is 1.25 rem and the menu-only one 0.75 rem
+      expect(marks[0]!.height).toBeCloseTo(20, 0)
+      expect(marks[4]!.height).toBeCloseTo(12, 0)
+      expect(marks[4]!.height).toBeLessThan(marks[0]!.height)
+      // the chooser's dashed line is in the bar's colour
+      await page.keyboard.press('Escape')
+      await expect(sheet(page)).toBeHidden()
+      const line = await chooser(page).getByTestId('bar-group-menu').evaluate(node => getComputedStyle(node).borderTopColor)
+      expect(line).toBe(marks[0]!.colour)
+    })
+  }
+
+  test('follows a move made in the settings, and keeps its order across a reload', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings', { settings: settingsWith(DEFAULT_ORDER) })
+    await menuTab(page).click()
+    await expect.poll(() => sheetOrder(page)).toEqual(DEFAULT_ORDER)
+    await page.keyboard.press('Escape')
+    await move(page, 'stripes', 'up').click()
+    await move(page, 'stripes', 'up').click()
+    await menuTab(page).click()
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
+    await page.reload()
+    await menuTab(page).click()
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
   })
 })
 

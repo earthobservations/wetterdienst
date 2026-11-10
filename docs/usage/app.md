@@ -18,12 +18,15 @@ API are under **Reference**; the project's pages (about, support, the legal noti
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
 are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
 and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
-Explorer, Climate stripes and History, and the Map is in the Menu's sheet. **Customise the bar** (a link in the Menu,
+Explorer, Climate stripes and History, and the Map is in the Menu's sheet. **Arrange tools** (a link in the Menu,
 and a card of the Settings) lets you choose which four, and in which order: a list of all the tools, the four of the
 bar above a line and the ones that are only in the Menu below it, with a preview of the bar that follows the list.
+The Menu lists the tools in that order, the four of the bar first, each with a short line in the bar's blue, then the
+ones that are only in the Menu, each with a shorter, fainter line.
 Drag a tool by its handle, or press the arrow buttons on its row (they do the same, by keyboard, screen reader or
 single tap, and say what moved); a tool moved into the bar pushes the one at the line out of it, so the bar always has
-four. The choice stays in the browser. The header of a wide screen shows all five tools whatever the choice. The
+four. The choice stays in the browser. The header of a wide screen shows all five tools as tabs in the same order, and there the
+list is one list of five, with no bar and no Menu. The
 Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
 your bar, Providers, Glossary and API, About, Support and the Settings. The home page and the legal notices mark
 nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
