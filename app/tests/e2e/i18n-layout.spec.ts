@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
-// Luxembourgish, Czech and Low German (which had no overflow on any page, with or without the map's). A string longer than its button, tab or table header either pushes the
+// Luxembourgish, Czech, Low German, Italian and French (the last two scrolled sideways on the stripes and history
+// pages, GH-3845). A string longer than its button, tab or table header either pushes the
 // page sideways or spills out of its box, and that shows nowhere except in a browser, in the
 // language that is too long. No screenshots: an element is an offender when its content is wider
 // than it is (`scrollWidth > clientWidth`) and it does not scroll or truncate on purpose, and a
@@ -14,8 +15,12 @@ import { mockBackend } from './accessibility/mock-backend'
 //
 // Each page is loaded once and measured at every width.
 
-const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh'] as const
+const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs', 'pl', 'de-hh', 'it', 'fr'] as const
 const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/map', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
+// every language the app has, and the pages that failed at a phone's width (GH-3845, GH-3858)
+const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
+const OTHER_LANGUAGES = ALL_LANGUAGES.filter(language => !(LONG_LANGUAGES as readonly string[]).includes(language))
+const REFLOW_PAGES = ['/stripes', '/history', '/settings']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
   // the narrowest window with the tools in the header (64 rem), where their names are tightest (GH-3518)
@@ -73,11 +78,102 @@ LONG_LANGUAGES.forEach((language) => {
           // the layout settles after a resize on the next frame
           await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
           expect(await offendersOf(page), `${path} in ${language} on a ${viewport.name} (${viewport.width}px)`).toEqual([])
+          // the pages that failed at a phone's width (GH-3845, GH-3858) are held to the box that clips as well
+          if (viewport.width === 320 && REFLOW_PAGES.includes(path))
+            expect(await reflowOffendersOf(page, path), `${path} in ${language} on a ${viewport.name} (${viewport.width}px)`).toEqual([])
         }
       })
     }
   })
 })
+
+// The pages of the tools and the settings in every language the app has, at 320 px (WCAG 1.4.10 Reflow, GH-3845,
+// GH-3858). `offendersOf` sees what is wider than its own box and the page that scrolls; a card that clips its
+// content (the unit selects of the settings, which ran past it in most languages) scrolls nothing and is no box
+// that is wider than itself, so `protrudingOf` holds every element inside the box that clips it and inside the
+// window, and `cutOf` a text that ends in an ellipsis where it is not meant to (a theme button's name).
+// The long languages are measured on every page in the loop above, these pages included; the languages that are not
+// among them are here, and the long ones that were tightest on the settings page at a phone's 390 px.
+/** What passes the right edge of the window, or of the box that clips it, outside a box that scrolls on purpose. */
+function protrudingOf(page: Page) {
+  return page.evaluate(() => {
+    const found: string[] = []
+    const window_ = document.documentElement.clientWidth
+    for (const el of document.querySelectorAll('body *')) {
+      const box = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      if (box.width === 0 || style.visibility === 'hidden' || style.position === 'fixed')
+        continue
+      // a heading for a screen reader only (`sr-only`) is a box of one pixel by design, and shows nothing
+      if (style.position === 'absolute' && el.clientWidth <= 1 && (style.clipPath === 'inset(50%)' || style.clip === 'rect(0px, 0px, 0px, 0px)'))
+        continue
+      let limit = window_
+      let stops = false
+      for (let ancestor = el.parentElement; ancestor && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
+        const ancestorStyle = getComputedStyle(ancestor)
+        // a box that scrolls sideways, or truncates on purpose; `overflow-y` alone makes `overflow-x` compute to auto
+        // too, and such a box that does not scroll clips like a hidden one
+        if ((['auto', 'scroll'].includes(ancestorStyle.overflowX) && ancestor.scrollWidth > ancestor.clientWidth) || ancestorStyle.textOverflow === 'ellipsis') {
+          stops = true
+          break
+        }
+        if (['hidden', 'clip', 'auto', 'scroll'].includes(ancestorStyle.overflowX))
+          limit = Math.min(limit, ancestor.getBoundingClientRect().right)
+      }
+      if (!stops && box.right > limit + 1) {
+        const text = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
+        found.push(`<${el.tagName.toLowerCase()}> "${text}" (right edge ${Math.round(box.right)}px, limit ${Math.round(limit)}px)`)
+      }
+    }
+    return found
+  })
+}
+
+/** The texts that end in an ellipsis: on the settings page every name is read in full. */
+function cutOf(page: Page) {
+  return page.evaluate(() => [...document.querySelectorAll('body *')]
+    .filter(el => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1)
+    .map(el => `<${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)}" (${el.scrollWidth}px of ${el.clientWidth}px)`))
+}
+
+/** What `protrudingOf` and, on the settings page, `cutOf` find. */
+async function reflowOffendersOf(page: Page, path: string) {
+  return [...await protrudingOf(page), ...(path === '/settings' ? await cutOf(page) : [])]
+}
+
+async function settle(page: Page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+}
+
+for (const language of OTHER_LANGUAGES) {
+  for (const path of REFLOW_PAGES) {
+    test(`${path} in ${language} does not scroll or clip sideways at 320px`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await page.goto(path)
+      await expect(page.locator('h1').first()).toBeVisible({ timeout: 30_000 })
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+      await settle(page)
+      expect(await offendersOf(page), `${path} in ${language} at 320px`).toEqual([])
+      expect(await reflowOffendersOf(page, path), `${path} in ${language} at 320px`).toEqual([])
+    })
+  }
+}
+
+// A phone of 390 px: the theme buttons of the settings share a row, and Polish and Czech names ("Systemowy",
+// "Systémový") were cut where the buttons were as wide as each other and no wider than the row allowed
+for (const language of ['pl', 'cs']) {
+  test(`/settings in ${language} shows the theme buttons in full at 390px`, async ({ page, context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/settings')
+    await expect(page.locator('h1').first()).toBeVisible({ timeout: 30_000 })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+    await settle(page)
+    expect(await offendersOf(page), `/settings in ${language} at 390px`).toEqual([])
+    expect(await reflowOffendersOf(page, '/settings'), `/settings in ${language} at 390px`).toEqual([])
+  })
+}
 
 // The forecast in each of its views, with the view control and, in the table, its header: the control's
 // labels and the table's headers are the longest texts on the page. The backend is the accessibility
@@ -110,7 +206,6 @@ LONG_LANGUAGES.forEach((language) => {
 // The header with five tools (GH-3650) in every language the app has: Italian and French were the tightest, at 1024 and
 // 1280 px (the settings button ended at 1033 and 1310 px with the fifth tab), where the header holds the search too.
 // The page is measured as it first comes, with the typeface not yet there, which is the narrower of its two faces' margins.
-const ALL_LANGUAGES = ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const
 test.describe('the header', () => {
   for (const language of ALL_LANGUAGES) {
     test(`holds the five tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
