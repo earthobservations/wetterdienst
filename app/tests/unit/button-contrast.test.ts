@@ -153,3 +153,55 @@ describe('the arrow buttons of the phone bar\'s chooser (GH-3846)', () => {
     expect(contrast(edge, ground)).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe('the two lines of the bar\'s tools and the menu-only tools (GH-3934)', () => {
+  // a line beside a tool in the Menu's sheet, and the dashed line of the chooser: non-text marks (WCAG 1.4.11), 3:1
+  // against what they lie on, light and dark. The words a screen reader gets are the other half, and tested with the sheet.
+  const day = css.slice(css.indexOf(':root,'), css.indexOf('.dark {'))
+  const shade = (block: string, name: string) => brand(Number(new RegExp(`--${name}:\\s*var\\(--color-brand-(\\d+)\\)`).exec(block)?.[1]))
+  const CARD = '#ffffff'
+  const HOVERED_LINK = ink(100)
+  const NIGHT_CARD = darkToken('ui-bg')
+  const NIGHT_HOVERED_LINK = darkToken('ui-bg-elevated')
+
+  it.each([
+    ['the bar\'s line by day, on the sheet', shade(day, 'app-mark-bar'), CARD],
+    ['the bar\'s line by day, on a hovered link', shade(day, 'app-mark-bar'), HOVERED_LINK],
+    ['the menu-only line by day, on the sheet', shade(day, 'app-mark-menu'), CARD],
+    ['the menu-only line by day, on a hovered link', shade(day, 'app-mark-menu'), HOVERED_LINK],
+    ['the bar\'s line at night, on the sheet', shade(night, 'app-mark-bar'), NIGHT_CARD],
+    ['the bar\'s line at night, on a hovered link', shade(night, 'app-mark-bar'), NIGHT_HOVERED_LINK],
+    ['the menu-only line at night, on the sheet', shade(night, 'app-mark-menu'), NIGHT_CARD],
+    ['the menu-only line at night, on a hovered link', shade(night, 'app-mark-menu'), NIGHT_HOVERED_LINK],
+  ])('clears 3:1: %s', (_what, line, ground) => {
+    expect(contrast(line, ground)).toBeGreaterThanOrEqual(3)
+  })
+
+  it('has two colours that are not one, by day and at night', () => {
+    expect(shade(day, 'app-mark-bar')).not.toBe(shade(day, 'app-mark-menu'))
+    expect(shade(night, 'app-mark-bar')).not.toBe(shade(night, 'app-mark-menu'))
+  })
+
+  it('has the bar\'s line the stronger of the two against the sheet, by day and at night', () => {
+    expect(contrast(shade(day, 'app-mark-bar'), CARD)).toBeGreaterThan(contrast(shade(day, 'app-mark-menu'), CARD))
+    expect(contrast(shade(night, 'app-mark-bar'), NIGHT_CARD)).toBeGreaterThan(contrast(shade(night, 'app-mark-menu'), NIGHT_CARD))
+  })
+
+  it('draws the menu-only line shorter than the bar\'s, so that the groups differ by shape as well (WCAG 1.4.1)', () => {
+    const height = (rule: RegExp) => Number(rule.exec(css)?.[1])
+    expect(height(/\.tool-mark\s*\{[^}]*height:\s*([\d.]+)rem/)).toBe(1.25)
+    expect(height(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*height:\s*([\d.]+)rem/)).toBe(0.75)
+  })
+
+  it('keeps the two lines apart in forced colours, where a background is replaced: text colour and grey', () => {
+    const forced = css.slice(css.indexOf('@media (forced-colors: active)'))
+    expect(forced).toMatch(/\.tool-mark\s*\{[^}]*forced-color-adjust:\s*none;[^}]*background:\s*CanvasText/)
+    expect(forced).toMatch(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*background:\s*GrayText/)
+  })
+
+  it('draws the chooser\'s dashed line in the bar\'s colour, so the sheet and the chooser mark the groups alike', () => {
+    expect(css).toMatch(/\.bar-line\s*\{[^}]*border-top:\s*2px dashed var\(--app-mark-bar\)/)
+    expect(css).toMatch(/\.tool-mark\s*\{[^}]*background:\s*var\(--app-mark-bar\)/)
+    expect(css).toMatch(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*background:\s*var\(--app-mark-menu\)/)
+  })
+})

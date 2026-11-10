@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TOOLS } from '../../app/utils/sections'
-import { BAR_SIZE, barKeys, DEFAULT_TOOL_ORDER, describeMove, isDefaultOrder, menuKeys, moveTool, normalizeToolOrder, slotAt } from '../../app/utils/tab-bar'
+import { BAR_SIZE, barKeys, DEFAULT_TOOL_ORDER, describeMove, HEADER_SIZE, isDefaultOrder, menuKeys, moveTool, normalizeToolOrder, slotAt } from '../../app/utils/tab-bar'
 
 // The choice of the tools in the phone's tab bar (GH-3846): a list of all the tools of which the first four are the
 // bar. Whatever is stored or moved, the list is valid: all the tools once each, four above the line.
@@ -158,5 +158,37 @@ describe('slotAt', () => {
     // the middles of the fourth and fifth row are 220 and 308: the change is at 264, over the line between them
     expect(slotAt(263, slots)).toBe(3)
     expect(slotAt(265, slots)).toBe(4)
+  })
+})
+
+describe('the split with a size of its own (GH-3936)', () => {
+  const order = ['stripes', 'map', 'history', 'forecast', 'explorer']
+
+  it('has the header show all the tools today, so there is no second group', () => {
+    expect(HEADER_SIZE).toBe(DEFAULT_TOOL_ORDER.length)
+    expect(barKeys(order, HEADER_SIZE)).toEqual(order)
+    expect(menuKeys(order, HEADER_SIZE)).toEqual([])
+  })
+
+  it('splits the same list wherever the size is, the first `size` and the rest, with nothing lost or twice', () => {
+    for (const size of [0, 1, 2, 3, 4, 5, 9]) {
+      expect(barKeys(order, size)).toHaveLength(Math.min(size, order.length))
+      expect([...barKeys(order, size), ...menuKeys(order, size)]).toEqual(order)
+    }
+  })
+
+  it('has a smaller size for the header put a second group below it (a later "more tools"), from the one list', () => {
+    expect(barKeys(order, 3)).toEqual(['stripes', 'map', 'history'])
+    expect(menuKeys(order, 3)).toEqual(['forecast', 'explorer'])
+  })
+
+  it('has the bar\'s size by default, as before', () => {
+    expect(barKeys(order)).toEqual(barKeys(order, BAR_SIZE))
+    expect(menuKeys(order)).toEqual(menuKeys(order, BAR_SIZE))
+  })
+
+  it('describes a move by the size of the layout: with all the tools in the header, a move never leaves it', () => {
+    expect(describeMove(DEFAULT, moveTool(DEFAULT, 4, 0), 'map', HEADER_SIZE)).toEqual({ kind: 'reorderedBar', tool: 'map', position: 1, total: 5 })
+    expect(describeMove(DEFAULT, moveTool(DEFAULT, 4, 0), 'map')).toEqual({ kind: 'enteredBar', tool: 'map', position: 1, total: 4, other: 'history' })
   })
 })

@@ -202,6 +202,8 @@
     "tools": "Werkzeuge",
     "reference": "Nachschlagen",
     "project": "Projekt",
+    "toolInBar": "in der Leiste",
+    "toolMenuOnly": "nur im Menü",
     "search": "Suchen",
     "searchPlaceholder": "Zu einer Seite, einer Station, einem Anbieter oder einer Einstellung springen",
     "searchEmpty": "Nichts gefunden",
@@ -284,7 +286,7 @@
     "unitTurbidity": "Trübung",
     "unitWindScale": "Windskala",
     "bar": {
-      "title": "Leiste anpassen",
+      "title": "Werkzeuge anordnen",
       "hint": "Auf dem Smartphone zeigt die Leiste am unteren Bildschirmrand vier Werkzeuge und das Menü. Wähle, welche vier. Die anderen bleiben im Menü.",
       "preview": "Vorschau",
       "previewLabel": "Vorschau der Leiste: {tools}, Menü",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} steht jetzt an Platz {position} von {total} im Menü.",
       "enteredBar": "{tool} ist jetzt in der Leiste, an Platz {position} von {total}. {other} ist jetzt nur noch im Menü.",
       "leftBar": "{tool} ist jetzt nur noch im Menü. {other} ist jetzt in der Leiste, an Platz {position} von {total}.",
-      "resetDone": "Die Leiste ist wieder wie zu Beginn: {tools}."
+      "resetDone": "Die Leiste ist wieder wie zu Beginn: {tools}.",
+      "hintHeader": "Auf einem breiten Bildschirm zeigt die Kopfzeile alle Werkzeuge als Tabs, in dieser Reihenfolge. Die ersten vier sind auch die Leiste auf dem Smartphone, die anderen bleiben dort im Menü.",
+      "instructionsHeader": "Ziehe ein Werkzeug am Griff, oder nutze die Pfeil-Schaltflächen in seiner Zeile.",
+      "listHeader": "Werkzeuge in der Kopfzeile, in Reihenfolge",
+      "reorderedHeader": "{tool} steht jetzt an Platz {position} von {total} in der Kopfzeile.",
+      "resetHeader": "Reihenfolge zurücksetzen",
+      "resetDoneHeader": "Die Reihenfolge ist wieder wie zu Beginn: {tools}."
     }
   },
   "units": {

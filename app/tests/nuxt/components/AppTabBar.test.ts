@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AppTabBar from '~/components/AppTabBar.vue'
 import { useSettings } from '~/composables/useSettings'
+import { useTabBar } from '~/composables/useTabBar'
 
 // The navigation of the narrow layout (GH-3650, GH-3846, GH-3851): five tools and the Menu are six items, more than a
 // tab bar holds, so the bar has four tools, which the reader chooses (Forecast, Explorer, Stripes and History until
@@ -50,22 +51,68 @@ describe('the tab bar of the narrow layout', () => {
     expect(button.attributes('aria-expanded')).toBe('false')
   })
 
-  it('has all five tools in the Menu\'s sheet in the order of the header, whatever the bar holds, and the link to the chooser', async () => {
-    for (const order of [undefined, WITH_MAP]) {
+  describe('the Menu\'s sheet (GH-3934)', () => {
+    async function openSheet(order?: unknown) {
       if (order)
         choose(order)
       const wrapper = await mountBar()
       await menuButton(wrapper).trigger('click')
       await vi.waitFor(() => expect(document.body.querySelector('[role="dialog"]')).not.toBeNull())
-      const sheet = document.body.querySelector('[role="dialog"]')!
-      const tools = [...sheet.querySelectorAll('section')[0]!.querySelectorAll('a')]
-      expect(tools.map(link => link.textContent!.trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'History', 'Map', 'Customise the bar'])
-      expect(tools.map(link => link.getAttribute('href'))).toEqual(['/', '/meteogram', '/explorer', '/stripes', '/history', '/map', '/settings#bar'])
-      expect(menuButton(wrapper).attributes('aria-expanded')).toBe('true')
-      wrapper.unmount()
-      mounted.pop()
-      document.body.querySelectorAll('[role="dialog"]').forEach(dialog => dialog.remove())
+      return document.body.querySelector('[role="dialog"]')!
     }
+    const links = (sheet: Element) => [...sheet.querySelectorAll('section')[0]!.querySelectorAll('a')]
+    const toolItems = (sheet: Element) => [...sheet.querySelectorAll<HTMLElement>('li[data-tool]')]
+
+    it('has all five tools, the Home page and the link to the chooser, with the default choice', async () => {
+      const tools = links(await openSheet())
+      expect(tools.map(link => link.textContent!.replace(/, (in the bar|only in the Menu)$/, '').trim())).toEqual(['Home', 'Forecast', 'Explorer', 'Climate stripes', 'History', 'Map', 'Arrange tools'])
+      expect(tools.map(link => link.getAttribute('href'))).toEqual(['/', '/meteogram', '/explorer', '/stripes', '/history', '/map', '/settings#bar'])
+    })
+
+    it('lists the tools in the order the reader chose, the four of the bar first, then the others', async () => {
+      const sheet = await openSheet(['history', 'map', 'forecast', 'explorer', 'stripes'])
+      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['history', 'map', 'forecast', 'explorer', 'stripes'])
+      expect(toolItems(sheet).map(item => item.querySelector('a')!.getAttribute('href'))).toEqual(['/history', '/map', '/meteogram', '/explorer', '/stripes'])
+      // the home page leads and the link to the chooser follows the tools
+      expect(links(sheet).map(link => link.getAttribute('href')).at(0)).toBe('/')
+      expect(links(sheet).map(link => link.getAttribute('href')).at(-1)).toBe('/settings#bar')
+    })
+
+    it('follows setOrder while it is open, as the bar does', async () => {
+      const { setOrder } = useTabBar()
+      const sheet = await openSheet()
+      expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      setOrder(['map', 'stripes', 'explorer', 'forecast', 'history'])
+      await vi.waitFor(() => expect(toolItems(sheet).map(item => item.dataset.tool)).toEqual(['map', 'stripes', 'explorer', 'forecast', 'history']))
+    })
+
+    it('marks the four tools of the bar with the bar\'s line, the others with the lighter one, and has no heading or rule between them', async () => {
+      const sheet = await openSheet(['stripes', 'map', 'history', 'forecast', 'explorer'])
+      const groups = toolItems(sheet).map(item => [item.dataset.tool, item.querySelector('a')!.dataset.group])
+      expect(groups).toEqual([['stripes', 'bar'], ['map', 'bar'], ['history', 'bar'], ['forecast', 'bar'], ['explorer', 'menu']])
+      for (const item of toolItems(sheet)) {
+        const link = item.querySelector('a')!
+        expect(item.dataset.group, 'the group is on the link only').toBeUndefined()
+        // one line, drawn by CSS from the group, and no information in it for a screen reader
+        const marks = link.querySelectorAll('.tool-mark')
+        expect(marks).toHaveLength(1)
+        expect(marks[0]!.getAttribute('aria-hidden')).toBe('true')
+      }
+      // the sheet's own headings (its title, tools, reference, project) are all it has: none says where a tool is
+      expect([...sheet.querySelectorAll('h2')].map(heading => heading.textContent!.trim())).toEqual(['Menu', 'Tools', 'Reference', 'Project'])
+      expect(sheet.querySelectorAll('h3')).toHaveLength(0)
+      expect(sheet.querySelectorAll('hr')).toHaveLength(0)
+    })
+
+    it('says in visually hidden text which tools are in the bar and which only in the Menu', async () => {
+      const sheet = await openSheet(['stripes', 'map', 'history', 'forecast', 'explorer'])
+      const hidden = toolItems(sheet).map(item => item.querySelector('.sr-only')!.textContent!.trim())
+      expect(hidden).toEqual([', in the bar', ', in the bar', ', in the bar', ', in the bar', ', only in the Menu'])
+      // the link's name is the tool, then where it is
+      expect(toolItems(sheet).at(0)!.querySelector('a')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Climate stripes, in the bar')
+      // the other links of the sheet say nothing of the kind
+      expect(sheet.querySelectorAll('.sr-only')).toHaveLength(5)
+    })
   })
 
   describe('marks, for every kind of page it is on', () => {
