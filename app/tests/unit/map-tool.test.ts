@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clickReach,
+  closerStoppedStation,
   DEFAULT_MEASURED,
   distanceKm,
   DOT_SLOP_PX,
@@ -26,6 +27,7 @@ import {
   stationFor,
   stripesLink,
   TAP_RADIUS_PX,
+  yearOf,
 } from '../../app/utils/map-tool'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
@@ -343,5 +345,68 @@ describe('the station picked for a place', () => {
   it('is the station a point is on, within the tolerance, whatever its status, and none farther', () => {
     expect(stationAt(list, { latitude: 53.5105, longitude: 10 }, 0.5)!.station_id).toBe('near-closed')
     expect(stationAt(list, here, 0.5)).toBeNull()
+  })
+})
+
+describe('why a farther station was picked (GH-3875)', () => {
+  const now = Date.parse('2026-11-07T12:00:00Z')
+  const ended = (end: string | null) => ({ end_timestamp: end })
+  // the place of the issue: central Hamburg, two stations that stopped long ago nearer than the one that reports
+  const PLACE = { latitude: 53.551, longitude: 9.994 }
+  const SEEWARTE = { ...station('15526', 'Hamburg (Deutsche Seewarte)', 53.547, 9.976), ...ended('1935-12-31T00:00:00+00:00') }
+  const SANKT_PAULI = { ...station('01987', 'Hamburg-Sankt Pauli', 53.5543, 9.9672), ...ended('2000-02-29T00:00:00+00:00') }
+  const FUHLSBUETTEL = { ...station('01975', 'Hamburg-Fuhlsbüttel', 53.6332, 9.9881), ...ended('2026-11-06T00:00:00+00:00') }
+  const NEUWIEDENTHAL = { ...station('01981', 'Hamburg-Neuwiedenthal', 53.4777, 9.8977), ...ended('2026-11-06T00:00:00+00:00') }
+  const LIST = placed([SEEWARTE, SANKT_PAULI, FUHLSBUETTEL, NEUWIEDENTHAL] as never[])
+  const reporting = reportingRule(LIST, now)
+  const [seewarte, sanktPauli, fuhlsbuettel] = LIST
+
+  it('names the nearest station that has stopped, with its distance and the year its record ends in, when the picked one reports', () => {
+    const closer = closerStoppedStation(LIST, PLACE, fuhlsbuettel!, reporting)
+    // the nearest of all is the Seewarte (1.3 km from the place), which stopped in 1935
+    expect(closer?.station.station_id).toBe('15526')
+    expect(closer?.endYear).toBe(1935)
+    expect(closer?.distance).toBeCloseTo(distanceKm(PLACE, seewarte!), 6)
+    expect(closer?.distance).toBeLessThan(distanceKm(PLACE, fuhlsbuettel!))
+  })
+
+  it('is the second station when that is the nearest: the one picked is not the nearest, and the nearest is what is named', () => {
+    const closer = closerStoppedStation(LIST.filter(entry => entry.station_id !== '15526'), PLACE, fuhlsbuettel!, reporting)
+    expect(closer).toMatchObject({ station: { name: 'Hamburg-Sankt Pauli' }, endYear: 2000 })
+    expect(closer!.distance).toBeCloseTo(1.8, 0)
+  })
+
+  it('is null where the station picked is the nearest', () => {
+    const near = { latitude: 53.6332, longitude: 9.9881 }
+    expect(closerStoppedStation(LIST, near, fuhlsbuettel!, reporting)).toBeNull()
+  })
+
+  it('is null where the station picked has itself stopped: no rule put it before a nearer one', () => {
+    expect(closerStoppedStation(LIST, PLACE, sanktPauli!, reporting)).toBeNull()
+  })
+
+  it('is null where the nearer station reports too: it is not the rule that passed it over', () => {
+    const both = placed([{ ...SANKT_PAULI, ...ended('2026-11-05T00:00:00+00:00') }, FUHLSBUETTEL] as never[])
+    expect(closerStoppedStation(both, PLACE, both[1]!, reportingRule(both, now))).toBeNull()
+  })
+
+  it('has no year for a station whose list gives it no end', () => {
+    const list = placed([{ ...SANKT_PAULI, ...ended(null) }, FUHLSBUETTEL] as never[])
+    const closer = closerStoppedStation(list, PLACE, list[1]!, reportingRule(list, now))
+    expect(closer).toMatchObject({ station: { station_id: '01987' }, endYear: null })
+  })
+
+  it('agrees with the rule that picks the station: where it picks a farther one over a nearer one, the nearer one is named', () => {
+    const picked = stationFor(LIST, PLACE, reporting)!
+    expect(picked.station.station_id).toBe('01975')
+    expect(closerStoppedStation(LIST, PLACE, picked.station, reporting)).not.toBeNull()
+  })
+
+  it('reads the year of a timestamp in UTC, and no year of what is no date', () => {
+    expect(yearOf('2000-02-29T00:00:00+00:00')).toBe(2000)
+    expect(yearOf('2018-12-31T23:59:59+00:00')).toBe(2018)
+    expect(yearOf(null)).toBeNull()
+    expect(yearOf(undefined)).toBeNull()
+    expect(yearOf('not a date')).toBeNull()
   })
 })

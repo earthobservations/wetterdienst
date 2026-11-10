@@ -827,6 +827,8 @@
     "back": "Zpět na stanice",
     "chosen": "Vybráno: {name}",
     "pickedPlace": "Bod na mapě, {distance} od této stanice",
+    "pickedCentre": "Střed mapy, {distance} od této stanice",
+    "pickedStationPlace": "Poloha stanice {name}, {distance} od této stanice",
     "elevation": "{value} m n. m.",
     "at": "{name}, {distance} odtud",
     "noneNearby": "Žádná stanice do {distance}.",
@@ -839,7 +841,13 @@
     "period": "od {from} do {to}",
     "stripesFigure": "Klimatické pruhy: {name}",
     "stripesNone": "Pro tuto stanici nejsou klimatické pruhy.",
-    "stationNotFound": "Na této mapě není stanice {id}."
+    "stationNotFound": "Na této mapě není stanice {id}.",
+    "legend": "Legenda",
+    "legendReporting": "Stále hlásí",
+    "legendStopped": "Přestala hlásit",
+    "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
+    "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
+    "pickCloser": "Místo toho vybrat {name}"
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

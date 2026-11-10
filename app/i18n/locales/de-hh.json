@@ -827,6 +827,8 @@
     "back": "Torüch to de Stationen",
     "chosen": "{name} utsöcht",
     "pickedPlace": "Een Punkt op de Kaart, {distance} vun disse Station af",
+    "pickedCentre": "De Midd vun de Kaart, {distance} vun disse Station af",
+    "pickedStationPlace": "De Stäe vun {name}, {distance} vun disse Station af",
     "elevation": "{value} m över Seehööch",
     "at": "{name}, {distance} af",
     "noneNearby": "Keen Station binnen {distance}.",
@@ -839,7 +841,13 @@
     "period": "{from} bit {to}",
     "stripesFigure": "Klimastrepen vun {name}",
     "stripesNone": "Keen Klimastrepen för disse Station.",
-    "stationNotFound": "Dat gifft keen Station {id} op disse Kaart."
+    "stationNotFound": "Dat gifft keen Station {id} op disse Kaart.",
+    "legend": "Legende",
+    "legendReporting": "Meldt noch",
+    "legendStopped": "Hett ophöört",
+    "whyFarther": "De neegste Station, de noch meldt. Neger: {name}, {distance}, bit {year}.",
+    "whyFartherNoEnd": "De neegste Station, de noch meldt. Neger: {name}, {distance}, Enn nich bekannt.",
+    "pickCloser": "{name} statts disse nehmen"
   },
   "dataViewer": {
     "loadingValues": "Weerten warrt laadt …",

@@ -827,6 +827,8 @@
     "back": "Torna alle stazioni",
     "chosen": "{name} scelta",
     "pickedPlace": "Un punto della mappa, a {distance} da questa stazione",
+    "pickedCentre": "Il centro della mappa, a {distance} da questa stazione",
+    "pickedStationPlace": "La posizione di {name}, a {distance} da questa stazione",
     "elevation": "{value} m sul livello del mare",
     "at": "{name}, a {distance}",
     "noneNearby": "Nessuna stazione entro {distance}.",
@@ -839,7 +841,13 @@
     "period": "dal {from} al {to}",
     "stripesFigure": "Strisce climatiche di {name}",
     "stripesNone": "Nessuna striscia climatica per questa stazione.",
-    "stationNotFound": "Non c'è nessuna stazione {id} su questa mappa."
+    "stationNotFound": "Non c'è nessuna stazione {id} su questa mappa.",
+    "legend": "Legenda",
+    "legendReporting": "Ancora in funzione",
+    "legendStopped": "Non più in funzione",
+    "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
+    "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
+    "pickCloser": "Scegli invece {name}"
   },
   "dataViewer": {
     "loadingValues": "Caricamento dei valori …",

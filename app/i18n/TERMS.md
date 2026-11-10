@@ -186,6 +186,13 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Feilen` for the arrow keys, `ewech`); `pl` and `cs` (`Wybrano: {name}` and `Vybráno: {name}` for "chosen", `n.p.m.` and
   `n. m.` for "above sea level"); and in every language the sentence of the about text that explains the keyboard.
 
+- **Machine-made**: the strings that tell a farther station from a nearer one on the map (`mapTool.legend*`,
+  `mapTool.whyFarther`, `mapTool.whyFartherNoEnd`, `mapTool.pickCloser`, `mapTool.pickedCentre`,
+  `mapTool.pickedStationPlace`, GH-3875) were written by a language model (Claude) in **all ten locales besides `en`**,
+  `de` included, and no person has read them. Least certain: `de-hh` (`Hett ophöört`, `Neger`, `statts`); `lb`
+  (`Zeechenerklärung`, `Huet opgehalen`, `Méi no`); `pl` and `cs` for the legend (`Przestała nadawać`, `Přestala hlásit`: a station is
+  feminine in both) and the case of the station's name after `Położenie stacji` and `Poloha stanice`.
+
 - The partial last day of the forecast's day cards and rows (`meteogram.chart.partialDay`, GH-3840: "partial, {hours} h"),
   written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and read by no person.
   Least certain: `de-hh` `Deeldag`, then `lb` `deelweis` and `cs` `částečně`; `de` `unvollständig` is plain German for

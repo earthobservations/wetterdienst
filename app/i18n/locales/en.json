@@ -827,6 +827,8 @@
     "back": "Back to the stations",
     "chosen": "{name} chosen",
     "pickedPlace": "A point on the map, {distance} from this station",
+    "pickedCentre": "The centre of the map, {distance} from this station",
+    "pickedStationPlace": "The position of {name}, {distance} from this station",
     "elevation": "{value} m above sea level",
     "at": "{name}, {distance} away",
     "noneNearby": "No station within {distance}.",
@@ -839,7 +841,13 @@
     "period": "{from} to {to}",
     "stripesFigure": "Climate stripes of {name}",
     "stripesNone": "No climate stripes for this station.",
-    "stationNotFound": "There is no station {id} on this map."
+    "stationNotFound": "There is no station {id} on this map.",
+    "legend": "Legend",
+    "legendReporting": "Still reporting",
+    "legendStopped": "Has stopped",
+    "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
+    "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
+    "pickCloser": "Pick {name} instead"
   },
   "dataViewer": {
     "loadingValues": "Loading values …",

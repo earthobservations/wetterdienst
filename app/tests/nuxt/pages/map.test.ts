@@ -20,7 +20,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting'],
       emits: ['pick', 'view'],
       setup(props, { emit }) {
         stage.props = props
@@ -906,6 +906,151 @@ describe('the station the tool picks for a place', () => {
   })
 })
 
+describe('why a farther station was picked, and which place the pick is for (GH-3875)', () => {
+  // the case of the issue: a station that stopped long ago is nearer to the place than the one that reports
+  const CLOSED = station('99001', 'Hamburg-Altstadt', 53.55, 10.0, { start_timestamp: '1900-01-01T00:00:00+00:00', end_timestamp: '2009-12-31T00:00:00+00:00' })
+  const why = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-why"]')
+  const headingOf = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-station-name"]')
+  const mountMeasured = async (closed = CLOSED) => {
+    DAILY_STATIONS.push(closed)
+    const wrapper = await mountMap('/map?layer=measured')
+    await vi.waitFor(() => expect(stage.props.stations).toHaveLength(4))
+    return wrapper
+  }
+  afterEach(() => {
+    const at = DAILY_STATIONS.indexOf(CLOSED)
+    if (at !== -1)
+      DAILY_STATIONS.splice(at, 1)
+    const noEnd = DAILY_STATIONS.findIndex(entry => entry.station_id === '99003')
+    if (noEnd !== -1)
+      DAILY_STATIONS.splice(noEnd, 1)
+  })
+
+  it('says that the station is the nearest that reports, and names the nearer one that has stopped, with its distance and its last year', async () => {
+    const wrapper = await mountMeasured()
+    stage.emit('pick', { latitude: 53.5, longitude: 10.0, tolerance: 0.1 })
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+    expect(why(wrapper).find('p').text()).toBe('The nearest station that still reports. Closer: Hamburg-Altstadt, 5.6 km, until 2009.')
+    expect(why(wrapper).find('button').text()).toBe('Pick Hamburg-Altstadt instead')
+    // it is a note of the measurements card, which is about this station
+    expect(wrapper.find('[data-testid="map-card-measured"]').find('[data-testid="map-why"]').exists()).toBe(true)
+  })
+
+  it('has the announcement of the pick say it too, so that a screen reader hears why the station is not the nearest', async () => {
+    const wrapper = await mountMeasured()
+    stage.emit('pick', { latitude: 53.5, longitude: 10.0, tolerance: 0.1 })
+    await vi.waitFor(() => expect(headingOf(wrapper).exists()).toBe(true))
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Hamburg-Fuhlsbüttel chosen. The nearest station that still reports. Closer: Hamburg-Altstadt, 5.6 km, until 2009.')
+  })
+
+  it('says it when the layer is changed and the station for the place is picked again', async () => {
+    DAILY_STATIONS.push(CLOSED)
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    stage.emit('pick', { latitude: 53.52, longitude: 10.0, tolerance: 0.1, tap: 0 })
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    // on the forecast layer the card of the measurements says it, and offers no pick: the station shown is the forecast's
+    await vi.waitFor(() => expect(why(wrapper).text()).toContain('Closer: Hamburg-Altstadt'))
+    expect(wrapper.find('[data-testid="map-pick-closer"]').exists()).toBe(false)
+    await layerButton(wrapper, 'measured').trigger('click')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+    expect(why(wrapper).text()).toContain('The nearest station that still reports. Closer: Hamburg-Altstadt, 3.3 km, until 2009.')
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toContain('Closer: Hamburg-Altstadt')
+  })
+
+  it('picks the nearer station on request, for the same place, and moves the focus to its heading', async () => {
+    const wrapper = await mountMeasured()
+    stage.emit('pick', { latitude: 53.5, longitude: 10.0, tolerance: 0.1 })
+    await vi.waitFor(() => expect(why(wrapper).exists()).toBe(true))
+    await wrapper.find('[data-testid="map-pick-closer"]').trigger('click')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Altstadt'))
+    // the place is the one clicked, as it was: 5.6 km from the station now picked
+    expect(wrapper.find('[data-testid="map-place"]').text()).toBe('A point on the map, 5.6 km from this station')
+    // the nearest is the station, so there is nothing more to say, and the button that was pressed is gone
+    expect(why(wrapper).exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Hamburg-Altstadt chosen')
+    expect(document.activeElement).toBe(headingOf(wrapper).element)
+    expect(wrapper.find('[data-testid="map-card-measured"]').text()).toContain('1900 to 2009')
+  })
+
+  it('says nothing where the station is the nearest, or the one picked on its dot', async () => {
+    const wrapper = await mountMeasured()
+    stage.emit('pick', { latitude: 53.5505, longitude: 10.0, tolerance: 1 })
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Altstadt'))
+    expect(why(wrapper).exists()).toBe(false)
+    stage.emit('pick', { latitude: 53.6332, longitude: 9.9881, tolerance: 1 })
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+    expect(why(wrapper).exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Hamburg-Fuhlsbüttel chosen')
+  })
+
+  it('names the nearer station without a year where its list gives it no end', async () => {
+    const wrapper = await mountMeasured(station('99003', 'Hamburg-Ohneende', 53.55, 10.0) as typeof CLOSED)
+    stage.emit('pick', { latitude: 53.5, longitude: 10.0, tolerance: 0.1 })
+    await vi.waitFor(() => expect(why(wrapper).exists()).toBe(true))
+    expect(why(wrapper).text()).toContain('Closer: Hamburg-Ohneende, 5.6 km, no end date known.')
+  })
+
+  describe('the place of the pick', () => {
+    it('is a point on the map for a click, and is told so', async () => {
+      const wrapper = await mountMeasured()
+      stage.emit('pick', { latitude: 53.5, longitude: 10.0, tolerance: 0.1 })
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-place"]').text()).toMatch(/^A point on the map, \d+ km from this station$/))
+    })
+
+    it('is the centre of the map for the keyboard pick of it, and is told so', async () => {
+      DAILY_STATIONS.push(CLOSED)
+      const wrapper = await mountMap('/map?layer=measured')
+      await vi.waitFor(() => expect(stage.props.stations).toHaveLength(4))
+      stage.emit('view', { latitude: 53.5, longitude: 10.0, zoom: 9 })
+      await wrapper.find('[data-testid="map-pick-centre"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-place"]').text()).toMatch(/^The centre of the map, \d+ km from this station$/))
+    })
+
+    it('is the position of the forecast station that was chosen, where the layer is changed to the measurements: no click was made, and none is told', async () => {
+      DAILY_STATIONS.push(CLOSED)
+      const wrapper = await mountMap()
+      await listed(wrapper)
+      await wrapper.find('[data-station-id="10147"]').trigger('click')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      await layerButton(wrapper, 'measured').trigger('click')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+      const place = wrapper.find('[data-testid="map-place"]')
+      expect(place.text()).toMatch(/^The position of HAMBURG-FUHLSBUETTEL, .* from this station$/)
+      expect(place.text()).not.toContain('point')
+    })
+  })
+
+  describe('the dots of the stations that have stopped', () => {
+    it('are drawn apart from the dots that report on the measuring layer, which the map is told by the rule of its list, and the legend says what each is', async () => {
+      DAILY_STATIONS.push(CLOSED)
+      const wrapper = await mountMap('/map?layer=measured')
+      await vi.waitFor(() => expect(stage.props.stations).toHaveLength(4))
+      const reporting = stage.props.reporting as (entry: unknown) => boolean
+      expect(reporting(DAILY_STATIONS.find(entry => entry.station_id === '01975'))).toBe(true)
+      expect(reporting(CLOSED)).toBe(false)
+      const legend = wrapper.find('[data-testid="map-legend"]')
+      expect(legend.attributes('aria-label')).toBe('Legend')
+      expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Has stopped'])
+      // the two swatches are different shapes (filled and hollow), and no colour alone
+      expect(legend.find('[data-testid="map-legend-reporting"]').classes()).not.toContain('map-legend-dot-stopped')
+      expect(legend.find('[data-testid="map-legend-stopped"]').classes()).toContain('map-legend-dot-stopped')
+      expect(legend.findAll('span[aria-hidden="true"]')).toHaveLength(2)
+    })
+
+    it('are not told apart on the forecast layer, whose points have no status: no rule, no legend', async () => {
+      const wrapper = await mountMap()
+      await listed(wrapper)
+      expect(stage.props.reporting).toBeUndefined()
+      expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false)
+      await layerButton(wrapper, 'measured').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(true))
+      await layerButton(wrapper, 'forecast').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
+    })
+  })
+})
+
 describe('an address edited by hand', () => {
   it('names a dataset of the resolution, where it names one the resolution has not: the source is one that DWD has, and no request is made for the other', async () => {
     const wrapper = await mountMap('/map?layer=measured&resolution=hourly')
@@ -1014,7 +1159,10 @@ describe('the station picked for a place, by the clock of its own dataset', () =
     // Nullend is 12 km from the click, Feldberg 53
     stage.emit('pick', { latitude: 47.8, longitude: 7.3, tolerance: 0.1, tap: 0 })
     await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Feldberg/Schwarzwald'))
-    expect(wrapper.text()).not.toContain('Nullend,')
+    // Nullend is no station that is offered, but the nearer one that is named as why Feldberg is farther
+    expect(measuredCard(wrapper).text()).toMatch(/Feldberg\/Schwarzwald, \d+ km away/)
+    expect(measuredCard(wrapper).text()).toContain('Closer: Nullend, 13 km, no end date known.')
+    expect(new URL(measuredCard(wrapper).find('a').attributes('href')!, 'http://x').searchParams.get('stations')).toBe('01346')
   })
 
   it('has the measurements card of another layer take the running station of the dataset chosen, by the clock of that dataset', async () => {
@@ -1025,7 +1173,8 @@ describe('the station picked for a place, by the clock of its own dataset', () =
     await vi.waitFor(() => expect(measuredCard(wrapper).text()).toContain('Feldberg/Schwarzwald'))
     expect(measuredCard(wrapper).text()).toMatch(/Feldberg\/Schwarzwald, \d+ km away/)
     expect(measuredCard(wrapper).text()).toContain('since 2023')
-    expect(measuredCard(wrapper).text()).not.toContain('Freiburg,')
+    // Freiburg is nearer, and named as why the card is not about it
+    expect(measuredCard(wrapper).text()).toMatch(/Closer: Freiburg, \d+ m, until 2015\./)
     const link = new URL(measuredCard(wrapper).find('a').attributes('href')!, 'http://x')
     expect(link.searchParams.get('stations')).toBe('01346')
     expect(link.searchParams.get('dataset')).toBe('solar')

@@ -827,6 +827,8 @@
     "back": "Zréck bei d'Statioune",
     "chosen": "{name} gewielt",
     "pickedPlace": "E Punkt op der Kaart, {distance} vun dëser Statioun ewech",
+    "pickedCentre": "D'Mëtt vun der Kaart, {distance} vun dëser Statioun ewech",
+    "pickedStationPlace": "D'Positioun vun {name}, {distance} vun dëser Statioun ewech",
     "elevation": "{value} m iwwer dem Mieresspigel",
     "at": "{name}, {distance} ewech",
     "noneNearby": "Keng Statioun bannent {distance}.",
@@ -839,7 +841,13 @@
     "period": "vun {from} bis {to}",
     "stripesFigure": "Klimasträifen vu(n) {name}",
     "stripesNone": "Keng Klimasträifen fir dës Statioun.",
-    "stationNotFound": "Et gëtt keng Statioun {id} op dëser Kaart."
+    "stationNotFound": "Et gëtt keng Statioun {id} op dëser Kaart.",
+    "legend": "Zeechenerklärung",
+    "legendReporting": "Mellt nach",
+    "legendStopped": "Huet opgehalen",
+    "whyFarther": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, bis {year}.",
+    "whyFartherNoEnd": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, Enn onbekannt.",
+    "pickCloser": "{name} amplaz huelen"
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PlacedStation, Point } from '~/utils/map-tool'
+import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
@@ -19,6 +19,8 @@ const props = defineProps<{
   selected: PlacedStation | null
   /** Where a place was picked, when it is not the station itself */
   place: Point | null
+  /** Which stations of the list report, where it has stopped ones to tell from them (the measuring layer): they are drawn hollow */
+  reporting?: ReportingRule
   /** The name of the map, which says what it shows */
   label: string
   /** Raised for a station picked outside the map (the address, the list): the map moves to it, once */
@@ -75,12 +77,27 @@ const DotLayer = L.GridLayer.extend({
     const pad = r + 2
     const northWest = owner.unproject(origin.subtract([pad, pad]), coords.z)
     const southEast = owner.unproject(origin.add(size).add([pad, pad]), coords.z)
+    // the stations in this tile, the ones that have stopped first so that those that report are drawn over them
+    const inTile = props.stations.filter(station => !(station.latitude > northWest.lat || station.latitude < southEast.lat || station.longitude < northWest.lng || station.longitude > southEast.lng))
+    const stopped = props.reporting ? inTile.filter(station => !props.reporting!(station)) : []
+    const running = props.reporting ? inTile.filter(station => props.reporting!(station)) : inTile
+    // a station that has stopped is a hollow dot: a ring in the dot's blue (5.7:1 against the map) round the light of the
+    // map's halo, so that it differs from a dot that reports by its shape, not by its colour alone (WCAG 1.4.1, 1.4.11)
+    const ring = r > 2 ? 1.75 : 1.25
+    context.fillStyle = DOT.halo
+    context.strokeStyle = DOT.fill
+    context.lineWidth = ring
+    for (const station of stopped) {
+      const at = owner.project([station.latitude, station.longitude], coords.z).subtract(origin)
+      context.beginPath()
+      context.arc(at.x, at.y, r - ring / 2 + 0.5, 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+    }
     context.fillStyle = DOT.fill
     context.strokeStyle = DOT.halo
     context.lineWidth = 1
-    for (const station of props.stations) {
-      if (station.latitude > northWest.lat || station.latitude < southEast.lat || station.longitude < northWest.lng || station.longitude > southEast.lng)
-        continue
+    for (const station of running) {
       const at = owner.project([station.latitude, station.longitude], coords.z).subtract(origin)
       context.beginPath()
       context.arc(at.x, at.y, r, 0, Math.PI * 2)
@@ -197,7 +214,7 @@ onBeforeUnmount(() => {
   map = null
 })
 
-watch(() => props.stations, () => dots?.redraw())
+watch(() => [props.stations, props.reporting], () => dots?.redraw())
 watch(() => [props.selected, props.place, props.recentre], () => {
   drawSelection()
   reveal()
