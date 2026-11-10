@@ -507,7 +507,7 @@
       "viewCompact": "Kompakt",
       "viewTable": "Tabelle",
       "today": "HEUTE",
-      "partialDay": "Teiltag, {hours} h",
+      "partialDay": "unvollständig, {hours} h",
       "summaryMinMaxTemp": "Min./Max. Temperatur",
       "summaryTotalPrecip": "Niederschlag gesamt",
       "summaryMaxGust": "Stärkste Böe",

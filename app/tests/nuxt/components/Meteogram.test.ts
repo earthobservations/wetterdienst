@@ -589,6 +589,14 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(cards.some(card => card.includes('14/10'))).toBe(false)
   })
 
+  it('says there is no data in place of the cards where every day of the run is before today (GH-3840)', async () => {
+    vi.setSystemTime(new Date('2026-10-20T08:00:00Z'))
+    await showMeteogram()
+    await showCompact()
+    expect(document.body.querySelectorAll('.rounded-2xl')).toHaveLength(0)
+    expect(wrapper!.text()).toContain('No data available for the selected query')
+  })
+
   // the weather of a day card is a symbol, which a screen reader does not read: the words are in the
   // card, and the symbol is hidden from it (WCAG 1.1.1)
   const symbolsOf = () => [...document.body.querySelectorAll('[aria-hidden="true"]')].map(node => node.textContent?.trim())

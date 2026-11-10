@@ -189,9 +189,11 @@ watch(selectedStation, (station) => {
   }
 })
 
-// The values of the station and the run: one request for a change of either, or of both together. This watcher is
-// defined after the one above, which resets the run for a station the reader chose and so runs before it in the
-// same flush: a new station with a run set is fetched once, for the latest run (GH-3732)
+// The values of the station and the run: one request for a change of either, or of both together. For a station the
+// reader chose, the watcher above resets the run, and as it is queued first it does so before this one runs, so the
+// new station is fetched once, for the latest run. Where the URL sets the run first (`restoreFromUrl`) the flag
+// `applyingUrl` keeps that watcher from resetting it. Should two requests go out anyway, the ticket keeps the latest
+// answer (GH-3732)
 watch([selectedStation, selectedIssue], ([station]) => {
   if (station) {
     void fetchMeteogram(station)

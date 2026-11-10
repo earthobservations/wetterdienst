@@ -165,4 +165,56 @@ describe('the days the rows list', () => {
     expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
     expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(0)
   })
+
+  // hourly values from the 1st of October 00:00 UTC for `hours` hours, then 3-hourly ones for `coarse` more
+  const run = (hours: number, coarse = 0) => [
+    ...Array.from({ length: hours }, (_, hour) => Date.UTC(2026, 9, 1, hour)),
+    ...Array.from({ length: coarse }, (_, step) => Date.UTC(2026, 9, 1, hours + 3 * (step + 1) - 3)),
+  ].map(time => ({ ...values[0]!, timestamp: new Date(time).toISOString() }))
+
+  it('counts the hours of the last day by the step of the run, in a run of more than 120 hours', async () => {
+    // hourly to the 6th 05:00: six hours of the last day, where a 3-hourly step would count eight
+    const wrapper = await mountRows({ values: run(5 * 24 + 6), stationCoords: null })
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(6)
+    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 6 h')
+  })
+
+  it('marks a last day that an hourly run of more than 120 hours ends at 21:00, which is not whole', async () => {
+    const wrapper = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
+    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
+  })
+
+  it('counts the hours of the last day by the 3-hourly step where an hourly run goes on in 3 hours', async () => {
+    // hourly for five days, then 3-hourly from the 6th 00:00 to the 7th 09:00: the 7th has 00, 03, 06 and 09
+    const wrapper = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 12 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
+    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 12 h')
+    // and the same run with its last sample at 21:00 is whole
+    mounted.splice(0).forEach(w => w.unmount())
+    const whole = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 16 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
+    expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
+  })
+
+  it('says there is no data where every day of the run is before today', async () => {
+    vi.setSystemTime(new Date('2026-10-05T09:00:00Z'))
+    const wrapper = await mountRows()
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="day-rows-empty"]').text()).toBe('No forecast data available.')
+  })
+
+  it('moves Today on at the midnight of the station, while the page stays open', async () => {
+    // 23:59:30 at Berlin on the 1st
+    vi.useRealTimers()
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'], now: new Date('2026-10-01T21:59:30Z') })
+    const wrapper = await mountRows()
+    const first = () => wrapper.find('[data-testid="day-rows"] li').text()
+    expect(first()).toContain('01/10')
+    expect(first()).toContain('TODAY')
+    // a minute on: it is the 2nd, and the 1st is yesterday
+    await vi.advanceTimersByTimeAsync(60_000)
+    await wrapper.vm.$nextTick()
+    expect(first()).toContain('02/10')
+    expect(first()).toContain('TODAY')
+    expect(wrapper.text()).not.toContain('01/10')
+  })
 })
