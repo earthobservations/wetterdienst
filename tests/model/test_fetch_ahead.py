@@ -1,7 +1,9 @@
 """The files of the next stations are fetched while one is parsed (GH-3454), and the answer is the one it was without.
 
 A local server stands in for the upstream: it can delay each file, fail one, and says how many connections it had open
-at once, so that what the fetch-ahead holds itself to is read off the server and not off the code.
+at once, so that what the fetch-ahead holds itself to is read off the server and not off the code. What is counted
+there is a number of requests that wait for the upstream at the same time, which a busy machine does not change, and
+not a number of seconds, which it does.
 """
 
 from __future__ import annotations
@@ -61,15 +63,18 @@ class _Handler(BaseHTTPRequestHandler):
             if server.gate is not None and not self.path.startswith("/0/"):
                 server.gate.wait(timeout=20)
             time.sleep(server.delay(self.path))
-            status = server.statuses.get(self.path, 200)
-            body = self.path.removeprefix("/").replace("/", ":").encode() if status == 200 else b"error"
-            self.send_response(status)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         finally:
+            # the wait for the upstream ends here, before the answer is written: a client that has its answer asks the
+            # next, and a handler thread that a busy machine has not yet given the processor again must not still
+            # count as waiting then (a read one after the other would show two at once)
             with server.lock:
                 server.active -= 1
+        status = server.statuses.get(self.path, 200)
+        body = self.path.removeprefix("/").replace("/", ":").encode() if status == 200 else b"error"
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 class _Upstream(ThreadingHTTPServer):
@@ -702,28 +707,35 @@ def test_the_default_depth_is_modest() -> None:
 # 8. what it is for, and what it does not cost
 
 
-def test_the_files_of_many_stations_are_fetched_clearly_faster_than_one_station_after_the_other(
+def test_the_files_of_many_stations_are_fetched_side_by_side_and_not_one_station_after_the_other(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With a latency per file, 24 stations are read in well under the time of one after the other (about 4x).
+    """With a latency per file, 24 stations are waited for side by side, where without it each is waited for alone.
 
-    What is held is the overlap, which the server counts and a busy machine does not change: one connection at a time
-    without it, three or more with it. The clock only has to agree (it is 4 times where nothing else runs; a machine
-    under a load of 90 has made it 1.5): the numbers are the benchmark's, in the pull request.
+    That is what makes it faster, and it is counted by the server and not timed: a busy machine slows each wait and
+    the ratio of the clocks of the two walks with it (4 where nothing else runs, 1.04 at a load of 50, GH-3976), but it
+    does not change how many waits are in hand at the same time. One at a time without the fetch-ahead, three or more
+    with it, and each file asked for once either way: what is fetched ahead is what the walk then reads, not fetched
+    again. The seconds are the benchmark's, in the pull request.
     """
     upstream.delay = lambda _path: 0.05
-    sequential, sequential_overlap = _walk_time(
-        upstream, monkeypatch, tmp_path, depth=0, attempts=2, stations=24, files=1
-    )
-    ahead, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, attempts=3, stations=24, files=1)
+    _, sequential_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=0, attempts=1, stations=24, files=1)
+    sequential_requests = sorted(upstream.requests)
+    upstream.requests.clear()
+    _, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, attempts=1, stations=24, files=1)
 
     assert sequential_overlap == 1
     assert ahead_overlap >= 3
-    assert sequential >= 1.1 * ahead, (sequential, ahead)
+    assert sorted(upstream.requests) == sequential_requests
+    assert len(sequential_requests) == 24
 
 
 def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A read of one station makes no fetch-ahead: no thread, no further request, and no longer."""
+    """A read of one station makes no fetch-ahead: no thread, no further request, and so no longer.
+
+    Counted, not timed (a busy machine moves a clock of 0.15 s by more than any margin): what the read asks for is what
+    it asked for without, and a request that is no more cannot make it slower.
+    """
     upstream.delay = lambda _path: 0.05
     made: list[object] = []
     original = FetchAhead.__init__
@@ -733,16 +745,18 @@ def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.
         original(self, **kwargs)  # ty: ignore[invalid-argument-type]
 
     monkeypatch.setattr(FetchAhead, "__init__", counting)
-    timings = {}
+    asked = {}
     for depth in (0, 4):
+        upstream.requests.clear()
         reader = _reader(monkeypatch, tmp_path, stations=1, urls_of=_files(upstream, 3), depth=depth, cache=f"d{depth}")
-        began = time.perf_counter()
         assert len(list(reader.query())) == 1
-        timings[depth] = time.perf_counter() - began
+        upstream.settle()
+        asked[depth] = sorted(upstream.requests)
 
     assert made == []
     assert _fetch_threads() == []
-    assert timings[4] <= 2 * timings[0] + 0.3, timings
+    assert asked[0] == ["/0/0", "/0/1", "/0/2"]
+    assert asked[4] == asked[0]
 
 
 def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
