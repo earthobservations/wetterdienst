@@ -217,8 +217,9 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
     _entry("DmiObservationMetadata", "hourly", "mean_cloud_cover", "description", "at minute 0 of the hour (UTC)"),
     _entry("DwdDerivedMetadata", "daily", "zfumi ztkmi ztumi", "description", "at midday", datasets="soil"),
     _entry("DwdObservationMetadata", "hourly", "zenit", "description", "at mid of interval", datasets="solar"),
-    # DWD's urban hourly sheets follow the SYNOP convention: the value of 10 minutes before the hour (the temperatures
-    # of the same sheets say it as the mean of the 1 minute interval ending then)
+    # DWD's urban hourly pressure sheet (read 2026-11-10, GH-3939): "Hourly pressure at station height is given
+    # following the SYNOP conventions. The hour x corresponds to the measurement from 10min before, (e.g., at UTC 11,
+    # the value from UTC 10:50 is given)": a reading, so `end` with aggregation `instant`
     _entry(
         "DwdObservationMetadata",
         "hourly",
@@ -226,6 +227,19 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "description",
         "the hour x corresponds to the measurement from 10 min before",
         datasets="urban_pressure",
+    ),
+    # the sea level pressure of the same file is not in that sheet; measured against PP_ST_10 of the 10-minute series
+    # of the same station at the stamp minus 10 min (all 12,520 hours, GH-3939), the note of the page says so
+    _entry(
+        "DwdObservationMetadata",
+        "hourly",
+        "luftdruck_nn",
+        "page",
+        "LUFTDRUCK_NN, which the sheet does not list, is a reading as well",
+        datasets="urban_pressure",
+        section="dwd",
+        network="observation",
+        note=True,
     ),
     # the hourly air temperature, dew point, humidity and pressure of the moisture, dew point and pressure datasets
     # are readings of 10 to 30 min before the stamp (measured against the 10 minute series and NOAA ISD, GH-3134). The

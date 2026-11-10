@@ -131,6 +131,13 @@ _DWD_HOURLY_READING_P = (
     " series of the same station; before 1991 the SYNOP report of the stamp hour (NOAA ISD). Times are UTC."
 )
 
+# What the hourly soil temperatures of the DWD urban stations say about their stamp, and what the one station shows
+_DWD_URBAN_SOIL_STAMP = (
+    " DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending"
+    " UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50"
+    " (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated."
+)
+
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
@@ -1262,7 +1269,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "wwmh"): "Probability for fog within the last 12 hours",
     },
     "DwdObservationMetadata": {
-        ("hourly", "urban_pressure", "luftdruck_nn"): "Air pressure reduced to sea level.",
+        ("hourly", "urban_pressure", "luftdruck_nn"): (
+            "Air pressure reduced to sea level. DWD's sheet does not list it; it carries the stamp of the station "
+            "pressure of the same row: the reading 10 min before (at UTC 11 the value from UTC 10:50), as the "
+            "10-minute series of the same station shows."
+        ),
         ("10_minutes", "precipitation", "rws_10"): "Sum of the precipitation height of the previous 10 minutes.",
         ("10_minutes", "precipitation", "rws_dau_10"): "Duration of precipitation during the previous 10 minutes.",
         ("10_minutes", "precipitation", "rws_ind_10"): (
@@ -1725,25 +1736,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "2m relative humidity, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval"
             " ending UTC 10:50 is given."
         ),
-        ("hourly", "urban_temperature_soil", "erdbt_005"): (
-            "Soil temperature in 5 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
-            "minute interval ending UTC 10:50 is given."
-        ),
-        ("hourly", "urban_temperature_soil", "erdbt_010"): (
-            "Soil temperature in 10 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
-            "minute interval ending UTC 10:50 is given."
-        ),
-        ("hourly", "urban_temperature_soil", "erdbt_020"): (
-            "Soil temperature in 20 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
-            "minute interval ending UTC 10:50 is given."
-        ),
-        ("hourly", "urban_temperature_soil", "erdbt_050"): (
-            "Soil temperature in 50 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
-            "minute interval ending UTC 10:50 is given."
-        ),
+        ("hourly", "urban_temperature_soil", "erdbt_005"): ("Soil temperature in 5 cm depth." + _DWD_URBAN_SOIL_STAMP),
+        ("hourly", "urban_temperature_soil", "erdbt_010"): ("Soil temperature in 10 cm depth." + _DWD_URBAN_SOIL_STAMP),
+        ("hourly", "urban_temperature_soil", "erdbt_020"): ("Soil temperature in 20 cm depth." + _DWD_URBAN_SOIL_STAMP),
+        ("hourly", "urban_temperature_soil", "erdbt_050"): ("Soil temperature in 50 cm depth." + _DWD_URBAN_SOIL_STAMP),
         ("hourly", "urban_temperature_soil", "erdbt_100"): (
-            "Soil temperature in 100 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 "
-            "minute interval ending UTC 10:50 is given."
+            "Soil temperature in 100 cm depth." + _DWD_URBAN_SOIL_STAMP
         ),
         ("hourly", "urban_wind", "windgeschwindigkeit"): (
             "Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average "

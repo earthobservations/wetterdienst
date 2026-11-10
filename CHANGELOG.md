@@ -30,6 +30,10 @@ Types of changes:
   `solar`, the global radiation, the sunshine duration and the zenith angle; `end` for
   `precipitation_amount` of `geosphere/observation` at 10 minutes and hourly. The other hourly
   datasets stay `null`; the numbers are on the time reference page (Part of GH-3134)
+- `timestamp_position` of `dwd/observation` hourly `urban_pressure`: `end`, `aggregation` `instant`
+  (DWD's sheet and the 10-minute series: the reading 10 min before the stamp). `urban_temperature_soil`
+  stays `null`: its sheet says the same, but the one station's values equal the 10-minute value of
+  50 min after the stamp, and the descriptions now say so (GH-3939)
 
 ### Changed
 

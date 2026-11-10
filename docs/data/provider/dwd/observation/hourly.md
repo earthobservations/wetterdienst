@@ -378,7 +378,7 @@ needs the hour exactly leaves the flagged rows out.
 
 | name                           | original name           | description                        | unit | constraints |
 |--------------------------------|-------------------------|------------------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | luftdruck_nn            | Air pressure reduced to sea level. | hPa  | >=0         |
+| {term}`pressure_air_sea_level` | luftdruck_nn            | Air pressure reduced to sea level. DWD's sheet does not list it; it carries the stamp of the station pressure of the same row: the reading 10 min before (at UTC 11 the value from UTC 10:50), as the 10-minute series of the same station shows. | hPa  | >=0         |
 | {term}`pressure_air_site`      | luftdruck_stationshoehe | Pressure at station height, following the SYNOP conventions: the hour x corresponds to the measurement from 10 min before (at UTC 11 the value from UTC 10:50). | hPa  | >=0         |
 
 ### urban_temperature_air
@@ -414,11 +414,11 @@ needs the hour exactly leaves the flagged rows out.
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50 (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated. | °C | - |
+| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50 (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated. | °C | - |
+| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50 (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated. | °C | - |
+| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50 (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated. | °C | - |
+| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Not confirmed at the one station: the value stamped H equals the 10-minute series' value of H:50 (10 to 100 cm, 12,469 hours from 2025-05), so the position is not stated. | °C | - |
 
 ### urban_sun
 
