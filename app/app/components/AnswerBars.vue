@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Bar } from '~/utils/answers'
+import { chooseLabels, estimateLabelWidth, labelLeft, PLOT_HEIGHT_REM, valueLabels, yearSteps } from '~/utils/axis-labels'
 import { formatNumber } from '~/utils/format'
 
 // The chart that backs an answer (GH-3518): one bar per hour, day or year, the one asked about marked. Bars of HTML, not
@@ -17,7 +18,10 @@ const props = withDefaults(defineProps<{
   diverging?: boolean
   /** How a bar's label is written in the table, where it differs from the label under the axis */
   rowLabel?: (bar: Bar) => string
-  /** Which labels to write under the axis: every n-th */
+  /**
+   * Which labels to write under the axis where the bars carry no year: every n-th bar, or a multiple of it where
+   * that is too many for the width
+   */
   every?: number
   /** All bars in the colour of action (the hours of a day), or only the one asked about (a year among years) */
   emphasis?: 'all' | 'one'
@@ -43,9 +47,40 @@ function barStyle(bar: Bar) {
 }
 
 const format = (value: number | null) => value === null ? '–' : formatNumber(value, locale.value, 1)
-const axisTop = computed(() => `${format(top.value)} ${props.unit}`)
-const axisBottom = computed(() => props.diverging ? `${format(bottom.value)} ${props.unit}` : `0 ${props.unit}`)
-const showLabel = (index: number) => index % props.every === 0
+const valueAxis = computed(() => valueLabels(top.value, bottom.value, props.diverging).map(label => ({
+  ...label,
+  text: `${label.value === 0 ? '0' : format(label.value)} ${props.unit}`,
+})))
+
+// The labels under the axis are placed by position and chosen by what the width allows: by year where the bars are
+// years (round decades, not every n-th bar of a series with gaps), else by place in the series.
+const labelRow = useTemplateRef<HTMLElement>('labelRow')
+const { width } = useElementSize(labelRow)
+const font = ref(11)
+onMounted(() => {
+  // 0.6875 rem, the size of the labels, in px
+  font.value = 0.6875 * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
+})
+
+const labelled = computed(() => {
+  const byYear = props.bars.length > 0 && props.bars.every(bar => bar.at !== undefined)
+  const positions = props.bars.map((bar, index) => bar.at ?? index)
+  const steps = byYear
+    ? yearSteps(positions)
+    : Array.from({ length: Math.max(props.bars.length, 1) }, (_, at) => props.every * (at + 1))
+  return chooseLabels({
+    positions,
+    widths: props.bars.map(bar => estimateLabelWidth(bar.label, font.value)),
+    width: width.value,
+    steps,
+    highlights: props.bars.flatMap((bar, index) => bar.highlight ? [index] : []),
+  })
+})
+const yearLabels = computed(() => labelled.value.map((index) => {
+  const bar = props.bars[index]!
+  const size = estimateLabelWidth(bar.label, font.value)
+  return { bar, style: { left: labelLeft(index, props.bars.length, size), width: `${size}px` } }
+}))
 </script>
 
 <template>
@@ -53,27 +88,38 @@ const showLabel = (index: number) => index % props.every === 0
     <figcaption :id="`${id}-caption`" class="mb-3 text-sm font-semibold text-highlighted">
       {{ caption }}
     </figcaption>
-    <div class="flex gap-2" aria-hidden="true">
-      <div class="flex min-w-10 shrink-0 flex-col justify-between py-0.5 text-right text-xs text-muted">
-        <span>{{ axisTop }}</span>
-        <span>{{ axisBottom }}</span>
+    <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2" aria-hidden="true">
+      <div class="relative text-right text-xs leading-4 text-muted" :style="{ height: `${PLOT_HEIGHT_REM}rem` }" data-testid="answer-bars-values">
+        <!-- the widest label gives the column its width; the labels themselves are placed in the plot's height -->
+        <span v-for="label in valueAxis" :key="`size-${label.kind}`" class="invisible block h-0 overflow-hidden whitespace-nowrap">{{ label.text }}</span>
+        <span
+          v-for="label in valueAxis"
+          :key="label.kind"
+          class="absolute right-0 whitespace-nowrap"
+          :data-kind="label.kind"
+          :style="{ top: `${label.rem}rem` }"
+        >{{ label.text }}</span>
       </div>
-      <div class="min-w-0 flex-1">
-        <div class="relative flex h-36 items-stretch gap-px sm:gap-0.5">
-          <div v-if="diverging" class="absolute inset-x-0 border-t border-default" :style="{ top: `${zero * 100}%` }" />
-          <div v-for="bar in bars" :key="bar.key" class="relative min-w-0 flex-1">
-            <div
-              class="answer-bar absolute inset-x-0 rounded-[2px]"
-              :data-highlight="bar.highlight ? 'true' : 'false'"
-              :style="barStyle(bar)"
-            />
-          </div>
+      <div class="relative flex items-stretch gap-px sm:gap-0.5" :style="{ height: `${PLOT_HEIGHT_REM}rem` }" data-testid="answer-bars-plot">
+        <div v-if="diverging" class="absolute inset-x-0 border-t border-default" data-testid="answer-bars-zero" :style="{ top: `${zero * 100}%` }" />
+        <div v-for="bar in bars" :key="bar.key" class="relative min-w-0 flex-1">
+          <div
+            class="answer-bar absolute inset-x-0 rounded-[2px]"
+            :data-highlight="bar.highlight ? 'true' : 'false'"
+            :style="barStyle(bar)"
+          />
         </div>
-        <div class="mt-1 flex gap-px text-[0.6875rem] leading-tight text-muted sm:gap-0.5">
-          <span v-for="(bar, index) in bars" :key="bar.key" class="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center" :class="{ 'font-bold text-highlighted': bar.highlight }">
-            {{ showLabel(index) || bar.highlight ? bar.label : '' }}
-          </span>
-        </div>
+      </div>
+      <div />
+      <div ref="labelRow" class="relative mt-1 h-4 text-[0.6875rem] leading-tight text-muted" data-testid="answer-bars-labels">
+        <span
+          v-for="{ bar, style } in yearLabels"
+          :key="bar.key"
+          class="absolute top-0 whitespace-nowrap text-center"
+          :class="{ 'font-bold text-highlighted': bar.highlight }"
+          :style="style"
+          data-testid="answer-bars-label"
+        >{{ bar.label }}</span>
       </div>
     </div>
     <details class="mt-3">

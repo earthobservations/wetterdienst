@@ -65,6 +65,34 @@ function readObjects(pdf: Buffer): Map<number, PdfObject> {
   return objects
 }
 
+/**
+ * Every colour that fills a rectangle or a path in the PDF (`r g b rg` before a `f`, `f*`, `B` or `B*`, 0 to 1), once:
+ * what is drawn as a shape (a background, an icon's mask, a switch's track), not the colour of a text. A shape that is
+ * clipped away or covered still counts, so a colour found says it was drawn and not that it is seen: this is the weaker
+ * check beside the computed style that the spec holds as well.
+ */
+export function pdfFillColors(pdf: Buffer): Array<[number, number, number]> {
+  const found = new Map<string, [number, number, number]>()
+  for (const { stream } of readObjects(pdf).values()) {
+    if (!stream)
+      continue
+    // the fill colour is part of the graphics state: `q` saves it and `Q` restores it
+    const saved: Array<string | null> = []
+    let colour: string | null = null
+    for (const [, rgb, op] of stream.toString('latin1').matchAll(/([\d.]+ [\d.]+ [\d.]+) rg\b|(?<![\w/.*])(q|Q|f\*?|B\*?)(?![\w*])/g)) {
+      if (rgb)
+        colour = rgb
+      else if (op === 'q')
+        saved.push(colour)
+      else if (op === 'Q')
+        colour = saved.pop() ?? colour
+      else if (colour)
+        found.set(colour, colour.split(' ').map(Number) as [number, number, number])
+    }
+  }
+  return [...found.values()]
+}
+
 /** The code -> text map of a font's `ToUnicode`, and how many bytes a code is */
 function readToUnicode(cmap: string): { bytes: number, map: Map<number, string> } {
   const map = new Map<number, string>()

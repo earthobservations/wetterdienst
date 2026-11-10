@@ -4,8 +4,9 @@ import { defineConfig, devices } from '@playwright/test'
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
 
-// the spec that prints charts to a PDF and reads the sizes of their text: it runs in Chromium, the others in Firefox
-const PDF_SPEC = /chart-print\.spec\.ts$/
+// the specs that print pages to a PDF (the sizes of the charts' text; the icons and labels of a print without
+// background graphics): they run in Chromium, the others in Firefox
+const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
 
 // the spec of the dialogs on a phone: a touch drag as touch events of Chromium's input (CDP `Input.dispatchTouchEvent`),
 // which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7

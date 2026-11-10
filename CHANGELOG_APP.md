@@ -53,6 +53,10 @@ Types of changes:
   and the unit selects of the settings fill the card, in every language, with the full unit name
   shown in the field and in its list. The theme buttons share the row and show no icon below 384 px
   (GH-3845, GH-3858)
+- `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
+  the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
+  under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one
+  asked about is always written and none touches another, on a phone included (GH-3893)
 - `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
   (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
   (GH-3969)
@@ -63,6 +67,10 @@ Types of changes:
   site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
   page's error card, where it read as no data ("no stations" on the map, an empty table or
   forecast). The app's own `/api` proxy answers such a page with a 502 problem (GH-3841)
+- `[Print]` Printed with Chrome's default, without "Background graphics", the pages keep their
+  icons, the white labels of solid buttons, selected chips and map layers, the tool tiles and the
+  on/off state of the settings' switches, which came out blank or white on white. The start page's
+  navy band is white with an outline and black text on paper (GH-3960)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)
