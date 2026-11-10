@@ -18,7 +18,7 @@ const { data, pending } = useFetch<{ stations: Station[] }>('/api/stations', {
     parameters: 'hourly/large',
     all: 'true',
   },
-  ...RETRY_TRANSIENT,
+  ...API_FETCH,
   default: () => ({ stations: [] }),
 })
 

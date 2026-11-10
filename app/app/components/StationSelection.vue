@@ -51,7 +51,7 @@ const { data: stationsData, pending: stationsPending, error: stationsError, refr
     // station list twice. Fetching is driven explicitly here instead: a parameter change clears
     // the list and refetches if a picker is open, otherwise the next open does it.
     watch: false,
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
     default: () => ({ stations: [] }),
   },
 )

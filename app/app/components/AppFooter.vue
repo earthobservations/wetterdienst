@@ -12,7 +12,7 @@ const { t } = useI18n()
 // suspends the entire app -- header, page and footer -- behind this one request, so every cold load stared at an
 // empty screen until the backend answered. The footer simply has nothing to show for the backend until the answer
 // lands. A page that draws nothing (framed by another origin outside the widget) has no footer, so does not ask.
-const { data: versionData, status: versionStatus } = useFetch<{ version: string }>('/api/version')
+const { data: versionData, status: versionStatus } = useFetch<{ version: string }>('/api/version', API_ANSWER)
 
 const backendVersion = computed(() => {
   const version = versionData.value?.version

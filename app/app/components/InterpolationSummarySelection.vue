@@ -53,7 +53,7 @@ const { data: stationsData, pending: stationsPending, error: stationsError, stat
     // fetched by the watcher on the list wanted below alone: useFetch's own refetch on a change of
     // the query asked for the whole station list a second time
     watch: false,
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
     default: () => ({ stations: [] }),
   },
 )

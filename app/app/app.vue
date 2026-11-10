@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { de as uiDe, en as uiEn } from '@nuxt/ui/locale'
 import { canonicalUrl, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, siteOrigin } from '#shared/utils/seo'
 import { TOAST_VIEWPORT_CLASS } from '~/composables/useToastInset'
 
@@ -50,8 +49,8 @@ useSeoMeta({
   twitterImage: iconUrl,
 })
 
-// Feed Nuxt UI's built-in component strings (table, select, …) the active locale.
-const uiLocale = computed(() => (locale.value === 'de' ? uiDe : uiEn))
+// UApp is given no `locale`: Nuxt UI's `ui-i18n` plugin follows the @nuxtjs/i18n locale and gives its components'
+// own strings (pager, toaster, number field) in the page's language (GH-3955; tests/nuxt/components/ui-locale.test.ts)
 
 // framed by another origin anywhere but the widget: nothing is drawn (app/utils/frame-guard.ts)
 const blank = useFrameBlank()
@@ -60,7 +59,7 @@ const isWidget = computed(() => isWidgetPath(route.path))
 
 <template>
   <div v-if="blank" />
-  <UApp v-else :locale="uiLocale" :toaster="{ ui: { viewport: TOAST_VIEWPORT_CLASS } }">
+  <UApp v-else :toaster="{ ui: { viewport: TOAST_VIEWPORT_CLASS } }">
     <!-- tells a screen reader which page the client-side navigation has arrived on (WCAG 4.1.3) -->
     <NuxtRouteAnnouncer />
     <!-- The shell (GH-3518): the header, the tab bar of the narrow layout, the page and the footer, all in the one

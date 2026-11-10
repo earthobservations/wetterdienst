@@ -10,5 +10,5 @@ import type { ProvidersResponse } from '#shared/types/api'
  * behind the request, and with `ssr: false` its loading state could never be seen.
  */
 export function useProviders() {
-  return useFetch<ProvidersResponse>('/api/providers', { key: 'providers', query: { datasets: true } })
+  return useFetch<ProvidersResponse>('/api/providers', { key: 'providers', query: { datasets: true }, ...API_ANSWER })
 }

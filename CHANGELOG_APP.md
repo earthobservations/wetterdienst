@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
+  the notifications, the number fields' description for a screen reader) are in the language of
+  the page in all eleven languages (they were English in all but German; Hamburg German uses the
+  German ones, Luxembourgish its own) (GH-3955)
 - `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
   column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
   (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
@@ -44,6 +48,10 @@ Types of changes:
 
 ### Fixed
 
+- `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
+  site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
+  page's error card, where it read as no data ("no stations" on the map, an empty table or
+  forecast). The app's own `/api` proxy answers such a page with a 502 problem (GH-3841)
 - `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
   and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
   page and the glossary) is dark now, as in light mode (GH-3558)
