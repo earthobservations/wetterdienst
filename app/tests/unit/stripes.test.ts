@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COLOR_MAPS, stripeClass, stripeColour, stripesSummaryParams, stripeYears } from '../../app/utils/stripes'
+import { COLOR_MAPS, stripeClass, stripeColour, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
 
 describe('stripe classes', () => {
@@ -89,5 +89,26 @@ describe('the sentence that says what stripes show', () => {
       { timestamp: '2020-01-01T00:00:00+00:00', value: 9 },
     ])
     expect(stripesSummaryParams(years, value => `${value} °C`)).toEqual({ from: 2018, to: 2020, min: '8 °C', minYear: 2018, max: '12 °C', maxYear: 2019 })
+  })
+})
+
+describe('wrapChartTitle', () => {
+  const title = 'Climate stripes (Temperature) for Donaueschingen (Landeplatz), Germany (00011)'
+
+  it('leaves a title that fits the width in one line', () => {
+    expect(wrapChartTitle(title, 645, 16)).toEqual({ text: title, lines: 1 })
+  })
+
+  it('breaks a title at spaces into lines that fit the width', () => {
+    const { text, lines } = wrapChartTitle(title, 236, 16)
+    expect(lines).toBe(3)
+    expect(text.split('<br>')).toEqual(['Climate stripes (Temperature)', 'for Donaueschingen', '(Landeplatz), Germany (00011)'])
+    expect(text.split('<br>').every(line => line.length <= Math.floor(236 / 8))).toBe(true)
+    // nothing is lost or added but the breaks
+    expect(text.replaceAll('<br>', ' ')).toBe(title)
+  })
+
+  it('keeps a word wider than the width whole on a line of its own', () => {
+    expect(wrapChartTitle('a Donaueschingen b', 40, 16)).toEqual({ text: 'a<br>Donaueschingen<br>b', lines: 3 })
   })
 })

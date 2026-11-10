@@ -44,6 +44,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Climate stripes]` In a narrow window (a phone) the stripes' title is broken into lines instead of
+  being cut off at the edges, and the source line is on a row of its own below the years instead of
+  over them; a saved image is laid out for its own width (GH-3961)
 - `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
   site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
   page's error card, where it read as no data ("no stations" on the map, an empty table or

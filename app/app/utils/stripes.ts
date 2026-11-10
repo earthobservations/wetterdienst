@@ -100,3 +100,26 @@ export function stripesSummaryParams(years: StripeYear[], format: (value: number
     maxYear: highest.year,
   }
 }
+
+/**
+ * `text` broken into lines of at most `width` px at `fontSize` px, joined with the `<br>` Plotly's titles take: a title
+ * as wide as the chart is cut off by its edges where the chart is narrow (320 px: GH-3961). Breaks at spaces only, so
+ * a word wider than a line stays whole on a line of its own. The width of a character is estimated (Arial's digits and
+ * letters are 0.5 em, a little above what a title in Arial measures (0.47 em), so that a line is rather short than cut.
+ */
+export function wrapChartTitle(text: string, width: number, fontSize: number): { text: string, lines: number } {
+  const perLine = Math.max(1, Math.floor(width / (fontSize * 0.5)))
+  const lines: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    if (line && line.length + 1 + word.length > perLine) {
+      lines.push(line)
+      line = word
+    }
+    else {
+      line = line ? `${line} ${word}` : word
+    }
+  }
+  lines.push(line)
+  return { text: lines.join('<br>'), lines: lines.length }
+}
