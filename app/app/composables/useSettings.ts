@@ -21,16 +21,10 @@ z.config({ jitless: true })
  * by the color-mode module and likewise only surfaced in the UI.
  */
 
-export const SETTINGS_VERSION = 1
+export const SETTINGS_VERSION = 2
 
-// The unit choices the settings page stores, for the convertible types it offers a row for. Not
-// applied to a request: a query converts by `dataSettings.unitTargets`, written by the explorer's own
-// picker. See the list in pages/settings.vue for what is and is not offered.
-//
-// Two of the defaults below disagree with the backend's, so wiring this page up without settling them
-// would change what every user gets who never opened it: power_per_area defaults to
-// watt_per_square_centimeter where the backend converts to watt_per_square_meter, and conductivity to
-// siemens_per_meter where the backend uses microsiemens_per_centimeter.
+// The unit choices the settings page stores, for each type of `UNIT_TARGET_TYPES`: what the requests of the Explorer
+// send as `unit_targets` (GH-3878). Each default is the backend's own for the type, a test holds the two together.
 export const unitSettingsSchema = z.object({
   temperature: z.string(),
   precipitation: z.string(),
@@ -97,12 +91,12 @@ export const SETTINGS_DEFAULTS: WdSettings = {
     length_medium: 'meter',
     length_long: 'kilometer',
     energy_per_area: 'megajoule_per_square_meter',
-    power_per_area: 'watt_per_square_centimeter',
+    power_per_area: 'watt_per_square_meter',
     time: 'second',
     duration: 'hour',
     degree_day: 'degree_celsius_day',
     concentration: 'milligram_per_liter',
-    conductivity: 'siemens_per_meter',
+    conductivity: 'microsiemens_per_centimeter',
     volume_per_time: 'cubic_meter_per_second',
   },
   stripes: {
@@ -117,6 +111,12 @@ export const SETTINGS_DEFAULTS: WdSettings = {
 }
 
 const STORAGE_KEY = 'wd_settings'
+
+// What settings of version 1 held for two types, before any request read them: a default that is not the backend's.
+// Nobody could tell it from a choice, and nothing was converted by it. Now that a request names the unit, a stored
+// one of these is the backend's default for the type again, so that a visitor who never opened the page gets what the
+// Explorer sent before; one who chose W/cm² or S/m on it chooses again.
+const VERSION_1_DEFAULTS = { power_per_area: 'watt_per_square_centimeter', conductivity: 'siemens_per_meter' } as const
 
 /**
  * Validate and repair a loaded settings blob. A fully valid, current-version
@@ -137,8 +137,15 @@ export function coerceSettings(raw: unknown): WdSettings {
     if (typeof r.convertUnits === 'boolean')
       result.convertUnits = r.convertUnits
     const units = unitSettingsSchema.safeParse(r.units)
-    if (units.success)
+    if (units.success) {
       result.units = units.data
+      if (r.version === 1) {
+        for (const [type, old] of Object.entries(VERSION_1_DEFAULTS)) {
+          if (result.units[type as keyof UnitSettings] === old)
+            result.units[type as keyof UnitSettings] = SETTINGS_DEFAULTS.units[type as keyof UnitSettings]
+        }
+      }
+    }
     const stripes = stripesDisplaySchema.safeParse(r.stripes)
     if (stripes.success)
       result.stripes = stripes.data

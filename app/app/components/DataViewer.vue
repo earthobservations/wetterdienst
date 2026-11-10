@@ -15,7 +15,7 @@ import { limitRefusal } from '~/utils/limit-refusal'
 import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
 import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
-import { pinnedUnitTargets } from '~/utils/unit-targets'
+import { requestUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
@@ -24,8 +24,6 @@ const props = defineProps<{
   settings: DataSettings
   /** DWD DMO's run, `lead_time`, where the selection offers a choice of one; every endpoint takes it */
   leadTime?: 'short' | 'long'
-  /** The unit a type left at "Default (...)" is pinned to, by type: the server's, where the explorer has it */
-  unitTargetDefaults?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -189,15 +187,17 @@ const apiQuery = computed(() => {
     provider: ps.provider,
     network: ps.network,
     parameters: ps.parameters.map(parameter => `${ps.resolution}/${ps.dataset}/${parameter}`).join(','),
-    humanize: props.settings.humanize,
-    convert_units: props.settings.convertUnits,
+    // the readable names, unit conversion and unit targets are the app settings' (GH-3878): read here, at each
+    // request, so that a change on the settings page is in the next one. An Explorer link that names its own wins
+    humanize: props.settings.humanize ?? appSettings.value.friendlyLabels,
+    convert_units: props.settings.convertUnits ?? appSettings.value.convertUnits,
   }
   if (props.leadTime)
     base.lead_time = props.leadTime
 
-  // every unit type the explorer lists, the user's choice or the default its "Default (...)" names, so
-  // the request asks for the same units on any server
-  base.unit_targets = JSON.stringify(pinnedUnitTargets(props.settings.unitTargets, props.unitTargetDefaults))
+  // every unit type the settings page lists, the user's choice there, so the request asks for the same units on any
+  // server
+  base.unit_targets = JSON.stringify(requestUnitTargets(appSettings.value.units))
 
   // Add date range if provided
   if (ss.dateRange?.startDate) {

@@ -12,8 +12,8 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
 import { defaultRange, HIGH_RESOLUTION_MAX_VALUES } from '~/utils/row-window'
-import { defaultUnitTargets, MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
-import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
+import { MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
+import { requestUnitTargets } from '~/utils/unit-targets'
 
 const { t, te } = useI18n()
 
@@ -32,36 +32,6 @@ const stationTableColumns = computed<TableColumn<Station>[]>(() => [
 
 const route = useRoute()
 const router = useRouter()
-
-// Friendly labels for units, reusing the shared catalog (e.g. "degree_celsius" -> units.degree_celsius).
-// Unit *types* come from the shared composable, which the glossary filter uses too.
-const { unitTypeLabel } = useUnitTypeLabel()
-
-function unitLabel(unit: string): string {
-  // a server's default may be a unit the catalog has no name for, which is then named as it is
-  return te(`units.${unit}`) ? t(`units.${unit}`) : unit
-}
-
-// the unit types the Unit Targets setting lists, each request naming every one (see pinnedUnitTargets)
-const unitTypes = UNIT_TARGET_TYPES
-
-// the unit each type left at "Default" comes in: the server's once it has said, else the listed one
-const unitTargetDefaults = ref<Record<string, string>>(defaultUnitTargets(null))
-
-// the value of the "Default (...)" choice, which stands for no entry in `unitTargets`: a select item
-// refuses an empty value (reka-ui throws), and no unit is named this
-const UNIT_TARGET_DEFAULT = 'default'
-
-/** Select items for one unit type: the server's default first, then the units listed for it. */
-function unitTargetItems(unitType: { type: string, units: string[] }) {
-  return [
-    {
-      label: t('explorer.unitDefault', { unit: unitLabel(unitTargetDefaults.value[unitType.type]!) }),
-      value: UNIT_TARGET_DEFAULT,
-    },
-    ...unitType.units.map(unit => ({ label: unitLabel(unit), value: unit })),
-  ]
-}
 
 function stationIdsFromQuery(q: Record<string, any>): string[] {
   return q.stations ? q.stations.toString().split(',').filter(Boolean) : []
@@ -133,12 +103,15 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
   return q
 }
 
-// Every one written, whatever it is: one left out is read back as the server's default, which may
-// not be the value the link was copied with (GH-2359)
+// Every one of the values settings written, whatever it is: one left out is read back as the server's default, which
+// may not be the value the link was copied with (GH-2359)
 function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
   return {
-    humanize: String(settings.humanize),
-    convertUnits: String(settings.convertUnits),
+    // the names and units are the app settings', and are not in the address, except where a link that carried
+    // them still holds them (GH-3878): a link keeps the meaning it was shared with, and one without them follows the
+    // app settings of whoever opens it
+    ...(settings.humanize === undefined ? {} : { humanize: String(settings.humanize) }),
+    ...(settings.convertUnits === undefined ? {} : { convertUnits: String(settings.convertUnits) }),
     shape: settings.shape,
     skipEmpty: String(settings.skipEmpty),
     dropNulls: String(settings.dropNulls),
@@ -217,11 +190,9 @@ const leadTimeOptions = computed(() => [
 ])
 
 // Data settings: wetterdienst's defaults, the server's in their place once it reports them, and the
-// link's over both
+// link's over both. The names and units are not among the defaults: they are the app settings', and a link's
+// `humanize` and `convertUnits` are held as they came, over the app settings, for this view (GH-3878)
 const startingSettings = ref<DataSettings>({
-  humanize: true,
-  convertUnits: true,
-  unitTargets: {},
   shape: 'long',
   skipEmpty: false,
   skipThreshold: 0.95,
@@ -248,6 +219,38 @@ if (route.query.dropNulls != null)
   settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
 
+// The readable names, the unit conversion and the unit targets are the app settings' (GH-3878): `DataViewer` reads
+// them for each request, and the Explorer says here what they are, with a link to the page that changes them
+const { settings: appSettings } = useSettings()
+
+// the name of a unit in the catalog (`units.degree_celsius`) ends in its symbol, "Degrees Celsius (°C)": the symbol is
+// what the summary line writes, the unit's name as it is where the catalog has no symbol for one
+function unitSymbolOf(unit: string): string {
+  if (!te(`units.${unit}`))
+    return unit
+  const label = t(`units.${unit}`)
+  return /\(([^)]+)\)\s*$/.exec(label)?.[1] ?? label
+}
+
+// What the next request asks for, as the settings line tells it: the link's own choice where it brought one, else
+// the app settings'
+const effectiveNames = computed(() => dataSettings.value.humanize ?? appSettings.value.friendlyLabels)
+const effectiveConvert = computed(() => dataSettings.value.convertUnits ?? appSettings.value.convertUnits)
+const settingsSummary = computed(() => {
+  const targets = requestUnitTargets(appSettings.value.units)
+  const units = ['temperature', 'pressure', 'speed'].map(type => unitSymbolOf(targets[type]!)).join(', ')
+  return [
+    effectiveNames.value ? t('explorer.settingsNamesOn') : t('explorer.settingsNamesOff'),
+    effectiveConvert.value ? t('explorer.settingsUnitsOn', { units }) : t('explorer.settingsUnitsOff'),
+  ].join(' · ')
+})
+// a link of an earlier version of the page, or one shared from it, names the choice itself (see `settingsFromLink`)
+const linkOverridesSettings = computed(() => dataSettings.value.humanize !== undefined || dataSettings.value.convertUnits !== undefined)
+function useAppSettings() {
+  dataSettings.value.humanize = undefined
+  dataSettings.value.convertUnits = undefined
+}
+
 // the settings the user has changed, ever: one changed and changed back is still theirs. The
 // server's, written by `seedSettings`, are not
 const changedSettings = new Set<keyof DataSettings>()
@@ -268,7 +271,7 @@ watch(() => ({ ...dataSettings.value }), (now, before) => {
  * names but `overLink` holds.
  */
 function seedSettings(reported: Partial<DataSettings>, overLink?: ReadonlySet<keyof DataSettings>) {
-  const settings: Record<keyof DataSettings, unknown> = dataSettings.value
+  const settings: Partial<Record<keyof DataSettings, unknown>> = dataSettings.value
   seeding = true
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
     if ((!(key in settingsFromLink) || overLink?.has(key)) && !changedSettings.has(key))
@@ -284,7 +287,6 @@ function seedSettings(reported: Partial<DataSettings>, overLink?: ReadonlySet<ke
 const seededFromServer = useServerSettings().then((server) => {
   if (!server)
     return false
-  unitTargetDefaults.value = defaultUnitTargets(server)
   const reported = serverDataSettings(server)
   seedSettings(reported)
   Object.assign(startingSettings.value, reported)
@@ -718,16 +720,6 @@ function removeParameterDistance(id: string, paramName: string) {
     delete dataSettings.value.useStationDistancePerParameter[paramName]
   parameterDistanceEntries.value = parameterDistanceEntries.value.filter(e => e.id !== id)
 }
-
-// Helper function for unit target changes
-function handleUnitTargetChange(unitType: string, value: string) {
-  if (value === UNIT_TARGET_DEFAULT) {
-    delete dataSettings.value.unitTargets[unitType]
-  }
-  else {
-    dataSettings.value.unitTargets[unitType] = value
-  }
-}
 </script>
 
 <template>
@@ -862,53 +854,28 @@ function handleUnitTargetChange(unitType: string, value: string) {
             />
             <template #content>
               <div class="pt-4 space-y-6">
-                <!-- Common settings -->
-                <div class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <div class="flex items-center gap-2 mb-3">
-                    <UIcon name="i-ph-gear-six" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
-                    <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                      {{ t('explorer.generalSettings') }}
-                    </div>
-                  </div>
-                  <div class="space-y-3">
-                    <div class="flex flex-wrap gap-4">
-                      <UCheckbox v-model="dataSettings.humanize" :label="t('explorer.humanize')" />
-                      <UCheckbox v-model="dataSettings.convertUnits" :label="t('explorer.convertUnits')" />
-                    </div>
-
-                    <!-- Unit Targets -->
-                    <UCollapsible v-if="dataSettings.convertUnits">
-                      <UButton
-                        :label="t('explorer.unitTargets')"
-                        variant="ghost"
-                        color="neutral"
-                        trailing-icon="i-ph-caret-down"
-                        size="xs"
-                      />
-                      <template #content>
-                        <div class="pt-3 space-y-2" data-testid="unit-targets">
-                          <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                            {{ t('explorer.unitTargetsHint') }}
-                          </p>
-                          <div
-                            v-for="unitType in unitTypes"
-                            :key="unitType.type"
-                            class="flex items-center gap-2"
-                          >
-                            <label class="text-xs text-gray-600 dark:text-gray-400 w-40">
-                              {{ unitTypeLabel(unitType.type) }}:
-                            </label>
-                            <USelect
-                              :model-value="dataSettings.unitTargets[unitType.type] ?? UNIT_TARGET_DEFAULT"
-                              :items="unitTargetItems(unitType)"
-                              size="xs"
-                              class="w-44"
-                              @update:model-value="handleUnitTargetChange(unitType.type, String($event))"
-                            />
-                          </div>
-                        </div>
-                      </template>
-                    </UCollapsible>
+                <!-- Names and units: the app settings', shown and linked, not a copy of them (GH-3878) -->
+                <div
+                  class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2"
+                  data-testid="app-settings-summary"
+                >
+                  <p class="text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <UIcon name="i-ph-gear-six" class="w-4 h-4 text-primary-600 dark:text-primary-500" aria-hidden="true" />
+                    <span data-testid="app-settings-summary-text">{{ settingsSummary }}</span>
+                    <span aria-hidden="true">—</span>
+                    <NuxtLink to="/settings" class="underline text-primary-700 dark:text-primary-400">
+                      {{ t('explorer.settingsChange') }}
+                    </NuxtLink>
+                  </p>
+                  <div v-if="linkOverridesSettings" class="text-xs text-muted space-y-1" data-testid="app-settings-override">
+                    <p>{{ t('explorer.settingsLinkOverride') }}</p>
+                    <UButton
+                      :label="t('explorer.settingsUseMine')"
+                      variant="subtle"
+                      color="neutral"
+                      size="xs"
+                      @click="useAppSettings"
+                    />
                   </div>
                 </div>
 
@@ -1265,7 +1232,6 @@ function handleUnitTargetChange(unitType: string, value: string) {
           <DataViewer
             v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
             :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
-            :unit-target-defaults="unitTargetDefaults"
             @apply-range="applyRange"
           />
           <!-- where the result will be, until a place is chosen: the column of the result is not an empty hole -->

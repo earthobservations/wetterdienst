@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- `[Explorer, Settings]` The Explorer's own "General settings" (readable names, convert to SI, unit
+  targets) are gone: its requests send the plain-language labels, the conversion and the units of
+  the Settings page, which were stored there and used by nothing, so a change there reaches the next
+  request. The Explorer shows them in one line with a link to the page. The defaults for power per
+  area (W/m²) and conductivity (µS/cm) are the backend's (were W/cm², S/m). An old link with
+  `humanize` or `convertUnits` keeps its choice for that view until "Use my app settings" (GH-3878)
 - `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
   the notifications, the number fields' description for a screen reader) are in the language of
   the page in all eleven languages (they were English in all but German; Hamburg German uses the

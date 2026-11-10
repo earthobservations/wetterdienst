@@ -63,6 +63,44 @@ describe('settings schema', () => {
     })
   })
 
+  describe('the units the requests send (GH-3878)', () => {
+    it('are the backend\'s own default for the two types where the settings held another', () => {
+      expect(SETTINGS_DEFAULTS.units.power_per_area).toBe('watt_per_square_meter')
+      expect(SETTINGS_DEFAULTS.units.conductivity).toBe('microsiemens_per_centimeter')
+    })
+
+    it('are made the backend\'s default again for a settings of version 1 that holds the old default', () => {
+      const stored = {
+        ...structuredClone(SETTINGS_DEFAULTS),
+        version: 1,
+        units: { ...SETTINGS_DEFAULTS.units, power_per_area: 'watt_per_square_centimeter', conductivity: 'siemens_per_meter', temperature: 'degree_fahrenheit' },
+      }
+      const result = coerceSettings(stored)
+      expect(result.version).toBe(SETTINGS_VERSION)
+      expect(result.units.power_per_area).toBe('watt_per_square_meter')
+      expect(result.units.conductivity).toBe('microsiemens_per_centimeter')
+      // what else was chosen is kept
+      expect(result.units.temperature).toBe('degree_fahrenheit')
+    })
+
+    it('keeps a choice of another unit of those two in a settings of version 1', () => {
+      const stored = {
+        ...structuredClone(SETTINGS_DEFAULTS),
+        version: 1,
+        units: { ...SETTINGS_DEFAULTS.units, power_per_area: 'kilowatt_per_square_meter', conductivity: 'microsiemens_per_meter' },
+      }
+      expect(coerceSettings(stored).units).toMatchObject({ power_per_area: 'kilowatt_per_square_meter', conductivity: 'microsiemens_per_meter' })
+    })
+
+    it('keeps W/cm² and S/m where a settings of the current version holds them: they are a choice by now', () => {
+      const stored = {
+        ...structuredClone(SETTINGS_DEFAULTS),
+        units: { ...SETTINGS_DEFAULTS.units, power_per_area: 'watt_per_square_centimeter', conductivity: 'siemens_per_meter' },
+      }
+      expect(coerceSettings(stored)).toEqual(stored)
+    })
+  })
+
   describe('the tools of the phone bar (GH-3846)', () => {
     const withBar = (tabBar: unknown) => ({ ...structuredClone(SETTINGS_DEFAULTS), tabBar })
 

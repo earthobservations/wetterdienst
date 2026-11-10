@@ -47,8 +47,16 @@ and sets the theme or the language.
 | Settings | Kept in the browser: the language, light or dark, which four tools are in the tab bar of a phone (see above), plain-language labels for the parameters, and whether and in which units the values are converted. Where the browser refuses its storage the settings hold for the visit and are the defaults at the next. |
 
 The settings of a request that the explorer offers are the [options](settings.md#options) of the library
-(`humanize`, `convert_units`, `unit_targets`, `shape`, `skip_empty`, the interpolation distances), under the
-names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
+(`shape`, `skip_empty`, `drop_nulls`, the interpolation distances), under the names the REST API takes them by.
+Its `humanize`, `convert_units` and `unit_targets` are the app's Settings page's (plain-language labels, whether
+values are converted, and the unit of each type), which the Explorer names in one line with a link to the page;
+every request names all three, so the unit of a type does not depend on the server's `WD_TS_UNIT_TARGETS`. An
+Explorer link of an earlier version may carry `humanize` and `convertUnits`: they apply to that view over the
+Settings page, and "Use my app settings" in the Explorer's Settings drops them. The forecast, its widget and the
+map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
+the Settings page does not change.
+
+The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
 ### Large selections
