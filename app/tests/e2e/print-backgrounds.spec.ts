@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test'
+import type { Handlers } from './accessibility/mock-backend'
 import { expect, test } from '@playwright/test'
+import { askHandlers } from './accessibility/ask-backend'
 import { mockBackend } from './accessibility/mock-backend'
 import { pdfFillColors, pdfTextRuns } from './pdf-text'
 
@@ -13,8 +15,13 @@ import { pdfFillColors, pdfTextRuns } from './pdf-text'
 // - the computed style under the print medium: every icon is `exact`, and so is the fill behind everything that is
 //   light (a white label, a white glyph), which is the rule that finds an element that is neither forced nor dark;
 //   nothing light stands on the paper itself (white on white)
-// - the PDF printed with `printBackground: false`: the fill of every such element is drawn in it, and so is the text
-//   of the buttons (the labels are text in the PDF whatever their colour, so this alone would not see a white one)
+//   and a switch (a track and a thumb, which are fills only) keeps both
+// - the PDF printed with `printBackground: false`: the fill of every such element is drawn in it (the weaker check:
+//   a colour is found, not seen), and so is the text of the buttons (the labels are text in the PDF whatever their
+//   colour, so this alone would not see a white one)
+
+// a page of the list is loaded and scanned and printed twice: more than the 30 s of a test on a loaded machine
+test.setTimeout(60_000)
 
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
 
@@ -22,10 +29,23 @@ interface Target {
   name: string
   path: string
   reach?: (page: Page) => Promise<void>
+  /** What the mock backend answers beyond its own */
+  handlers?: Handlers
 }
 
 const PAGES: Target[] = [
   { name: 'the start page', path: '/' },
+  {
+    name: 'the start page, with a question asked',
+    path: '/',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await page.getByTestId('question-rain').click()
+      await expect(page.getByTestId('question-rain')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  { name: 'the map', path: '/map' },
   {
     name: 'the explorer, with its table',
     path: EXPLORER,
@@ -61,6 +81,8 @@ interface Scan {
   light: Backing[]
   /** The dark fills that something light stands on, which the PDF is looked into for */
   solids: Array<{ what: string, fill: Rgb }>
+  /** The switches: a track and a thumb, which are fills and nothing else */
+  switches: Array<{ what: string, parts: Array<{ part: string, adjust: string, fill: Rgb }> }>
 }
 
 /** Reads the page under the print medium (the caller emulates it): the icons, and what stands on what */
@@ -86,9 +108,9 @@ async function scan(page: Page): Promise<Scan> {
       const style = getComputedStyle(element)
       return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
     }
-    /** The nearest element above `element` that has an opaque fill: what it stands on */
-    const backing = (element: Element) => {
-      for (let up = element.parentElement; up; up = up.parentElement) {
+    /** The nearest element that has an opaque fill, from `element` itself (a label that is the text of its own fill) or above it (an icon in one) */
+    const backing = (element: Element, own: boolean) => {
+      for (let up: Element | null = own ? element : element.parentElement; up; up = up.parentElement) {
         const { rgb, alpha } = parse(getComputedStyle(up).backgroundColor)
         if (alpha > 0.5)
           return { element: up, rgb, adjust: getComputedStyle(up).getPropertyValue('print-color-adjust') }
@@ -96,12 +118,12 @@ async function scan(page: Page): Promise<Scan> {
       return null
     }
 
-    const result: Scan = { icons: [], light: [], solids: [] }
+    const result: Scan = { icons: [], light: [], solids: [], switches: [] }
     const seen = new Set<Element>()
-    const note = (element: Element, what: string, color: Rgb) => {
+    const note = (element: Element, what: string, color: Rgb, own: boolean) => {
       if (luminance(color) <= 0.5)
         return
-      const behind = backing(element)
+      const behind = backing(element, own)
       const paper = !behind || luminance(behind.rgb) > 0.5
       result.light.push({ what: `${what} on ${behind ? label(behind.element) : 'the paper'}`, adjust: behind?.adjust ?? 'economy', paper })
       if (behind && !paper && !seen.has(behind.element)) {
@@ -117,21 +139,31 @@ async function scan(page: Page): Promise<Scan> {
       if (element.classList.contains('iconify')) {
         result.icons.push({ icon: label(element), adjust: style.getPropertyValue('print-color-adjust') })
         // an icon is drawn in its background colour
-        note(element, `icon ${label(element)}`, parse(style.backgroundColor).rgb)
+        note(element, `icon ${label(element)}`, parse(style.backgroundColor).rgb, false)
       }
       else if ([...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
-        note(element, `text of ${label(element)}`, parse(style.color).rgb)
+        note(element, `text of ${label(element)}`, parse(style.color).rgb, true)
       }
+    }
+    for (const element of document.querySelectorAll('#__nuxt [role="switch"]')) {
+      if (!visible(element))
+        continue
+      const part = (name: string, target: Element) => {
+        const style = getComputedStyle(target)
+        return { part: name, adjust: style.getPropertyValue('print-color-adjust'), fill: parse(style.backgroundColor).rgb }
+      }
+      const thumb = element.firstElementChild
+      result.switches.push({ what: `${label(element)} ${element.getAttribute('data-state')}`, parts: [part('track', element), ...(thumb ? [part('thumb', thumb)] : [])] })
     }
     return result
   })
 }
 
-async function printed(page: Page, baseURL: string, theme: 'light' | 'dark', target: Pick<Target, 'path' | 'reach'>) {
+async function printed(page: Page, baseURL: string, theme: 'light' | 'dark', target: Pick<Target, 'path' | 'reach' | 'handlers'>) {
   await page.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), theme)
   await page.setViewportSize({ width: 1440, height: 1000 })
-  await mockBackend(page, baseURL)
-  await page.goto(target.path, { timeout: 60_000 })
+  await mockBackend(page, baseURL, target.handlers)
+  await page.goto(target.path)
   await target.reach?.(page)
   await page.waitForLoadState('networkidle')
   await page.emulateMedia({ media: 'print' })
@@ -155,11 +187,18 @@ for (const theme of ['light', 'dark'] as const) {
       expect(found.light.filter(({ paper }) => paper).map(({ what }) => what), 'light on the paper').toEqual([])
       expect(found.light.filter(({ adjust }) => adjust !== 'exact').map(({ what }) => what), 'light on a fill that is left out').toEqual([])
 
+      // a switch is a track and a thumb, both fills: both are forced, and have a fill to draw
+      expect(found.switches.flatMap(({ what, parts }) => parts.filter(({ adjust }) => adjust !== 'exact').map(({ part }) => `${what} ${part}`)), 'switch parts that print without their fill').toEqual([])
+      if (target.path === '/settings')
+        expect(found.switches.length, 'switches on the page').toBe(2)
+
       // and the PDF, printed as Chrome prints by default: the fills those stand on are in it
       const fills = pdfFillColors(await page.pdf({ format: 'A4', printBackground: false }))
       expect(fills.length).toBeGreaterThan(0)
       const missing = found.solids.filter(({ fill }) => !fills.some(drawn => close(drawn, fill)))
       expect(missing.map(({ what, fill }) => `${what} ${fill.map(value => value.toFixed(3)).join(' ')}`), 'fills missing from the PDF').toEqual([])
+      const switchFills = found.switches.flatMap(({ what, parts }) => parts.filter(({ fill }) => !fills.some(drawn => close(drawn, fill))).map(({ part, fill }) => `${what} ${part} ${fill.map(value => value.toFixed(3)).join(' ')}`))
+      expect(switchFills, 'switch fills missing from the PDF').toEqual([])
     })
   }
 }

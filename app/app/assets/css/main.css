@@ -1122,10 +1122,16 @@
      (@nuxt/icon, `.iconify`), so it prints as nothing; a label that is white on a solid fill (`text-inverted`: the
      solid button, badge and checkmark of Nuxt UI) and a tool's tile (a white or navy glyph on its colour) print as
      white on white. These are small marks, so they keep their fill (`exact`). The one large dark area, the band of
-     the start page, does not: it is white with an outline in print (pages/index.vue), which costs no ink. */
+     the start page, does not: it is white with an outline in print (pages/index.vue), which costs no ink.
+     The app's own white-on-fill controls are the pressed chip of a question (AskTheWeather) and the layer shown on
+     the map (map.vue); a switch is its fills only (track and thumb), so without them it is not on the page. */
   .iconify,
   .tile,
-  [class~="text-inverted"] {
+  [class~="text-inverted"],
+  .ask-chip[aria-pressed="true"],
+  .map-segment[aria-pressed="true"],
+  [role="switch"],
+  [role="switch"] > * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
