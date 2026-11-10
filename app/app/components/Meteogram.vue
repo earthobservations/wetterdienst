@@ -68,6 +68,17 @@ const visiblePanels = ref({
   pressure: true,
 })
 
+// The panel toggles, in the order of the panels: the colour of each is that of its series' labels
+const panelToggles: { panel: keyof typeof visiblePanels.value, icon: string, title: string, series: SeriesLabel }[] = [
+  { panel: 'temp', icon: 'i-ph-thermometer', title: 'meteogram.chart.panelTemperature', series: 'red' },
+  { panel: 'wind', icon: 'i-ph-wind', title: 'meteogram.chart.panelWind', series: 'cyan' },
+  { panel: 'precip', icon: 'i-ph-cloud-rain', title: 'meteogram.chart.panelPrecipitation', series: 'blue' },
+  { panel: 'cloud', icon: 'i-ph-cloud', title: 'meteogram.chart.panelCloud', series: 'slate' },
+  { panel: 'pressure', icon: 'i-ph-gauge', title: 'meteogram.chart.panelPressure', series: 'lime' },
+]
+// a toggle that is on: the icon in the label colour, on a wash and in an edge of it
+const activeToggleStyle = (series: SeriesLabel) => panelToggleStyle(seriesLabelColor(series, isDark.value))
+
 // Forecast horizon filter: null = show all data
 const horizonHours = ref<number | null>(null)
 const horizonOptions = computed(() => [
@@ -2066,75 +2077,23 @@ watch(
           <div class="flex items-center gap-1">
             <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
 
+            <!-- the colours are those of the series' labels (SERIES_LABEL, WCAG 1.4.11 and 1.4.3: tests/unit/button-contrast.test.ts), not the series' own -->
             <button
+              v-for="toggle in panelToggles"
+              :key="toggle.panel"
               type="button"
-              :title="t('meteogram.chart.panelTemperature')"
+              :title="t(toggle.title)"
+              :data-panel="toggle.panel"
+              :aria-pressed="visiblePanels[toggle.panel]"
               class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-              :class="[
-                visiblePanels.temp
-                  ? 'bg-red-500/10 border-red-200/60 text-red-600 dark:border-red-900/40 dark:text-red-400 ring-1 ring-red-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-              ]"
-              @click="visiblePanels.temp = !visiblePanels.temp"
+              :class="visiblePanels[toggle.panel]
+                ? ''
+                : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'"
+              :style="visiblePanels[toggle.panel] ? activeToggleStyle(toggle.series) : undefined"
+              :disabled="toggle.panel === 'cloud' && compact"
+              @click="visiblePanels[toggle.panel] = !visiblePanels[toggle.panel]"
             >
-              <UIcon name="i-ph-thermometer" class="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              :title="t('meteogram.chart.panelWind')"
-              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-              :class="[
-                visiblePanels.wind
-                  ? 'bg-cyan-500/10 border-cyan-200/60 text-cyan-600 dark:border-cyan-900/40 dark:text-cyan-400 ring-1 ring-cyan-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-              ]"
-              @click="visiblePanels.wind = !visiblePanels.wind"
-            >
-              <UIcon name="i-ph-wind" class="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              :title="t('meteogram.chart.panelPrecipitation')"
-              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-              :class="[
-                visiblePanels.precip
-                  ? 'bg-blue-500/10 border-blue-200/60 text-blue-600 dark:border-blue-900/40 dark:text-blue-400 ring-1 ring-blue-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-              ]"
-              @click="visiblePanels.precip = !visiblePanels.precip"
-            >
-              <UIcon name="i-ph-cloud-rain" class="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              :title="t('meteogram.chart.panelCloud')"
-              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-              :class="[
-                visiblePanels.cloud
-                  ? 'bg-slate-500/10 border-slate-200/60 text-slate-600 dark:border-slate-800/60 dark:text-slate-300 ring-1 ring-slate-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-              ]"
-              :disabled="compact"
-              @click="visiblePanels.cloud = !visiblePanels.cloud"
-            >
-              <UIcon name="i-ph-cloud" class="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              :title="t('meteogram.chart.panelPressure')"
-              class="inline-flex items-center p-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-              :class="[
-                visiblePanels.pressure
-                  ? 'bg-lime-500/10 border-lime-200/60 text-lime-600 dark:border-lime-900/40 dark:text-lime-400 ring-1 ring-lime-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
-              ]"
-              @click="visiblePanels.pressure = !visiblePanels.pressure"
-            >
-              <UIcon name="i-ph-gauge" class="w-3.5 h-3.5" />
+              <UIcon :name="toggle.icon" class="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -2180,29 +2139,29 @@ watch(
       <!-- Summary stats: same order as the panel toggles (temp/wind/precip/cloud/pressure) -->
       <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
         <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
-          <UIcon name="i-ph-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
+          <UIcon name="i-ph-thermometer" class="w-4 h-4 shrink-0" data-summary-icon="temp" :style="{ color: seriesLabelColor('red', isDark) }" />
           <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
           <span class="text-gray-500 dark:text-gray-400">/</span>
           <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-ph-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
+          <UIcon name="i-ph-wind" class="w-4 h-4 shrink-0" data-summary-icon="wind" :style="{ color: seriesLabelColor('cyan', isDark) }" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">m/s</span>
-          <span class="text-cyan-700 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
+          <span class="text-xs" :style="{ color: seriesLabelColor('cyan', isDark) }">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-ph-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
+          <UIcon name="i-ph-cloud-rain" class="w-4 h-4 shrink-0" data-summary-icon="precip" :style="{ color: seriesLabelColor('blue', isDark) }" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">mm</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <UIcon name="i-ph-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
+          <UIcon name="i-ph-cloud" class="w-4 h-4 shrink-0" data-summary-icon="cloud" :style="{ color: seriesLabelColor('slate', isDark) }" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">%</span>
         </div>
         <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
-          <UIcon name="i-ph-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
+          <UIcon name="i-ph-gauge" class="w-4 h-4 shrink-0" data-summary-icon="pressure" :style="{ color: seriesLabelColor('lime', isDark) }" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
@@ -2285,7 +2244,7 @@ watch(
             <div
               class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
                 d.isToday
-                  ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-400 dark:border-blue-800 ring-1 ring-blue-400/20 shadow-md shadow-blue-500/5'
+                  ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-600 dark:border-blue-400 ring-1 ring-blue-400/20 shadow-md shadow-blue-500/5'
                   : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
               ]"
             >

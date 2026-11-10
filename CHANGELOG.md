@@ -59,8 +59,18 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` hourly `solar`: where the minute that ends the hour drifts across :30, two
+  source hours round to one stamp (12:30 and 13:29 at Frankfurt, about once a year per station) and
+  one was dropped without a word. The row nearer the hour is now kept, the earlier on a tie, and
+  the dropped rows of the request's window are logged in one warning per station. No stamp moves
+  (GH-3938)
 - `imgw/meteorology` daily `synop` now returns the current year, whose files IMGW publishes per
   month for all stations (it returned nothing for it before) (GH-3941)
+- `stations` for `imgw/meteorology` daily and monthly `synop` lists only the stations that report
+  synop (63 of the 800, 59 of them with data today): the others are climate or precipitation
+  stations, were offered and returned nothing, and made a walk over all stations read the synop
+  files for each (37 s, now 6 s, the same rows). The list is read from IMGW's `wykaz_stacji.csv`;
+  the other datasets list every station as before (GH-3944)
 - `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
   unit `MGN` is degrees from 0 to 359 from magnetic north, and that the value is the direction the
   current flows towards. A value outside 0 to 360 is now judged by the `range` check, as the wind

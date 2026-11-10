@@ -476,7 +476,8 @@ const STATES: State[] = [
       await page.keyboard.press('Control+k')
       await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
       await page.keyboard.type('ber')
-      await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
+      // the station is listed twice, as its forecast and as a station on the map (GH-3650): either is the state
+      await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ }).first()).toBeVisible()
       await page.keyboard.press('ArrowDown')
     },
   },

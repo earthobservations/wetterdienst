@@ -566,6 +566,81 @@ test('the Forecast\'s axis labels, weekend day labels and zero line reach contra
   }
 })
 
+// The Forecast's own chrome (GH-3642): the icons of its panel toggles, on and off, and of its summary line, measured as the
+// browser paints them (the colour of the icon and the backgrounds under it, down to the page), in both schemes.
+// A mark that carries meaning needs 3:1 (1.4.11); the label colours clear 4.5:1 on the toolbar, which is held here as well
+test('the Forecast\'s panel toggles and summary icons reach contrast in both schemes', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  // the page's clock and the forecast the mock serves both start at this instant, as in the test above
+  const now = new Date('2026-10-30T09:00:00Z')
+  await page.clock.setSystemTime(now)
+  await mockBackend(page, baseURL!, {}, now)
+  await page.goto('/meteogram?station=01001')
+  await expect(plotly(page)).toBeVisible()
+
+  // the icon's colour and every background that lies under it, from the page to the icon's own button, as rgba
+  const marks = () => page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d', { willReadFrequently: true })!
+    const rgba = (css: string) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = '#000'
+      context.fillStyle = css
+      context.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+      return [r!, g!, b!, a! / 255]
+    }
+    const read = (icon: Element) => {
+      const layers: number[][] = []
+      // not the icon's own: a CSS icon is a mask over a background of its own colour
+      for (let node = icon.parentElement; node; node = node.parentElement) {
+        const layer = rgba(getComputedStyle(node).backgroundColor)
+        if (layer[3]! > 0)
+          layers.unshift(layer)
+      }
+      return { color: rgba(getComputedStyle(icon).color), layers }
+    }
+    const toggles = Array.from(document.querySelectorAll('button[data-panel]')).map(button => ({
+      panel: (button as HTMLElement).dataset.panel!,
+      pressed: button.getAttribute('aria-pressed'),
+      ...read(button.querySelector('[class*="i-ph"]')!),
+    }))
+    const summary = Array.from(document.querySelectorAll('[data-summary-icon]')).map(icon => ({ panel: (icon as HTMLElement).dataset.summaryIcon!, ...read(icon) }))
+    return { toggles, summary }
+  })
+  type Mark = Awaited<ReturnType<typeof marks>>['toggles'][number]
+  // the layers composed over the white of the page (the dark scheme's page is a layer of its own), as rgb()
+  const ground = (mark: Mark) => mark.layers.reduce((under, layer) => onPaper(`rgba(${layer[0]}, ${layer[1]}, ${layer[2]}, ${layer[3]})`, under), 'rgb(255, 255, 255)')
+  const colour = (mark: Mark) => `rgb(${mark.color[0]}, ${mark.color[1]}, ${mark.color[2]})`
+
+  for (const scheme of ['light', 'dark'] as const) {
+    if (scheme === 'dark') {
+      await setColorScheme(page, 'Dark')
+      await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+    }
+    const { toggles, summary } = await marks()
+    expect(toggles.map(toggle => toggle.panel), `${scheme}: the panel toggles`).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    expect(summary.map(icon => icon.panel), `${scheme}: the summary's icons`).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    for (const toggle of toggles) {
+      expect(toggle.pressed, `${scheme}: ${toggle.panel} says it is on`).toBe('true')
+      expect(contrast(colour(toggle), ground(toggle)), `${scheme}: the ${toggle.panel} toggle that is on, ${colour(toggle)} on ${ground(toggle)}`).toBeGreaterThanOrEqual(3)
+    }
+    for (const icon of summary)
+      expect(contrast(colour(icon), ground(icon)), `${scheme}: the ${icon.panel} icon, ${colour(icon)} on ${ground(icon)}`).toBeGreaterThanOrEqual(4.5)
+
+    // a toggle that is off keeps the greys of the app, which clear 3:1 as well (the page keeps one panel on: the last off stays on)
+    await page.locator('button[data-panel]').evaluateAll(buttons => buttons.forEach(button => (button as HTMLElement).click()))
+    await expect(page.locator('button[data-panel][aria-pressed="false"]')).toHaveCount(4)
+    const off = (await marks()).toggles.filter(toggle => toggle.pressed === 'false')
+    expect(off.length, `${scheme}: the toggles that are off`).toBe(4)
+    for (const toggle of off)
+      expect(contrast(colour(toggle), ground(toggle)), `${scheme}: the ${toggle.panel} toggle that is off, ${colour(toggle)} on ${ground(toggle)}`).toBeGreaterThanOrEqual(3)
+    await page.locator('button[data-panel][aria-pressed="false"]').evaluateAll(buttons => buttons.forEach(button => (button as HTMLElement).click()))
+    await expect(page.locator('button[data-panel][aria-pressed="true"]')).toHaveCount(5)
+  }
+})
+
 test('the stripes\' "data availability" label reaches contrast in both schemes', async ({ page, baseURL, context }) => {
   await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
   await mockBackend(page, baseURL!)

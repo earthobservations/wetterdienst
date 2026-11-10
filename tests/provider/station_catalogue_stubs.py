@@ -219,6 +219,51 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 #   Państwowy Instytut Badawczy"
 #   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
 #   Państwowego Instytutu Badawczego zostały przetworzone"
+#
+# The daily synop lists the synop stations only (GH-3944): the rows of `kody_stacji.csv` that `wykaz_stacji.csv`
+# (IMGW's list of the stations of its meteorological archives, served as it is published: cp1250, CRLF, the name and the
+# five-character code quoted) gives a code of at most three digits. The catalogue below is real rows (read 2026-11-10):
+# the synop stations Bielsko-Biała, Warszawa and, closed since 2000, Przemyśl; the climate and precipitation stations
+# Pszczyna, Strzyżów and Starnin, whose ids end in 010 as the ids of two synop stations of the list end in the code of
+# their per-station files (so that a code alone does not tell them apart); and Wrocław 351160425, a station of the
+# catalogue that the archives do not hold (the synop station of the city is 351160424, which the stub leaves out).
+# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published, with a comma inside the quotes of its name and no
+# code of its own, which the reader must leave alone.
+def _imgw_meteorology_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+        "413;250240010;Strzyżów;Bug (266);2001;50 50 24;24 02 08;181\r\n"
+        "588;253150010;Starnin;Rega (42);1961;53 57 57;15 27 24;36\r\n"
+        "736;349190600;Bielsko-Biała;Biała (2114);1947;49 48 24;19 00 08;396\r\n"
+        "743;349220695;PRZEMYŚL;San (22);1946;49 50 02;22 48 36;230\r\n"
+        "761;351160425;WROCŁAW;Odra (1);1956;51 06 49;16 52 54;120\r\n"
+        "774;352200375;Warszawa;Wisła (2);1918;52 09 46;20 57 40;106\r\n"
+    )
+    stations = (
+        '"249180010","PSZCZYNA"," 5409"\r\n'
+        '"250240010","STRZYŻÓW"," 5927"\r\n'
+        '"252200360","GOŁYMIN-OŚRODEK,93668"               \r\n'
+        '"253150010","STARNIN","92143"\r\n'
+        '"349190600","BIELSKO-BIAŁA","  600"\r\n'
+        '"349220695","PRZEMYŚL","  695"\r\n'
+        '"352200375","WARSZAWA","  375"\r\n'
+    )
+    _serve(
+        monkeypatch,
+        imgw_meteorology_api,
+        {"kody_stacji": catalogue.encode("utf8"), "wykaz_stacji": stations.encode("cp1250")},
+    )
+    return _stations(ImgwMeteorologyRequest, ("daily", "synop"))
+
+
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -1743,4 +1788,12 @@ STUBS = [
     Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
     Stub("imgw/meteorology daily/climate", _imgw_meteorology),
+    Stub(
+        "imgw/meteorology daily/synop",
+        _imgw_meteorology_synop,
+        expected={
+            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0},
+            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611},
+        },
+    ),
 ]
