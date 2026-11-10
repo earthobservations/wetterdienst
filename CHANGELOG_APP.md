@@ -18,6 +18,18 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
+  column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
+  (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
+  stripes' "Data availability" (11 px) are 12 px (the day names 10 px where days are narrow, the
+  titles 10 px in the compact view; a long title is broken in two lines, and the time labels are
+  spaced out on a phone), so that they print legibly: on A4 with 1 in margins the smallest text of
+  each chart is 6.2 pt (from a 1100 px window it was 5.2 pt for the Explorer, 4.8 pt for the
+  stripes and 3.9 pt for the Forecast) (GH-3558)
+- `[App]` The weather of the forecast's day cards and of the map panel's day rows is drawn as an
+  icon in the app's icon set (sun, cloud, rain, snow, fog, wind, thunderstorm, and so on), in the
+  text colour of the card, where an emoji of the system's font was drawn, which looked different on
+  every system. The words a screen reader reads are the same (GH-3527)
 - `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
   eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
   `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
@@ -32,6 +44,9 @@ Types of changes:
 
 ### Fixed
 
+- `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
+  and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
+  page and the glossary) is dark now, as in light mode (GH-3558)
 - `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
   the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
   not only a tooltip (GH-3951)

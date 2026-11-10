@@ -66,6 +66,20 @@ describe('the meteogram as day rows (days-only)', () => {
     await vi.waitFor(() => expect(plotly.newPlot).not.toHaveBeenCalled())
   })
 
+  // the weather of a row is a Phosphor icon, hidden from a screen reader, with its words beside it (GH-3527)
+  it('draws the weather of each row as an icon that is hidden, and says it in words', async () => {
+    const wrapper = await mountRows()
+    const rows = wrapper.findAll('[data-testid="day-rows"] li')
+    for (const row of rows) {
+      const icon = row.find('[data-weather]')
+      expect(icon.exists()).toBe(true)
+      expect(icon.attributes('aria-hidden')).toBe('true')
+      expect(icon.classes().some(name => name.startsWith('i-ph:'))).toBe(true)
+      expect(row.find('.sr-only').text()).not.toBe('')
+      expect(row.text()).not.toMatch(/\p{Extended_Pictographic}/u)
+    }
+  })
+
   it('is not taken to the chart by the view the reader chose on the forecast page, which is kept in the browser', async () => {
     localStorage.setItem('meteogram.view', 'chart')
     const wrapper = await mountRows()
