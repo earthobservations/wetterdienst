@@ -462,7 +462,9 @@ const dataKinds = computed(() => [
 .values-band .home-heading {
   color: #ffffff;
 }
-.dark .values-band {
-  background: #1a2d4d;
+@media not print {
+  .dark .values-band {
+    background: #1a2d4d;
+  }
 }
 </style>
