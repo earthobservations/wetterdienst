@@ -1,7 +1,22 @@
 # Accessibility
 
-The app aims at **WCAG 2.2 level AA** (tracking issue: #2559). This file says what is measured, how to run
-it, what was checked by hand, and what is known not to conform.
+The app aims at **WCAG 2.2 level AA** (it was tracked in #2559, closed on 2026-11-10 with the acceptance below). This
+file says what is measured, how to run it, what was checked by hand, and what is known not to conform.
+
+## How it is accepted
+
+What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pull request that wrote this down:
+
+- **axe runs on request, not in every e2e run.** `pnpm test:a11y` runs it locally, and the *App accessibility*
+  workflow runs it in CI, from the Actions tab (*Run workflow*) or when a pull request carries the `a11y` label.
+  It takes about 20 minutes on three workers of a laptop and several times that on one (393 tests, most of them a page
+  load and a scan), which is why it is not part of `pnpm test:e2e` or of the App E2E workflow. The
+  baseline is its gate (see below): a rule broken that the baseline does not list fails the run, and so does an
+  entry that is no longer broken.
+- **Lighthouse is run by hand before each app release**, and its accessibility score is recorded in this file
+  (see *Lighthouse*): a row for each release. A release whose pages do not all score 100 says which did not and why.
+- **The baseline lists its causes.** Every entry names the project that owns the cause and the issue there, if one
+  exists, and says why the app does not fix it itself (see *The baseline*).
 
 ## What is measured
 
@@ -57,14 +72,23 @@ rule, page and state, with the modes and languages it occurs in. A scan fails on
 - a rule in the baseline that is no longer broken, so whoever fixes a violation removes its entry and the
   baseline only shrinks.
 
-What is left in it, and why it is not fixed in the app's own markup:
+What is left in it, and why it is not fixed in the app's own markup. Each entry in the file has an `issue` (the
+upstream issue, or `null` where there is none) and a `reason`; `tests/unit/a11y-baseline.test.ts` holds that both are
+stated, and `pnpm test:a11y:baseline` keeps them for an entry that is still found. All four were reproduced on
+2026-11-10 against the current components (Chrome 156, production build, the spec's states), the markup read, and
+found in Nuxt UI's or Reka UI's own: the app sets none of the attributes concerned and has no prop or slot that
+reaches them. The upstream trackers were read for an existing issue; none was opened.
 
-- `aria-required-children` and `scrollable-region-focusable`, the open station list: Nuxt UI's
-  `USelectMenu` puts the search field and a focus scope inside the element with `role="listbox"`, and
-  its scrolling viewport is not focusable. The app has no way to set either attribute; the fix is in
-  Nuxt UI / Reka UI. Nuxt UI 4.12.0 moves the role to the viewport (nuxt/ui#7096); the app is on 4.11.3.
-- `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
-  `aria-hidden` and focusable. Also upstream.
+| Rule | Page / state | Cause | Upstream issue |
+| --- | --- | --- | --- |
+| `aria-required-children` (critical) | explorer and meteogram / `station-menu-open` | Nuxt UI's `USelectMenu` puts `role="listbox"` on the combobox content, whose only child is a focus scope (`<div tabindex="-1" data-slot="focusScope">`) that holds the search field, so the listbox has a child that is not an option. | [nuxt/ui#7075](https://github.com/nuxt/ui/issues/7075), closed: fixed by nuxt/ui#7096 in 4.12.0 (the role moves to the options viewport). The app is on 4.11.3. |
+| `scrollable-region-focusable` (serious) | explorer / `station-menu-open` | The same menu scrolls its options in a viewport (`role="presentation"`, `overflow-y-auto`) whose options all have `tabindex="-1"` (Reka UI's roving focus): a scrollable region with no focusable content. | The same issue, #7075, and the same fix. |
+| `aria-hidden-focus` (serious) | explorer / `values-error` | Reka UI's toast viewport (behind Nuxt UI's `UToaster`) renders its two focus proxies as `<span aria-hidden="true" tabindex="0">`. The toast is the error's, raised by the page. | [unovue/reka-ui#2776](https://github.com/unovue/reka-ui/issues/2776), closed: fixed by unovue/reka-ui#2980 in 2.11.0. The app is on 2.10.5. |
+
+All three are fixed in releases the app does not have yet: `@nuxt/ui` 4.12.0 depends on `reka-ui` 2.11.0. In a
+built copy of the app on 4.12.0 (not committed), the three states reproduce no violation of these rules (Chrome,
+light/English). The entries go when the app is bumped to it, which is a dependency change of its own: Nuxt UI 4.12.0
+also loads the overlays of the menus and toasts lazily.
 
 There is no `color-contrast` entry left. The colours are the tokens of `app/assets/css/main.css` (GH-3518):
 the primary colour is the logo's blue, `#2E6FD1` (`brand-600`), the fill of a solid primary button with a
@@ -77,6 +101,17 @@ at night 6.2:1 on a card. A disabled button is exempt from 1.4.3 and from the sc
 checkbox and an unchecked switch is `--ui-border-accented`, 3.3:1 on white and 3.1:1 at night (1.4.11).
 `tests/unit/button-contrast.test.ts` reads the tokens from `main.css` and holds each pair to its ratio; the
 hover scan measures the rest.
+
+The Meteogram's own chrome (GH-3642): the icons of its panel toggles and of its summary line are in the series' label
+colours (`SERIES_LABEL` in `utils/chart-theme.ts`: cyan, lime, blue, red and slate for the cloud cover), not in
+the Tailwind shades they had (cyan-500, lime-500, red-500, blue-500 and slate-400), which are 1.9:1 to 3.8:1 on white. Each is 4.6:1 or more on the toolbar by day and at night
+and 3.9:1 or more on the wash behind a toggle that is on (a mark that carries a state: 3:1, 1.4.11); the card of today
+has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`; `tests/nuxt/components/Meteogram.test.ts`
+holds that, the colours and the card's edge in the rendered component). The same test reads every `text-<colour>-<step>`
+class of the markup from Tailwind's palette (and `gray`, which is the app's `ink`) and fails for one under 4.5:1 where it
+is painted: on white, and on the dark card for a `dark:` class and for a class that has no `dark:` partner in its class
+string. A class it cannot read (an opacity, `text-[#hex]`) fails too. The app's own `primary` scale is not checked there:
+`text-primary-500` is 3.47:1 on white and is used 48 times, for icons and spinners, which is a finding of its own and not of this test.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`: shade 700 of the primary colour on light, 6.9:1 on white, shade 300 on dark, 9.6:1; the map takes
@@ -127,8 +162,9 @@ classes it would not have changed.
 
 ## On request, not by default
 
-The scan takes half an hour and more, so it is not part of `pnpm test:e2e` or of the App E2E workflow
-(`playwright.config.ts` ignores the spec unless `A11Y=1`). It runs
+The scan is 393 tests, most of them a page load and a scan: about 20 minutes on three workers of a laptop
+(`pnpm test:a11y --workers=3`), several times that on the one worker CI uses. So it is not part of `pnpm test:e2e` or of
+the App E2E workflow (`playwright.config.ts` ignores the spec unless `A11Y=1`). It runs
 
 - from the Actions tab: *App accessibility*, *Run workflow*, or
 - on a pull request that carries the **`a11y` label**: when the label is added, and on every push after it.
@@ -139,6 +175,15 @@ run, and so does an entry that is no longer broken. The run's summary page repor
 by rule, and what the run found against it; the scans' results are an artifact of the run. It runs in the
 Playwright image the baseline was recorded in. A change that touches the markup, colours or ARIA of the app
 should be run with the label before it lands.
+
+Last full run: 2026-11-10 (`pnpm test:a11y --workers=3`, Chrome 156 on macOS, as Playwright's Firefox does not start
+there; axe 4.13.0), on the tree before the review fixes of the pull request (the one app change since is a `dark:` colour
+on the History page's error text): 393 tests, 393 passed, none retried, in 15.5 minutes. It found exactly the baseline's
+four entries (three rules, in the three states above) and nothing else. Two runs came before it and are not the record.
+The first failed six tests that were not findings: the spec's state `index: search-results` expected one option for
+BERLIN-TEMPELHOF where the search lists the station twice (its forecast, and on the map, since #3839), which nothing had
+noticed as the scan is on request; it takes the first now. The second was disturbed by another run of Playwright on the
+same server (it served dev-mode pages and refused connections) and failed six first-paint tests that were not findings.
 
 ## Running it
 
@@ -251,7 +296,30 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 ## Lighthouse
 
 Lighthouse is not part of CI (#2559 asked for it as a cross-check; it runs axe underneath, so it adds a
-weighted score, its few best-practice rules, and a phone-sized viewport, not other WCAG rules). Run by hand on
-2026-10-18 (Lighthouse 13.5.0, accessibility category, mobile and desktop, 17 URLs of the production build with the
-spec's mock answers served as the backend), every page scores 100. One page did not before: the explorer with
-a restored selection scored 98 for a heading that skipped a level (`heading-order`, an `h4` under an `h2`), now an `h3`.
+weighted score, its few best-practice rules, and a phone-sized viewport, not other WCAG rules). **It is run by hand
+before each app release, and its accessibility score is recorded here**, a row for each run. A release whose pages
+do not all score 100 names the ones that did not and the audit.
+
+| Date | App | Lighthouse | Pages x devices | Accessibility score |
+| --- | --- | --- | --- | --- |
+| 2026-10-18 | 0.24.0 with #3146 (released as 0.25.0) | 13.5.0 | 17 URLs x mobile, desktop | 34 x 100. Before the heading fix of that run: 32 x 100 and 2 x 98 (the explorer with a restored selection: `heading-order`, an `h4` under an `h2`, now an `h3`). |
+| 2026-11-10 | 0.46.0 with this change (GH-3642, GH-2559) | 13.6.0 | 17 URLs x mobile, desktop | 34 x 100. First run of the same pages: 32 x 100 and 2 x 98 (the widget: `landmark-one-main`, a page with no main landmark, which the widget now has). |
+
+How a row is made, by hand before each app release:
+
+```bash
+cd app
+pnpm build
+pnpm lighthouse            # --version 13.6.0 (the default), --port 4413, --mock-port 4412
+```
+
+`pnpm lighthouse` (`tests/e2e/accessibility/lighthouse.mjs`) serves the production build with `NUXT_API_BASE` pointing at a
+server that answers every `/api/*` request as the spec's mock backend does (`defaultHandlers` of
+`tests/e2e/accessibility/mock-backend.ts`), so that a page shows what it shows with data and no provider is reached. It
+runs `npx lighthouse@<version> <url> --only-categories=accessibility` for the 17 URLs (the 16 pages of the spec's first
+paint and the explorer with a station chosen; `tests/unit/lighthouse-urls.test.ts` holds the list to the spec's), each
+twice: Lighthouse's default mobile profile and `--preset=desktop`. It needs the network (for `npx`) and a Chrome (set
+`CHROME_PATH` if Lighthouse does not find it), prints each score with the audits that failed, then the line for the
+table (version, Chrome, the scores of the 34 runs), and exits 1 if one run is under 100. Add a row, with the app's
+version from `app/package.json`. The repository pins no Lighthouse version: the script defaults to the one of the last
+row, and a row says the one it used.

@@ -260,7 +260,7 @@ function clear() {
                 <UIcon name="i-ph-circle-notch" class="animate-spin shrink-0" />
                 {{ t('common.loading') }}
               </div>
-              <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600">
+              <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                 <UIcon name="i-ph-warning-circle" class="shrink-0" />
                 {{ t('history.error') }}: {{ fetchErrorMessage }}
               </div>

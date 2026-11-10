@@ -4,7 +4,7 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
-import { SERIES_LABEL } from '~/utils/chart-theme'
+import { panelToggleStyle, SERIES_LABEL, seriesLabelColor } from '~/utils/chart-theme'
 
 // Plotly draws nothing in the test's document: its calls are recorded
 const plotly = vi.hoisted(() => ({
@@ -1211,5 +1211,73 @@ describe('meteogram chart redrawn in other colours', { timeout: 15_000 }, () => 
     expect(chart.dataset.chartScheme).toBe('dark')
     gates[1]!.open()
     await vi.waitFor(() => expect(chart.dataset.chartScheme).toBe('light'))
+  })
+})
+
+// The Forecast's own chrome (GH-3642): the panel toggles say whether they are on and take the label colours of their
+// series, the icons of the summary line take them too, and the card of today has an edge that reads (1.4.11).
+describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    vi.useRealTimers()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  const SERIES = { temp: 'red', wind: 'cyan', precip: 'blue', cloud: 'slate', pressure: 'lime' } as const
+  const toggles = () => [...document.body.querySelectorAll<HTMLButtonElement>('button[data-panel]')]
+  /** The style attribute a style object comes to in this document, whatever it makes of a value it does not know */
+  const styled = (style: Record<string, string>) => {
+    const probe = document.createElement('span')
+    Object.assign(probe.style, style)
+    return probe.getAttribute('style')
+  }
+
+  it('has a toggle for each panel, each saying it is on, and a toggle that is on in the label colour of its series', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    expect(toggles().map(button => button.dataset.panel)).toEqual(Object.keys(SERIES))
+    for (const button of toggles()) {
+      expect(button.getAttribute('aria-pressed'), button.dataset.panel).toBe('true')
+      expect(button.getAttribute('style'), button.dataset.panel).toBe(styled(panelToggleStyle(SERIES_LABEL[SERIES[button.dataset.panel as keyof typeof SERIES]].light)))
+    }
+  })
+
+  it('says a toggle is off when it is switched off, and gives it back the greys of the app', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    const wind = toggles().find(button => button.dataset.panel === 'wind')!
+    wind.click()
+    await nextTick()
+    expect(wind.getAttribute('aria-pressed')).toBe('false')
+    expect(wind.getAttribute('style') ?? '').toBe('')
+    expect(wind.className).toContain('text-gray-500')
+  })
+
+  it('colours the icons of the summary line in the label colours, in the dark scheme the dark ones', async () => {
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    await flushPromises()
+    const icons = () => [...document.body.querySelectorAll<HTMLElement>('[data-summary-icon]')]
+    expect(icons().length).toBeGreaterThan(0)
+    for (const icon of icons())
+      expect(icon.getAttribute('style'), icon.dataset.summaryIcon).toBe(styled({ color: seriesLabelColor(SERIES[icon.dataset.summaryIcon as keyof typeof SERIES], false) }))
+    document.documentElement.classList.add('dark')
+    await flushPromises()
+    for (const icon of icons())
+      expect(icon.getAttribute('style'), `${icon.dataset.summaryIcon} at night`).toBe(styled({ color: seriesLabelColor(SERIES[icon.dataset.summaryIcon as keyof typeof SERIES], true) }))
+    document.documentElement.classList.remove('dark')
+  })
+
+  it('draws the card of today with the edge tests/unit/button-contrast.test.ts holds to 3:1: blue-600 by day, blue-400 at night', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T12:00:00Z') })
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    ;(wrapper.vm as unknown as { view: string }).view = 'compact'
+    await vi.waitFor(() => expect(document.body.querySelector('.rounded-2xl')).not.toBeNull())
+    const today = [...document.body.querySelectorAll('.rounded-2xl')].find(card => /today/i.test(card.textContent ?? ''))
+    expect(today, 'the card of today').toBeDefined()
+    expect(today!.classList.contains('border-blue-600')).toBe(true)
+    expect(today!.classList.contains('dark:border-blue-400')).toBe(true)
   })
 })

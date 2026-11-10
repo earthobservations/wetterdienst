@@ -25,7 +25,8 @@
     "test:e2e:debug": "playwright test --debug",
     "test:a11y": "A11Y=1 CI=true playwright test accessibility.spec.ts",
     "test:a11y:baseline": "A11Y=1 CI=true A11Y_RECORD=1 playwright test accessibility.spec.ts && node tests/e2e/accessibility/report.mjs --write-baseline",
-    "test:a11y:report": "node tests/e2e/accessibility/report.mjs"
+    "test:a11y:report": "node tests/e2e/accessibility/report.mjs",
+    "lighthouse": "node tests/e2e/accessibility/lighthouse.mjs"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",

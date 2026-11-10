@@ -6,8 +6,8 @@ const PORT = process.env.E2E_PORT || '4000'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // The accessibility scan (84 page loads, ten minutes and more) runs on request, not with the rest:
-  // `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md)
+  // The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+  // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md)
   testIgnore: process.env.A11Y === '1' ? undefined : '**/accessibility.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

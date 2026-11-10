@@ -5,7 +5,10 @@
 //
 // The second form is `pnpm test:a11y:baseline`, which runs the scans first without holding them to
 // the baseline. It writes what the scans found and nothing else: a baseline is the record of the app
-// as it is, so it is regenerated, not edited, and it shrinks as violations are fixed.
+// as it is, so it is regenerated, not edited, and it shrinks as violations are fixed. What it
+// regenerates is what the scans find; the `issue` and `reason` of an entry that is still found are
+// kept from the file as it was (a new entry has none, and tests/unit/a11y-baseline.test.ts fails until
+// someone writes them).
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -16,7 +19,7 @@ const BASELINE = fileURLToPath(new URL('./baseline.json', import.meta.url))
 const RESULTS = fileURLToPath(new URL('../../../test-results/accessibility/', import.meta.url))
 const IMPACTS = ['minor', 'moderate', 'serious', 'critical']
 
-/** @typedef {{ rule: string, page: string, state: string, impact: string, variants: string[] }} Entry */
+/** @typedef {{ rule: string, page: string, state: string, impact: string, variants: string[], issue?: string | null, reason?: string }} Entry */
 /** @typedef {{ page: string, state: string, variant: string, found: Record<string, { impact: string, nodes: number, help: string }> }} Result */
 
 /** @returns {Result[]} the scans of the last run */
@@ -74,7 +77,23 @@ function byRule(entries) {
  * @returns {string} the file's text
  */
 function serialize(head, entries) {
-  const rows = entries.map(entry => `    { "rule": ${JSON.stringify(entry.rule)}, "page": ${JSON.stringify(entry.page)}, "state": ${JSON.stringify(entry.state)}, "impact": ${JSON.stringify(entry.impact)}, "variants": [${entry.variants.map(variant => JSON.stringify(variant)).join(', ')}] }`)
+  const rows = entries.map((entry) => {
+    const fields = [
+      `"rule": ${JSON.stringify(entry.rule)}`,
+      `"page": ${JSON.stringify(entry.page)}`,
+      `"state": ${JSON.stringify(entry.state)}`,
+      `"impact": ${JSON.stringify(entry.impact)}`,
+      `"variants": [${entry.variants.map(variant => JSON.stringify(variant)).join(', ')}]`,
+    ]
+    // an entry with a cause on record takes a line for each field, as the linter wants of a longer object
+    if (entry.issue === undefined && entry.reason === undefined)
+      return `    { ${fields.join(', ')} }`
+    if (entry.issue !== undefined)
+      fields.push(`"issue": ${JSON.stringify(entry.issue)}`)
+    if (entry.reason !== undefined)
+      fields.push(`"reason": ${JSON.stringify(entry.reason)}`)
+    return `    {\n      ${fields.join(',\n      ')}\n    }`
+  })
   return [
     '{',
     `  "standard": ${JSON.stringify(head.standard)},`,
@@ -93,7 +112,12 @@ if (process.argv.includes('--write-baseline')) {
     console.error('No scan results in test-results/accessibility/: run the scans first (pnpm test:a11y:baseline).')
     process.exit(1)
   }
-  const entries = entriesOf(results)
+  // the cause on record of an entry that is still found stays with it
+  const causes = new Map(baseline.entries.map(entry => [`${entry.rule}\0${entry.page}\0${entry.state}`, entry]))
+  const entries = entriesOf(results).map((entry) => {
+    const before = causes.get(`${entry.rule}\0${entry.page}\0${entry.state}`)
+    return before ? { ...entry, ...(before.issue !== undefined && { issue: before.issue }), ...(before.reason !== undefined && { reason: before.reason }) } : entry
+  })
   writeFileSync(BASELINE, serialize({ ...baseline, axe: results[0].engine ?? baseline.axe }, entries))
   console.warn(`Wrote ${entries.length} baseline entries from ${results.length} scans to ${BASELINE}.`)
   process.exit(0)
