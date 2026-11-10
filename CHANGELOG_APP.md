@@ -44,6 +44,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
+  the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
+  under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one
+  asked about is always written and none touches another, on a phone included (GH-3893)
 - `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
   site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
   page's error card, where it read as no data ("no stations" on the map, an empty table or

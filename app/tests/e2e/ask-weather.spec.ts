@@ -3,7 +3,7 @@ import type { Asked } from './accessibility/ask-backend'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { askHandlers } from './accessibility/ask-backend'
+import { askHandlers, lastSummerYear } from './accessibility/ask-backend'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 
 // Ask the weather (GH-3518): the home page's suggestions, each answered from the data, with the way into the tool
@@ -243,4 +243,84 @@ test.describe('on a phone', () => {
     for (const box of await Promise.all(['rain', 'summer', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
       expect(box!.height).toBeGreaterThanOrEqual(44)
   })
+})
+
+// The labels of the answers' bar charts (GH-3893): the boxes of the text as the browser sets it, not an estimate of it
+interface Box { left: number, right: number, top: number, bottom: number }
+async function chartBoxes(page: Page) {
+  return await page.getByRole('figure').evaluate((figure) => {
+    const ink = (element: Element): Box => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      const { left, right, top, bottom } = range.getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    const box = (element: Element | null): Box => {
+      const { left, right, top, bottom } = element!.getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    const labels = [...figure.querySelectorAll('[data-testid="answer-bars-label"]')].map(element => ({ text: element.textContent!, ...ink(element) }))
+    const values = [...figure.querySelectorAll('[data-testid="answer-bars-values"] [data-kind]')].map(element => ({ kind: element.getAttribute('data-kind')!, text: element.textContent!, ...ink(element) }))
+    const zero = figure.querySelector('[data-testid="answer-bars-zero"]')
+    return {
+      labels,
+      values,
+      plot: box(figure.querySelector('[data-testid="answer-bars-plot"]')),
+      zeroLine: zero ? box(zero) : null,
+      figure: box(figure),
+      page: document.documentElement.clientWidth,
+    }
+  })
+}
+const overlap = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+
+test.describe('the labels of the answers\' charts', () => {
+  for (const [width, language] of [[320, 'en'], [320, 'de'], [320, 'de-hh'], [320, 'lb'], [320, 'it'], [320, 'fr'], [1280, 'en']] as const) {
+    test(`do not touch each other and sit where they belong, at ${width} px in ${language}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await home(page, baseURL!, '/', language)
+      let before = ''
+      for (const id of ['summer', 'rain', 'wind']) {
+        await chip(page, id).click()
+        // the chart of this question, not the one of the last
+        const caption = page.getByRole('figure').locator('figcaption')
+        await expect(caption).toBeVisible()
+        if (before)
+          await expect(caption).not.toHaveText(before)
+        before = (await caption.textContent())!
+        await expect(page.getByRole('figure').getByTestId('answer-bars-label').first()).toBeVisible()
+        const chart = await chartBoxes(page)
+        const where = `${id} at ${width} px in ${language}`
+        const labels = chart.labels.sort((a, b) => a.left - b.left)
+        expect(labels.length, where).toBeGreaterThan(1)
+        // the text of two labels, with a pixel between
+        for (let at = 1; at < labels.length; at += 1)
+          expect(labels[at - 1]!.right + 1, `${where}: ${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
+        // the labels stay inside the plot's width, and the page does not scroll sideways
+        for (const label of labels) {
+          expect(label.left, where).toBeGreaterThanOrEqual(chart.plot.left - 1)
+          expect(label.right, where).toBeLessThanOrEqual(chart.plot.right + 1)
+        }
+        expect(chart.figure.right, where).toBeLessThanOrEqual(chart.page)
+        // the value labels are on the height of the plot (the year labels are under it), and none is over another
+        for (const value of chart.values) {
+          expect(value.top, `${where}: ${value.text}`).toBeGreaterThanOrEqual(chart.plot.top - 1)
+          expect(value.bottom, `${where}: ${value.text}`).toBeLessThanOrEqual(chart.plot.bottom + 1)
+          expect(value.right, `${where}: ${value.text}`).toBeLessThanOrEqual(chart.plot.left)
+        }
+        for (const [at, value] of chart.values.entries()) {
+          for (const other of chart.values.slice(at + 1))
+            expect(overlap(value, other), `${where}: ${value.text} and ${other.text}`).toBe(false)
+        }
+        if (id === 'summer') {
+          // the bars hang from a line, and the line has its 0
+          const zero = chart.values.find(value => value.kind === 'zero')
+          expect(zero, where).toBeDefined()
+          expect(chart.zeroLine, where).not.toBeNull()
+          expect(Math.abs((zero!.top + zero!.bottom) / 2 - chart.zeroLine!.top), where).toBeLessThanOrEqual(8)
+          expect(chart.labels.map(label => label.text), where).toContain(String(lastSummerYear()))
+        }
+      }
+    })
+  }
 })
