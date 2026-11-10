@@ -17,7 +17,8 @@ What the tests hold:
 - a declared `instant` has evidence, one of three kinds: the row's own source wording of a reading
   (`instantaneous`, `current value`, `at the time of observation`; not the bare noun "instant", which wetterdienst's own
   paraphrases use), a stated mean over at most 5 minutes (the longest window the wording states), or an entry of
-  `INSTANT_BY_REFERENCE_TIME` that says where the source states it and is checked to be there;
+  `INSTANT_BY_REFERENCE_TIME` that says where the source states it (or, for the DWD hourly readings, the measured
+  verdict the maintainer accepted) and is checked to be there;
 - a `docs/data/time_reference.md` cell that only says where the timestamp sits (the forecast step, `ob_time`, the report
   time) is no evidence of the statistic: an entry quotes a sentence that speaks of the parameter's own statistic (a
   reading, an instantaneous value, a value at a stated hour), in the section and the row it names;
@@ -77,7 +78,9 @@ _STATES_A_MAXIMUM = re.compile(
 
 @dataclass(frozen=True)
 class InstantEvidence:
-    """Where the source says a plain-named row is a reading, for the rows the row's own wording does not settle.
+    """Where a plain-named row is a reading, for the rows the row's own wording does not settle.
+
+    The source says so, or it is a measured verdict the maintainer accepted (the DWD hourly readings, GH-3134).
 
     `provider` is the name of the metadata (`DwdRoadMetadata`), `resolutions`, `datasets` and `originals` (all
     required, space-separated in `_entry`) narrow the rows to those the sentence covers. `source` says where `quote` is
@@ -223,6 +226,22 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "description",
         "the hour x corresponds to the measurement from 10 min before",
         datasets="urban_pressure",
+    ),
+    # the hourly air temperature, dew point, humidity and pressure of the moisture, dew point and pressure datasets
+    # are readings of 10 to 30 min before the stamp (measured against the 10 minute series and NOAA ISD, GH-3134). The
+    # basis is the maintainer's decision of 2026-11-10 (item 2, on #3134): a reading taken before the stamp is `end`
+    # with aggregation `instant`. `p` (the sea level pressure) is covered as a reduction of readings of the same row,
+    # the station pressure and the air temperature
+    _entry(
+        "DwdObservationMetadata",
+        "hourly",
+        "tt td tt_std td_std rf_std p_std p0 p",
+        "page",
+        "The stamp's value is a reading",
+        datasets="dew_point moisture pressure",
+        section="dwd",
+        network="observation",
+        note=True,
     ),
 )
 

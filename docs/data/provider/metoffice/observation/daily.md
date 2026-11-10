@@ -56,4 +56,4 @@
 |---------------------------|------------------|--------------------------------------------|------|
 | {term}`sunshine_duration` | drv_24hr_sun_dur | Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global radiation values to derive it. | h |
 | {term}`snow_depth` | snow_depth | Snow depth, cm. | cm |
-| {term}`snow_depth_new` | frsh_snw_amt | Fresh snow amount, cm. | cm |
+| {term}`snow_depth_new` | frsh_snw_amt | Fresh snow amount, cm. The WD table lists fresh snow depth as a spot value at 0900Z (`ob_hour_count` 0); the user guide (section 4.5) gives the period as 0900-0900, which the position `end` follows: the fresh snow of the 24 hours to 09 UTC on the stamped day. | cm |
