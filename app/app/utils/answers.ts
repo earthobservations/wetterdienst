@@ -17,6 +17,11 @@ export interface Bar {
   key: string
   /** What the bar stands for, written for a reader: an hour, a year, a day */
   label: string
+  /**
+   * Where the bar is on the axis it is labelled by, where that is not its place in the series: its year (a series
+   * with gaps is labelled at round years, not at every n-th bar)
+   */
+  at?: number
   value: number | null
   /** The bar the question is about */
   highlight?: boolean
@@ -182,6 +187,7 @@ export function lastSummer(readings: Reading[], now: DateTime): SummerAnswer | n
     bars: summers.map(summer => ({
       key: String(summer.year),
       label: String(summer.year),
+      at: summer.year,
       value: round1(summer.mean - normal),
       highlight: summer.year === last.year,
     })),
