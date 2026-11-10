@@ -24,6 +24,11 @@ Types of changes:
   and the plain `radiation_global_intensity` and `radiation_sky_short_wave_diffuse_intensity` are
   gone (GH-3134). Needs the backend that serves the new names: release the backend first. The Low
   German and Luxembourgish labels are not reviewed by a native speaker
+- `[App]` Nuxt UI is 4.12.0 (Reka UI 2.11.0). The station picker's list is announced by a screen
+  reader as a list of options, with the search field outside it, where it held a non-option child;
+  the error toasts no longer leave two hidden but focusable proxies in the page. The buttons of
+  the table's pager are labelled in German ("Letzte Seite") and English ("Last page") as the page
+  is, where they were English in every language; the other languages follow in GH-3955 (GH-3950)
 
 ### Fixed
 
@@ -33,6 +38,12 @@ Types of changes:
 - `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
   hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
   500 (3.5:1); at night they are unchanged (GH-3952)
+- `[Explorer]` The window offered for a refused date range that reaches past today ends today at
+  the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
+  and answers empty. The rows it names are those of the part up to today, and where that part fits
+  the limit by itself it is the window. A range with no readings up to today says so.
+  Forecasts are unchanged: their range is not ended at today (GH-3740)
+
 - `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
   cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
   take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at

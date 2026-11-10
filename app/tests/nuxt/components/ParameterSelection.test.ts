@@ -319,6 +319,26 @@ describe('parameterSelection Component', () => {
 
     expect(vm.parameters).toEqual([])
   })
+
+  it('emits the kind of the network from the coverage: a forecast\'s readings lie ahead of today (GH-3740)', async () => {
+    const kinds = { mosmix: 'forecast', observation: 'observation' } as const
+    registerEndpoint('/api/coverage', (event) => {
+      if (getQuery(event).provider)
+        return dailyClimateSummaryCoverage()
+      return { dwd: Object.fromEntries(Object.entries(kinds).map(([name, kind]) => [name, { auth: false, configured: false, date_required: false, kind }])) }
+    })
+    const kindOf = async (network: string) => {
+      const wrapper = await mountReady({
+        modelValue: { provider: 'dwd', network, resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] },
+      })
+      // what the page last got: the selection with the kind the coverage gives its network
+      await vi.waitFor(() => expect((wrapper.emitted('update:modelValue') ?? []).length).toBeGreaterThan(0))
+      return (wrapper.emitted('update:modelValue') ?? []).at(-1)![0] as { kind?: string }
+    }
+    expect((await kindOf('mosmix')).kind).toBe('forecast')
+    clearNuxtData()
+    expect((await kindOf('observation')).kind).toBe('observation')
+  })
 })
 
 // Whether the backend accepts a network's credentials is a request to the provider, which the list
