@@ -62,7 +62,7 @@ watch(() => route.query.place, async (id) => {
     return
   placeFailed.value = false
   try {
-    const response = await $fetch<{ stations: Station[] }>('/api/stations', { query: { ...PLACE_NETWORK, stations: id }, ...RETRY_TRANSIENT })
+    const response = await $fetch<{ stations: Station[] }>('/api/stations', { query: { ...PLACE_NETWORK, stations: id }, ...API_FETCH })
     const found = response.stations?.[0] ? placeOf(response.stations[0]) : null
     if (found)
       setPlace(found)

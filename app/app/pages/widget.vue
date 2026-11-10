@@ -54,7 +54,7 @@ async function loadStation(id: string) {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         stations: id,
       },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     station.value = (res.stations ?? [])[0] ?? null
     // the backend answers a station id it does not know with no station, not with a failure
@@ -88,7 +88,7 @@ async function fetchValues(s: Station) {
       failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
       return
     }
-    const json = await res.json()
+    const json = await readJsonAnswer<{ values?: any[] }>('/api/values', res)
     values.value = json.values ?? []
   }
   catch (e: any) {

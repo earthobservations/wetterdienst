@@ -1,5 +1,5 @@
 import type { ServerSettings } from '#shared/types/api'
-import { RETRY_TRANSIENT } from '~/utils/fetch-retry'
+import { API_FETCH } from '~/utils/api-answer'
 
 /** An answer of `GET /api/settings` as the settings it reports, `null` where it is no object. */
 function asServerSettings(settings: unknown): ServerSettings | null {
@@ -17,7 +17,7 @@ function asServerSettings(settings: unknown): ServerSettings | null {
  */
 export function useServerSettings(): Promise<ServerSettings | null> {
   const answer = useState<Promise<ServerSettings | null> | undefined>('server-settings', () => undefined)
-  answer.value ??= $fetch<unknown>('/api/settings', { ...RETRY_TRANSIENT })
+  answer.value ??= $fetch<unknown>('/api/settings', { ...API_FETCH })
     .then(asServerSettings)
     .catch((error: { statusCode?: number }) => {
       if (error?.statusCode !== 404)
@@ -34,7 +34,7 @@ export function useServerSettings(): Promise<ServerSettings | null> {
  * answer is no object.
  */
 export function serverSettingsFor(query: Record<string, string>): Promise<ServerSettings | null> {
-  return $fetch<unknown>('/api/settings', { query, ...RETRY_TRANSIENT })
+  return $fetch<unknown>('/api/settings', { query, ...API_FETCH })
     .then(asServerSettings)
     .catch(() => null)
 }

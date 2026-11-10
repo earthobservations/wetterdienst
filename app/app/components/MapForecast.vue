@@ -35,7 +35,7 @@ async function load(stationId: string) {
         failure.value = failed
       return
     }
-    const body = await response.json()
+    const body = await readJsonAnswer<{ values?: Value[] }>('/api/values', response)
     if (!mine.signal.aborted)
       values.value = body.values ?? []
   }

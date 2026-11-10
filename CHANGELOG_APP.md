@@ -32,6 +32,10 @@ Types of changes:
 
 ### Fixed
 
+- `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
+  site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
+  page's error card, where it read as no data ("no stations" on the map, an empty table or
+  forecast). The app's own `/api` proxy answers such a page with a 502 problem (GH-3841)
 - `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
   the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
   not only a tooltip (GH-3951)

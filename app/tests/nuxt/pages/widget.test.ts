@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { setResponseStatus } from 'h3'
+import { setResponseHeader, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import WidgetPage from '~/pages/widget.vue'
@@ -234,6 +234,34 @@ describe('widget Page station lookup', () => {
     await vi.waitFor(() => expect(vm.error).toBe('Backend error 502 Bad Gateway'))
     expect(wrapper.text()).not.toContain('proxy page')
     expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('tells a 200 page of HTML as a failure, not as a station not found (GH-3841)', async () => {
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseHeader(event, 'content-type', 'text/html')
+      return '<!doctype html><html><body>Bad gateway</body></html>'
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toContain('The API answered with a web page, not data'))
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('tells a 200 page of HTML for the forecast as a failure, not as a forecast with no values (GH-3841)', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }],
+    })))
+    globalThis.fetch = vi.fn().mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toContain('The API answered with a web page, not data'))
   })
 
   it('says the station is not found when the answer holds no station', async () => {

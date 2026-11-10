@@ -1,3 +1,4 @@
+import { describeWrongKind, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
 import { useApiBase } from '../utils/apiBase'
 
 type QueryValue = string | number | boolean | undefined | null
@@ -30,6 +31,16 @@ const REQUEST_ID = /^[\w.~-]{1,128}$/
 
 function requestIdOf(sent: string | undefined): string {
   return sent && REQUEST_ID.test(sent) ? sent : globalThis.crypto.randomUUID().replaceAll('-', '')
+}
+
+// A 200 page of HTML is no answer of the backend: a `NUXT_API_BASE` that points at another site, or a proxy's error page
+// in front of the backend. Streamed through as it is, the page reads as an answer with no data in the app (and to any
+// other client of this proxy), where the backend's own rule is that an outage never reads as no data (GH-3830). So it
+// is a 502 problem, of its own kind. The backend itself answers HTML for none of its endpoints but the output
+// `format=html`, which is passed through.
+function htmlForData(response: Response, query: QueryObject): boolean {
+  return response.ok && /^\s*(?:text\/html|application\/xhtml\+xml)\b/i.test(response.headers.get('content-type') ?? '')
+    && String(query.format).toLowerCase() !== 'html'
 }
 
 export default defineEventHandler(async (event): Promise<unknown> => {
@@ -79,6 +90,27 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     // verbatim instead of throwing.
     return await sendProxy(event, url, {
       headers: { 'x-request-id': requestId },
+      // The answer is looked at before it is streamed: a page of HTML for data becomes the problem, and every other
+      // answer is the backend's, untouched. `globalThis.fetch` as h3 takes it where none is given.
+      fetch: async (input, init) => {
+        const response = await globalThis.fetch(input, init)
+        if (!htmlForData(response, query))
+          return response
+        const contentType = response.headers.get('content-type')
+        console.error(`Request ${requestId} to the backend for ${path} was answered with ${contentType}, not data. NUXT_API_BASE may point at the wrong address, or a proxy in front of the backend answered with its own page.`)
+        await response.body?.cancel()
+        return new Response(JSON.stringify({
+          type: UNEXPECTED_ANSWER_TYPE,
+          title: 'Bad Gateway',
+          status: 502,
+          detail: describeWrongKind(contentType),
+          instance: `urn:wetterdienst:request:${requestId}`,
+          request_id: requestId,
+        } satisfies ApiErrorResponse), {
+          status: 502,
+          headers: { 'content-type': 'application/problem+json', 'x-request-id': requestId, 'retry-after': String(RETRY_AFTER_SECONDS) },
+        })
+      },
       // Streaming also relays the backend's response headers, which buffering never did. Most are
       // harmless, but a few are the backend's to own rather than ours to republish under this
       // origin. `onResponse` runs after `sendProxy` has set them and before the first chunk, so

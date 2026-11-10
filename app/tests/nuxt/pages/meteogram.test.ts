@@ -64,6 +64,30 @@ describe('meteogram Page', () => {
     await vi.waitFor(() => expect(vm.error).toBe('Backend error 500 Internal Server Error'))
   })
 
+  it('tells a 200 page of HTML as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toContain('The API answered with a web page, not data'))
+  })
+
+  it('tells JSON without the list of values as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ message: 'something else answered' }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toContain('no list of `values`'))
+  })
+
   it('tells a refused request by the backend\'s detail', async () => {
     // answered as FastAPI answers a request that fails validation: the entries under `detail`, which tell it
     // in place of the status text

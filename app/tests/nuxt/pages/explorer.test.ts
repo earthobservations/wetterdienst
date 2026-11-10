@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import type { ProviderNetworkCoverageResponse, ServerSettings } from '#shared/types/api'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { createError, getQuery } from 'h3'
+import { createError, getQuery, setResponseHeader } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp, UInputNumber } from '#components'
@@ -142,6 +142,28 @@ describe('explorer Page', () => {
 
     expect(wrapper.text()).not.toContain('12.3')
     expect(vm.canFetch).toBe(true)
+  })
+
+  it('tells a 200 page of HTML for the values as a failure, not as a table with no rows (GH-3841)', async () => {
+    const { wrapper, vm } = await mountWithSelection((event) => {
+      setResponseHeader(event, 'content-type', 'text/html')
+      return '<!doctype html><html><body>Bad gateway</body></html>'
+    })
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(vm.dataViewerRef.fetchErrorMessage).toContain('The API answered with a web page, not data'))
+    // the error state of the table, as any failed fetch has it
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The API answered with a web page, not data'))
+    expect(wrapper.text()).not.toContain('12.3')
+  })
+
+  it('shows a real answer with no rows as no rows, with no failure (GH-3841)', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(vm.dataViewerRef.valuesPending).toBe(false))
+    await vi.waitFor(() => expect(vm.canFetch).toBe(false))
+    expect(vm.dataViewerRef.fetchErrorMessage).toBeNull()
   })
 
   it('offers Show again for the same selection after the fetch failed', async () => {

@@ -333,7 +333,7 @@ const { data: valuesData, pending: valuesPending, error: valuesError, status: va
     immediate: false,
     // fetched by Fetch alone, not whenever the request it reads changes
     watch: false,
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
     default: () => ({ values: [] }),
   },
 )
@@ -758,6 +758,7 @@ async function downloadGeojson(request: NonNullable<typeof fetchedRequest.value>
       responseType: 'text',
       retry: 0,
       signal: download.signal,
+      ...API_ANSWER,
     })
     // an answer that came in as the table moved on is not saved either. Looked at and saved in one
     // go: a change to the table aborts at once, and none can come in between
