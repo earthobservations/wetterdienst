@@ -981,6 +981,7 @@ _DwdObservationMetadataSpec = {
                     "name": "urban_pressure",
                     "name_original": "urban_pressure",
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "quality",
@@ -991,6 +992,7 @@ _DwdObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "luftdruck_nn",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_site",
