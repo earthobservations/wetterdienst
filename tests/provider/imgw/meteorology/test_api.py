@@ -17,7 +17,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.exceptions import DownloadError
+from wetterdienst.exceptions import DownloadError, MetaFileFormatError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
@@ -1456,3 +1456,132 @@ def test_imgw_meteorology_daily_synop_names_of_the_two_kinds_are_told_apart() ->
         (dt.datetime(2026, 1, 1, tzinfo=dt.UTC), dt.datetime(2026, 12, 31, tzinfo=dt.UTC)),
         (dt.datetime(1996, 1, 1, tzinfo=dt.UTC), dt.datetime(2000, 12, 31, tzinfo=dt.UTC)),
     ]
+
+
+# the rows of `kody_stacji.csv` and `wykaz_stacji.csv` as published (read 2026-11-10): Bielsko-Biała and Warszawa
+# report synop, and their ids end in 600 and 375, the code of their per-station files; Strzyżów and Starnin are
+# precipitation stations whose ids end in 010 as does that of Pszczyna, a climate station
+_KODY = (
+    "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;Wysokość n.p.m.\r\n"
+    "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+    "413;250240010;Strzyżów;Bug (266);2001;50 50 24;24 02 08;181\r\n"
+    "588;253150010;Starnin;Rega (42);1961;53 57 57;15 27 24;36\r\n"
+    "736;349190600;Bielsko-Biała;Biała (2114);1947;49 48 24;19 00 08;396\r\n"
+    "774;352200375;Warszawa;Wisła (2);1918;52 09 46;20 57 40;106\r\n"
+)
+_WYKAZ = (
+    '"249180010","PSZCZYNA"," 5409"\r\n'
+    '"250240010","STRZYŻÓW"," 5927"\r\n'
+    '"253150010","STARNIN","92143"\r\n'
+    '"349190600","BIELSKO-BIAŁA","  600"\r\n'
+    '"352200375","WARSZAWA","  375"\r\n'
+)
+_SOMEWHERE = "800;349200010;Somewhere;Wisła (2);1950;50 00 00;20 00 00;200\r\n"
+_SYNOP_IDS = ["349190600", "352200375"]
+_ALL_IDS = ["249180010", "250240010", "253150010", "349190600", "352200375"]
+
+
+def _serve_station_lists(monkeypatch: pytest.MonkeyPatch, wykaz: str = _WYKAZ, kody: str = _KODY) -> list[str]:
+    """Serve the two station lists, and give the urls asked for."""
+    asked: list[str] = []
+
+    def download_file(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        asked.append(url)
+        body = {"kody_stacji": kody.encode("utf8"), "wykaz_stacji": wykaz.encode("cp1250")}
+        return File(url=url, content=BytesIO(next(body[part] for part in body if part in url)), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.imgw.meteorology.api.download_file", download_file)
+    return asked
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+def test_imgw_meteorology_synop_lists_only_the_stations_that_report_synop(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """The synop archives hold the stations of the synop network only, and so does the list of them (GH-3944).
+
+    `kody_stacji.csv` lists the climate and precipitation stations too, which have no synop row: they were offered,
+    returned nothing, and a walk read the monthly files of the current year for each of them. IMGW's `wykaz_stacji.csv`
+    gives the synop stations a five-character code of at most three digits, the code of their per-station files.
+    """
+    _serve_station_lists(monkeypatch)
+
+    synop = ImgwMeteorologyRequest(parameters=[(resolution, "synop")]).all().df
+
+    assert synop["station_id"].to_list() == _SYNOP_IDS
+    assert synop["name"].to_list() == ["Bielsko-Biała", "Warszawa"]
+    assert set(synop["dataset"]) == {"synop"}
+    assert set(synop["resolution"]) == {resolution}
+
+
+def test_imgw_meteorology_synop_leaves_the_stations_of_the_other_datasets_as_they_are(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Climate and precipitation keep every station of the list, and a request for both gets each its own (GH-3944)."""
+    asked = _serve_station_lists(monkeypatch)
+
+    climate = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "precipitation")]).all().df
+    assert climate["station_id"].to_list() == _ALL_IDS * 2
+    assert not [url for url in asked if "wykaz_stacji" in url], "the list of the synop stations is read for synop only"
+
+    mixed = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "synop")]).all().df
+    assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
+    assert mixed.filter(pl.col("dataset") == "synop")["station_id"].to_list() == _SYNOP_IDS
+
+
+def test_imgw_meteorology_synop_does_not_list_a_station_that_shares_the_code_of_a_synop_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station is a synop station by its id, not by the last three digits it shares with one (GH-3944).
+
+    Two of the three stations ending in 010 have no synop file; a code alone could not have told them from a synop
+    station that ended in 010.
+    """
+    wykaz = _WYKAZ + '"349200010","SOMEWHERE","  010"\r\n'
+    _serve_station_lists(monkeypatch, wykaz, kody=_KODY + _SOMEWHERE)
+
+    synop = ImgwMeteorologyRequest(parameters=[("daily", "synop")])
+
+    assert synop.all().df["station_id"].to_list() == [*_SYNOP_IDS, "349200010"]
+    assert synop.filter_by_station_id("250240010").df.is_empty()
+    assert synop.filter_by_station_id("349200010").df["station_id"].to_list() == ["349200010"]
+
+
+def test_imgw_meteorology_synop_raises_for_a_list_that_names_no_synop_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station list without a synop code has changed its layout, and must not read as no synop stations (GH-3944)."""
+    _serve_station_lists(monkeypatch, wykaz='"249180010","PSZCZYNA"," 5409"\r\n')
+
+    with pytest.raises(MetaFileFormatError, match=r"wykaz_stacji\.csv"):
+        ImgwMeteorologyRequest(parameters=[("daily", "synop")]).all()
+    # the other datasets do not read it
+    assert len(ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df) == len(_ALL_IDS)
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_live_synop_stations_are_the_stations_of_the_synop_archives() -> None:
+    """The live list names a station for each per-station synop file of 2025, once, and none of the others (GH-3944).
+
+    The files of 2025 are one for each station that reports synop, named by the last three digits of its id. Every
+    code has exactly one listed station, so that the code finds a station's file and no other's, and the list holds no
+    station that has no file but the few that closed (their files are in the older decades).
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.fileindex import list_files_for_interval  # noqa: PLC0415
+
+    settings = Settings(cache_disable=True)
+    url = ImgwMeteorologyValues._endpoint.format(resolution="dobowe", dataset="synop")  # noqa: SLF001
+    names = [file.rsplit("/", 1)[-1] for file in list_files_for_interval(url, settings, None) if "/2025/" in file]
+    codes = sorted(name.split("_")[1] for name in names if name.endswith("_s.zip") and len(name.split("_")[1]) == 3)
+    assert len(codes) > 50
+
+    ids = ImgwMeteorologyRequest(parameters=[("daily", "synop")], settings=settings).all().df["station_id"].to_list()
+
+    suffixes = [station_id[-3:] for station_id in ids]
+    assert len(set(suffixes)) == len(suffixes), "two listed stations share the code of their files"
+    assert set(codes) <= set(suffixes), (
+        f"stations with a file of 2025 that are not listed: {set(codes) - set(suffixes)}"
+    )
+    assert len(ids) < 100, "the list is no longer the synop stations alone"

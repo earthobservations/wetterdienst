@@ -57,6 +57,11 @@ Types of changes:
 
 - `imgw/meteorology` daily `synop` now returns the current year, whose files IMGW publishes per
   month for all stations (it returned nothing for it before) (GH-3941)
+- `stations` for `imgw/meteorology` daily and monthly `synop` lists only the stations that report
+  synop (63 of the 800, 59 of them with data today): the others are climate or precipitation
+  stations, were offered and returned nothing, and made a walk over all stations read the synop
+  files for each (37 s, now 6 s, the same rows). The list is read from IMGW's `wykaz_stacji.csv`;
+  the other datasets list every station as before (GH-3944)
 - `wsv/pegel` `flow_direction` (series `R`): the description now says what WSV confirmed, that the
   unit `MGN` is degrees from 0 to 359 from magnetic north, and that the value is the direction the
   current flows towards. A value outside 0 to 360 is now judged by the `range` check, as the wind
