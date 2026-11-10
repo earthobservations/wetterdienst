@@ -246,7 +246,7 @@ describe('widget Page station lookup', () => {
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
 
-    await vi.waitFor(() => expect(vm.error).toContain('The API answered with a web page, not data'))
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
     expect(wrapper.text()).not.toContain('Station not found')
   })
 
@@ -261,7 +261,7 @@ describe('widget Page station lookup', () => {
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
 
-    await vi.waitFor(() => expect(vm.error).toContain('The API answered with a web page, not data'))
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
   })
 
   it('says the station is not found when the answer holds no station', async () => {

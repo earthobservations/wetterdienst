@@ -107,7 +107,7 @@ describe('the forecast of the panel', () => {
     const wrapper = await mountForecast('10384')
     held[10384]!.release({ status: 200, body: '<!doctype html><html><body>Bad gateway</body></html>' })
     await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
-    expect(wrapper.find('[role="alert"]').text()).toContain('The API answered with a web page, not data')
+    expect(wrapper.find('[role="alert"]').text()).toContain('Backend error 502: The API answered with a web page, not data')
     expect(wrapper.findComponent(Meteogram).exists()).toBe(false)
   })
 

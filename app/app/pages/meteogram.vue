@@ -5,7 +5,7 @@ import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
-import { backendFailure, describeRequestError } from '~/utils/request-error'
+import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
@@ -144,7 +144,7 @@ async function fetchMeteogram(station: Station) {
   }
   catch (e: any) {
     if (ticket === valuesTicket)
-      failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+      failure.value = failureOfError(e)
   }
   finally {
     if (ticket === valuesTicket)

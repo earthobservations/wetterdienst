@@ -3,7 +3,7 @@ import type { Station, Value } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
 import { meteogramValuesQuery } from '~/utils/meteogram'
-import { backendFailure, describeRequestError } from '~/utils/request-error'
+import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 
 // The days ahead at a forecast point, as day rows in the map's panel (GH-3650): the request of the forecast page,
 // drawn without its chart. The link under the rows, in the panel, opens the forecast itself.
@@ -41,7 +41,7 @@ async function load(stationId: string) {
   }
   catch (e: any) {
     if (!mine.signal.aborted)
-      failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+      failure.value = failureOfError(e)
   }
   finally {
     if (controller === mine) {

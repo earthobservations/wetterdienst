@@ -21,7 +21,6 @@ describe('unexpectedAnswerReason', () => {
 
   it('lets the output format html through where it was asked for by name', () => {
     expect(unexpectedAnswerReason('/api/values?format=html', { status: 200, contentType: HTML })).toBeNull()
-    expect(unexpectedAnswerReason('/api/values', { status: 200, contentType: HTML }, { format: 'html' })).toBeNull()
   })
 
   it('accepts the answers the endpoints give, an empty list included', () => {
@@ -31,6 +30,7 @@ describe('unexpectedAnswerReason', () => {
     expect(unexpectedAnswerReason('/api/providers', { status: 200, contentType: json, data: { providers: [] } })).toBeNull()
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: [] })).toBeNull()
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: {} })).toBeNull()
+    expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { histories: [] } })).toBeNull()
     // the same under the versioned address
     expect(unexpectedAnswerReason('/api/v1/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
   })
@@ -44,11 +44,25 @@ describe('unexpectedAnswerReason', () => {
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: { entries: [] } })).toContain('no list')
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: [] })).toContain('no object')
     expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: 'text/plain', data: 'nope' })).toContain('text/plain, not JSON')
+    // the history's list is `histories`; an object without it shows nothing
+    expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: {} })).toContain('no list of `histories`')
+    expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `histories`')
+  })
+
+  it('tells an answer with no body as no data, and a body labelled JSON that does not parse by that', () => {
+    // ofetch reads no body as undefined, and a text it cannot parse as the text
+    expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: 'application/json' })).toContain('no body')
+    expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: 'application/json', data: '  ' })).toContain('no body')
+    const broken = unexpectedAnswerReason('/api/stations', { status: 200, contentType: 'application/json', data: '{"stations": [' })!
+    expect(broken).toContain('application/json, but the body is not valid JSON')
+    expect(broken).not.toContain('not JSON.')
+    // an endpoint the app reads no list of has nothing to hold the body to
+    expect(unexpectedAnswerReason('/api/version', { status: 200, contentType: 'application/json' })).toBeNull()
   })
 
   it('leaves what the app asked for as a text or in another format alone', () => {
-    expect(unexpectedAnswerReason('/api/values', { status: 200, contentType: 'text/csv', data: 'a,b' }, { format: 'csv' })).toBeNull()
-    expect(unexpectedAnswerReason('/api/values', { status: 200, contentType: 'application/geo+json', data: { type: 'FeatureCollection' } }, { format: 'geojson' })).toBeNull()
+    expect(unexpectedAnswerReason('/api/values?format=csv', { status: 200, contentType: 'text/csv', data: 'a,b' })).toBeNull()
+    expect(unexpectedAnswerReason('/api/values?format=geojson', { status: 200, contentType: 'application/geo+json', data: { type: 'FeatureCollection' } })).toBeNull()
     expect(unexpectedAnswerReason('/api/values', { status: 200, contentType: 'application/json', data: '{}' }, { responseType: 'text' })).toBeNull()
   })
 })
@@ -69,8 +83,9 @@ describe('the onResponse hook', () => {
     expect(describeFetchError(thrown)).toContain('The API answered with a web page, not data')
   })
 
-  it('reads the format of the query the caller gave', () => {
-    expect(() => rejectUnexpectedAnswer({ request: '/api/values', response: response('<table></table>', HTML), options: { query: { format: 'html' } } })).not.toThrow()
+  it('reads the format from the address, where ofetch has put the query by the time it calls the hook', () => {
+    expect(() => rejectUnexpectedAnswer({ request: '/api/values?format=html', response: response('<table></table>', HTML), options: {} })).not.toThrow()
+    expect(() => rejectUnexpectedAnswer({ request: '/api/values?format=json', response: response('<table></table>', HTML), options: {} })).toThrow(/a web page/)
   })
 
   it('returns for a JSON answer of the right shape', () => {
@@ -88,6 +103,16 @@ describe('readJsonAnswer', () => {
   it('fails for a page, before its body is read, and for a body that is no JSON', async () => {
     await expect(readJsonAnswer('/api/values', answer('<html></html>', HTML))).rejects.toThrow(/a web page/)
     await expect(readJsonAnswer('/api/values', answer('<html></html>', 'text/plain'))).rejects.toThrow(/text\/plain, not JSON/)
+  })
+
+  it('fails for an answer with no body, where it was to return nothing', async () => {
+    await expect(readJsonAnswer('/api/values', answer('', 'application/json'))).rejects.toThrow(/no body/)
+    await expect(readJsonAnswer('/api/values', answer('  \n', 'application/json'))).rejects.toThrow(/no body/)
+  })
+
+  it('tells a body labelled JSON that does not parse by that, and any other by its type', async () => {
+    await expect(readJsonAnswer('/api/values', answer('{"values": [', 'application/json'))).rejects.toThrow(/application\/json, but the body is not valid JSON/)
+    await expect(readJsonAnswer('/api/values', answer('nope', 'text/plain'))).rejects.toThrow(/text\/plain, not JSON/)
   })
 
   it('fails for JSON that is not the list of the endpoint', async () => {

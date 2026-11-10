@@ -1,3 +1,4 @@
+import { UnexpectedAnswerError } from './api-answer'
 import { describeApiError } from './api-error'
 
 /**
@@ -39,4 +40,16 @@ export function describeRequestError(error: RequestError, t: (key: string, named
     case 'text':
       return error.text
   }
+}
+
+/**
+ * The failure of a request that threw: a failure that {@link UnexpectedAnswerError} is is told as the backend's own
+ * problem of that status (a proxy that caught the same answer gives that), any other by its message, or by the fact
+ * that nothing answered where it has none.
+ */
+export function failureOfError(error: unknown): RequestError {
+  if (error instanceof UnexpectedAnswerError)
+    return backendFailure(error.statusCode, error.statusMessage, error.data)
+  const message = (error as { message?: string } | null | undefined)?.message
+  return message ? { kind: 'text', text: message } : { kind: 'requestFailed' }
 }

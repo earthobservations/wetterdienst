@@ -1,4 +1,4 @@
-import { describeWrongKind, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
+import { describeWrongKind, HTML_TYPE, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
 import { useApiBase } from '../utils/apiBase'
 
 type QueryValue = string | number | boolean | undefined | null
@@ -39,7 +39,7 @@ function requestIdOf(sent: string | undefined): string {
 // is a 502 problem, of its own kind. The backend itself answers HTML for none of its endpoints but the output
 // `format=html`, which is passed through.
 function htmlForData(response: Response, query: QueryObject): boolean {
-  return response.ok && /^\s*(?:text\/html|application\/xhtml\+xml)\b/i.test(response.headers.get('content-type') ?? '')
+  return response.ok && HTML_TYPE.test(response.headers.get('content-type') ?? '')
     && String(query.format).toLowerCase() !== 'html'
 }
 

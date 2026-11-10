@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseHeader, setResponseStatus } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { clearNuxtData, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
@@ -519,6 +519,10 @@ describe('the answers that fail', () => {
       setResponseHeader(event, 'content-type', 'text/html')
       return '<!doctype html><html><body>Service is starting</body></html>'
     })
+    // whatever way the test ends
+    onTestFinished(() => {
+      registerEndpoint('/api/stations', stationsOf)
+    })
     const wrapper = await mountMap()
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(true))
     expect(wrapper.find('[data-testid="map-failure"]').text()).toContain('The stations could not be loaded')
@@ -536,6 +540,9 @@ describe('the answers that fail', () => {
 
   it('tells JSON without the list of stations as a failure as well, and a real empty list as no stations (GH-3841)', async () => {
     registerEndpoint('/api/stations', () => ({ detail: 'something else' }))
+    onTestFinished(() => {
+      registerEndpoint('/api/stations', stationsOf)
+    })
     const failed = await mountMap()
     await vi.waitFor(() => expect(failed.find('[data-testid="map-failure"]').exists()).toBe(true))
     expect(failed.find('[data-testid="map-failure"]').text()).toContain('no list of `stations`')
