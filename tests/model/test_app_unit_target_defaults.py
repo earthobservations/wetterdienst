@@ -13,7 +13,7 @@ CATALOGUE = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 @pytest.fixture(scope="module")
 def converter() -> UnitConverter:
-    """The backend's converter, with its own default targets."""
+    """Return the backend's converter, with its own default targets."""
     return UnitConverter()
 
 
