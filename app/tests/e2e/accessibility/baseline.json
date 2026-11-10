@@ -2,9 +2,41 @@
   "standard": "WCAG 2.2 AA",
   "axe": "4.13.0",
   "entries": [
-    { "rule": "aria-hidden-focus", "page": "explorer", "state": "values-error", "impact": "serious", "variants": ["dark/de", "light/en"] },
-    { "rule": "aria-required-children", "page": "explorer", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
-    { "rule": "aria-required-children", "page": "meteogram", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
-    { "rule": "scrollable-region-focusable", "page": "explorer", "state": "station-menu-open", "impact": "serious", "variants": ["dark/de", "light/en"] }
+    {
+      "rule": "aria-hidden-focus",
+      "page": "explorer",
+      "state": "values-error",
+      "impact": "serious",
+      "variants": ["dark/de", "light/en"],
+      "issue": "https://github.com/unovue/reka-ui/issues/2776",
+      "reason": "Reka UI's toast viewport (behind Nuxt UI's UToaster) renders its two focus proxies as <span aria-hidden=\"true\" tabindex=\"0\">, which is a focusable element inside aria-hidden. The app renders neither the viewport nor the proxies and has no prop or slot that reaches them. Reka UI fixed it in 2.11.0 (unovue/reka-ui#2980, which closes #2776); the app is on 2.10.5 through @nuxt/ui 4.11.3, and @nuxt/ui 4.12.0 depends on 2.11.0. A built copy of the app on @nuxt/ui 4.12.0 no longer breaks the rule here: the entry goes with that bump."
+    },
+    {
+      "rule": "aria-required-children",
+      "page": "explorer",
+      "state": "station-menu-open",
+      "impact": "critical",
+      "variants": ["dark/de", "light/en"],
+      "issue": "https://github.com/nuxt/ui/issues/7075",
+      "reason": "Nuxt UI's USelectMenu puts role=\"listbox\" on the combobox content, whose only child is a focus scope (<div tabindex=\"-1\" data-slot=\"focusScope\">) holding the search field, so the listbox has a child that is not an option. The app passes no markup into it and no prop or slot reaches the role. Nuxt UI moved the role to the options viewport in 4.12.0 (nuxt/ui#7096, which closes #7075); the app is on 4.11.3. A built copy of the app on @nuxt/ui 4.12.0 no longer breaks the rule here: the entry goes with that bump."
+    },
+    {
+      "rule": "aria-required-children",
+      "page": "meteogram",
+      "state": "station-menu-open",
+      "impact": "critical",
+      "variants": ["dark/de", "light/en"],
+      "issue": "https://github.com/nuxt/ui/issues/7075",
+      "reason": "Nuxt UI's USelectMenu puts role=\"listbox\" on the combobox content, whose only child is a focus scope (<div tabindex=\"-1\" data-slot=\"focusScope\">) holding the search field, so the listbox has a child that is not an option. The app passes no markup into it and no prop or slot reaches the role. Nuxt UI moved the role to the options viewport in 4.12.0 (nuxt/ui#7096, which closes #7075); the app is on 4.11.3. A built copy of the app on @nuxt/ui 4.12.0 no longer breaks the rule here: the entry goes with that bump."
+    },
+    {
+      "rule": "scrollable-region-focusable",
+      "page": "explorer",
+      "state": "station-menu-open",
+      "impact": "serious",
+      "variants": ["dark/de", "light/en"],
+      "issue": "https://github.com/nuxt/ui/issues/7075",
+      "reason": "Nuxt UI's USelectMenu scrolls its options in a viewport (<div role=\"presentation\" data-slot=\"viewport\" class=\"... overflow-y-auto\">) whose options all have tabindex=\"-1\" (Reka UI's roving focus), so axe finds a scrollable region with no focusable content. The app passes no markup into it and cannot make it focusable. Nuxt UI changed the viewport in 4.12.0 (nuxt/ui#7096, which closes #7075); the app is on 4.11.3. A built copy of the app on @nuxt/ui 4.12.0 no longer breaks the rule here: the entry goes with that bump."
+    }
   ]
 }

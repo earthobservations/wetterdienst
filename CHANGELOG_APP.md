@@ -27,6 +27,15 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud cover
+  and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
+  take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark,
+  and 3.9:1 at the least on a toggle that is on. A toggle tells a screen reader whether it is on
+  (`aria-pressed`). The card of today and the explorer's warning icon have darker edges and colours by
+  day (GH-3642)
+- `[Widget]` The widget page has a main landmark around its content, where it had none: a screen
+  reader can jump to it, and Lighthouse's accessibility score of the page is 100, not 98
+  (GH-2559)
 - `[Navigation]` The Menu's sheet on a phone and the tabs of the header from 64 rem follow the order
   you chose in the settings, where both kept the fixed order of the tools. The sheet lists the four
   tools of the bar first, each with a short line in the bar's blue, then the tools that are only in

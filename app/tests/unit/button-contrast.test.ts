@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { panelToggleStyle, SERIES_LABEL, seriesLabelColor, TOGGLE_WASH } from '../../app/utils/chart-theme'
 
 // WCAG 2.x relative luminance and contrast ratio of two #rrggbb colours
 function channels(hex: string) {
@@ -203,5 +204,116 @@ describe('the two lines of the bar\'s tools and the menu-only tools (GH-3934)', 
     expect(css).toMatch(/\.bar-line\s*\{[^}]*border-top:\s*2px dashed var\(--app-mark-bar\)/)
     expect(css).toMatch(/\.tool-mark\s*\{[^}]*background:\s*var\(--app-mark-bar\)/)
     expect(css).toMatch(/\.sheet-tool\[data-group="menu"\] \.tool-mark\s*\{[^}]*background:\s*var\(--app-mark-menu\)/)
+  })
+})
+
+describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the markup (GH-3642)', () => {
+  // `a` over `ground` at the share `alpha`, as the browser blends it
+  function over(a: string, ground: string, alpha: number) {
+    const [fg, bg] = [channels(a), channels(ground)]
+    return `#${fg.map((c, i) => Math.round(c! * alpha + bg[i]! * (1 - alpha)).toString(16).padStart(2, '0')).join('')}`
+  }
+  const CARD = darkToken('ui-bg')
+  const PAPER = ink(50)
+  // the toolbar of the Forecast: `bg-gray-50/70` by day and `dark:bg-gray-800/40` at night, on a card (the page's paper
+  // by day is the lighter of the two grounds a card has, and the toolbar is a wash of it, so both are held)
+  const TOOLBARS = {
+    'light, on a card': over(ink(50), WHITE, 0.7),
+    'light, on the paper': over(ink(50), PAPER, 0.7),
+    'dark, on a card': over(ink(800), CARD, 0.4),
+  } as const
+  const series = Object.keys(SERIES_LABEL) as (keyof typeof SERIES_LABEL)[]
+
+  describe.each(series)('the icon of %s', (name) => {
+    it.each([
+      ['by day, on a card', false, WHITE],
+      ['by day, on the paper', false, PAPER],
+      ['by day, on the toolbar', false, TOOLBARS['light, on a card']],
+      ['at night, on a card', true, CARD],
+      ['at night, on the toolbar', true, TOOLBARS['dark, on a card']],
+    ] as const)('clears 4.5:1 as the summary\'s icon, %s', (_where, dark, ground) => {
+      expect(contrast(seriesLabelColor(name, dark), ground)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    // a toggle that is on is a mark that carries a state (1.4.11: 3:1) on its own wash of the label colour; the wash
+    // is the share of the colour itself that the style names, over each toolbar
+    it.each(Object.entries(TOOLBARS))('clears 3:1 as the icon of a toggle that is on, %s', (where, toolbar) => {
+      const color = seriesLabelColor(name, where.startsWith('dark'))
+      expect(contrast(color, over(color, toolbar, TOGGLE_WASH))).toBeGreaterThanOrEqual(3)
+    })
+  })
+
+  it('has the toggle that is on use the label colour and the share the test holds', () => {
+    const style = panelToggleStyle('#0e7490')
+    expect(style.color).toBe('#0e7490')
+    expect(style.backgroundColor).toBe(`color-mix(in srgb, #0e7490 ${TOGGLE_WASH * 100}%, transparent)`)
+  })
+
+  // Tailwind's palette, as the browser draws it: oklch() in `tailwindcss/theme.css`, here as #rrggbb
+  const theme = readFileSync(fileURLToPath(new URL('../../node_modules/tailwindcss/theme.css', import.meta.url)), 'utf-8')
+  function oklchToHex(value: string) {
+    const [lightness, chroma, hueDegrees] = /oklch\(([\d.]+)%\s+([\d.]+)\s+([\d.]+)\)/.exec(value)!.slice(1).map(Number) as [number, number, number]
+    const [L, a, b] = [lightness / 100, chroma * Math.cos(hueDegrees * Math.PI / 180), chroma * Math.sin(hueDegrees * Math.PI / 180)]
+    const [l, m, s] = [L + 0.3963377774 * a + 0.2158037573 * b, L - 0.1055613458 * a - 0.0638541728 * b, L - 0.0894841775 * a - 1.291485548 * b].map(v => v ** 3) as [number, number, number]
+    const linear = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s]
+    return `#${linear.map((c) => {
+      const encoded = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055
+      return Math.round(Math.min(1, Math.max(0, encoded)) * 255).toString(16).padStart(2, '0')
+    }).join('')}`
+  }
+  function shade(hue: string, step: string) {
+    if (hue === 'gray')
+      return ink(Number(step))
+    const value = new RegExp(`--color-${hue}-${step}:\\s*(oklch\\([^)]*\\))`).exec(theme)?.[1]
+    return value ? oklchToHex(value) : undefined
+  }
+
+  it('reads Tailwind\'s palette as the browser draws it (red-600 is 4.77:1 on white)', () => {
+    expect(contrast(shade('red', '600')!, WHITE)).toBeCloseTo(4.77, 1)
+  })
+
+  // every `text-<colour>-<step>` of the markup: by day on white, and with `dark:` at night on a card, 4.5:1 (1.4.3; the
+  // same classes colour the icons, which need 3:1, but an icon in a text colour is read as text, and a colour that is
+  // not enough as a mark is not enough as text either)
+  const sources = (readdirSync(fileURLToPath(new URL('../../app', import.meta.url)), { recursive: true }) as string[])
+    .filter(file => /\.(?:vue|ts)$/.test(file))
+    .map(file => [file, readFileSync(fileURLToPath(new URL(`../../app/${file}`, import.meta.url)), 'utf-8')] as const)
+  const classes: { file: string, name: string, dark: boolean, color: string }[] = []
+  for (const [file, text] of sources) {
+    for (const [, variants, hue, step] of text.matchAll(/(?<![\w-])((?:[a-z-]+:)*)text-([a-z]+)-(\d{2,3})(?![\w/-])/g)) {
+      const color = shade(hue!, step!)
+      if (color)
+        classes.push({ file, name: `${variants}text-${hue}-${step}`, dark: variants!.split(':').includes('dark'), color })
+    }
+  }
+
+  it('finds the Tailwind text colours of the markup', () => {
+    expect(classes.length).toBeGreaterThan(50)
+    expect(classes.some(c => c.file.endsWith('Meteogram.vue'))).toBe(true)
+  })
+
+  it('has no text colour of the markup under 4.5:1 on its card', () => {
+    const below = classes
+      .map(c => ({ ...c, ratio: contrast(c.color, c.dark ? CARD : WHITE) }))
+      .filter(c => c.ratio < 4.5)
+      .map(c => `${c.file}: ${c.name} ${c.ratio.toFixed(2)}:1`)
+    expect([...new Set(below)]).toEqual([])
+  })
+
+  it('has the Forecast\'s panel toggles and summary icons no colour class of a series: they take the label colours', () => {
+    const forecast = readFileSync(fileURLToPath(new URL('../../app/components/Meteogram.vue', import.meta.url)), 'utf-8')
+    expect(forecast).not.toMatch(/text-(cyan|lime|slate)-\d/)
+    expect(forecast).toMatch(/:style="visiblePanels\[toggle\.panel\] \? activeToggleStyle\(toggle\.series\)/)
+    for (const name of ['red', 'cyan', 'blue', 'slate', 'lime'])
+      expect(forecast).toContain(`seriesLabelColor('${name}', isDark)`)
+  })
+
+  it('has the card of today a border of 3:1 by day and at night (1.4.11)', () => {
+    const forecast = readFileSync(fileURLToPath(new URL('../../app/components/Meteogram.vue', import.meta.url)), 'utf-8')
+    const today = /d\.isToday\s*\?\s*'([^']*border-[^']*)'/.exec(forecast)?.[1] ?? ''
+    const light = /(?<![\w:-])border-([a-z]+)-(\d+)/.exec(today)!
+    const dark = /dark:border-([a-z]+)-(\d+)/.exec(today)!
+    expect(contrast(shade(light[1]!, light[2]!)!, WHITE)).toBeGreaterThanOrEqual(3)
+    expect(contrast(shade(dark[1]!, dark[2]!)!, CARD)).toBeGreaterThanOrEqual(3)
   })
 })

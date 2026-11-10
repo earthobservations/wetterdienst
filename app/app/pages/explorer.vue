@@ -1090,7 +1090,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                                 @click="removeParameterDistance(entry.id, entry.paramName)"
                               />
                               <UTooltip v-if="!isValidParameter(entry.paramName)" :text="t('explorer.paramNotSelected')">
-                                <UIcon name="i-ph-warning-circle" class="text-red-500 w-4 h-4" />
+                                <UIcon name="i-ph-warning-circle" class="text-red-600 dark:text-red-400 w-4 h-4" />
                               </UTooltip>
                             </div>
 

@@ -133,8 +133,8 @@ onMounted(async () => {
       </a>
     </div>
 
-    <!-- Content -->
-    <div class="flex-1 overflow-hidden">
+    <!-- Content: the page's main landmark; the one of app.vue's shell is not around the widget (Lighthouse, landmark-one-main) -->
+    <main class="flex-1 overflow-hidden">
       <i18n-t v-if="!stationId" keypath="widget.noStation" tag="div" class="flex items-center justify-center h-full py-16 text-gray-600 dark:text-gray-400 text-sm" scope="global">
         <template #param>
           <code class="mx-1 px-1 bg-gray-100 dark:bg-gray-800 rounded">?station=XXXXX</code>
@@ -165,7 +165,7 @@ onMounted(async () => {
         icon="i-ph-cloud-slash"
         :title="t('widget.noData')"
       />
-    </div>
+    </main>
 
     <!-- Attribution footer -->
     <div class="shrink-0 px-4 py-1.5 border-t border-gray-100 dark:border-gray-800 text-center">

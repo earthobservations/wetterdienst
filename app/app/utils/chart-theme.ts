@@ -127,7 +127,8 @@ export function withAlpha(color: string, alpha: number): string {
 
 /**
  * The colours of the text that names a series (a y axis' title and tick labels, the weekend's day label, the
- * stripes' availability label): the series' own hue, at 4.5:1 or more on the paper (WCAG 1.4.3, GH-3618).
+ * stripes' availability label): the series' own hue, at 4.5:1 or more on the paper (WCAG 1.4.3, GH-3618), and of the Forecast's icons and
+ * panel toggles, which are the series' hue as a mark (GH-3642; `slate` is the cloud cover's, which has no label).
  * The series themselves (their lines, bars and swatches) keep their colours, which are data and need 3:1
  * only. On white the series' colours are 2.0:1 to 3.8:1, so the light ones are the same hues one or two
  * steps darker (Tailwind's 700 for cyan and lime, 600 for blue and red, amber 700 for the gold of the
@@ -141,9 +142,24 @@ export const SERIES_LABEL = {
   blue: { light: '#2563eb', dark: '#5b9cf8' },
   red: { light: '#dc2626', dark: '#f25b5b' },
   gold: { light: '#b45309', dark: '#daa520' },
+  slate: { light: '#475569', dark: '#94a3b8' },
 } as const
 
 export type SeriesLabel = keyof typeof SERIES_LABEL
+
+/** The share of the label colour in the wash behind a toggle that is on (`panelToggleStyle`), and in its edge */
+export const TOGGLE_WASH = 0.1
+export const TOGGLE_EDGE = 0.4
+
+/**
+ * The style of a panel toggle that is on: the icon in the label `color` of its series, on a wash and in an edge of it
+ * (the same colour, mixed with transparent). The icon is a non-text mark that carries the state, 3:1 (WCAG 1.4.11) on
+ * the wash; `tests/unit/button-contrast.test.ts` holds that for every series, light and dark.
+ */
+export function panelToggleStyle(color: string): Record<string, string> {
+  const mix = (share: number) => `color-mix(in srgb, ${color} ${share * 100}%, transparent)`
+  return { color, backgroundColor: mix(TOGGLE_WASH), borderColor: mix(TOGGLE_EDGE) }
+}
 
 /** The colour of the text that names the `series` on a paper that is `dark` or not */
 export function seriesLabelColor(series: SeriesLabel, dark: boolean): string {
