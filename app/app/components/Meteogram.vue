@@ -47,6 +47,9 @@ const { theme, isDark } = useChartTheme()
 // choice, remembered in local storage and written to the URL (`?view=table`), so that a link opens the view.
 const view = ref<MeteogramView>(props.daysOnly ? 'compact' : 'chart')
 const compact = computed(() => view.value === 'compact')
+// The chart's type in px (GH-3558): a printed chart is scaled down, so 12 px ticks print at about 6 pt
+const TICK_FONT = 12
+const TITLE_FONT = 12
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
 // Limit how many days the compact view will show by default
 const MAX_COMPACT_DAYS = 7
@@ -1141,12 +1144,12 @@ async function renderChartActual() {
   const annotations: any[] = []
 
   // Available plot width drives tick density — avoids overlap on narrow mobile screens.
-  const plotInnerWidth = Math.max(200, (chartRef.value?.clientWidth ?? 800) - 56)
+  const plotInnerWidth = Math.max(200, (chartRef.value?.clientWidth ?? 800) - 68)
   const rangeHours = (displayMaxTime - minTime) / 3_600_000
 
   if (isoDates.length > 0) {
-    // Each "HH:mm" label needs ~36 px minimum to avoid overlap.
-    const maxTicks = Math.floor(plotInnerWidth / 36)
+    // Each "HH:mm" label (12 px) needs ~46 px minimum to avoid overlap.
+    const maxTicks = Math.floor(plotInnerWidth / 46)
     let tickMs: number
     if (rangeHours <= 24) {
       tickMs = 1 * 3_600_000
@@ -1304,11 +1307,11 @@ async function renderChartActual() {
     const dayMonth = formatDayMonth(localDt, language.value)
     const isWeekend = localDt.weekday >= 6 // 6=Sat, 7=Sun in Luxon
     // On narrow screens drop the date suffix to prevent overlap; shrink font below 50 px/day.
-    const annotFontSize = dayWidthPx < 50 ? 8 : 10
-    // The date is 5.5 px per character wide or more: 44 px for the eight characters of "Mo 05.10", which
+    const annotFontSize = dayWidthPx < 50 ? 10 : 12
+    // The date is 7.4 px per character wide or more: 59 px for the eight characters of "Mo 05.10", which
     // a language that writes the date longer ("Čt 15. 10.") needs more of
     const weekday = weekdayShort(localDt, language.value)
-    const annotText = dayWidthPx < 5.5 * `${weekday} ${dayMonth}`.length
+    const annotText = dayWidthPx < 7.4 * `${weekday} ${dayMonth}`.length
       ? `<b>${weekday}</b>`
       : `<b>${weekday}</b> ${dayMonth}`
     annotations.push({
@@ -1863,7 +1866,7 @@ async function renderChartActual() {
     autosize: true,
     // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
-    margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
+    margin: { l: 68, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
     font: { family: '"Inter", system-ui, sans-serif', size: 11 },
     hovermode: 'x unified',
     hoverlabel: { font: { family: '"Inter", system-ui, sans-serif' } },
@@ -1884,7 +1887,7 @@ async function renderChartActual() {
       tickformat: '%H',
       hoverformat: plotlyHoverFormat(language.value),
       dtick: 6 * 3_600_000,
-      tickfont: { size: compact.value ? 7 : 9, color: TICK },
+      tickfont: { size: TICK_FONT, color: TICK },
       tickcolor: W(0.25),
       range: [new Date(minTime).toISOString(), new Date(displayMaxTime).toISOString()],
       ...(customTickVals ? { tickvals: customTickVals, ticktext: customTickText } : {}),
@@ -1893,14 +1896,14 @@ async function renderChartActual() {
     yaxis: {
       visible: !!domains.wind,
       domain: domains.wind ?? [0, 0],
-      title: { text: t('meteogram.chart.axisWind'), font: { size: 9, color: LABEL('cyan') }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisWind'), font: { size: TITLE_FONT, color: LABEL('cyan') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.wind,
       tickvals: axisTickVals.wind ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: LABEL('cyan') },
+      tickfont: { size: TICK_FONT, color: LABEL('cyan') },
       tickcolor: 'rgba(6,182,212,0.45)',
       nticks: 4,
       fixedrange: true,
@@ -1909,14 +1912,14 @@ async function renderChartActual() {
     yaxis2: {
       visible: !!domains.precip,
       domain: domains.precip ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPrecip'), font: { size: 9, color: LABEL('blue') }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPrecip'), font: { size: TITLE_FONT, color: LABEL('blue') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'tozero',
       range: originalRanges.precip,
       tickvals: axisTickVals.precip ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: LABEL('blue') },
+      tickfont: { size: TICK_FONT, color: LABEL('blue') },
       tickcolor: 'rgba(37,99,235,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1925,13 +1928,13 @@ async function renderChartActual() {
     yaxis5: {
       visible: !!domains.cloud,
       domain: domains.cloud ?? [0, 0],
-      title: { text: t('meteogram.chart.axisCloud'), font: { size: 9, color: theme.value.textMuted }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisCloud'), font: { size: TITLE_FONT, color: theme.value.textMuted }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       range: originalRanges.cloud,
       tickvals: axisTickVals.cloud ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: theme.value.textMuted },
+      tickfont: { size: TICK_FONT, color: theme.value.textMuted },
       tickcolor: 'rgba(148,163,184,0.45)',
       nticks: 3,
       fixedrange: true,
@@ -1940,7 +1943,7 @@ async function renderChartActual() {
     yaxis3: {
       visible: !!domains.temp,
       domain: domains.temp ?? [0, 0],
-      title: { text: t('meteogram.chart.axisTemp'), font: { size: 9, color: LABEL('red') }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisTemp'), font: { size: TITLE_FONT, color: LABEL('red') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: true,
@@ -1948,7 +1951,7 @@ async function renderChartActual() {
       zerolinewidth: 1,
       range: originalRanges.temp,
       tickvals: axisTickVals.temp ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: LABEL('red') },
+      tickfont: { size: TICK_FONT, color: LABEL('red') },
       tickcolor: 'rgba(239,68,68,0.45)',
       fixedrange: true,
     },
@@ -1956,14 +1959,14 @@ async function renderChartActual() {
     yaxis4: {
       visible: !!domains.pressure,
       domain: domains.pressure ?? [0, 0],
-      title: { text: t('meteogram.chart.axisPressure'), font: { size: 9, color: LABEL('lime') }, standoff: 2 },
+      title: { text: t('meteogram.chart.axisPressure'), font: { size: TITLE_FONT, color: LABEL('lime') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
       zeroline: false,
       rangemode: 'normal',
       range: originalRanges.pressure,
       tickvals: axisTickVals.pressure ?? undefined,
-      tickfont: { size: compact.value ? 7 : 9, color: LABEL('lime') },
+      tickfont: { size: TICK_FONT, color: LABEL('lime') },
       tickcolor: 'rgba(132,204,22,0.45)',
       nticks: 3,
       fixedrange: true,

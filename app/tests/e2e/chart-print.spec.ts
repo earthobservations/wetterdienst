@@ -23,9 +23,8 @@ interface Chart {
   reach: (page: Page) => Promise<void>
   /**
    * The smallest type of the chart on paper in points, on every sheet below and from every window: what it measures
-   * today less a margin, so that a change that shrinks the print (a chart that is wider on the screen again, a
-   * smaller font) fails here. Not the 6.5 pt that is read without effort: the chart's own fonts are smaller than
-   * the cap alone brings there (see the comments)
+   * today (6.24 pt or more on A4 with 1 in margins, which is 12 px at the scale of 0.7) less a margin, so that a
+   * change that shrinks the print (a chart that is wider on the screen again, a font under 12 px) fails here
    */
   floor: number
 }
@@ -34,8 +33,7 @@ const CHARTS: Chart[] = [
   {
     name: 'the explorer\'s chart',
     path: EXPLORER,
-    // the tick labels (12 px on the screen): 6.3 pt on A4 with 1 in margins, 6.5 pt on Letter (5.2 pt and 5.4 pt
-    // from a 1100 px window without the cap)
+    // the tick labels, 12 px (5.2 pt from a 1100 px window without the cap)
     floor: 6.2,
     reach: async (page) => {
       await page.getByRole('button', { name: 'Show', exact: true }).click()
@@ -47,8 +45,8 @@ const CHARTS: Chart[] = [
   {
     name: 'the climate stripes',
     path: '/stripes?kind=temperature&station=00011',
-    // "Data availability" (11 px on the screen) is the smallest: 5.7 pt, 6.0 pt on Letter (4.8 pt and 5.0 pt without)
-    floor: 5.6,
+    // "Data availability" is the smallest, 12 px since GH-3558 (11 px before: 5.7 pt, and 4.8 pt without the cap)
+    floor: 6.2,
     reach: async (page) => {
       await page.getByRole('button', { name: 'Show', exact: true }).click()
       await expect(plotly(page)).toBeVisible()
@@ -57,9 +55,8 @@ const CHARTS: Chart[] = [
   {
     name: 'the forecast\'s meteogram',
     path: '/meteogram?station=01001',
-    // its tick labels are 9 px on the screen: 4.7 pt on A4 with 1 in margins, 4.9 pt on Letter (3.9 pt and 4.1 pt
-    // without the cap); 6.5 pt would need a font of 12.5 px
-    floor: 4.6,
+    // the ticks and axis titles are 12 px since GH-3558 (9 px before: 4.7 pt, and 3.9 pt without the cap)
+    floor: 6.2,
     reach: async (page) => {
       await expect(plotly(page)).toBeVisible()
     },

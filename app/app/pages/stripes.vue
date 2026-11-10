@@ -328,7 +328,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       showarrow: false,
       xanchor: 'left',
       yanchor: 'bottom',
-      font: { color: seriesLabelColor('gold', theme.dark), size: 11 },
+      font: { color: seriesLabelColor('gold', theme.dark), size: 12 },
     })
   }
 
