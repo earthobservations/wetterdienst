@@ -17,7 +17,7 @@ const { t, locale } = useI18n()
 const { data, pending, error, refresh } = useFetch<StripesValuesResponse>('/api/stripes/values', {
   query: computed(() => ({ kind: STRIPES_KIND, station: props.stationId, format: 'json' })),
   key: computed(() => `map-stripes-${props.stationId}`),
-  ...RETRY_TRANSIENT,
+  ...API_FETCH,
 })
 
 const years = computed(() => stripeYears(data.value?.values ?? []))

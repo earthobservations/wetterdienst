@@ -5,7 +5,7 @@ import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import { meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
-import { backendFailure, describeRequestError } from '~/utils/request-error'
+import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
@@ -64,7 +64,7 @@ async function loadAvailableIssues(stationId: string) {
   try {
     const res = await $fetch<{ issues: string[] }>('/api/issues', {
       query: { provider: MOSMIX.provider, network: MOSMIX.network, station: stationId },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     if (ticket === issuesTicket)
       availableIssues.value = res.issues ?? []
@@ -95,7 +95,7 @@ async function loadMapStations() {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         all: 'true',
       },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     mapStations.value = res.stations ?? []
   }
@@ -138,13 +138,13 @@ async function fetchMeteogram(station: Station) {
         failure.value = backendFailure(res.status, res.statusText, body)
       return
     }
-    const json = await res.json()
+    const json = await readJsonAnswer<{ values?: any[] }>('/api/values', res)
     if (ticket === valuesTicket)
       values.value = json.values ?? []
   }
   catch (e: any) {
     if (ticket === valuesTicket)
-      failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+      failure.value = failureOfError(e)
   }
   finally {
     if (ticket === valuesTicket)
@@ -240,7 +240,7 @@ async function restoreFromUrl() {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         stations: stationId,
       },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     if (ticket !== restoreTicket)
       return

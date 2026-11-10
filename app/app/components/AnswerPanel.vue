@@ -45,14 +45,14 @@ const today = () => DateTime.now()
 const VALUE_OPTIONS = { shape: 'long', humanize: 'true', convert_units: 'true' } as const
 
 async function values(query: Record<string, string>): Promise<Value[]> {
-  const response = await $fetch<{ values: Value[] }>('/api/values', { query: { ...VALUE_OPTIONS, ...query }, ...RETRY_TRANSIENT })
+  const response = await $fetch<{ values: Value[] }>('/api/values', { query: { ...VALUE_OPTIONS, ...query }, ...API_FETCH })
   return response.values ?? []
 }
 
 async function answerRain(): Promise<Status> {
   const near = await $fetch<{ stations: Station[] }>('/api/stations', {
     query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', latitude: place.value.latitude, longitude: place.value.longitude, rank: 1 },
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
   })
   const point = near.stations?.[0]
   if (!point)
@@ -96,11 +96,11 @@ async function answerWind(): Promise<Status> {
 }
 
 async function answerDownload(): Promise<Status> {
-  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', { query: { datasets: true }, ...RETRY_TRANSIENT })).providers
+  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', { query: { datasets: true }, ...API_FETCH })).providers
   const candidates = hourlyNetworks(providers)
   const found = await Promise.all(candidates.map(async ({ provider, network }) => {
     try {
-      const coverage = await $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: { provider: provider.provider, network, resolutions: 'hourly' }, ...RETRY_TRANSIENT })
+      const coverage = await $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: { provider: provider.provider, network, resolutions: 'hourly' }, ...API_FETCH })
       const hit = hourlyTemperatureIn(coverage)
       return hit ? { provider: provider.provider, name: provider.name_short, countryCode: provider.country_code, network, ...hit } : null
     }
