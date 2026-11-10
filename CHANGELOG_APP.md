@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
+  the notifications, the number fields' description for a screen reader) are in the language of
+  the page in all eleven languages (they were English in all but German; Hamburg German uses the
+  German ones, Luxembourgish its own) (GH-3955)
 - `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
   column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
   (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
