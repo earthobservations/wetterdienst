@@ -660,7 +660,7 @@ describe('dataViewer pages', () => {
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
-    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await wrapper.find('button[aria-label="Last page"]').trigger('click')
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
     stationSelection.value = byStation('04411')
     await wrapper.vm.$nextTick()
@@ -668,7 +668,7 @@ describe('dataViewer pages', () => {
     // the pager goes back to the first page as Fetch is pressed, while the table waits for the answer
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('1'))
     // the 500 rows' last page, moved to again while the 40 are fetched
-    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await wrapper.find('button[aria-label="Last page"]').trigger('click')
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
     hold.open()
     await fetching
@@ -683,7 +683,7 @@ describe('dataViewer pages', () => {
     registerEndpoint('/api/values', () => ({ values: rows(500, '01048') }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await wrapper.find('button[aria-label="Last page"]').trigger('click')
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows(3, '09999'))
     await wrapper.vm.$nextTick()
@@ -697,7 +697,7 @@ describe('dataViewer pages', () => {
     registerEndpoint('/api/values', () => ({ values: rows(500, '01048') }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
-    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await wrapper.find('button[aria-label="Last page"]').trigger('click')
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('10'))
     ;(viewer.vm as unknown as { clearData: () => void }).clearData()
     await wrapper.vm.$nextTick()
@@ -711,7 +711,7 @@ describe('dataViewer pages', () => {
     const panel = wrapper.findComponent(QueryPanel)
     panel.vm.$emit('dataTransformed', rows(200, '09999'))
     await wrapper.vm.$nextTick()
-    await wrapper.find('button[aria-label="Last Page"]').trigger('click')
+    await wrapper.find('button[aria-label="Last page"]').trigger('click')
     await vi.waitFor(() => expect(pageShown(wrapper).page).toBe('4'))
     // leaving query mode hands back the fetched rows themselves, as the panel's reset does
     panel.vm.$emit('dataTransformed', panel.props('data'))
