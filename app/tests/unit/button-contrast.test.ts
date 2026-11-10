@@ -251,8 +251,12 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
 
   // Tailwind's palette, as the browser draws it: oklch() in `tailwindcss/theme.css`, here as #rrggbb
   const theme = readFileSync(fileURLToPath(new URL('../../node_modules/tailwindcss/theme.css', import.meta.url)), 'utf-8')
+  // `oklch(55.6% 0 none)`: Tailwind writes a hue of `none` for its greys (neutral, zinc-50), which is a hue of 0
   function oklchToHex(value: string) {
-    const [lightness, chroma, hueDegrees] = /oklch\(([\d.]+)%\s+([\d.]+)\s+([\d.]+)\)/.exec(value)!.slice(1).map(Number) as [number, number, number]
+    const parts = /oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+|none)\s*\)/.exec(value)
+    if (!parts)
+      throw new Error(`not an oklch() colour of Tailwind's palette: ${JSON.stringify(value)}`)
+    const [lightness, chroma, hueDegrees] = [Number(parts[1]), Number(parts[2]), parts[3] === 'none' ? 0 : Number(parts[3])]
     const [L, a, b] = [lightness / 100, chroma * Math.cos(hueDegrees * Math.PI / 180), chroma * Math.sin(hueDegrees * Math.PI / 180)]
     const [l, m, s] = [L + 0.3963377774 * a + 0.2158037573 * b, L - 0.1055613458 * a - 0.0638541728 * b, L - 0.0894841775 * a - 1.291485548 * b].map(v => v ** 3) as [number, number, number]
     const linear = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s]
@@ -272,48 +276,127 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
     expect(contrast(shade('red', '600')!, WHITE)).toBeCloseTo(4.77, 1)
   })
 
-  // every `text-<colour>-<step>` of the markup: by day on white, and with `dark:` at night on a card, 4.5:1 (1.4.3; the
-  // same classes colour the icons, which need 3:1, but an icon in a text colour is read as text, and a colour that is
-  // not enough as a mark is not enough as text either)
+  it('reads the greys, which Tailwind writes with a hue of none (neutral-500 is 4.74:1 on white)', () => {
+    expect(shade('neutral', '500')).toBeDefined()
+    expect(contrast(shade('neutral', '500')!, WHITE)).toBeCloseTo(4.74, 2)
+    // every colour of the palette converts, so that no class can crash the collection below
+    const all = [...theme.matchAll(/--color-([a-z]+-\d+):\s*(oklch\([^)]*\))/g)]
+    expect(all.length).toBeGreaterThan(200)
+    for (const [, name, value] of all)
+      expect(oklchToHex(value!), name).toMatch(/^#[0-9a-f]{6}$/)
+  })
+
+  it('names a colour it cannot read, where it would otherwise fail on a missing match', () => {
+    expect(() => oklchToHex('color-mix(in oklab, red, blue)')).toThrow(/not an oklch\(\) colour/)
+  })
+
+  // Every `text-<colour>-<step>` class of the markup (GH-3642), 4.5:1 (1.4.3; the same classes colour icons, which need 3:1,
+  // but an icon in a text colour is read as text, and a colour that is not enough as a mark is not enough as text either):
+  // - a class with `dark:` is painted on the dark card;
+  // - a class without it on white, and, where its class string has no `dark:` partner of the same variants (`hover:` and
+  //   so on), on the dark card too, as it is painted there as well.
+  // Only Tailwind's palette and `gray` (the app's `ink`) are read. `primary` is the app's own scale (`app.config.ts`, the
+  // `brand-*` tokens of main.css) and is not checked here: `text-primary-500` is 3.47:1 on white, used for icons.
+  // A class this test cannot read (an opacity, `text-[#hex]`) fails, so that none is skipped without a word.
   const sources = (readdirSync(fileURLToPath(new URL('../../app', import.meta.url)), { recursive: true }) as string[])
     .filter(file => /\.(?:vue|ts)$/.test(file))
     .map(file => [file, readFileSync(fileURLToPath(new URL(`../../app/${file}`, import.meta.url)), 'utf-8')] as const)
-  const classes: { file: string, name: string, dark: boolean, color: string }[] = []
-  for (const [file, text] of sources) {
-    for (const [, variants, hue, step] of text.matchAll(/(?<![\w-])((?:[a-z-]+:)*)text-([a-z]+)-(\d{2,3})(?![\w/-])/g)) {
-      const color = shade(hue!, step!)
-      if (color)
-        classes.push({ file, name: `${variants}text-${hue}-${step}`, dark: variants!.split(':').includes('dark'), color })
+  const NOT_CHECKED = ['primary', 'brand']
+  interface Use { file: string, name: string, ground: 'white' | 'card', color: string }
+  /** The uses of a colour, and what the scan could not read: one entry for each class of each string of the sources */
+  function collect(files: readonly (readonly [string, string])[]) {
+    const uses: Use[] = []
+    const unreadable: string[] = []
+    const notChecked = new Set<string>()
+    for (const [file, text] of files) {
+      // between two quotes lies a class string, or code that has no such class: a partner in another literal is no partner
+      for (const segment of text.split(/["'`]/)) {
+        if (!segment.includes('text-'))
+          continue
+        const found = [...segment.matchAll(/(?<![\w-])((?:[a-z0-9-]+:)*)text-([a-z]+)-(\d{2,3})(\/[\w.%[\]]+)?(?![\w-])/g)]
+        for (const [, variants, hue, step, opacity] of found) {
+          if (opacity)
+            unreadable.push(`${file}: ${variants}text-${hue}-${step}${opacity}`)
+          else if (NOT_CHECKED.includes(hue!))
+            notChecked.add(hue!)
+          else if (shade(hue!, step!) === undefined)
+            unreadable.push(`${file}: ${variants}text-${hue}-${step} (not in the palette)`)
+        }
+        for (const [, variants, value] of segment.matchAll(/(?<![\w-])((?:[a-z0-9-]+:)*)text-\[((?:#|rgb|hsl|oklch|color:)[^\]]*)\]/g))
+          unreadable.push(`${file}: ${variants}text-[${value}]`)
+        // a partner is any `dark:` text colour of the same variants, `dark:text-white` among them
+        const partners = new Set([...segment.matchAll(/(?<![\w-])((?:[a-z0-9-]+:)*)text-(?:white|black|[a-z]+-\d{2,3})(?![\w-])/g)]
+          .filter(([, variants]) => variants!.split(':').includes('dark'))
+          .map(([, variants]) => variants!.split(':').filter(variant => variant && variant !== 'dark').join(':')))
+        for (const [, variants, hue, step, opacity] of found) {
+          const color = opacity || NOT_CHECKED.includes(hue!) ? undefined : shade(hue!, step!)
+          if (!color)
+            continue
+          const dark = variants!.split(':').includes('dark')
+          const name = `${variants}text-${hue}-${step}`
+          if (dark) {
+            uses.push({ file, name, ground: 'card', color })
+          }
+          else {
+            uses.push({ file, name, ground: 'white', color })
+            if (!partners.has(variants!.replace(/:$/, '')))
+              uses.push({ file, name: `${name} (no dark: partner, painted at night too)`, ground: 'card', color })
+          }
+        }
+      }
     }
+    return { uses, unreadable, notChecked }
   }
+  const { uses, unreadable, notChecked } = collect(sources)
+  const below = (list: readonly Use[]) => [...new Set(list
+    .map(use => ({ ...use, ratio: contrast(use.color, use.ground === 'card' ? CARD : WHITE) }))
+    .filter(use => use.ratio < 4.5)
+    .map(use => `${use.file}: ${use.name} ${use.ratio.toFixed(2)}:1 on ${use.ground}`))]
 
   it('finds the Tailwind text colours of the markup', () => {
-    expect(classes.length).toBeGreaterThan(50)
-    expect(classes.some(c => c.file.endsWith('Meteogram.vue'))).toBe(true)
+    expect(uses.length).toBeGreaterThan(100)
+    expect(uses.some(use => use.file.endsWith('Meteogram.vue'))).toBe(true)
+    expect(uses.some(use => use.name.startsWith('dark:text-'))).toBe(true)
   })
 
-  it('has no text colour of the markup under 4.5:1 on its card', () => {
-    const below = classes
-      .map(c => ({ ...c, ratio: contrast(c.color, c.dark ? CARD : WHITE) }))
-      .filter(c => c.ratio < 4.5)
-      .map(c => `${c.file}: ${c.name} ${c.ratio.toFixed(2)}:1`)
-    expect([...new Set(below)]).toEqual([])
+  it('reads every text colour class of the markup, and leaves out only the app\'s own primary scale', () => {
+    expect(unreadable).toEqual([])
+    expect([...notChecked].every(hue => NOT_CHECKED.includes(hue))).toBe(true)
   })
 
-  it('has the Forecast\'s panel toggles and summary icons no colour class of a series: they take the label colours', () => {
-    const forecast = readFileSync(fileURLToPath(new URL('../../app/components/Meteogram.vue', import.meta.url)), 'utf-8')
-    expect(forecast).not.toMatch(/text-(cyan|lime|slate)-\d/)
-    expect(forecast).toMatch(/:style="visiblePanels\[toggle\.panel\] \? activeToggleStyle\(toggle\.series\)/)
-    for (const name of ['red', 'cyan', 'blue', 'slate', 'lime'])
-      expect(forecast).toContain(`seriesLabelColor('${name}', isDark)`)
+  it('has no text colour of the markup under 4.5:1 where it is painted, by day on white and at night on the dark card', () => {
+    expect(below(uses)).toEqual([])
   })
 
-  it('has the card of today a border of 3:1 by day and at night (1.4.11)', () => {
-    const forecast = readFileSync(fileURLToPath(new URL('../../app/components/Meteogram.vue', import.meta.url)), 'utf-8')
-    const today = /d\.isToday\s*\?\s*'([^']*border-[^']*)'/.exec(forecast)?.[1] ?? ''
-    const light = /(?<![\w:-])border-([a-z]+)-(\d+)/.exec(today)!
-    const dark = /dark:border-([a-z]+)-(\d+)/.exec(today)!
-    expect(contrast(shade(light[1]!, light[2]!)!, WHITE)).toBeGreaterThanOrEqual(3)
-    expect(contrast(shade(dark[1]!, dark[2]!)!, CARD)).toBeGreaterThanOrEqual(3)
+  // the scan itself, on text of its own: what it flags and what it lets through
+  describe('the scan of the classes', () => {
+    const scan = (markup: string) => collect([['x.vue', markup]])
+    it('reads a grey that Tailwind writes with a hue of none', () => {
+      expect(below(scan('<p class="text-neutral-500 dark:text-neutral-300">').uses)).toEqual([])
+      expect(below(scan('<p class="text-neutral-400 dark:text-neutral-300">').uses)).toHaveLength(1)
+    })
+    it('takes dark:text-white as a partner', () => {
+      expect(below(scan('<p class="text-gray-900 dark:text-white">').uses)).toEqual([])
+    })
+    it('holds a class with no dark: partner to the dark card as well, and one with a partner to its own ground', () => {
+      expect(below(scan('<p class="text-red-600">').uses)).toEqual(['x.vue: text-red-600 (no dark: partner, painted at night too) 3.29:1 on card'])
+      expect(below(scan('<p class="text-red-600 dark:text-red-400">').uses)).toEqual([])
+      expect(below(scan('<p class="hover:text-red-600 dark:hover:text-red-400">').uses)).toEqual([])
+    })
+    it('does not take a partner from another string', () => {
+      expect(below(scan(`<p :class="a ? 'text-red-600 dark:text-red-400' : 'text-red-600'">`).uses)).toEqual(['x.vue: text-red-600 (no dark: partner, painted at night too) 3.29:1 on card'])
+    })
+    it('fails on a class it cannot read', () => {
+      expect(scan('<p class="text-red-600/70 dark:text-red-400">').unreadable).toEqual(['x.vue: text-red-600/70'])
+      expect(scan('<p class="text-[#ff0000]">').unreadable).toEqual(['x.vue: text-[#ff0000]'])
+      expect(scan('<p class="text-[10px] text-xs">').unreadable).toEqual([])
+    })
+  })
+
+  // the card of today (Meteogram.vue) has `border-blue-600 dark:border-blue-400`, which `tests/nuxt/components/Meteogram.test.ts`
+  // holds it to in the rendered card: those are 3:1 and more by day and at night (1.4.11)
+  it('has blue-600 an edge of 3:1 on white and blue-400 on the dark card (the card of today)', () => {
+    expect(contrast(shade('blue', '600')!, WHITE)).toBeGreaterThanOrEqual(3)
+    expect(contrast(shade('blue', '400')!, CARD)).toBeGreaterThanOrEqual(3)
   })
 })

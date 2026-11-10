@@ -1,7 +1,7 @@
 # Accessibility
 
-The app aims at **WCAG 2.2 level AA** (tracking issue: #2559). This file says what is measured, how to run
-it, what was checked by hand, and what is known not to conform.
+The app aims at **WCAG 2.2 level AA** (it was tracked in #2559, closed on 2026-11-10 with the acceptance below). This
+file says what is measured, how to run it, what was checked by hand, and what is known not to conform.
 
 ## How it is accepted
 
@@ -104,11 +104,14 @@ hover scan measures the rest.
 
 The Meteogram's own chrome (GH-3642): the icons of its panel toggles and of its summary line are in the series' label
 colours (`SERIES_LABEL` in `utils/chart-theme.ts`: cyan, lime, blue, red and slate for the cloud cover), not in
-Tailwind's 500 shades, which are 1.9:1 to 3.8:1 on white. Each is 4.6:1 or more on the toolbar by day and at night
+the Tailwind shades they had (cyan-500, lime-500, red-500, blue-500 and slate-400), which are 1.9:1 to 3.8:1 on white. Each is 4.6:1 or more on the toolbar by day and at night
 and 3.9:1 or more on the wash behind a toggle that is on (a mark that carries a state: 3:1, 1.4.11); the card of today
-has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`). The same test reads every
-`text-<colour>-<step>` class of the markup from Tailwind's palette and fails for one under 4.5:1 on white, or, with
-`dark:`, on the dark card.
+has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`; `tests/nuxt/components/Meteogram.test.ts`
+holds that, the colours and the card's edge in the rendered component). The same test reads every `text-<colour>-<step>`
+class of the markup from Tailwind's palette (and `gray`, which is the app's `ink`) and fails for one under 4.5:1 where it
+is painted: on white, and on the dark card for a `dark:` class and for a class that has no `dark:` partner in its class
+string. A class it cannot read (an opacity, `text-[#hex]`) fails too. The app's own `primary` scale is not checked there:
+`text-primary-500` is 3.47:1 on white and is used 48 times, for icons and spinners, which is a finding of its own and not of this test.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`: shade 700 of the primary colour on light, 6.9:1 on white, shade 300 on dark, 9.6:1; the map takes
@@ -173,12 +176,14 @@ by rule, and what the run found against it; the scans' results are an artifact o
 Playwright image the baseline was recorded in. A change that touches the markup, colours or ARIA of the app
 should be run with the label before it lands.
 
-Last full run: 2026-11-10, on the tree of the change that wrote this section (`pnpm test:a11y --workers=3`, Chrome 156 on
-macOS, as Playwright's Firefox does not start there; axe 4.13.0): 393 tests, 393 passed, none retried, in 15.5 minutes.
-It found exactly the baseline's four entries (three rules, in the three states above) and nothing else. A first run of
-the same tree failed six tests that were not findings: the spec's state `index: search-results` expected one option
-for BERLIN-TEMPELHOF where the search lists the station twice (its forecast, and on the map, since #3839), which
-nothing had noticed as the scan is on request; it takes the first now.
+Last full run: 2026-11-10 (`pnpm test:a11y --workers=3`, Chrome 156 on macOS, as Playwright's Firefox does not start
+there; axe 4.13.0), on the tree before the review fixes of the pull request (the one app change since is a `dark:` colour
+on the History page's error text): 393 tests, 393 passed, none retried, in 15.5 minutes. It found exactly the baseline's
+four entries (three rules, in the three states above) and nothing else. Two runs came before it and are not the record.
+The first failed six tests that were not findings: the spec's state `index: search-results` expected one option for
+BERLIN-TEMPELHOF where the search lists the station twice (its forecast, and on the map, since #3839), which nothing had
+noticed as the scan is on request; it takes the first now. The second was disturbed by another run of Playwright on the
+same server (it served dev-mode pages and refused connections) and failed six first-paint tests that were not findings.
 
 ## Running it
 
@@ -300,12 +305,21 @@ do not all score 100 names the ones that did not and the audit.
 | 2026-10-18 | 0.24.0 with #3146 (released as 0.25.0) | 13.5.0 | 17 URLs x mobile, desktop | 34 x 100. Before the heading fix of that run: 32 x 100 and 2 x 98 (the explorer with a restored selection: `heading-order`, an `h4` under an `h2`, now an `h3`). |
 | 2026-11-10 | 0.46.0 with this change (GH-3642, GH-2559) | 13.6.0 | 17 URLs x mobile, desktop | 34 x 100. First run of the same pages: 32 x 100 and 2 x 98 (the widget: `landmark-one-main`, a page with no main landmark, which the widget now has). |
 
-How a row is made: the production build (`pnpm build`, then `node .output/server/index.mjs`) is served with
-`NUXT_API_BASE` pointing at a server that answers as the spec's mock backend does
-(`defaultHandlers` of `tests/e2e/accessibility/mock-backend.ts`, behind a plain HTTP server; the harness is not in the
-repository), so that a page shows what it shows with data and no provider is reached. The 17 URLs are the 16 pages of
-the spec's first paint (`PAGES` in `tests/e2e/accessibility.spec.ts`) and the explorer with a station chosen. Each
-is run twice (the default mobile profile and `--preset=desktop`) with
-`npx lighthouse@<version> <url> --only-categories=accessibility --chrome-flags="--headless=new"`, in Chrome
-(156.0.8078.80 on macOS for the 2026-11-10 row; 151 for the first), and the row says the score of the 34 runs. The
-repository pins no Lighthouse version: a row says the one it used.
+How a row is made, by hand before each app release:
+
+```bash
+cd app
+pnpm build
+pnpm lighthouse            # --version 13.6.0 (the default), --port 4413, --mock-port 4412
+```
+
+`pnpm lighthouse` (`tests/e2e/accessibility/lighthouse.mjs`) serves the production build with `NUXT_API_BASE` pointing at a
+server that answers every `/api/*` request as the spec's mock backend does (`defaultHandlers` of
+`tests/e2e/accessibility/mock-backend.ts`), so that a page shows what it shows with data and no provider is reached. It
+runs `npx lighthouse@<version> <url> --only-categories=accessibility` for the 17 URLs (the 16 pages of the spec's first
+paint and the explorer with a station chosen; `tests/unit/lighthouse-urls.test.ts` holds the list to the spec's), each
+twice: Lighthouse's default mobile profile and `--preset=desktop`. It needs the network (for `npx`) and a Chrome (set
+`CHROME_PATH` if Lighthouse does not find it), prints each score with the audits that failed, then the line for the
+table (version, Chrome, the scores of the 34 runs), and exits 1 if one run is under 100. Add a row, with the app's
+version from `app/package.json`. The repository pins no Lighthouse version: the script defaults to the one of the last
+row, and a row says the one it used.

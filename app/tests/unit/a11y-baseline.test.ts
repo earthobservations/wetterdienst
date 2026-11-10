@@ -20,8 +20,19 @@ describe('the accessibility baseline', () => {
       expect(entry.issue).toMatch(/^https:\/\/github\.com\/[\w-]+\/[\w.-]+\/(issues|pull)\/\d+$/)
   })
 
-  it('names the project in a reason that links no issue, so that it is known whose it is', () => {
-    for (const entry of baseline.entries.filter(entry => entry.issue === null))
-      expect(entry.reason, `${entry.rule}: ${entry.page} / ${entry.state}`).toMatch(/Nuxt UI|Reka UI|Reka/)
+  // an entry that links no issue says whose the cause is in its reason, so that "no issue" is not "nobody's"
+  const OWNERS = ['Nuxt UI', 'Reka UI', 'Leaflet', 'Plotly', 'Tailwind', 'the app']
+  const ownerNamed = (entry: Entry) => entry.issue !== null || OWNERS.some(owner => entry.reason?.includes(owner))
+
+  it('names an owner in every reason that links no issue', () => {
+    for (const entry of baseline.entries)
+      expect(ownerNamed(entry), `${entry.rule}: ${entry.page} / ${entry.state}`).toBe(true)
+  })
+
+  it('tells an entry with no issue and no owner from one that has either', () => {
+    const base = { rule: 'x', page: 'p', state: 's', reason: '' }
+    expect(ownerNamed({ ...base, issue: null, reason: 'It does not conform and nobody has looked at why.' })).toBe(false)
+    expect(ownerNamed({ ...base, issue: null, reason: 'Leaflet draws it and the app has no hook into it.' })).toBe(true)
+    expect(ownerNamed({ ...base, issue: 'https://github.com/nuxt/ui/issues/1' })).toBe(true)
   })
 })

@@ -27,12 +27,15 @@ Types of changes:
 
 ### Fixed
 
-- `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud cover
-  and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
-  take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark,
-  and 3.9:1 at the least on a toggle that is on. A toggle tells a screen reader whether it is on
-  (`aria-pressed`). The card of today and the explorer's warning icon have darker edges and colours by
-  day (GH-3642)
+- `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
+  cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
+  take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at
+  the least on a toggle that is on. A toggle tells a screen reader whether it is on
+  (`aria-pressed`). The edge of the card of today is blue-600 by day (blue-400 before, 2.6:1) and
+  blue-400 at night (blue-800 before, 1.8:1; now 6.0:1) (GH-3642)
+- `[Explorer]` The warning icon beside a parameter that is not selected is red-600 by day and
+  red-400 at night, where it was red-500 (3.8:1) (GH-3642)
+- `[History]` The error text is red-400 at night, where it was red-600 (3.3:1) (GH-3642)
 - `[Widget]` The widget page has a main landmark around its content, where it had none: a screen
   reader can jump to it, and Lighthouse's accessibility score of the page is 100, not 98
   (GH-2559)
