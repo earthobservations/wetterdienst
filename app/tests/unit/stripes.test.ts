@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COLOR_MAPS, stripeClass, stripeColour, stripesSummaryParams, stripeYears } from '../../app/utils/stripes'
+import { COLOR_MAPS, stripeClass, stripeColour, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
 
 describe('stripe classes', () => {
@@ -89,5 +89,43 @@ describe('the sentence that says what stripes show', () => {
       { timestamp: '2020-01-01T00:00:00+00:00', value: 9 },
     ])
     expect(stripesSummaryParams(years, value => `${value} °C`)).toEqual({ from: 2018, to: 2020, min: '8 °C', minYear: 2018, max: '12 °C', maxYear: 2019 })
+  })
+})
+
+describe('wrapChartTitle', () => {
+  const title = 'Climate stripes (Temperature) for Donaueschingen (Landeplatz), Germany (00011)'
+  const font = '16px Arial, sans-serif'
+  // a fake measure: 8 px a character, as the estimate's 0.5 em of 16 px
+  const measure = (text: string) => text.length * 8
+
+  it('leaves a title that fits the width in one line', () => {
+    expect(wrapChartTitle(title, 645, font, measure)).toEqual({ text: title, lines: 1 })
+  })
+
+  it('breaks a title at spaces into lines that fit the width', () => {
+    const { text, lines } = wrapChartTitle(title, 236, font, measure)
+    expect(lines).toBe(3)
+    expect(text.split('<br>')).toEqual(['Climate stripes (Temperature)', 'for Donaueschingen', '(Landeplatz), Germany (00011)'])
+    expect(text.split('<br>').every(line => measure(line) <= 236)).toBe(true)
+    // nothing is lost or added but the breaks
+    expect(text.replaceAll('<br>', ' ')).toBe(title)
+  })
+
+  it('keeps a word wider than the width, with no hyphen or slash, whole on a line of its own', () => {
+    expect(wrapChartTitle('a Donaueschingen b', 40, font, measure)).toEqual({ text: 'a<br>Donaueschingen<br>b', lines: 3 })
+  })
+
+  it('breaks a word wider than the width after its hyphens and slashes, which stay at the end of the line', () => {
+    const name = 'Mallersdorf-Pfaffenberg-Oberlindhart'
+    const { text } = wrapChartTitle(`Climate stripes for ${name} (00011)`, 236, font, measure)
+    const lines = text.split('<br>')
+    expect(lines).toEqual(['Climate stripes for', 'Mallersdorf-Pfaffenberg-', 'Oberlindhart (00011)'])
+    expect(lines.every(line => measure(line) <= 236)).toBe(true)
+    expect(wrapChartTitle('Fichtelberg/Oberfranken-Hüttstadl', 150, font, measure).text).toBe('Fichtelberg/<br>Oberfranken-<br>Hüttstadl')
+  })
+
+  it('estimates 0.5 em a character where there is no canvas to measure with', () => {
+    // the unit tests run without one
+    expect(wrapChartTitle('aaaa bbbb', 40, font, () => null)).toEqual({ text: 'aaaa<br>bbbb', lines: 2 })
   })
 })

@@ -3,9 +3,9 @@
  * (`meteogram.chart.weather.<kind>`), which the card gives to a screen reader as the icon is hidden
  * from it (WCAG 1.1.1). The name has to be right for every code the icon is drawn for.
  */
-export type WeatherKind = 'thunderstorm' | 'rain' | 'snow' | 'sleet' | 'drizzle' | 'fog' | 'wind' | 'dust' | 'blowingSnow' | 'cloudy' | 'partlyCloudy' | 'clear'
+export type WeatherKind = 'thunderstorm' | 'rain' | 'snow' | 'sleet' | 'drizzle' | 'fog' | 'wind' | 'dust' | 'funnelCloud' | 'blowingSnow' | 'cloudy' | 'partlyCloudy' | 'clear'
 
-export const WEATHER_KINDS: readonly WeatherKind[] = ['thunderstorm', 'rain', 'snow', 'sleet', 'drizzle', 'fog', 'wind', 'dust', 'blowingSnow', 'cloudy', 'partlyCloudy', 'clear']
+export const WEATHER_KINDS: readonly WeatherKind[] = ['thunderstorm', 'rain', 'snow', 'sleet', 'drizzle', 'fog', 'wind', 'dust', 'funnelCloud', 'blowingSnow', 'cloudy', 'partlyCloudy', 'clear']
 
 /**
  * The Phosphor icon drawn for each kind (GH-3527). They are literals, which @nuxt/icon bundles with the page
@@ -22,7 +22,8 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
   drizzle: 'i-ph-drop-half',
   fog: 'i-ph-cloud-fog',
   wind: 'i-ph-wind',
-  dust: 'i-ph-tornado',
+  dust: 'i-ph-wind',
+  funnelCloud: 'i-ph-tornado',
   blowingSnow: 'i-ph-snowflake',
   cloudy: 'i-ph-cloud',
   partlyCloudy: 'i-ph-cloud-sun',
@@ -31,13 +32,15 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
 
 /**
  * The kind of weather a WMO present-weather code `ww` (table 4677, 0..99) stands for, null where it
- * stands for none the card can name (haze, smoke, a funnel cloud, precipitation in sight but not at
- * the station, hail): the card then judges from the cloud cover and the rain of the day.
+ * stands for none the card can name (haze, smoke, dust in suspension, lightning without thunder,
+ * precipitation in sight but not at the station, hail): the card then judges from the cloud cover and the
+ * rain of the day.
  *
  * - 00-03 the state of the sky; 04-06 haze, smoke, dust in suspension: none
  * - 07-09 blowing dust or sand, dust whirls, a dust or sand storm in sight: dust
- * - 10-12 mist, shallow fog: fog; 13 lightning, 14-16 precipitation in sight, 19 funnel cloud: none;
- *   17 thunderstorm without precipitation: thunderstorm; 18 squalls: wind
+ * - 10-12 mist, shallow fog: fog; 13 lightning, 14-16 precipitation in sight: none;
+ *   17 thunderstorm without precipitation: thunderstorm; 18 squalls: wind; 19 funnel cloud (tornado or
+ *   waterspout): funnelCloud
  * - 20-29 phenomena of the hour before, not at the observation: 20 drizzle, 21 rain, 22 snow, 23 rain and
  *   snow, 24 freezing drizzle or rain, 25 rain showers, 26 snow showers, 28 fog, 29 thunderstorm; 27 hail: none
  * - 30-35 dust or sand storm; 36-39 drifting or blowing snow
@@ -64,6 +67,8 @@ export function weatherCodeToKind(code: number | null | undefined): WeatherKind 
     return 'thunderstorm'
   if (c === 18)
     return 'wind'
+  if (c === 19)
+    return 'funnelCloud'
   if (c === 20)
     return 'drizzle'
   if (c === 21 || c === 24 || c === 25)

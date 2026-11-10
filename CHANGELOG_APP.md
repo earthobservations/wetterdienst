@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
+  the notifications, the number fields' description for a screen reader) are in the language of
+  the page in all eleven languages (they were English in all but German; Hamburg German uses the
+  German ones, Luxembourgish its own) (GH-3955)
 - `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
   column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
   (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
@@ -44,6 +48,12 @@ Types of changes:
 
 ### Fixed
 
+- `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
+  (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
+  (GH-3969)
+- `[Climate stripes]` In a narrow window (a phone) the stripes' title is broken into lines (a long
+  station name after its hyphens) instead of being cut off at the edges, and the source line is on a
+  row of its own below the years instead of over them (GH-3961)
 - `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
   site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
   page's error card, where it read as no data ("no stations" on the map, an empty table or
@@ -71,6 +81,10 @@ Types of changes:
   twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
   and the run list show what was picked last. A link to `/meteogram` without a station, such as
   the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
+- `[Navigation]` On a phone, the dialogs (the search, the place dialog of "Ask the weather", the
+  Menu's sheet) hold the page behind them themselves: a finger dragged on the backdrop, on a part
+  of the dialog that does not scroll, or on past the end of its list does not move the page, where
+  that rested on the body's `overflow: hidden` alone. Pinch zoom stays (GH-3761)
 - `[Explorer]` The window offered for a refused date range that reaches past today ends today at
   the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
   and answers empty. The rows it names are those of the part up to today, and where that part fits
