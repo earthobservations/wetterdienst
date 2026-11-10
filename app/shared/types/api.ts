@@ -42,14 +42,14 @@ export type TimestampPosition = NonNullable<Schemas['CoverageParameter']['timest
 // Coverage API
 // ============================================================================
 
+/** The closed set of the unit types a parameter has, as the document lists them */
+export type UnitType = Schemas['CoverageParameter']['unit_type']
+
 /**
  * Parameter info returned in coverage response, as the backend's `discover()` builds it. The app does not
  * read `unit`, `unit_source`, `aggregation` or `timestamp_position`
  */
-/** The closed set of the unit types a parameter has, as the document lists them */
-export type UnitType = Schemas['CoverageParameter']['unit_type']
-
-export type CoverageParameter = Reads<Schemas['CoverageParameter'], 'name' | 'name_original' | 'unit_type' | 'unit' | 'description'>
+export type CoverageParameter = Reads<Schemas['CoverageParameter'], 'name' | 'name_original' | 'unit_type' | 'description'>
 
 /** A dataset in the coverage response, as `discover()` builds it */
 export type CoverageDataset = Reads<Omit<Schemas['CoverageDataset'], 'parameters'> & { parameters: CoverageParameter[] }, 'description' | 'parameters'>
@@ -380,13 +380,13 @@ export interface ApiErrorResponse {
 // ============================================================================
 
 /** The terms a provider publishes its data under, as `GET /api/providers` lists them */
-export type ProviderLicense = Schemas['LicenseModel']
+export type ProviderLicense = Reads<Schemas['LicenseModel'], 'spdx_id' | 'name' | 'url'>
 
 /** A dataset of a resolution, with how many parameters it has */
 export type ProviderDataset = Reads<Omit<Schemas['ProviderDataset'], 'extent'> & { extent?: NetworkExtent }, 'name' | 'parameters'>
 
 /** A resolution of a network, with its datasets: the app reads `name` as the `Resolution` it is */
-export type ProviderResolution = Omit<Schemas['ProviderResolution'], 'name'> & { name: Resolution }
+export type ProviderResolution = Reads<Omit<Schemas['ProviderResolution'], 'name' | 'datasets'> & { name: Resolution, datasets: ProviderDataset[] }, 'name' | 'datasets'>
 
 /** Where the stations of a network are, which the country of its provider does not say */
 export type NetworkExtent = Reads<Schemas['Extent'], 'scope' | 'continents' | 'bbox'>
@@ -399,7 +399,7 @@ export type NetworkExtent = Reads<Schemas['Extent'], 'scope' | 'continents' | 'b
 export type ProviderNetwork = Reads<Omit<Schemas['ProviderNetwork'], 'resolutions' | 'extent'> & { extent: NetworkExtent, resolutions: ProviderResolution[] | null }, 'network' | 'kind' | 'url' | 'copyright' | 'auth' | 'date_required' | 'parameters' | 'resolutions'>
 
 /** A provider of data, as `GET /api/providers` lists it */
-export type Provider = Omit<Schemas['Provider'], 'networks'> & { networks: ProviderNetwork[] }
+export type Provider = Reads<Omit<Schemas['Provider'], 'license' | 'networks'> & { license: ProviderLicense | null, networks: ProviderNetwork[] }, 'provider' | 'name_short' | 'name_local' | 'name_english' | 'country' | 'country_code' | 'license' | 'attribution' | 'networks'>
 
 /** The `metadata` block of an answer about the library: versions, time, producer, warnings and counts */
 export type ProvidersMetadata = Reads<Schemas['CatalogueMetadata'], 'api_version' | 'schema_version' | 'retrieved_at' | 'counts' | 'warnings'>

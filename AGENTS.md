@@ -21,7 +21,7 @@ uv run poe typecheck         # ty check src/wetterdienst
 uv run poe "typecheck:installed"  # the caller script against the built wheel (needs the network)
 uv run poe unused            # deptry unused-dependency check
 uv run poe sync              # uv sync
-uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change
+uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change; a REST contract change also runs `cd app && pnpm typecheck`, which generates the app's types from the OpenAPI snapshot
 uv run poe "contracts:baseline"  # the baselines of the last release (OpenAPI, CLI, Python surface, MCP, parameters): in a release commit only
 uv run poe "frames:snapshot"  # regenerate tests/provider/frames.snapshot.json, the frames the core hands out for every offline provider test, after an intended change to one
 uv run poe "renames:baseline"  # the parameters of 0.139.0 that are gone (tests/metadata/gone_since_0_139_0.json): when a 0.139.0 name is renamed, removed (add it to `REMOVED`) or back
