@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SETTINGS_DEFAULTS, unitSettingsSchema } from '../../app/composables/useSettings'
 import { requestUnitTargets, UNIT_TARGET_TYPES } from '../../app/utils/unit-targets'
+import backend from './unit-target-defaults.json'
 
 // The list the settings page offers its rows from and the requests of the Explorer send their `unit_targets` from
 // (GH-3878): the two cannot disagree, as the settings page is the only place that chooses.
@@ -14,6 +15,11 @@ describe('unit targets', () => {
       expect(units, type).toContain(listed)
       expect(SETTINGS_DEFAULTS.units[type as keyof typeof SETTINGS_DEFAULTS.units], type).toBe(listed)
     }
+  })
+
+  it('are the fixture that the backend\'s test holds to `UnitConverter.targets` (tests/model/test_app_unit_target_defaults.py)', () => {
+    // regenerated from the catalogue when it changes: a default or a unit that is not in both fails one of the two tests
+    expect(backend).toEqual(Object.fromEntries(UNIT_TARGET_TYPES.map(({ type, default: listed, units }) => [type, { default: listed, units }])))
   })
 
   it('list a unit once per type, and every type with a name on the settings page', () => {

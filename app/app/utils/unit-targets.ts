@@ -7,7 +7,9 @@
 // target (it is what BUFR publishes a rain rate in, not a unit to read one in). concentration lists the two per-litre
 // units and not the two per-cubic-metre spellings of them.
 // Each `default` is the backend's own default target for that type (`UnitConverter.targets`): what a request
-// that names no unit for the type gets, and what the settings start from. A test holds the two to each other.
+// that names no unit for the type gets, and what the settings start from. tests/unit/unit-targets.test.ts holds them to the
+// settings' defaults, and, through tests/unit/unit-target-defaults.json, tests/model/test_app_unit_target_defaults.py
+// to `UnitConverter.targets`.
 const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
 
 export interface UnitTargetType {

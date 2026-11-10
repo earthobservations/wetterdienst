@@ -206,10 +206,33 @@ const startingSettings = ref<DataSettings>({
   numAdditionalStations: 3,
 })
 const settingsFromLink: Partial<DataSettings> = {}
-if (route.query.humanize != null)
-  settingsFromLink.humanize = route.query.humanize.toString() === 'true'
-if (route.query.convertUnits != null)
-  settingsFromLink.convertUnits = route.query.convertUnits.toString() === 'true'
+// The names and the conversion a link carries are an override of the app settings only where they differ from them
+// (GH-3878): an address the page wrote before wrote both at any value, `humanize=true&convertUnits=true` in nearly
+// every one, which is no choice of the link's.
+const { settings: appSettings } = useSettings()
+if (route.query.humanize != null) {
+  const humanize = route.query.humanize.toString() === 'true'
+  if (humanize !== appSettings.value.friendlyLabels)
+    settingsFromLink.humanize = humanize
+}
+if (route.query.convertUnits != null) {
+  const convertUnits = route.query.convertUnits.toString() === 'true'
+  if (convertUnits !== appSettings.value.convertUnits)
+    settingsFromLink.convertUnits = convertUnits
+}
+// One of them that is no override leaves the address at once, so that the page read again from it (a visit to the
+// settings and back) is not given a choice that was never the link's
+const unneeded = (['humanize', 'convertUnits'] as const).filter(key => route.query[key] != null && !(key in settingsFromLink))
+if (unneeded.length) {
+  const { humanize: _humanize, convertUnits: _convertUnits, ...rest } = route.query
+  void router.replace({
+    query: {
+      ...rest,
+      ...('humanize' in settingsFromLink ? { humanize: route.query.humanize } : {}),
+      ...('convertUnits' in settingsFromLink ? { convertUnits: route.query.convertUnits } : {}),
+    },
+  }).catch(() => {})
+}
 const shapeFromLink = route.query.shape?.toString()
 if (shapeFromLink === 'long' || shapeFromLink === 'wide')
   settingsFromLink.shape = shapeFromLink
@@ -220,8 +243,7 @@ if (route.query.dropNulls != null)
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
 
 // The readable names, the unit conversion and the unit targets are the app settings' (GH-3878): `DataViewer` reads
-// them for each request, and the Explorer says here what they are, with a link to the page that changes them
-const { settings: appSettings } = useSettings()
+// them for each request, and the Explorer says here what they are, with a link to the page that changes them.
 
 // the name of a unit in the catalog (`units.degree_celsius`) ends in its symbol, "Degrees Celsius (°C)": the symbol is
 // what the summary line writes, the unit's name as it is where the catalog has no symbol for one

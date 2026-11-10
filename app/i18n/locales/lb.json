@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Eenheeten: {units}",
     "settingsUnitsOff": "Eenheeten wéi publizéiert",
     "settingsChange": "An den App-Astellunge changéieren",
-    "settingsLinkOverride": "Dëse Link leet Nimm an Eenheeten selwer fest, amplaz vun denge App-Astellungen.",
+    "settingsLinkOverride": "Dëse Link bestëmmt selwer, ob Nimm verständlech sinn an Wäerter ëmgerechent ginn, amplaz vun denge App-Astellungen. D'Eenheeten bleiwen deng.",
     "settingsUseMine": "Meng App-Astellunge benotzen",
     "valuesOptions": "Wäerter-Optiounen",
     "shape": "Form",

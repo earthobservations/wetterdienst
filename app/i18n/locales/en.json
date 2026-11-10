@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Units: {units}",
     "settingsUnitsOff": "Units as published",
     "settingsChange": "Change in the app settings",
-    "settingsLinkOverride": "This link sets the names and units itself, over your app settings.",
+    "settingsLinkOverride": "This link decides whether names are readable and values converted, instead of your app settings. The units stay yours.",
     "settingsUseMine": "Use my app settings",
     "valuesOptions": "Values Options",
     "shape": "Shape",

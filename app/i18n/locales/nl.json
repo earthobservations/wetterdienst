@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Eenheden: {units}",
     "settingsUnitsOff": "Eenheden zoals gepubliceerd",
     "settingsChange": "Wijzigen in de app-instellingen",
-    "settingsLinkOverride": "Deze link bepaalt zelf de namen en eenheden, in plaats van je app-instellingen.",
+    "settingsLinkOverride": "Deze link bepaalt of namen leesbaar zijn en waarden worden omgerekend, in plaats van je app-instellingen. De eenheden blijven de jouwe.",
     "settingsUseMine": "Mijn app-instellingen gebruiken",
     "valuesOptions": "Waardeopties",
     "shape": "Vorm",

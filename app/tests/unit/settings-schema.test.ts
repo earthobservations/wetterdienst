@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coerceSettings, SETTINGS_DEFAULTS, SETTINGS_VERSION, wdSettingsSchema } from '../../app/composables/useSettings'
+import { coerceSettings, seedFromServer, SETTINGS_DEFAULTS, SETTINGS_VERSION, settingsFromServer, wdSettingsSchema } from '../../app/composables/useSettings'
 import { DEFAULT_TOOL_ORDER } from '../../app/utils/tab-bar'
 
 describe('settings schema', () => {
@@ -83,6 +83,26 @@ describe('settings schema', () => {
       expect(result.units.temperature).toBe('degree_fahrenheit')
     })
 
+    it('are made the backend\'s default again for the two types GH-3753 changed without a bump (fraction, energy per area)', () => {
+      // a settings of version 1 written before 2026-11-02 holds what the defaults were then
+      const stored = {
+        ...structuredClone(SETTINGS_DEFAULTS),
+        version: 1,
+        units: { ...SETTINGS_DEFAULTS.units, fraction: 'decimal', energy_per_area: 'joule_per_square_centimeter' },
+      }
+      const result = coerceSettings(stored)
+      expect(result.units.fraction).toBe('percent')
+      expect(result.units.energy_per_area).toBe('megajoule_per_square_meter')
+    })
+
+    it('keeps another unit of fraction and energy per area in a settings of version 1, and these in version 2', () => {
+      const chosen = { fraction: 'one_eighth', energy_per_area: 'kilojoule_per_square_meter' }
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), version: 1, units: { ...SETTINGS_DEFAULTS.units, ...chosen } }).units)
+        .toMatchObject(chosen)
+      const decimal = { ...structuredClone(SETTINGS_DEFAULTS), units: { ...SETTINGS_DEFAULTS.units, fraction: 'decimal' } }
+      expect(coerceSettings(decimal).units.fraction).toBe('decimal')
+    })
+
     it('keeps a choice of another unit of those two in a settings of version 1', () => {
       const stored = {
         ...structuredClone(SETTINGS_DEFAULTS),
@@ -98,6 +118,31 @@ describe('settings schema', () => {
         units: { ...SETTINGS_DEFAULTS.units, power_per_area: 'watt_per_square_centimeter', conductivity: 'siemens_per_meter' },
       }
       expect(coerceSettings(stored)).toEqual(stored)
+    })
+  })
+
+  describe('the settings a server reports (GH-3878)', () => {
+    const server = { values: { humanize: false, convert_units: false, unit_targets: { temperature: 'degree_fahrenheit', speed: 'furlong', duration: 'minute', nothing: 'x' } } }
+
+    it('are the names, the conversion and the units on the list of their type', () => {
+      expect(settingsFromServer(server)).toEqual({
+        friendlyLabels: false,
+        convertUnits: false,
+        units: { temperature: 'degree_fahrenheit', duration: 'minute' },
+      })
+    })
+
+    it.each([null, undefined, 'nope', 3, {}, { values: null }, { values: { humanize: 'yes', unit_targets: 'x' } }])('are none where the answer is %j', (answer) => {
+      expect(settingsFromServer(answer)).toEqual({ units: {} })
+    })
+
+    it('are laid over settings that still hold the defaults, and not over a choice', () => {
+      const current = { ...structuredClone(SETTINGS_DEFAULTS), friendlyLabels: false }
+      current.units.speed = 'knots'
+      const result = seedFromServer({ ...current, convertUnits: true }, { values: { humanize: true, convert_units: true, unit_targets: { temperature: 'degree_fahrenheit', speed: 'beaufort' } } })
+      // humanize: the visitor's (off, the default being on) stays; temperature was the default; speed was chosen
+      expect(result.friendlyLabels).toBe(false)
+      expect(result.units).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots' })
     })
   })
 

@@ -2,6 +2,7 @@ import type { RemovableRef } from '@vueuse/core'
 import { useStorage } from '@vueuse/core'
 import { z } from 'zod'
 import { DEFAULT_TOOL_ORDER, normalizeToolOrder } from '../utils/tab-bar'
+import { UNIT_TARGET_TYPES } from '../utils/unit-targets'
 
 // Zod compiles a faster parser of an object with `new Function`, and finds out whether it may by trying it. The
 // app's Content Security Policy has no `'unsafe-eval'` (GH-3094), so the try is a violation that the browser
@@ -24,7 +25,8 @@ z.config({ jitless: true })
 export const SETTINGS_VERSION = 2
 
 // The unit choices the settings page stores, for each type of `UNIT_TARGET_TYPES`: what the requests of the Explorer
-// send as `unit_targets` (GH-3878). Each default is the backend's own for the type, a test holds the two together.
+// send as `unit_targets` (GH-3878). Each default is the backend's own for the type: the catalogue's are held to the
+// settings' by tests/unit/unit-targets.test.ts and to `UnitConverter.targets` by tests/model/test_app_unit_target_defaults.py.
 export const unitSettingsSchema = z.object({
   temperature: z.string(),
   precipitation: z.string(),
@@ -112,11 +114,18 @@ export const SETTINGS_DEFAULTS: WdSettings = {
 
 const STORAGE_KEY = 'wd_settings'
 
-// What settings of version 1 held for two types, before any request read them: a default that is not the backend's.
-// Nobody could tell it from a choice, and nothing was converted by it. Now that a request names the unit, a stored
-// one of these is the backend's default for the type again, so that a visitor who never opened the page gets what the
-// Explorer sent before; one who chose W/cm² or S/m on it chooses again.
-const VERSION_1_DEFAULTS = { power_per_area: 'watt_per_square_centimeter', conductivity: 'siemens_per_meter' } as const
+// What settings of version 1 held for four types: a default that is not the backend's, or one that was and no longer
+// is. Version 1 was never bumped when the defaults changed, so a blob written before GH-3753 (2026-11-02) holds
+// `fraction: decimal` and `energy_per_area: joule_per_square_centimeter`, and one written before GH-3878 holds the
+// W/cm² and S/m the page started with. Nobody could tell one from a choice, and nothing was converted by it. Now that
+// a request names the unit, a stored one of these is the backend's default for the type again, so that a visitor who
+// never opened the page gets what the Explorer sent before; one who chose it on the page chooses again.
+const VERSION_1_DEFAULTS = {
+  fraction: 'decimal',
+  energy_per_area: 'joule_per_square_centimeter',
+  power_per_area: 'watt_per_square_centimeter',
+  conductivity: 'siemens_per_meter',
+} as const
 
 /**
  * Validate and repair a loaded settings blob. A fully valid, current-version
@@ -154,10 +163,68 @@ export function coerceSettings(raw: unknown): WdSettings {
   return result
 }
 
+/**
+ * The settings a server reports (`GET /api/settings`, its `values` block) that the app settings hold: whether the names
+ * are readable (`humanize`), whether the values are converted (`convert_units`) and the unit of each type the
+ * settings page lists, for a unit that is on the list of its type. Anything else the answer holds, or holds wrongly, is
+ * left out.
+ */
+export function settingsFromServer(server: unknown): Pick<Partial<WdSettings>, 'friendlyLabels' | 'convertUnits'> & { units: Partial<UnitSettings> } {
+  const values = (server as { values?: Record<string, unknown> } | null)?.values
+  const seeded: ReturnType<typeof settingsFromServer> = { units: {} }
+  if (!values || typeof values !== 'object')
+    return seeded
+  if (typeof values.humanize === 'boolean')
+    seeded.friendlyLabels = values.humanize
+  if (typeof values.convert_units === 'boolean')
+    seeded.convertUnits = values.convert_units
+  const targets = values.unit_targets
+  if (targets && typeof targets === 'object') {
+    for (const { type, units } of UNIT_TARGET_TYPES) {
+      const unit = (targets as Record<string, unknown>)[type]
+      if (typeof unit === 'string' && units.includes(unit))
+        seeded.units[type as keyof UnitSettings] = unit
+    }
+  }
+  return seeded
+}
+
+/**
+ * `current` with the server's settings laid over it, each only where `current` still holds the app's default: what the
+ * visitor chose while the answer was on its way stays.
+ */
+export function seedFromServer(current: WdSettings, server: unknown): WdSettings {
+  const seeded = settingsFromServer(server)
+  // `current` may be the store's reactive object, which `structuredClone` refuses: the settings are plain JSON
+  const result: WdSettings = JSON.parse(JSON.stringify(current))
+  if (seeded.friendlyLabels !== undefined && current.friendlyLabels === SETTINGS_DEFAULTS.friendlyLabels)
+    result.friendlyLabels = seeded.friendlyLabels
+  if (seeded.convertUnits !== undefined && current.convertUnits === SETTINGS_DEFAULTS.convertUnits)
+    result.convertUnits = seeded.convertUnits
+  for (const [type, unit] of Object.entries(seeded.units)) {
+    const key = type as keyof UnitSettings
+    if (current.units[key] === SETTINGS_DEFAULTS.units[key])
+      result.units[key] = unit
+  }
+  return result
+}
+
+/** Whether the browser holds no settings of the app yet: a first visit. A storage that cannot be read holds none. */
+function holdsNoSettings(): boolean {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === null
+  }
+  catch {
+    return true
+  }
+}
+
 let store: RemovableRef<WdSettings> | null = null
 
 export function useSettings() {
   if (!store) {
+    // asked before `useStorage` writes the defaults under the key
+    const firstVisit = holdsNoSettings()
     // The storage is left to `useStorage`, which looks `window.localStorage` up itself, in a try: a browser that refuses
     // the property (its storage blocked) gets settings kept in memory for the visit. `useLocalStorage` reads the property
     // before it, outside any try, and the whole app fails to start. A read or a write that fails later (a full storage,
@@ -168,6 +235,12 @@ export function useSettings() {
     })
     // Repair legacy/corrupted payloads against the schema on first read.
     store.value = coerceSettings(store.value)
+    // A first visit starts from what the server reports (GH-3878), so that an instance that converts to Fahrenheit
+    // shows its readers Fahrenheit. The page is not held for it: until the answer comes, and where it does not, the app's
+    // defaults are the settings, and what the visitor chose meanwhile is kept. From the next visit on, the stored
+    // settings are the visitor's.
+    if (firstVisit)
+      void seedStoreFromServer(store)
   }
 
   function reset() {
@@ -175,4 +248,15 @@ export function useSettings() {
   }
 
   return { settings: store, reset }
+}
+
+async function seedStoreFromServer(target: RemovableRef<WdSettings>) {
+  try {
+    const server = await useServerSettings()
+    if (server)
+      target.value = seedFromServer(target.value, server)
+  }
+  catch {
+    // no answer, or no app to ask it in: the app's defaults stay
+  }
 }

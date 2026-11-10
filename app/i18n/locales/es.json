@@ -683,7 +683,7 @@
     "settingsUnitsOn": "Unidades: {units}",
     "settingsUnitsOff": "Unidades tal como se publican",
     "settingsChange": "Cambiar en los ajustes de la aplicación",
-    "settingsLinkOverride": "Este enlace fija por sí mismo los nombres y las unidades, en lugar de tus ajustes de la aplicación.",
+    "settingsLinkOverride": "Este enlace decide si los nombres son legibles y si los valores se convierten, en lugar de tus ajustes de la aplicación. Las unidades siguen siendo las tuyas.",
     "settingsUseMine": "Usar mis ajustes de la aplicación",
     "valuesOptions": "Opciones de valores",
     "shape": "Forma",

@@ -793,7 +793,7 @@ describe('explorer Page settings from the server (GH-2359)', () => {
       await held
       return serverSettings()
     }))
-    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?humanize=true&shape=long' })
+    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?shape=long' })
     mounted.push(wrapper)
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(settingsAsked).toBe(1))
@@ -807,7 +807,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     expect(vm.dataSettings).toEqual({
       ...SERVER_DEFAULTS,
       // the link's
-      humanize: true,
       shape: 'long',
       // the user's
       skipThreshold: 0.5,
@@ -1031,7 +1030,7 @@ describe('explorer Page names and units are the app settings\' (GH-3878)', () =>
 
       await openSettings(wrapper)
       expect(wrapper.find('[data-testid="app-settings-summary-text"]').text()).toBe('Original names · Units as published')
-      expect(wrapper.find('[data-testid="app-settings-override"]').text()).toContain('This link sets the names and units itself')
+      expect(wrapper.find('[data-testid="app-settings-override"]').text()).toContain('This link decides whether names are readable and values converted')
     })
 
     it('goes back to the app settings with "Use my app settings", and leaves the link', async () => {
@@ -1045,6 +1044,25 @@ describe('explorer Page names and units are the app settings\' (GH-3878)', () =>
       expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
       expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
       expect(wrapper.find('[data-testid="app-settings-summary-text"]').text()).toBe('Readable names · Units: °C, hPa, m/s')
+    })
+
+    it('takes no override from a link whose values are the app settings\' own, as every address the old page wrote has', async () => {
+      const { wrapper, vm } = await openLink(`/explorer?${SELECTION}&humanize=true&convertUnits=true&shape=long`)
+      expect(vm.dataSettings.humanize).toBeUndefined()
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+      // the address is rewritten without them
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize'))
+      expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+      expect(useRouter().currentRoute.value.query.shape).toBe('long')
+      await openSettings(wrapper)
+      expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+    })
+
+    it('takes the one that differs from the app settings, and not the one that does not', async () => {
+      useSettings().settings.value.friendlyLabels = false
+      const { vm } = await openLink('/explorer?humanize=true&convertUnits=true')
+      expect(vm.dataSettings.humanize).toBe(true)
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
     })
 
     it('reads a link that names only one of them', async () => {
@@ -1145,14 +1163,13 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
   })
 
-  // the page opened from the link it wrote on that server, as a reload does, the link naming
-  // `humanize` off the server's too
+  // the page opened from the link it wrote on that server, as a reload does
   async function mountFromLink(query: string) {
     endpoints.push(registerEndpoint('/api/settings', (event) => {
       asked.push(getQuery(event).shape)
       return { values: { ...wideServer(event).values, humanize: false } }
     }))
-    const wrapper = await mountSuspended(ExplorerPage, { route: `/explorer?humanize=true&shape=wide&${query}` })
+    const wrapper = await mountSuspended(ExplorerPage, { route: `/explorer?shape=wide&${query}` })
     mounted.push(wrapper)
     const vm = wrapper.vm as any
     await expect(useServerSettings()).resolves.not.toBeNull()
@@ -1163,7 +1180,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
   it('takes the link\'s Drop nulls on load, over the server\'s', async () => {
     const vm = await mountFromLink('dropNulls=true')
 
-    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'wide', dropNulls: true })
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: true })
     expect(asked).toEqual([undefined])
   })
 
@@ -1174,7 +1191,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
     await settle()
 
-    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'long', dropNulls: true })
+    expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: true })
   })
 
   it('keeps a Drop nulls the link names and the user changed (GH-2400)', async () => {

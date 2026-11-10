@@ -51,8 +51,12 @@ The settings of a request that the explorer offers are the [options](settings.md
 Its `humanize`, `convert_units` and `unit_targets` are the app's Settings page's (plain-language labels, whether
 values are converted, and the unit of each type), which the Explorer names in one line with a link to the page;
 every request names all three, so the unit of a type does not depend on the server's `WD_TS_UNIT_TARGETS`. An
-Explorer link of an earlier version may carry `humanize` and `convertUnits`: they apply to that view over the
-Settings page, and "Use my app settings" in the Explorer's Settings drops them. The forecast, its widget and the
+Explorer link of an earlier version may carry `humanize` and `convertUnits`: where they differ from the Settings
+page they apply to that view over it, and "Use my app settings" in the Explorer's Settings drops them; a link copied
+now carries neither, so its recipient's settings apply. A visitor with no saved settings starts from the server's
+(`GET /api/settings`: `humanize`, `convert_units`, and the `unit_targets` of the types the page lists); the page is
+not held for the answer, and where it is slow or fails the defaults of the app apply. From then on the settings are the
+visitor's own, whatever the server says. The forecast, its widget and the
 map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
 the Settings page does not change.
 
