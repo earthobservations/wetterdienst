@@ -1459,8 +1459,8 @@ def test_imgw_meteorology_daily_synop_names_of_the_two_kinds_are_told_apart() ->
 
 
 # the rows of `kody_stacji.csv` and `wykaz_stacji.csv` as published (read 2026-11-10): Bielsko-Biała and Warszawa
-# report synop, and their ids end in 600 and 375, the code of their per-station files; Strzyżów and Starnin are
-# precipitation stations whose ids end in 010 as does that of Pszczyna, a climate station
+# report synop, and their ids end in 600 and 375, the code of their per-station files; Strzyżów (climate), Starnin
+# and Pszczyna are climate or precipitation stations whose ids all end in 010
 _KODY = (
     "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;Wysokość n.p.m.\r\n"
     "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
@@ -1528,6 +1528,10 @@ def test_imgw_meteorology_synop_leaves_the_stations_of_the_other_datasets_as_the
     mixed = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "synop")]).all().df
     assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
     assert mixed.filter(pl.col("dataset") == "synop")["station_id"].to_list() == _SYNOP_IDS
+    # whichever comes first: the narrowing of the synop list does not carry over to the datasets after it
+    mixed = ImgwMeteorologyRequest(parameters=[("daily", "synop"), ("daily", "climate")]).all().df
+    assert mixed.filter(pl.col("dataset") == "synop")["station_id"].to_list() == _SYNOP_IDS
+    assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
 
 
 def test_imgw_meteorology_synop_does_not_list_a_station_that_shares_the_code_of_a_synop_station(
@@ -1565,8 +1569,9 @@ def test_imgw_meteorology_live_synop_stations_are_the_stations_of_the_synop_arch
     """The live list names a station for each per-station synop file of 2025, once, and none of the others (GH-3944).
 
     The files of 2025 are one for each station that reports synop, named by the last three digits of its id. Every
-    code has exactly one listed station, so that the code finds a station's file and no other's, and the list holds no
-    station that has no file but the few that closed (their files are in the older decades).
+    code has exactly one listed station, so that the code finds a station's file and no other's. The list may name
+    stations that have no file of 2025: those that closed (their files are in the older decades) and those new in 2026
+    (Barwice 353160213 is in the monthly files from 2026-09-10 only); it is held to fewer than 100 stations.
     """
     from wetterdienst import Settings  # noqa: PLC0415
     from wetterdienst.provider.imgw.fileindex import list_files_for_interval  # noqa: PLC0415

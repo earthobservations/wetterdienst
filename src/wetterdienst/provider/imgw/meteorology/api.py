@@ -976,11 +976,14 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
 
 
 #: IMGW's own list of the stations of its meteorological archives (`Opis.txt`: the station code, the name and the
-#: five-character code), which gives every station once, the synop stations among them
+#: five-character code), which gives every station once, the synop stations among them. `Opis.txt` also names the
+#: maps of what each station type holds, keyed by that code (`mapa_zawartosci_synop.pdf`, `_klimat.pdf`, `_opad.pdf`)
 _STATION_LIST_URL = (
     "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/wykaz_stacji.csv"
 )
-#: a row of that list whose five-character code is of at most three digits: the code of a synop station, which is the
+#: a row of that list whose five-character code is of at most three digits: the code of a synop station, as the map
+#: `mapa_zawartosci_synop.pdf` documents it (read 2026-11-10, dated 2026-10-06: its 68 codes have three digits and are
+#: all among the 73 of the list; the klimat and opad maps carry four and five), which is the
 #: ``NNN`` of its per-station files in `dobowe/synop` (``"352200375","WARSZAWA","  375"``). The climate and the
 #: precipitation stations carry four and five digits (``"250180460","ADAMOWICE","95414"``), and none had fewer when
 #: the list was read (2026-11-10: 73 synop codes, all different, 59 of them with data in 2026; for the 63 of them
@@ -992,11 +995,11 @@ def _synop_station_ids(settings: Settings) -> pl.Series:
     """Give the ids of the stations that report synop, read from IMGW's list of its stations (GH-3944).
 
     The synop archives hold per-station files for the stations that report synop, which are a small part of the
-    stations of `kody_stacji.csv` (59 of about 800). IMGW publishes no list of the synop stations on its own, and the
-    listings of the archives give the three-digit code of a station only, which many stations of the other kinds share
-    (250240010 and 253150010 end in 010): the nine-digit id is what tells them apart, and `wykaz_stacji.csv` gives it
-    with the five-character code that marks the synop stations. One small file, kept as long as the catalogue, and no
-    directory is listed for it.
+    stations of `kody_stacji.csv` (59 of about 800). IMGW documents them by the five-character code of its map
+    `mapa_zawartosci_synop.pdf` (three digits for each of its 68 stations, where the klimat and opad maps carry four
+    and five). The listings of the archives give that three-digit code only, which many stations of the other kinds
+    share (250240010 and 253150010 end in 010): the nine-digit id is what tells them apart, and `wykaz_stacji.csv`
+    gives it with the code. One small file, kept as long as the catalogue, and no directory is listed for it.
     """
     file = download_file(
         url=_STATION_LIST_URL,
