@@ -44,6 +44,8 @@ COPY app/modules ./modules
 # the config, the pages and the server routes import): the build fails without it.
 COPY app/shared ./shared
 COPY app/nuxt.config.ts ./
+# the files the icon scan of the build reads, which the config imports (GH-3527)
+COPY app/icon-scan.ts ./
 
 RUN pnpm run build
 

@@ -26,6 +26,10 @@ Types of changes:
   spaced out on a phone), so that they print legibly: on A4 with 1 in margins the smallest text of
   each chart is 6.2 pt (from a 1100 px window it was 5.2 pt for the Explorer, 4.8 pt for the
   stripes and 3.9 pt for the Forecast) (GH-3558)
+- `[App]` The weather of the forecast's day cards and of the map panel's day rows is drawn as an
+  icon in the app's icon set (sun, cloud, rain, snow, fog, wind, thunderstorm, and so on), in the
+  text colour of the card, where an emoji of the system's font was drawn, which looked different on
+  every system. The words a screen reader reads are the same (GH-3527)
 - `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
   eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
   `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
