@@ -12,6 +12,13 @@ resolved from the accompanying station-code list, which gives no region, so `reg
 catchment it lists a station under, with its hydrographic code (`Odra (1)`), is `river`. Both daily and
 monthly summaries are provided.
 
+Five synop stations have daily synop archives and are in no station list that gives a position, so they
+are not listed and their history cannot be requested: Zgorzelec (351150405), Gdańsk-Port Północny
+(354180140), Bydgoszcz (353170240), Gdańsk-Rębiechowo (354180150) and Żarnowiec (354180131). IMGW's
+`wykaz_stacji.csv` names them without a position, and its `mapa_zawartosci_synop.pdf` gives approximate
+positions and no elevation. Three of them are listed under newer ids (other station records, which are not
+merged by name).
+
 ## Status columns
 
 Every measurement in these files is followed by a status column, documented per file in the

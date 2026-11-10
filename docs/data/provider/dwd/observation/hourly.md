@@ -378,7 +378,7 @@ needs the hour exactly leaves the flagged rows out.
 
 | name                           | original name           | description                        | unit | constraints |
 |--------------------------------|-------------------------|------------------------------------|------|-------------|
-| {term}`pressure_air_sea_level` | luftdruck_nn            | Air pressure reduced to sea level. | hPa  | >=0         |
+| {term}`pressure_air_sea_level` | luftdruck_nn            | Air pressure reduced to sea level. DWD's German sheet says for all pressure values: "Stündliche Druckwerte sind entsprechend den SYNOP-Konventionen abgelegt. Dabei wird der Stunde x der Messwert von 10 min vorher zugeordnet" (at UTC 11 the value from UTC 10:50); the English sheet names the station height only. Confirmed at Berlin-Alexanderplatz (00399), the network's only station: it equals the 10-minute value of the stamp minus 10 min in 93,898 of 93,898 hours, 2015-08 to 2026-11. | hPa  | >=0         |
 | {term}`pressure_air_site`      | luftdruck_stationshoehe | Pressure at station height, following the SYNOP conventions: the hour x corresponds to the measurement from 10 min before (at UTC 11 the value from UTC 10:50). | hPa  | >=0         |
 
 ### urban_temperature_air
@@ -414,11 +414,11 @@ needs the hour exactly leaves the flagged rows out.
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
-| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth, following the SYNOP conventions: at UTC 11 the mean value of the 1 minute interval ending UTC 10:50 is given. | °C | - |
+| {term}`temperature_soil_0_05m`      | erdbt_005 | Soil temperature in 5 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours, 2015-08 to 2026-11), so wetterdienst leaves the position null. | °C | - |
+| {term}`temperature_soil_0_1m`      | erdbt_010 | Soil temperature in 10 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours, 2015-08 to 2026-11), so wetterdienst leaves the position null. | °C | - |
+| {term}`temperature_soil_0_2m`      | erdbt_020 | Soil temperature in 20 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours, 2015-08 to 2026-11), so wetterdienst leaves the position null. | °C | - |
+| {term}`temperature_soil_0_5m`      | erdbt_050 | Soil temperature in 50 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours, 2015-08 to 2026-11), so wetterdienst leaves the position null. | °C | - |
+| {term}`temperature_soil_1m`      | erdbt_100 | Soil temperature in 100 cm depth. DWD's sheet: the hour x holds the mean value of the 1 minute interval ending 10 min before (at UTC 11, ending UTC 10:50). Contradicted at Berlin-Alexanderplatz (00399), the network's only station: the value stamped H equals the instantaneous 10-minute value of H:50, 50 min after the stamp (10 to 100 cm, 93,038 of 93,038 hours, 2015-08 to 2026-11), so wetterdienst leaves the position null. | °C | - |
 
 ### urban_sun
 
