@@ -224,6 +224,19 @@ INSTANT_BY_REFERENCE_TIME: tuple[InstantEvidence, ...] = (
         "the hour x corresponds to the measurement from 10 min before",
         datasets="urban_pressure",
     ),
+    # the hourly air temperature, dew point, humidity and pressure of the moisture, dew point and pressure datasets
+    # are readings of 10 to 30 min before the stamp (measured against the 10 minute series and NOAA ISD, GH-3134)
+    _entry(
+        "DwdObservationMetadata",
+        "hourly",
+        "tt td tt_std td_std rf_std p_std p0 p",
+        "page",
+        "The stamp's value is a reading",
+        datasets="dew_point moisture pressure",
+        section="dwd",
+        network="observation",
+        note=True,
+    ),
 )
 
 #: Rows left `None` whose own wording nevertheless reads as a mean or a maximum to the rule below, each with the

@@ -60,7 +60,7 @@ _DAILY_TEMPERATURE_PARAMETERS = [
 _DAILY_WEATHER_PARAMETERS = [
     {"name": "sunshine_duration", "timestamp_position": "start", "name_original": "drv_24hr_sun_dur", **_SUNSHINE},
     {"name": "snow_depth", "timestamp_position": "instant", "name_original": "snow_depth", **_SNOW_DEPTH},
-    {"name": "snow_depth_new", "timestamp_position": "instant", "name_original": "frsh_snw_amt", **_SNOW_DEPTH},
+    {"name": "snow_depth_new", "timestamp_position": "end", "name_original": "frsh_snw_amt", **_SNOW_DEPTH},
 ]
 
 _HOURLY_RAIN_PARAMETERS = [
