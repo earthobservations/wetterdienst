@@ -459,3 +459,24 @@ describe('the Forecast\'s icons, panel toggles and the Tailwind colours of the m
     expect(contrast(shade('blue', '400')!, CARD)).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe('the weather icons of the forecast (GH-3527)', () => {
+  // an icon is a meaningful graphic beside words that name it: 3:1 against what it lies on (WCAG 1.4.11). It is drawn
+  // in `text-toned` (ink-700 by day, ink-300 at night) on the rows of the map's panel (the card), and on the day cards
+  // (the paper tint, the tint of today's card, and at night the page and the card)
+  it('is in the colours the stylesheet gives `text-toned`, which the ratios below are those of', () => {
+    expect(css).toMatch(/--ui-text-toned:\s*var\(--color-ink-700\)/)
+    expect(css).toMatch(/--ui-text-toned:\s*var\(--color-ink-300\)/)
+  })
+
+  it.each([
+    ['by day, on a card', ink(700), WHITE],
+    ['by day, on the paper', ink(700), ink(50)],
+    ['by day, on the tint of a day card', ink(700), ink(100)],
+    ['at night, on a card', ink(300), darkToken('ui-bg')],
+    ['at night, on the page', ink(300), ink(950)],
+    ['at night, on the accented fill', ink(300), darkToken('ui-bg-accented')],
+  ])('clears 3:1: %s', (_where, icon, ground) => {
+    expect(contrast(icon, ground)).toBeGreaterThanOrEqual(3)
+  })
+})
