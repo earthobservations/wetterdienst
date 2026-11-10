@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { EXTERNAL, inSection, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
+import { EXTERNAL, inSection, PROJECT, REFERENCE } from '~/utils/sections'
 
 // The navigation of the narrow layout (GH-3518): four tools as tabs at the foot of the window, where a thumb
 // reaches them, and a fifth that opens the rest (the home page, the tools, the reference, the project,
 // the settings) in a sheet. There are five tools (GH-3650) and a bar holds five items, so the bar holds four tools and
 // the Menu; which four is the reader's choice (GH-3846, `useTabBar`), Forecast, Explorer, Stripes and History until
-// they choose, and the sheet lists all five tools in the order of the header, with the link to the chooser. The tab of
+// they choose. The sheet lists all five tools in that order (GH-3934): the four of the bar first, each with a short
+// line of the bar's colour at its left, then the ones that are only in the Menu, each with a lighter line, and no
+// heading or rule between them. A line is no information to a screen reader, so each tool says in visually hidden
+// text where it is ("in the bar", "only in the Menu"). The link to the chooser follows the tools. The tab of
 // the page one is on is marked (`aria-current="page"`); where the page is one that has no tab but is in the sheet (a
 // tool the reader left out of the bar, the reference and the project's pages, the settings) the Menu's tab is marked
 // instead (`aria-current="true"`, which a screen reader says, and the bar over it), since the sheet is where it is
@@ -50,6 +53,11 @@ watch(wide, (isWide) => {
 
 const isCurrent = (to: string) => to === '/' ? route.path === '/' : inSection({ to }, route.path)
 const { barTools, menuTools } = useTabBar()
+// every tool in the order of the list, the bar's first, each with the group it is in
+const sheetTools = computed(() => [
+  ...barTools.value.map(tool => ({ ...tool, group: 'bar' as const })),
+  ...menuTools.value.map(tool => ({ ...tool, group: 'menu' as const })),
+])
 // the page is one that has no tab and is found in the sheet: a tool that is not in the bar, the reference, the project
 // and the settings. The home page and the legal pages are not among them.
 const inSheet = computed(() => [...menuTools.value, ...REFERENCE, ...PROJECT].some(section => isCurrent(section.to)))
@@ -114,10 +122,11 @@ const inSheet = computed(() => [...menuTools.value, ...REFERENCE, ...PROJECT].so
                 {{ t('nav.home') }}
               </NuxtLink>
             </li>
-            <li v-for="tool in TOOLS" :key="tool.key">
-              <NuxtLink :to="tool.to" class="sheet-link" :aria-current="isCurrent(tool.to) ? 'page' : undefined" @click="open = false">
+            <li v-for="tool in sheetTools" :key="tool.key" :data-tool="tool.key" :data-group="tool.group">
+              <NuxtLink :to="tool.to" class="sheet-link sheet-tool" :data-group="tool.group" :aria-current="isCurrent(tool.to) ? 'page' : undefined" @click="open = false">
+                <span class="tool-mark" aria-hidden="true" />
                 <ToolTile :tile="tool.tile" :icon="tool.icon" size="2rem" />
-                {{ t(tool.label) }}
+                {{ t(tool.label) }}<span class="sr-only">, {{ t(tool.group === 'bar' ? 'shell.toolInBar' : 'shell.toolMenuOnly') }}</span>
               </NuxtLink>
             </li>
             <li>

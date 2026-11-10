@@ -202,6 +202,8 @@
     "tools": "Hulpmiddelen",
     "reference": "Naslag",
     "project": "Project",
+    "toolInBar": "in de balk",
+    "toolMenuOnly": "alleen in het Menu",
     "search": "Zoeken",
     "searchPlaceholder": "Ga naar een pagina, een station, een aanbieder of een instelling",
     "searchEmpty": "Niets gevonden",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} staat nu op plaats {position} van {total} in het Menu.",
       "enteredBar": "{tool} staat nu in de balk, op plaats {position} van {total}. {other} staat nu alleen nog in het Menu.",
       "leftBar": "{tool} staat nu alleen nog in het Menu. {other} staat nu in de balk, op plaats {position} van {total}.",
-      "resetDone": "De balk is weer zoals aan het begin: {tools}."
+      "resetDone": "De balk is weer zoals aan het begin: {tools}.",
+      "hintHeader": "Op een breed scherm toont de kop alle hulpmiddelen als tabbladen, in deze volgorde. De eerste vier zijn ook de balk op een telefoon, de andere blijven daar in het Menu.",
+      "instructionsHeader": "Sleep een hulpmiddel aan zijn handvat, of gebruik de pijlknoppen op zijn rij.",
+      "listHeader": "Hulpmiddelen in de kop, op volgorde",
+      "reorderedHeader": "{tool} staat nu op plaats {position} van {total} in de kop.",
+      "resetHeader": "Volgorde herstellen",
+      "resetDoneHeader": "De volgorde is weer zoals aan het begin: {tools}."
     }
   },
   "units": {

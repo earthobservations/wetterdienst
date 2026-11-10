@@ -202,6 +202,8 @@
     "tools": "Narzędzia",
     "reference": "Informacje",
     "project": "Projekt",
+    "toolInBar": "na pasku",
+    "toolMenuOnly": "tylko w Menu",
     "search": "Szukaj",
     "searchPlaceholder": "Przejdź do strony, stacji, dostawcy lub ustawienia",
     "searchEmpty": "Brak wyników",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} jest teraz na miejscu {position} z {total} w Menu.",
       "enteredBar": "{tool} jest teraz na pasku, na miejscu {position} z {total}. {other} jest teraz tylko w Menu.",
       "leftBar": "{tool} jest teraz tylko w Menu. {other} jest teraz na pasku, na miejscu {position} z {total}.",
-      "resetDone": "Pasek wrócił do ustawień początkowych: {tools}."
+      "resetDone": "Pasek wrócił do ustawień początkowych: {tools}.",
+      "hintHeader": "Na szerokim ekranie nagłówek pokazuje wszystkie narzędzia jako karty, w tej kolejności. Pierwsze cztery to także pasek na telefonie, pozostałe zostają tam w Menu.",
+      "instructionsHeader": "Przeciągnij narzędzie za uchwyt albo użyj przycisków ze strzałkami w jego wierszu.",
+      "listHeader": "Narzędzia w nagłówku, po kolei",
+      "reorderedHeader": "{tool} jest teraz na miejscu {position} z {total} w nagłówku.",
+      "resetHeader": "Przywróć kolejność",
+      "resetDoneHeader": "Kolejność wróciła do ustawień początkowych: {tools}."
     }
   },
   "units": {

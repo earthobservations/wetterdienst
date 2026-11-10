@@ -2,11 +2,14 @@
 import type { Section } from '~/utils/sections'
 import type { MoveNote } from '~/utils/tab-bar'
 import { TOOLS } from '~/utils/sections'
-import { BAR_SIZE, describeMove, moveTool, slotAt } from '~/utils/tab-bar'
+import { BAR_SIZE, describeMove, HEADER_SIZE, moveTool, slotAt } from '~/utils/tab-bar'
 
 // The choice of the four tools in the phone's tab bar (GH-3846, on the settings page): all the tools in one list, the
 // four of the bar above a line and the ones that are only in the Menu below it, and a preview of the bar that follows
-// the list, also while a tool is being dragged. A tool moves by its handle (a pointer: mouse, finger, pen), and by the
+// the list, also while a tool is being dragged. From the header's breakpoint (64 rem, GH-3936) there is no bar and no
+// Menu, so the chooser is the one list in the order of the header's tabs: the same split with the header's size
+// (`HEADER_SIZE`, all the tools today, so no second group, no line and no preview). A "more tools" entry would only
+// set a smaller size there, and the second group would come from the same list. It is the same setting. A tool moves by its handle (a pointer: mouse, finger, pen), and by the
 // arrow buttons on its row, which do all that dragging does and are the way for a keyboard and a screen reader
 // (WCAG 2.5.7 Dragging Movements, 2.1.1): a move by them is said in a polite status, and the focus stays on the button
 // that was pressed, though its row is built again where it crosses the line.
@@ -22,6 +25,10 @@ import { BAR_SIZE, describeMove, moveTool, slotAt } from '~/utils/tab-bar'
 // none of the libraries, SortableJS or the like, announces a move or has an alternative to dragging).
 const { t } = useI18n()
 const { order, setOrder, resetOrder } = useTabBar()
+// the header's breakpoint, the same media query as AppHeader's and AppTabBar's
+const wide = useMediaQuery('(min-width: 64rem)')
+/** How many of the list are in the first group: the header's tabs from the breakpoint, the bar's tools below it */
+const size = computed(() => wide.value ? HEADER_SIZE : BAR_SIZE)
 
 const byKey = (key: string): Section => TOOLS.find(tool => tool.key === key)!
 const name = (key: string) => t(byKey(key).label)
@@ -36,9 +43,11 @@ const shown = computed(() => drag.value
 const previewBar = computed(() => shown.value.slice(0, BAR_SIZE))
 const previewMenu = computed(() => shown.value.slice(BAR_SIZE))
 
+// The labels are the phone's: with the header's size the second group is empty. A "more tools" entry brings the
+// header's own labels for both with it.
 const groups = computed(() => [
-  { id: 'bar', label: t('settings.bar.inBar'), keys: order.value.slice(0, BAR_SIZE), first: 0 },
-  { id: 'menu', label: t('settings.bar.inMenu'), keys: order.value.slice(BAR_SIZE), first: BAR_SIZE },
+  { id: 'bar', label: wide.value ? t('settings.bar.listHeader') : t('settings.bar.inBar'), keys: order.value.slice(0, size.value), first: 0 },
+  { id: 'menu', label: t('settings.bar.inMenu'), keys: order.value.slice(size.value), first: size.value },
 ].filter(group => group.keys.length))
 
 /** Where the row at `index` would be dropped on, for the bar that marks it: before the row when the tool comes from below it, after it when from above */
@@ -52,7 +61,9 @@ function dropMark(index: number): 'before' | 'after' | undefined {
 // what a move did, in words, in a status that a screen reader reads out when it changes
 const announcement = ref('')
 function say(note: MoveNote) {
-  return t(`settings.bar.${note.kind}`, {
+  // in the header there is only a place in its tabs, not "in the bar"
+  const kind = wide.value && note.kind === 'reorderedBar' ? 'reorderedHeader' : note.kind
+  return t(`settings.bar.${kind}`, {
     tool: name(note.tool),
     other: note.other ? name(note.other) : '',
     position: note.position,
@@ -61,7 +72,7 @@ function say(note: MoveNote) {
 }
 
 function apply(key: string, next: string[]) {
-  const note = describeMove(order.value, next, key)
+  const note = describeMove(order.value, next, key, size.value)
   if (!note)
     return
   setOrder(next)
@@ -86,7 +97,9 @@ async function step(key: string, delta: -1 | 1) {
 
 function reset() {
   resetOrder()
-  announcement.value = t('settings.bar.resetDone', { tools: names(order.value.slice(0, BAR_SIZE)) })
+  announcement.value = wide.value
+    ? t('settings.bar.resetDoneHeader', { tools: names(order.value.slice(0, size.value)) })
+    : t('settings.bar.resetDone', { tools: names(order.value.slice(0, size.value)) })
 }
 
 function rowRects() {
@@ -144,16 +157,16 @@ useEventListener('keydown', (event: KeyboardEvent) => {
 <template>
   <div ref="root" class="space-y-5" :class="{ 'bar-dragging': drag }" data-testid="bar-chooser">
     <p class="text-sm text-muted">
-      {{ t('settings.bar.hint') }}
+      {{ wide ? t('settings.bar.hintHeader') : t('settings.bar.hint') }}
     </p>
 
     <p class="text-sm">
-      {{ t('settings.bar.instructions') }}
+      {{ wide ? t('settings.bar.instructionsHeader') : t('settings.bar.instructions') }}
     </p>
 
     <!-- stays in view under the header while the list is scrolled or dragged, so the result is always seen; only the
          lists pass under it, and it has an edge of its own -->
-    <div class="bar-sticky">
+    <div v-if="!wide" class="bar-sticky">
       <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
         {{ t('settings.bar.preview') }}
       </div>
@@ -185,10 +198,11 @@ useEventListener('keydown', (event: KeyboardEvent) => {
     </div>
 
     <div v-for="group in groups" :key="group.id" :class="group.id === 'menu' ? 'bar-line' : undefined" :data-testid="`bar-group-${group.id}`">
-      <h3 :id="`bar-heading-${group.id}`" class="mb-2 text-sm font-semibold">
+      <!-- in the header there is one list, which its name says; a heading over the only group would be one more thing to read -->
+      <h3 v-if="!wide" :id="`bar-heading-${group.id}`" class="mb-2 text-sm font-semibold">
         {{ group.label }}
       </h3>
-      <ol class="space-y-2" :aria-labelledby="`bar-heading-${group.id}`">
+      <ol class="space-y-2" :aria-labelledby="wide ? undefined : `bar-heading-${group.id}`" :aria-label="wide ? group.label : undefined">
         <li
           v-for="(key, position) in group.keys"
           :key="key"
@@ -239,7 +253,7 @@ useEventListener('keydown', (event: KeyboardEvent) => {
 
     <div class="flex">
       <UButton
-        :label="t('settings.bar.reset')"
+        :label="wide ? t('settings.bar.resetHeader') : t('settings.bar.reset')"
         icon="i-ph-arrow-counter-clockwise"
         color="neutral"
         variant="outline"

@@ -202,6 +202,8 @@
     "tools": "Nástroje",
     "reference": "Příručka",
     "project": "Projekt",
+    "toolInBar": "v liště",
+    "toolMenuOnly": "pouze v Nabídce",
     "search": "Hledat",
     "searchPlaceholder": "Přejít na stránku, stanici, poskytovatele nebo nastavení",
     "searchEmpty": "Nic nenalezeno",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} je nyní na místě {position} z {total} v Nabídce.",
       "enteredBar": "{tool} je nyní v liště, na místě {position} z {total}. {other} je nyní jen v Nabídce.",
       "leftBar": "{tool} je nyní jen v Nabídce. {other} je nyní v liště, na místě {position} z {total}.",
-      "resetDone": "Lišta je zpět ve výchozím stavu: {tools}."
+      "resetDone": "Lišta je zpět ve výchozím stavu: {tools}.",
+      "hintHeader": "Na širokém displeji zobrazuje záhlaví všechny nástroje jako karty v tomto pořadí. První čtyři jsou také lištou na telefonu, ostatní tam zůstanou v Nabídce.",
+      "instructionsHeader": "Přetáhni nástroj za úchyt, nebo použij tlačítka se šipkami na jeho řádku.",
+      "listHeader": "Nástroje v záhlaví v pořadí",
+      "reorderedHeader": "{tool} je nyní na místě {position} z {total} v záhlaví.",
+      "resetHeader": "Obnovit pořadí",
+      "resetDoneHeader": "Pořadí je zpět ve výchozím stavu: {tools}."
     }
   },
   "units": {

@@ -202,6 +202,8 @@
     "tools": "Outils",
     "reference": "Référence",
     "project": "Projet",
+    "toolInBar": "dans la barre",
+    "toolMenuOnly": "seulement dans le Menu",
     "search": "Rechercher",
     "searchPlaceholder": "Aller à une page, une station, un fournisseur ou un réglage",
     "searchEmpty": "Aucun résultat",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} est maintenant à la place {position} sur {total} dans le Menu.",
       "enteredBar": "{tool} est maintenant dans la barre, à la place {position} sur {total}. {other} est maintenant seulement dans le Menu.",
       "leftBar": "{tool} est maintenant seulement dans le Menu. {other} est maintenant dans la barre, à la place {position} sur {total}.",
-      "resetDone": "La barre est revenue à son état d'origine : {tools}."
+      "resetDone": "La barre est revenue à son état d'origine : {tools}.",
+      "hintHeader": "Sur un grand écran, l'en-tête affiche tous les outils sous forme d'onglets, dans cet ordre. Les quatre premiers forment aussi la barre d'un téléphone ; les autres y restent dans le Menu.",
+      "instructionsHeader": "Fais glisser un outil par sa poignée, ou appuie sur les boutons fléchés de sa ligne.",
+      "listHeader": "Outils de l'en-tête, dans l'ordre",
+      "reorderedHeader": "{tool} est maintenant à la place {position} sur {total} dans l'en-tête.",
+      "resetHeader": "Réinitialiser l'ordre",
+      "resetDoneHeader": "L'ordre est revenu à son état d'origine : {tools}."
     }
   },
   "units": {

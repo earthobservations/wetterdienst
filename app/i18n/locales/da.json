@@ -202,6 +202,8 @@
     "tools": "Værktøjer",
     "reference": "Opslag",
     "project": "Projekt",
+    "toolInBar": "i bjælken",
+    "toolMenuOnly": "kun i Menuen",
     "search": "Søg",
     "searchPlaceholder": "Gå til en side, en station, en udbyder eller en indstilling",
     "searchEmpty": "Intet fundet",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} står nu på plads {position} af {total} i Menuen.",
       "enteredBar": "{tool} er nu i bjælken, på plads {position} af {total}. {other} er nu kun i Menuen.",
       "leftBar": "{tool} er nu kun i Menuen. {other} er nu i bjælken, på plads {position} af {total}.",
-      "resetDone": "Bjælken er tilbage til standard: {tools}."
+      "resetDone": "Bjælken er tilbage til standard: {tools}.",
+      "hintHeader": "På en bred skærm viser sidehovedet alle værktøjer som faner i denne rækkefølge. De første fire er også bjælken på en telefon, de andre bliver dér i Menuen.",
+      "instructionsHeader": "Træk et værktøj i dets håndtag, eller brug pileknapperne på dets række.",
+      "listHeader": "Værktøjer i sidehovedet, i rækkefølge",
+      "reorderedHeader": "{tool} står nu på plads {position} af {total} i sidehovedet.",
+      "resetHeader": "Nulstil rækkefølgen",
+      "resetDoneHeader": "Rækkefølgen er tilbage til standard: {tools}."
     }
   },
   "units": {

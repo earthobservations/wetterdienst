@@ -202,6 +202,8 @@
     "tools": "Warktüüch",
     "reference": "Naslaan",
     "project": "Projekt",
+    "toolInBar": "in'n Balken",
+    "toolMenuOnly": "blots in't Menü",
     "search": "Söken",
     "searchPlaceholder": "Na en Siet, en Station, en Anbeder oder en Instellen gahn",
     "searchEmpty": "Nix funnen",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} steiht nu op Platz {position} vun {total} in't Menü.",
       "enteredBar": "{tool} is nu in'n Balken, op Platz {position} vun {total}. {other} is nu blots noch in't Menü.",
       "leftBar": "{tool} is nu blots noch in't Menü. {other} is nu in'n Balken, op Platz {position} vun {total}.",
-      "resetDone": "De Balken is wedder as vörher: {tools}."
+      "resetDone": "De Balken is wedder as vörher: {tools}.",
+      "hintHeader": "Op en breden Schirm wiest de Koppreeg all Warktüüch as Tabs, in disse Reeg. De eersten veer sünd ok de Balken op'n Handy, de annern blievt dor in't Menü.",
+      "instructionsHeader": "Treck en Warktüüch an'n Greep, oder bruuk de Piel-Knööp in sien Reeg.",
+      "listHeader": "Warktüüch in de Koppreeg, in Reeg",
+      "reorderedHeader": "{tool} steiht nu op Platz {position} vun {total} in de Koppreeg.",
+      "resetHeader": "Reeg trüchsetten",
+      "resetDoneHeader": "De Reeg is wedder as vörher: {tools}."
     }
   },
   "units": {

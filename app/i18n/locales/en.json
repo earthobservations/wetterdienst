@@ -202,6 +202,8 @@
     "tools": "Tools",
     "reference": "Reference",
     "project": "Project",
+    "toolInBar": "in the bar",
+    "toolMenuOnly": "only in the Menu",
     "search": "Search",
     "searchPlaceholder": "Go to a page, a station, a provider or a setting",
     "searchEmpty": "Nothing found",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} moved to place {position} of {total} in the Menu.",
       "enteredBar": "{tool} is now in the bar, at place {position} of {total}. {other} is now only in the Menu.",
       "leftBar": "{tool} is now only in the Menu. {other} is now in the bar, at place {position} of {total}.",
-      "resetDone": "The bar is back to its default: {tools}."
+      "resetDone": "The bar is back to its default: {tools}.",
+      "hintHeader": "On a wide screen, the header shows all the tools as tabs, in this order. The first four are also the bar on a phone; the others stay in its Menu.",
+      "instructionsHeader": "Drag a tool by its handle, or press the arrow buttons on its row.",
+      "listHeader": "Tools in the header, in order",
+      "reorderedHeader": "{tool} moved to place {position} of {total} in the header.",
+      "resetHeader": "Reset the order",
+      "resetDoneHeader": "The order is back to its default: {tools}."
     }
   },
   "units": {

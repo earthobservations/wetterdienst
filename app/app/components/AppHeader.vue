@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { inSection, TOOLS } from '~/utils/sections'
+import { inSection } from '~/utils/sections'
 
 // The header of every page but the widget (GH-3518). In the frame of the pages, so the logo stands over the left
 // edge of each page's title. From 64 rem (1024 px at the default text size, wider when the reader has set a larger
-// one) it carries the five tools as tabs and the reference as a disclosure; below that four of the tools, the ones the
-// reader chose (GH-3846), are in the tab bar at the foot of the window (AppTabBar.vue), the others in its menu, and
-// the header keeps the logo, the search and the settings.
+// one) it carries the five tools as tabs, in the order the reader chose (GH-3936, `useTabBar`, the same list as the
+// tab bar's), and the reference as a disclosure; below that four of the tools, the first four of that order
+// (GH-3846), are in the tab bar at the foot of the window (AppTabBar.vue), the others in its menu, and the header
+// keeps the logo, the search and the settings. The start page's tiles, the footer and the palette keep the fixed
+// order of `TOOLS`.
 const { t } = useI18n()
+const { headerTools } = useTabBar()
 const route = useRoute()
 // the search is labelled from 80 rem, where the header has room for the word; in rem, so that a reader who has set
 // a larger text size gets the shorter header sooner, as Tailwind's `xl:` does
@@ -24,7 +27,7 @@ const wide = useMediaQuery('(min-width: 80rem)')
 
       <nav :aria-label="t('shell.mainNav')" class="hidden h-full items-center gap-1 lg:flex">
         <ul class="flex h-full items-center gap-1">
-          <li v-for="tool in TOOLS" :key="tool.key" class="h-full flex items-center">
+          <li v-for="tool in headerTools" :key="tool.key" class="h-full flex items-center">
             <NuxtLink
               :to="tool.to"
               class="nav-tab"
