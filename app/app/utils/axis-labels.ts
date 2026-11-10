@@ -40,8 +40,10 @@ export interface LabelChoice {
 /**
  * The bars that carry a label. The regular labels are those at the multiples of the smallest step at which none
  * of them touches the next (by year, so a series with gaps in it is labelled at 1960, 1980, 2000 and not at every
- * n-th bar); a label that would touch one of the highlighted bars' is left out, so that these always win. A label
- * keeps inside the plot, as `labelLeft` places it, so a bar at the edge is not asked to be wider than the plot.
+ * n-th bar), in the phase of the step that labels most bars (1970, 1990, 2010 where that is more than 1960, 1980,
+ * 2000); a label that would touch one of the highlighted bars' is left out, so that these always win. A label keeps
+ * inside the plot, as `labelLeft` places it, so a bar at the edge is not asked to be wider than the plot. Where not
+ * even the last step fits and nothing is asked about, one label is written, not none.
  */
 export function chooseLabels(input: LabelChoice): number[] {
   const { positions, widths, width, steps, highlights, gap = 6 } = input
@@ -57,17 +59,40 @@ export function chooseLabels(input: LabelChoice): number[] {
     return first.start < second.end + gap && second.start < first.end + gap
   }
 
+  const asked = [...marked].filter(index => index >= 0 && index < count)
+  const candidatesOf = (step: number, phase: number) =>
+    positions.flatMap((position, index) => !marked.has(index) && Number.isInteger(position) && position % step === phase ? [index] : [])
+  const apart = (list: number[]) => list.every((index, at) => at === 0 || !touches(list[at - 1]!, index))
+  const unasked = (list: number[]) => list.filter(index => !asked.some(other => touches(index, other)))
+
   let regular: number[] = []
-  for (const step of steps) {
-    const candidates = positions.flatMap((position, index) => !marked.has(index) && Number.isInteger(position) && position % step === 0 ? [index] : [])
-    if (candidates.every((index, at) => at === 0 || !touches(candidates[at - 1]!, index))) {
-      regular = candidates
+  for (const [at, step] of steps.entries()) {
+    // The other phases of a step that is a multiple of an earlier one (1970, 1990, 2010 as well as 1960, 1980,
+    // 2000 for 20 years): the one that labels most bars wins, and where two label as many, the one that starts first
+    const base = steps.slice(0, at).findLast(other => step % other === 0)
+    let best: number[] | null = null
+    for (let phase = 0; phase < step; phase += base ?? step) {
+      const all = candidatesOf(step, phase)
+      const kept = unasked(all)
+      if (apart(all) && (best === null || kept.length > best.length || (kept.length === best.length && (kept[0] ?? Infinity) < (best[0] ?? Infinity))))
+        best = kept
+    }
+    if (best !== null) {
+      regular = best
       break
     }
   }
-  const asked = [...marked].filter(index => index >= 0 && index < count)
-  const kept = regular.filter(index => !asked.some(other => touches(index, other)))
-  return [...kept, ...asked].sort((a, b) => a - b)
+  // not even the last step fits, and nothing is asked about: the first bar the steps reach, rather than none
+  if (regular.length === 0 && asked.length === 0) {
+    for (const step of steps.toReversed()) {
+      const first = candidatesOf(step, 0)[0]
+      if (first !== undefined) {
+        regular = [first]
+        break
+      }
+    }
+  }
+  return [...regular, ...asked].sort((a, b) => a - b)
 }
 
 /** The `left` of a label centred on its bar, kept inside the plot (CSS: the label's width is a length, the bar a share) */

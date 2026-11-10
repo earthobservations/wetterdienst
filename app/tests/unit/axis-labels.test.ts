@@ -47,7 +47,8 @@ describe('the labels under a chart of years', () => {
     expect(decades).toEqual([1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020].filter(year => !MISSING.has(year)))
     // a phone's plot (320 px less the value labels and the page's margins)
     const narrow = chosen(240).boxes.map(box => box.year).filter(year => year !== 2026)
-    expect(narrow).toEqual([1980, 2000])
+    // step 20 in the phase that labels more (1970, 1990, 2010: 1960 is in a gap), 1943 to 1969 stay without
+    expect(narrow).toEqual([1970, 1990, 2010])
     expect(chosen(300).boxes.map(box => box.year)).toEqual([1970, 1980, 1990, 2000, 2010, 2026])
   })
 
@@ -62,6 +63,24 @@ describe('the labels under a chart of years', () => {
       expect(box.start).toBeGreaterThanOrEqual(0)
       expect(box.end).toBeLessThanOrEqual(300)
     }
+  })
+
+  it('take the earlier phase of a step where two label as many bars', () => {
+    const list = [1960, 1970, 1980, 1990]
+    // four bars of 25 px, labels of 30 px: every 10 years touches, every 20 does not, in either phase
+    const input = { positions: list, widths: list.map(() => 30), width: 100, steps: [10, 20], highlights: [] }
+    expect(chooseLabels(input)).toEqual([0, 2])
+    // and the phase that labels more wins: 1970, 1990 and 2010 against 1960 alone
+    const gapped = [1960, 1970, 1975, 1990, 1995, 2010]
+    expect(chooseLabels({ ...input, positions: gapped, widths: gapped.map(() => 30), width: 150 })).toEqual([1, 3, 5])
+  })
+
+  it('write a single label where not even the widest step fits and nothing is asked about', () => {
+    const list = [1943, 1950, 1960, 1970, 1980, 1990, 2000]
+    const widths = list.map(() => 40)
+    expect(chooseLabels({ positions: list, widths, width: 30, steps: [10, 20, 50, 100], highlights: [] })).toEqual([2])
+    // where one is asked about, it is the one written
+    expect(chooseLabels({ positions: list, widths, width: 30, steps: [10, 20, 50, 100], highlights: [6] })).toEqual([6])
   })
 
   it('write only the one asked about where the plot has no width yet', () => {
