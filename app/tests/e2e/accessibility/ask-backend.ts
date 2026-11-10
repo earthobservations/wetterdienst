@@ -42,7 +42,7 @@ export function rainValues(station: string) {
 export function summerValues(station: string) {
   const last = lastSummerYear()
   return Array.from({ length: last - 1985 }, (_, index) => 1986 + index).flatMap(year =>
-    [6, 7, 8].map(month => reading(station, 'monthly', 'climate_summary', 'temperature_air_mean_2m', `${year}-0${month}-01T00:00:00+00:00`, year === last ? 18.1 : 16.2 + 0.3 * Math.sin(year))),
+    [6, 7, 8].map(month => reading(station, 'monthly', 'climate_summary', 'temperature_air_mean_2m', `${year}-0${month}-01T00:00:00+00:00`, year === last ? 18.1 : 16.2 + 1.2 * Math.sin(year))),
   )
 }
 

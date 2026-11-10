@@ -221,7 +221,7 @@ const pointLine = computed(() => {
 })
 
 // the chart's bars and caption
-const chart = computed<{ bars: Bar[], caption: string, unit: string, diverging?: boolean, every: number, emphasis: 'all' | 'one', rowLabel?: (bar: Bar) => string } | null>(() => {
+const chart = computed<{ bars: Bar[], caption: string, unit: string, diverging?: boolean, every?: number, emphasis: 'all' | 'one', rowLabel?: (bar: Bar) => string } | null>(() => {
   if (props.question === 'rain' && rain.value?.answer)
     return { bars: rain.value.answer.hours, caption: t('ask.rain.chart', { unit: 'mm' }), unit: 'mm', every: 3, emphasis: 'all', rowLabel: bar => `${bar.label}:00` }
   if (props.question === 'summer' && summer.value) {
@@ -230,7 +230,6 @@ const chart = computed<{ bars: Bar[], caption: string, unit: string, diverging?:
       caption: t('ask.summer.chart', { from: summer.value.normalFrom, to: summer.value.normalTo, unit: '°C' }),
       unit: '°C',
       diverging: true,
-      every: 10,
       emphasis: 'one',
     }
   }

@@ -53,6 +53,10 @@ Types of changes:
   still reports, and the closer one that has stopped, with its distance and last year) and offers
   the closer one; it also says whether the place is a click, the centre of the map or a station's
   position, and the screen-reader announcement carries the reason (GH-3875)
+- `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
+  the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
+  under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one
+  asked about is always written and none touches another, on a phone included (GH-3893)
 - `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
   (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
   (GH-3969)
