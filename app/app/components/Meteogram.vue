@@ -10,7 +10,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
-import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
+import { WEATHER_ICONS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
@@ -2248,8 +2248,8 @@ watch(
             <span class="block text-xs font-normal text-muted tabular-nums">{{ d.dayMonth }}</span>
             <span v-if="d.partialHours" class="block text-xs font-normal text-muted" data-testid="partial-day">{{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}</span>
           </span>
-          <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
-          <span class="text-2xl leading-none select-none" aria-hidden="true">{{ WEATHER_SYMBOLS[d.kind] }}</span>
+          <!-- the icon is a decoration; the words are what a screen reader reads (WCAG 1.1.1). text-toned: 3:1 and more on the row, by day and at night -->
+          <UIcon :name="WEATHER_ICONS[d.kind]" class="size-6 text-toned" aria-hidden="true" :data-weather="d.kind" />
           <span class="text-sm text-toned">
             <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
             <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums">
@@ -2277,9 +2277,9 @@ watch(
               <div class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
                 {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
               </div>
-              <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
-              <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow" aria-hidden="true">
-                {{ WEATHER_SYMBOLS[d.kind] }}
+              <!-- the icon is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+              <div class="my-3 animate-bounce-slow">
+                <UIcon :name="WEATHER_ICONS[d.kind]" class="size-8 text-toned" aria-hidden="true" :data-weather="d.kind" />
               </div>
               <div class="sr-only">
                 {{ t(`meteogram.chart.weather.${d.kind}`) }}
@@ -2294,7 +2294,7 @@ watch(
                 {{ d.tempLabel }}
               </div>
               <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
-                <span aria-hidden="true">💧</span>
+                <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
                 <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
               </div>
             </div>
@@ -2306,7 +2306,7 @@ watch(
 </template>
 
 <style scoped>
-/* Smooth custom bounce animation for weather emojis. Once, and not at all for a visitor who asked
+/* Smooth custom bounce animation for the weather icons. Once, and not at all for a visitor who asked
    for less motion: movement that starts by itself and goes on for more than five seconds needs a way
    to be stopped (WCAG 2.2.2), and a decoration is not worth one. */
 @keyframes bounce-slow {

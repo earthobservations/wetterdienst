@@ -597,44 +597,55 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(wrapper!.text()).toContain('No data available for the selected query')
   })
 
-  // the weather of a day card is a symbol, which a screen reader does not read: the words are in the
-  // card, and the symbol is hidden from it (WCAG 1.1.1)
-  const symbolsOf = () => [...document.body.querySelectorAll('[aria-hidden="true"]')].map(node => node.textContent?.trim())
+  // the weather of a day card is an icon, which a screen reader does not read: the words are in the
+  // card, and the icon is hidden from it (WCAG 1.1.1). `iconsOf` are the Phosphor icons drawn for the weather
+  // of the cards, by the name the icon component is given (GH-3527)
+  const iconsOf = () => [...document.body.querySelectorAll('[data-weather]')].map(node => node.getAttribute('data-weather'))
+  const hiddenIconsOf = () => [...document.body.querySelectorAll('[data-weather][aria-hidden="true"]')]
   const wordsOf = () => [...document.body.querySelectorAll('.sr-only')].map(node => node.textContent?.trim())
 
-  it('gives the symbol of a day card a text alternative, and hides the symbol, where no weather code is served', async () => {
+  it('gives the icon of a day card a text alternative, and hides the icon, where no weather code is served', async () => {
     await showMeteogram()
     await showCompact()
     // 6 mm of rain over 10 to 16 degrees and no weather code: the heuristic's rain
-    expect(symbolsOf()).toContain('🌧')
+    expect(iconsOf()).toContain('rain')
+    expect(hiddenIconsOf().length).toBe(iconsOf().length)
     expect(wordsOf()).toContain('Rain')
     // and the drop before the rain's amount is a decoration with the word for it beside
-    expect(symbolsOf()).toContain('💧')
+    expect(document.body.querySelector('[aria-hidden="true"][class*="i-ph:drop"]')).not.toBeNull()
     expect(wordsOf()).toContain('Precipitation:')
   })
 
   // three days, each with the weather code of its hours: rain (61), a thunderstorm (95), clear sky (0)
   it.each([
-    [61, '🌧', 'Rain'],
-    [95, '⛈', 'Thunderstorm'],
-    [0, '☀', 'Sunny'],
+    [61, 'rain', 'i-ph:cloud-rain', 'Rain'],
+    [95, 'thunderstorm', 'i-ph:cloud-lightning', 'Thunderstorm'],
+    [0, 'clear', 'i-ph:sun', 'Sunny'],
+    [2, 'partlyCloudy', 'i-ph:cloud-sun', 'Partly cloudy'],
+    [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
-    [33, '🌪', 'Dust or sand storm'],
-    [38, '🌨', 'Blowing snow'],
-    [69, '🌨', 'Sleet'],
+    [33, 'dust', 'i-ph:tornado', 'Dust or sand storm'],
+    [38, 'blowingSnow', 'i-ph:snowflake', 'Blowing snow'],
+    [69, 'sleet', 'i-ph:cloud-snow', 'Sleet'],
     // a funnel cloud names no weather the card could: it judges from the cloud cover and the rain, here none
-    [19, '☀', 'Sunny'],
-  ])('names the weather of weather code %i as %s %s in a day card', async (code, symbol, words) => {
+    [19, 'clear', 'i-ph:sun', 'Sunny'],
+  ])('names the weather of weather code %i as %s (icon %s, words %s) in a day card', async (code, kind, icon, words) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
     plotly.newPlot.mockClear()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...coded] })
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
     await showCompact()
-    expect(symbolsOf()).toContain(symbol)
+    expect(iconsOf()).toContain(kind)
+    // the icon drawn is the Phosphor icon of the kind, hidden from a screen reader, which reads the words
+    const drawn = [...document.body.querySelectorAll(`[data-weather="${kind}"]`)]
+    expect(drawn.length).toBeGreaterThan(0)
+    for (const node of drawn) {
+      expect(node.getAttribute('aria-hidden')).toBe('true')
+      expect(node.className).toContain(icon)
+    }
     expect(wordsOf()).toContain(words)
-    // the symbol is not text of the card for a screen reader: nothing outside the hidden nodes names it
-    expect(wordsOf()).not.toContain(symbol)
+    expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 
   // in every language, in its own word for the rain

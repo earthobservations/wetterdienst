@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[App]` The weather of the forecast's day cards and of the map panel's day rows is drawn as an
+  icon in the app's icon set (sun, cloud, rain, snow, fog, wind, thunderstorm, and so on), in the
+  text colour of the card, where an emoji of the system's font was drawn, which looked different on
+  every system. The words a screen reader reads are the same (GH-3527)
 - `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
   eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
   `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
