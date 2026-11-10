@@ -156,6 +156,11 @@ _ImgwHydrologyMetadataSpec = {
 ImgwHydrologyMetadata = build_metadata_model(_ImgwHydrologyMetadataSpec, "ImgwHydrologyMetadata")
 
 
+#: the name of a daily archive (``codz_2023_03.zip``, ``codz_2023.zip``): a prefix, the year, and the month where the
+#: archive is one of a month. The whole name is matched, so one with more or other tokens has no period
+_DAILY_FILE_NAME = r"^[^_]+_(\d{4})(?:_(\d{1,2}))?\.zip$"
+
+
 def _hydrology_daily_file_period() -> tuple[pl.Expr, pl.Expr]:
     """Give the first and last instant a hydrology daily zip file covers, from the ``year`` and ``month`` of its name.
 
@@ -367,10 +372,6 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             )
         return df
 
-    def _get_urls(self, dataset: DatasetModel) -> list[str]:
-        """Get all urls for the given dataset."""
-        return list(self._get_archives(dataset))
-
     def _get_archives(self, dataset: DatasetModel) -> dict[str, CacheExpiry]:
         """Get the url of each archive of the dataset the request reads, with the expiry it is downloaded with.
 
@@ -396,14 +397,12 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         if dataset.resolution.value == Resolution.DAILY:
             # daily files are either per-month ("codz_YYYY_MM.zip", historical) or a single
             # consolidated file per year ("codz_YYYY.zip", used from 2023 onwards); month is
-            # null for the latter and _hydrology_daily_file_period() covers the whole year. A name that
-            # is neither has a null period: it is refused where the window selects, and kept 5 minutes
+            # null for the latter and _hydrology_daily_file_period() covers the whole year. One anchored
+            # pattern reads both: a name that is neither (a third token, a second that is no month) has a null
+            # period, which is refused where the window selects and kept 5 minutes elsewhere
             df_files = df_files.with_columns(
-                pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
-            )
-            df_files = df_files.with_columns(
-                pl.col("year_month").list.first().cast(pl.Int64, strict=False).alias("year"),
-                pl.col("year_month").list.get(1, null_on_oob=True).cast(pl.Int64, strict=False).alias("month"),
+                pl.col("file").str.extract(_DAILY_FILE_NAME, 1).cast(pl.Int64).alias("year"),
+                pl.col("file").str.extract(_DAILY_FILE_NAME, 2).cast(pl.Int64).alias("month"),
             )
             start, end = _hydrology_daily_file_period()
         else:

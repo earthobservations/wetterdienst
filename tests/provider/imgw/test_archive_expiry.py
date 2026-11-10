@@ -2,8 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """How long the IMGW archives are kept in the cache: 12 hours once their period has ended (GH-3931).
 
-The clock is pinned (`fileindex._now`) to 2026-11-10: November 2026 and the year 2026 are under way. The names are
-those of the archives of IMGW's file server, the periods are those `_get_archives` reads from them.
+The clock is pinned (`fileindex._now`) to 2026-11-10: November 2026 and the year 2026 are under way. The names follow
+the patterns of the archives, and the periods are those `_get_archives` reads from them. The per-station daily synop
+(`YYYY_NNN_s.zip`) is named only for years that are over: IMGW has no such file for the year under way, which is
+archived per month (GH-3941), so where the clock is set back to put such a year under way it is a stand-in.
 """
 
 from __future__ import annotations
@@ -118,6 +120,21 @@ def test_hydrology_keeps_an_archive_whose_name_has_no_period_five_minutes(
     assert expiries[names[0]] is FIVE
 
 
+@pytest.mark.parametrize("name", ["codz_2022_ab.zip", "codz_2022_popr.zip", "codz_2022_05_x.zip", "codz_abc.zip"])
+def test_hydrology_refuses_a_daily_name_that_is_only_half_readable(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """A year with a second token that is no month, or a third token, has no period: it is not read as a year file.
+
+    Read as one it would be selected, and kept 12 hours. With a window it is refused as it always was; without one it
+    is kept 5 minutes.
+    """
+    with pytest.raises(ValueError, match="Cannot read the period"):
+        _hydrology(monkeypatch, "daily", [name, "codz_2022_05.zip"], WINDOW)
+    assert _hydrology(monkeypatch, "daily", [name, "codz_2022_05.zip"], None) == {
+        name: FIVE,
+        "codz_2022_05.zip": TWELVE,
+    }
+
+
 @pytest.mark.parametrize(
     ("now", "expected"),
     [
@@ -161,8 +178,8 @@ def test_hydrology_changes_the_expiry_at_the_end_of_the_period(
             # per station: a year, and the decades of the older data; the files of other stations are not named
             "daily",
             "synop",
-            ["1951_1955_010_s.zip", "2024_010_s.zip", "2025_010_s.zip", "2026_010_s.zip", "2026_020_s.zip"],
-            [TWELVE, TWELVE, TWELVE, FIVE],
+            ["1951_1955_010_s.zip", "2024_010_s.zip", "2025_010_s.zip", "2025_020_s.zip"],
+            [TWELVE, TWELVE, TWELVE],
         ),
     ],
 )
@@ -210,6 +227,63 @@ def test_meteorology_changes_the_expiry_of_a_year_at_the_turn_of_the_year(monkey
         assert _meteorology(monkeypatch, "daily", "climate", names[:1], WINDOW) == {names[0]: expected}
         assert _meteorology(monkeypatch, "monthly", "climate", names[1:2], WINDOW) == {names[1]: expected}
         assert _meteorology(monkeypatch, "daily", "synop", names[2:], WINDOW) == {names[2]: expected}
+
+
+def _record_downloads(monkeypatch: pytest.MonkeyPatch) -> dict[str, CacheExpiry]:
+    """Replace the download of the archives by one that gives the expiry each URL is asked for with."""
+    asked: dict[str, CacheExpiry] = {}
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        asked.update(dict.fromkeys(urls, ttl))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(fileindex, "download_files", download_files)
+    return asked
+
+
+def test_hydrology_downloads_each_archive_with_the_expiry_of_its_period(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What reaches the download is the expiry of the period of each URL, not one for all of them."""
+    asked = _record_downloads(monkeypatch)
+    names = ["codz_2022_05.zip", "codz_2027_01.zip"]
+    monkeypatch.setattr(hydrology_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{n}" for n in names])
+    values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
+    settings = Settings(cache_disable=True)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=WINDOW[0], end=WINDOW[1], settings=settings, request=SimpleNamespace(settings=settings)
+    )
+
+    assert values._collect_station_parameter_or_dataset("149180020", ImgwHydrologyMetadata.daily.hydrology).is_empty()  # noqa: SLF001
+    assert asked == {"https://x/codz_2022_05.zip": TWELVE, "https://x/codz_2027_01.zip": FIVE}
+
+
+def test_meteorology_downloads_each_archive_with_the_expiry_of_its_period(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same for the meteorology: a closed month is 12 hours, the month under way 5 minutes."""
+    asked = _record_downloads(monkeypatch)
+    names = ["2022_05_k.zip", "2026_11_k.zip"]
+    monkeypatch.setattr(meteorology_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{n}" for n in names])
+    values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
+    settings = Settings(cache_disable=True)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=WINDOW[0], end=WINDOW[1], settings=settings, request=SimpleNamespace(settings=settings)
+    )
+
+    values._collect_station_parameter_or_dataset(STATION, ImgwMeteorologyMetadata.daily.climate)  # noqa: SLF001
+    assert asked == {"https://x/2022_05_k.zip": TWELVE, "https://x/2026_11_k.zip": FIVE}
+
+
+def test_archives_of_one_expiry_are_downloaded_in_one_batch_with_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The common case, every archive closed: the one expiry the archives have is the one they are downloaded with."""
+    calls: list[tuple[list[str], CacheExpiry]] = []
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        calls.append((urls, ttl))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(fileindex, "download_files", download_files)
+    files = download_archives({"a": TWELVE, "b": TWELVE}, Settings(cache_disable=True))
+
+    assert [file.url for file in files] == ["a", "b"]
+    assert calls == [(["a", "b"], TWELVE)]
 
 
 def test_the_archives_are_downloaded_with_their_own_expiry_and_come_back_in_their_order(

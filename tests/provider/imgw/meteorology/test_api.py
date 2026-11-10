@@ -475,7 +475,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
     """Test fetching of daily synop data.
 
     Synop daily is archived per-station ("YYYY_<station-code>_s.zip"), not per-month like
-    the other meteorology daily datasets, and needs its own file-selection logic in _get_urls().
+    the other meteorology daily datasets, and needs its own file-selection logic in _get_archives().
     """
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "synop")],
@@ -1221,7 +1221,7 @@ def test_imgw_meteorology_daily_climate_across_the_end_of_k_d_t() -> None:
 def _meteorology_urls(
     monkeypatch: pytest.MonkeyPatch, resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
 ) -> list[str]:
-    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    """Run the file selection of ``_get_archives`` on a listing, for a window of UTC instants."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
@@ -1231,7 +1231,7 @@ def _meteorology_urls(
     values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(imgw_meteorology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
     dataset = getattr(ImgwMeteorologyMetadata, resolution).climate
-    return [url.rsplit("/", 1)[-1] for url in values._get_urls(dataset, "249180010")]  # noqa: SLF001
+    return [url.rsplit("/", 1)[-1] for url in values._get_archives(dataset, "249180010")]  # noqa: SLF001
 
 
 def _utc(*args: int) -> dt.datetime:

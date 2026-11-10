@@ -354,7 +354,7 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
 def _hydrology_urls(
     monkeypatch: pytest.MonkeyPatch, dataset_resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
 ) -> list[str]:
-    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    """Run the file selection of ``_get_archives`` on a listing, for a window of UTC instants."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
@@ -365,7 +365,7 @@ def _hydrology_urls(
     values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(imgw_hydrology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
     dataset = getattr(ImgwHydrologyMetadata, dataset_resolution).hydrology
-    return values._get_urls(dataset)  # noqa: SLF001
+    return list(values._get_archives(dataset))  # noqa: SLF001
 
 
 def _utc(*args: int) -> dt.datetime:

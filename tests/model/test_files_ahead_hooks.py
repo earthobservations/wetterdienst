@@ -276,9 +276,9 @@ def test_chmi_names_no_sub_daily_file_where_the_window_is_open() -> None:
             "daily",
             "synop",
             True,
-            ["1951_1955_010_s.zip", "2020_010_s.zip", "2026_010_s.zip", "2026_020_s.zip"],
+            ["1951_1955_010_s.zip", "2020_010_s.zip", "2024_010_s.zip", "2024_020_s.zip"],
         ),
-        ("monthly", "synop", False, ["1951_m_s.zip", "2020_m_s.zip", "2026_m_s.zip"]),
+        ("monthly", "synop", False, ["1951_m_s.zip", "2020_m_s.zip", "2024_m_s.zip"]),
     ],
 )
 def test_imgw_names_only_the_archives_that_one_station_reads(
@@ -287,7 +287,8 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
     """The daily synop is archived per station; the files of the other datasets are those of every station.
 
     Each archive is named with the expiry the collection downloads it with, which follows its period (GH-3931): the
-    years that are over for 12 hours, the year that is under way for 5 minutes.
+    years that are over for 12 hours, the year that is under way for 5 minutes. The clock is set to the middle of 2024
+    so that the listing holds both, with the names of years that are over.
     """
     downloaded: list[str] = []
     expiries: list[CacheExpiry] = []
@@ -298,10 +299,10 @@ def test_imgw_names_only_the_archives_that_one_station_reads(
         return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
 
     monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
-    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 11, 10, tzinfo=UTC))
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2024, 6, 1, tzinfo=UTC))
     monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
     request = ImgwMeteorologyRequest(
-        parameters=[(resolution, dataset)], start="2020-01-01", end="2026-11-03", settings=_settings()
+        parameters=[(resolution, dataset)], start="2020-01-01", end="2024-12-31", settings=_settings()
     )
     values: TimeseriesValues = stations_result(request, resolution, dataset, "249180010").values()
     model = request.metadata[resolution][dataset]

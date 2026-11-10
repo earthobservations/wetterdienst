@@ -159,7 +159,7 @@ def test_a_period_folder_that_is_an_empty_directory_has_no_files(server: NginxLi
 def test_the_outage_page_reaches_the_values_of_both_providers(
     server: NginxLike, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`_get_urls` of the hydrology and the meteorology values raise it: no file list that reads as no data."""
+    """`_get_archives` of the hydrology and the meteorology values raise it: no file list that reads as no data."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
@@ -177,9 +177,9 @@ def test_the_outage_page_reaches_the_values_of_both_providers(
     hydrology = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
     hydrology.sr = SimpleNamespace(start=None, end=None, settings=settings)  # ty: ignore[invalid-assignment]
     with pytest.raises(DownloadError, match="not the index page of a directory"):
-        hydrology._get_urls(ImgwHydrologyMetadata.daily.hydrology)  # noqa: SLF001
+        hydrology._get_archives(ImgwHydrologyMetadata.daily.hydrology)  # noqa: SLF001
 
     meteorology = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
     meteorology.sr = SimpleNamespace(start=None, end=None, settings=settings)  # ty: ignore[invalid-assignment]
     with pytest.raises(DownloadError, match="not the index page of a directory"):
-        meteorology._get_urls(ImgwMeteorologyMetadata.daily.synop, "249180100")  # noqa: SLF001
+        meteorology._get_archives(ImgwMeteorologyMetadata.daily.synop, "249180100")  # noqa: SLF001

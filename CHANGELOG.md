@@ -27,9 +27,9 @@ Types of changes:
 ### Changed
 
 - `imgw/hydrology` and `imgw/meteorology` fetch an archive of a month or year that has ended again
-  at most every 12 hours, not every 5 minutes (the one under way stays at 5 minutes), the fetch-ahead
-  of `imgw/meteorology` included. A long all-station query no longer downloads each archive twice;
-  one that IMGW rewrites later is picked up within 12 hours (GH-3931)
+  at most every 12 hours, not every 5 minutes (the one under way stays at 5 minutes), the
+  fetch-ahead of `imgw/meteorology` included. A long all-station query no longer downloads each
+  archive twice; one that IMGW rewrites later is picked up within 12 hours (GH-3931)
 - Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
   12 hours: `historical` of `dwd/observation`, `dwd/derived`, `dwd/phenology`, SMHI
   `corrected-archive`, Met Office station-years, MeteoSwiss `_historical` (from 1 February; 5

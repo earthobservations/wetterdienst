@@ -795,10 +795,6 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         df = df.select(exp1, exp2)
         return df.unpivot(index=["station_id", "timestamp"], variable_name="parameter", value_name=value_name)
 
-    def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
-        """Get URLs for the given dataset."""
-        return list(self._get_archives(dataset, station_id))
-
     def _get_archives(self, dataset: DatasetModel, station_id: str) -> dict[str, CacheExpiry]:
         """Get the URL of each archive of the dataset the request reads, with the expiry it is downloaded with.
 
