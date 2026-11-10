@@ -612,7 +612,7 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(hiddenIconsOf().length).toBe(iconsOf().length)
     expect(wordsOf()).toContain('Rain')
     // and the drop before the rain's amount is a decoration with the word for it beside
-    expect(document.body.querySelector('[aria-hidden="true"][class*="i-ph:drop"]')).not.toBeNull()
+    expect(document.body.querySelector('[aria-hidden="true"][class~="i-ph:drop"]')).not.toBeNull()
     expect(wordsOf()).toContain('Precipitation:')
   })
 
@@ -622,6 +622,11 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     [95, 'thunderstorm', 'i-ph:cloud-lightning', 'Thunderstorm'],
     [0, 'clear', 'i-ph:sun', 'Sunny'],
     [2, 'partlyCloudy', 'i-ph:cloud-sun', 'Partly cloudy'],
+    [3, 'cloudy', 'i-ph:cloud', 'Cloudy'],
+    [18, 'wind', 'i-ph:wind', 'Windy'],
+    [20, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
+    [53, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
+    [71, 'snow', 'i-ph:cloud-snow', 'Snow'],
     [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
     [33, 'dust', 'i-ph:tornado', 'Dust or sand storm'],
@@ -642,7 +647,7 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(drawn.length).toBeGreaterThan(0)
     for (const node of drawn) {
       expect(node.getAttribute('aria-hidden')).toBe('true')
-      expect(node.className).toContain(icon)
+      expect(node.classList.contains(icon)).toBe(true)
     }
     expect(wordsOf()).toContain(words)
     expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)

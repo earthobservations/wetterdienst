@@ -91,6 +91,28 @@ describe('the icons and words of the weather kinds', () => {
       expect(icon).toMatch(/^i-ph-[a-z-]+$/)
   })
 
+  // the table, as it is drawn: a change of an icon is a change of this test too
+  it('is the table of icons the issue asks for', () => {
+    expect(WEATHER_ICONS).toStrictEqual({
+      thunderstorm: 'i-ph-cloud-lightning',
+      rain: 'i-ph-cloud-rain',
+      snow: 'i-ph-cloud-snow',
+      sleet: 'i-ph-cloud-snow',
+      drizzle: 'i-ph-drop-half',
+      fog: 'i-ph-cloud-fog',
+      wind: 'i-ph-wind',
+      dust: 'i-ph-tornado',
+      blowingSnow: 'i-ph-snowflake',
+      cloudy: 'i-ph-cloud',
+      partlyCloudy: 'i-ph-cloud-sun',
+      clear: 'i-ph-sun',
+    })
+  })
+
+  it('draws the drizzle other than the drop that stands before the amount of rain of a day card', () => {
+    expect(Object.values(WEATHER_ICONS)).not.toContain('i-ph-drop')
+  })
+
   it('draws the sky, the rain, the snow and the fog differently', () => {
     const drawn = ['clear', 'partlyCloudy', 'cloudy', 'rain', 'snow', 'fog', 'thunderstorm', 'wind'] as const
     expect(new Set(drawn.map(kind => WEATHER_ICONS[kind])).size).toBe(drawn.length)

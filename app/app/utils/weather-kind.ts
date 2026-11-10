@@ -8,16 +8,18 @@ export type WeatherKind = 'thunderstorm' | 'rain' | 'snow' | 'sleet' | 'drizzle'
 export const WEATHER_KINDS: readonly WeatherKind[] = ['thunderstorm', 'rain', 'snow', 'sleet', 'drizzle', 'fog', 'wind', 'dust', 'blowingSnow', 'cloudy', 'partlyCloudy', 'clear']
 
 /**
- * The Phosphor icon drawn for each kind (GH-3527), as literals so that the icon scan of the build and
- * `tests/unit/icon-names.test.ts` see every one. The icon is hidden from a screen reader; the words above
- * are its name. A day card spans a whole day, so there is no night variant to draw.
+ * The Phosphor icon drawn for each kind (GH-3527). They are literals, which @nuxt/icon bundles with the page
+ * only because the scan of the build reads `.ts` files (`ICON_SCAN` in `icon-scan.ts`; its default reads
+ * components only, and an icon it does not find is asked of the server at first paint). `tests/unit/icon-scan.test.ts`
+ * and `tests/unit/icon-names.test.ts` hold every one to the scan and to the installed set. The icon is hidden
+ * from a screen reader; the words above are its name. A day card spans a whole day, so there is no night variant.
  */
 export const WEATHER_ICONS: Record<WeatherKind, string> = {
   thunderstorm: 'i-ph-cloud-lightning',
   rain: 'i-ph-cloud-rain',
   snow: 'i-ph-cloud-snow',
   sleet: 'i-ph-cloud-snow',
-  drizzle: 'i-ph-drop',
+  drizzle: 'i-ph-drop-half',
   fog: 'i-ph-cloud-fog',
   wind: 'i-ph-wind',
   dust: 'i-ph-tornado',
