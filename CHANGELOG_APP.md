@@ -32,6 +32,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Layout]` At 320 px the Italian and French stripes and history pages, and the Spanish settings
+  page, no longer scroll sideways: the "About" button and the "Restore defaults" button wrap their
+  label, and the unit selects of the settings fill the card, in every language, with the full unit
+  name shown (GH-3845, GH-3858)
 - `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
   the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
   not only a tooltip (GH-3951)
