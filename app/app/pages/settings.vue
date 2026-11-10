@@ -107,7 +107,8 @@ function unitItems(units: readonly string[]) {
             </h2>
           </div>
         </template>
-        <UFieldGroup class="w-full sm:w-auto">
+        <!-- toggle buttons: the chosen theme is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3969) -->
+        <UFieldGroup role="group" :aria-label="t('settings.theme')" class="w-full sm:w-auto">
           <UButton
             v-for="opt in themeOptions"
             :key="opt.value"
@@ -116,6 +117,7 @@ function unitItems(units: readonly string[]) {
             :ui="{ base: 'flex-auto justify-center max-[24rem]:px-1.5 sm:flex-none', leadingIcon: 'max-[24rem]:hidden' }"
             color="neutral"
             :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
+            :aria-pressed="colorMode.preference === opt.value"
             @click="colorMode.preference = opt.value"
           />
         </UFieldGroup>

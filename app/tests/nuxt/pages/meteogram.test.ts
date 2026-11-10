@@ -64,6 +64,30 @@ describe('meteogram Page', () => {
     await vi.waitFor(() => expect(vm.error).toBe('Backend error 500 Internal Server Error'))
   })
 
+  it('tells a 200 page of HTML as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
+  })
+
+  it('tells JSON without the list of values as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ message: 'something else answered' }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: .*no list of `values`/))
+  })
+
   it('tells a refused request by the backend\'s detail', async () => {
     // answered as FastAPI answers a request that fails validation: the entries under `detail`, which tell it
     // in place of the status text
@@ -400,6 +424,23 @@ describe('meteogram Page failures in the active language', () => {
     const vm = wrapper.vm as any
     vm.selectedStation = station
     await vi.waitFor(() => expect(vm.error).toBe(expected))
+  })
+
+  it.each([
+    ['en', 'Backend error 502: '],
+    ['de', 'Backend-Fehler 502: '],
+    ['fr', 'Erreur du backend 502\u00A0: '],
+    ['pl', 'Błąd backendu 502: '],
+  ])('tells an answer that is a page as the backend\'s own failure in %s, as the proxy\'s problem reads (GH-3841)', async (language, start) => {
+    await inLanguage(language)
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+    const wrapper = await mountSuspended(MeteogramPage)
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    vm.selectedStation = station
+    await vi.waitFor(() => expect(vm.error).toBe(`${start}The API answered with a web page, not data. The address of the API may be wrong, or a proxy in front of it answered with its own page.`))
   })
 
   it.each([

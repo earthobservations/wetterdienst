@@ -105,6 +105,26 @@ describe('settings Page', () => {
     expect(vm.colorMode.preference).toBe('light')
   })
 
+  it('tells which theme is chosen: aria-pressed is true on that button alone, in a group named Appearance (GH-3969)', async () => {
+    const wrapper = await mountPage({ attachTo: document.body })
+    const vm = wrapper.vm as any
+    const group = wrapper.find('[role="group"][aria-label="Appearance"]')
+    expect(group.exists()).toBe(true)
+    const pressed = () => Object.fromEntries(group.findAll('button').map(button => [button.text(), button.attributes('aria-pressed')]))
+    expect(Object.keys(pressed())).toEqual(['System', 'Light', 'Dark'])
+
+    for (const [preference, label] of [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as const) {
+      vm.colorMode.preference = preference
+      await wrapper.vm.$nextTick()
+      expect(pressed(), preference).toEqual({ System: 'false', Light: 'false', Dark: 'false', [label]: 'true' })
+    }
+
+    // pressing a button moves the state with it
+    await group.findAll('button').find(button => button.text() === 'Light')!.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(pressed()).toEqual({ System: 'false', Light: 'true', Dark: 'false' })
+  })
+
   it('clicking the friendly-labels switch toggles the setting', async () => {
     const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any

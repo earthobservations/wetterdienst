@@ -38,6 +38,9 @@ beforeEach(() => {
     signals[id] = init?.signal ?? undefined
     // never rejects on abort: the answer comes when the test lets it
     const { status, body } = await held[id]!.promise
+    // a string is a page, as a proxy's error page is, not JSON
+    if (typeof body === 'string')
+      return new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8' } })
     return new Response(JSON.stringify(body), { status })
   }) as typeof fetch
 })
@@ -98,6 +101,28 @@ describe('the forecast of the panel', () => {
     wrapper.unmount()
     mounted.pop()
     expect(signals[10147]?.aborted).toBe(true)
+  })
+
+  it('tells a 200 page of HTML as a failure, not as a forecast with no values (GH-3841)', async () => {
+    const wrapper = await mountForecast('10384')
+    held[10384]!.release({ status: 200, body: '<!doctype html><html><body>Bad gateway</body></html>' })
+    await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
+    expect(wrapper.find('[role="alert"]').text()).toContain('Backend error 502: The API answered with a web page, not data')
+    expect(wrapper.findComponent(Meteogram).exists()).toBe(false)
+  })
+
+  it('tells JSON without the list of values as a failure, not as a forecast with no values (GH-3841)', async () => {
+    const wrapper = await mountForecast('10384')
+    held[10384]!.release({ status: 200, body: { message: 'something else answered' } })
+    await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
+    expect(wrapper.find('[role="alert"]').text()).toContain('no list of `values`')
+  })
+
+  it('shows an answer with an empty list of values as it is: no failure (GH-3841)', async () => {
+    const wrapper = await mountForecast('10384')
+    held[10384]!.release({ status: 200, body: { values: [] } })
+    await vi.waitFor(() => expect(wrapper.attributes('aria-busy')).toBe('false'))
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
   it('tells why the forecast could not be read, and reads it again on Retry', async () => {

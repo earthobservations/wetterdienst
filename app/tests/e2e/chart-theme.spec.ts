@@ -664,6 +664,70 @@ test('the stripes\' "data availability" label reaches contrast in both schemes',
   }
 })
 
+// The stripes' title and source on a phone (GH-3961): the title is broken into lines where it is wider than the chart, and the
+// source has a row of its own below the years. Measured on the boxes of the drawn text, in the window sizes of a phone and a tablet.
+interface Box { left: number, top: number, right: number, bottom: number }
+
+for (const [width, scheme, availability] of [[320, 'light', true], [320, 'dark', true], [320, 'light', false], [390, 'light', true], [768, 'light', true]] as const) {
+  test(`the stripes' title is whole and their source clears the years, in a ${width} px window (${scheme}, data availability ${availability ? 'on' : 'off'})`, async ({ page, baseURL, context }) => {
+    await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
+    await page.setViewportSize({ width, height: 900 })
+    await mockBackend(page, baseURL!)
+    await page.goto(`/stripes?kind=temperature&station=00011&show_data_availability=${availability}`)
+    await fetchButton(page).click()
+    await expect(plotly(page)).toBeVisible()
+    // the title is set after the chart is drawn
+    await expect(page.locator('.js-plotly-plot text.gtitle').first()).toContainText('Climate stripes')
+
+    const boxes = await page.locator('.js-plotly-plot').first().evaluate((chart) => {
+      const box = (element: Element) => {
+        const { left, top, right, bottom } = element.getBoundingClientRect()
+        return { left, top, right, bottom }
+      }
+      const annotations = [...chart.querySelectorAll('g.annotation')].map(element => ({ text: element.textContent ?? '', box: box(element) }))
+      const title = chart.querySelector('text.gtitle')!
+      const lines = [...title.querySelectorAll('tspan')].filter(line => line.textContent?.trim())
+      return {
+        chart: box(chart),
+        // the stripes draw no tick labels: the years are annotations at the ends of the x axis
+        years: annotations.filter(annotation => /^\d{4}$/.test(annotation.text)).map(annotation => annotation.box),
+        source: annotations.find(annotation => annotation.text.startsWith('Source:'))?.box,
+        availability: annotations.find(annotation => annotation.text === 'Data availability')?.box,
+        title: lines.length ? lines.map(box) : [box(title)],
+        modebar: [...chart.querySelectorAll('.modebar-btn')].map(box),
+      }
+    })
+    const intersects = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+
+    expect(boxes.years).toHaveLength(2)
+    expect(boxes.source, 'the source is drawn').toBeTruthy()
+    for (const year of boxes.years)
+      expect(intersects(boxes.source!, year), `the source and a year: ${JSON.stringify([boxes.source, year])}`).toBe(false)
+    if (availability)
+      expect(intersects(boxes.source!, boxes.availability!), 'the source and "Data availability"').toBe(false)
+    // the source is whole inside the chart, the years above it
+    expect(boxes.source!.left).toBeGreaterThanOrEqual(boxes.chart.left)
+    expect(boxes.source!.right).toBeLessThanOrEqual(boxes.chart.right)
+    expect(boxes.source!.bottom).toBeLessThanOrEqual(boxes.chart.bottom)
+
+    for (const line of boxes.title) {
+      expect(line.left, 'the title is not cut at the left').toBeGreaterThanOrEqual(boxes.chart.left)
+      expect(line.right, 'the title is not cut at the right').toBeLessThanOrEqual(boxes.chart.right)
+      expect(line.top).toBeGreaterThanOrEqual(boxes.chart.top)
+      // a title of several lines, which a narrow chart has, is below the buttons of the modebar
+      if (boxes.title.length > 1) {
+        for (const button of boxes.modebar)
+          expect(intersects(line, button), `a line of the title and a button of the modebar: ${JSON.stringify([line, button])}`).toBe(false)
+      }
+    }
+    // the narrow chart breaks its title; a chart that holds it in one line does not
+    if (width <= 390)
+      expect(boxes.title.length, 'the title is broken into lines').toBeGreaterThan(1)
+    else
+      expect(boxes.title).toHaveLength(1)
+  })
+}
+
 // The widget's ?theme= is the widget's alone (GH-3619): the colour-mode module saves a preference to localStorage,
 // which the app reads on the same origin
 test.describe('the widget\'s theme', () => {
