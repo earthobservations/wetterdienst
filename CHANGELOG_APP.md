@@ -27,6 +27,14 @@ Types of changes:
 
 ### Fixed
 
+- `[Navigation]` The Menu's sheet on a phone and the tabs of the header from 64 rem follow the order
+  you chose in the settings, where both kept the fixed order of the tools. The sheet lists the four
+  tools of the bar first, each with a short line in the bar's blue, then the tools that are only in
+  the Menu with a shorter, fainter one, and says "in the bar" or "only in the Menu" to a screen
+  reader; the chooser's dashed line has the bar's blue. The settings card is titled "Arrange tools"
+  at every width, and from 64 rem it is one list in the order of the header, with no preview of a bar
+  and no Menu. The start page, the footer and the search keep the fixed order. All eleven locales; all
+  but `en` and `de` not read by a native speaker (GH-3934, GH-3936)
 - `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
   ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
   "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)

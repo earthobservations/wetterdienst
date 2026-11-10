@@ -138,7 +138,7 @@ describe('settings Page', () => {
     const wrapper = await mountPage()
     const card = wrapper.find('#bar')
     expect(card.exists()).toBe(true)
-    expect(card.find('h2').text()).toBe('Customise the bar')
+    expect(card.find('h2').text()).toBe('Arrange tools')
     expect(card.find('[data-testid="bar-chooser"]').exists()).toBe(true)
   })
 

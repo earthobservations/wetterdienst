@@ -202,6 +202,8 @@
     "tools": "Strumenti",
     "reference": "Riferimento",
     "project": "Progetto",
+    "toolInBar": "nella barra",
+    "toolMenuOnly": "solo nel Menu",
     "search": "Cerca",
     "searchPlaceholder": "Vai a una pagina, una stazione, un fornitore o un'impostazione",
     "searchEmpty": "Nessun risultato",
@@ -284,7 +286,7 @@
     "unitTurbidity": "Torbidità",
     "unitWindScale": "Scala del vento",
     "bar": {
-      "title": "Personalizza la barra",
+      "title": "Ordina gli strumenti",
       "hint": "Su un telefono, la barra in fondo allo schermo mostra quattro strumenti e il Menu. Scegli quali. Gli altri restano nel Menu.",
       "preview": "Anteprima",
       "previewLabel": "Anteprima della barra: {tools}, Menu",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} è ora al posto {position} di {total} nel Menu.",
       "enteredBar": "{tool} è ora nella barra, al posto {position} di {total}. {other} è ora solo nel Menu.",
       "leftBar": "{tool} è ora solo nel Menu. {other} è ora nella barra, al posto {position} di {total}.",
-      "resetDone": "La barra è tornata come all'inizio: {tools}."
+      "resetDone": "La barra è tornata come all'inizio: {tools}.",
+      "hintHeader": "Su uno schermo largo l'intestazione mostra tutti gli strumenti come schede, in quest'ordine. I primi quattro sono anche la barra su un telefono, gli altri vi restano nel Menu.",
+      "instructionsHeader": "Trascina uno strumento dalla maniglia, oppure usa i pulsanti freccia della sua riga.",
+      "listHeader": "Strumenti dell'intestazione, in ordine",
+      "reorderedHeader": "{tool} è ora al posto {position} di {total} nell'intestazione.",
+      "resetHeader": "Ripristina l'ordine",
+      "resetDoneHeader": "L'ordine è tornato come all'inizio: {tools}."
     }
   },
   "units": {

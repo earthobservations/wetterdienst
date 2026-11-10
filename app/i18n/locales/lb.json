@@ -202,6 +202,8 @@
     "tools": "Instrumenter",
     "reference": "Noschloen",
     "project": "Projet",
+    "toolInBar": "an der Läischt",
+    "toolMenuOnly": "nëmmen am Menü",
     "search": "Sichen",
     "searchPlaceholder": "Op eng Säit, eng Statioun, en Ubidder oder eng Astellung goen",
     "searchEmpty": "Näischt fonnt",
@@ -284,7 +286,7 @@
     "unitTurbidity": "Tribheet",
     "unitWindScale": "Wandskala",
     "bar": {
-      "title": "Läischt upassen",
+      "title": "Instrumenter uerdnen",
       "hint": "Um Smartphone weist d'Läischt ënnen um Bildschierm véier Instrumenter an d'Menü. Wiel aus, wéi véier. Déi aner bleiwen am Menü.",
       "preview": "Virschau",
       "previewLabel": "Virschau vun der Läischt: {tools}, Menü",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} steet elo op Plaz {position} vu {total} am Menü.",
       "enteredBar": "{tool} ass elo an der Läischt, op Plaz {position} vu {total}. {other} ass elo nëmmen nach am Menü.",
       "leftBar": "{tool} ass elo nëmmen nach am Menü. {other} ass elo an der Läischt, op Plaz {position} vu {total}.",
-      "resetDone": "D'Läischt ass erëm wéi um Ufank: {tools}."
+      "resetDone": "D'Läischt ass erëm wéi um Ufank: {tools}.",
+      "hintHeader": "Op engem breede Bildschierm weist de Kapp all Instrumenter als Tabs, an dëser Reiefolleg. Déi éischt véier sinn och d'Läischt um Smartphone, déi aner bleiwen do am Menü.",
+      "instructionsHeader": "Zitt en Instrument um Grëff, oder benotz d'Pfeil-Knäppercher an senger Zeil.",
+      "listHeader": "Instrumenter am Kapp, an der Reiefolleg",
+      "reorderedHeader": "{tool} steet elo op Plaz {position} vu {total} am Kapp.",
+      "resetHeader": "Reiefolleg zrécksetzen",
+      "resetDoneHeader": "D'Reiefolleg ass erëm wéi um Ufank: {tools}."
     }
   },
   "units": {

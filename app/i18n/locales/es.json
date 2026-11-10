@@ -202,6 +202,8 @@
     "tools": "Herramientas",
     "reference": "Referencia",
     "project": "Proyecto",
+    "toolInBar": "en la barra",
+    "toolMenuOnly": "solo en el Menú",
     "search": "Buscar",
     "searchPlaceholder": "Ir a una página, una estación, un proveedor o un ajuste",
     "searchEmpty": "Sin resultados",
@@ -284,7 +286,7 @@
     "unitTurbidity": "Turbidez",
     "unitWindScale": "Escala de viento",
     "bar": {
-      "title": "Personalizar la barra",
+      "title": "Ordenar herramientas",
       "hint": "En un teléfono, la barra del pie de la pantalla muestra cuatro herramientas y el Menú. Elige cuáles. Las demás quedan en el Menú.",
       "preview": "Vista previa",
       "previewLabel": "Vista previa de la barra: {tools}, Menú",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} está ahora en el puesto {position} de {total} en el Menú.",
       "enteredBar": "{tool} está ahora en la barra, en el puesto {position} de {total}. {other} está ahora solo en el Menú.",
       "leftBar": "{tool} está ahora solo en el Menú. {other} está ahora en la barra, en el puesto {position} de {total}.",
-      "resetDone": "La barra vuelve a su estado inicial: {tools}."
+      "resetDone": "La barra vuelve a su estado inicial: {tools}.",
+      "hintHeader": "En una pantalla ancha, la cabecera muestra todas las herramientas como pestañas, en este orden. Las cuatro primeras son también la barra del teléfono; las demás quedan allí en el Menú.",
+      "instructionsHeader": "Arrastra una herramienta por su asa, o usa los botones de flecha de su fila.",
+      "listHeader": "Herramientas de la cabecera, en orden",
+      "reorderedHeader": "{tool} está ahora en el puesto {position} de {total} en la cabecera.",
+      "resetHeader": "Restablecer el orden",
+      "resetDoneHeader": "El orden vuelve a su estado inicial: {tools}."
     }
   },
   "units": {

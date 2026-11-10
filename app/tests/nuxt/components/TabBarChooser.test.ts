@@ -5,7 +5,25 @@ import { useSettings } from '~/composables/useSettings'
 
 // The chooser of the four tools in the phone's tab bar (GH-3846): the list with its line, the preview of the bar, the
 // arrow buttons that do what dragging does (WCAG 2.5.7), the status that says what moved, and the drag by the
-// handle with the pointer events a mouse, a finger and a pen send.
+// handle with the pointer events a mouse, a finger and a pen send. From the header's breakpoint (64 rem, GH-3936) there
+// is no bar and no Menu to choose between: one list in the order of the header's tabs, the same setting. The test
+// window is as wide as the header's breakpoint, so the tests of the phone's chooser narrow it first.
+
+const originalMatchMedia = window.matchMedia
+/** The window as wide as the header's breakpoint (64 rem) or not */
+function stubWide(wide: boolean) {
+  window.matchMedia = ((query: string) => ({
+    matches: /min-width:\s*64rem/.test(query) ? wide : false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+}
+beforeEach(() => stubWide(false))
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountChooser() {
@@ -19,6 +37,7 @@ afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   useSettings().reset()
   vi.restoreAllMocks()
+  window.matchMedia = originalMatchMedia
 })
 
 const stored = () => useSettings().settings.value.tabBar
@@ -341,5 +360,68 @@ describe('the chooser of the tools in the phone bar', () => {
       expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(10)
       await handle(wrapper, 'map').trigger('pointerup', pointer(10, middle(4)))
     })
+  })
+})
+
+describe('the chooser from the header\'s breakpoint (GH-3936)', () => {
+  const ORDER = ['forecast', 'explorer', 'stripes', 'history', 'map']
+  async function mountWide() {
+    stubWide(true)
+    return mountChooser()
+  }
+  const all = (wrapper: Chooser) => wrapper.findAll('[data-row]').map(row => row.attributes('data-tool'))
+
+  it('is one ordered list of all the tools, with no preview of a bar, no Menu, no groups and no line', async () => {
+    const wrapper = await mountWide()
+    expect(all(wrapper)).toEqual(ORDER)
+    expect(wrapper.findAll('ol')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="bar-preview"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="bar-preview-menu"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="bar-group-menu"]').exists()).toBe(false)
+    expect(wrapper.find('.bar-line').exists()).toBe(false)
+    expect(wrapper.findAll('h3')).toHaveLength(0)
+    expect(wrapper.text()).not.toContain('Only in the Menu')
+    expect(wrapper.text()).not.toContain('In the bar')
+    // the list is named for a screen reader, which has no heading over it
+    expect(wrapper.find('ol').attributes('aria-label')).toBe('Tools in the header, in order')
+  })
+
+  it('speaks of the header and not of the phone\'s bar in its hint and its instructions', async () => {
+    const wrapper = await mountWide()
+    expect(wrapper.text()).toContain('the header shows all the tools as tabs, in this order')
+    expect(wrapper.text()).toContain('Drag a tool by its handle, or press the arrow buttons on its row.')
+    expect(wrapper.text()).not.toContain('Four tools are always in the bar')
+    expect(wrapper.text()).toContain('Reset the order')
+  })
+
+  it('moves a tool by the buttons across the whole list, the setting is the same list, and says the place in the header', async () => {
+    const wrapper = await mountWide()
+    // the Map, which the narrow chooser keeps below the line, goes up to the first place: one list, no line to cross
+    for (let step = 0; step < 4; step++)
+      await button(wrapper, 'map', 'up').trigger('click')
+    expect(stored()).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+    expect(all(wrapper)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+    expect(status(wrapper)).toBe('Map moved to place 1 of 5 in the header.')
+    // the first of the list cannot go further up, the last cannot go down
+    expect(button(wrapper, 'map', 'up').attributes('aria-disabled')).toBe('true')
+    expect(button(wrapper, 'history', 'down').attributes('aria-disabled')).toBe('true')
+  })
+
+  it('resets the order and says so in words of the header', async () => {
+    const wrapper = await mountWide()
+    await button(wrapper, 'forecast', 'down').trigger('click')
+    await wrapper.find('[data-testid="bar-reset"]').trigger('click')
+    expect(stored()).toEqual(ORDER)
+    expect(status(wrapper)).toBe('The order is back to its default: Forecast, Explorer, Climate stripes, History, Map.')
+  })
+
+  it('is the phone\'s chooser again below the breakpoint, from the same setting', async () => {
+    useSettings().settings.value.tabBar = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    stubWide(false)
+    const wrapper = await mountChooser()
+    expect(rows(wrapper, 'bar')).toEqual(['map', 'forecast', 'explorer', 'stripes'])
+    expect(rows(wrapper, 'menu')).toEqual(['history'])
+    expect(wrapper.find('[data-testid="bar-preview"]').exists()).toBe(true)
+    expect(wrapper.find('.bar-line').exists()).toBe(true)
   })
 })

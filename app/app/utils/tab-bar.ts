@@ -1,5 +1,6 @@
 // The choice of the tools in the tab bar of the narrow layout (GH-3846): one list of all the tools in an order the
-// reader can change, of which the first four are the bar and the rest are only in the Menu's sheet. The line between
+// reader can change, of which the first four are the bar and the rest are only in the Menu's sheet (and, in the wide
+// layout, the header shows them in the same order, all of them, GH-3936). The line between
 // them is fixed after the fourth, so there are always four in the bar, whatever is moved, and no state of the list
 // is invalid. Only the order of the keys is stored (`settings.tabBar`); everything else is derived from it, so a
 // tool that is added later, one that is removed, or a list that is too short, repeats a key or is not a list at all
@@ -12,6 +13,13 @@ export const BAR_SIZE = 4
 
 /** The tools in the order of the header: the default bar is Forecast, Explorer, Stripes and History, the Map beneath */
 export const DEFAULT_TOOL_ORDER: readonly string[] = TOOLS.map(tool => tool.key)
+
+/**
+ * The tools in the header of the wide layout (GH-3936): all of them, so no second group and no line there today. The
+ * split is the same as the bar's, only with a size of its own (`barKeys(order, HEADER_SIZE)`): a later "more tools"
+ * entry sets a smaller size here and the chooser then has the two groups from the same list.
+ */
+export const HEADER_SIZE = DEFAULT_TOOL_ORDER.length
 
 /**
  * Makes a stored order a valid one: what is not a known tool's key is dropped, a key that comes twice is kept at its
@@ -45,12 +53,12 @@ export function moveTool(order: readonly string[], from: number, to: number): st
   return next
 }
 
-/** The keys of the tools in the bar, in its order */
+/** The keys of the first `size` tools, in the order of the list: the bar's (`BAR_SIZE`, the default) or the header's (`HEADER_SIZE`) */
 export function barKeys(order: readonly string[], size: number = BAR_SIZE): string[] {
   return order.slice(0, size)
 }
 
-/** The keys of the tools that are only in the Menu */
+/** The keys of the tools after the first `size`: the ones that are only in the Menu (or, with a smaller `HEADER_SIZE`, behind "more tools") */
 export function menuKeys(order: readonly string[], size: number = BAR_SIZE): string[] {
   return order.slice(size)
 }

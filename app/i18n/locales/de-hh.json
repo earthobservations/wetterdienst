@@ -202,6 +202,8 @@
     "tools": "Warktüüch",
     "reference": "Naslaan",
     "project": "Projekt",
+    "toolInBar": "in'n Balken",
+    "toolMenuOnly": "blots in't Menü",
     "search": "Söken",
     "searchPlaceholder": "Na en Siet, en Station, en Anbeder oder en Instellen gahn",
     "searchEmpty": "Nix funnen",
@@ -284,7 +286,7 @@
     "unitTurbidity": "Trübung",
     "unitWindScale": "Windskala",
     "bar": {
-      "title": "Balken anpassen",
+      "title": "Warktüüch ordnen",
       "hint": "Op'n Handy wiest de Balken ünnen an'n Schirm veer Warktüüch un dat Menü. Söök ut, welke veer. De annern blievt in't Menü.",
       "preview": "Vörschau",
       "previewLabel": "Vörschau vun'n Balken: {tools}, Menü",
@@ -299,7 +301,13 @@
       "reorderedMenu": "{tool} steiht nu op Platz {position} vun {total} in't Menü.",
       "enteredBar": "{tool} is nu in'n Balken, op Platz {position} vun {total}. {other} is nu blots noch in't Menü.",
       "leftBar": "{tool} is nu blots noch in't Menü. {other} is nu in'n Balken, op Platz {position} vun {total}.",
-      "resetDone": "De Balken is wedder as vörher: {tools}."
+      "resetDone": "De Balken is wedder as vörher: {tools}.",
+      "hintHeader": "Op en breden Schirm wiest de Koppreeg all Warktüüch as Tabs, in disse Reegfolg. De eersten veer sünd ok de Balken op'n Handy, de annern blievt dor in't Menü.",
+      "instructionsHeader": "Treck en Warktüüch an'n Greep, oder bruuk de Piel-Knööp in sien Reeg.",
+      "listHeader": "Warktüüch in de Koppreeg, in Reegfolg",
+      "reorderedHeader": "{tool} steiht nu op Platz {position} vun {total} in de Koppreeg.",
+      "resetHeader": "Reegfolg trüchsetten",
+      "resetDoneHeader": "De Reegfolg is wedder as vörher: {tools}."
     }
   },
   "units": {
