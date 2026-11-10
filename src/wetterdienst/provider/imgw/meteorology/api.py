@@ -988,6 +988,12 @@ _STATION_LIST_URL = (
 #: precipitation stations carry four and five digits (``"250180460","ADAMOWICE","95414"``), and none had fewer when
 #: the list was read (2026-11-10: 73 synop codes, all different, 59 of them with data in 2026; for the 63 of them
 #: in `kody_stacji.csv` the code is the last three digits of the id, which is how the values find the files) (GH-3944)
+#: Five synop stations have daily synop archives (`dobowe/synop`) and are in no list that gives a position: Zgorzelec
+#: 351150405, Gdańsk-Port Północny 354180140, Bydgoszcz 353170240, Gdańsk-Rębiechowo 354180150 and Żarnowiec 354180131
+#: (GH-3948). `wykaz_stacji.csv` names them with no position, and `mapa_zawartosci_synop.pdf` gives positions that
+#: IMGW calls approximate (to the minute for four) and no elevation, so they stay out of the catalogue. Bydgoszcz,
+#: Gdańsk-Rębiechowo and Gdańsk-Port Północny are listed in `kody_stacji.csv` under newer ids (253180220, 254180090,
+#: 254180260): other station records, not merged by name.
 _SYNOP_ROW = re.compile(r'^"(\d{9})","[^"]*","\s*\d{1,3}\s*"\s*$', re.MULTILINE)
 
 
