@@ -13,7 +13,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
 import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
-import { estimateRows, windowForRefusal } from '~/utils/row-window'
+import { estimateRows, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -376,13 +376,15 @@ const limitNotice = computed(() => {
         range: context.range,
       })
     : null
-  // not even the shortest window fits: said only where the span is known (else the page cannot tell)
-  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && estimateRows({
+  // not even the shortest window fits: said only where the span is known (else the page cannot tell).
+  // The span is the one up to today, as the window is (a range that lies wholly after it has none)
+  const untilNow = untilToday(context.range)
+  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && untilNow !== null && estimateRows({
     resolution: context.resolution,
     records: context.records,
     parameterCount: context.parameterCount,
     tidy: context.tidy,
-    range: context.range,
+    range: untilNow,
   }).span !== null
   const stream = serverLimits.value.max_stream_rows
   // streamed, the rows are held to the stream limit (`values` only): offered where they fit it

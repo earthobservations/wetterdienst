@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { limitRefusal } from '../../app/utils/limit-refusal'
-import { aboutRows, countReadings, defaultRange, effectiveMaximum, estimateRows, fittingWindow, windowForRefusal } from '../../app/utils/row-window'
+import { aboutRows, countReadings, defaultRange, effectiveMaximum, estimateRows, fittingWindow, untilToday, windowForRefusal } from '../../app/utils/row-window'
 
 const NOW = Date.UTC(2026, 9, 26, 12)
 const day = (text: string) => Date.parse(`${text}T00:00:00Z`)
@@ -10,6 +10,15 @@ function record(start: string | null, end: string | null = null) {
     // a record ends at its last reading, within its last day
     end_timestamp: end ? `${end}T23:59:59+00:00` : null,
   }
+}
+/** The first day of a window's range, one unit longer than it is: the window one step back. */
+function windowStartOf(window: { unit: string, count: number, endDate: string }): string {
+  const end = new Date(`${window.endDate}T00:00:00Z`)
+  if (window.unit === 'days')
+    end.setUTCDate(end.getUTCDate() - window.count)
+  else
+    end.setUTCMonth(end.getUTCMonth() - (window.unit === 'years' ? 12 : 1) * (window.count + 1))
+  return end.toISOString().slice(0, 10)
 }
 const spanOf = (start: string, end: string) => ({ start: day(start), end: day(end) })
 
@@ -280,6 +289,67 @@ describe('windowForRefusal', () => {
       now: NOW,
     })
     expect(window).toMatchObject({ unit: 'years', endDate: '2025-12-31' })
+  })
+
+  describe('with a range that reaches past today (GH-3740)', () => {
+    // 2026-10-26 is today; a station that is going on ends there, not at the range's end
+    const records = [record('2000-01-01', null)]
+    const range = { startDate: '2020-01-01', endDate: '2030-12-31' }
+    const toToday = { startDate: '2020-01-01', endDate: '2026-10-26' }
+
+    it('ends the window at today, not in the future', () => {
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      // the server counts to the end of the range: the future part is rows too
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      expect(requested).toBeGreaterThan(clamped)
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })
+      expect(window).not.toBeNull()
+      expect(window!.endDate).toBe('2026-10-26')
+      expect(Date.parse(window!.endDate)).toBeLessThanOrEqual(day('2026-10-26'))
+    })
+
+    it('names the rows of the part up to today, not of the whole range', () => {
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })!
+      // what the window holds, as the server counts it, is what the button says (to two digits) and fits the limit
+      const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!
+      expect(window.rows).toBe(aboutRows(inside))
+      expect(inside).toBeLessThanOrEqual(1800)
+      // and it is the largest window that does: one more unit would not fit
+      const longer = windowStartOf(window)
+      expect(estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: longer, endDate: window.endDate }, now: NOW }).rows!).toBeGreaterThan(1800)
+    })
+
+    it('scales the server\'s count to the part up to today where the stations are not evenly spread', () => {
+      // a count the server makes of more than the page knows: twice the page's, as for a dataset with periods it adds
+      const requested = 2 * estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })!
+      const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      const share = requested * clamped / estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      expect(window.rows).toBe(aboutRows(share * inside / clamped))
+    })
+
+    it('offers the range up to today where that fits by itself', () => {
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: Math.ceil(clamped / 0.9) + 10, now: NOW })
+      expect(window).toMatchObject({ startDate: '2020-01-01', endDate: '2026-10-26', rows: aboutRows(clamped) })
+    })
+
+    it('offers nothing for a range that lies wholly after today', () => {
+      const future = { startDate: '2027-01-01', endDate: '2030-12-31' }
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: future, now: NOW }).rows!
+      expect(windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: future, requested, maximum: 500, now: NOW })).toBeNull()
+    })
+
+    it('leaves a range that ends today, or before, as it is', () => {
+      expect(untilToday(toToday, NOW)).toBe(toToday)
+      expect(untilToday({ startDate: '2020-01-01' }, NOW)).toEqual({ startDate: '2020-01-01' })
+      expect(untilToday(undefined, NOW)).toBeUndefined()
+      expect(untilToday(range, NOW)).toEqual(toToday)
+      expect(untilToday({ startDate: '2027-01-01', endDate: '2027-02-01' }, NOW)).toBeNull()
+    })
   })
 })
 

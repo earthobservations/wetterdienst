@@ -328,28 +328,75 @@ export interface RefusalWindowInput extends Omit<RowEstimateInput, 'range'> {
 }
 
 /**
+ * The window of dates with its end at today (UTC) at the latest: a station that is still going on has
+ * readings up to today and none beyond (GH-3740). The window itself where it reaches no further, or is
+ * not one with both dates (which `estimateRows` ignores); `null` where all of it lies after today, so
+ * that nothing in it can be read.
+ */
+export function untilToday(range: DateWindow | undefined, now: number = Date.now()): DateWindow | null | undefined {
+  const bounds = rangeBounds(range)
+  if (!range || !bounds)
+    return range
+  const today = dayOf(new Date(now))
+  if (bounds.end < today + DAY)
+    return range
+  if (bounds.start > today + DAY - 1)
+    return null
+  return { ...range, endDate: isoDay(today) }
+}
+
+/** The window that holds the whole span, in the largest unit that reaches back to its start (see `fittingWindow`). */
+function wholeSpanWindow(span: Span, resolution: Resolution, rows: number): FittingWindow {
+  const unit = unitsOf(resolution)[0]!
+  let count = 1
+  while (windowStart(span.end, count, unit) > span.start)
+    count++
+  return { unit, count, startDate: isoDay(span.start), endDate: isoDay(span.end), rows: aboutRows(rows) }
+}
+
+/**
  * The window that fits what the server refused (`limit-exceeded`, `rows`): the stations' records
  * within the window the user gave, the newest part of it that comes to 90 % of the limit by the
  * server's own count. The shape of the rows over time is the page's estimate, scaled to the server's
  * total, as the server counts what the page does not know (the periods a dataset reads).
+ *
+ * The window ends at today at the latest, where the range reaches past it: a station that is going on
+ * has no readings after today, so a window there would come back empty (GH-3740). The server's count
+ * is scaled to the part up to today, as the page estimates it, so that the rows named are not those of
+ * the future part. Where that part fits the limit by itself, it is the window.
  */
 export function windowForRefusal(input: RefusalWindowInput): FittingWindow | null {
-  const { range, ...base } = input
+  const { range: given, ...base } = input
   // a high resolution is held to the form's count, which is never below the server's: what fits it fits the server
   const asForm = HIGH_RESOLUTIONS.includes(input.resolution)
-  const { requested, ...rest } = { ...base, asForm }
+  const { requested: counted, ...rest } = { ...base, asForm }
+  const range = untilToday(given, input.now)
+  if (range === null)
+    return null
   const whole = estimateRows({ ...rest, range })
   const maximum = effectiveMaximum(input.resolution, input.maximum)
-  return labelledAsServed(fittingWindow({
+  let requested = counted
+  if (asForm && whole.span) {
     // the form's count over the span the window is fitted to, so that the share of a window is exact
-    requested: asForm && whole.span
-      ? (estimateRows({ ...rest, range: { startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) } }).rows ?? requested)
-      : requested,
+    requested = estimateRows({ ...rest, range: { startDate: isoDay(whole.span.start), endDate: isoDay(whole.span.end) } }).rows ?? counted
+  }
+  else if (range !== given) {
+    // the server counted up to the end the user gave: the part up to today is that share of it
+    const unclamped = estimateRows({ ...rest, range: given }).rows
+    if (unclamped && whole.rows !== null)
+      requested = counted * whole.rows / unclamped
+  }
+  const window = fittingWindow({
+    requested,
     maximum,
     resolution: input.resolution,
     span: whole.span,
     rowsWithin: (start, end) => estimateRows({ ...rest, range: { startDate: isoDay(start), endDate: isoDay(end) } }).rows,
-  }), { ...rest, range })
+  })
+  // the part up to today fits by itself: that is what to ask for instead of the range that reaches past it
+  if (!window && range !== given && whole.span && maximum > 0 && requested > 0 && requested <= Math.floor(maximum * ROW_MARGIN))
+    return labelledAsServed(wholeSpanWindow(whole.span, input.resolution, requested), { ...rest, range })
+  return labelledAsServed(window, { ...rest, range })
 }
 
 /** What the explorer starts the date range with, once a selection is made. */
