@@ -245,4 +245,175 @@ describe('the meteogram page followed to a station by the search of the header (
     await navigateTo('/meteogram?station=99999')
     await vi.waitFor(() => expect(stationRequests.filter(id => id === '99999')).toHaveLength(2))
   })
+
+  it('cancels the lookup of the station the search named where the tab bar goes to the page without a station (GH-3732)', async () => {
+    let release: () => void = () => {}
+    const answer = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    slow = answer
+    slowId = '10381'
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(stationRequests.filter(id => id === '10381')).toHaveLength(1))
+    await navigateTo('/meteogram')
+    release()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    // the station that was shown stays: the answer of the lookup is not applied
+    expect(vm.selectedStation?.station_id).toBe('01001')
+    expect(vm.isRestoringFromUrl).toBe(false)
+    // and the station may be searched again
+    slow = undefined
+    await navigateTo('/meteogram?station=10381')
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('10381'))
+  })
+})
+
+// The requests of the page for the values and the runs, which the page asks one of for a change, and of which the
+// answer of the latest is the one it shows (GH-3732)
+describe('the meteogram page\'s requests for the values and the runs', () => {
+  const stations: Record<string, { station_id: string, name: string, latitude: number, longitude: number }> = {
+    '01001': { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 },
+    '10381': { station_id: '10381', name: 'BERLIN', latitude: 52.46, longitude: 13.31 },
+  }
+  const RUN_J = '2026-10-03T06:00:00'
+  const RUN_K = '2026-10-03T12:00:00'
+  let wrapper: VueWrapper | undefined
+  const endpoints: Array<() => void> = []
+  // the answers of the values request a test holds, by the run it asked for ('' = the latest), and the requests made
+  let held: Record<string, Promise<void>> = {}
+  let heldIssues: Record<string, Promise<void>> = {}
+  const answers: Record<string, string[]> = {}
+  // the stations the runs were asked for
+  const issueRequests: string[] = []
+
+  const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.map(([url]) => new URL(String(url), 'http://localhost')).filter(url => url.pathname === '/api/values')
+  // a value of the run it was asked for, so that the answer on show says which request it came from
+  const valueOf = (run: string) => [{ station_id: '01001', parameter: 'temperature_air_2m', timestamp: '2026-10-03T12:00:00+00:00', value: 1, run }]
+
+  beforeEach(() => {
+    held = {}
+    heldIssues = {}
+    issueRequests.length = 0
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost')
+      const run = url.searchParams.get('issue') ?? ''
+      await held[`${url.searchParams.get('stations')}|${run}`]
+      return new Response(JSON.stringify({ values: valueOf(run) }), { status: 200 })
+    })
+    endpoints.push(registerEndpoint('/api/stations', (event) => {
+      const station = stations[String(getQuery(event).stations)]
+      return { stations: station ? [station] : [] }
+    }))
+    endpoints.push(registerEndpoint('/api/issues', async (event) => {
+      const id = String(getQuery(event).station)
+      issueRequests.push(id)
+      await heldIssues[id]
+      return { issues: answers[id] ?? [] }
+    }))
+    answers['01001'] = [RUN_J, RUN_K]
+    answers['10381'] = ['2026-10-04T00:00:00']
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    endpoints.splice(0).forEach(dispose => dispose())
+  })
+
+  async function showStation(route: string) {
+    wrapper = await mountSuspended(MeteogramPage, { route })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('01001'))
+    await vi.waitFor(() => expect(vm.pending).toBe(false))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    return vm
+  }
+
+  it('asks for the values once where another station is picked while a run is set', async () => {
+    const vm = await showStation(`/meteogram?station=01001&issue=${RUN_J}`)
+    expect(vm.selectedIssue).toBe(RUN_J)
+    const before = valuesRequests().length
+    vm.selectedStation = stations['10381']
+    await vi.waitFor(() => expect(valuesRequests().length).toBeGreaterThan(before))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    const asked = valuesRequests().slice(before)
+    // once, and for the latest run of the new station
+    expect(asked).toHaveLength(1)
+    expect(asked[0]!.searchParams.get('stations')).toBe('10381')
+    expect(asked[0]!.searchParams.has('issue')).toBe(false)
+    expect(vm.selectedIssue).toBe('')
+  })
+
+  it('asks for the values once where a run is picked', async () => {
+    const vm = await showStation('/meteogram?station=01001')
+    const before = valuesRequests().length
+    vm.selectedIssue = RUN_K
+    await vi.waitFor(() => expect(valuesRequests().length).toBeGreaterThan(before))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(valuesRequests().slice(before).map(url => url.searchParams.get('issue'))).toEqual([RUN_K])
+  })
+
+  it('shows the values of the run picked last where the answer of an earlier pick comes after it', async () => {
+    const vm = await showStation('/meteogram?station=01001')
+    let releaseJ: () => void = () => {}
+    held[`01001|${RUN_J}`] = new Promise<void>((resolve) => {
+      releaseJ = resolve
+    })
+    const before = valuesRequests().length
+    vm.selectedIssue = RUN_J
+    await vi.waitFor(() => expect(valuesRequests().length).toBe(before + 1))
+    vm.selectedIssue = RUN_K
+    await vi.waitFor(() => expect(vm.values.map((value: { run: string }) => value.run)).toEqual([RUN_K]))
+    expect(vm.pending).toBe(false)
+    releaseJ()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    // J's answer is no longer wanted: the chart shows K's values, as the run selector does
+    expect(vm.values.map((value: { run: string }) => value.run)).toEqual([RUN_K])
+    expect(vm.selectedIssue).toBe(RUN_K)
+    expect(vm.pending).toBe(false)
+  })
+
+  it('keeps the page waiting while the latest request is, where an earlier one is answered', async () => {
+    const vm = await showStation('/meteogram?station=01001')
+    let releaseJ: () => void = () => {}
+    let releaseK: () => void = () => {}
+    held[`01001|${RUN_J}`] = new Promise<void>((resolve) => {
+      releaseJ = resolve
+    })
+    held[`01001|${RUN_K}`] = new Promise<void>((resolve) => {
+      releaseK = resolve
+    })
+    const before = valuesRequests().length
+    vm.selectedIssue = RUN_J
+    await vi.waitFor(() => expect(valuesRequests().length).toBe(before + 1))
+    vm.selectedIssue = RUN_K
+    await vi.waitFor(() => expect(valuesRequests().length).toBe(before + 2))
+    releaseJ()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(vm.pending).toBe(true)
+    expect(vm.values).toEqual([])
+    releaseK()
+    await vi.waitFor(() => expect(vm.values.map((value: { run: string }) => value.run)).toEqual([RUN_K]))
+    expect(vm.pending).toBe(false)
+  })
+
+  it('shows the runs of the station picked last where the answer for an earlier one comes after it', async () => {
+    const vm = await showStation('/meteogram?station=01001')
+    let releaseJanMayen: () => void = () => {}
+    heldIssues['01001'] = new Promise<void>((resolve) => {
+      releaseJanMayen = resolve
+    })
+    // the runs of the station that is shown are asked for again and held, another station is picked after it
+    issueRequests.length = 0
+    vm.selectedStation = { ...stations['01001'] }
+    await vi.waitFor(() => expect(issueRequests).toEqual(['01001']))
+    vm.selectedStation = stations['10381']
+    await vi.waitFor(() => expect(vm.availableIssues).toEqual(['2026-10-04T00:00:00']))
+    releaseJanMayen()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(vm.availableIssues).toEqual(['2026-10-04T00:00:00'])
+  })
 })

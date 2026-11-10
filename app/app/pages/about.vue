@@ -66,7 +66,7 @@ const people = computed(() => [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-info" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-info" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('about.projectTitle') }}
             </h2>
@@ -90,7 +90,7 @@ const people = computed(() => [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-users" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-users" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('about.peopleTitle') }}
             </h2>
@@ -173,7 +173,7 @@ const people = computed(() => [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-link" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-link" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('about.linksTitle') }}
             </h2>

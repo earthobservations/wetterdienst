@@ -810,7 +810,7 @@ onBeforeUnmount(() => {
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-map-pin" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
                   {{ t('explorer.dataSource') }}
                 </h2>
@@ -850,7 +850,7 @@ onBeforeUnmount(() => {
                   <template #content>
                     <ClientOnly>
                       <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                        <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-500" />
+                        <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
                         {{ t('stripes.mapHint') }}
                       </p>
                       <MapStations
@@ -927,7 +927,7 @@ onBeforeUnmount(() => {
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-chart-bar" class="text-primary-500 shrink-0" />
+                <UIcon name="i-ph-chart-bar" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
                   {{ t('stripes.visualizationTitle') }}
                 </h2>

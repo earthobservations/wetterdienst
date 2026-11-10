@@ -196,6 +196,31 @@ describe('limit notice', () => {
     expect(wrapper.find('[data-testid="limit-notice"]').text()).toContain('Too many rows for one answer')
   })
 
+  describe('a range that lies after today (GH-3740)', () => {
+    // far ahead, so that it is after today whenever this runs
+    const ahead = (): StationSelectionState => ({
+      mode: 'station',
+      selection: { stations: [{ station_id: '00044', name: 'A', start_timestamp: '2000-01-01T00:00:00+00:00', end_timestamp: null }] as Station[] },
+      interpolation: { source: 'manual' },
+      dateRange: { startDate: '2090-01-01', endDate: '2099-12-31' },
+    })
+    const hourly = { ...parameterSelection, resolution: 'hourly' as const }
+    const tooMany = { ...REFUSAL, maximum: 10_000, requested: 87_600 }
+
+    it('says an observation has no readings in it yet, and neither offers a window nor says none fits', async () => {
+      const { wrapper } = await refused(ahead(), tooMany, hourly)
+      expect(wrapper.find('[data-testid="limit-no-readings"]').text()).toContain('no readings in this date range up to today')
+      expect(wrapper.find('[data-testid="limit-apply"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="limit-no-window"]').exists()).toBe(false)
+    })
+
+    it('offers a forecast its window in it: its readings lie ahead', async () => {
+      const { wrapper } = await refused(ahead(), tooMany, { ...hourly, network: 'mosmix', kind: 'forecast' })
+      expect(wrapper.find('[data-testid="limit-no-readings"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="limit-apply"]').exists()).toBe(true)
+    })
+  })
+
   it('words the stations limit as fewer stations, with no window and no CSV', async () => {
     const { wrapper } = await refused(undefined, { ...REFUSAL, limit: 'stations', maximum: 100, requested: 1284 })
     const notice = wrapper.find('[data-testid="limit-notice"]')

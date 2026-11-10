@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import type { Backend } from './mock-backend'
 import type { ScanResult, Where } from './scan'
 import AxeBuilder from '@axe-core/playwright'
+import { isFocusGuard } from './focus-guard'
 import { addViolations, record, settle } from './scan'
 
 // What axe cannot see from a page at rest: the colours of an element that is hovered or focused
@@ -126,21 +127,13 @@ interface Focused {
 }
 
 async function describeFocus(page: Page): Promise<Focused> {
+  if (await page.evaluate(isFocusGuard))
+    return { none: false, guard: true, name: '', indicator: true, obscured: false, key: '' }
   return page.evaluate((probe) => {
     document.querySelectorAll(`[${probe}]`).forEach(node => node.removeAttribute(probe))
     const node = document.activeElement as HTMLElement | null
     if (!node || node === document.body || node === document.documentElement)
       return { none: true, name: '', indicator: true, obscured: false, key: '' }
-    // the toast region's proxies (`ToastViewport`'s `FocusProxy`) are a span, `aria-hidden`, a pixel clipped to
-    // nothing at the window's corner, first and last in the region beside the list of the toasts: they send the
-    // focus into the toasts or out of them in the order of the page, and the next Tab leaves them. They are not
-    // content that could be covered (Firefox's walk ended on one, at -2,-2, as `focus-obscured`).
-    const region = node.parentElement
-    const toastProxy = node.tagName === 'SPAN' && node.getAttribute('aria-hidden') === 'true'
-      && region?.getAttribute('role') === 'region' && region.querySelector(':scope > ol[data-slot="viewport"]') != null
-      && (node === region.firstElementChild || node === region.lastElementChild)
-    if (node.hasAttribute('data-reka-focus-guard') || toastProxy)
-      return { none: false, guard: true, name: '', indicator: true, obscured: false, key: '' }
     node.setAttribute(probe, '')
     const text = (node.getAttribute('aria-label') ?? node.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
     const classes = [...node.classList].slice(0, 3).join('.')

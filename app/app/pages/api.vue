@@ -56,7 +56,7 @@ const examples = [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-code" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-code" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('api.endpointsTitle') }}
             </h2>
@@ -81,7 +81,7 @@ const examples = [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-terminal-window" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-terminal-window" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('api.examplesTitle') }}
             </h2>
@@ -105,7 +105,7 @@ const examples = [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-file-code" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-file-code" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('api.formatsTitle') }}
             </h2>
@@ -127,7 +127,7 @@ const examples = [
       <UCard v-if="mcpEnabled">
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-robot" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-robot" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('api.mcpTitle') }}
             </h2>
@@ -162,7 +162,7 @@ const examples = [
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-list-bullets" class="text-primary-500 shrink-0" />
+            <UIcon name="i-ph-list-bullets" class="text-primary-600 dark:text-primary-500 shrink-0" />
             <h2 class="text-lg font-bold">
               {{ t('api.commonParamsTitle') }}
             </h2>

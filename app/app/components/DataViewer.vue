@@ -13,7 +13,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
 import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
-import { estimateRows, windowForRefusal } from '~/utils/row-window'
+import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -274,6 +274,8 @@ interface RefusalContext {
   parameterCount: number
   tidy: boolean
   range: { startDate?: string, endDate?: string }
+  /** the network's data lie ahead of today (a forecast), so a range is not ended at today */
+  future: boolean
 }
 
 const refusalContext = computed((): RefusalContext => {
@@ -286,6 +288,7 @@ const refusalContext = computed((): RefusalContext => {
     parameterCount: parameterSelection.value.parameters.length,
     tidy: point || props.settings.shape !== 'wide',
     range: { startDate: stationSelection.value.dateRange?.startDate, endDate: stationSelection.value.dateRange?.endDate },
+    future: parameterSelection.value.kind === 'forecast',
   }
 })
 
@@ -374,15 +377,27 @@ const limitNotice = computed(() => {
         parameterCount: context.parameterCount,
         tidy: context.tidy,
         range: context.range,
+        future: context.future,
       })
     : null
-  // not even the shortest window fits: said only where the span is known (else the page cannot tell)
-  const noWindow = refusal.limit === 'rows' && !window && !!context.resolution && estimateRows({
+  // a range that reaches past today and has no reading up to it: said, as there is no window to offer
+  const noReadings = refusal.limit === 'rows' && !window && !!context.resolution && hasNoReadingsYet({
     resolution: context.resolution,
     records: context.records,
     parameterCount: context.parameterCount,
     tidy: context.tidy,
     range: context.range,
+    future: context.future,
+  })
+  // not even the shortest window fits: said only where the span is known (else the page cannot tell).
+  // The span is the one up to today, as the window is (a range that lies wholly after it has none)
+  const untilNow = context.future ? context.range : untilToday(context.range)
+  const noWindow = refusal.limit === 'rows' && !window && !noReadings && !!context.resolution && untilNow !== null && estimateRows({
+    resolution: context.resolution,
+    records: context.records,
+    parameterCount: context.parameterCount,
+    tidy: context.tidy,
+    range: untilNow,
   }).span !== null
   const stream = serverLimits.value.max_stream_rows
   // streamed, the rows are held to the stream limit (`values` only): offered where they fit it
@@ -396,6 +411,7 @@ const limitNotice = computed(() => {
     parameterCount: context.parameterCount,
     window,
     noWindow,
+    noReadings,
     // the window is for the selection the refusal was for, not one made since
     canApply: requestKey(request) === requestKey(selectedRequest.value),
     csvHref: csv,
@@ -1636,7 +1652,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <!-- Content -->
       <UCard ref="card" tabindex="-1" role="group" :aria-labelledby="dataTitleId" class="outline-none" :ui="{ body: valuesPending ? 'flex items-center justify-center min-h-40' : '' }">
         <div v-if="valuesPending" class="flex items-center justify-center py-12">
-          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-500" />
+          <UIcon name="i-ph-circle-notch" class="w-8 h-8 animate-spin text-primary-600 dark:text-primary-500" />
         </div>
         <template v-else>
           <!-- a refusal of a limit, in either view: the table area says what it is and what can be done -->

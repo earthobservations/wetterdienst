@@ -54,7 +54,9 @@ The same pages and states (in light/English and dark/German) are scanned twice m
   behind other content or outside what a map shows, sampled at five points of the part in the window and
   again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
   `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards, and
-  the proxies at either end of the toast region, are not stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+  the proxies at either end of the toast region, are not stops (the proxies are found by where they are: a `span`
+  with `tabindex="0"`, first or last in the `role="region"` that holds the toasts' list, as Reka UI 2.11 no longer
+  gives them `aria-hidden`; `focus-guard.ts`, held by `tests/unit/a11y-focus-guard.test.ts`). The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
@@ -72,23 +74,20 @@ rule, page and state, with the modes and languages it occurs in. A scan fails on
 - a rule in the baseline that is no longer broken, so whoever fixes a violation removes its entry and the
   baseline only shrinks.
 
-What is left in it, and why it is not fixed in the app's own markup. Each entry in the file has an `issue` (the
-upstream issue, or `null` where there is none) and a `reason`; `tests/unit/a11y-baseline.test.ts` holds that both are
-stated, and `pnpm test:a11y:baseline` keeps them for an entry that is still found. All four were reproduced on
-2026-11-10 against the current components (Chrome 156, production build, the spec's states), the markup read, and
-found in Nuxt UI's or Reka UI's own: the app sets none of the attributes concerned and has no prop or slot that
-reaches them. The upstream trackers were read for an existing issue; none was opened.
+The baseline is empty: the app has no recorded violation. `tests/e2e/accessibility/baseline.json` has an empty
+`entries` list, so every rule broken in any scan fails the run. It held four entries (three rules) until
+@nuxt/ui 4.12.0 (GH-3950), all caused by Nuxt UI's or Reka UI's own markup, which the app could not reach:
 
-| Rule | Page / state | Cause | Upstream issue |
-| --- | --- | --- | --- |
-| `aria-required-children` (critical) | explorer and meteogram / `station-menu-open` | Nuxt UI's `USelectMenu` puts `role="listbox"` on the combobox content, whose only child is a focus scope (`<div tabindex="-1" data-slot="focusScope">`) that holds the search field, so the listbox has a child that is not an option. | [nuxt/ui#7075](https://github.com/nuxt/ui/issues/7075), closed: fixed by nuxt/ui#7096 in 4.12.0 (the role moves to the options viewport). The app is on 4.11.3. |
-| `scrollable-region-focusable` (serious) | explorer / `station-menu-open` | The same menu scrolls its options in a viewport (`role="presentation"`, `overflow-y-auto`) whose options all have `tabindex="-1"` (Reka UI's roving focus): a scrollable region with no focusable content. | The same issue, #7075, and the same fix. |
-| `aria-hidden-focus` (serious) | explorer / `values-error` | Reka UI's toast viewport (behind Nuxt UI's `UToaster`) renders its two focus proxies as `<span aria-hidden="true" tabindex="0">`. The toast is the error's, raised by the page. | [unovue/reka-ui#2776](https://github.com/unovue/reka-ui/issues/2776), closed: fixed by unovue/reka-ui#2980 in 2.11.0. The app is on 2.10.5. |
+- `aria-required-children` and `scrollable-region-focusable` of the station `USelectMenu` (explorer and meteogram,
+  `station-menu-open`): [nuxt/ui#7075](https://github.com/nuxt/ui/issues/7075), fixed by nuxt/ui#7096 in 4.12.0
+  (the listbox role moves to the options viewport and the search field stays outside it).
+- `aria-hidden-focus` of the toast viewport's two focus proxies (explorer, `values-error`):
+  [unovue/reka-ui#2776](https://github.com/unovue/reka-ui/issues/2776), fixed by unovue/reka-ui#2980 in 2.11.0,
+  which 4.12.0 depends on.
 
-All three are fixed in releases the app does not have yet: `@nuxt/ui` 4.12.0 depends on `reka-ui` 2.11.0. In a
-built copy of the app on 4.12.0 (not committed), the three states reproduce no violation of these rules (Chrome,
-light/English). The entries go when the app is bumped to it, which is a dependency change of its own: Nuxt UI 4.12.0
-also loads the overlays of the menus and toasts lazily.
+A violation found later is fixed, not recorded; if its cause is upstream and cannot be worked around in the app's own
+markup, it is an entry (`issue` and `reason`, held by `tests/unit/a11y-baseline.test.ts`), and the entry goes with the
+dependency bump that fixes it.
 
 There is no `color-contrast` entry left. The colours are the tokens of `app/assets/css/main.css` (GH-3518):
 the primary colour is the logo's blue, `#2E6FD1` (`brand-600`), the fill of a solid primary button with a
@@ -106,12 +105,22 @@ The Meteogram's own chrome (GH-3642): the icons of its panel toggles and of its 
 colours (`SERIES_LABEL` in `utils/chart-theme.ts`: cyan, lime, blue, red and slate for the cloud cover), not in
 the Tailwind shades they had (cyan-500, lime-500, red-500, blue-500 and slate-400), which are 1.9:1 to 3.8:1 on white. Each is 4.6:1 or more on the toolbar by day and at night
 and 3.9:1 or more on the wash behind a toggle that is on (a mark that carries a state: 3:1, 1.4.11); the card of today
-has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`; `tests/nuxt/components/Meteogram.test.ts`
-holds that, the colours and the card's edge in the rendered component). The same test reads every `text-<colour>-<step>`
-class of the markup from Tailwind's palette (and `gray`, which is the app's `ink`) and fails for one under 4.5:1 where it
+has an edge of 3:1 or more. A toggle also says whether it is on (`aria-pressed`) and is named by an `aria-label` that
+is its `title`, the same i18n key (4.1.2, GH-3951). Colour is not the only cue of the state (1.4.1, GH-3951): a toggle that
+is on draws the filled variant of its icon (`i-ph-wind-fill`), one that is off the outline (`i-ph-wind`). In forced colours the
+border is recoloured and is the same on and off, so only the icon's shape tells on from off there.
+`tests/nuxt/components/Meteogram.test.ts` holds that, the colours and the card's edge in the rendered component.
+`tests/unit/button-contrast.test.ts` reads every `text-<colour>-<step>`
+class of the markup from Tailwind's palette, `gray` (the app's `ink`) and, since GH-3952, `primary` and `brand` (the app's
+`brand` scale, read through `main.css`; `app.config.ts` makes `brand` the primary colour, and `.dark` changes which shade is
+`--ui-primary` but redefines no shade) and fails for one under 4.5:1 where it
 is painted: on white, and on the dark card for a `dark:` class and for a class that has no `dark:` partner in its class
-string. A class it cannot read (an opacity, `text-[#hex]`) fails too. The app's own `primary` scale is not checked there:
-`text-primary-500` is 3.47:1 on white and is used 48 times, for icons and spinners, which is a finding of its own and not of this test.
+string. A class it cannot read (an opacity, `text-[#hex]`) fails too. No class of the primary scale is exempt. The
+48 icons and spinners in `text-primary-500` (3.47:1 on white, enough as a mark that carries meaning, 3:1 by 1.4.11, but not
+as the text-coloured icon the test takes it for) are `text-primary-600 dark:text-primary-500` now: 4.87:1 on white by
+day, and at night the shade they had, 4.53:1 on a card (600 would be 3.22:1 there). Links stay `text-primary-700` by day
+(6.9:1) and 400 or 500 at night (6.3:1 and 4.5:1). An allow-list of non-text uses at 3:1 was not written: darkening costs
+the look next to nothing, and a list of exemptions is something to keep.
 
 The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
 `main.css`: shade 700 of the primary colour on light, 6.9:1 on white, shade 300 on dark, 9.6:1; the map takes
@@ -176,14 +185,10 @@ by rule, and what the run found against it; the scans' results are an artifact o
 Playwright image the baseline was recorded in. A change that touches the markup, colours or ARIA of the app
 should be run with the label before it lands.
 
-Last full run: 2026-11-10 (`pnpm test:a11y --workers=3`, Chrome 156 on macOS, as Playwright's Firefox does not start
-there; axe 4.13.0), on the tree before the review fixes of the pull request (the one app change since is a `dark:` colour
-on the History page's error text): 393 tests, 393 passed, none retried, in 15.5 minutes. It found exactly the baseline's
-four entries (three rules, in the three states above) and nothing else. Two runs came before it and are not the record.
-The first failed six tests that were not findings: the spec's state `index: search-results` expected one option for
-BERLIN-TEMPELHOF where the search lists the station twice (its forecast, and on the map, since #3839), which nothing had
-noticed as the scan is on request; it takes the first now. The second was disturbed by another run of Playwright on the
-same server (it served dev-mode pages and refused connections) and failed six first-paint tests that were not findings.
+Last full run: 2026-11-10, on @nuxt/ui 4.12.0 and Reka UI 2.11.0 (`pnpm test:a11y --workers=3`, Chrome on macOS, as
+Playwright's Firefox does not start there; axe 4.13.0): 393 tests, 393 passed, none retried, in 14.9 minutes, against the
+empty baseline: 362 scans of 16 pages found no violation at all. (The run before the bump, on 4.11.3, found exactly the
+four entries the baseline then held.)
 
 ## Running it
 

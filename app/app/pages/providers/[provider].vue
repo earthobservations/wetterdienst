@@ -96,7 +96,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-ph-scales" class="text-primary-500 shrink-0" />
+              <UIcon name="i-ph-scales" class="text-primary-600 dark:text-primary-500 shrink-0" />
               <h2 class="text-lg font-bold">
                 {{ t('providers.licenceTitle') }}
               </h2>
@@ -148,7 +148,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-ph-tree-structure" class="text-primary-500 shrink-0" />
+              <UIcon name="i-ph-tree-structure" class="text-primary-600 dark:text-primary-500 shrink-0" />
               <h2 class="text-lg font-bold">
                 {{ t('providers.networksTitle') }}
               </h2>
