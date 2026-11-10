@@ -827,7 +827,8 @@
     "back": "Torüch to de Stationen",
     "chosen": "{name} utsöcht",
     "pickedPlace": "Een Punkt op de Kaart, {distance} vun disse Station af",
-    "pickedCentre": "De Midd vun de Kaart, {distance} vun disse Station af",
+    "pickedCentre": "De Oort in de Midd vun de Kaart, as he utwählt wurr, {distance} vun disse Station af",
+    "pickedPlaceAddress": "De utwählte Oort, {distance} vun disse Station af",
     "pickedStationPlace": "De Stäe vun {name}, {distance} vun disse Station af",
     "elevation": "{value} m över Seehööch",
     "at": "{name}, {distance} af",
@@ -844,9 +845,9 @@
     "stationNotFound": "Dat gifft keen Station {id} op disse Kaart.",
     "legend": "Legende",
     "legendReporting": "Meldt noch",
-    "legendStopped": "Hett ophöört",
-    "whyFarther": "De neegste Station, de noch meldt. Neger: {name}, {distance}, bit {year}.",
-    "whyFartherNoEnd": "De neegste Station, de noch meldt. Neger: {name}, {distance}, Enn nich bekannt.",
+    "legendStopped": "Meldt nich mehr",
+    "whyFarther": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, bit {year}.",
+    "whyFartherNoEnd": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, Enn nich bekannt.",
     "pickCloser": "{name} statts disse nehmen"
   },
   "dataViewer": {

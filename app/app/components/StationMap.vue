@@ -82,15 +82,17 @@ const DotLayer = L.GridLayer.extend({
     const stopped = props.reporting ? inTile.filter(station => !props.reporting!(station)) : []
     const running = props.reporting ? inTile.filter(station => props.reporting!(station)) : inTile
     // a station that has stopped is a hollow dot: a ring in the dot's blue (5.7:1 against the map) round the light of the
-    // map's halo, so that it differs from a dot that reports by its shape, not by its colour alone (WCAG 1.4.1, 1.4.11)
-    const ring = r > 2 ? 1.75 : 1.25
+    // map's halo, so that it differs from a dot that reports by its shape, not by its colour alone (WCAG 1.4.1, 1.4.11).
+    // Its outer edge is the dot's edge (`r`), so a station that has stopped is never larger than one that reports, and at
+    // the scale of a continent (r under 2) the ring is thinner, so that the light of its middle is still there
+    const ring = r > 4 ? 1.75 : r > 2 ? 1.5 : 1
     context.fillStyle = DOT.halo
     context.strokeStyle = DOT.fill
     context.lineWidth = ring
     for (const station of stopped) {
       const at = owner.project([station.latitude, station.longitude], coords.z).subtract(origin)
       context.beginPath()
-      context.arc(at.x, at.y, r - ring / 2 + 0.5, 0, Math.PI * 2)
+      context.arc(at.x, at.y, r - ring / 2, 0, Math.PI * 2)
       context.fill()
       context.stroke()
     }

@@ -76,8 +76,12 @@ const source = ref<MeasuredSource>(initial.source)
 const selectedId = ref<string | null>(initial.stationId)
 /** The point the panel is about: the station picked, or the place picked on the map */
 const anchor = ref<Point | null>(initial.place)
-/** Where the place came from, which the panel says: a click, the centre of the map, or the position of a station the reader chose */
-const origin = ref<PlaceOrigin>({ kind: 'point' })
+/**
+ * Where the place came from, which the panel says: a click, the centre of the map, or the position of a station the
+ * reader chose. A place that the address brings (a link, a reload, the browser's Back) is of no known origin, and is
+ * not told as a click.
+ */
+const origin = ref<PlaceOrigin>({ kind: 'unknown' })
 const POINT: PlaceOrigin = { kind: 'point' }
 
 const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
@@ -398,7 +402,7 @@ watch(selected, (station) => {
   if (fromAddress) {
     fromAddress = false
     recentre.value++
-    announcement.value = t('mapTool.chosen', { name: stationName(station) })
+    announcement.value = chosenText(station, stations.value, anchor.value)
   }
   void forecast.ensure()
   void stripes.ensure()
@@ -460,7 +464,7 @@ const placeText = computed(() => {
   const from = origin.value
   if (from.kind === 'station')
     return t('mapTool.pickedStationPlace', { name: from.name, distance })
-  return t(from.kind === 'centre' ? 'mapTool.pickedCentre' : 'mapTool.pickedPlace', { distance })
+  return t({ centre: 'mapTool.pickedCentre', unknown: 'mapTool.pickedPlaceAddress', point: 'mapTool.pickedPlace' }[from.kind], { distance })
 })
 
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
@@ -515,7 +519,7 @@ watch(() => route.query, (query) => {
     fromAddress = Boolean(named.stationId)
   }
   anchor.value = named.place
-  origin.value = POINT
+  origin.value = { kind: 'unknown' }
 })
 </script>
 
@@ -997,7 +1001,7 @@ watch(() => route.query, (query) => {
   font-size: 0.8125rem;
   line-height: 1.2;
   box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-  pointer-events: none;
+  /* the legend is on the map, and a click on it is no pick of the place under it */
 }
 .map-legend li {
   display: flex;
@@ -1018,6 +1022,14 @@ watch(() => route.query, (query) => {
   border: 2px solid #2358a8;
   background: #ffffff;
   box-shadow: none;
+}
+/* in forced colours the dots keep their own colours (the filled and the hollow one are told apart by them, which system
+   colours would make alike), as the tiles and the tool marks do */
+@media (forced-colors: active) {
+  .map-legend,
+  .map-legend-dot {
+    forced-color-adjust: none;
+  }
 }
 .map-why {
   display: flex;

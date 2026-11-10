@@ -827,7 +827,8 @@
     "back": "Retour aux stations",
     "chosen": "{name} choisie",
     "pickedPlace": "Un point de la carte, à {distance} de cette station",
-    "pickedCentre": "Le centre de la carte, à {distance} de cette station",
+    "pickedCentre": "Le lieu au centre de la carte quand il a été choisi, à {distance} de cette station",
+    "pickedPlaceAddress": "Le lieu choisi, à {distance} de cette station",
     "pickedStationPlace": "La position de {name}, à {distance} de cette station",
     "elevation": "{value} m d'altitude",
     "at": "{name}, à {distance}",
@@ -844,7 +845,7 @@
     "stationNotFound": "Il n'y a pas de station {id} sur cette carte.",
     "legend": "Légende",
     "legendReporting": "Transmet encore",
-    "legendStopped": "A cessé",
+    "legendStopped": "Ne transmet plus",
     "whyFarther": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, jusqu'en {year}.",
     "whyFartherNoEnd": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, fin inconnue.",
     "pickCloser": "Choisir {name} à la place"

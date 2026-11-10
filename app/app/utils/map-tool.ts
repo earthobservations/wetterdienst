@@ -236,7 +236,9 @@ export interface CloserStation {
  * closerStoppedStation(stations, place, fuhlsbuettel, reporting) // { station: sanktPauli, distance: 1.9, endYear: 2000 }
  */
 export function closerStoppedStation(stations: PlacedStation[], point: Point, picked: PlacedStation, reporting: ReportingRule): CloserStation | null {
-  if (!reporting(picked))
+  // only the station that the rule picks for the place has a reason to tell: one picked another way (a dot, the list, the
+  // address) is the reader's choice, and nothing was passed over for it
+  if (stationFor(stations, point, reporting)?.station.station_id !== picked.station_id || !reporting(picked))
     return null
   const [nearest] = nearestStations(stations, point, 1)
   if (!nearest || nearest.station.station_id === picked.station_id || nearest.distance >= distanceKm(point, picked) || reporting(nearest.station))
@@ -246,10 +248,11 @@ export function closerStoppedStation(stations: PlacedStation[], point: Point, pi
 
 /**
  * Where the place of a pick came from, which the panel says (GH-3875): a click on the map, the centre of the map (the
- * keyboard's click), or the position of a station the reader chose (a search, the list, a dot, the address, the
- * forecast station a layer was changed from), which is no click and is not told as one.
+ * keyboard's click), the position of a station the reader chose (a search, the list, a dot, the forecast station a
+ * layer was changed from), which is no click and is not told as one, or of no known origin (a place the address
+ * brings: a link, a reload, the browser's Back).
  */
-export type PlaceOrigin = { kind: 'point' | 'centre' } | { kind: 'station', name: string }
+export type PlaceOrigin = { kind: 'point' | 'centre' | 'unknown' } | { kind: 'station', name: string }
 
 /** The station a point is on, within `tolerance` kilometres of it, or null: the nearest, whatever its status */
 export function stationAt(stations: PlacedStation[], point: Point, tolerance: number): PlacedStation | null {

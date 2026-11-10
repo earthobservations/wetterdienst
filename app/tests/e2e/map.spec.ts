@@ -316,8 +316,18 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     }, { x, y })
     // Neuhaus am Rennweg reports, Artern stopped in 2018
     await expect.poll(() => pixel(centre(50.5063, 11.1283))).toEqual([0x23, 0x58, 0xA8])
-    await expect.poll(() => pixel(centre(51.3745, 11.2915))).toEqual([255, 255, 255])
+    await expect.poll(async () => (await pixel(centre(51.3745, 11.2915)))?.every(channel => channel! >= 220)).toBe(true)
 
+    // the legend is on the map and takes the click, which is no pick of the place under it
+    await legend.scrollIntoViewIfNeeded()
+    const hit = await legend.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return Boolean(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('.map-legend'))
+    })
+    expect(hit).toBe(true)
+    // and its two dots are told apart by their fill, in forced colours too
+    await page.emulateMedia({ forcedColors: 'active' })
+    expect(await legend.evaluate(element => getComputedStyle(element).forcedColorAdjust)).toBe('none')
     await page.getByTestId('map-layer-forecast').click()
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
   })

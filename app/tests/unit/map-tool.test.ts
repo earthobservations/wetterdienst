@@ -390,6 +390,14 @@ describe('why a farther station was picked (GH-3875)', () => {
     expect(closerStoppedStation(both, PLACE, both[1]!, reportingRule(both, now))).toBeNull()
   })
 
+  it('is null where the station picked is not the one the rule picks for the place: a station chosen from the list or by the address (?station=01981&lat=53.551&lon=9.994)', () => {
+    // the rule picks Hamburg-Fuhlsbüttel (9.1 km) for the place, and Neuwiedenthal (10.4 km) is the reader's own choice
+    expect(stationFor(LIST, PLACE, reporting)?.station.station_id).toBe('01975')
+    const neuwiedenthal = LIST.find(entry => entry.station_id === '01981')!
+    expect(reporting(neuwiedenthal)).toBe(true)
+    expect(closerStoppedStation(LIST, PLACE, neuwiedenthal, reporting)).toBeNull()
+  })
+
   it('has no year for a station whose list gives it no end', () => {
     const list = placed([{ ...SANKT_PAULI, ...ended(null) }, FUHLSBUETTEL] as never[])
     const closer = closerStoppedStation(list, PLACE, list[1]!, reportingRule(list, now))

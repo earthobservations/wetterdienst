@@ -231,6 +231,16 @@ describe('typography', () => {
   })
 })
 
+describe('words that read as a slur in standard German', () => {
+  // Low German and Luxembourgish words look like German ones: `Neger` is "nearer" in Low German and a slur to every
+  // reader of German, so it is written `Dichter bi` (GH-3875). The words are of the languages that are read as German.
+  const SLURS = /(?<!\p{L})(?:neger|negerin|zigeuner)(?!\p{L})/iu
+  it.each(germanLike)('has none in %s', (locale) => {
+    const found = Object.entries(ui[locale]!).filter(([, text]) => SLURS.test(text)).map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
+    expect(found).toEqual([])
+  })
+})
+
 describe('address', () => {
   // Every locale speaks to the reader in the informal singular (GH-3157): du, tu, tú, je, ty, "du" in lb,
   // the singular imperative in pl, and "you" in en, which has no other. It is written down in
