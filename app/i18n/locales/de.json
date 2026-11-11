@@ -480,6 +480,17 @@
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station und Zeitraum",
+    "placeAndPeriod": "Ort und Zeitraum"
+  },
+  "toolPlaceholder": {
+    "forecast": "Suche nach einer Station oder wähle eine auf der Karte, um ihre Vorhersage zu sehen",
+    "explorer": "Wähle Parameter, suche dann nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Daten zu laden",
+    "stripes": "Suche nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
+    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden"
+  },
   "meteogram": {
     "title": "Wettervorhersage",
     "subtitle": "DWD-MOSMIX-Vorhersage – Temperatur, Niederschlag und Wind",
@@ -488,7 +499,6 @@
     "aboutText2": "Das Diagramm zeigt Temperatur und Taupunkt, Windgeschwindigkeit und Böen mit Windfähnchen, nach Phase klassifizierten Niederschlag (Regen / Mix / Schnee), Bewölkung nach Höhe sowie den Luftdruck. Tag-/Nachtbänder ergeben sich aus der geografischen Lage der Station. Wähle eine DWD-Station nach Name oder ID, um die Vorhersage zu laden.",
     "selectStation": "Station auswählen",
     "loading": "MOSMIX-Vorhersage wird geladen …",
-    "emptyHint": "Suche oben nach einer Station, um eine Vorhersage zu erstellen",
     "openWidget": "Als einbettbares Widget öffnen",
     "chart": {
       "noData": "Keine Daten für die gewählte Abfrage verfügbar",
@@ -617,7 +627,6 @@
     "showTrendline": "Trendlinie anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
-    "emptyHint": "Wähle eine Station und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
     "downloadImage": "Bild herunterladen",
     "downloadPng": "Als PNG herunterladen",
     "downloadJpg": "Als JPG herunterladen",
@@ -707,7 +716,6 @@
     "minGainHint": "Mindestschwelle für das Hinzufügen weiterer Stationen. Wägt den Mehraufwand gegen den Gewinn zusätzlicher Zeitpunkte ab. (Standard: 0,10)",
     "additionalStations": "Zusätzliche Stationen",
     "additionalStationsHint": "Anzahl zusätzlicher Stationen, die unabhängig von der Gewinnschwelle verwendet werden. (Standard: 3)",
-    "dataSource": "Datenquelle",
     "stationsDetails": "Stationsdetails",
     "valuesDetails": "Wertedetails",
     "leadTime": "Vorhersagelauf",
@@ -733,7 +741,7 @@
     "endDate": "Enddatum"
   },
   "parameterSelection": {
-    "title": "Parameter auswählen",
+    "title": "Daten",
     "selectProvider": "Anbieter auswählen",
     "selectNetwork": "Netzwerk auswählen",
     "selectResolution": "Auflösung auswählen",
@@ -960,7 +968,6 @@
     "selectSections": "Abschnitte auswählen",
     "error": "Fehler",
     "resultsTitle": "Ergebnisse",
-    "noHistories": "Kein Verlauf geladen. Klicke auf „Anzeigen“, um die Daten abzurufen.",
     "selectedStations": "Ausgewählte Stationen",
     "colStationId": "Stations-ID",
     "colName": "Name",
@@ -990,6 +997,7 @@
     "missingDataHistory": "Verlauf fehlender Daten",
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
-    "colMissingCount": "Anzahl fehlend"
+    "colMissingCount": "Anzahl fehlend",
+    "noneFound": "Für die gewählten Stationen wurde kein Verlauf gefunden."
   }
 }

@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Explorer, Climate stripes, Station history]` Before there is a result, all four tools
+  show the same placeholder: a dashed frame with the tool's own mark and one sentence that names
+  both ways in, searching for a station or picking one on the map, and no longer says "above".
+  Climate stripes and Station history show their result card only once there is something in it.
+  The setup cards are titled by what they hold: "Data" (was "Select parameters"), "Station" (was
+  "Data source") on Forecast and History, "Station and period" on Climate stripes and "Place and
+  period" on Explorer, in all eleven languages (GH-3850)
 - `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
   the notifications, the number fields' description for a screen reader) are in the language of
   the page in all eleven languages (they were English in all but German; Hamburg German uses the

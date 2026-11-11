@@ -480,6 +480,17 @@
     "noResolutions": "Keng Zäitreih: hei gëtt et näischt opzelëschten.",
     "openExplorer": "Am Explorer opmaachen"
   },
+  "cardTitle": {
+    "station": "Statioun",
+    "stationAndPeriod": "Statioun a Period",
+    "placeAndPeriod": "Plaz a Period"
+  },
+  "toolPlaceholder": {
+    "forecast": "Sich eng Statioun oder wiel eng op der Kaart, fir hir Prognos ze gesinn",
+    "explorer": "Wiel Parameteren aus, sich dann eng Statioun oder wiel eng op der Kaart a klick op Weisen, fir d'Daten ze lueden",
+    "stripes": "Sich eng Statioun oder wiel eng op der Kaart a klick op Weisen, fir Klimasträifen ze erstellen",
+    "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden"
+  },
   "meteogram": {
     "title": "Wiederprognos",
     "subtitle": "DWD MOSMIX-Prognos — Temperatur, Néierschlag a Wand",
@@ -488,7 +499,6 @@
     "aboutText2": "D'Diagramm weist Temperatur an Daupunkt, Wandgeschwindegkeet a Béen mat meteorologesche Windfändelcher, Néierschlag no Phas klasséiert (Reen / gemëscht / Schnéi), Bewölkung no Héicht an den Atmosphärendrock. Dag-/Nuetsbänner gi vun der geografescher Lag vun der Statioun ofgeleet. Wiel eng beliebeg DWD-Statioun no Numm oder ID, fir hir Prognos ze lueden.",
     "selectStation": "Statioun auswielen",
     "loading": "MOSMIX-Prognos gëtt ofgeruff …",
-    "emptyHint": "Sich uewe no enger Statioun, fir eng Prognos ze generéieren",
     "openWidget": "Als anbettbar Widget opmaachen",
     "chart": {
       "noData": "Keng Daten verfügbar fir déi ausgewielten Ufro",
@@ -617,7 +627,6 @@
     "showTrendline": "Trendlinn weisen",
     "visualizationTitle": "Visualiséierung",
     "loadingViz": "Daten ginn gelueden a Visualiséierung gëtt generéiert …",
-    "emptyHint": "Wiel eng Statioun a klick op Weisen, fir Klimasträifen ze erstellen",
     "downloadImage": "Bild eroflueden",
     "downloadPng": "Als PNG eroflueden",
     "downloadJpg": "Als JPG eroflueden",
@@ -707,7 +716,6 @@
     "minGainHint": "Minimal Gewënnschwell fir d'Dobäisetze vu weidere Statiounen. Weegt den zousätzlechen Openthalt géint de Gewënn vun zousätzlechen Zäitstempelen of. (Standard: 0,10)",
     "additionalStations": "Zousätzlech Statiounen",
     "additionalStationsHint": "Zuel vun zousätzleche Statiounen, déi onofhängeg vun der Gewënnschwell ze benotze sinn. (Standard: 3)",
-    "dataSource": "Datequell",
     "stationsDetails": "Statiounsdetailer",
     "valuesDetails": "Wäerterdetailer",
     "leadTime": "Previsiounslaf",
@@ -733,7 +741,7 @@
     "endDate": "Schlussdatum"
   },
   "parameterSelection": {
-    "title": "Parameteren auswielen",
+    "title": "Daten",
     "selectProvider": "Ubidder auswielen",
     "selectNetwork": "Netzwierk auswielen",
     "selectResolution": "Opléisung auswielen",
@@ -960,7 +968,6 @@
     "selectSections": "Wiel d'Sektiounen aus, déi abegraff solle ginn",
     "error": "Feeler",
     "resultsTitle": "Resultater",
-    "noHistories": "Keen Historique gelueden. Klick op „Weisen“, fir de Backend ofzefroen.",
     "selectedStations": "Ausgewielte Statiounen",
     "colStationId": "Statiouns-ID",
     "colName": "Numm",
@@ -990,6 +997,7 @@
     "missingDataHistory": "Historique vu fehlenden Daten",
     "summary": "Resümee",
     "periods": "Perioden",
-    "colMissingCount": "Zuel vu Fehlenden"
+    "colMissingCount": "Zuel vu Fehlenden",
+    "noneFound": "Fir déi gewielte Statiounen gouf kee Historique fonnt."
   }
 }

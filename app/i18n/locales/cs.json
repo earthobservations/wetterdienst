@@ -480,6 +480,17 @@
     "noResolutions": "Není to časová řada: není tu co vypisovat.",
     "openExplorer": "Otevřít v průzkumníku"
   },
+  "cardTitle": {
+    "station": "Stanice",
+    "stationAndPeriod": "Stanice a období",
+    "placeAndPeriod": "Místo a období"
+  },
+  "toolPlaceholder": {
+    "forecast": "Vyhledej stanici nebo ji vyber na mapě a uvidíš její předpověď",
+    "explorer": "Vyber parametry, vyhledej stanici nebo ji vyber na mapě a kliknutím na Zobrazit načti data",
+    "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na Zobrazit vytvoř klimatické pruhy",
+    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii"
+  },
   "meteogram": {
     "title": "Předpověď počasí",
     "subtitle": "Předpověď DWD MOSMIX — teplota, srážky a vítr",
@@ -488,7 +499,6 @@
     "aboutText2": "Graf zobrazuje teplotu a rosný bod, rychlost větru a nárazy s meteorologickými větrnými praporky, srážky klasifikované podle fáze (déšť / smíšené / sníh), oblačnost podle výšky a atmosférický tlak. Pásy den/noc se odvozují z geografické polohy stanice. Vyber libovolnou stanici DWD podle názvu nebo ID a načti její předpověď.",
     "selectStation": "Vybrat stanici",
     "loading": "Načítání předpovědi MOSMIX …",
-    "emptyHint": "Vyhledej stanici výše a vygeneruj předpověď",
     "openWidget": "Otevřít jako vložitelný widget",
     "chart": {
       "noData": "Pro vybraný dotaz nejsou k dispozici žádná data",
@@ -617,7 +627,6 @@
     "showTrendline": "Zobrazit trendovou čáru",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
-    "emptyHint": "Vyber stanici a kliknutím na Zobrazit vytvoř klimatické pruhy",
     "downloadImage": "Stáhnout obrázek",
     "downloadPng": "Stáhnout jako PNG",
     "downloadJpg": "Stáhnout jako JPG",
@@ -707,7 +716,6 @@
     "minGainHint": "Minimální prahová hodnota zisku pro přidání dalších stanic. Zvažuje dodatečné úsilí oproti zisku dalších časových značek. (Výchozí: 0,10)",
     "additionalStations": "Další stanice",
     "additionalStationsHint": "Počet dalších stanic, které se použijí bez ohledu na prahovou hodnotu zisku. (Výchozí: 3)",
-    "dataSource": "Zdroj dat",
     "stationsDetails": "Podrobnosti stanic",
     "valuesDetails": "Podrobnosti hodnot",
     "leadTime": "Běh předpovědi",
@@ -733,7 +741,7 @@
     "endDate": "Koncové datum"
   },
   "parameterSelection": {
-    "title": "Vyber parametry",
+    "title": "Data",
     "selectProvider": "Vybrat poskytovatele",
     "selectNetwork": "Vybrat síť",
     "selectResolution": "Vybrat rozlišení",
@@ -960,7 +968,6 @@
     "selectSections": "Vyber sekce k zahrnutí",
     "error": "Chyba",
     "resultsTitle": "Výsledky",
-    "noHistories": "Není načtena žádná historie. Kliknutím na „Zobrazit“ se dotaž backendu.",
     "selectedStations": "Vybrané stanice",
     "colStationId": "ID stanice",
     "colName": "Název",
@@ -990,6 +997,7 @@
     "missingDataHistory": "Historie chybějících dat",
     "summary": "Souhrn",
     "periods": "Období",
-    "colMissingCount": "Počet chybějících"
+    "colMissingCount": "Počet chybějících",
+    "noneFound": "Pro vybrané stanice nebyla nalezena žádná historie."
   }
 }

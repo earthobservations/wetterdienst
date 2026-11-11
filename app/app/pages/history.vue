@@ -164,6 +164,10 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   default: () => ({ histories: [], stations: [] }),
 })
 
+// whether there is anything to put in the result card: histories, or an answer that found none (a fetch under way
+// keeps the card of the answer before it, and a failed one has its error in the form's card)
+const hasResult = computed(() => (data.value?.histories?.length ?? 0) > 0 || status.value === 'success')
+
 // the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
 const fetchErrorMessage = computed(() =>
   status.value === 'error' && error.value ? describeFetchError(error.value) : null)
@@ -218,7 +222,7 @@ function clear() {
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
-                  {{ t('explorer.dataSource') }}
+                  {{ t('cardTitle.station') }}
                 </h2>
               </div>
             </template>
@@ -268,7 +272,9 @@ function clear() {
           </UCard>
         </template>
         <template #result>
-          <UCard>
+          <!-- the card is for what there is to put in it; before a query the placeholder every tool shows (GH-3850) -->
+          <ToolPlaceholder v-if="!hasResult" tool="history" />
+          <UCard v-else>
             <template #header>
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-table" class="text-primary-600 dark:text-primary-500 shrink-0" />
@@ -279,8 +285,8 @@ function clear() {
             </template>
 
             <div>
-              <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600 dark:text-gray-400">
-                {{ t('history.noHistories') }}
+              <div v-if="data.histories && data.histories.length === 0" class="text-sm text-gray-600 dark:text-gray-400">
+                {{ t('history.noneFound') }}
               </div>
               <div v-else class="space-y-6">
                 <!-- Selected Stations Overview -->

@@ -480,6 +480,17 @@
     "noResolutions": "Pas une série temporelle : rien à lister ici.",
     "openExplorer": "Ouvrir dans l'explorateur"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station et période",
+    "placeAndPeriod": "Lieu et période"
+  },
+  "toolPlaceholder": {
+    "forecast": "Recherche une station ou choisis-en une sur la carte pour voir sa prévision",
+    "explorer": "Sélectionne des paramètres, recherche une station ou choisis-en une sur la carte, puis clique sur Afficher pour charger les données",
+    "stripes": "Recherche une station ou choisis-en une sur la carte, puis clique sur Afficher pour créer des bandes climatiques",
+    "history": "Recherche des stations ou choisis-les sur la carte, puis clique sur « Afficher » pour charger leur historique"
+  },
   "meteogram": {
     "title": "Prévisions météo",
     "subtitle": "Prévision DWD MOSMIX — température, précipitations et vent",
@@ -488,7 +499,6 @@
     "aboutText2": "Le graphique montre la température et le point de rosée, la vitesse du vent et les rafales avec des barbules météorologiques, les précipitations classées par phase (pluie / mixte / neige), la couverture nuageuse par altitude et la pression atmosphérique. Les bandes jour/nuit sont dérivées de la position géographique de la station. Sélectionne n'importe quelle station DWD par nom ou identifiant pour charger sa prévision.",
     "selectStation": "Sélectionner une station",
     "loading": "Récupération de la prévision MOSMIX …",
-    "emptyHint": "Recherche une station ci-dessus pour générer une prévision",
     "openWidget": "Ouvrir comme widget intégrable",
     "chart": {
       "noData": "Aucune donnée disponible pour la requête sélectionnée",
@@ -617,7 +627,6 @@
     "showTrendline": "Afficher la ligne de tendance",
     "visualizationTitle": "Visualisation",
     "loadingViz": "Chargement des données et génération de la visualisation …",
-    "emptyHint": "Sélectionne une station et clique sur Afficher pour créer des bandes climatiques",
     "downloadImage": "Télécharger l'image",
     "downloadPng": "Télécharger en PNG",
     "downloadJpg": "Télécharger en JPG",
@@ -707,7 +716,6 @@
     "minGainHint": "Seuil de gain minimal pour ajouter des stations supplémentaires. Met en balance l'effort supplémentaire et le gain d'horodatages additionnels. (Par défaut : 0,10)",
     "additionalStations": "Stations supplémentaires",
     "additionalStationsHint": "Nombre de stations supplémentaires à utiliser indépendamment du seuil de gain. (Par défaut : 3)",
-    "dataSource": "Source de données",
     "stationsDetails": "Détails des stations",
     "valuesDetails": "Détails des valeurs",
     "leadTime": "Run de prévision",
@@ -733,7 +741,7 @@
     "endDate": "Date de fin"
   },
   "parameterSelection": {
-    "title": "Sélectionner les paramètres",
+    "title": "Données",
     "selectProvider": "Sélectionner un fournisseur",
     "selectNetwork": "Sélectionner un réseau",
     "selectResolution": "Sélectionner une résolution",
@@ -960,7 +968,6 @@
     "selectSections": "Sélectionner les sections à inclure",
     "error": "Erreur",
     "resultsTitle": "Résultats",
-    "noHistories": "Aucun historique chargé. Clique sur « Afficher » pour interroger le backend.",
     "selectedStations": "Stations sélectionnées",
     "colStationId": "Identifiant de station",
     "colName": "Nom",
@@ -990,6 +997,7 @@
     "missingDataHistory": "Historique des données manquantes",
     "summary": "Synthèse",
     "periods": "Périodes",
-    "colMissingCount": "Nombre de valeurs manquantes"
+    "colMissingCount": "Nombre de valeurs manquantes",
+    "noneFound": "Aucun historique trouvé pour les stations sélectionnées."
   }
 }

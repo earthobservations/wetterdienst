@@ -98,7 +98,7 @@ test.describe('Explorer Page', () => {
     await page.goto('/explorer')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByText(/Select Parameters/i).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Data', exact: true })).toBeVisible()
   })
 
   test('should have provider dropdown', async ({ page }) => {
@@ -190,7 +190,7 @@ test.describe('Providers Page', () => {
     await page.getByRole('link', { name: 'Open in the explorer' }).first().click()
 
     await expect(page).toHaveURL(/\/explorer\?provider=dwd&network=/)
-    await expect(page.getByText(/Select Parameters/i).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Data', exact: true })).toBeVisible()
   })
 
   test('should say so for a provider there is none of', async ({ page }) => {
@@ -316,7 +316,7 @@ test.describe('Forecast (Meteogram) Page', () => {
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByRole('heading', { name: /Weather forecast/i }).first()).toBeVisible()
-    await expect(page.getByText(/Search for a station above/i)).toBeVisible()
+    await expect(page.getByTestId('tool-placeholder')).toBeVisible()
   })
 
   test('should load a forecast when a station is picked via the URL', async ({ page }) => {
@@ -325,7 +325,7 @@ test.describe('Forecast (Meteogram) Page', () => {
 
     // Either the chart loads or a definitive error/no-data state is shown --
     // never the empty "search for a station" hint.
-    await expect(page.getByText(/Search for a station above/i)).not.toBeVisible()
+    await expect(page.getByTestId('tool-placeholder')).not.toBeVisible()
     await expect(page.getByText('JAN MAYEN', { exact: true })).toBeVisible()
   })
 })

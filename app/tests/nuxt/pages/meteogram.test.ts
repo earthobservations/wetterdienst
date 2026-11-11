@@ -26,7 +26,13 @@ describe('meteogram Page', () => {
 
   it('shows the empty-state hint before a station is selected', async () => {
     const wrapper = await mountSuspended(MeteogramPage)
-    expect(wrapper.text()).toContain('Search for a station above to generate a forecast')
+    expect(wrapper.text()).toContain('Search for a station or pick one on the map to see its forecast')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('forecast')
+  })
+
+  it('titles the first card by what it holds, a station', async () => {
+    const wrapper = await mountSuspended(MeteogramPage)
+    expect(wrapper.find('.text-lg.font-bold').text()).toBe('Station')
   })
 
   it('has a station search and map picker', async () => {

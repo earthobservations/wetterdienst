@@ -108,9 +108,24 @@ describe('history Page', () => {
     expect(vm.canFetch).toBe(true)
   })
 
-  it('shows an empty-results hint before any query has run', async () => {
+  it('shows the placeholder of the tools, and no result card, before any query has run', async () => {
     const wrapper = await mountHistory()
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('history')
+    expect(wrapper.text()).toContain('Search for stations or pick them on the map, then click Show to load their histories')
+    expect(wrapper.text()).not.toContain('backend')
+    expect(wrapper.text()).not.toContain('Results')
+  })
+
+  it('titles the cards by what they hold: the data, and the station', async () => {
+    const wrapper = await mountHistory()
+    expect(wrapper.findAll('h2').map(h => h.text()).slice(0, 2)).toEqual(['Data', 'Station'])
+  })
+
+  it('says that nothing was found, and not that nothing was asked, where a query came back with no histories', async () => {
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [] }))
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
   })
 
   it('clear() resets fetched history data', async () => {
@@ -180,7 +195,7 @@ describe('history Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('Foo Station')
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
     expect(vm.canFetch).toBe(true)
   })
 
