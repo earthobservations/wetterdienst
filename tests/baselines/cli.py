@@ -38,33 +38,7 @@ from tests.baselines.common import DIRECTORY, read, write
 BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst about was removed": (
-        "GH-4000, before 1.0.0: the group `about` is gone; `auth`, `coverage`, `fields`, `glossary` and `providers` "
-        "are commands of `wetterdienst` itself, and a call of `wetterdienst about` is a usage error (exit 2) that "
-        "names them"
-    ),
-    "wetterdienst about auth was removed": (
-        "GH-4000, before 1.0.0: `wetterdienst about auth` is `wetterdienst auth`, with the options it had; "
-        "the old path is a usage error (exit 2) that names the new one"
-    ),
-    "wetterdienst about coverage was removed": (
-        "GH-4000, before 1.0.0: `wetterdienst about coverage` is `wetterdienst coverage`, with the options it had; "
-        "the old path is a usage error (exit 2) that names the new one"
-    ),
-    "wetterdienst about fields was removed": (
-        "GH-4000, before 1.0.0: `wetterdienst about fields` is `wetterdienst fields`, with the options it had; "
-        "the old path is a usage error (exit 2) that names the new one"
-    ),
-    "wetterdienst about glossary was removed": (
-        "GH-4000, before 1.0.0: `wetterdienst about glossary` is `wetterdienst glossary`, with the options it had; "
-        "the old path is a usage error (exit 2) that names the new one"
-    ),
-    "wetterdienst about providers was removed": (
-        "GH-4000, before 1.0.0: `wetterdienst about providers` is `wetterdienst providers`, with the options it had; "
-        "the old path is a usage error (exit 2) that names the new one"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")

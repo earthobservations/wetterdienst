@@ -67,24 +67,10 @@
       "type": "object",
       "properties": {
         "provider": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "string"
         },
         "network": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "string"
         },
         "resolutions": {
           "anyOf": [
@@ -117,7 +103,10 @@
           "default": false
         }
       },
-      "required": []
+      "required": [
+        "provider",
+        "network"
+      ]
     },
     "glossary": {
       "type": "object",
@@ -578,10 +567,6 @@
             }
           ]
         },
-        "datasets": {
-          "type": "boolean",
-          "default": true
-        },
         "pretty": {
           "type": "boolean",
           "default": false
@@ -1035,6 +1020,19 @@
         "pretty": {
           "type": "boolean",
           "default": false
+        },
+        "unit_targets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1762,5 +1760,5 @@
       ]
     }
   },
-  "x-release": "0.185.0"
+  "x-release": "0.186.0"
 }

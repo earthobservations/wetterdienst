@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.186.0] - 2026-11-11
+
 ### Added
 
 - `coverage` and `metadata.parameters` of every answer that has a `metadata` block (with
@@ -44,8 +46,8 @@ Types of changes:
 
 - The OpenAPI document says more of three answers: `/api/history` lists every record of a history
   (`name`, `parameter`, `device`, `geography`, `missing_data`, `resolution`, `dataset`) instead of
-  `object[]`, `series.station` of `/api/stripes/values` is a station of the stations listing, and the
-  resolutions `/api/coverage` is keyed by are the library's. The output schemas of the MCP tools
+  `object[]`, `series.station` of `/api/stripes/values` is a station of the stations listing, and
+  the resolutions `/api/coverage` is keyed by are the library's. The output schemas of the MCP tools
   `history`, `stripes_values` and `coverage` say the same. The answers themselves are unchanged.
   `HistoryDict["histories"]` is `list[_HistoryEntry]`, no longer `list[dict[str, Any]]`: a type
   checker may flag code typed against the old one (GH-3908)
@@ -53,11 +55,11 @@ Types of changes:
   at most every 12 hours, not every 5 minutes (the one under way stays at 5 minutes), the
   fetch-ahead of `imgw/meteorology` included. A long all-station query no longer downloads each
   archive twice; one that IMGW rewrites later is picked up within 12 hours (GH-3931)
-- Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or
-  12 hours: `historical` of `dwd/observation`, `dwd/derived`, `dwd/phenology`, SMHI
+- Caching: files that are final by name are fetched again at most weekly, not every 5 minutes or 12
+  hours: `historical` of `dwd/observation`, `dwd/derived`, `dwd/phenology`, SMHI
   `corrected-archive`, Met Office station-years, MeteoSwiss `_historical` (from 1 February; 5
-  minutes in January). `lhmt` days and `meteofrance/synop` years are fetched every 5 minutes until
-  6 hours (day) or 7 days (year) after they ended, then kept for good. Hub'Eau's cache hits (GH-3929)
+  minutes in January). `lhmt` days and `meteofrance/synop` years are fetched every 5 minutes until 6
+  hours (day) or 7 days (year) after they ended, then kept for good. Hub'Eau's cache hits (GH-3929)
 - `knmi/observation` keeps the content of a file whose interval ended more than 6 hours ago for 12
   hours, and of a newer one for 5 minutes as before, under the file's own name and not its
   pre-signed link. Within that time a file already read is not requested from KNMI again, where it
@@ -110,12 +112,13 @@ Types of changes:
   1976; the 10xxxx files have them from 1952 (GH-3910)
 - **Breaking**: `dwd/observation` `hourly/temperature_air`, `temperature_air_2m` and
   `humidity_relative`: 808 station-months at 26 stations (1955 to 1997, almost all before 1991; the
-  854 of an ISD fit and a diurnal-phase test that agree in each of six one-at-a-time variants of
-  the scan's constants, 46 of them shifted before) of the plain "Stundenwerte in MEZ" periods are MEZ in the values and come back one hour
-  earlier, flagged `zone:mez`. The 13 stations of the 1973-01 to 1975-12 batch carry
-  `zone:mez-1973-75`: the shift is the 1 h of the clock, about 0.4 h of the recorder's lag stays at 8 of them.
-  Months only one method finds in MEZ stay as written. A stored series needs a re-read: add an hour
-  to flagged stamps for the old ones. The blocks are `mez_blocks.csv` (GH-3776)
+  854 of an ISD fit and a diurnal-phase test that agree in each of six one-at-a-time variants of the
+  scan's constants, 46 of them shifted before) of the plain "Stundenwerte in MEZ" periods are MEZ in
+  the values and come back one hour earlier, flagged `zone:mez`. The 13 stations of the 1973-01 to
+  1975-12 batch carry `zone:mez-1973-75`: the shift is the 1 h of the clock, about 0.4 h of the
+  recorder's lag stays at 8 of them. Months only one method finds in MEZ stay as written. A stored
+  series needs a re-read: add an hour to flagged stamps for the old ones. The blocks are
+  `mez_blocks.csv` (GH-3776)
 - **Breaking**: `metoffice/observation` hourly `wind_direction_mean` is null with `raw:999` where
   the file holds 999, a code and no bearing, which no MIDAS table words (2,333 of 775,720 readings,
   1970 to 1995, all beside a wind of 1 to 6 knots), in any window. It was null as
@@ -7951,7 +7954,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...HEAD
+[0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0
 [0.185.0]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...v0.185.0
 [0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0
 [0.183.0]: https://github.com/earthobservations/wetterdienst/compare/v0.182.0...v0.183.0
