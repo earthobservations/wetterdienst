@@ -143,10 +143,12 @@ The app has two workflows, split along what each of them reads.
 
 ### `app-tests.yml`
 
-Runs on changes to `app/**`.
+Runs on changes to `app/**`, the two backend files the vitest suite reads, and the OpenAPI document
+`tests/ui/openapi.snapshot.json`, which the type check generates the app's types from.
 
 **Jobs:**
-1. **typecheck** - `nuxt typecheck`
+1. **typecheck** - `pnpm typecheck`: `openapi-typescript` writes the types of the document to the
+   git-ignored `app/.generated/`, then `nuxt typecheck` (GH-3908)
 2. **lint** - ESLint and Oxlint checks
 3. **unit-tests** - Vitest unit and component tests
 
