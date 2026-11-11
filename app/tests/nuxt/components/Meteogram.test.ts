@@ -721,14 +721,14 @@ describe('meteogram display synced to the URL', { timeout: 15_000 }, () => {
 })
 
 describe('meteogram text alternative', { timeout: 15_000 }, () => {
-  // 30 hourly values of the series the panels plot; the cloud cover as the backend gives it, a fraction
+  // 30 hourly values of the series the panels plot; the cloud cover in percent, the unit the app settings start from
   const hours = 30
   const forecast = Object.entries({
     temperature_air_2m: (hour: number) => 10 + hour / 10,
     wind_speed: (hour: number) => 4 + hour / 10,
     wind_direction: () => 270,
     precipitation_amount_significant_weather_last_1h: (hour: number) => hour === 1 ? 0.5 : 0,
-    cloud_cover_total: () => 0.5,
+    cloud_cover_total: () => 50,
     pressure_air_sea_level: () => 1013.25,
   }).flatMap(([parameter, curve]) => Array.from({ length: hours }, (_, hour) => ({
     station_id: '10384',
@@ -838,7 +838,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
       'Pressure hPa',
     ])
     expect(rows(table)).toHaveLength(hours)
-    // each time is the header of its row; the cloud cover is in percent, as the chart has it
+    // each time is the header of its row
     expect(rows(table)[1]).toEqual(['01/10/2026, 01:00', '10.1', '4.1', '270', '0.50', '50', '1,013.3'])
     expect(table.querySelector('caption')?.textContent?.trim()).toBe('Forecast chart for Berlin')
     expect(table.querySelector('tbody tr')?.firstElementChild?.tagName).toBe('TH')

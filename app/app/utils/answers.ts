@@ -1,9 +1,15 @@
 import type { Provider, ProviderNetworkCoverageResponse } from '#shared/types/api'
 import { DateTime } from 'luxon'
+import { CANONICAL_UNITS, differenceIn, fromCanonical, toCanonical } from './units'
 
 // The answers of the home page's questions (components/AnswerPanel.vue), worked out from the values the backend
 // answers with. Pure: the page fetches, these read. Nothing here is a number of its own; where the data does not
 // carry an answer, the function says so (null) rather than make one up.
+//
+// The numbers come in the units the app settings choose and are written in them (GH-3980): each function takes the unit
+// the answer reports its readings in (`metadata.parameters[].unit`) and says it in the answer's `unit`. What a number is
+// compared with (a millimetre of rain, half a degree, Beaufort 9) is judged in the canonical unit of its quantity, so
+// that the verdict is the same in every unit.
 
 /** A reading as `/api/values` answers it in the long shape: the parameter, the time and the value */
 export interface Reading {
@@ -41,11 +47,13 @@ export interface RainAnswer {
   verdict: RainVerdict
   /** The day asked about, `YYYY-MM-DD` in the place's time zone */
   day: string
-  /** Precipitation of the day in millimetres, the sum of its hours */
+  /** Precipitation of the day, the sum of its hours, in `unit` */
   total: number
+  /** The unit `total`, the wettest hour and the hours are in */
+  unit: string
   /** Hours with 0.1 mm or more */
   wetHours: number
-  /** The highest chance of rain in any one hour, 0 to 1; null where the forecast carries none */
+  /** The highest chance of rain in any one hour, 0 to 1 whatever unit the forecast gives it in; null where the forecast carries none */
   maxChance: number | null
   /** The hour with the most rain, by its start (0 to 23), where any falls */
   wettest: { hour: number, amount: number } | null
@@ -61,7 +69,17 @@ const RAIN_MIN_HOURS = 18
  * an hour with a chance of 70 % or more; maybe for 0.2 mm or a chance of 30 %; no otherwise. Null where the forecast
  * does not reach most of the day.
  */
-export function rainTomorrow(readings: Reading[], zone: string, now: DateTime): RainAnswer | null {
+export function rainTomorrow(
+  readings: Reading[],
+  zone: string,
+  now: DateTime,
+  units: { precipitation?: string, fraction?: string } = {},
+): RainAnswer | null {
+  const unit = units.precipitation ?? CANONICAL_UNITS.precipitation
+  // the verdict is judged in millimetres, and the chance as a share from 0 to 1 (the app asks it as a decimal: so it is read
+  // where the answer says no unit)
+  const inMillimeters = (amount: number) => toCanonical('precipitation', unit, amount)
+  const asShare = (chance: number) => toCanonical('fraction', units.fraction ?? '-', chance) / 100
   const start = now.setZone(zone).startOf('day').plus({ days: 1 })
   const end = start.plus({ days: 1 })
   const amountAt = new Map<number, number>()
@@ -78,6 +96,7 @@ export function rainTomorrow(readings: Reading[], zone: string, now: DateTime): 
 
   const hours: Bar[] = []
   let total = 0
+  let totalMillimeters = 0
   let wetHours = 0
   let covered = 0
   let maxChance: number | null = null
@@ -88,11 +107,12 @@ export function rainTomorrow(readings: Reading[], zone: string, now: DateTime): 
     const amount = amountAt.get(at) ?? null
     const chance = chanceAt.get(at)
     if (chance !== undefined)
-      maxChance = Math.max(maxChance ?? 0, chance)
+      maxChance = Math.max(maxChance ?? 0, asShare(chance))
     if (amount !== null) {
       covered++
       total += amount
-      if (amount >= 0.1)
+      totalMillimeters += inMillimeters(amount)
+      if (inMillimeters(amount) >= 0.1)
         wetHours++
       if (amount > 0 && (!wettest || amount > wettest.amount))
         wettest = { hour: hour.hour, amount }
@@ -103,11 +123,12 @@ export function rainTomorrow(readings: Reading[], zone: string, now: DateTime): 
     return null
 
   total = Math.round(total * 10) / 10
+  totalMillimeters = Math.round(totalMillimeters * 10) / 10
   const chance = maxChance ?? 0
-  const verdict: RainVerdict = total >= 1 || chance >= 0.7
+  const verdict: RainVerdict = totalMillimeters >= 1 || chance >= 0.7
     ? 'yes'
-    : total >= 0.2 || chance >= 0.3 ? 'maybe' : 'no'
-  return { verdict, day: start.toISODate()!, total, wetHours, maxChance, wettest, hours }
+    : totalMillimeters >= 0.2 || chance >= 0.3 ? 'maybe' : 'no'
+  return { verdict, day: start.toISODate()!, total, unit, wetHours, maxChance, wettest, hours }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -119,13 +140,15 @@ export type SummerVerdict = 'hotter' | 'cooler' | 'usual'
 export interface SummerAnswer {
   verdict: SummerVerdict
   year: number
-  /** Mean temperature of June, July and August, °C */
+  /** Mean temperature of June, July and August, in `unit` */
   mean: number
+  /** The unit of the temperatures, and of the differences (`anomaly`, the bars): degrees of it */
+  unit: string
   /** The mean of the summers it is compared with, and the first and last of them */
   normal: number
   normalFrom: number
   normalTo: number
-  /** `mean - normal`, K */
+  /** `mean - normal`, in degrees of `unit` */
   anomaly: number
   /** 1 for the warmest summer of the record */
   rank: number
@@ -145,7 +168,7 @@ const FALLBACK_MIN_SUMMERS = 10
 const USUAL_BAND = 0.5
 
 /** The last complete summer (June to August, over by `now`) against the summers of 1991 to 2020, or of the record before it */
-export function lastSummer(readings: Reading[], now: DateTime): SummerAnswer | null {
+export function lastSummer(readings: Reading[], now: DateTime, unit: string = CANONICAL_UNITS.temperature): SummerAnswer | null {
   const months = new Map<number, Map<number, number>>()
   for (const reading of readings) {
     if (reading.value === null)
@@ -154,7 +177,8 @@ export function lastSummer(readings: Reading[], now: DateTime): SummerAnswer | n
     if (at.month < 6 || at.month > 8)
       continue
     const year = months.get(at.year) ?? new Map<number, number>()
-    year.set(at.month, reading.value)
+    // worked out in degrees Celsius, where the half degree of "as usual" is
+    year.set(at.month, toCanonical('temperature', unit, reading.value))
     months.set(at.year, year)
   }
   const summers = [...months.entries()]
@@ -172,23 +196,27 @@ export function lastSummer(readings: Reading[], now: DateTime): SummerAnswer | n
       return null
   }
   const normal = reference.reduce((sum, summer) => sum + summer.mean, 0) / reference.length
-  const anomaly = last.mean - normal
+  // to three decimals, as `toCanonical` is, so that an anomaly on the edge of the band is on it in any unit
+  const anomaly = Math.round((last.mean - normal) * 1e3) / 1e3
+  // a difference in degrees of the unit, not a temperature in it: 1 K is 1.8 °F
+  const degrees = (difference: number) => round1(differenceIn('temperature', unit, difference))
   const verdict: SummerVerdict = anomaly >= USUAL_BAND ? 'hotter' : anomaly <= -USUAL_BAND ? 'cooler' : 'usual'
   return {
     verdict,
     year: last.year,
-    mean: round1(last.mean),
-    normal: round1(normal),
+    mean: round1(fromCanonical('temperature', unit, last.mean)),
+    unit,
+    normal: round1(fromCanonical('temperature', unit, normal)),
     normalFrom: reference[0]!.year,
     normalTo: reference.at(-1)!.year,
-    anomaly: round1(anomaly),
+    anomaly: degrees(anomaly),
     rank: 1 + summers.filter(summer => summer.mean > last.mean).length,
     summers: summers.length,
     bars: summers.map(summer => ({
       key: String(summer.year),
       label: String(summer.year),
       at: summer.year,
-      value: round1(summer.mean - normal),
+      value: degrees(summer.mean - normal),
       highlight: summer.year === last.year,
     })),
   }
@@ -206,9 +234,11 @@ export type WindVerdict = 'calm' | 'breezy' | 'windy' | 'stormy'
 export interface WindAnswer {
   verdict: WindVerdict
   day: string
-  /** Daily mean wind speed and the strongest gust, m/s; either can be missing */
+  /** Daily mean wind speed and the strongest gust, in `unit`; either can be missing */
   mean: number | null
   gust: number | null
+  /** The unit of the speeds, and of the bars */
+  unit: string
   /** The Beaufort force of the mean and of the gust */
   beaufort: number | null
   gustBeaufort: number | null
@@ -232,7 +262,7 @@ export function beaufort(speed: number): number {
  * How windy `day` was: by its strongest gust where there is one (under Beaufort 5 calm, under 7 breezy, under 9
  * windy, from 9, a strong gale, stormy), else by its mean (under 4, under 6, under 8, from 8).
  */
-export function windOnDay(readings: Reading[], day: string): WindAnswer | null {
+export function windOnDay(readings: Reading[], day: string, unit: string = CANONICAL_UNITS.speed): WindAnswer | null {
   const byDay = new Map<string, { mean: number | null, gust: number | null }>()
   for (const reading of readings) {
     if (reading.value === null || (reading.parameter !== WIND_MEAN && reading.parameter !== WIND_GUST))
@@ -249,8 +279,9 @@ export function windOnDay(readings: Reading[], day: string): WindAnswer | null {
   if (!that || (that.mean === null && that.gust === null))
     return null
 
-  const gustBeaufort = that.gust === null ? null : beaufort(that.gust)
-  const meanBeaufort = that.mean === null ? null : beaufort(that.mean)
+  // Beaufort's force is a range of metres per second: the speed is converted to it from whatever unit it is in
+  const gustBeaufort = that.gust === null ? null : beaufort(toCanonical('speed', unit, that.gust))
+  const meanBeaufort = that.mean === null ? null : beaufort(toCanonical('speed', unit, that.mean))
   let verdict: WindVerdict
   if (gustBeaufort !== null)
     verdict = gustBeaufort >= 9 ? 'stormy' : gustBeaufort >= 7 ? 'windy' : gustBeaufort >= 5 ? 'breezy' : 'calm'
@@ -267,6 +298,7 @@ export function windOnDay(readings: Reading[], day: string): WindAnswer | null {
     day,
     mean: that.mean,
     gust: that.gust,
+    unit,
     beaufort: meanBeaufort,
     gustBeaufort,
     around: others.length,

@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import type { ProviderNetworkCoverageResponse, Station, Value } from '#shared/types/api'
+import type { ProviderNetworkCoverageResponse, Station, Value, ValuesResponse } from '#shared/types/api'
 import type { Bar, RainAnswer, SummerAnswer, TemperatureSource, WindAnswer } from '~/utils/answers'
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { hourlyNetworks, hourlyTemperatureIn, lastSummer, rainTomorrow, windOnDay, windWindow } from '~/utils/answers'
+import { hourlyNetworks, hourlyTemperatureIn, lastSummer, RAIN_AMOUNT, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
 import { describeFetchError } from '~/utils/api-error'
 import { flagEmoji } from '~/utils/country'
 import { formatNumber } from '~/utils/format'
 import { TOOLS } from '~/utils/sections'
+import { requestUnitTargets } from '~/utils/unit-targets'
+import { unitsOfAnswer, unitText } from '~/utils/units'
 
 // The answer to one of the home page's questions (GH-3518), worked out from what the backend answers, with the chart that
 // backs it and the way into the tool that holds the data, filled in. Nothing is said that the data does not say:
@@ -42,14 +44,34 @@ const number = (value: number, digits = 1) => formatNumber(value, locale.value, 
 const percent = (value: number) => new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 0 }).format(value)
 const today = () => DateTime.now()
 
-const VALUE_OPTIONS = { shape: 'long', humanize: 'true', convert_units: 'true' } as const
+// The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
+// summer, degrees; the wind, a speed) and whether the values are converted at all. The answer says which unit each
+// parameter is in (`with_metadata`), and the sentences, the chart and its table are written in that; what the verdicts
+// compare with is judged in canonical units (utils/answers.ts), so a verdict is the same in every unit.
+const { settings } = useSettings()
+const QUANTITY: Partial<Record<QuestionId, 'precipitation' | 'temperature' | 'speed'>> = { rain: 'precipitation', summer: 'temperature', wind: 'speed' }
+/** The unit of the question's quantity the settings choose, and whether they convert: what a change of refetches the answer for */
+const unitsAsked = computed(() => {
+  const quantity = QUANTITY[props.question]
+  if (!quantity)
+    return ''
+  // where nothing is converted the unit chosen changes nothing of the answer
+  return JSON.stringify(settings.value.convertUnits ? [true, requestUnitTargets(settings.value.units)[quantity]] : [false])
+})
+const chosen = (quantity: 'precipitation' | 'temperature' | 'speed') => requestUnitTargets(settings.value.units)[quantity]!
 
-async function values(query: Record<string, string>): Promise<Value[]> {
-  const response = await $fetch<{ values: Value[] }>('/api/values', { query: { ...VALUE_OPTIONS, ...query }, ...API_FETCH })
-  return response.values ?? []
+// the last request wins: a question or place changed while one was under way discards its answer
+let asked = 0
+
+async function values(query: Record<string, string>): Promise<{ readings: Value[], units: Record<string, string> }> {
+  const response = await $fetch<ValuesResponse>('/api/values', {
+    query: { shape: 'long', humanize: 'true', convert_units: String(settings.value.convertUnits), with_metadata: 'true', ...query },
+    ...API_FETCH,
+  })
+  return { readings: response.values ?? [], units: unitsOfAnswer(response) }
 }
 
-async function answerRain(): Promise<Status> {
+async function answerRain(turn: number): Promise<Status> {
   const near = await $fetch<{ stations: Station[] }>('/api/stations', {
     query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', latitude: place.value.latitude, longitude: place.value.longitude, rank: 1 },
     ...API_FETCH,
@@ -57,42 +79,50 @@ async function answerRain(): Promise<Status> {
   const point = near.stations?.[0]
   if (!point)
     return 'empty'
-  const readings = await values({
+  // the chance is a probability, which the sentence writes as a percentage whatever the settings' unit for fractions
+  // (oktas, say, are no way to write one): asked as a decimal, and read by the unit the answer gives where it is not
+  const { readings, units } = await values({
     provider: 'dwd',
     network: 'mosmix',
     parameters: 'hourly/large/rr1c,hourly/large/r101',
     stations: point.station_id,
-    unit_targets: JSON.stringify({ precipitation: 'millimeter', fraction: 'decimal' }),
+    unit_targets: JSON.stringify({ precipitation: chosen('precipitation'), fraction: 'decimal' }),
   })
-  const answer = rainTomorrow(readings, tzLookup(place.value.latitude, place.value.longitude), today())
-  rain.value = { answer, point }
+  const answer = rainTomorrow(readings, tzLookup(place.value.latitude, place.value.longitude), today(), { precipitation: units[RAIN_AMOUNT], fraction: units[RAIN_CHANCE] })
+  // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
+  if (turn === asked)
+    rain.value = { answer, point }
   return answer ? 'ready' : 'empty'
 }
 
-async function answerSummer(): Promise<Status> {
-  const readings = await values({
+async function answerSummer(turn: number): Promise<Status> {
+  const { readings, units } = await values({
     provider: 'dwd',
     network: 'observation',
     parameters: 'monthly/climate_summary/temperature_air_mean_2m',
     stations: place.value.id,
-    unit_targets: JSON.stringify({ temperature: 'degree_celsius' }),
+    unit_targets: JSON.stringify({ temperature: chosen('temperature') }),
   })
-  summer.value = lastSummer(readings, today())
-  return summer.value ? 'ready' : 'empty'
+  const answer = lastSummer(readings, today(), units.temperature_air_mean_2m)
+  if (turn === asked)
+    summer.value = answer
+  return answer ? 'ready' : 'empty'
 }
 
-async function answerWind(): Promise<Status> {
+async function answerWind(turn: number): Promise<Status> {
   const { from, to } = windWindow(props.day, today())
-  const readings = await values({
+  const { readings, units } = await values({
     provider: 'dwd',
     network: 'observation',
     parameters: 'daily/climate_summary/wind_gust_max,daily/climate_summary/wind_speed_mean',
     stations: place.value.id,
     timestamp: `${from}/${to}`,
-    unit_targets: JSON.stringify({ speed: 'meter_per_second' }),
+    unit_targets: JSON.stringify({ speed: chosen('speed') }),
   })
-  wind.value = windOnDay(readings, props.day)
-  return wind.value ? 'ready' : 'empty'
+  const answer = windOnDay(readings, props.day, units[WIND_GUST] ?? units[WIND_MEAN])
+  if (turn === asked)
+    wind.value = answer
+  return answer ? 'ready' : 'empty'
 }
 
 async function answerDownload(): Promise<Status> {
@@ -116,21 +146,19 @@ async function answerDownload(): Promise<Status> {
   return sources.value.length ? 'ready' : 'empty'
 }
 
-const ANSWER: Record<QuestionId, () => Promise<Status>> = {
+const ANSWER: Record<QuestionId, (turn: number) => Promise<Status>> = {
   rain: answerRain,
   summer: answerSummer,
   wind: answerWind,
   download: answerDownload,
 }
 
-// the last request wins: a question or place changed while one was under way discards its answer
-let asked = 0
 async function ask() {
   const turn = ++asked
   status.value = 'loading'
   failure.value = ''
   try {
-    const result = await ANSWER[props.question]()
+    const result = await ANSWER[props.question](turn)
     if (turn === asked)
       status.value = result
   }
@@ -142,7 +170,9 @@ async function ask() {
   }
 }
 
-watch(() => [props.question, place.value.id, props.question === 'wind' ? props.day : ''], ask, { immediate: true })
+// the question, the place, the day, or the unit the settings choose for the question: a change of any of them asks again,
+// and one under way is followed by the new one, whose answer is the only one shown
+watch(() => [props.question, place.value.id, props.question === 'wind' ? props.day : '', unitsAsked.value], ask, { immediate: true })
 onBeforeUnmount(() => {
   // an answer that comes after the panel is gone says nothing
   asked++
@@ -154,7 +184,7 @@ const verdict = computed(() => {
   switch (props.question) {
     case 'rain': return rain.value?.answer ? t(`ask.rain.${rain.value.answer.verdict}`) : ''
     case 'summer': return summer.value
-      ? t(`ask.summer.${summer.value.verdict}`, { anomaly: number(Math.abs(summer.value.anomaly)) })
+      ? t(`ask.summer.${summer.value.verdict}`, { anomaly: number(Math.abs(summer.value.anomaly)), unit: unitText(summer.value.unit) })
       : ''
     case 'wind': return wind.value ? t(`ask.wind.${wind.value.verdict}`) : ''
     case 'download': return t('ask.download.answer', { count: sources.value.length })
@@ -165,10 +195,10 @@ const verdict = computed(() => {
 const details = computed<string[]>(() => {
   if (props.question === 'rain' && rain.value?.answer) {
     const answer = rain.value.answer
-    const lines = [t('ask.rain.total', { amount: number(answer.total) })]
+    const lines = [t('ask.rain.total', { amount: number(answer.total), unit: unitText(answer.unit) })]
     if (answer.wettest) {
       const next = (answer.wettest.hour + 1) % 24
-      lines.push(t('ask.rain.wettest', { from: String(answer.wettest.hour).padStart(2, '0'), to: String(next).padStart(2, '0'), amount: number(answer.wettest.amount) }))
+      lines.push(t('ask.rain.wettest', { from: String(answer.wettest.hour).padStart(2, '0'), to: String(next).padStart(2, '0'), amount: number(answer.wettest.amount), unit: unitText(answer.unit) }))
     }
     if (answer.maxChance !== null)
       lines.push(t('ask.rain.chance', { chance: percent(answer.maxChance) }))
@@ -177,7 +207,7 @@ const details = computed<string[]>(() => {
   if (props.question === 'summer' && summer.value) {
     const answer = summer.value
     return [
-      t('ask.summer.detail', { year: answer.year, mean: number(answer.mean), from: answer.normalFrom, to: answer.normalTo, normal: number(answer.normal) }),
+      t('ask.summer.detail', { year: answer.year, mean: number(answer.mean), from: answer.normalFrom, to: answer.normalTo, normal: number(answer.normal), unit: unitText(answer.unit) }),
       t('ask.summer.rank', { rank: answer.rank, count: answer.summers, first: answer.bars[0]?.label ?? '' }),
     ]
   }
@@ -185,9 +215,9 @@ const details = computed<string[]>(() => {
     const answer = wind.value
     const lines: string[] = []
     if (answer.mean !== null)
-      lines.push(t('ask.wind.mean', { speed: number(answer.mean), force: answer.beaufort ?? 0 }))
+      lines.push(t('ask.wind.mean', { speed: number(answer.mean), unit: unitText(answer.unit), force: answer.beaufort ?? 0 }))
     if (answer.gust !== null)
-      lines.push(t('ask.wind.gust', { speed: number(answer.gust), force: answer.gustBeaufort ?? 0 }))
+      lines.push(t('ask.wind.gust', { speed: number(answer.gust), unit: unitText(answer.unit), force: answer.gustBeaufort ?? 0 }))
     if (answer.around)
       lines.push(t('ask.wind.context', { stronger: answer.stronger, around: answer.around }))
     return lines
@@ -223,12 +253,12 @@ const pointLine = computed(() => {
 // the chart's bars and caption
 const chart = computed<{ bars: Bar[], caption: string, unit: string, diverging?: boolean, every?: number, emphasis: 'all' | 'one', rowLabel?: (bar: Bar) => string } | null>(() => {
   if (props.question === 'rain' && rain.value?.answer)
-    return { bars: rain.value.answer.hours, caption: t('ask.rain.chart', { unit: 'mm' }), unit: 'mm', every: 3, emphasis: 'all', rowLabel: bar => `${bar.label}:00` }
+    return { bars: rain.value.answer.hours, caption: t('ask.rain.chart', { unit: unitText(rain.value.answer.unit) }), unit: unitText(rain.value.answer.unit), every: 3, emphasis: 'all', rowLabel: bar => `${bar.label}:00` }
   if (props.question === 'summer' && summer.value) {
     return {
       bars: summer.value.bars,
-      caption: t('ask.summer.chart', { from: summer.value.normalFrom, to: summer.value.normalTo, unit: '°C' }),
-      unit: '°C',
+      caption: t('ask.summer.chart', { from: summer.value.normalFrom, to: summer.value.normalTo, unit: unitText(summer.value.unit) }),
+      unit: unitText(summer.value.unit),
       diverging: true,
       emphasis: 'one',
     }
@@ -236,8 +266,8 @@ const chart = computed<{ bars: Bar[], caption: string, unit: string, diverging?:
   if (props.question === 'wind' && wind.value) {
     return {
       bars: wind.value.bars.map(bar => ({ ...bar, label: DateTime.fromISO(bar.key).toFormat('d') })),
-      caption: t(wind.value.barsAreGusts ? 'ask.wind.chartGust' : 'ask.wind.chartMean', { unit: 'm/s' }),
-      unit: 'm/s',
+      caption: t(wind.value.barsAreGusts ? 'ask.wind.chartGust' : 'ask.wind.chartMean', { unit: unitText(wind.value.unit) }),
+      unit: unitText(wind.value.unit),
       every: 7,
       emphasis: 'one',
       rowLabel: bar => dayText(bar.key, true),

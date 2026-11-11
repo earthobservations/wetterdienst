@@ -4,6 +4,8 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { useSettings } from '#imports'
+import Meteogram from '~/components/Meteogram.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
 
@@ -377,15 +379,114 @@ describe('meteogram Page values request', () => {
     expect(query.get('humanize')).toBe('true')
     expect(query.get('convert_units')).toBe('true')
     expect(query.get('skip_empty')).toBe('false')
-    // each quantity the charts give a unit for, as the server's own targets are merged into the request's
-    expect(JSON.parse(query.get('unit_targets')!)).toEqual({
+    // the answer says the unit of each parameter, which the charts are labelled by
+    expect(query.get('with_metadata')).toBe('true')
+    // each quantity the charts give a unit for, in the unit the app settings choose (the app's defaults here), and every
+    // other type the settings page lists, as the server's own targets are merged into the request's
+    expect(JSON.parse(query.get('unit_targets')!)).toMatchObject({
       angle: 'degree',
-      fraction: 'decimal',
+      fraction: 'percent',
       precipitation: 'millimeter',
       pressure: 'hectopascal',
       speed: 'meter_per_second',
       temperature: 'degree_celsius',
     })
+  })
+})
+
+// The forecast follows the unit settings (GH-3980): the request carries them, the chart is told the unit the answer reports
+// for each parameter, and a change of them while a forecast is shown fetches it again
+describe('meteogram Page units', () => {
+  const station = { station_id: '70001', name: 'Test Island', latitude: 70.9, longitude: -8.7 }
+  const row = (parameter: string, value: number) => ({ station_id: '70001', resolution: 'hourly', dataset: 'large', parameter, timestamp: '2026-10-01T00:00:00+00:00', value, quality_flags: null })
+  // the answer to a request, in the temperature unit it asked for
+  const answer = (query: URLSearchParams) => {
+    const fahrenheit = JSON.parse(query.get('unit_targets')!).temperature === 'degree_fahrenheit'
+    return {
+      values: [row('temperature_air_2m', fahrenheit ? 50 : 10)],
+      metadata: { parameters: [{ name: 'temperature_air_2m', quantity: 'temperature', unit: fahrenheit ? '°F' : '°C' }] },
+    }
+  }
+  const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.map(([input]) => new URL(String(input), 'http://localhost')).filter(url => url.pathname === '/api/values' && url.searchParams.get('stations') === '70001')
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let gate: Promise<void> | null = null
+
+  beforeEach(() => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    onTestFinished(registerEndpoint('/api/issues', () => ({ issues: [] })))
+    globalThis.fetch = vi.fn(async (input) => {
+      const url = new URL(String(input), 'http://localhost')
+      await gate
+      return new Response(JSON.stringify(answer(url.searchParams)), { status: 200 })
+    })
+  })
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    gate = null
+    useSettings().settings.value.units.temperature = 'degree_celsius'
+    useSettings().settings.value.convertUnits = true
+  })
+
+  async function showForecast() {
+    wrapper = await mountSuspended(MeteogramPage)
+    ;(wrapper.vm as any).selectedStation = station
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    return wrapper
+  }
+  const chartUnits = () => wrapper!.findComponent(Meteogram).props('units')
+
+  it('asks in the unit the settings choose, and tells the chart the unit the answer reports', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await showForecast()
+    expect(JSON.parse(valuesRequests()[0]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+  })
+
+  it('asks for the values unconverted where the settings say so', async () => {
+    useSettings().settings.value.convertUnits = false
+    await showForecast()
+    expect(valuesRequests()[0]!.searchParams.get('convert_units')).toBe('false')
+  })
+
+  it('fetches the forecast again, once, in the new unit where the settings change while it is shown', async () => {
+    await showForecast()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    expect(JSON.parse(valuesRequests()[1]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    // no third request follows
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(valuesRequests()).toHaveLength(2)
+  })
+
+  it('leaves the forecast as it is where a unit it does not draw changes', async () => {
+    await showForecast()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.conductivity = 'siemens_per_meter'
+    useSettings().settings.value.units.length_long = 'mile'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(valuesRequests()).toHaveLength(1)
+    useSettings().settings.value.units.conductivity = 'microsiemens_per_centimeter'
+    useSettings().settings.value.units.length_long = 'kilometer'
+  })
+
+  it('shows the answer of the newest request where the settings change while one is under way, which is followed by one more', async () => {
+    let release!: () => void
+    gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage)
+    ;(wrapper.vm as any).selectedStation = station
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    // the first answer is held: the unit changes meanwhile
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    release()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    expect(valuesRequests()).toHaveLength(2)
+    expect((wrapper.vm as any).values[0].value).toBe(50)
   })
 })
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Station } from '#shared/types/api'
+import type { Station, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import StationPicker from '~/components/StationPicker.vue'
-import { meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
+import { meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
+import { unitsOfAnswer } from '~/utils/units'
 
 // Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
 const MOSMIX = MOSMIX_METEOGRAM
@@ -19,6 +20,15 @@ const router = useRouter()
 
 const selectedStation = ref<Station | null>(null)
 const values = ref<any[]>([])
+// the unit of each parameter of the values, as the answer says (GH-3980)
+const units = ref<Record<string, string>>({})
+
+// The units the app settings choose (GH-3980), read at each request. Where they change while a forecast is shown (in
+// the header's settings, or in another tab) the forecast is fetched again in them, as the charts and the table say the
+// unit the answer reports
+const { settings: appSettings } = useSettings()
+const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
 const pending = ref(false)
 // why the request failed, as data: the message is written at render, in the language of the moment
 const failure = ref<RequestError | null>(null)
@@ -126,7 +136,7 @@ async function fetchMeteogram(station: Station) {
   failure.value = null
   values.value = []
 
-  const rawParams = meteogramValuesQuery(station.station_id)
+  const rawParams = meteogramValuesQuery(station.station_id, unitSettings.value)
   if (selectedIssue.value)
     rawParams.issue = selectedIssue.value
   const params = new URLSearchParams(rawParams)
@@ -141,9 +151,11 @@ async function fetchMeteogram(station: Station) {
         failure.value = backendFailure(res.status, res.statusText, body)
       return
     }
-    const json = await readJsonAnswer<{ values?: any[] }>('/api/values', res)
-    if (ticket === valuesTicket)
+    const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
+    if (ticket === valuesTicket) {
+      units.value = unitsOfAnswer(json)
       values.value = json.values ?? []
+    }
   }
   catch (e: any) {
     if (ticket === valuesTicket)
@@ -192,12 +204,12 @@ watch(selectedStation, (station) => {
   }
 })
 
-// The values of the station and the run: one request for a change of either, or of both together. For a station the
+// The values of the station and the run, and of the units: one request for a change of any of them, or of several together. For a station the
 // reader chose, the watcher above resets the run, and as it is queued first it does so before this one runs, so the
 // new station is fetched once, for the latest run. Where the URL sets the run first (`restoreFromUrl`) the flag
 // `applyingUrl` keeps that watcher from resetting it. Should two requests go out anyway, the ticket keeps the latest
 // answer (GH-3732)
-watch([selectedStation, selectedIssue], ([station]) => {
+watch([selectedStation, selectedIssue, unitsAsked], ([station]) => {
   if (station) {
     void fetchMeteogram(station)
     return
@@ -395,6 +407,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :values="values"
               :station-name="selectedStation.name"
               :station-coords="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
+              :units="units"
             />
           </UCard>
 

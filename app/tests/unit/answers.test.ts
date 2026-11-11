@@ -189,3 +189,119 @@ describe('where can I download hourly temperatures', () => {
     expect(hourlyTemperatureIn({ daily: { description: null, datasets: {} } } as any)).toBeNull()
   })
 })
+
+// The units the app settings choose (GH-3980): the same weather, written in each unit, gets the same verdict, and the
+// numbers and the unit it says are those of the answer
+describe('the answers in the unit of the settings', () => {
+  const fahrenheit = (celsius: number) => celsius * 1.8 + 32
+
+  describe('was last summer hotter than usual', () => {
+    const inFahrenheit = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : fahrenheit(reading.value) }))
+    const inKelvin = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : reading.value + 273.15 }))
+
+    it.each([
+      ['hotter', 18],
+      ['hotter', 16.5],
+      ['usual', 16.4],
+      ['usual', 15.6],
+      ['cooler', 15.4],
+      ['cooler', 15.2],
+    ])('says %s for a summer of %d degrees against 16 in degrees Celsius, Fahrenheit and Kelvin', (verdict, summer) => {
+      const celsius = summers(1986, 2026, year => year === 2026 ? summer : 16)
+      const answers = [lastSummer(celsius, NOW), lastSummer(inFahrenheit(celsius), NOW, '°F'), lastSummer(inKelvin(celsius), NOW, 'K')]
+      expect(answers.map(answer => answer!.verdict)).toEqual([verdict, verdict, verdict])
+      expect(answers.map(answer => answer!.unit)).toEqual(['°C', '°F', 'K'])
+    })
+
+    it('writes the temperatures in the unit and the difference as degrees of it, not as a temperature', () => {
+      const celsius = summers(1986, 2026, year => year === 2026 ? 18 : 16)
+      const answer = lastSummer(inFahrenheit(celsius), NOW, '°F')!
+      // 18 °C is 64.4 °F, 16 °C is 60.8 °F: 2 K are 3.6 degrees Fahrenheit
+      expect([answer.mean, answer.normal, answer.anomaly]).toEqual([64.4, 60.8, 3.6])
+      expect(answer.bars.at(-1)!.value).toBe(3.6)
+      // the same summers in the same order, whatever the unit
+      expect(answer.rank).toBe(1)
+      expect(answer.summers).toBe(41)
+      const kelvin = lastSummer(inKelvin(celsius), NOW, 'K')!
+      expect([kelvin.mean, kelvin.normal, kelvin.anomaly]).toEqual([291.2, 289.2, 2])
+    })
+  })
+
+  describe('will it rain tomorrow', () => {
+    const dry = () => hourly(RAIN_AMOUNT, '2026-10-29T12:00:00Z', Array.from({ length: 48 }).fill(0))
+    const withHour = (readings: Reading[], at: string, value: number) => readings.map(reading => reading.timestamp.startsWith(at) ? { ...reading, value } : reading)
+
+    it('says the same in millimetres and in litres per square metre, and writes the unit of the answer', () => {
+      const readings = withHour(withHour(dry(), '2026-10-30T14:00', 0.8), '2026-10-30T15:00', 0.4)
+      const metric = rainTomorrow(readings, BERLIN, NOW, { precipitation: 'mm' })!
+      const litres = rainTomorrow(readings, BERLIN, NOW, { precipitation: 'l/m²' })!
+      expect([metric.verdict, litres.verdict]).toEqual(['yes', 'yes'])
+      expect([metric.unit, litres.unit]).toEqual(['mm', 'l/m²'])
+      expect(litres.total).toBe(1.2)
+    })
+
+    it('reads the chance of rain by its unit, a share from 0 to 1 whatever the unit it comes in', () => {
+      const chances = (values: number[], parameter = RAIN_CHANCE) => hourly(parameter, '2026-10-30T00:00:00Z', values)
+      // 40 percent in the unit the answer gives it in: a decimal, as the app asks, or a percentage, as a source writes it
+      const decimal = rainTomorrow([...dry(), ...chances([0.1, 0.4, 0.2])], BERLIN, NOW, { fraction: '-' })!
+      const percent = rainTomorrow([...dry(), ...chances([10, 40, 20])], BERLIN, NOW, { fraction: '%' })!
+      expect([decimal.verdict, percent.verdict]).toEqual(['maybe', 'maybe'])
+      expect([decimal.maxChance, percent.maxChance]).toEqual([0.4, 0.4])
+      expect(rainTomorrow([...dry(), ...chances([10, 80, 20])], BERLIN, NOW, { fraction: '%' })!.verdict).toBe('yes')
+    })
+  })
+
+  describe('how windy was it on a day', () => {
+    // a day's gust and mean in m/s, written in each unit of speed, rounded to four decimals as the backend rounds a value it
+    // converts (`UnitConverter.decimals`): 13.9 m/s comes back as 27.0194 kn, and 17.2 m/s as 7.5084 Beaufort
+    const round4 = (v: number) => Math.round(v * 1e4) / 1e4
+    const speeds = {
+      'm/s': (v: number) => v,
+      'km/h': (v: number) => round4(v * 3.6),
+      'kn': (v: number) => round4(v / (1852 / 3600)),
+      'bft': (v: number) => round4((v / 0.836) ** (2 / 3)),
+    } as const
+    const day = (unit: keyof typeof speeds, gust: number, mean: number): Reading[] => [
+      { parameter: 'wind_gust_max', timestamp: '2025-12-26T00:00:00+00:00', value: speeds[unit](gust) },
+      { parameter: 'wind_speed_mean', timestamp: '2025-12-26T00:00:00+00:00', value: speeds[unit](mean) },
+    ]
+
+    it.each([
+      ['calm', 4, 1],
+      ['breezy', 10, 4],
+      ['windy', 15, 6],
+      ['stormy', 22, 9.5],
+      // the edges of the scale: 17.2 m/s is Beaufort 8, 20.8 m/s Beaufort 9
+      ['windy', 17.2, 5],
+      ['stormy', 20.8, 5],
+    ])('says %s for a gust of %d m/s and a mean of %d m/s in each unit of speed', (verdict, gust, mean) => {
+      const answers = (Object.keys(speeds) as (keyof typeof speeds)[]).map(unit => windOnDay(day(unit, gust, mean), '2025-12-26', unit)!)
+      expect(answers.map(answer => answer.verdict)).toEqual([verdict, verdict, verdict, verdict])
+      // the same Beaufort force, which is a range of m/s, whatever the speed is written in
+      expect(new Set(answers.map(answer => answer.gustBeaufort)).size).toBe(1)
+      expect(new Set(answers.map(answer => answer.beaufort)).size).toBe(1)
+      expect(answers.map(answer => answer.unit)).toEqual(['m/s', 'km/h', 'kn', 'bft'])
+    })
+
+    // the lower edges of the scale (WMO), in m/s: the same force in every unit, though the backend rounds a converted speed,
+    // which puts 13.9 m/s at 13.89998 m/s once it is converted back from 27.0194 kn
+    it.each([
+      [5.5, 4],
+      [8.0, 5],
+      [10.8, 6],
+      [13.9, 7],
+      [17.2, 8],
+      [20.8, 9],
+      [32.7, 12],
+    ])('gives a gust of %d m/s Beaufort %d in each unit of speed, at the edge of its force', (gust, force) => {
+      for (const unit of Object.keys(speeds) as (keyof typeof speeds)[])
+        expect(windOnDay(day(unit, gust, 1), '2025-12-26', unit)!.gustBeaufort, unit).toBe(force)
+    })
+
+    it('writes the speed as the answer gives it', () => {
+      const answer = windOnDay(day('km/h', 22, 9.5), '2025-12-26', 'km/h')!
+      expect([answer.gust, answer.mean]).toEqual([79.2, 34.2])
+      expect(answer.bars.map(bar => bar.value)).toEqual([79.2])
+    })
+  })
+})
