@@ -45,7 +45,7 @@ const themeOptions = computed(() => [
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
             {{ t('settings.theme') }}
           </div>
-          <UFieldGroup class="w-full">
+          <UFieldGroup role="group" :aria-label="t('settings.theme')" class="w-full">
             <UButton
               v-for="opt in themeOptions"
               :key="opt.value"
@@ -55,6 +55,7 @@ const themeOptions = computed(() => [
               class="flex-1 justify-center"
               :aria-label="opt.label"
               :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
+              :aria-pressed="colorMode.preference === opt.value"
               @click="colorMode.preference = opt.value"
             />
           </UFieldGroup>

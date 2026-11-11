@@ -6446,7 +6446,21 @@
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "enum": [
+              "1_minute",
+              "5_minutes",
+              "6_minutes",
+              "10_minutes",
+              "15_minutes",
+              "hourly",
+              "6_hours",
+              "subdaily",
+              "daily",
+              "monthly",
+              "annual"
+            ],
+            "title": "Name",
+            "description": "The resolution, one of those of `Resolution` of the library."
           },
           "datasets": {
             "items": {
@@ -6950,9 +6964,113 @@
       "StripesSeries": {
         "properties": {
           "station": {
+            "properties": {
+              "resolution": {
+                "type": "string",
+                "title": "Resolution"
+              },
+              "dataset": {
+                "type": "string",
+                "title": "Dataset"
+              },
+              "station_id": {
+                "type": "string",
+                "title": "Station Id"
+              },
+              "start_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Start Timestamp"
+              },
+              "end_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "End Timestamp"
+              },
+              "latitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Latitude"
+              },
+              "longitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Longitude"
+              },
+              "elevation": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Elevation"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              },
+              "region": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Region"
+              }
+            },
             "additionalProperties": true,
             "type": "object",
-            "title": "Station"
+            "required": [
+              "resolution",
+              "dataset",
+              "station_id",
+              "start_timestamp",
+              "end_timestamp",
+              "latitude",
+              "longitude",
+              "elevation",
+              "name",
+              "region"
+            ],
+            "title": "_Station",
+            "description": "Type definition for station."
           },
           "resolution": {
             "type": "string",
@@ -7651,6 +7769,560 @@
         "title": "_EstimateStation",
         "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
       },
+      "_HistoryDevice": {
+        "properties": {
+          "device_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Type"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "device_height": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Height"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_type",
+          "station_id",
+          "station_name",
+          "longitude",
+          "latitude",
+          "station_elevation",
+          "device_height",
+          "valid_from",
+          "valid_to",
+          "method"
+        ],
+        "title": "_HistoryDevice",
+        "description": "A device of a station, for the period it was in use."
+      },
+      "_HistoryEntry": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "name": {
+            "$ref": "#/components/schemas/_HistoryNames"
+          },
+          "parameter": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryParameter"
+            },
+            "type": "array",
+            "title": "Parameter"
+          },
+          "device": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryDevice"
+            },
+            "type": "array",
+            "title": "Device"
+          },
+          "geography": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryGeography"
+            },
+            "type": "array",
+            "title": "Geography"
+          },
+          "missing_data": {
+            "$ref": "#/components/schemas/_HistoryMissingData"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "resolution",
+          "dataset"
+        ],
+        "title": "_HistoryEntry",
+        "description": "The history of one station and dataset: who it is of, and the sections asked for (all where none were)."
+      },
+      "_HistoryGeography": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_elevation",
+          "latitude",
+          "longitude",
+          "valid_from",
+          "valid_to",
+          "station_name"
+        ],
+        "title": "_HistoryGeography",
+        "description": "Where a station was, for a period."
+      },
+      "_HistoryMissing": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "missing_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Count"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "parameter",
+          "valid_from",
+          "valid_to",
+          "missing_count",
+          "description"
+        ],
+        "title": "_HistoryMissing",
+        "description": "A summary of the missing data of a parameter, or one period of it: the two have the same fields."
+      },
+      "_HistoryMissingData": {
+        "properties": {
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "summary",
+          "periods"
+        ],
+        "title": "_HistoryMissingData",
+        "description": "The summaries of a station's missing data, and the periods it is missing for."
+      },
+      "_HistoryNames": {
+        "properties": {
+          "station": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryStationName"
+            },
+            "type": "array",
+            "title": "Station"
+          },
+          "operator": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryOperatorName"
+            },
+            "type": "array",
+            "title": "Operator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station",
+          "operator"
+        ],
+        "title": "_HistoryNames",
+        "description": "The names of a station and of its operator."
+      },
+      "_HistoryOperatorName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "operator_name": {
+            "type": "string",
+            "title": "Operator Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "operator_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryOperatorName",
+        "description": "One name of a station's operator, for the period it held."
+      },
+      "_HistoryParameter": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "data_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Source"
+          },
+          "extra_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Info"
+          },
+          "special": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special"
+          },
+          "literature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Literature"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "valid_from",
+          "valid_to",
+          "station_name",
+          "parameter",
+          "description",
+          "unit",
+          "data_source",
+          "extra_info",
+          "special",
+          "literature"
+        ],
+        "title": "_HistoryParameter",
+        "description": "How a parameter was measured at a station, for a period."
+      },
+      "_HistoryStationName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryStationName",
+        "description": "One name of a station, for the period it held."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -7665,8 +8337,7 @@
           },
           "histories": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/_HistoryEntry"
             },
             "type": "array",
             "title": "Histories"

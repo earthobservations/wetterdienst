@@ -9,6 +9,7 @@ const props = defineProps<{
 const modelValue = defineModel<InterpolationSelection>({ required: true })
 
 const { t } = useI18n()
+const sourceLabelId = useId()
 
 const sourceOptions = computed(() => [
   { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-ph-pencil-simple' },
@@ -158,8 +159,8 @@ const displayCoords = computed(() => {
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}:</span>
-      <UFieldGroup>
+      <span :id="sourceLabelId" class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}:</span>
+      <UFieldGroup role="group" :aria-labelledby="sourceLabelId">
         <UButton
           v-for="option in sourceOptions"
           :key="option.value"
@@ -167,6 +168,7 @@ const displayCoords = computed(() => {
           :label="option.label"
           color="neutral"
           :variant="modelValue.source === option.value ? 'subtle' : 'ghost'"
+          :aria-pressed="modelValue.source === option.value"
           size="xs"
           @click="setSource(option.value)"
         />
