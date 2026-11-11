@@ -10,6 +10,7 @@ import StationPicker from '~/components/StationPicker.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
+import { stubMemoryStorage } from '../fixtures/storage'
 
 // the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
 const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
@@ -51,6 +52,15 @@ vi.mock('~/utils/plotly-locale', async (importOriginal) => {
 // Nuxt's reload of the page: the test's document does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
 mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
+
+// The browser's storage is the page's too, and a test that chose the map for the station picker would start the next
+// one on it (the picker remembers its mode): each test has a storage of its own
+beforeEach(() => {
+  stubMemoryStorage()
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('stripes Page', () => {
   beforeEach(() => {
