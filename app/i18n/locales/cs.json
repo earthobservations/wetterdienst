@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Vyhledej stanici nebo ji vyber na mapě a uvidíš její předpověď",
-    "explorer": "Vyber parametry, vyhledej stanici nebo ji vyber na mapě a kliknutím na Zobrazit načti data",
-    "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na Zobrazit vytvoř klimatické pruhy",
+    "explorer": "Vyber parametry, pak stanici nebo bod, vyhledáním nebo na mapě, a kliknutím na „Zobrazit“ načti data",
+    "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na „Zobrazit“ vytvoř klimatické pruhy",
     "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii"
   },
   "meteogram": {

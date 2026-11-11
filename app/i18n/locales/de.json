@@ -487,7 +487,7 @@
   },
   "toolPlaceholder": {
     "forecast": "Suche nach einer Station oder wähle eine auf der Karte, um ihre Vorhersage zu sehen",
-    "explorer": "Wähle Parameter, suche dann nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Daten zu laden",
+    "explorer": "Wähle Parameter, dann eine Station oder einen Punkt, per Suche oder auf der Karte, und klicke auf „Anzeigen“, um Daten zu laden",
     "stripes": "Suche nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
     "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden"
   },

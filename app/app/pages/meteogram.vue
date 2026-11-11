@@ -323,7 +323,9 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
             <template #header>
               <div class="flex items-center gap-2 flex-wrap">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
-                <span class="text-lg font-bold">{{ t('cardTitle.station') }}</span>
+                <h2 class="text-lg font-bold">
+                  {{ t('cardTitle.station') }}
+                </h2>
                 <div class="ml-auto flex items-center gap-2">
                   <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
                   <select

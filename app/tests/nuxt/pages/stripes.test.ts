@@ -11,7 +11,7 @@ import { SERIES_LABEL } from '~/utils/chart-theme'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 
 // the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
-const PLACEHOLDER = 'Search for a station or pick one on the map, then click Show to create climate stripes'
+const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
 
 // Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
 // holds the real one, for the station map to centre; it never emits ready, so no markers are built.

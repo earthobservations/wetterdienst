@@ -7,7 +7,7 @@ import { TOOLS } from '~/utils/sections'
 // to begin and names no direction, since the form is above the frame on a phone and beside it on a wide screen. A new
 // tool is a line of `TOOLS`, a sentence in every locale, and `<ToolPlaceholder tool="its key" />`.
 const props = defineProps<{
-  /** The key of the tool in `TOOLS` (`forecast`, `explorer`, `stripes`, `history`, `map`) */
+  /** The key of a tool of `TOOLS` that has a sentence in `toolPlaceholder.*` */
   tool: string
 }>()
 

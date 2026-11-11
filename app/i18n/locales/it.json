@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Cerca una stazione o sceglila sulla mappa per vedere la sua previsione",
-    "explorer": "Seleziona i parametri, poi cerca una stazione o sceglila sulla mappa e fai clic su Mostra per caricare i dati",
-    "stripes": "Cerca una stazione o sceglila sulla mappa e fai clic su Mostra per creare le strisce climatiche",
+    "explorer": "Seleziona i parametri, poi scegli una stazione o un punto, con la ricerca o sulla mappa, e fai clic su «Mostra» per caricare i dati",
+    "stripes": "Cerca una stazione o sceglila sulla mappa e fai clic su «Mostra» per creare le strisce climatiche",
     "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia"
   },
   "meteogram": {

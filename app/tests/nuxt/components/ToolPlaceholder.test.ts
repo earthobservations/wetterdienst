@@ -10,10 +10,16 @@ import { messagesOf } from '../fixtures/catalogs'
 // the catalog as written: the nuxt environment hands the imported file over compiled
 const placeholders = messagesOf('en', 'toolPlaceholder')
 
-// the tools that have a placeholder; the map (GH-3650) is a tool of its own and starts from this component
-const WITH_PLACEHOLDER = ['forecast', 'explorer', 'stripes', 'history']
+// the tools that have a placeholder are the ones the catalog has a sentence for, so a tool that is given one (the map,
+// GH-3650) is held to the same tests with no change here
+const WITH_PLACEHOLDER = Object.keys(placeholders)
 
 describe('toolPlaceholder', () => {
+  it('has a sentence for tools of utils/sections.ts only, and for the four that show one', () => {
+    expect(WITH_PLACEHOLDER.filter(key => !TOOLS.some(tool => tool.key === key))).toEqual([])
+    expect(WITH_PLACEHOLDER).toEqual(expect.arrayContaining(['forecast', 'explorer', 'stripes', 'history']))
+  })
+
   it.each(WITH_PLACEHOLDER)('marks %s with the tile and the glyph of utils/sections.ts', async (key) => {
     const section = TOOLS.find(tool => tool.key === key)!
     const wrapper = await mountSuspended(ToolPlaceholder, { props: { tool: key } })
@@ -41,6 +47,10 @@ describe('toolPlaceholder', () => {
     expect(text).not.toMatch(/\b(above|below|left|right)\b/i)
     expect(text, 'both ways in').toMatch(/search/i)
     expect(text, 'both ways in').toMatch(/map/i)
+  })
+
+  it('names the point of the explorer, whose interpolation takes one in place of a station', () => {
+    expect(placeholders.explorer).toMatch(/\bpoint\b/i)
   })
 
   it('says nothing of the backend', () => {

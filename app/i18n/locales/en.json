@@ -487,9 +487,9 @@
   },
   "toolPlaceholder": {
     "forecast": "Search for a station or pick one on the map to see its forecast",
-    "explorer": "Select parameters, then search for a station or pick one on the map and click Show to load data",
-    "stripes": "Search for a station or pick one on the map, then click Show to create climate stripes",
-    "history": "Search for stations or pick them on the map, then click Show to load their histories"
+    "explorer": "Select parameters, then choose a station or a point, by search or on the map, and click “Show” to load data",
+    "stripes": "Search for a station or pick one on the map, then click “Show” to create climate stripes",
+    "history": "Search for stations or pick them on the map, then click “Show” to load their histories"
   },
   "meteogram": {
     "title": "Weather forecast",

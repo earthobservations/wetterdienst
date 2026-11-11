@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Sich eng Statioun oder wiel eng op der Kaart, fir hir Prognos ze gesinn",
-    "explorer": "Wiel Parameteren aus, sich dann eng Statioun oder wiel eng op der Kaart a klick op Weisen, fir d'Daten ze lueden",
-    "stripes": "Sich eng Statioun oder wiel eng op der Kaart a klick op Weisen, fir Klimasträifen ze erstellen",
+    "explorer": "Wiel Parameteren aus, wiel dann eng Statioun oder e Punkt, iwwer d'Sich oder op der Kaart, a klick op „Weisen“, fir d'Daten ze lueden",
+    "stripes": "Sich eng Statioun oder wiel eng op der Kaart a klick op „Weisen“, fir Klimasträifen ze erstellen",
     "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden"
   },
   "meteogram": {

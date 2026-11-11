@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Søg efter en station eller vælg en på kortet for at se dens udsigt",
-    "explorer": "Vælg parametre, søg derefter efter en station eller vælg en på kortet, og klik på Vis for at indlæse data",
-    "stripes": "Søg efter en station eller vælg en på kortet, og klik derefter på Vis for at oprette klimastriber",
+    "explorer": "Vælg parametre, vælg derefter en station eller et punkt, via søgning eller på kortet, og klik på “Vis” for at indlæse data",
+    "stripes": "Søg efter en station eller vælg en på kortet, og klik derefter på “Vis” for at oprette klimastriber",
     "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik"
   },
   "meteogram": {

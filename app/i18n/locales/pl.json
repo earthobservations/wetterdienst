@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Wyszukaj stację lub wybierz ją na mapie, aby zobaczyć jej prognozę",
-    "explorer": "Wybierz parametry, a następnie wyszukaj stację lub wybierz ją na mapie i kliknij Pokaż, aby wczytać dane",
-    "stripes": "Wyszukaj stację lub wybierz ją na mapie i kliknij Pokaż, aby utworzyć paski klimatyczne",
+    "explorer": "Wybierz parametry, a następnie stację lub punkt, wyszukując albo na mapie, i kliknij „Pokaż”, aby wczytać dane",
+    "stripes": "Wyszukaj stację lub wybierz ją na mapie i kliknij „Pokaż”, aby utworzyć paski klimatyczne",
     "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię"
   },
   "meteogram": {

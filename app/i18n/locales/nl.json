@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Zoek een station of kies er een op de kaart om de verwachting te zien",
-    "explorer": "Selecteer parameters, zoek dan een station of kies er een op de kaart en klik op Tonen om gegevens te laden",
-    "stripes": "Zoek een station of kies er een op de kaart en klik op Tonen om klimaatstrepen te maken",
+    "explorer": "Selecteer parameters, kies dan een station of een punt, via zoeken of op de kaart, en klik op “Tonen” om gegevens te laden",
+    "stripes": "Zoek een station of kies er een op de kaart en klik op “Tonen” om klimaatstrepen te maken",
     "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden"
   },
   "meteogram": {

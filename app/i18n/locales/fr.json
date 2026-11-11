@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Recherche une station ou choisis-en une sur la carte pour voir sa prévision",
-    "explorer": "Sélectionne des paramètres, recherche une station ou choisis-en une sur la carte, puis clique sur Afficher pour charger les données",
-    "stripes": "Recherche une station ou choisis-en une sur la carte, puis clique sur Afficher pour créer des bandes climatiques",
+    "explorer": "Sélectionne des paramètres, puis choisis une station ou un point, par la recherche ou sur la carte, et clique sur « Afficher » pour charger les données",
+    "stripes": "Recherche une station ou choisis-en une sur la carte, puis clique sur « Afficher » pour créer des bandes climatiques",
     "history": "Recherche des stations ou choisis-les sur la carte, puis clique sur « Afficher » pour charger leur historique"
   },
   "meteogram": {

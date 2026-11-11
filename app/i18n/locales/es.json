@@ -487,8 +487,8 @@
   },
   "toolPlaceholder": {
     "forecast": "Busca una estación o elige una en el mapa para ver su pronóstico",
-    "explorer": "Selecciona parámetros, busca una estación o elige una en el mapa y haz clic en Mostrar para cargar los datos",
-    "stripes": "Busca una estación o elige una en el mapa y haz clic en Mostrar para crear franjas climáticas",
+    "explorer": "Selecciona parámetros, luego elige una estación o un punto, con la búsqueda o en el mapa, y haz clic en «Mostrar» para cargar los datos",
+    "stripes": "Busca una estación o elige una en el mapa y haz clic en «Mostrar» para crear franjas climáticas",
     "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial"
   },
   "meteogram": {

@@ -111,7 +111,7 @@ describe('explorer Page', () => {
     mounted.push(wrapper)
 
     expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('explorer')
-    expect(wrapper.text()).toContain('search for a station or pick one on the map and click Show to load data')
+    expect(wrapper.text()).toContain('choose a station or a point, by search or on the map, and click “Show” to load data')
   })
 
   it('displays station mode options', async () => {
