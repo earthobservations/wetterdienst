@@ -1,3 +1,20 @@
+// The types of the backend's answers are derived from its OpenAPI document (GH-3908): `pnpm gen:api-types` writes the
+// document's types to `.generated/api-schema.d.ts` (git-ignored, never committed; `pnpm typecheck` runs it first) from
+// `tests/ui/openapi.snapshot.json`, so a change to the REST contract that the app does not follow fails its typecheck.
+// What the document does not describe -- the query objects the app builds, rows whose fields it leaves open (a
+// station's history, a stripes station), the row of the data viewer -- is still hand-written, marked as such below.
+import type { components } from '../../.generated/api-schema'
+
+type Schemas = components['schemas']
+
+/**
+ * The part of a schema the app depends on: `K` it reads (a rename, a removal or a new type of one fails the
+ * typecheck), every other field of the schema optional. The fixtures of the tests and the mock backend need
+ * not spell out a field nobody reads, and the document stays the one place that says what a field is.
+ */
+type Reads<T, K extends keyof T> = Pick<T, K> & Partial<Omit<T, K>>
+
+// Hand-written: the document types a resolution as a plain string.
 // Resolution values from backend wetterdienst/metadata/resolution.py
 export type Resolution
   = '1_minute'
@@ -16,121 +33,50 @@ export type Resolution
  * What a value is relative to its interval, as the backend's `Aggregation` in
  * wetterdienst/metadata/parameter_table.py: a closed set, where `null` is "not stated"
  */
-export type Aggregation
-  = 'instant'
-    | 'mean'
-    | 'max'
-    | 'min'
-    | 'sum'
-    | 'count'
-    | 'mean_of_max'
-    | 'mean_of_min'
-    | 'probability'
-    | 'occurrence'
-    | 'date'
-    | 'change'
-    | 'uncertainty'
-    | 'code'
-    | 'at_max'
+export type Aggregation = NonNullable<Schemas['CoverageParameter']['aggregation']>
 
 /** Where a timestamp sits in the row's interval, as the backend's `TimestampPosition`: a closed set */
-export type TimestampPosition = 'instant' | 'start' | 'end' | 'middle'
+export type TimestampPosition = NonNullable<Schemas['CoverageParameter']['timestamp_position']>
 
 // ============================================================================
 // Coverage API
 // ============================================================================
 
-/**
- * Parameter info returned in coverage response, as the backend's `discover()` builds it: every key
- * but `lead_times` is always sent, and `unit` is the unit the values come back in under the default
- * options (the glossary's); the app does not read it, nor `unit_source`, the unit the provider
- * publishes in, which the backend sends beside it
- */
-export interface CoverageParameter {
-  name: string
-  name_original: string
-  unit_type: string
-  unit: string
-  description: string | null
-  /**
-   * What the value is relative to its interval; null: the source does not state it. The app does not
-   * read it, and it is optional for a server that does not send it yet
-   */
-  aggregation?: Aggregation | null
-  /** Where the timestamp sits in the row's interval; null: not stated. Optional as `aggregation` */
-  timestamp_position?: TimestampPosition | null
-  /**
-   * DWD DMO only: the lead times whose run carries the parameter. Values refuse a parameter asked
-   * for by name that the requested run does not carry
-   */
-  lead_times?: Array<'short' | 'long'>
-}
+/** The closed set of the unit types a parameter has, as the document lists them */
+export type UnitType = Schemas['CoverageParameter']['unit_type']
 
 /**
- * A dataset in the coverage response, as `discover()` builds it: `description` is always sent,
- * null where the source has none
+ * Parameter info returned in coverage response, as the backend's `discover()` builds it. The app does not
+ * read `unit`, `unit_source`, `aggregation` or `timestamp_position`
  */
-export interface CoverageDataset {
-  description: string | null
-  parameters: CoverageParameter[]
-  /** Where the stations of the dataset are: its own where they are fewer than its network's, else the network's */
-  extent?: NetworkExtent
-}
+export type CoverageParameter = Reads<Schemas['CoverageParameter'], 'name' | 'name_original' | 'unit_type' | 'description'>
 
-/**
- * A resolution in the coverage response, as `discover()` builds it: `description` is always sent,
- * null where the source has none
- */
-export interface CoverageResolution {
-  description: string | null
-  datasets: Record<string, CoverageDataset>
-}
+/** A dataset in the coverage response, as `discover()` builds it */
+export type CoverageDataset = Reads<Omit<Schemas['CoverageDataset'], 'parameters'> & { parameters: CoverageParameter[] }, 'description' | 'parameters'>
+
+/** A resolution in the coverage response, as `discover()` builds it */
+export type CoverageResolution = Reads<Omit<Schemas['CoverageResolution'], 'datasets'> & { datasets: Record<string, CoverageDataset> }, 'description' | 'datasets'>
 
 /** One canonical parameter as `GET /api/glossary` returns it */
-export interface GlossaryEntry {
-  name: string
-  unit_type: string
-  unit: string
-  unit_symbol: string
-  description: string
-  /** The canonical value, null for a plain name; optional for a server that does not send it yet */
-  aggregation?: Aggregation | null
-}
+export type GlossaryEntry = Reads<Schemas['GlossaryEntry'], 'name' | 'unit_type' | 'unit' | 'unit_symbol' | 'description'>
 
 /**
  * What a network is, as `GET /api/coverage` lists it: `observation`, `forecast` and `derived` are the
  * timeseries networks, which have stations and values, `radar` and `alerts` are standalone
  */
-export type NetworkKind = 'observation' | 'forecast' | 'derived' | 'radar' | 'alerts'
+export type NetworkKind = Schemas['CoverageNetwork']['kind']
 
 /**
  * Per-network metadata in the coverage response. Whether the credentials are accepted is not part of
  * it (that is a request to the provider): `GET /api/auth` answers it for one network
  */
-export interface CoverageNetworkInfo {
-  name_short: string
-  country: string
-  kind: NetworkKind
-  /** How far the network reaches; absent from a backend that predates it. The full extent is in `GET /api/providers` */
-  scope?: NetworkExtent['scope']
-  url: string
-  auth: boolean
-  configured: boolean
-  date_required: boolean
-}
+export type CoverageNetworkInfo = Reads<Schemas['CoverageNetwork'], 'name_short' | 'country' | 'kind' | 'url' | 'auth' | 'configured' | 'date_required'>
 
 /** Provider to networks mapping with per-network metadata */
 export type CoverageResponse = Record<string, Record<string, CoverageNetworkInfo>>
 
-/** Response from GET /api/auth */
-export interface AuthResponse {
-  provider: string
-  network: string
-  auth: boolean
-  configured: boolean
-  /** `null` when the credentials could not be checked: not a rejection, so unknown */
-  valid: boolean | null
-}
+/** Response from GET /api/auth; `valid` is `null` when the credentials could not be checked: not a rejection, so unknown */
+export type AuthResponse = Schemas['AuthAnswer']
 
 /**
  * Detailed coverage for a provider-network pair: `discover()` sends only the resolutions the
@@ -146,29 +92,15 @@ export interface CoverageQuery {
 // ============================================================================
 // Stations API
 // ============================================================================
-export interface Station {
-  station_id: string
-  /**
-   * Null where the provider has no name for the station, e.g. dwd/derived climate_correction_factor, whose
-   * stations are postcodes.
-   */
-  name: string | null
-  /** Null where the provider reports no region for the station, which for several, e.g. DWD MOSMIX, is every one. */
-  region: string | null
-  /** Null where the provider has no position for the station, e.g. the postcodes of dwd/derived climate_correction_factor. */
-  latitude: number | null
-  /** Null together with `latitude`. */
-  longitude: number | null
-  /** Null where the provider reports no elevation for the station, which for several is every one. */
-  elevation: number | null
-  start_timestamp?: string | null
-  end_timestamp?: string | null
-}
+/** A station of the stations listing; the backend's rows carry more fields where the provider has them */
+export type Station = Reads<Pick<Schemas['_Station'], 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation' | 'start_timestamp' | 'end_timestamp'>, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation'>
 
+/** The answer of `GET /api/stations` as far as the app reads it: its `metadata` block is not read */
 export interface StationsResponse {
   stations: Station[]
 }
 
+// Hand-written, like every `...Query` below: what the app sends, which the document spells as parameters of an operation
 export interface StationsQuery {
   provider: string
   network: string
@@ -179,6 +111,8 @@ export interface StationsQuery {
 // ============================================================================
 // Values API
 // ============================================================================
+// Hand-written: one row for every mode of the data viewer. The document types a row of `/api/values` (`_ValuesItemDict`, or
+// the wide shape), of `/api/interpolate` and of `/api/summarize` apart, and the viewer reads the union of their fields
 export interface Value {
   station_id: string
   resolution: string
@@ -253,51 +187,17 @@ export interface SummarizeQuery {
 // Settings API
 // ============================================================================
 
+/** The settings `/api/values` reports */
+export type ValuesSettings = Reads<Schemas['ValuesSettings'], 'humanize' | 'convert_units' | 'unit_targets' | 'skip_empty' | 'skip_threshold' | 'skip_criteria' | 'drop_nulls' | 'shape'>
+
 /**
- * A radius, factor or gain: the server writes one it holds as infinite or NaN as the string
- * "Infinity" or "NaN", JSON having no number for it
+ * The settings `/api/interpolate` reports (and `/api/summarize`, below): a radius, factor or gain the server holds as
+ * infinite or NaN is the string "Infinity" or "NaN", JSON having no number for it
  */
-export type UnboundedNumber = number | 'Infinity' | 'NaN'
+export type InterpolationSettings = Reads<Schemas['InterpolationSettings'], 'humanize' | 'convert_units' | 'unit_targets' | 'skip_empty' | 'skip_threshold' | 'skip_criteria' | 'drop_nulls' | 'min_gain_of_value_pairs' | 'num_additional_stations' | 'station_distance_resolution_factors' | 'use_nearby_station_distance' | 'interpolation_station_distance' | 'interpolation_station_distance_homogeneous' | 'interpolation_station_distance_heterogeneous'>
 
-/** The settings each of `/api/values`, `/api/interpolate` and `/api/summarize` reports */
-export interface AppliedSettings {
-  humanize: boolean
-  convert_units: boolean
-  /** The unit values of each quantity come in, for every quantity the server converts */
-  unit_targets: Record<string, string>
-  skip_empty: boolean
-  skip_threshold: number
-  skip_criteria: 'min' | 'mean' | 'max'
-  /** Off under the wide shape, the server's or the request's */
-  drop_nulls: boolean
-}
-
-export interface ValuesSettings extends AppliedSettings {
-  shape: 'long' | 'wide'
-}
-
-/** The settings `/api/interpolate` and `/api/summarize` share */
-export interface GeoSettings extends AppliedSettings {
-  min_gain_of_value_pairs: UnboundedNumber
-  num_additional_stations: number
-  /** The factor the heterogeneous radius is multiplied by, for every resolution */
-  station_distance_resolution_factors: Record<string, UnboundedNumber>
-}
-
-export interface InterpolationSettings extends GeoSettings {
-  use_nearby_station_distance: UnboundedNumber | null
-  /** Radii (km) set per parameter by name; any other parameter takes one of the two below */
-  interpolation_station_distance: Record<string, UnboundedNumber>
-  interpolation_station_distance_homogeneous: UnboundedNumber
-  interpolation_station_distance_heterogeneous: UnboundedNumber
-}
-
-export interface SummarySettings extends GeoSettings {
-  /** Radii (km) set per parameter by name; any other parameter takes one of the two below */
-  summary_station_distance: Record<string, UnboundedNumber>
-  summary_station_distance_homogeneous: UnboundedNumber
-  summary_station_distance_heterogeneous: UnboundedNumber
-}
+/** The settings `/api/summarize` reports */
+export type SummarySettings = Reads<Schemas['SummarySettings'], 'humanize' | 'convert_units' | 'unit_targets' | 'skip_empty' | 'skip_threshold' | 'skip_criteria' | 'drop_nulls' | 'min_gain_of_value_pairs' | 'num_additional_stations' | 'station_distance_resolution_factors' | 'summary_station_distance' | 'summary_station_distance_homogeneous' | 'summary_station_distance_heterogeneous'>
 
 /**
  * Response from GET /api/settings: what each endpoint takes for a setting a request leaves out,
@@ -315,6 +215,7 @@ export interface ServerSettings {
 
 export type StripesKind = 'temperature' | 'precipitation'
 
+// Hand-written: the document leaves a stripes station's fields open (`series.station` is an object of any fields)
 export interface StripesStation {
   station_id: string
   name: string
@@ -370,6 +271,7 @@ export interface StripesValuesQuery {
 // History API
 // ============================================================================
 
+// Hand-written: the document leaves a history's records open (`histories` is a list of objects of any fields).
 // As `History` in the backend's model/history.py has them, every field of each record: the backend sends
 // null for a field it has no value for, rather than leaving it out. A station's position, name and devices
 // are records of the periods they held for, never fields of the history itself.
@@ -459,6 +361,8 @@ export interface HistoryResponse {
  * An error, as the backend answers it: an RFC 9457 problem (`application/problem+json`).
  * `detail` is always text; `errors` lists the invalid parameters of a request that fails validation (422).
  */
+// Hand-written: the app also builds this answer itself (its server routes), where the document's `Problem` requires
+// `instance` and `request_id`
 export interface ApiErrorResponse {
   type: string
   title: string
@@ -476,87 +380,31 @@ export interface ApiErrorResponse {
 // ============================================================================
 
 /** The terms a provider publishes its data under, as `GET /api/providers` lists them */
-export interface ProviderLicense {
-  /** The SPDX identifier (or expression), null where the terms have none: `name` and `url` then tell them */
-  spdx_id: string | null
-  name: string
-  url: string
-}
+export type ProviderLicense = Reads<Schemas['LicenseModel'], 'spdx_id' | 'name' | 'url'>
 
 /** A dataset of a resolution, with how many parameters it has */
-export interface ProviderDataset {
-  name: string
-  parameters: number
-  /** Only where the stations of the dataset are fewer than its network's; a dataset without it has its network's */
-  extent?: NetworkExtent
-}
+export type ProviderDataset = Reads<Omit<Schemas['ProviderDataset'], 'extent'> & { extent?: NetworkExtent }, 'name' | 'parameters'>
 
-/** A resolution of a network, with its datasets */
-export interface ProviderResolution {
-  name: Resolution
-  datasets: ProviderDataset[]
-}
+/** A resolution of a network, with its datasets: the app reads `name` as the `Resolution` it is */
+export type ProviderResolution = Reads<Omit<Schemas['ProviderResolution'], 'name' | 'datasets'> & { name: Resolution, datasets: ProviderDataset[] }, 'name' | 'datasets'>
 
 /** Where the stations of a network are, which the country of its provider does not say */
-export interface NetworkExtent {
-  /** `global`: stations on at least five continents; `national`: one country, with its territories; `regional`: everything between */
-  scope: 'global' | 'national' | 'regional'
-  continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
-  /** ISO 3166-1 alpha-2 codes, for a `regional` network where the list is short and exact: absent otherwise, and for `national` it is the provider's `country_code` */
-  country_codes?: string[]
-  /** `[west, south, east, north]` in degrees, around every station; not across the antimeridian */
-  bbox: [number, number, number, number]
-}
+export type NetworkExtent = Reads<Schemas['Extent'], 'scope' | 'continents' | 'bbox'>
 
 /**
  * A network of a provider, as `GET /api/providers?datasets=true` lists it: standalone ones (`radar`, `alerts`) have an
  * empty list. The backend's compact answer (`datasets=false`, which is to become its default) has `null`, so the app
  * asks with `datasets=true` and reads a missing list as an empty one.
  */
-export interface ProviderNetwork {
-  network: string
-  kind: NetworkKind
-  /** Absent from a backend that predates it */
-  extent?: NetworkExtent
-  /** Where the provider publishes the data of the network */
-  url: string
-  copyright: string
-  /** Whether the network needs credentials; `GET /api/auth` tells whether they are accepted */
-  auth: boolean
-  date_required: boolean
-  /** How many parameters the network has in all of its datasets */
-  parameters: number
-  resolutions: ProviderResolution[] | null
-}
+export type ProviderNetwork = Reads<Omit<Schemas['ProviderNetwork'], 'resolutions' | 'extent'> & { extent: NetworkExtent, resolutions: ProviderResolution[] | null }, 'network' | 'kind' | 'url' | 'copyright' | 'auth' | 'date_required' | 'parameters' | 'resolutions'>
 
 /** A provider of data, as `GET /api/providers` lists it */
-export interface Provider {
-  /** The name a request calls it by: `dwd` */
-  provider: string
-  /** The short name to write beside a flag: `DWD` */
-  name_short: string
-  name_local: string
-  name_english: string
-  country: string
-  /** ISO 3166-1 alpha-2; null for a provider of several countries */
-  country_code: string | null
-  /** Null where the provider states no terms */
-  license: ProviderLicense | null
-  /** The credit line to give; null where the provider states none or asks for none */
-  attribution: string | null
-  networks: ProviderNetwork[]
-}
+export type Provider = Reads<Omit<Schemas['Provider'], 'license' | 'networks'> & { license: ProviderLicense | null, networks: ProviderNetwork[] }, 'provider' | 'name_short' | 'name_local' | 'name_english' | 'country' | 'country_code' | 'license' | 'attribution' | 'networks'>
 
 /** The `metadata` block of an answer about the library: versions, time, producer, warnings and counts */
-export interface ProvidersMetadata {
-  api_version: string
-  schema_version: string
-  retrieved_at: string
-  counts: { providers: number, networks: number, parameters: number }
-  warnings: Array<{ code: string, message: string }>
-}
+export type ProvidersMetadata = Reads<Schemas['CatalogueMetadata'], 'api_version' | 'schema_version' | 'retrieved_at' | 'counts' | 'warnings'>
 
-/** Response from GET /api/providers */
+/** Response from GET /api/providers, as far as the app reads it */
 export interface ProvidersResponse {
   metadata: ProvidersMetadata
   providers: Provider[]

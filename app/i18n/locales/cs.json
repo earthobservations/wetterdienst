@@ -480,6 +480,17 @@
     "noResolutions": "Není to časová řada: není tu co vypisovat.",
     "openExplorer": "Otevřít v průzkumníku"
   },
+  "cardTitle": {
+    "station": "Stanice",
+    "stationAndPeriod": "Stanice a období",
+    "placeAndPeriod": "Místo a období"
+  },
+  "toolPlaceholder": {
+    "forecast": "Vyhledej stanici nebo ji vyber na mapě a uvidíš její předpověď",
+    "explorer": "Vyber parametry, pak stanici nebo bod, vyhledáním nebo na mapě, a kliknutím na „Zobrazit“ načti data",
+    "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na „Zobrazit“ vytvoř klimatické pruhy",
+    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii"
+  },
   "meteogram": {
     "title": "Předpověď počasí",
     "subtitle": "Předpověď DWD MOSMIX — teplota, srážky a vítr",
@@ -488,7 +499,6 @@
     "aboutText2": "Graf zobrazuje teplotu a rosný bod, rychlost větru a nárazy s meteorologickými větrnými praporky, srážky klasifikované podle fáze (déšť / smíšené / sníh), oblačnost podle výšky a atmosférický tlak. Pásy den/noc se odvozují z geografické polohy stanice. Vyber libovolnou stanici DWD podle názvu nebo ID a načti její předpověď.",
     "selectStation": "Vybrat stanici",
     "loading": "Načítání předpovědi MOSMIX …",
-    "emptyHint": "Vyhledej stanici výše a vygeneruj předpověď",
     "openWidget": "Otevřít jako vložitelný widget",
     "chart": {
       "noData": "Pro vybraný dotaz nejsou k dispozici žádná data",
@@ -617,7 +627,6 @@
     "showTrendline": "Zobrazit trendovou čáru",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
-    "emptyHint": "Vyber stanici a kliknutím na Zobrazit vytvoř klimatické pruhy",
     "downloadImage": "Stáhnout obrázek",
     "downloadPng": "Stáhnout jako PNG",
     "downloadJpg": "Stáhnout jako JPG",
@@ -678,12 +687,13 @@
     "modeInterpolation": "Interpolace",
     "modeSummary": "Sumarizace",
     "settings": "Nastavení",
-    "generalSettings": "Obecná nastavení",
-    "humanize": "Humanizovat parametry",
-    "convertUnits": "Převést na jednotky SI",
-    "unitTargets": "Cílové jednotky",
-    "unitTargetsHint": "Přepiš výchozí cílovou jednotku pro konkrétní typy jednotek. „Výchozí“ převádí na jednotku uvedenou v závorce.",
-    "unitDefault": "Výchozí ({unit})",
+    "settingsNamesOn": "Čitelné názvy",
+    "settingsNamesOff": "Původní názvy",
+    "settingsUnitsOn": "Jednotky: {units}",
+    "settingsUnitsOff": "Jednotky tak, jak jsou publikovány",
+    "settingsChange": "Změnit v nastavení aplikace",
+    "settingsLinkOverride": "Tento odkaz sám určuje, zda jsou názvy čitelné a zda se hodnoty převádějí, místo tvého nastavení aplikace, které zůstává beze změny.",
+    "settingsUseMine": "Použít moje nastavení aplikace",
     "valuesOptions": "Možnosti hodnot",
     "shape": "Tvar",
     "shapeLong": "Dlouhý",
@@ -707,7 +717,6 @@
     "minGainHint": "Minimální prahová hodnota zisku pro přidání dalších stanic. Zvažuje dodatečné úsilí oproti zisku dalších časových značek. (Výchozí: 0,10)",
     "additionalStations": "Další stanice",
     "additionalStationsHint": "Počet dalších stanic, které se použijí bez ohledu na prahovou hodnotu zisku. (Výchozí: 3)",
-    "dataSource": "Zdroj dat",
     "stationsDetails": "Podrobnosti stanic",
     "valuesDetails": "Podrobnosti hodnot",
     "leadTime": "Běh předpovědi",
@@ -733,7 +742,7 @@
     "endDate": "Koncové datum"
   },
   "parameterSelection": {
-    "title": "Vyber parametry",
+    "title": "Data",
     "selectProvider": "Vybrat poskytovatele",
     "selectNetwork": "Vybrat síť",
     "selectResolution": "Vybrat rozlišení",
@@ -827,6 +836,9 @@
     "back": "Zpět na stanice",
     "chosen": "Vybráno: {name}",
     "pickedPlace": "Bod na mapě, {distance} od této stanice",
+    "pickedCentre": "Místo ve středu mapy v okamžiku výběru, {distance} od této stanice",
+    "pickedPlaceAddress": "Vybrané místo, {distance} od této stanice",
+    "pickedStationPlace": "Poloha stanice {name}, {distance} od této stanice",
     "elevation": "{value} m n. m.",
     "at": "{name}, {distance} odtud",
     "noneNearby": "Žádná stanice do {distance}.",
@@ -839,7 +851,13 @@
     "period": "od {from} do {to}",
     "stripesFigure": "Klimatické pruhy: {name}",
     "stripesNone": "Pro tuto stanici nejsou klimatické pruhy.",
-    "stationNotFound": "Na této mapě není stanice {id}."
+    "stationNotFound": "Na této mapě není stanice {id}.",
+    "legend": "Legenda",
+    "legendReporting": "Stále hlásí",
+    "legendStopped": "Přestala hlásit",
+    "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
+    "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
+    "pickCloser": "Místo toho vybrat {name}"
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",
@@ -960,7 +978,6 @@
     "selectSections": "Vyber sekce k zahrnutí",
     "error": "Chyba",
     "resultsTitle": "Výsledky",
-    "noHistories": "Není načtena žádná historie. Kliknutím na „Zobrazit“ se dotaž backendu.",
     "selectedStations": "Vybrané stanice",
     "colStationId": "ID stanice",
     "colName": "Název",
@@ -990,6 +1007,7 @@
     "missingDataHistory": "Historie chybějících dat",
     "summary": "Souhrn",
     "periods": "Období",
-    "colMissingCount": "Počet chybějících"
+    "colMissingCount": "Počet chybějících",
+    "noneFound": "Pro vybrané stanice nebyla nalezena žádná historie."
   }
 }

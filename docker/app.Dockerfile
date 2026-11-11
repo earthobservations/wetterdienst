@@ -13,6 +13,9 @@ FROM base AS deps
 
 # .pnpmfile.cjs changes what the lockfile resolves (GH-3094), so the install needs it too
 COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml app/.pnpmfile.cjs ./
+# `postinstall` runs this: it writes the API types where the repository's OpenAPI snapshot is, which this image has not
+# copied, and then does nothing (GH-3908)
+COPY app/scripts ./scripts
 
 RUN pnpm install --frozen-lockfile
 

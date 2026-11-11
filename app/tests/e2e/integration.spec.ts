@@ -115,7 +115,7 @@ test.describe('History Provider/Network Restriction', () => {
     await expect(page.getByText('Station names')).toBeVisible()
 
     await page.getByRole('button', { name: 'Reset', exact: true }).click()
-    await expect(page.getByText(/No histories loaded/i)).toBeVisible()
+    await expect(page.getByTestId('tool-placeholder')).toBeVisible()
   })
 })
 
