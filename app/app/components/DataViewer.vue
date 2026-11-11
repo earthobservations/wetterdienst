@@ -654,8 +654,9 @@ const columns = computed(() =>
 const pageSizeOptions = [50, 100, 200]
 const pageSize = ref(50)
 const currentPage = ref(1)
-// below `sm` the pager keeps the current page between its first and last, and wraps where even that is too wide:
-// from page 2 of four or more its row of nine buttons is wider than a phone's card (GH-3985)
+// below `sm` the pager keeps the current page between its first and last page (the edges), has no First and Last
+// buttons of its own, which they would repeat, and wraps where even the seven that are left are too wide: from page 2
+// of four or more its row of nine buttons was wider than a phone's card (GH-3985)
 const pagerFitsRow = useMediaQuery('(min-width: 40rem)')
 
 const paginatedValues = computed(() => {
@@ -1745,7 +1746,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             </div>
             <UPagination
               v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize"
-              :sibling-count="pagerFitsRow ? 2 : 0" :show-edges="!pagerFitsRow" :ui="{ list: 'flex flex-wrap items-center justify-center gap-1' }"
+              :sibling-count="pagerFitsRow ? 2 : 0" :show-edges="!pagerFitsRow"
+              :ui="{ list: 'flex flex-wrap items-center justify-center gap-1', first: pagerFitsRow ? '' : 'hidden', last: pagerFitsRow ? '' : 'hidden' }"
             />
           </div>
         </template>

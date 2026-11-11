@@ -82,8 +82,9 @@ Types of changes:
   (GH-3845, GH-3858)
 - `[Explorer]` At 320 px the page no longer scrolls sideways once parameters and a station are
   chosen: the start and end dates stack, the columns, copy and download controls wrap, below 640 px
-  the pager keeps the current page between the first and the last and wraps, and the lead time and
-  mode buttons stack where their row does not fit the card, in every language (GH-3985)
+  the pager keeps the current page between the first and the last and wraps, and the mode and
+  lead-time buttons stack where their row does not fit the card (also beside the result on a wide
+  window), in every language (GH-3985)
 - `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
   the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
   under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one

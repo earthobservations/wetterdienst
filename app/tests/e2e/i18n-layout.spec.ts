@@ -233,14 +233,22 @@ for (const language of ['en', ...LONG_LANGUAGES]) {
       await page.locator('[data-slot="next"]').click()
       await page.locator('[data-slot="next"]').click()
       await settle(page)
+      // the pager has no First and Last buttons below `sm`, and its seven buttons (the edges, the current page, the
+      // ellipses and Previous/Next) are one line
+      await expect(page.locator('[data-slot="first"]')).toBeHidden()
+      expect(await page.locator('[data-slot="next"]').evaluate((next) => {
+        const buttons = [...next.parentElement!.parentElement!.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0)
+        return new Set(buttons.map(button => Math.round(button.getBoundingClientRect().top))).size
+      }), `the pager of /explorer in ${language} at 320px stands in one line`).toBe(1)
       expect(await offendersOf(page), `/explorer with values in ${language} at 320px`).toEqual([])
       expect(await reflowOffendersOf(page, '/explorer'), `/explorer with values in ${language} at 320px`).toEqual([])
     })
   }
 }
 
-// The two-column layout (from 72 rem) gives the setup card a column of 368 px, where the lead time's row of buttons
-// (in Polish, Czech, French and Luxembourgish) is as wide as the card or wider: it stacks when it does not fit
+// The two-column layout (from 72 rem) gives the setup card a column of 368 px inside, where the lead time's row of
+// buttons overflows in Polish and is close to the card's width in Czech, French and Luxembourgish: it stacks where it
+// does not fit the card (a window-width rule missed this)
 for (const language of ['pl', 'cs', 'fr', 'lb']) {
   test(`/explorer at 1152px has the lead time row inside its card in ${language}`, async ({ page, context, baseURL }) => {
     await mockBackend(page, baseURL!, withDmo())
