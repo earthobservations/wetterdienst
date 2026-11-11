@@ -15,7 +15,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
-from tests.conftest import ECCC_ATTRIBUTION
+from tests.conftest import ECCC_ATTRIBUTION, is_no_such_option
 from wetterdienst import Wetterdienst
 from wetterdienst.model.metadata import MetadataModel
 from wetterdienst.ui import restapi
@@ -492,7 +492,7 @@ def test_the_command_line_and_the_mcp_tool_take_no_datasets() -> None:
     """`--datasets` and the argument `datasets` of `providers` are gone, and the surfaces refuse them."""
     refused = CliRunner().invoke(cli, ["providers", "--provider=wsv", "--datasets"])
     assert refused.exit_code == 2
-    assert "No such option '--datasets'" in refused.output
+    assert is_no_such_option(refused.output, "--datasets")
 
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
