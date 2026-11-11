@@ -1,7 +1,12 @@
 export interface DataSettings {
-  humanize: boolean
-  convertUnits: boolean
-  unitTargets: Record<string, string>
+  /**
+   * What an Explorer link asks for where it differs from the app settings (GH-3878): the link's `humanize`, which the
+   * request sends in place of the readable names setting. Left out, the app settings' choice is sent. The page makes
+   * no such choice itself, and writes it to the address only where the link brought it.
+   */
+  humanize?: boolean
+  /** As `humanize`: the link's `convertUnits`, in place of the app settings' convert units choice. */
+  convertUnits?: boolean
   // Values-specific settings
   shape: 'long' | 'wide'
   skipEmpty: boolean

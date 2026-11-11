@@ -186,6 +186,14 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Feilen` for the arrow keys, `ewech`); `pl` and `cs` (`Wybrano: {name}` and `Vybráno: {name}` for "chosen", `n.p.m.` and
   `n. m.` for "above sea level"); and in every language the sentence of the about text that explains the keyboard.
 
+- **Machine-made**: the strings that tell a farther station from a nearer one on the map (`mapTool.legend*`,
+  `mapTool.whyFarther`, `mapTool.whyFartherNoEnd`, `mapTool.pickCloser`, `mapTool.pickedCentre`,
+  `mapTool.pickedPlaceAddress`, `mapTool.pickedStationPlace`, GH-3875) were written by a language model (Claude) in
+  **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` (`Meldt nich
+  mehr`, `De dichtste Station`, `Dichter bi:` for "closer", `statts`, `Oort`); `lb` (`Zeechenerklärung`,
+  `Huet opgehalen`, `Méi no`); `pl` (`Przestała działać`, `Nadal działa`: a station is feminine) and `cs`
+  (`Přestala hlásit`), and the case of the station's name after `Położenie stacji` and `Poloha stanice`.
+
 - The partial last day of the forecast's day cards and rows (`meteogram.chart.partialDay`, GH-3840: "partial, {hours} h"),
   written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and read by no person.
   Least certain: `de-hh` `Deeldag`, then `lb` `deelweis` and `cs` `částečně`; `de` `unvollständig` is plain German for
@@ -196,6 +204,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
   besides `en`**, `de` included, and read by no person. Least certain: `de-hh` `Lieste` for "list" and `wegmaken`;
   `lb` `Lëscht` and `ewechhuelen`; `cs` `Seznam` and `Odebrat {name} z výběru`; `pl` `Usuń {name} z wyboru`; `it`
   `Elenco` against `Lista`.
+- **Machine-made**: the sentences every tool shows where its result will be (`toolPlaceholder.*`, `history.noneFound`) and the
+  titles of the setup cards (`cardTitle.*`, `parameterSelection.title`, GH-3850) were written by a language model (Claude)
+  in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Oort un Tietruum`
+  and `Chronik`; `lb` `Plaz a Period` and `Historique`; `pl` `Miejsce i okres`; `cs` `Místo a období`; and in every
+  language "Place and period" (the Explorer's card, where an interpolation takes a point and not a station).
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
@@ -210,10 +223,10 @@ request that added this file, and the issue it belongs to is
 - `nl`: `Colofon` for the legal notice (`footer.legal`, `impressum.title`) names the publisher's
   imprint; a Dutch reader may expect `Juridische informatie`.
 - `fr`: `Paramètres` is both "Settings" (`common.settings`, `settings.title`, `stripes.settingsTitle`,
-  `explorer.settings`, `explorer.generalSettings`, `explorer.advancedSettings`,
-  `dataViewer.chartSettings`) and "Parameters" (`glossary.parametersTitle`,
-  `parameterSelection.parametersLabel`), on the same pages. `Réglages` for the settings would keep
-  the two apart.
+  `explorer.settings`, `explorer.settingsChange`, `explorer.settingsLinkOverride`,
+  `explorer.settingsUseMine`, `explorer.advancedSettings`, `dataViewer.chartSettings`) and "Parameters"
+  (`glossary.parametersTitle`, `parameterSelection.parametersLabel`), on the same pages. `Réglages`
+  for the settings would keep the two apart.
 
 The review of GH-2610 fixed what could be shown to be wrong without a native speaker: the claim of
 "no limit" in `home.dataIntro` after the rate limit, a formal address in the `es` catalog, a word

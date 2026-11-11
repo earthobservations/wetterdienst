@@ -777,7 +777,7 @@ onBeforeUnmount(() => {
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
-                  {{ t('explorer.dataSource') }}
+                  {{ t('cardTitle.stationAndPeriod') }}
                 </h2>
               </div>
             </template>
@@ -854,7 +854,11 @@ onBeforeUnmount(() => {
           </UCollapsible>
         </template>
         <template #result>
-          <UCard>
+          <!-- the card is for what there is to put in it: the loading, the error and the stripes; before that, the
+               placeholder every tool shows (GH-3850). The chart's container is in the card, and is there before
+               anything is drawn, since the card is shown while the fetch is under way -->
+          <ToolPlaceholder v-if="!isLoading && !fetchError && !hasPlot" tool="stripes" />
+          <UCard v-else>
             <template #header>
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-chart-bar" class="text-primary-600 dark:text-primary-500 shrink-0" />
@@ -878,12 +882,6 @@ onBeforeUnmount(() => {
               >
                 <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
                 <span class="text-sm">{{ fetchError }}</span>
-              </div>
-              <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
-                <UIcon name="i-ph-chart-bar" class="w-12 h-12 opacity-30" />
-                <p class="text-sm">
-                  {{ t('stripes.emptyHint') }}
-                </p>
               </div>
               <div
                 v-if="hasPlot && plotFailed"

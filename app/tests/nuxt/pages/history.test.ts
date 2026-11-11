@@ -123,9 +123,73 @@ describe('history Page', () => {
     expect(vm.canFetch).toBe(true)
   })
 
-  it('shows an empty-results hint before any query has run', async () => {
+  it('shows the placeholder of the tools, and no result card, before any query has run', async () => {
     const wrapper = await mountHistory()
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('history')
+    expect(wrapper.text()).toContain('Search for stations or pick them on the map, then click “Show” to load their histories')
+    expect(wrapper.text()).not.toContain('backend')
+    expect(wrapper.text()).not.toContain('Results')
+  })
+
+  it('titles the cards by what they hold: the data, and the station', async () => {
+    const wrapper = await mountHistory()
+    expect(wrapper.findAll('h2').map(h => h.text()).slice(0, 2)).toEqual(['Data', 'Station'])
+  })
+
+  it('says that nothing was found, and not that nothing was asked, where a query came back with no histories', async () => {
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [] }))
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+  })
+
+  it('keeps the card of an answer that found nothing as the next Show goes out, and shows it for the first Show under way', async () => {
+    let calls = 0
+    let release!: () => void
+    const held = new Promise<void>(resolve => (release = resolve))
+    const { wrapper, vm, showButton } = await mountWithSelection(async () => {
+      calls++
+      if (calls === 1)
+        return { histories: [] }
+      await held
+      return { histories: [] }
+    })
+    const card = () => wrapper.findAll('h2').map(h => h.text()).includes('Results')
+
+    // the first Show, until it answers: the card, with the spinner in it, not the placeholder
+    expect(card()).toBe(false)
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+
+    // another station, and Show again: the answer found nothing, and the card stays while the next is fetched
+    vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test' }, { station_id: '00002', name: 'Test 2' }]
+    await wrapper.vm.$nextTick()
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(calls).toBe(2), { timeout: 5000 })
+    expect(card()).toBe(true)
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No history was found')
+
+    release()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+
+    // Reset ends the answer: the placeholder again
+    await wrapper.findAll('button').find(b => b.text() === 'Reset')!.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
+  })
+
+  it('shows the card with a spinner while the first Show is under way', async () => {
+    const held = new Promise<void>(() => {})
+    const { wrapper, showButton } = await mountWithSelection(async () => {
+      await held
+      return { histories: [] }
+    })
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.findAll('h2').map(h => h.text())).toContain('Results'), { timeout: 5000 })
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('No history was found')
   })
 
   it('clear() resets fetched history data', async () => {
@@ -195,7 +259,7 @@ describe('history Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('Foo Station')
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
     expect(vm.canFetch).toBe(true)
   })
 

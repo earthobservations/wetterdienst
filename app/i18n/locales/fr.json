@@ -480,6 +480,17 @@
     "noResolutions": "Pas une série temporelle : rien à lister ici.",
     "openExplorer": "Ouvrir dans l'explorateur"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station et période",
+    "placeAndPeriod": "Lieu et période"
+  },
+  "toolPlaceholder": {
+    "forecast": "Recherche une station ou choisis-en une sur la carte pour voir sa prévision",
+    "explorer": "Sélectionne des paramètres, puis choisis une station ou un point, par la recherche ou sur la carte, et clique sur « Afficher » pour charger les données",
+    "stripes": "Recherche une station ou choisis-en une sur la carte, puis clique sur « Afficher » pour créer des bandes climatiques",
+    "history": "Recherche des stations ou choisis-les sur la carte, puis clique sur « Afficher » pour charger leur historique"
+  },
   "meteogram": {
     "title": "Prévisions météo",
     "subtitle": "Prévision DWD MOSMIX — température, précipitations et vent",
@@ -488,7 +499,6 @@
     "aboutText2": "Le graphique montre la température et le point de rosée, la vitesse du vent et les rafales avec des barbules météorologiques, les précipitations classées par phase (pluie / mixte / neige), la couverture nuageuse par altitude et la pression atmosphérique. Les bandes jour/nuit sont dérivées de la position géographique de la station. Sélectionne n'importe quelle station DWD par nom ou identifiant pour charger sa prévision.",
     "selectStation": "Sélectionner une station",
     "loading": "Récupération de la prévision MOSMIX …",
-    "emptyHint": "Recherche une station ci-dessus pour générer une prévision",
     "openWidget": "Ouvrir comme widget intégrable",
     "chart": {
       "noData": "Aucune donnée disponible pour la requête sélectionnée",
@@ -613,7 +623,6 @@
     "showTrendline": "Afficher la ligne de tendance",
     "visualizationTitle": "Visualisation",
     "loadingViz": "Chargement des données et génération de la visualisation …",
-    "emptyHint": "Sélectionne une station et clique sur Afficher pour créer des bandes climatiques",
     "downloadImage": "Télécharger l'image",
     "downloadPng": "Télécharger en PNG",
     "downloadJpg": "Télécharger en JPG",
@@ -672,12 +681,13 @@
     "modeInterpolation": "Interpolation",
     "modeSummary": "Synthèse",
     "settings": "Paramètres",
-    "generalSettings": "Paramètres généraux",
-    "humanize": "Humaniser les paramètres",
-    "convertUnits": "Convertir en unités SI",
-    "unitTargets": "Unités cibles",
-    "unitTargetsHint": "Remplace l'unité cible par défaut pour certains types d'unités. « Par défaut » convertit dans l'unité indiquée entre parenthèses.",
-    "unitDefault": "Par défaut ({unit})",
+    "settingsNamesOn": "Noms lisibles",
+    "settingsNamesOff": "Noms d'origine",
+    "settingsUnitsOn": "Unités : {units}",
+    "settingsUnitsOff": "Unités telles que publiées",
+    "settingsChange": "À modifier dans les paramètres de l'application",
+    "settingsLinkOverride": "Ce lien décide si les noms sont lisibles et si les valeurs sont converties, à la place de tes paramètres de l'application, qui restent inchangés.",
+    "settingsUseMine": "Utiliser mes paramètres de l'application",
     "valuesOptions": "Options des valeurs",
     "shape": "Forme",
     "shapeLong": "Long",
@@ -701,7 +711,6 @@
     "minGainHint": "Seuil de gain minimal pour ajouter des stations supplémentaires. Met en balance l'effort supplémentaire et le gain d'horodatages additionnels. (Par défaut : 0,10)",
     "additionalStations": "Stations supplémentaires",
     "additionalStationsHint": "Nombre de stations supplémentaires à utiliser indépendamment du seuil de gain. (Par défaut : 3)",
-    "dataSource": "Source de données",
     "stationsDetails": "Détails des stations",
     "valuesDetails": "Détails des valeurs",
     "leadTime": "Run de prévision",
@@ -727,7 +736,7 @@
     "endDate": "Date de fin"
   },
   "parameterSelection": {
-    "title": "Sélectionner les paramètres",
+    "title": "Données",
     "selectProvider": "Sélectionner un fournisseur",
     "selectNetwork": "Sélectionner un réseau",
     "selectResolution": "Sélectionner une résolution",
@@ -823,6 +832,9 @@
     "back": "Retour aux stations",
     "chosen": "{name} choisie",
     "pickedPlace": "Un point de la carte, à {distance} de cette station",
+    "pickedCentre": "Le lieu au centre de la carte quand il a été choisi, à {distance} de cette station",
+    "pickedPlaceAddress": "Le lieu choisi, à {distance} de cette station",
+    "pickedStationPlace": "La position de {name}, à {distance} de cette station",
     "elevation": "{value} m d'altitude",
     "at": "{name}, à {distance}",
     "noneNearby": "Aucune station dans un rayon de {distance}.",
@@ -835,7 +847,13 @@
     "period": "de {from} à {to}",
     "stripesFigure": "Bandes climatiques de {name}",
     "stripesNone": "Pas de bandes climatiques pour cette station.",
-    "stationNotFound": "Il n'y a pas de station {id} sur cette carte."
+    "stationNotFound": "Il n'y a pas de station {id} sur cette carte.",
+    "legend": "Légende",
+    "legendReporting": "Transmet encore",
+    "legendStopped": "Ne transmet plus",
+    "whyFarther": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, jusqu'en {year}.",
+    "whyFartherNoEnd": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, fin inconnue.",
+    "pickCloser": "Choisir {name} à la place"
   },
   "dataViewer": {
     "loadingValues": "Chargement des valeurs …",
@@ -956,7 +974,6 @@
     "selectSections": "Sélectionner les sections à inclure",
     "error": "Erreur",
     "resultsTitle": "Résultats",
-    "noHistories": "Aucun historique chargé. Clique sur « Afficher » pour interroger le backend.",
     "selectedStations": "Stations sélectionnées",
     "colStationId": "Identifiant de station",
     "colName": "Nom",
@@ -986,6 +1003,7 @@
     "missingDataHistory": "Historique des données manquantes",
     "summary": "Synthèse",
     "periods": "Périodes",
-    "colMissingCount": "Nombre de valeurs manquantes"
+    "colMissingCount": "Nombre de valeurs manquantes",
+    "noneFound": "Aucun historique trouvé pour les stations sélectionnées."
   }
 }

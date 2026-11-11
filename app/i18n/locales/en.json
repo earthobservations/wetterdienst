@@ -480,6 +480,17 @@
     "noResolutions": "Not a time series: nothing to list here.",
     "openExplorer": "Open in the explorer"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station and period",
+    "placeAndPeriod": "Place and period"
+  },
+  "toolPlaceholder": {
+    "forecast": "Search for a station or pick one on the map to see its forecast",
+    "explorer": "Select parameters, then choose a station or a point, by search or on the map, and click “Show” to load data",
+    "stripes": "Search for a station or pick one on the map, then click “Show” to create climate stripes",
+    "history": "Search for stations or pick them on the map, then click “Show” to load their histories"
+  },
   "meteogram": {
     "title": "Weather forecast",
     "subtitle": "DWD MOSMIX forecast — temperature, precipitation and wind",
@@ -488,7 +499,6 @@
     "aboutText2": "The chart shows temperature & dew point, wind speed & gusts with meteorological wind barbs, precipitation classified by phase (rain / mixed / snow), cloud cover by altitude, and atmospheric pressure. Day/night bands are derived from the station's geographic location. Select any DWD station by name or ID to load its forecast.",
     "selectStation": "Select station",
     "loading": "Fetching MOSMIX forecast …",
-    "emptyHint": "Search for a station above to generate a forecast",
     "openWidget": "Open as embeddable widget",
     "chart": {
       "noData": "No data available for the selected query",
@@ -613,7 +623,6 @@
     "showTrendline": "Show trendline",
     "visualizationTitle": "Visualization",
     "loadingViz": "Loading data and generating visualization …",
-    "emptyHint": "Select a station and click Show to create climate stripes",
     "downloadImage": "Download image",
     "downloadPng": "Download as PNG",
     "downloadJpg": "Download as JPG",
@@ -672,12 +681,13 @@
     "modeInterpolation": "Interpolation",
     "modeSummary": "Summary",
     "settings": "Settings",
-    "generalSettings": "General Settings",
-    "humanize": "Humanize parameters",
-    "convertUnits": "Convert to SI units",
-    "unitTargets": "Unit Targets",
-    "unitTargetsHint": "Override the default target unit for specific unit types. “Default” converts to the unit named in parentheses.",
-    "unitDefault": "Default ({unit})",
+    "settingsNamesOn": "Readable names",
+    "settingsNamesOff": "Original names",
+    "settingsUnitsOn": "Units: {units}",
+    "settingsUnitsOff": "Units as published",
+    "settingsChange": "Change in the app settings",
+    "settingsLinkOverride": "This link decides whether names are readable and values converted, instead of your app settings, which stay as they are.",
+    "settingsUseMine": "Use my app settings",
     "valuesOptions": "Values Options",
     "shape": "Shape",
     "shapeLong": "Long",
@@ -701,7 +711,6 @@
     "minGainHint": "Minimum gain threshold for adding additional stations. Considers the extra effort against the gain of additional timestamps. (Default: 0.10)",
     "additionalStations": "Additional stations",
     "additionalStationsHint": "Number of additional stations to use regardless of gain threshold. (Default: 3)",
-    "dataSource": "Data Source",
     "stationsDetails": "Stations Details",
     "valuesDetails": "Values Details",
     "leadTime": "Forecast run",
@@ -727,7 +736,7 @@
     "endDate": "End Date"
   },
   "parameterSelection": {
-    "title": "Select Parameters",
+    "title": "Data",
     "selectProvider": "Select provider",
     "selectNetwork": "Select network",
     "selectResolution": "Select resolution",
@@ -823,6 +832,9 @@
     "back": "Back to the stations",
     "chosen": "{name} chosen",
     "pickedPlace": "A point on the map, {distance} from this station",
+    "pickedCentre": "The place at the centre of the map when it was picked, {distance} from this station",
+    "pickedPlaceAddress": "The place picked, {distance} from this station",
+    "pickedStationPlace": "The position of {name}, {distance} from this station",
     "elevation": "{value} m above sea level",
     "at": "{name}, {distance} away",
     "noneNearby": "No station within {distance}.",
@@ -835,7 +847,13 @@
     "period": "{from} to {to}",
     "stripesFigure": "Climate stripes of {name}",
     "stripesNone": "No climate stripes for this station.",
-    "stationNotFound": "There is no station {id} on this map."
+    "stationNotFound": "There is no station {id} on this map.",
+    "legend": "Legend",
+    "legendReporting": "Still reporting",
+    "legendStopped": "Stopped reporting",
+    "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
+    "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
+    "pickCloser": "Pick {name} instead"
   },
   "dataViewer": {
     "loadingValues": "Loading values …",
@@ -956,7 +974,6 @@
     "selectSections": "Select sections to include",
     "error": "Error",
     "resultsTitle": "Results",
-    "noHistories": "No histories loaded. Click “Show” to query the backend.",
     "selectedStations": "Selected stations",
     "colStationId": "Station ID",
     "colName": "Name",
@@ -986,6 +1003,7 @@
     "missingDataHistory": "Missing data history",
     "summary": "Summary",
     "periods": "Periods",
-    "colMissingCount": "Missing count"
+    "colMissingCount": "Missing count",
+    "noneFound": "No history was found for the selected stations."
   }
 }

@@ -47,8 +47,24 @@ and sets the theme or the language.
 | Settings | Kept in the browser: the language, light or dark, which four tools are in the tab bar of a phone (see above), plain-language labels for the parameters, and whether and in which units the values are converted. Where the browser refuses its storage the settings hold for the visit and are the defaults at the next. |
 
 The settings of a request that the explorer offers are the [options](settings.md#options) of the library
-(`humanize`, `convert_units`, `unit_targets`, `shape`, `skip_empty`, the interpolation distances), under the
-names the REST API takes them by. The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
+(`shape`, `skip_empty`, `drop_nulls`, the interpolation distances), under the names the REST API takes them by.
+Its `humanize`, `convert_units` and `unit_targets` are the app's Settings page's (plain-language labels, whether
+values are converted, and the unit of each type), which the Explorer names in one line with a link to the page;
+every request names all three, so the unit of a type does not depend on the server's `WD_TS_UNIT_TARGETS`. An
+Explorer link of an earlier version may carry `humanize` and `convertUnits`: where they differ from the Settings
+page they apply to that view over it, and "Use my app settings" in the Explorer's Settings drops them; a link copied
+now carries neither, so its recipient's settings apply. A visitor with no saved settings starts from the server's
+(`GET /api/settings`: `humanize`, `convert_units`, and the `unit_targets` of the types the page lists); the page is
+not held for the answer, and where it is slow or fails the defaults of the app apply. The next load tries again, field
+by field and only for a setting still at the app's default, until the server has answered (its settings, or a 404);
+from then on the settings are the visitor's own, whatever the server says. A link of an earlier version is compared
+with the settings once the server has answered for them. **Reset** on the Settings page goes back to the server's
+settings where it has answered in that load, and else to the defaults of the app, and the next load asks the server
+again. The forecast, its widget and the
+map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
+the Settings page does not change.
+
+The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.
 
 ### Large selections

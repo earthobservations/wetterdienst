@@ -13,9 +13,6 @@ import DataViewer from '~/components/DataViewer.vue'
 // and the page words them itself, in the language of the page
 
 const settings: DataSettings = {
-  humanize: true,
-  convertUnits: true,
-  unitTargets: {},
   shape: 'long',
   skipEmpty: false,
   skipThreshold: 0.95,

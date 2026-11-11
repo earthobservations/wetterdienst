@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
-import type { MapLayer, MapState, MeasuredSource, PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
+import type { CloserStation, MapLayer, MapState, MeasuredSource, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import MapStripes from '~/components/MapStripes.vue'
 import { describeFetchError } from '~/utils/api-error'
 import {
+  closerStoppedStation,
   DEFAULT_MEASURED,
   distanceKm,
   FORECAST_STATIONS_QUERY,
@@ -28,6 +29,7 @@ import {
   stationFor,
   STRIPES_KIND,
   stripesLink,
+  yearOf,
 } from '~/utils/map-tool'
 
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the chips over the map, and a
@@ -74,6 +76,13 @@ const source = ref<MeasuredSource>(initial.source)
 const selectedId = ref<string | null>(initial.stationId)
 /** The point the panel is about: the station picked, or the place picked on the map */
 const anchor = ref<Point | null>(initial.place)
+/**
+ * Where the place came from, which the panel says: a click, the centre of the map, or the position of a station the
+ * reader chose. A place that the address brings (a link, a reload, the browser's Back) is of no known origin, and is
+ * not told as a click.
+ */
+const origin = ref<PlaceOrigin>({ kind: 'unknown' })
+const POINT: PlaceOrigin = { kind: 'point' }
 
 const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
 /** The view shown: the number of a station is a number in the list of one view, and no other's */
@@ -247,13 +256,15 @@ let reselect = false
 /** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
 const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
 
-function choose(station: PlacedStation, options: { point?: Point, focus?: boolean } = {}) {
+function choose(station: PlacedStation, options: { point?: Point, focus?: boolean, from?: PlaceOrigin } = {}) {
   selectedId.value = station.station_id
   pickedIn = viewKey.value
   anchor.value = options.point ?? { latitude: station.latitude, longitude: station.longitude }
+  // a station chosen by name, from the list or by its dot, is a place of its own: no click was made
+  origin.value = options.point ? options.from ?? POINT : { kind: 'station', name: stationName(station) }
   unknownStation.value = null
   noStationNear.value = false
-  announcement.value = t('mapTool.chosen', { name: station.name ?? station.station_id })
+  announcement.value = chosenText(station, stations.value, anchor.value)
   void nextTick(() => {
     if (options.focus)
       detailHeading.value?.focus()
@@ -266,10 +277,11 @@ function choose(station: PlacedStation, options: { point?: Point, focus?: boolea
 }
 
 /** A point that has no station within reach: nothing is picked, the point is kept, and the panel says so */
-function tellNoStationNear(point: Point) {
+function tellNoStationNear(point: Point, from: PlaceOrigin = POINT) {
   selectedId.value = null
   pickedIn = viewKey.value
   anchor.value = point
+  origin.value = from
   unknownStation.value = null
   noStationNear.value = true
   announcement.value = t('mapTool.noStationNear', { distance: reach.value })
@@ -279,7 +291,7 @@ function tellNoStationNear(point: Point) {
  * A pick at a point (a click on the map, the centre of the map): the station on its dot where the point is on one,
  * whatever its status, else the station for the place (`stationFor`), which has to be within reach.
  */
-function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 0) {
+function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 0, from: PlaceOrigin = POINT) {
   // nothing to pick from, and no word of there being none, until the list has come
   if (listStatus.value !== 'success')
     return
@@ -292,12 +304,12 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 
   // a tap of a finger (a coarse pointer) has a wider ring than a dot, and in it a station that reports is preferred
   const touched = tap > tolerance ? stationFor(stations.value, point, reporting.value, tap) : null
   if (touched)
-    return choose(touched.station, { point, focus })
+    return choose(touched.station, { point, focus, from })
   const found = stationFor(stations.value, point, reporting.value)
   if (found)
-    choose(found.station, { point, focus })
+    choose(found.station, { point, focus, from })
   else
-    tellNoStationNear(point)
+    tellNoStationNear(point, from)
 }
 
 /**
@@ -313,7 +325,7 @@ function onPick(point: Point & { tolerance: number, tap?: number, disc?: number 
  * a click with a mouse that is not on a dot would pick (no ring of a finger): the keyboard's way to a place
  */
 function pickCentre() {
-  pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true)
+  pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true, 0, 0, { kind: 'centre' })
 }
 
 function back() {
@@ -337,13 +349,13 @@ function pickAgain(list: PlacedStation[]) {
   const point = anchor.value!
   const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
   if (!found)
-    return tellNoStationNear(point)
+    return tellNoStationNear(point, origin.value)
   selectedId.value = found.station_id
   pickedIn = viewKey.value
   unknownStation.value = null
   noStationNear.value = false
   // told, as a station that the reader chose is: it is another station than the one in the heading before
-  announcement.value = t('mapTool.chosen', { name: found.name ?? found.station_id })
+  announcement.value = chosenText(found, list, point)
 }
 
 // A change of layer or dataset, and the list that comes after it. The number of a station is the number in the list of
@@ -383,12 +395,14 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
 watch(selected, (station) => {
   if (!station)
     return
-  if (!anchor.value)
+  if (!anchor.value) {
     anchor.value = { latitude: station.latitude, longitude: station.longitude }
+    origin.value = { kind: 'station', name: stationName(station) }
+  }
   if (fromAddress) {
     fromAddress = false
     recentre.value++
-    announcement.value = t('mapTool.chosen', { name: stationName(station) })
+    announcement.value = chosenText(station, stations.value, anchor.value)
   }
   void forecast.ensure()
   void stripes.ensure()
@@ -419,19 +433,48 @@ const measuredRule = computed(() => reportingRule(measured.stations.value))
 const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value))
 const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value))
 
+/** The nearer station that has stopped, where the one the card offers is farther because it reports (GH-3875) */
+const measuredCloser = computed(() => {
+  if (!selected.value || !measuredPoint.value)
+    return null
+  return closerStoppedStation(measured.stations.value, anchor.value ?? selected.value, measuredPoint.value.station, measuredRule.value)
+})
+/** Why the station is not the nearest: the one that reports, and the nearer one that has stopped, with how long it measured */
+function whyFarther(closer: CloserStation) {
+  const params = { name: stationName(closer.station), distance: formatDistance(closer.distance, locale.value), year: closer.endYear }
+  return closer.endYear === null ? t('mapTool.whyFartherNoEnd', params) : t('mapTool.whyFarther', params)
+}
+/** What is announced for a station chosen: its name, and for a measuring station that is not the nearest, why */
+function chosenText(station: PlacedStation, list: PlacedStation[], point: Point) {
+  const chosen = t('mapTool.chosen', { name: stationName(station) })
+  if (layer.value !== 'measured' || !reporting.value)
+    return chosen
+  const closer = closerStoppedStation(list, point, station, reporting.value)
+  return closer ? `${chosen}. ${whyFarther(closer)}` : chosen
+}
+/** The nearer station that has stopped, picked in place of the one that reports: its record can matter for the history and the stripes */
+function pickCloser(closer: CloserStation) {
+  choose(closer.station, { point: anchor.value ?? undefined, from: origin.value, focus: true })
+}
+/** Where the place is from, as the panel tells it */
+const placeText = computed(() => {
+  if (!place.value || !selected.value)
+    return ''
+  const distance = formatDistance(distanceKm(place.value, selected.value), locale.value)
+  const from = origin.value
+  if (from.kind === 'station')
+    return t('mapTool.pickedStationPlace', { name: from.name, distance })
+  return t({ centre: 'mapTool.pickedCentre', unknown: 'mapTool.pickedPlaceAddress', point: 'mapTool.pickedPlace' }[from.kind], { distance })
+})
+
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
 /**
  * How long a station has measured: since its first year while it reports, from it to its last year once it has
  * stopped; nothing where it has no end, which says nothing of whether it has stopped.
  */
 function measuredFor(station: Station) {
-  // a date that does not parse is no year (it would read "NaN")
-  const year = (timestamp?: string | null) => {
-    const date = timestamp ? new Date(timestamp) : null
-    return date && !Number.isNaN(date.getTime()) ? date.getUTCFullYear() : null
-  }
-  const from = year(station.start_timestamp)
-  const to = year(station.end_timestamp)
+  const from = yearOf(station.start_timestamp)
+  const to = yearOf(station.end_timestamp)
   if (from === null || to === null)
     return null
   return measuredRule.value(station) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to })
@@ -476,6 +519,7 @@ watch(() => route.query, (query) => {
     fromAddress = Boolean(named.stationId)
   }
   anchor.value = named.place
+  origin.value = { kind: 'unknown' }
 })
 </script>
 
@@ -528,7 +572,7 @@ watch(() => route.query, (query) => {
                 </p>
                 <p v-if="place" class="mt-2 inline-flex items-center gap-1.5 text-sm text-toned" data-testid="map-place">
                   <UIcon name="i-ph-map-pin" class="size-4 shrink-0" />
-                  {{ t('mapTool.pickedPlace', { distance: formatDistance(distanceKm(place, selected), locale) }) }}
+                  {{ placeText }}
                 </p>
               </div>
 
@@ -601,6 +645,23 @@ watch(() => route.query, (query) => {
                   <p v-if="measuredPoint.distance > 0" class="map-card-note">
                     {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, locale) }) }}
                   </p>
+                  <!-- the station is not the nearest: a nearer one has stopped (GH-3875) -->
+                  <div v-if="measuredCloser" class="map-why" data-testid="map-why">
+                    <p class="map-card-note">
+                      {{ whyFarther(measuredCloser) }}
+                    </p>
+                    <UButton
+                      v-if="layer === 'measured'"
+                      :label="t('mapTool.pickCloser', { name: stationName(measuredCloser.station) })"
+                      icon="i-ph-arrow-u-up-left"
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      class="map-why-button"
+                      data-testid="map-pick-closer"
+                      @click="pickCloser(measuredCloser)"
+                    />
+                  </div>
                   <div class="flex flex-col items-start">
                     <UButton :to="measurementsLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openExplorer')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                     <UButton :to="historyLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openHistory')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
@@ -743,11 +804,24 @@ watch(() => route.query, (query) => {
                 :selected="selected"
                 :recentre="recentre"
                 :place="place"
+                :reporting="reporting"
                 :label="mapLabel"
                 @pick="onPick"
                 @view="view = $event"
               />
             </ClientOnly>
+
+            <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
+            <ul v-if="reporting && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
+              <li>
+                <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
+                {{ t('mapTool.legendReporting') }}
+              </li>
+              <li>
+                <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
+                {{ t('mapTool.legendStopped') }}
+              </li>
+            </ul>
           </div>
         </template>
       </div>
@@ -907,6 +981,71 @@ watch(() => route.query, (query) => {
 .map-failure {
   max-width: 28rem;
   background: var(--ui-bg);
+}
+/* The legend of the dots, at the map's foot on the left (the zoom buttons and the credit are on the right). The map is a
+   light surface in both colour schemes, so the legend is too, and its dots are the map's own (StationMap.vue): the one
+   that reports filled, the one that has stopped hollow, a difference of shape that is no colour alone (WCAG 1.4.1) */
+.map-legend {
+  position: absolute;
+  z-index: 1001;
+  inset-inline-start: 0.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: calc(50% - 0.75rem);
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--ui-radius);
+  background: rgb(255 255 255 / 0.94);
+  color: var(--color-ink-800);
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
+  /* the legend is on the map, and a click on it is no pick of the place under it */
+}
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.map-legend-dot {
+  flex: none;
+  box-sizing: border-box;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  background: #2358a8;
+  box-shadow: 0 0 0 1px #2358a8;
+}
+.map-legend-dot-stopped {
+  border: 2px solid #2358a8;
+  background: #ffffff;
+  box-shadow: none;
+}
+/* in forced colours the dots keep their own colours (the filled and the hollow one are told apart by them, which system
+   colours would make alike), as the tiles and the tool marks do */
+@media (forced-colors: active) {
+  .map-legend,
+  .map-legend-dot {
+    forced-color-adjust: none;
+  }
+}
+.map-why {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.map-why-button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: start;
+}
+.map-why-button .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
 }
 
 /* The panel: a card beside the map; on a phone a sheet under it, its top edge rounded and lifted over the map's foot */

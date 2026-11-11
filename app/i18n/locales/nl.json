@@ -480,6 +480,17 @@
     "noResolutions": "Geen tijdreeks: hier valt niets op te sommen.",
     "openExplorer": "Openen in de verkenner"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station en periode",
+    "placeAndPeriod": "Plaats en periode"
+  },
+  "toolPlaceholder": {
+    "forecast": "Zoek een station of kies er een op de kaart om de verwachting te zien",
+    "explorer": "Selecteer parameters, kies dan een station of een punt, via zoeken of op de kaart, en klik op “Tonen” om gegevens te laden",
+    "stripes": "Zoek een station of kies er een op de kaart en klik op “Tonen” om klimaatstrepen te maken",
+    "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden"
+  },
   "meteogram": {
     "title": "Weersverwachting",
     "subtitle": "DWD MOSMIX-verwachting — temperatuur, neerslag en wind",
@@ -488,7 +499,6 @@
     "aboutText2": "De grafiek toont temperatuur en dauwpunt, windsnelheid en windstoten met meteorologische windvanen, neerslag geclassificeerd per fase (regen / gemengd / sneeuw), bewolking per hoogte en luchtdruk. Dag-/nachtbanden worden afgeleid uit de geografische locatie van het station. Selecteer een willekeurig DWD-station op naam of id om de verwachting te laden.",
     "selectStation": "Station selecteren",
     "loading": "MOSMIX-verwachting ophalen …",
-    "emptyHint": "Zoek hierboven een station om een verwachting te genereren",
     "openWidget": "Openen als insluitbare widget",
     "chart": {
       "noData": "Geen gegevens beschikbaar voor de geselecteerde zoekopdracht",
@@ -613,7 +623,6 @@
     "showTrendline": "Trendlijn tonen",
     "visualizationTitle": "Visualisatie",
     "loadingViz": "Gegevens laden en visualisatie genereren …",
-    "emptyHint": "Selecteer een station en klik op Tonen om klimaatstrepen te maken",
     "downloadImage": "Afbeelding downloaden",
     "downloadPng": "Downloaden als PNG",
     "downloadJpg": "Downloaden als JPG",
@@ -672,12 +681,13 @@
     "modeInterpolation": "Interpolatie",
     "modeSummary": "Samenvatting",
     "settings": "Instellingen",
-    "generalSettings": "Algemene instellingen",
-    "humanize": "Parameters humaniseren",
-    "convertUnits": "Omrekenen naar SI-eenheden",
-    "unitTargets": "Doeleenheden",
-    "unitTargetsHint": "Overschrijf de standaarddoeleenheid voor specifieke eenheidstypes. “Standaard” rekent om naar de eenheid tussen haakjes.",
-    "unitDefault": "Standaard ({unit})",
+    "settingsNamesOn": "Leesbare namen",
+    "settingsNamesOff": "Originele namen",
+    "settingsUnitsOn": "Eenheden: {units}",
+    "settingsUnitsOff": "Eenheden zoals gepubliceerd",
+    "settingsChange": "Wijzigen in de app-instellingen",
+    "settingsLinkOverride": "Deze link bepaalt of namen leesbaar zijn en waarden worden omgerekend, in plaats van je app-instellingen, die ongewijzigd blijven.",
+    "settingsUseMine": "Mijn app-instellingen gebruiken",
     "valuesOptions": "Waardeopties",
     "shape": "Vorm",
     "shapeLong": "Lang",
@@ -701,7 +711,6 @@
     "minGainHint": "Minimale winstdrempel voor het toevoegen van extra stations. Weegt de extra inspanning af tegen de winst van extra tijdstempels. (Standaard: 0,10)",
     "additionalStations": "Extra stations",
     "additionalStationsHint": "Aantal extra stations dat moet worden gebruikt, ongeacht de winstdrempel. (Standaard: 3)",
-    "dataSource": "Gegevensbron",
     "stationsDetails": "Stationsdetails",
     "valuesDetails": "Waardedetails",
     "leadTime": "Verwachtingsrun",
@@ -727,7 +736,7 @@
     "endDate": "Einddatum"
   },
   "parameterSelection": {
-    "title": "Parameters selecteren",
+    "title": "Gegevens",
     "selectProvider": "Aanbieder selecteren",
     "selectNetwork": "Netwerk selecteren",
     "selectResolution": "Resolutie selecteren",
@@ -823,6 +832,9 @@
     "back": "Terug naar de stations",
     "chosen": "{name} gekozen",
     "pickedPlace": "Een punt op de kaart, {distance} van dit station",
+    "pickedCentre": "De plek in het midden van de kaart toen die werd gekozen, {distance} van dit station",
+    "pickedPlaceAddress": "De gekozen plek, {distance} van dit station",
+    "pickedStationPlace": "De positie van {name}, {distance} van dit station",
     "elevation": "{value} m boven zeeniveau",
     "at": "{name}, {distance} verderop",
     "noneNearby": "Geen station binnen {distance}.",
@@ -835,7 +847,13 @@
     "period": "{from} tot {to}",
     "stripesFigure": "Klimaatstrepen van {name}",
     "stripesNone": "Geen klimaatstrepen voor dit station.",
-    "stationNotFound": "Er is geen station {id} op deze kaart."
+    "stationNotFound": "Er is geen station {id} op deze kaart.",
+    "legend": "Legenda",
+    "legendReporting": "Meldt nog",
+    "legendStopped": "Is gestopt",
+    "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
+    "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
+    "pickCloser": "Kies in plaats daarvan {name}"
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",
@@ -956,7 +974,6 @@
     "selectSections": "Selecteer de op te nemen secties",
     "error": "Fout",
     "resultsTitle": "Resultaten",
-    "noHistories": "Geen geschiedenis geladen. Klik op “Tonen” om de backend te bevragen.",
     "selectedStations": "Geselecteerde stations",
     "colStationId": "Station-id",
     "colName": "Naam",
@@ -986,6 +1003,7 @@
     "missingDataHistory": "Geschiedenis ontbrekende gegevens",
     "summary": "Samenvatting",
     "periods": "Perioden",
-    "colMissingCount": "Aantal ontbrekend"
+    "colMissingCount": "Aantal ontbrekend",
+    "noneFound": "Voor de geselecteerde stations is geen geschiedenis gevonden."
   }
 }

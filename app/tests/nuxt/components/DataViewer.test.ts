@@ -10,6 +10,7 @@ import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
+import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 
 // DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
 // Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
@@ -101,9 +102,6 @@ const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
 mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 const settings: DataSettings = {
-  humanize: true,
-  convertUnits: true,
-  unitTargets: {},
   shape: 'long',
   skipEmpty: false,
   skipThreshold: 0.95,
@@ -2401,21 +2399,9 @@ describe('dataViewer nearby station distance', () => {
   })
 })
 
-describe('dataViewer unit targets', () => {
-  // each unit type the explorer lists, in the unit its "Default (...)" choice names
-  const defaults = {
-    temperature: 'degree_celsius',
-    speed: 'meter_per_second',
-    pressure: 'hectopascal',
-    precipitation: 'millimeter',
-    precipitation_intensity: 'millimeter_per_hour',
-    length_short: 'centimeter',
-    length_medium: 'meter',
-    length_long: 'kilometer',
-  }
-
-  // the unit targets the viewer's one request names, given the explorer's choices
-  async function unitTargetsAsked(endpoint: string, selection: StationSelectionState, unitTargets: Record<string, string>) {
+describe('dataViewer unit targets and names are the app settings\' (GH-3878)', () => {
+  // the viewer's one request, given the Explorer's own settings (a link's choice of the names and units, if any)
+  async function askedWith(endpoint: string, selection: StationSelectionState, own: Partial<DataSettings> = {}) {
     const asked: Record<string, unknown>[] = []
     registerEndpoint(endpoint, (event) => {
       asked.push(getQuery(event))
@@ -2423,31 +2409,85 @@ describe('dataViewer unit targets', () => {
     })
     const wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, {
-        default: () => h(DataViewer, { parameterSelection, stationSelection: selection, settings: { ...settings, unitTargets } }),
+        default: () => h(DataViewer, { parameterSelection, stationSelection: selection, settings: { ...settings, ...own } }),
       }),
     }), { attachTo: document.body })
     mounted.push(wrapper)
     await fetchData(wrapper.findComponent(DataViewer))
     await vi.waitFor(() => expect(asked).toHaveLength(1))
-    return JSON.parse(String(asked[0]!.unit_targets))
+    return asked[0]!
   }
+  const unitTargetsAsked = async (endpoint: string, selection: StationSelectionState) =>
+    JSON.parse(String((await askedWith(endpoint, selection)).unit_targets))
+
+  // the app settings are one store of the whole page: a test that changes them puts them back
+  afterEach(() => {
+    useSettings().reset()
+  })
 
   // each mode's endpoint, all of which take unit targets and merge the server's WD_TS_UNIT_TARGETS into them
   it.each([
     ['/api/values', byStation('01048')],
     ['/api/interpolate', atPoint('interpolation')],
     ['/api/summarize', atPoint('summary')],
-  ] as const)('asks %s for every listed type in its default unit where none is chosen', async (endpoint, selection) => {
-    expect(await unitTargetsAsked(endpoint, selection, {})).toEqual(defaults)
+  ] as const)('asks %s for every type the settings page lists, in the unit the settings hold', async (endpoint, selection) => {
+    const targets = await unitTargetsAsked(endpoint, selection)
+    expect(targets).toEqual(SETTINGS_DEFAULTS.units)
+    // the eight types the Explorer's own picker had, in the units its "Default (...)" named
+    expect(targets).toMatchObject({
+      temperature: 'degree_celsius',
+      speed: 'meter_per_second',
+      pressure: 'hectopascal',
+      precipitation: 'millimeter',
+      precipitation_intensity: 'millimeter_per_hour',
+      length_short: 'centimeter',
+      length_medium: 'meter',
+      length_long: 'kilometer',
+    })
   })
 
   it.each([
     ['/api/values', byStation('01048')],
     ['/api/interpolate', atPoint('interpolation')],
     ['/api/summarize', atPoint('summary')],
-  ] as const)('asks %s for the units chosen, and every other listed type in its default', async (endpoint, selection) => {
-    expect(await unitTargetsAsked(endpoint, selection, { temperature: 'degree_fahrenheit', length_long: 'mile' }))
-      .toEqual({ ...defaults, temperature: 'degree_fahrenheit', length_long: 'mile' })
+  ] as const)('asks %s for the units chosen on the settings page', async (endpoint, selection) => {
+    const { settings: app } = useSettings()
+    app.value.units.temperature = 'degree_fahrenheit'
+    app.value.units.length_long = 'mile'
+    app.value.units.conductivity = 'siemens_per_meter'
+    expect(await unitTargetsAsked(endpoint, selection))
+      .toEqual({ ...SETTINGS_DEFAULTS.units, temperature: 'degree_fahrenheit', length_long: 'mile', conductivity: 'siemens_per_meter' })
+  })
+
+  it('asks for a type\'s default where the settings hold a unit that is not on its list', async () => {
+    useSettings().settings.value.units.speed = 'furlong'
+    expect((await unitTargetsAsked('/api/values', byStation('01048'))).speed).toBe('meter_per_second')
+  })
+
+  it('sends the readable names and the unit conversion of the app settings', async () => {
+    const query = await askedWith('/api/values', byStation('01048'))
+    expect(query).toMatchObject({ humanize: 'true', convert_units: 'true' })
+  })
+
+  it('sends what the settings page holds at the next request, after it was changed', async () => {
+    const { settings: app } = useSettings()
+    app.value.friendlyLabels = false
+    app.value.convertUnits = false
+    const query = await askedWith('/api/values', byStation('01048'))
+    expect(query).toMatchObject({ humanize: 'false', convert_units: 'false' })
+  })
+
+  it('sends a link\'s own choice of the names and units over the app settings, each on its own', async () => {
+    const { settings: app } = useSettings()
+    app.value.friendlyLabels = false
+    app.value.convertUnits = true
+    const query = await askedWith('/api/values', byStation('01048'), { humanize: true })
+    expect(query).toMatchObject({ humanize: 'true', convert_units: 'true' })
+    // a second request, with the other one given
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    app.value.convertUnits = true
+    const other = await askedWith('/api/values', byStation('01048'), { convertUnits: false })
+    expect(other).toMatchObject({ humanize: 'false', convert_units: 'false' })
   })
 })
 
@@ -2501,13 +2541,8 @@ describe('dataViewer chart after a Retry', () => {
 })
 
 describe('dataViewer settings the explorer starts from the server\'s', () => {
-  // the viewer's one request, given the units chosen and the ones "Default (...)" names
-  async function asked(
-    endpoint: string,
-    selection: StationSelectionState,
-    unitTargets: Record<string, string> = {},
-    unitTargetDefaults?: Record<string, string>,
-  ) {
+  // the viewer's one request
+  async function asked(endpoint: string, selection: StationSelectionState) {
     const queries: Record<string, unknown>[] = []
     registerEndpoint(endpoint, (event) => {
       queries.push(getQuery(event))
@@ -2518,8 +2553,7 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
         default: () => h(DataViewer, {
           parameterSelection,
           stationSelection: selection,
-          settings: { ...settings, unitTargets },
-          unitTargetDefaults,
+          settings,
         }),
       }),
     }), { attachTo: document.body })
@@ -2597,24 +2631,6 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
     it('leaves the whole field out when it is the only one', async () => {
       const query = await askedWith({ temperature_air_mean_2m: Number.NaN })
       expect(query).not.toHaveProperty(`${prefix}_station_distance`)
-    })
-  })
-
-  it('pins a type left at "Default" to the unit given for it, and a chosen one to the choice', async () => {
-    const query = await asked('/api/values', byStation('01048'), { speed: 'beaufort' }, {
-      temperature: 'degree_fahrenheit',
-      speed: 'knots',
-    })
-    expect(JSON.parse(String(query.unit_targets))).toEqual({
-      temperature: 'degree_fahrenheit',
-      speed: 'beaufort',
-      // a type the defaults given leave out keeps the one listed for it
-      pressure: 'hectopascal',
-      precipitation: 'millimeter',
-      precipitation_intensity: 'millimeter_per_hour',
-      length_short: 'centimeter',
-      length_medium: 'meter',
-      length_long: 'kilometer',
     })
   })
 })

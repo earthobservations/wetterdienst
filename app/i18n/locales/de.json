@@ -480,6 +480,17 @@
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station und Zeitraum",
+    "placeAndPeriod": "Ort und Zeitraum"
+  },
+  "toolPlaceholder": {
+    "forecast": "Suche nach einer Station oder wähle eine auf der Karte, um ihre Vorhersage zu sehen",
+    "explorer": "Wähle Parameter, dann eine Station oder einen Punkt, per Suche oder auf der Karte, und klicke auf „Anzeigen“, um Daten zu laden",
+    "stripes": "Suche nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
+    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden"
+  },
   "meteogram": {
     "title": "Wettervorhersage",
     "subtitle": "DWD-MOSMIX-Vorhersage – Temperatur, Niederschlag und Wind",
@@ -488,7 +499,6 @@
     "aboutText2": "Das Diagramm zeigt Temperatur und Taupunkt, Windgeschwindigkeit und Böen mit Windfähnchen, nach Phase klassifizierten Niederschlag (Regen / Mix / Schnee), Bewölkung nach Höhe sowie den Luftdruck. Tag-/Nachtbänder ergeben sich aus der geografischen Lage der Station. Wähle eine DWD-Station nach Name oder ID, um die Vorhersage zu laden.",
     "selectStation": "Station auswählen",
     "loading": "MOSMIX-Vorhersage wird geladen …",
-    "emptyHint": "Suche oben nach einer Station, um eine Vorhersage zu erstellen",
     "openWidget": "Als einbettbares Widget öffnen",
     "chart": {
       "noData": "Keine Daten für die gewählte Abfrage verfügbar",
@@ -613,7 +623,6 @@
     "showTrendline": "Trendlinie anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
-    "emptyHint": "Wähle eine Station und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
     "downloadImage": "Bild herunterladen",
     "downloadPng": "Als PNG herunterladen",
     "downloadJpg": "Als JPG herunterladen",
@@ -672,12 +681,13 @@
     "modeInterpolation": "Interpolation",
     "modeSummary": "Zusammenfassung",
     "settings": "Einstellungen",
-    "generalSettings": "Allgemeine Einstellungen",
-    "humanize": "Parameter verständlich benennen",
-    "convertUnits": "In SI-Einheiten umrechnen",
-    "unitTargets": "Zieleinheiten",
-    "unitTargetsHint": "Standard-Zieleinheit für bestimmte Einheitentypen überschreiben. „Standard“ rechnet in die Einheit in Klammern um.",
-    "unitDefault": "Standard ({unit})",
+    "settingsNamesOn": "Verständliche Namen",
+    "settingsNamesOff": "Originalnamen",
+    "settingsUnitsOn": "Einheiten: {units}",
+    "settingsUnitsOff": "Einheiten wie veröffentlicht",
+    "settingsChange": "In den App-Einstellungen ändern",
+    "settingsLinkOverride": "Dieser Link legt fest, ob Namen verständlich sind und Werte umgerechnet werden, abweichend von deinen App-Einstellungen, die unverändert bleiben.",
+    "settingsUseMine": "Meine App-Einstellungen verwenden",
     "valuesOptions": "Werte-Optionen",
     "shape": "Form",
     "shapeLong": "Lang",
@@ -701,7 +711,6 @@
     "minGainHint": "Mindestschwelle für das Hinzufügen weiterer Stationen. Wägt den Mehraufwand gegen den Gewinn zusätzlicher Zeitpunkte ab. (Standard: 0,10)",
     "additionalStations": "Zusätzliche Stationen",
     "additionalStationsHint": "Anzahl zusätzlicher Stationen, die unabhängig von der Gewinnschwelle verwendet werden. (Standard: 3)",
-    "dataSource": "Datenquelle",
     "stationsDetails": "Stationsdetails",
     "valuesDetails": "Wertedetails",
     "leadTime": "Vorhersagelauf",
@@ -727,7 +736,7 @@
     "endDate": "Enddatum"
   },
   "parameterSelection": {
-    "title": "Parameter auswählen",
+    "title": "Daten",
     "selectProvider": "Anbieter auswählen",
     "selectNetwork": "Netzwerk auswählen",
     "selectResolution": "Auflösung auswählen",
@@ -823,6 +832,9 @@
     "back": "Zurück zu den Stationen",
     "chosen": "{name} gewählt",
     "pickedPlace": "Ein Punkt auf der Karte, {distance} von dieser Station entfernt",
+    "pickedCentre": "Der Ort in der Mitte der Karte, als er gewählt wurde, {distance} von dieser Station entfernt",
+    "pickedPlaceAddress": "Der gewählte Ort, {distance} von dieser Station entfernt",
+    "pickedStationPlace": "Die Position von {name}, {distance} von dieser Station entfernt",
     "elevation": "{value} m über dem Meeresspiegel",
     "at": "{name}, {distance} entfernt",
     "noneNearby": "Keine Station im Umkreis von {distance}.",
@@ -835,7 +847,13 @@
     "period": "{from} bis {to}",
     "stripesFigure": "Klimastreifen von {name}",
     "stripesNone": "Keine Klimastreifen für diese Station.",
-    "stationNotFound": "Es gibt keine Station {id} auf dieser Karte."
+    "stationNotFound": "Es gibt keine Station {id} auf dieser Karte.",
+    "legend": "Legende",
+    "legendReporting": "Liefert noch Daten",
+    "legendStopped": "Liefert keine Daten mehr",
+    "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
+    "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",
+    "pickCloser": "Stattdessen {name} wählen"
   },
   "dataViewer": {
     "loadingValues": "Werte werden geladen …",
@@ -956,7 +974,6 @@
     "selectSections": "Abschnitte auswählen",
     "error": "Fehler",
     "resultsTitle": "Ergebnisse",
-    "noHistories": "Kein Verlauf geladen. Klicke auf „Anzeigen“, um die Daten abzurufen.",
     "selectedStations": "Ausgewählte Stationen",
     "colStationId": "Stations-ID",
     "colName": "Name",
@@ -986,6 +1003,7 @@
     "missingDataHistory": "Verlauf fehlender Daten",
     "summary": "Zusammenfassung",
     "periods": "Zeiträume",
-    "colMissingCount": "Anzahl fehlend"
+    "colMissingCount": "Anzahl fehlend",
+    "noneFound": "Für die gewählten Stationen wurde kein Verlauf gefunden."
   }
 }

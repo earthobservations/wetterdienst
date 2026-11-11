@@ -480,6 +480,17 @@
     "noResolutions": "Ikke en tidsserie: her er intet at vise.",
     "openExplorer": "Åbn i udforskeren"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station og periode",
+    "placeAndPeriod": "Sted og periode"
+  },
+  "toolPlaceholder": {
+    "forecast": "Søg efter en station eller vælg en på kortet for at se dens udsigt",
+    "explorer": "Vælg parametre, vælg derefter en station eller et punkt, via søgning eller på kortet, og klik på “Vis” for at indlæse data",
+    "stripes": "Søg efter en station eller vælg en på kortet, og klik derefter på “Vis” for at oprette klimastriber",
+    "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik"
+  },
   "meteogram": {
     "title": "Vejrudsigt",
     "subtitle": "DWD MOSMIX-udsigt — temperatur, nedbør og vind",
@@ -488,7 +499,6 @@
     "aboutText2": "Diagrammet viser temperatur og dugpunkt, vindhastighed og vindstød med meteorologiske vindfaner, nedbør klassificeret efter fase (regn / blandet / sne), skydække efter højde og atmosfærisk tryk. Dag/nat-bånd udledes af stationens geografiske placering. Vælg en hvilken som helst DWD-station efter navn eller id for at indlæse dens udsigt.",
     "selectStation": "Vælg station",
     "loading": "Henter MOSMIX-udsigt …",
-    "emptyHint": "Søg efter en station ovenfor for at generere en udsigt",
     "openWidget": "Åbn som indlejrbar widget",
     "chart": {
       "noData": "Ingen data tilgængelige for den valgte forespørgsel",
@@ -613,7 +623,6 @@
     "showTrendline": "Vis tendenslinje",
     "visualizationTitle": "Visualisering",
     "loadingViz": "Indlæser data og genererer visualisering …",
-    "emptyHint": "Vælg en station og klik på Vis for at oprette klimastriber",
     "downloadImage": "Download billede",
     "downloadPng": "Download som PNG",
     "downloadJpg": "Download som JPG",
@@ -672,12 +681,13 @@
     "modeInterpolation": "Interpolation",
     "modeSummary": "Opsummering",
     "settings": "Indstillinger",
-    "generalSettings": "Generelle indstillinger",
-    "humanize": "Humaniser parametre",
-    "convertUnits": "Konvertér til SI-enheder",
-    "unitTargets": "Målenheder",
-    "unitTargetsHint": "Tilsidesæt standardmålenheden for bestemte enhedstyper. “Standard” omregner til enheden i parentes.",
-    "unitDefault": "Standard ({unit})",
+    "settingsNamesOn": "Læsbare navne",
+    "settingsNamesOff": "Oprindelige navne",
+    "settingsUnitsOn": "Enheder: {units}",
+    "settingsUnitsOff": "Enheder som udgivet",
+    "settingsChange": "Skift i appens indstillinger",
+    "settingsLinkOverride": "Dette link bestemmer selv, om navne er læsbare, og om værdier omregnes, i stedet for dine indstillinger i appen, som forbliver uændrede.",
+    "settingsUseMine": "Brug mine indstillinger i appen",
     "valuesOptions": "Værdimuligheder",
     "shape": "Form",
     "shapeLong": "Lang",
@@ -701,7 +711,6 @@
     "minGainHint": "Minimumstærskel for gevinst ved tilføjelse af yderligere stationer. Afvejer den ekstra indsats mod gevinsten af yderligere tidsstempler. (Standard: 0,10)",
     "additionalStations": "Yderligere stationer",
     "additionalStationsHint": "Antal yderligere stationer, der skal bruges uanset gevinsttærsklen. (Standard: 3)",
-    "dataSource": "Datakilde",
     "stationsDetails": "Stationsdetaljer",
     "valuesDetails": "Værdidetaljer",
     "leadTime": "Prognosekørsel",
@@ -727,7 +736,7 @@
     "endDate": "Slutdato"
   },
   "parameterSelection": {
-    "title": "Vælg parametre",
+    "title": "Data",
     "selectProvider": "Vælg udbyder",
     "selectNetwork": "Vælg netværk",
     "selectResolution": "Vælg opløsning",
@@ -823,6 +832,9 @@
     "back": "Tilbage til stationerne",
     "chosen": "{name} valgt",
     "pickedPlace": "Et punkt på kortet, {distance} fra denne station",
+    "pickedCentre": "Stedet i midten af kortet, da det blev valgt, {distance} fra denne station",
+    "pickedPlaceAddress": "Det valgte sted, {distance} fra denne station",
+    "pickedStationPlace": "Placeringen af {name}, {distance} fra denne station",
     "elevation": "{value} m over havet",
     "at": "{name}, {distance} væk",
     "noneNearby": "Ingen station inden for {distance}.",
@@ -835,7 +847,13 @@
     "period": "{from} til {to}",
     "stripesFigure": "Klimastriber for {name}",
     "stripesNone": "Ingen klimastriber for denne station.",
-    "stationNotFound": "Der er ingen station {id} på dette kort."
+    "stationNotFound": "Der er ingen station {id} på dette kort.",
+    "legend": "Signaturforklaring",
+    "legendReporting": "Måler stadig",
+    "legendStopped": "Er stoppet",
+    "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
+    "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
+    "pickCloser": "Vælg {name} i stedet"
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",
@@ -956,7 +974,6 @@
     "selectSections": "Vælg afsnit, der skal inkluderes",
     "error": "Fejl",
     "resultsTitle": "Resultater",
-    "noHistories": "Ingen historik indlæst. Klik på “Vis” for at forespørge backenden.",
     "selectedStations": "Valgte stationer",
     "colStationId": "Stations-id",
     "colName": "Navn",
@@ -986,6 +1003,7 @@
     "missingDataHistory": "Historik for manglende data",
     "summary": "Opsummering",
     "periods": "Perioder",
-    "colMissingCount": "Antal manglende"
+    "colMissingCount": "Antal manglende",
+    "noneFound": "Der blev ikke fundet nogen historik for de valgte stationer."
   }
 }

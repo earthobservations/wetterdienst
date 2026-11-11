@@ -231,6 +231,16 @@ describe('typography', () => {
   })
 })
 
+describe('words that read as a slur in standard German', () => {
+  // Low German and Luxembourgish words look like German ones: `Neger` is "nearer" in Low German and a slur to every
+  // reader of German, so it is written `Dichter bi` (GH-3875). The words are of the languages that are read as German.
+  const SLURS = /(?<!\p{L})(?:neger|negerin|zigeuner)(?!\p{L})/iu
+  it.each(germanLike)('has none in %s', (locale) => {
+    const found = Object.entries(ui[locale]!).filter(([, text]) => SLURS.test(text)).map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
+    expect(found).toEqual([])
+  })
+})
+
 describe('address', () => {
   // Every locale speaks to the reader in the informal singular (GH-3157): du, tu, tú, je, ty, "du" in lb,
   // the singular imperative in pl, and "you" in en, which has no other. It is written down in
@@ -389,6 +399,8 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.axisWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'stripes.typeTemperature': { de: ['da'], why: COGNATE },
   'stripes.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'cardTitle.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'parameterSelection.title': { en: ['cs', 'da'], why: COGNATE },
   'stripes.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stripes.auto': { en: ['cs', 'da', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
   'stripes.hoverTrend': { en: ['cs', 'de-hh', 'de', 'lb', 'nl', 'pl'], why: COGNATE },
@@ -396,7 +408,6 @@ const UI_SAME: Record<string, Same> = {
   'explorer.mode': { en: ['fr'], de: ['nl'], why: COGNATE },
   'explorer.modeStation': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
   'explorer.modeInterpolation': { en: ['da', 'de', 'fr'], why: COGNATE },
-  'explorer.unitDefault': { de: ['da'], why: COGNATE },
   'explorer.shape': { de: ['da'], why: COGNATE },
   'explorer.shapeLong': { en: ['fr'], de: ['da', 'nl'], why: COGNATE },
   'explorer.stationsDetails': { de: ['nl'], why: COGNATE },
