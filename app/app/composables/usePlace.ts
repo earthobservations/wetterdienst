@@ -14,6 +14,8 @@ export interface Place {
   latitude: number
   longitude: number
   region: string | null
+  /** The station nearest to the reader's own position (GH-3651): kept in the browser only with "remember", and forgotten with the position */
+  fromPosition?: boolean
 }
 
 /** Kiel-Holtenau: the station of the town the first question names */
@@ -28,7 +30,7 @@ function stored(): Place | null {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
     if (raw && typeof raw.id === 'string' && typeof raw.name === 'string' && Number.isFinite(raw.latitude) && Number.isFinite(raw.longitude))
-      return { id: raw.id, name: raw.name, latitude: raw.latitude, longitude: raw.longitude, region: typeof raw.region === 'string' ? raw.region : null }
+      return { id: raw.id, name: raw.name, latitude: raw.latitude, longitude: raw.longitude, region: typeof raw.region === 'string' ? raw.region : null, ...(raw.fromPosition === true ? { fromPosition: true } : {}) }
   }
   catch {}
   return null
@@ -58,5 +60,20 @@ export function usePlace() {
     catch {}
   }
 
-  return { place, setPlace }
+  /**
+   * What the reader's position made of the place is taken back (GH-3651): the entry in the browser goes where it is the
+   * one that came from the position (the reader's own choice of a place is theirs), and with `memory` the place of the
+   * page is Kiel again, as the position it was derived from is forgotten.
+   */
+  function dropPositionPlace(memory: boolean) {
+    try {
+      if (stored()?.fromPosition)
+        localStorage.removeItem(STORAGE_KEY)
+    }
+    catch {}
+    if (memory && place.value.fromPosition)
+      place.value = DEFAULT_PLACE
+  }
+
+  return { place, setPlace, dropPositionPlace }
 }

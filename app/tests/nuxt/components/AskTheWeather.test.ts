@@ -304,6 +304,45 @@ describe('the place from the reader\'s position', () => {
     expect(address).not.toMatch(/lat|lon|53\.6|10\.05/)
   })
 
+  it('takes the place back from the browser when the reader unticks remember, and keeps it for the visit', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(JSON.parse(storage.get('wd-place') ?? 'null')?.fromPosition).toBe(true))
+
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    expect(storage.has('wd-place')).toBe(false)
+    expect(storage.has('wd-location')).toBe(false)
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel')
+  })
+
+  it('takes the place back, in the browser and in the page, when the reader forgets the position', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(storage.has('wd-place')).toBe(true))
+
+    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    expect(storage.has('wd-place')).toBe(false)
+    expect(storage.has('wd-location')).toBe(false)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau'))
+  })
+
+  it('leaves a place the reader chose afterwards in the browser when remember is unticked', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(storage.has('wd-place')).toBe(true))
+    usePlace().setPlace({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' })
+
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona')
+  })
+
   it('leaves the place as it was where the reader refuses, and says so in the alert region', async () => {
     const getCurrentPosition = mockBrowser({ code: 1 })
     const wrapper = await mountAsk()

@@ -772,6 +772,7 @@
     "locating": "Standort wird ermittelt …",
     "remember": "Meinen Standort in diesem Browser merken",
     "note": "Auf etwa 1 km gerundet und nur für die Suche nach der nächsten Station genutzt. Nur wenn du das Häkchen setzt, bleibt er in diesem Browser gespeichert.",
+    "privacyLink": "Mehr in der Datenschutzerklärung",
     "remembered": "Gemerkter Standort: {position}",
     "forget": "Meinen Standort vergessen",
     "denied": "Dein Browser blockiert den Standort für diese Seite. Um ihn zu erlauben, öffne die Website-Einstellungen deines Browsers, stelle Standort auf Zulassen und drücke die Schaltfläche erneut. Die Suche funktioniert weiterhin.",

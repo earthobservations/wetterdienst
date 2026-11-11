@@ -772,6 +772,7 @@
     "locating": "Ricerca della tua posizione …",
     "remember": "Ricorda la mia posizione in questo browser",
     "note": "Arrotondata a circa 1 km e usata solo per trovare la stazione più vicina. Resta in questo browser solo se selezioni la casella.",
+    "privacyLink": "Altro nell'informativa sulla privacy",
     "remembered": "Posizione ricordata: {position}",
     "forget": "Dimentica la mia posizione",
     "denied": "Il tuo browser blocca la posizione per questo sito. Per consentirla, apri le impostazioni del sito nel browser, imposta Posizione su Consenti e premi di nuovo il pulsante. La ricerca funziona comunque.",

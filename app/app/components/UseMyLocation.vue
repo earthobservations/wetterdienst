@@ -68,14 +68,17 @@ const noteId = useId()
     </div>
     <p :id="noteId" class="text-xs text-gray-600 dark:text-gray-400">
       {{ t('location.note') }}
+      <NuxtLink to="/datenschutz#location" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline" data-testid="use-my-location-privacy">
+        {{ t('location.privacyLink') }}
+      </NuxtLink>
     </p>
     <p v-if="remembered && position" class="flex flex-wrap items-center gap-x-2 text-xs text-gray-600 dark:text-gray-400" data-testid="use-my-location-remembered">
       <span>{{ t('location.remembered', { position: `${position.latitude.toFixed(2)}, ${position.longitude.toFixed(2)}` }) }}</span>
       <UButton type="button" color="neutral" variant="link" size="xs" :label="t('location.forget')" data-testid="use-my-location-forget" @click="forget" />
     </p>
-    <!-- the status is in the page from the start, so that the text that fills it is announced; an alert is announced
-         as it is put in, which is when there is something to say -->
-    <p class="text-sm text-gray-700 dark:text-gray-300 empty:hidden" role="status" aria-live="polite" data-testid="use-my-location-status">
+    <!-- the status is in the page and in the tree from the start (`empty:sr-only`, never `hidden`), so that the text that
+         fills it is announced; an alert is announced as it is put in, which is when there is something to say -->
+    <p class="text-sm text-gray-700 empty:sr-only dark:text-gray-300" role="status" aria-live="polite" data-testid="use-my-location-status">
       {{ status }}
     </p>
     <p v-if="failureText || problem" class="text-sm text-error" role="alert" data-testid="use-my-location-problem">

@@ -772,6 +772,7 @@
     "locating": "Buscando tu ubicación …",
     "remember": "Recordar mi ubicación en este navegador",
     "note": "Redondeada a aproximadamente 1 km y usada solo para encontrar la estación más cercana. Solo se queda en este navegador si marcas la casilla.",
+    "privacyLink": "Más en la política de privacidad",
     "remembered": "Ubicación recordada: {position}",
     "forget": "Olvidar mi ubicación",
     "denied": "Tu navegador bloquea la ubicación para este sitio. Para permitirla, abre los ajustes del sitio en tu navegador, pon Ubicación en Permitir y vuelve a pulsar el botón. La búsqueda sigue funcionando.",

@@ -772,6 +772,7 @@
     "locating": "Recherche de ta position …",
     "remember": "Mémoriser ma position dans ce navigateur",
     "note": "Arrondie à environ 1 km et utilisée uniquement pour trouver la station la plus proche. Elle ne reste dans ce navigateur que si tu coches la case.",
+    "privacyLink": "Plus de détails dans la politique de confidentialité",
     "remembered": "Position mémorisée : {position}",
     "forget": "Oublier ma position",
     "denied": "Ton navigateur bloque la localisation pour ce site. Pour l'autoriser, ouvre les paramètres du site dans ton navigateur, règle Localisation sur Autoriser, puis appuie de nouveau sur le bouton. La recherche fonctionne toujours.",

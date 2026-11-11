@@ -211,6 +211,15 @@ async function nearestTo(point: Point): Promise<S | null> {
   return answer.stations?.find(station => station.latitude != null && station.longitude != null) ?? null
 }
 
+// Another dataset or network (`locate` changed): a lookup on its way was made for the one before, and its answer is
+// not a station of this one. It is dropped, with what was told of it.
+watch(() => JSON.stringify(props.locate), () => {
+  lookup++
+  resolving.value = false
+  found.value = ''
+  lookupProblem.value = ''
+})
+
 // The position was handed over by the button: the station nearest to it is picked, and its distance told. An answer
 // that arrives after a later press is not the reader's latest and is dropped.
 async function onPosition(point: Point) {
@@ -226,7 +235,9 @@ async function onPosition(point: Point) {
       lookupProblem.value = t('location.noneNear')
       return
     }
-    pick(props.multiple && !props.selected.some(picked => picked.station_id === station.station_id) ? [...props.selected, station] : [station])
+    // several: the station is added, and a selection that has it already is left as it is; one: it replaces the pick
+    const picked = props.selected.some(one => one.station_id === station.station_id)
+    pick(props.multiple ? (picked ? props.selected : [...props.selected, station]) : [station])
     found.value = t('location.nearest', { name: stationShortLabel(station), distance: formatDistance(distanceKm(point, station as Point), locale.value) })
   }
   catch {

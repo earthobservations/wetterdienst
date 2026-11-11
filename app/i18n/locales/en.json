@@ -772,6 +772,7 @@
     "locating": "Finding your position …",
     "remember": "Remember my position in this browser",
     "note": "Rounded to about 1 km and used only to find the nearest station. It stays in this browser only if you tick the box.",
+    "privacyLink": "More in the privacy policy",
     "remembered": "Remembered position: {position}",
     "forget": "Forget my position",
     "denied": "Your browser blocks location for this site. To allow it, open the site settings of your browser, set Location to Allow and press the button again. The search still works.",

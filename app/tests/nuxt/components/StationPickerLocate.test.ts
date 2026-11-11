@@ -25,8 +25,12 @@ const stations = [berlin, potsdam, hamburg]
 const requests: URLSearchParams[] = []
 let answer: unknown = { stations: [berlin] }
 let failing = false
-registerEndpoint('/api/stations', (event) => {
+/** An answer that is held back until the test lets it go: a lookup that is on its way */
+let hold: Promise<void> | null = null
+registerEndpoint('/api/stations', async (event) => {
   requests.push(new URL(event.path, 'http://localhost').searchParams)
+  if (hold)
+    await hold
   if (failing) {
     setResponseStatus(event, 404)
     return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
@@ -54,6 +58,7 @@ beforeEach(() => {
   requests.length = 0
   answer = { stations: [berlin] }
   failing = false
+  hold = null
 })
 afterEach(() => {
   delete (navigator as any).geolocation
@@ -155,6 +160,67 @@ describe('a press, with a ranked request', () => {
     const one = await mountPage({ locate: query, multiple: false, selected: [hamburg] })
     await button(one.wrapper).trigger('click')
     await vi.waitFor(() => expect(one.picked.value.map(station => station.station_id)).toEqual(['00433']))
+  })
+
+  it('leaves the other picks as they are where the nearest station is picked already, for several', async () => {
+    mockBrowser({})
+    const { wrapper, picked } = await mountPage({ locate: query, selected: [hamburg, berlin] })
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(status(wrapper).text()).toContain('Berlin-Tempelhof'))
+    expect(picked.value.map(station => station.station_id)).toEqual(['01975', '00433'])
+  })
+
+  it('drops the answer of a lookup that was made for another dataset or network: it is not a station of this one', async () => {
+    mockBrowser({})
+    let release!: () => void
+    hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const locate = ref<Record<string, string>>(query)
+    const picked = ref<typeof stations>([])
+    const Host = defineComponent({
+      setup: () => () => h(StationPicker as any, {
+        'tool': 'explorer',
+        stations,
+        'multiple': true,
+        'locate': locate.value,
+        'selected': picked.value,
+        'onUpdate:selected': (value: typeof stations) => {
+          picked.value = value
+        },
+      }),
+    })
+    const wrapper = await mountSuspended(Host, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    // the reader chooses another dataset while the answer is on its way
+    locate.value = { ...query, parameters: 'hourly/temperature_air' }
+    await vi.waitFor(() => expect(button(wrapper).attributes('aria-busy')).toBe('false'))
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(picked.value).toEqual([])
+    expect(status(wrapper).text()).toBe('')
+  })
+
+  it('keeps the status region in the tree while it is empty, so that what fills it is announced', async () => {
+    mockBrowser({})
+    const { wrapper } = await mountPage({ locate: query })
+    const classes = status(wrapper).classes()
+    expect(classes).toContain('empty:sr-only')
+    expect(classes).not.toContain('empty:hidden')
+    expect(classes).not.toContain('hidden')
+  })
+
+  it('has a link to the section of the privacy policy beside its note', async () => {
+    mockBrowser({})
+    const { wrapper } = await mountPage({ locate: query })
+    const link = wrapper.find('[data-testid="use-my-location-privacy"]')
+    expect(link.text()).toBe('More in the privacy policy')
+    expect(link.attributes('href')).toBe('/datenschutz#location')
+    // the note that describes the button holds the link
+    expect(wrapper.find(`[id="${button(wrapper).attributes('aria-describedby')}"]`).element.contains(link.element)).toBe(true)
   })
 
   it('does not pick a station twice', async () => {

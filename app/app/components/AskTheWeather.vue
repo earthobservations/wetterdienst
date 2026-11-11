@@ -101,7 +101,7 @@ async function onPosition(point: { latitude: number, longitude: number }) {
       locateProblem.value = t('location.noneNear')
       return
     }
-    setPlace(found, remember.value)
+    setPlace({ ...found, fromPosition: true }, remember.value)
     placeFailed.value = false
     locatedText.value = t('location.here', { name: found.name, distance: formatDistance(distanceKm(point, found), locale.value) })
     if (route.query.place)

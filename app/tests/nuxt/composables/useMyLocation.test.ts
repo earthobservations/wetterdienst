@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { clearNuxtState } from '#app'
 import { useMyLocation } from '~/composables/useMyLocation'
-import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { DEFAULT_PLACE, usePlace } from '~/composables/usePlace'
+import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY } from '~/utils/geolocation'
 import { stubMemoryStorage } from '../fixtures/storage'
 
 // "Use my location" (GH-3651): the one composable that calls the browser's Geolocation and Permissions APIs. The browser
@@ -192,6 +193,100 @@ describe('where there is no position', () => {
     mockGeolocation({ latitude: 48.137, longitude: 11.575 })
     expect(await location.locate()).toEqual({ latitude: 48.14, longitude: 11.58 })
     expect(location.failure).toBeNull()
+  })
+})
+
+describe('a prompt that is ignored', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('ends in the failure `timeout` after the clock of the page, which counts the time the prompt is open', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    // the browser never answers: the prompt is open
+    const getCurrentPosition = vi.fn()
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    mockPermission('prompt')
+    const location = await mountHarness()
+
+    const press = location.locate()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(location.busy).toBe(true)
+    await vi.advanceTimersByTimeAsync(LOCATE_TIMEOUT_MS - 1)
+    expect(location.busy).toBe(true)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await press).toBeNull()
+    expect(location.failure).toBe('timeout')
+    expect(location.busy).toBe(false)
+
+    // and the next press works
+    mockGeolocation({ latitude: 53.55, longitude: 9.99 })
+    expect(await location.locate()).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(location.failure).toBeNull()
+  })
+
+  it('is taken over by the next press: the first is let go with no answer, the second asks again and gives its own', async () => {
+    mockPermission('granted')
+    const successes: Array<(position: unknown) => void> = []
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: (position: unknown) => void) => void successes.push(success)) },
+    })
+    const location = await mountHarness()
+
+    const first = location.locate()
+    await vi.waitFor(() => expect(successes).toHaveLength(1))
+    const second = location.locate()
+    await vi.waitFor(() => expect(successes).toHaveLength(2))
+    expect(location.busy).toBe(true)
+
+    successes[1]!({ coords: { latitude: 48.137, longitude: 11.575 } })
+    expect(await second).toEqual({ latitude: 48.14, longitude: 11.58 })
+    // the answer of the first that comes late is not the reader's latest
+    successes[0]!({ coords: { latitude: 1, longitude: 2 } })
+    expect(await first).toBeNull()
+    expect(location.position).toEqual({ latitude: 48.14, longitude: 11.58 })
+    expect(location.busy).toBe(false)
+    expect(location.failure).toBeNull()
+  })
+})
+
+describe('what was kept for the position', () => {
+  const placeFromPosition = { id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.63, longitude: 10, region: 'Hamburg', fromPosition: true }
+
+  it('goes when the reader forgets it: the place derived from it, in the browser and in the page', async () => {
+    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    storage.set('wd-place', JSON.stringify(placeFromPosition))
+    const wrapper = await mountSuspended(Harness)
+    mounted.push(wrapper)
+    usePlace().place.value = placeFromPosition
+    wrapper.vm.forget()
+    expect(storage.has('wd-place')).toBe(false)
+    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(usePlace().place.value).toEqual(DEFAULT_PLACE)
+  })
+
+  it('goes from the browser, and stays for the visit, when the reader unticks remember', async () => {
+    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    storage.set('wd-place', JSON.stringify(placeFromPosition))
+    const wrapper = await mountSuspended(Harness)
+    mounted.push(wrapper)
+    usePlace().place.value = placeFromPosition
+    wrapper.vm.setRemember(false)
+    expect(storage.has('wd-place')).toBe(false)
+    expect(usePlace().place.value).toEqual(placeFromPosition)
+  })
+
+  it('leaves a place the reader chose themselves', async () => {
+    const chosen = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
+    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    storage.set('wd-place', JSON.stringify(chosen))
+    const wrapper = await mountSuspended(Harness)
+    mounted.push(wrapper)
+    usePlace().place.value = chosen
+    wrapper.vm.forget()
+    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(usePlace().place.value).toEqual(chosen)
   })
 })
 

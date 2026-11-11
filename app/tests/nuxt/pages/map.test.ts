@@ -3,7 +3,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseHeader, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
-import { clearNuxtData, clearNuxtState, useRouter } from '#imports'
+import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
 import { stubMemoryStorage } from '../fixtures/storage'
 
@@ -1647,12 +1647,12 @@ describe('an end that is no date', () => {
 
 // "Use my location" (GH-3651): the reader's position, rounded, marked on the map and picked as a place, kept out of the address
 describe('the reader\'s own position', () => {
-  function mockBrowser(options: { code?: number, permission?: PermissionState } = {}) {
+  function mockBrowser(options: { code?: number, permission?: PermissionState, fix?: { latitude: number, longitude: number } } = {}) {
     const getCurrentPosition = vi.fn((success: (position: unknown) => void, failure: (error: unknown) => void) => {
       if (options.code)
         failure({ code: options.code })
       else
-        success({ coords: { latitude: 53.5412, longitude: 10.1987 } })
+        success({ coords: options.fix ?? { latitude: 53.5412, longitude: 10.1987 } })
     })
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
     Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: options.permission ?? 'prompt' })) } })
@@ -1763,5 +1763,36 @@ describe('the reader\'s own position', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-forget"]').exists()).toBe(true))
     await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
     await vi.waitFor(() => expect(stage.props.position).toBeNull())
+  })
+
+  it('is forgotten by the panel as well: a position with no station within reach leaves no place and no notice behind', async () => {
+    // the Gulf of Guinea: no station within 100 km
+    mockBrowser({ fix: { latitude: 0.0004, longitude: 0.0004 } })
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    expect(stage.props.position).toEqual({ latitude: 0, longitude: 0 })
+
+    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(false)
+  })
+
+  it('is forgotten by a station picked from it: the station stays, the place and the position do not', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-place"]').exists()).toBe(true))
+
+    // forgotten from elsewhere than the panel's list, which a station picked has replaced
+    useMyLocation().forget()
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL')
+    expect(wrapper.find('[data-testid="map-place"]').exists()).toBe(false)
+    expect(stage.props.place).toBeNull()
+    expect(wrapper.text()).not.toContain('Your position')
   })
 })

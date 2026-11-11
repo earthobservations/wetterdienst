@@ -13,6 +13,12 @@ export const LOCATION_STORAGE_KEY = 'wd-location'
 export const POSITION_OPTIONS: PositionOptions = { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 }
 
 /**
+ * How long a press waits in all: the browser's `timeout` does not count the time its permission prompt is open (a prompt
+ * that is ignored never ends), so the page has a clock of its own, which is the time to answer the prompt and the fix.
+ */
+export const LOCATE_TIMEOUT_MS = 60_000
+
+/**
  * Why there is no position, as the page says it: the reader refused (or the browser blocks the site), there is no
  * Geolocation API, the device could not tell, or it took too long.
  */

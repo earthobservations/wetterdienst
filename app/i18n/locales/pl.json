@@ -772,6 +772,7 @@
     "locating": "Ustalanie Twojej lokalizacji …",
     "remember": "Zapamiętaj moją lokalizację w tej przeglądarce",
     "note": "Zaokrąglona do około 1 km i używana tylko do znalezienia najbliższej stacji. Zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole.",
+    "privacyLink": "Więcej w polityce prywatności",
     "remembered": "Zapamiętana lokalizacja: {position}",
     "forget": "Zapomnij moją lokalizację",
     "denied": "Twoja przeglądarka blokuje lokalizację dla tej witryny. Aby ją zezwolić, otwórz ustawienia witryny w przeglądarce, ustaw Lokalizację na Zezwalaj i naciśnij przycisk jeszcze raz. Wyszukiwanie nadal działa.",

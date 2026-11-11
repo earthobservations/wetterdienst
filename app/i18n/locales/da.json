@@ -772,6 +772,7 @@
     "locating": "Finder din placering …",
     "remember": "Husk min placering i denne browser",
     "note": "Afrundet til omkring 1 km og kun brugt til at finde den nærmeste station. Den bliver kun i denne browser, hvis du sætter hak.",
+    "privacyLink": "Mere i privatlivspolitikken",
     "remembered": "Husket placering: {position}",
     "forget": "Glem min placering",
     "denied": "Din browser blokerer placering for dette websted. For at tillade den skal du åbne webstedsindstillingerne i din browser, sætte Placering til Tillad og trykke på knappen igen. Søgningen virker stadig.",

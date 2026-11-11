@@ -256,11 +256,23 @@ const locateCount = ref(0)
 /** A position that came before the list of the stations: picked as soon as the list is there */
 let pendingPosition: Point | null = null
 const { position: rememberedPosition } = useMyLocation()
-// "Forget my position" takes the mark off the map
+// "Forget my position" takes the position off the map and out of the panel: the mark, the place it made (the station
+// stays picked, as the reader's station, with no place apart from it) and a lookup that was waiting for the list
 watch(rememberedPosition, (now) => {
-  if (!now) {
-    myPosition.value = null
-    pendingPosition = null
+  if (now)
+    return
+  myPosition.value = null
+  pendingPosition = null
+  if (origin.value.kind !== 'position')
+    return
+  if (selected.value) {
+    anchor.value = { latitude: selected.value.latitude, longitude: selected.value.longitude }
+    origin.value = { kind: 'station', name: stationName(selected.value) }
+  }
+  else {
+    anchor.value = null
+    origin.value = { kind: 'unknown' }
+    noStationNear.value = false
   }
 })
 

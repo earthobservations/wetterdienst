@@ -772,6 +772,7 @@
     "locating": "Zjišťuje se tvoje poloha …",
     "remember": "Zapamatovat si moji polohu v tomto prohlížeči",
     "note": "Zaokrouhlená na zhruba 1 km a použitá jen k nalezení nejbližší stanice. V tomto prohlížeči zůstane, jen když zaškrtneš políčko.",
+    "privacyLink": "Více v zásadách ochrany osobních údajů",
     "remembered": "Zapamatovaná poloha: {position}",
     "forget": "Zapomenout moji polohu",
     "denied": "Tvůj prohlížeč blokuje polohu pro tento web. Chceš-li ji povolit, otevři nastavení webu v prohlížeči, nastav Polohu na Povolit a tlačítko stiskni znovu. Vyhledávání funguje dál.",
