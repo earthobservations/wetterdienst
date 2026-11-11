@@ -674,7 +674,8 @@ const summaryStats = computed(() => {
       : null,
     precip: { value: rounded(totalPrecip, 1), unit: unitName('precipitation') },
     gust: { value: rounded(maxGust, 1), unit: unitName('speed') },
-    cloud: { value: rounded(avgCloud, digits('fraction')), unit: unitName('fraction') },
+    // nothing after a number that is a decimal, as everywhere a number is written with its unit
+    cloud: { value: rounded(avgCloud, digits('fraction')), unit: unitOf('fraction') === '-' ? '' : unitName('fraction') },
     pressure: Number.isFinite(minPres) ? { range: `${rounded(minPres, pressureDigits)}–${rounded(maxPres, pressureDigits)}`, unit: unitName('pressure') } : null,
   }
 })

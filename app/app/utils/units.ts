@@ -74,10 +74,15 @@ function scaleOf(quantity: Quantity, unit: string): Scale {
   return SCALES[quantity][unit] ?? identity
 }
 
-/** `value`, which is in `unit`, in the canonical unit of its quantity: the one thresholds are written in */
+/**
+ * `value`, which is in `unit`, in the canonical unit of its quantity: the one thresholds are written in. Rounded to three
+ * decimals, which is finer than any reading is but coarser than what the conversions add: floating point (61.92 km/h is
+ * 17.2 m/s, not 17.199999999999996) and the backend's own rounding of a converted value to four decimals (13.9 m/s comes
+ * back as 27.0194 kn, which is 13.89998 m/s). Either would otherwise put a value that sits on a threshold on the wrong
+ * side of it, a Beaufort force less than the one the same wind has in m/s.
+ */
 export function toCanonical(quantity: Quantity, unit: string, value: number): number {
-  // rounded past what floating point adds: 61.92 km/h is 17.2 m/s, not 17.199999999999996, which would be a Beaufort less
-  return Math.round(scaleOf(quantity, unit).toCanonical(value) * 1e9) / 1e9
+  return Math.round(scaleOf(quantity, unit).toCanonical(value) * 1e3) / 1e3
 }
 
 /** `value`, which is in the canonical unit of its quantity, in `unit` */

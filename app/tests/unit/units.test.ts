@@ -39,12 +39,20 @@ describe('the units of an answer', () => {
     ['fraction', '1/8', 50, 4],
   ] as const)('converts %s in %s: %d canonical is %d', (quantity, unit, canonical, written) => {
     expect(fromCanonical(quantity, unit, canonical)).toBeCloseTo(written, 9)
-    expect(toCanonical(quantity, unit, written)).toBeCloseTo(canonical, 8)
+    expect(toCanonical(quantity, unit, written)).toBeCloseTo(canonical, 3)
   })
 
   it('does not let floating point move a value across a threshold: 61.92 km/h is Beaufort 8, as 17.2 m/s is', () => {
     expect(toCanonical('speed', 'km/h', 61.92)).toBe(17.2)
     expect(toCanonical('temperature', '°F', 32.9)).toBeCloseTo(0.5, 8)
+  })
+
+  it('does not let the backend\'s rounding of a converted value move it across a threshold either', () => {
+    // as the backend answers them, to four decimals
+    expect(toCanonical('speed', 'kn', 27.0194)).toBe(13.9)
+    expect(toCanonical('speed', 'kn', 33.4341)).toBe(17.2)
+    expect(toCanonical('speed', 'bft', 7.5084)).toBe(17.2)
+    expect(toCanonical('speed', 'kn', 10.6911)).toBe(5.5)
   })
 
   it('takes a difference by its factor and not by its offset: a Kelvin is 1.8 degrees Fahrenheit', () => {

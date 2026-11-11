@@ -199,6 +199,20 @@ describe('the forecast of the panel in the unit of the settings', () => {
     expect(queries).toHaveLength(2)
   })
 
+  it('does not fetch the days again for a unit they do not show: a speed, a pressure or an angle', async () => {
+    const wrapper = await mountForecast('60001')
+    waiting.forEach(release => release())
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.speed = 'knots'
+    useSettings().settings.value.units.pressure = 'pascal'
+    useSettings().settings.value.units.angle = 'radian'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(queries).toHaveLength(1)
+    useSettings().settings.value.units.speed = 'meter_per_second'
+    useSettings().settings.value.units.pressure = 'hectopascal'
+    useSettings().settings.value.units.angle = 'degree'
+  })
+
   it('ends the request under way where the unit changes, and shows the answer of the newer one only', async () => {
     const wrapper = await mountForecast('60001')
     useSettings().settings.value.units.temperature = 'degree_fahrenheit'

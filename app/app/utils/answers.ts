@@ -196,7 +196,8 @@ export function lastSummer(readings: Reading[], now: DateTime, unit: string = CA
       return null
   }
   const normal = reference.reduce((sum, summer) => sum + summer.mean, 0) / reference.length
-  const anomaly = last.mean - normal
+  // to three decimals, as `toCanonical` is, so that an anomaly on the edge of the band is on it in any unit
+  const anomaly = Math.round((last.mean - normal) * 1e3) / 1e3
   // a difference in degrees of the unit, not a temperature in it: 1 K is 1.8 °F
   const degrees = (difference: number) => round1(differenceIn('temperature', unit, difference))
   const verdict: SummerVerdict = anomaly >= USUAL_BAND ? 'hotter' : anomaly <= -USUAL_BAND ? 'cooler' : 'usual'

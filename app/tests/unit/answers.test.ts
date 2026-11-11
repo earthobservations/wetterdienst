@@ -252,12 +252,14 @@ describe('the answers in the unit of the settings', () => {
   })
 
   describe('how windy was it on a day', () => {
-    // a day's gust and mean in m/s, written in each unit of speed
+    // a day's gust and mean in m/s, written in each unit of speed, rounded to four decimals as the backend rounds a value it
+    // converts (`UnitConverter.decimals`): 13.9 m/s comes back as 27.0194 kn, and 17.2 m/s as 7.5084 Beaufort
+    const round4 = (v: number) => Math.round(v * 1e4) / 1e4
     const speeds = {
       'm/s': (v: number) => v,
-      'km/h': (v: number) => v * 3.6,
-      'kn': (v: number) => v / (1852 / 3600),
-      'bft': (v: number) => (v / 0.836) ** (2 / 3),
+      'km/h': (v: number) => round4(v * 3.6),
+      'kn': (v: number) => round4(v / (1852 / 3600)),
+      'bft': (v: number) => round4((v / 0.836) ** (2 / 3)),
     } as const
     const day = (unit: keyof typeof speeds, gust: number, mean: number): Reading[] => [
       { parameter: 'wind_gust_max', timestamp: '2025-12-26T00:00:00+00:00', value: speeds[unit](gust) },
@@ -279,6 +281,21 @@ describe('the answers in the unit of the settings', () => {
       expect(new Set(answers.map(answer => answer.gustBeaufort)).size).toBe(1)
       expect(new Set(answers.map(answer => answer.beaufort)).size).toBe(1)
       expect(answers.map(answer => answer.unit)).toEqual(['m/s', 'km/h', 'kn', 'bft'])
+    })
+
+    // the lower edges of the scale (WMO), in m/s: the same force in every unit, though the backend rounds a converted speed,
+    // which puts 13.9 m/s at 13.89998 m/s once it is converted back from 27.0194 kn
+    it.each([
+      [5.5, 4],
+      [8.0, 5],
+      [10.8, 6],
+      [13.9, 7],
+      [17.2, 8],
+      [20.8, 9],
+      [32.7, 12],
+    ])('gives a gust of %d m/s Beaufort %d in each unit of speed, at the edge of its force', (gust, force) => {
+      for (const unit of Object.keys(speeds) as (keyof typeof speeds)[])
+        expect(windOnDay(day(unit, gust, 1), '2025-12-26', unit)!.gustBeaufort, unit).toBe(force)
     })
 
     it('writes the speed as the answer gives it', () => {

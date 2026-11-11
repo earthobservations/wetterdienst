@@ -20,7 +20,8 @@ const units = ref<Record<string, string>>({})
 // the unit settings (GH-3980), read at each request: a change while the days are shown fetches them again
 const { settings: appSettings } = useSettings()
 const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
-const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
+// the day rows show the temperatures, the rain and, for the weather of a day, the cloud cover: no other unit is a reason to ask again
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value, ['temperature', 'precipitation', 'fraction']))
 const pending = ref(false)
 const failure = ref<RequestError | null>(null)
 const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)

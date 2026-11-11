@@ -53,9 +53,15 @@ const QUANTITY: Partial<Record<QuestionId, 'precipitation' | 'temperature' | 'sp
 /** The unit of the question's quantity the settings choose, and whether they convert: what a change of refetches the answer for */
 const unitsAsked = computed(() => {
   const quantity = QUANTITY[props.question]
-  return quantity ? JSON.stringify([settings.value.convertUnits, requestUnitTargets(settings.value.units)[quantity]]) : ''
+  if (!quantity)
+    return ''
+  // where nothing is converted the unit chosen changes nothing of the answer
+  return JSON.stringify(settings.value.convertUnits ? [true, requestUnitTargets(settings.value.units)[quantity]] : [false])
 })
 const chosen = (quantity: 'precipitation' | 'temperature' | 'speed') => requestUnitTargets(settings.value.units)[quantity]!
+
+// the last request wins: a question or place changed while one was under way discards its answer
+let asked = 0
 
 async function values(query: Record<string, string>): Promise<{ readings: Value[], units: Record<string, string> }> {
   const response = await $fetch<ValuesResponse>('/api/values', {
@@ -65,7 +71,7 @@ async function values(query: Record<string, string>): Promise<{ readings: Value[
   return { readings: response.values ?? [], units: unitsOfAnswer(response) }
 }
 
-async function answerRain(): Promise<Status> {
+async function answerRain(turn: number): Promise<Status> {
   const near = await $fetch<{ stations: Station[] }>('/api/stations', {
     query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', latitude: place.value.latitude, longitude: place.value.longitude, rank: 1 },
     ...API_FETCH,
@@ -83,11 +89,13 @@ async function answerRain(): Promise<Status> {
     unit_targets: JSON.stringify({ precipitation: chosen('precipitation'), fraction: 'decimal' }),
   })
   const answer = rainTomorrow(readings, tzLookup(place.value.latitude, place.value.longitude), today(), { precipitation: units[RAIN_AMOUNT], fraction: units[RAIN_CHANCE] })
-  rain.value = { answer, point }
+  // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
+  if (turn === asked)
+    rain.value = { answer, point }
   return answer ? 'ready' : 'empty'
 }
 
-async function answerSummer(): Promise<Status> {
+async function answerSummer(turn: number): Promise<Status> {
   const { readings, units } = await values({
     provider: 'dwd',
     network: 'observation',
@@ -95,11 +103,13 @@ async function answerSummer(): Promise<Status> {
     stations: place.value.id,
     unit_targets: JSON.stringify({ temperature: chosen('temperature') }),
   })
-  summer.value = lastSummer(readings, today(), units.temperature_air_mean_2m)
-  return summer.value ? 'ready' : 'empty'
+  const answer = lastSummer(readings, today(), units.temperature_air_mean_2m)
+  if (turn === asked)
+    summer.value = answer
+  return answer ? 'ready' : 'empty'
 }
 
-async function answerWind(): Promise<Status> {
+async function answerWind(turn: number): Promise<Status> {
   const { from, to } = windWindow(props.day, today())
   const { readings, units } = await values({
     provider: 'dwd',
@@ -109,8 +119,10 @@ async function answerWind(): Promise<Status> {
     timestamp: `${from}/${to}`,
     unit_targets: JSON.stringify({ speed: chosen('speed') }),
   })
-  wind.value = windOnDay(readings, props.day, units[WIND_GUST] ?? units[WIND_MEAN])
-  return wind.value ? 'ready' : 'empty'
+  const answer = windOnDay(readings, props.day, units[WIND_GUST] ?? units[WIND_MEAN])
+  if (turn === asked)
+    wind.value = answer
+  return answer ? 'ready' : 'empty'
 }
 
 async function answerDownload(): Promise<Status> {
@@ -134,21 +146,19 @@ async function answerDownload(): Promise<Status> {
   return sources.value.length ? 'ready' : 'empty'
 }
 
-const ANSWER: Record<QuestionId, () => Promise<Status>> = {
+const ANSWER: Record<QuestionId, (turn: number) => Promise<Status>> = {
   rain: answerRain,
   summer: answerSummer,
   wind: answerWind,
   download: answerDownload,
 }
 
-// the last request wins: a question or place changed while one was under way discards its answer
-let asked = 0
 async function ask() {
   const turn = ++asked
   status.value = 'loading'
   failure.value = ''
   try {
-    const result = await ANSWER[props.question]()
+    const result = await ANSWER[props.question](turn)
     if (turn === asked)
       status.value = result
   }

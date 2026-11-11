@@ -83,13 +83,16 @@ function inUnits(values: Array<{ parameter: string, value: number | null }>, que
 }
 // an answer of the values that waits for the test where it asks (a request to hold)
 let holdValues: Promise<void> | null = null
+// the speed unit of the only requests to hold, where the test holds those of one unit and lets the others through
+let holdOnlySpeed: string | null = null
 registerEndpoint('/api/values', async (event) => {
   const query = record(event, 'values')
   if (failValues) {
     setResponseStatus(event, 422)
     return { type: 'urn:wetterdienst:problem:invalid-request', title: 'Unprocessable', status: 422, detail: 'The request could not be processed.' }
   }
-  await holdValues
+  if (!holdOnlySpeed || JSON.parse(query.get('unit_targets') ?? '{}').speed === holdOnlySpeed)
+    await holdValues
   const station = query.get('stations') ?? ''
   const parameters = query.get('parameters') ?? ''
   if (query.get('network') === 'mosmix')
@@ -120,6 +123,7 @@ afterEach(() => {
   clearNuxtData()
   requests.length = 0
   holdValues = null
+  holdOnlySpeed = null
   Object.assign(useSettings().settings.value, { convertUnits: true })
   Object.assign(useSettings().settings.value.units, { temperature: 'degree_celsius', speed: 'meter_per_second', precipitation: 'millimeter' })
 })
@@ -496,5 +500,34 @@ describe('the answers in the unit of the settings', () => {
     expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/)
     expect(wrapper.text()).not.toContain('m/s')
     expect(asked('values')).toHaveLength(2)
+  })
+
+  it('keeps the answer of the newer request where the older one comes back last, as the first visit\'s seeding of the settings makes it', async () => {
+    // the request in metres per second is held; the unit changes to knots, and that answer comes first
+    let release!: () => void
+    holdValues = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    holdOnlySpeed = 'meter_per_second'
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(1))
+    settings().units.speed = 'knots'
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/))
+    // now the older one returns
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/)
+    expect(wrapper.text()).not.toContain('m/s')
+    expect(wrapper.find('figure figcaption').text()).toBe('Strongest gust per day, in kn')
+  })
+
+  it('asks again for no unit where the values are not converted: the unit chosen changes nothing of them', async () => {
+    settings().convertUnits = false
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    settings().units.speed = 'knots'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(asked('values')).toHaveLength(1)
   })
 })

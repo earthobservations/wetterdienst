@@ -342,6 +342,13 @@ describe('the request of a meteogram', () => {
     expect(key({}, false)).not.toBe(key({}))
     // a conductivity and a length are not drawn by it
     expect(key({ conductivity: 'siemens_per_meter', length_long: 'mile' })).toBe(key({}))
+    // where nothing is converted no unit changes what is shown
+    expect(key({ temperature: 'degree_fahrenheit' }, false)).toBe(key({}, false))
+    // a view that draws a few of the quantities is fetched again for those only
+    const drawn = (units: Record<string, string>) => meteogramUnitsKey({ units, convertUnits: true }, ['temperature', 'precipitation', 'fraction'])
+    expect(drawn({ temperature: 'degree_fahrenheit' })).not.toBe(drawn({}))
+    expect(drawn({ fraction: 'decimal' })).not.toBe(drawn({}))
+    expect(drawn({ speed: 'knots', pressure: 'pascal', angle: 'radian' })).toBe(drawn({}))
     // a unit the settings page does not list for a type is the default
     expect(key({ temperature: 'rankine' })).toBe(key({}))
   })

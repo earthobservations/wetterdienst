@@ -262,12 +262,16 @@ export function meteogramValuesSettings(settings: { units: Record<string, string
 
 /**
  * What of the unit settings the meteogram's answer depends on: whether the values are converted and the unit of each
- * quantity it draws. A change of any other unit on the settings page (a conductivity, a length) changes nothing it
- * shows, so it is no reason to fetch the forecast again.
+ * quantity it draws (or the `quantities` of it that a view shows: the map's day rows draw a few). A change of any other
+ * unit on the settings page (a conductivity, a length) changes nothing it shows, so it is no reason to fetch the forecast
+ * again, nor is any unit where nothing is converted.
  */
-export function meteogramUnitsKey(settings: Parameters<typeof meteogramValuesSettings>[0]): string {
+export function meteogramUnitsKey(settings: Parameters<typeof meteogramValuesSettings>[0], quantities: readonly string[] = Object.keys(CANONICAL_UNITS)): string {
+  // where nothing is converted the units chosen change nothing of the answer
+  if (!settings.convertUnits)
+    return JSON.stringify([false])
   const targets = requestUnitTargets(settings.units)
-  return JSON.stringify([settings.convertUnits, ...Object.keys(CANONICAL_UNITS).map(quantity => targets[quantity])])
+  return JSON.stringify([true, ...quantities.map(quantity => targets[quantity])])
 }
 
 /** The ways the forecast is shown: the chart, the day cards of the compact overview, the table of its values. */
