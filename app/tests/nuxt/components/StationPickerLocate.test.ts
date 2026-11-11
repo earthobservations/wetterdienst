@@ -6,7 +6,6 @@ import { defineComponent, h, ref } from 'vue'
 import { clearNuxtState } from '#app'
 import StationPicker from '~/components/StationPicker.vue'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 // "Use my location" in the station picker (GH-3651): the button under the toggle, the nearest station that the ranked
 // `stations` request answers (or the list in hand, for the stripes), picked as the search would pick it, its distance
@@ -53,7 +52,6 @@ function mockBrowser(options: { fix?: { latitude: number, longitude: number }, c
 }
 
 beforeEach(() => {
-  stubMemoryStorage()
   clearNuxtState()
   requests.length = 0
   answer = { stations: [berlin] }
@@ -316,27 +314,25 @@ describe('a refusal', () => {
 
 describe('"remember"', () => {
   it('keeps the rounded position in the browser when ticked, and shows it with a way to forget it', async () => {
-    const items = stubMemoryStorage()
     mockBrowser({ fix: { latitude: 52.523401, longitude: 13.411199 } })
     const { wrapper } = await mountPage({ locate: query })
 
     await remember(wrapper).trigger('click')
     expect(remember(wrapper).attributes('aria-checked')).toBe('true')
     await button(wrapper).trigger('click')
-    await vi.waitFor(() => expect(items.get(LOCATION_STORAGE_KEY)).toBe('{"latitude":52.52,"longitude":13.41}'))
+    await vi.waitFor(() => expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBe('{"latitude":52.52,"longitude":13.41}'))
     await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-remembered"]').text()).toContain('52.52, 13.41'))
 
     await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
-    expect(items.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
     expect(wrapper.find('[data-testid="use-my-location-remembered"]').exists()).toBe(false)
   })
 
   it('keeps nothing in the browser when it is not ticked', async () => {
-    const items = stubMemoryStorage()
     mockBrowser({})
     const { wrapper, picked } = await mountPage({ locate: query })
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(picked.value).toEqual([berlin]))
-    expect(items.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 })

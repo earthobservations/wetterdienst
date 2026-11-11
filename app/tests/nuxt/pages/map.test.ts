@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { nextTick } from 'vue'
 import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
 // of it, the answers that are empty or fail, the address, and the order of the map and its panel on a phone. The map
@@ -1659,7 +1658,6 @@ describe('the reader\'s own position', () => {
     return getCurrentPosition
   }
   beforeEach(() => {
-    stubMemoryStorage()
     clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
   })
   afterEach(() => {

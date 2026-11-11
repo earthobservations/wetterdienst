@@ -5,7 +5,6 @@ import { clearNuxtState } from '#app'
 import { useMyLocation } from '~/composables/useMyLocation'
 import { DEFAULT_PLACE, usePlace } from '~/composables/usePlace'
 import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY } from '~/utils/geolocation'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 // "Use my location" (GH-3651): the one composable that calls the browser's Geolocation and Permissions APIs. The browser
 // is mocked: `navigator.geolocation` answers with a fix or an error, `navigator.permissions` with a state.
@@ -44,8 +43,6 @@ const Harness = defineComponent({
   },
   render: () => h('div'),
 })
-
-let storage: Map<string, string>
 const mounted: Array<{ unmount: () => void }> = []
 async function mountHarness() {
   const wrapper = await mountSuspended(Harness)
@@ -54,7 +51,6 @@ async function mountHarness() {
 }
 
 beforeEach(() => {
-  storage = stubMemoryStorage()
   clearNuxtState()
 })
 afterEach(() => {
@@ -87,7 +83,7 @@ describe('asking the browser', () => {
     expect(location.failure).toBeNull()
     expect(location.busy).toBe(false)
     // nothing is written to the browser: the reader did not ask for it
-    expect(storage.size).toBe(0)
+    expect(localStorage.length).toBe(0)
   })
 
   it('asks for a coarse position, within a time that ends: no high accuracy, a timeout', async () => {
@@ -255,49 +251,49 @@ describe('what was kept for the position', () => {
   const placeFromPosition = { id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.63, longitude: 10, region: 'Hamburg', fromPosition: true }
 
   it('goes when the reader forgets it: the place derived from it, in the browser and in the page', async () => {
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
-    storage.set('wd-place', JSON.stringify(placeFromPosition))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    localStorage.setItem('wd-place', JSON.stringify(placeFromPosition))
     const wrapper = await mountSuspended(Harness)
     mounted.push(wrapper)
     usePlace().place.value = placeFromPosition
     wrapper.vm.forget()
-    expect(storage.has('wd-place')).toBe(false)
-    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
     expect(usePlace().place.value).toEqual(DEFAULT_PLACE)
   })
 
   it('goes from the browser, and stays for the visit, when the reader unticks remember', async () => {
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
-    storage.set('wd-place', JSON.stringify(placeFromPosition))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    localStorage.setItem('wd-place', JSON.stringify(placeFromPosition))
     const wrapper = await mountSuspended(Harness)
     mounted.push(wrapper)
     usePlace().place.value = placeFromPosition
     wrapper.vm.setRemember(false)
-    expect(storage.has('wd-place')).toBe(false)
+    expect(localStorage.getItem('wd-place')).toBeNull()
     expect(usePlace().place.value).toEqual(placeFromPosition)
   })
 
   it('leaves a place the reader chose themselves', async () => {
     const chosen = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
-    storage.set('wd-place', JSON.stringify(chosen))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    localStorage.setItem('wd-place', JSON.stringify(chosen))
     const wrapper = await mountSuspended(Harness)
     mounted.push(wrapper)
     usePlace().place.value = chosen
     wrapper.vm.forget()
-    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('00183')
     expect(usePlace().place.value).toEqual(chosen)
   })
 
   it('gives the page back the place the reader chose, where the derived one was kept for the visit only', async () => {
     const chosen = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
-    storage.set('wd-place', JSON.stringify(chosen))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    localStorage.setItem('wd-place', JSON.stringify(chosen))
     const wrapper = await mountSuspended(Harness)
     mounted.push(wrapper)
     usePlace().place.value = placeFromPosition
     wrapper.vm.forget()
-    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('00183')
     expect(usePlace().place.value).toEqual(chosen)
   })
 })
@@ -309,7 +305,7 @@ describe('"remember"', () => {
     const location = await mountHarness()
     expect(location.remember).toBe(false)
     await location.locate()
-    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 
   it('keeps the rounded position in the browser when it is ticked before the press', async () => {
@@ -318,7 +314,7 @@ describe('"remember"', () => {
     const location = await mountHarness()
     location.setRemember(true)
     await location.locate()
-    expect(JSON.parse(storage.get(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
     expect(location.remembered).toBe(true)
   })
 
@@ -327,9 +323,9 @@ describe('"remember"', () => {
     mockPermission('granted')
     const location = await mountHarness()
     await location.locate()
-    expect(storage.size).toBe(0)
+    expect(localStorage.length).toBe(0)
     location.setRemember(true)
-    expect(JSON.parse(storage.get(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
   })
 
   it('deletes what was kept when it is unticked', async () => {
@@ -338,14 +334,14 @@ describe('"remember"', () => {
     const location = await mountHarness()
     location.setRemember(true)
     await location.locate()
-    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(true)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
     location.setRemember(false)
-    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
     expect(location.remembered).toBe(false)
   })
 
   it('is read back on a later visit without asking the browser, and a press then uses it', async () => {
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
     const getCurrentPosition = mockGeolocation({ latitude: 1, longitude: 2 })
     const query = mockPermission('granted')
     const location = await mountHarness()
@@ -358,12 +354,12 @@ describe('"remember"', () => {
   })
 
   it('is forgotten with the position: memory and browser', async () => {
-    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
     const location = await mountHarness()
     location.forget()
     expect(location.position).toBeNull()
     expect(location.remember).toBe(false)
-    expect(storage.has(LOCATION_STORAGE_KEY)).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 
   it('is no failure where the browser refuses its storage: the position is for the visit', async () => {

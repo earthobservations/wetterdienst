@@ -7,7 +7,6 @@ import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
 import { providersAnswer } from '../fixtures/providers'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 // Ask the weather (GH-3518): the suggestions of the home page as buttons that are pressed or not, the answer under
 // them with its live region, the chart and the way into the tool, and the place the questions are about. The
@@ -238,9 +237,7 @@ describe('the place from the reader\'s position', () => {
   }
   // the position's own state only: the place is the file's, which each test sets
   const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
-  let storage: Map<string, string>
   beforeEach(() => {
-    storage = stubMemoryStorage()
     clearLocation()
   })
   afterEach(() => {
@@ -280,8 +277,8 @@ describe('the place from the reader\'s position', () => {
     const wrapper = await mountAsk()
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
-    expect(storage.has('wd-place')).toBe(false)
-    expect(storage.has('wd-location')).toBe(false)
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
   })
 
   it('keeps the place in the browser with the position when remember is ticked', async () => {
@@ -289,9 +286,9 @@ describe('the place from the reader\'s position', () => {
     const wrapper = await mountAsk()
     await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(storage.has('wd-place')).toBe(true))
-    expect(JSON.parse(storage.get('wd-place')!).id).toBe('01975')
-    expect(JSON.parse(storage.get('wd-location')!)).toEqual({ latitude: 53.6, longitude: 10.05 })
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('01975')
+    expect(JSON.parse(localStorage.getItem('wd-location')!)).toEqual({ latitude: 53.6, longitude: 10.05 })
   })
 
   it('takes the place of the link out of the address, and keeps the position out of it', async () => {
@@ -309,11 +306,11 @@ describe('the place from the reader\'s position', () => {
     const wrapper = await mountAsk()
     await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(JSON.parse(storage.get('wd-place') ?? 'null')?.fromPosition).toBe(true))
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem('wd-place') ?? 'null')?.fromPosition).toBe(true))
 
     await wrapper.find('button[role="checkbox"]').trigger('click')
-    expect(storage.has('wd-place')).toBe(false)
-    expect(storage.has('wd-location')).toBe(false)
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
     expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel')
   })
 
@@ -322,11 +319,11 @@ describe('the place from the reader\'s position', () => {
     const wrapper = await mountAsk()
     await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(storage.has('wd-place')).toBe(true))
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
 
     await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
-    expect(storage.has('wd-place')).toBe(false)
-    expect(storage.has('wd-location')).toBe(false)
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau'))
   })
 
@@ -335,11 +332,11 @@ describe('the place from the reader\'s position', () => {
     const wrapper = await mountAsk()
     await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(storage.has('wd-place')).toBe(true))
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
     usePlace().setPlace({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' })
 
     await wrapper.find('button[role="checkbox"]').trigger('click')
-    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('00183')
     expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona')
   })
 
