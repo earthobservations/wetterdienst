@@ -12,7 +12,7 @@ which mypy and pyright do not, so those two are held up by the wheel listing in 
 
 from __future__ import annotations
 
-from typing import Any, Literal, assert_type
+from typing import Literal, assert_type
 
 import polars as pl
 
@@ -157,7 +157,9 @@ for chunk in values_request.query():
 # history
 assert_type(stations.history(), TimeseriesHistory)
 assert_type(stations.history().to_json(), str)
-assert_type(stations.history().to_dict()["histories"], list[dict[str, Any]])
+# a history is typed as the OpenAPI document describes it: the station it is of, and the sections that were asked for
+assert_type(stations.history().to_dict()["histories"][0]["station_id"], str)
+assert_type(stations.history().to_dict()["histories"][0]["resolution"], str | None)
 assert_type(stations.history().to_dict(), HistoryDict)
 
 # a point between stations

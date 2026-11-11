@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import ECCC_ATTRIBUTION
 from wetterdienst import Wetterdienst
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import MetadataModel
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -493,6 +494,29 @@ def test_the_python_function_is_compact_by_default() -> None:
     ).model_dump(exclude={"metadata": {"retrieved_at"}})
     assert all(n.resolutions is None for p in get_providers().providers for n in p.networks)
     assert all(n.resolutions is not None for p in get_providers(datasets=True).providers for n in p.networks)
+
+
+def test_a_resolution_of_the_answer_is_one_the_document_lists(client: TestClient) -> None:
+    """The document says which resolutions a network lists (`Resolution`), and every network's is one of them (GH-3908).
+
+    The name stays a plain `str` in Python, the closed set being only what the OpenAPI document says, which this
+    holds to the answer of every network.
+    """
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    listed = schemas["ProviderResolution"]["properties"]["name"]["enum"]
+    assert listed == [resolution.value for resolution in Resolution]
+
+    response = client.get("/api/providers", params={"datasets": "true"})
+
+    assert response.status_code == 200, response.text
+    names = {
+        resolution["name"]
+        for provider in response.json()["providers"]
+        for network in provider["networks"]
+        for resolution in network["resolutions"]
+    }
+    assert names
+    assert names <= set(listed)
 
 
 def test_the_number_of_parameters_of_a_network_is_the_same_with_and_without_the_datasets() -> None:
