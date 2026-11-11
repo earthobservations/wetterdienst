@@ -654,6 +654,9 @@ const columns = computed(() =>
 const pageSizeOptions = [50, 100, 200]
 const pageSize = ref(50)
 const currentPage = ref(1)
+// below `sm` the pager keeps the current page between its first and last, and wraps where even that is too wide:
+// from page 2 of four or more its row of nine buttons is wider than a phone's card (GH-3985)
+const pagerFitsRow = useMediaQuery('(min-width: 40rem)')
 
 const paginatedValues = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
@@ -1740,7 +1743,10 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
               <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</label>
               <USelect id="data-viewer-page-size" v-model="pageSize" :items="pageSizeOptions" class="w-20" />
             </div>
-            <UPagination v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize" />
+            <UPagination
+              v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize"
+              :sibling-count="pagerFitsRow ? 2 : 0" :show-edges="!pagerFitsRow" :ui="{ list: 'flex flex-wrap items-center justify-center gap-1' }"
+            />
           </div>
         </template>
       </UCard>
