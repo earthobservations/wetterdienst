@@ -654,6 +654,10 @@ const columns = computed(() =>
 const pageSizeOptions = [50, 100, 200]
 const pageSize = ref(50)
 const currentPage = ref(1)
+// below `sm` the pager keeps the current page between its first and last page (the edges), has no First and Last
+// buttons of its own, which they would repeat, and wraps where even the seven that are left are too wide: from page 2
+// of four or more its row of nine buttons was wider than a phone's card (GH-3985)
+const pagerFitsRow = useMediaQuery('(min-width: 40rem)')
 
 const paginatedValues = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
@@ -1592,13 +1596,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       </div>
 
       <!-- Options bar -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <span class="text-sm text-gray-500 dark:text-gray-400">
           <template v-if="valuesPending">{{ t('dataViewer.loadingValues') }}</template>
           <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }) }}</template>
           <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }) }}</template>
         </span>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
             <label for="data-viewer-columns" class="text-sm">{{ t('dataViewer.columns') }}:</label>
             <USelectMenu id="data-viewer-columns" v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
@@ -1735,12 +1739,16 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           </div>
         </template>
         <template v-if="viewMode === 'table'" #footer>
-          <div class="flex items-center justify-center gap-4">
+          <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <div class="flex items-center gap-2">
               <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</label>
               <USelect id="data-viewer-page-size" v-model="pageSize" :items="pageSizeOptions" class="w-20" />
             </div>
-            <UPagination v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize" />
+            <UPagination
+              v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize"
+              :sibling-count="pagerFitsRow ? 2 : 0" :show-edges="!pagerFitsRow"
+              :ui="{ list: 'flex flex-wrap items-center justify-center gap-1', first: pagerFitsRow ? '' : 'hidden', last: pagerFitsRow ? '' : 'hidden' }"
+            />
           </div>
         </template>
       </UCard>

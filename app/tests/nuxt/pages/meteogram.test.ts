@@ -6,16 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { defineComponent, h } from 'vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
-import { stubMemoryStorage } from '../fixtures/storage'
-
-// The browser's storage is the page's too, and a test that chose the map for the station picker would start the next
-// one on it (the picker remembers its mode): each test has a storage of its own
-beforeEach(() => {
-  stubMemoryStorage()
-})
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 /** Shows the map of the station picker: the reader's click on "Map" of its toggle */
 async function showMap(wrapper: VueWrapper) {

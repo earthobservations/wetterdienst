@@ -115,6 +115,23 @@ describe('choosing the point an interpolation answers for', () => {
   })
 })
 
+describe('the source of the point tells which button is chosen (GH-3989)', () => {
+  it('is a group named Source, whose pressed button follows the source', async () => {
+    const { wrapper, model } = await selection('manual')
+    const group = wrapper.find('[role="group"]')
+    const label = wrapper.find(`#${group.attributes('aria-labelledby')}`)
+    expect(label.text()).toBe('Source:')
+    const pressed = () => group.findAll('button').map(b => [b.text(), b.attributes('aria-pressed')])
+    expect(pressed()).toEqual([[expect.any(String), 'true'], [expect.any(String), 'false']])
+
+    await group.findAll('button')[1]!.trigger('click')
+    await settle()
+    expect(model.value.source).toBe('station')
+    expect(pressed()).toEqual([[expect.any(String), 'false'], [expect.any(String), 'true']])
+    wrapper.unmount()
+  })
+})
+
 describe('the interpolation\'s station picker with postcode stations', () => {
   // dwd/derived climate_correction_factor's stations are postcodes, sent with a null name and a
   // null position
