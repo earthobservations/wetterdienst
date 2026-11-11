@@ -21,7 +21,7 @@ uv run poe typecheck         # ty check src/wetterdienst
 uv run poe "typecheck:installed"  # the caller script against the built wheel (needs the network)
 uv run poe unused            # deptry unused-dependency check
 uv run poe sync              # uv sync
-uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change
+uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change; a REST contract change also runs `cd app && pnpm typecheck`, which generates the app's types from the OpenAPI snapshot
 uv run poe "contracts:baseline"  # the baselines of the last release (OpenAPI, CLI, Python surface, MCP, parameters): in a release commit only
 uv run poe "frames:snapshot"  # regenerate tests/provider/frames.snapshot.json, the frames the core hands out for every offline provider test, after an intended change to one
 uv run poe "renames:baseline"  # the parameters of 0.139.0 that are gone (tests/metadata/gone_since_0_139_0.json): when a 0.139.0 name is renamed, removed (add it to `REMOVED`) or back
@@ -42,6 +42,7 @@ pnpm install
 pnpm dev            # dev server, port 4000
 pnpm build
 pnpm lint           # oxlint + eslint
+pnpm typecheck      # generates the answers' types from tests/ui/openapi.snapshot.json (pnpm gen:api-types, git-ignored app/.generated/), then nuxt typecheck
 pnpm test:ci        # vitest run
 pnpm test:e2e       # playwright
 pnpm test:a11y      # the axe accessibility spec, on request only (not in test:e2e); see app/ACCESSIBILITY.md
@@ -112,7 +113,7 @@ The processes that share a cache directory take turns on its metadata file and i
 - **CLI** (`ui/cli.py`): click-based. Importing it costs click and a few plain tables, so `--help`, `--version` and a shell completion start in about 0.07 s: a command imports what it uses (the settings, the request models, the results, the providers) as the first thing it does, and the readers it calls are names of the module that import on the first call (`get_values`, `get_stations`, ...; the real functions to a type checker), which tests replace there. A top-level import in `ui/cli.py`, or in what it imports, that is not as light brings the 0.5 s back: `tests/ui/cli/test_cli_imports.py` names the packages (polars, pydantic, sympy, ...) and the modules that must stay out of a clean process's `sys.modules`, and holds every other top-level module to an allow-list. For the same reason `import wetterdienst` and `wetterdienst.api` import no polars, pydantic or provider; `Settings`, `Options` and the submodules `settings`, `options`, `model` and `ui` are read from their modules when asked for (`wetterdienst/__init__.py`, whose `__getattr__` is under `if not TYPE_CHECKING:` so that a type checker still reports a mistyped name, which `tests/typed_caller.py` holds).
 - **REST API** (`ui/restapi.py`): FastAPI app mirroring the CLI; starts via `wetterdienst restapi`.
 - **MCP** (`ui/mcp.py`): Model Context Protocol server exposing the same tools.
-- **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; `NUXT_API_BASE` (private runtime config `apiBase`; the old `NUXT_PUBLIC_API_BASE` still works, deprecated) sets the backend URL.
+- **App** (`app/`): Nuxt 3 SPA (SSR disabled) calling the REST API; its types of the answers come from the OpenAPI snapshot (`app/shared/types/api.ts` derives them from the generated `components['schemas']`; nothing generated is committed, so a contract change that the app does not follow fails `pnpm typecheck`); `NUXT_API_BASE` (private runtime config `apiBase`; the old `NUXT_PUBLIC_API_BASE` still works, deprecated) sets the backend URL.
 
 ### Export / interpolation
 

@@ -317,7 +317,7 @@ describe('explorer Page DWD DMO lead time', () => {
   // `/api/coverage?provider=dwd&network=dmo`, cut down to a 1-hourly and a 3-hourly parameter of
   // `icon`, and `icon_eu`, which publishes only the short run
   function dmoCoverage() {
-    const parameter = (name: string) => ({ name, name_original: name, unit_type: 'precipitation', unit: 'millimeter', description: null })
+    const parameter = (name: string) => ({ name, name_original: name, unit_type: 'precipitation' as const, unit: 'millimeter', description: null })
     return {
       hourly: {
         description: null,
@@ -453,7 +453,7 @@ describe('explorer Page DWD DMO parameters per run', () => {
   // `/api/coverage?provider=dwd&network=dmo`, cut down to a parameter only the short run carries,
   // one only the long run carries and two both carry, with the runs the backend names for each
   function dmoCoverage() {
-    const parameter = (name: string, lead_times: Array<'short' | 'long'>) => ({ name, name_original: name, unit_type: 'precipitation', unit: 'millimeter', description: null, lead_times })
+    const parameter = (name: string, lead_times: Array<'short' | 'long'>) => ({ name, name_original: name, unit_type: 'precipitation' as const, unit: 'millimeter', description: null, lead_times })
     return {
       hourly: {
         description: null,

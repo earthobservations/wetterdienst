@@ -8,6 +8,7 @@ import type {
   Station,
   StripesStation,
   StripesValuesResponse,
+  UnitType,
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
@@ -54,7 +55,7 @@ const PROVIDERS: CoverageResponse = {
   },
 }
 
-function parameter(name: string, name_original: string, unit_type: string, unit: string, description: string) {
+function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
   return { name, name_original, unit_type, unit, description }
 }
 

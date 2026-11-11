@@ -1,8 +1,9 @@
 name: App Tests
 
-# Type check and lint read nothing but the app, so they stay on app/**. The vitest suite also reads
-# the backend's canonical parameter table and resolution enum
-# (tests/unit/glossary-translations.test.ts), so those two files are in the filter too.
+# Lint reads nothing but the app, so it stays on app/**. The type check also reads the backend's OpenAPI
+# document (tests/ui/openapi.snapshot.json), which the app's types are generated from (GH-3908): a change to the
+# REST contract has to run it. The vitest suite also reads the backend's canonical parameter table and
+# resolution enum (tests/unit/glossary-translations.test.ts), so those two files are in the filter too.
 # The E2E suite also drives a backend started from src/ and lives in app-e2e.yml, which
 # carries the wider filter.
 on:
@@ -11,6 +12,7 @@ on:
       - 'app/**'
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
+      - 'tests/ui/openapi.snapshot.json'
       - '.github/workflows/app-tests.yml'
   push:
     branches: [ main ]
@@ -18,6 +20,7 @@ on:
       - 'app/**'
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
+      - 'tests/ui/openapi.snapshot.json'
       - '.github/workflows/app-tests.yml'
 
   # Allow job to be triggered manually
