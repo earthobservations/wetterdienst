@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramValuesQuery, meteogramView, meteogramViewFromQuery, MOSMIX_METEOGRAM, wetBulbApprox } from '../../app/utils/meteogram'
+import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramUnitsKey, meteogramValuesQuery, meteogramValuesSettings, meteogramView, meteogramViewFromQuery, MOSMIX_METEOGRAM, wetBulbApprox } from '../../app/utils/meteogram'
 import { parameters } from '../../i18n/glossary/en'
 
 describe('findNearestIndex', () => {
@@ -306,9 +306,43 @@ describe('meteogramViewFromQuery', () => {
 })
 
 describe('the request of a meteogram', () => {
+  const metric = { units: {}, convertUnits: true }
+
   it('asks DWD MOSMIX for the station, each series of the chart under its dataset, in the layout the meteogram reads', () => {
-    const query = meteogramValuesQuery('10147')
-    expect(query).toMatchObject({ provider: 'dwd', network: 'mosmix', stations: '10147', shape: 'long' })
+    const query = meteogramValuesQuery('10147', metric)
+    expect(query).toMatchObject({ provider: 'dwd', network: 'mosmix', stations: '10147', shape: 'long', humanize: 'true', skip_empty: 'false' })
     expect(query.parameters!.split(',')).toEqual(MOSMIX_METEOGRAM.parameters.map(parameter => `hourly/large/${parameter}`))
+  })
+
+  it('asks for the unit of each parameter with the answer, which the labels are written from', () => {
+    expect(meteogramValuesQuery('10147', metric).with_metadata).toBe('true')
+  })
+
+  it('asks in the units the app settings choose, every type named so that the server\'s own do not come in', () => {
+    const query = meteogramValuesSettings({ units: { temperature: 'degree_fahrenheit', speed: 'beaufort', pressure: 'kilopascal', fraction: 'one_eighth' }, convertUnits: true })
+    expect(query.convert_units).toBe('true')
+    const targets = JSON.parse(query.unit_targets!)
+    expect(targets).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'beaufort', pressure: 'kilopascal', fraction: 'one_eighth', precipitation: 'millimeter', angle: 'degree' })
+    // the default of a type the settings name none for, and of every other type the settings page lists
+    expect(Object.keys(targets)).toContain('conductivity')
+  })
+
+  it('asks for the values unconverted where the settings say so, and takes the unit the answer then says', () => {
+    expect(meteogramValuesSettings({ units: {}, convertUnits: false }).convert_units).toBe('false')
+  })
+
+  it('is fetched again for a change of the unit of what it draws, and not for another unit', () => {
+    const key = (units: Record<string, string>, convertUnits = true) => meteogramUnitsKey({ units, convertUnits })
+    expect(key({ temperature: 'degree_fahrenheit' })).not.toBe(key({}))
+    expect(key({ speed: 'knots' })).not.toBe(key({}))
+    expect(key({ pressure: 'pascal' })).not.toBe(key({}))
+    expect(key({ precipitation: 'liter_per_square_meter' })).not.toBe(key({}))
+    expect(key({ fraction: 'decimal' })).not.toBe(key({}))
+    expect(key({ angle: 'radian' })).not.toBe(key({}))
+    expect(key({}, false)).not.toBe(key({}))
+    // a conductivity and a length are not drawn by it
+    expect(key({ conductivity: 'siemens_per_meter', length_long: 'mile' })).toBe(key({}))
+    // a unit the settings page does not list for a type is the default
+    expect(key({ temperature: 'rankine' })).toBe(key({}))
   })
 })

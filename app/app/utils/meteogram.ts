@@ -1,6 +1,8 @@
 /**
  * Meteogram utility functions for series alignment, interpolation, and precipitation classification.
  */
+import { requestUnitTargets } from './unit-targets'
+import { CANONICAL_UNITS } from './units'
 
 /**
  * Find the index of the nearest date to a target timestamp using binary search.
@@ -239,28 +241,34 @@ export const METEOGRAM_SERIES = {
 } as const satisfies Record<string, readonly string[]>
 
 /**
- * The settings the meteogram's `/api/values` request sends, so that its answer comes in the layout
- * the meteogram reads whatever the server sets in its `WD_TS_*` variables: long rows keyed by the
- * canonical names of `METEOGRAM_SERIES`, every station kept, and values in the units the charts
- * label them in. `unit_targets` names each quantity the meteogram draws: the server's
- * `WD_TS_UNIT_TARGETS` entries are merged into the ones a request gives, so only a quantity the
- * request names is sure of its unit. The cloud cover is asked for as a `decimal` (the server's default
- * is percent), which the charts scale to percent.
+ * The settings the meteogram's `/api/values` request sends, so that its answer comes in the layout the meteogram reads
+ * whatever the server sets in its `WD_TS_*` variables: long rows keyed by the canonical names of `METEOGRAM_SERIES`,
+ * every station kept. The units are the app settings' (GH-3980): `unit_targets` names every type the settings page
+ * lists, as the Explorer's request does, because the server's `WD_TS_UNIT_TARGETS` entries are merged into the ones a
+ * request gives and only a type the request names is sure of its unit; `convert_units` is the setting's. The answer says
+ * which unit each parameter is in (`with_metadata`), and the charts, tables and sentences are labelled by that, not by
+ * what was asked.
  */
-export const METEOGRAM_VALUES_SETTINGS = {
-  shape: 'long',
-  humanize: 'true',
-  convert_units: 'true',
-  unit_targets: JSON.stringify({
-    angle: 'degree',
-    fraction: 'decimal',
-    precipitation: 'millimeter',
-    pressure: 'hectopascal',
-    speed: 'meter_per_second',
-    temperature: 'degree_celsius',
-  }),
-  skip_empty: 'false',
-} as const satisfies Record<string, string>
+export function meteogramValuesSettings(settings: { units: Record<string, string | undefined>, convertUnits: boolean }): Record<string, string> {
+  return {
+    shape: 'long',
+    humanize: 'true',
+    convert_units: String(settings.convertUnits),
+    unit_targets: JSON.stringify(requestUnitTargets(settings.units)),
+    skip_empty: 'false',
+    with_metadata: 'true',
+  }
+}
+
+/**
+ * What of the unit settings the meteogram's answer depends on: whether the values are converted and the unit of each
+ * quantity it draws. A change of any other unit on the settings page (a conductivity, a length) changes nothing it
+ * shows, so it is no reason to fetch the forecast again.
+ */
+export function meteogramUnitsKey(settings: Parameters<typeof meteogramValuesSettings>[0]): string {
+  const targets = requestUnitTargets(settings.units)
+  return JSON.stringify([settings.convertUnits, ...Object.keys(CANONICAL_UNITS).map(quantity => targets[quantity])])
+}
 
 /** The ways the forecast is shown: the chart, the day cards of the compact overview, the table of its values. */
 export const METEOGRAM_VIEWS = ['chart', 'compact', 'table'] as const
@@ -302,14 +310,14 @@ export const MOSMIX_METEOGRAM = {
   parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 } as const
 
-/** The query of `/api/values` for the meteogram of a MOSMIX station */
-export function meteogramValuesQuery(stationId: string): Record<string, string> {
+/** The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose */
+export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
   const { provider, network, resolution, dataset, parameters } = MOSMIX_METEOGRAM
   return {
     provider,
     network,
     parameters: parameters.map(parameter => `${resolution}/${dataset}/${parameter}`).join(','),
     stations: stationId,
-    ...METEOGRAM_VALUES_SETTINGS,
+    ...meteogramValuesSettings(settings),
   }
 }

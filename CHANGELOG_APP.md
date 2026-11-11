@@ -35,6 +35,16 @@ Types of changes:
   the table and now the hover texts say the unit the answer names (`°F`, `K`, `l/m²`); the colours
   are relative and do not change with it. Needs a backend that takes `unit_targets` on
   `/api/stripes/values`; an older one refuses it with a 422 (GH-3980)
+- `[Forecast, Widget, Map, Home]` The forecast, its widget, the forecast in the map's panel and the
+  questions of the home page follow the unit settings, where they asked in fixed units: they ask for
+  the units the Settings page chooses (and for the values as the source has them if conversion is
+  off) and write the unit the answer reports for each parameter (`with_metadata`) in the axes, hover
+  texts, tables, day rows and sentences, in all eleven languages. Rain or snow, the weather of a
+  day, the wind barbs and the verdicts of the questions are judged in millimetres, degrees Celsius
+  and metres per second, so they are the same in every unit; the temperature panel marks the
+  freezing point in °F and K, and the maximum gust is no longer also given in km/h. A change of a
+  unit it shows fetches the forecast again. The widget takes the units from the settings of the
+  browser it runs in (the server's on a first visit), not from its address (GH-3980)
 - `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
   "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
   next to its zoom buttons) and the picked stations as chips under it in both modes; a station

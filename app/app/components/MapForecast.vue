@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { Station, Value } from '#shared/types/api'
+import type { Station, Value, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
-import { meteogramValuesQuery } from '~/utils/meteogram'
+import { meteogramUnitsKey, meteogramValuesQuery } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
+import { unitsOfAnswer } from '~/utils/units'
 
 // The days ahead at a forecast point, as day rows in the map's panel (GH-3650): the request of the forecast page,
 // drawn without its chart. The link under the rows, in the panel, opens the forecast itself.
@@ -13,6 +14,13 @@ const props = defineProps<{ station: Station }>()
 const { t } = useI18n()
 
 const values = ref<Value[]>([])
+// the unit of each parameter of the values, as the answer says (GH-3980)
+const units = ref<Record<string, string>>({})
+
+// the unit settings (GH-3980), read at each request: a change while the days are shown fetches them again
+const { settings: appSettings } = useSettings()
+const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
 const pending = ref(false)
 const failure = ref<RequestError | null>(null)
 const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)
@@ -28,16 +36,18 @@ async function load(stationId: string) {
   failure.value = null
   values.value = []
   try {
-    const response = await fetch(`/api/values?${new URLSearchParams(meteogramValuesQuery(stationId))}`, { signal: mine.signal })
+    const response = await fetch(`/api/values?${new URLSearchParams(meteogramValuesQuery(stationId, unitSettings.value))}`, { signal: mine.signal })
     if (!response.ok) {
       const failed = backendFailure(response.status, response.statusText, await response.json().catch(() => null))
       if (!mine.signal.aborted)
         failure.value = failed
       return
     }
-    const body = await readJsonAnswer<{ values?: Value[] }>('/api/values', response)
-    if (!mine.signal.aborted)
+    const body = await readJsonAnswer<ValuesResponse>('/api/values', response)
+    if (!mine.signal.aborted) {
+      units.value = unitsOfAnswer(body)
       values.value = body.values ?? []
+    }
   }
   catch (e: any) {
     if (!mine.signal.aborted)
@@ -51,7 +61,8 @@ async function load(stationId: string) {
   }
 }
 
-watch(() => props.station.station_id, id => void load(id), { immediate: true })
+// the station, or the units: one request for either, or both together; the one under way is ended by the newer
+watch([() => props.station.station_id, unitsAsked], ([id]) => void load(id), { immediate: true })
 onBeforeUnmount(() => controller?.abort())
 </script>
 
@@ -73,6 +84,7 @@ onBeforeUnmount(() => controller?.abort())
       :station-coords="{ latitude: station.latitude, longitude: station.longitude }"
       widget
       days-only
+      :units="units"
     />
     <p v-else class="text-sm text-muted">
       {{ t('widget.noData') }}
