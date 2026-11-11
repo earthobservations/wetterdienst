@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test'
+import type { Handlers } from './accessibility/mock-backend'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { mockBackend } from './accessibility/mock-backend'
+import { defaultHandlers, mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
 // Luxembourgish, Czech, Low German, Italian and French (the last two scrolled sideways on the stripes and history
@@ -158,6 +161,111 @@ for (const language of OTHER_LANGUAGES) {
       expect(await reflowOffendersOf(page, path), `${path} in ${language} at 320px`).toEqual([])
     })
   }
+}
+
+// The explorer with a parameter and a station chosen (GH-3985), before and after the values are fetched: its first state,
+// which the loops above measure, has no station, no date range, no columns and no table, and these ran past the
+// window at 320 px. The backend is the accessibility spec's mock, with 400 rows to fetch (eight pages, so that the
+// pager is measured on a page that has a neighbour on both sides), and, for the lead time of the DWD's DMO
+// (`dwd/dmo/icon`), a coverage that has that network.
+const EXPLORER_WITH_SELECTION = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
+const EXPLORER_WITH_LEAD_TIME = '/explorer?provider=dwd&network=dmo&resolution=hourly&dataset=icon&parameters=temperature_air_mean_2m&mode=station&stations=00011'
+
+/** 400 daily values of station 00011, which the page lists fifty to a page */
+const MANY_ROWS: Handlers = {
+  values: () => ({
+    values: Array.from({ length: 400 }, (_, index) => ({
+      station_id: '00011',
+      resolution: 'daily',
+      dataset: 'climate_summary',
+      parameter: 'temperature_air_mean_2m',
+      timestamp: new Date(Date.UTC(2025, 0, 1 + index)).toISOString().replace('.000Z', '+00:00'),
+      value: 10 + (index % 7),
+      quality_flags: null,
+    })),
+  }),
+}
+
+/** The mock's coverage with the DMO's `icon` dataset added to its hourly resolution, and the network to the provider list */
+function withDmo(): Handlers {
+  const defaults = defaultHandlers()
+  return {
+    ...MANY_ROWS,
+    coverage: async (url, route) => {
+      const answer = await defaults.coverage!(url, route) as Record<string, any>
+      if (!url.searchParams.get('provider')) {
+        return { ...answer, dwd: { ...answer.dwd, dmo: { ...answer.dwd.observation, kind: 'forecast' } } }
+      }
+      const hourly = answer.hourly
+      return { ...answer, hourly: { ...hourly, datasets: { ...hourly.datasets, icon: hourly.datasets.temperature_air } } }
+    },
+  }
+}
+
+/** The name of the Fetch button in `language`, as the app words it */
+function fetchLabel(language: string): string {
+  const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+  return catalog.common.fetch
+}
+
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  for (const { name, path, handlers } of [
+    { name: 'a station chosen', path: EXPLORER_WITH_SELECTION, handlers: MANY_ROWS },
+    { name: 'a lead time offered', path: EXPLORER_WITH_LEAD_TIME, handlers: withDmo() },
+  ]) {
+    test(`/explorer with ${name} in ${language} does not scroll or clip sideways at 320px`, async ({ page, context, baseURL }) => {
+      await mockBackend(page, baseURL!, handlers)
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await page.goto(path)
+      await expect(page.getByText('Donaueschingen').first()).toBeVisible({ timeout: 30_000 })
+      if (path === EXPLORER_WITH_LEAD_TIME)
+        await expect(page.getByTestId('lead-time')).toBeVisible()
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+      await settle(page)
+      expect(await offendersOf(page), `/explorer with ${name} in ${language} at 320px`).toEqual([])
+      expect(await reflowOffendersOf(page, '/explorer'), `/explorer with ${name} in ${language} at 320px`).toEqual([])
+
+      // and with the values: the options bar (columns, copy, download), the table and its pager, on page 3 of 8
+      await page.getByRole('button', { name: fetchLabel(language), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible({ timeout: 30_000 })
+      // two pages on: the pager has a neighbour on both sides, which is its widest state
+      await page.locator('[data-slot="next"]').click()
+      await page.locator('[data-slot="next"]').click()
+      await settle(page)
+      // the pager has no First and Last buttons below `sm`, and its seven buttons (the edges, the current page, the
+      // ellipses and Previous/Next) are one line
+      await expect(page.locator('[data-slot="first"]')).toBeHidden()
+      expect(await page.locator('[data-slot="next"]').evaluate((next) => {
+        const buttons = [...next.parentElement!.parentElement!.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0)
+        return new Set(buttons.map(button => Math.round(button.getBoundingClientRect().top))).size
+      }), `the pager of /explorer in ${language} at 320px stands in one line`).toBe(1)
+      expect(await offendersOf(page), `/explorer with values in ${language} at 320px`).toEqual([])
+      expect(await reflowOffendersOf(page, '/explorer'), `/explorer with values in ${language} at 320px`).toEqual([])
+    })
+  }
+}
+
+// The two-column layout (from 72 rem) gives the setup card a column of 368 px inside, where the lead time's row of
+// buttons overflows in Polish and is close to the card's width in Czech, French and Luxembourgish: it stacks where it
+// does not fit the card (a window-width rule missed this)
+for (const language of ['pl', 'cs', 'fr', 'lb']) {
+  test(`/explorer at 1152px has the lead time row inside its card in ${language}`, async ({ page, context, baseURL }) => {
+    await mockBackend(page, baseURL!, withDmo())
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 1152, height: 900 })
+    await page.goto(EXPLORER_WITH_LEAD_TIME)
+    const card = page.getByTestId('lead-time')
+    await expect(card).toBeVisible({ timeout: 30_000 })
+    await settle(page)
+    const outside = await card.evaluate((element) => {
+      // the card's content box: the body that holds the buttons and the hint
+      const limit = element.querySelector('.space-y-3')!.getBoundingClientRect().right
+      return [...element.querySelectorAll('.space-y-3 *')].filter(el => el.getBoundingClientRect().right > limit + 1).map(el => `<${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().slice(0, 30)}"`)
+    })
+    expect(outside, `the lead time card in ${language} at 1152px`).toEqual([])
+    expect(await offendersOf(page), `/explorer in ${language} at 1152px`).toEqual([])
+  })
 }
 
 // A phone of 390 px: the theme buttons of the settings share a row, and Polish and Czech names ("Systemowy",

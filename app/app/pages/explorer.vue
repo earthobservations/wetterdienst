@@ -803,7 +803,7 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <UFieldGroup>
+              <FittingButtonGroup>
                 <UButton
                   v-for="option in leadTimeOptions"
                   :key="option.value"
@@ -813,7 +813,7 @@ function removeParameterDistance(id: string, paramName: string) {
                   size="sm"
                   @click="leadTime = option.value"
                 />
-              </UFieldGroup>
+              </FittingButtonGroup>
               <p class="text-sm text-gray-500 dark:text-gray-400">
                 {{ t('explorer.leadTimeHint') }}
               </p>
@@ -831,7 +831,7 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <UFieldGroup>
+              <FittingButtonGroup>
                 <UButton
                   v-for="option in modeOptions"
                   :key="option.value"
@@ -842,7 +842,7 @@ function removeParameterDistance(id: string, paramName: string) {
                   size="sm"
                   @click="stationSelectionState.mode = option.value"
                 />
-              </UFieldGroup>
+              </FittingButtonGroup>
               <p class="text-sm text-gray-500 dark:text-gray-400">
                 <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationDesc') }}</span>
                 <span v-else-if="stationSelectionState.mode === 'summary'">{{ t('explorer.modeSummaryDesc') }}</span>
