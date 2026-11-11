@@ -117,7 +117,7 @@ describe('widget Page', () => {
 
       expect(colorModeState().value).toBe('dark')
       // the module saves a preference to localStorage when it changes (tests/e2e/chart-theme.spec.ts reads
-      // it there), which this environment has none of
+      // it there), and so would a widget that changed it
       expect(colorModeState().preference).toBe('system')
     })
 
