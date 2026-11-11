@@ -34,7 +34,7 @@ async function mountControl(props: Record<string, unknown> = {}) {
 
 type Wrapper = Awaited<ReturnType<typeof mountControl>>
 const button = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-button"]')
-const box = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-remember"] button[role="checkbox"], button[role="checkbox"]')
+const box = (wrapper: Wrapper) => wrapper.find('button[role="checkbox"][data-testid="use-my-location-remember"]')
 const note = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-note"]')
 const chip = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-stored"]')
 const status = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-status"]')
@@ -107,6 +107,9 @@ describe('after a press, with a position in hand and nothing stored', () => {
     expect(link.text()).toBe('More in the privacy policy')
     expect(link.attributes('href')).toBe('/datenschutz#location')
     expect(button(wrapper).attributes('aria-describedby')).toBe(note(wrapper).attributes('id'))
+    // and so is the box itself: the checkbox element has the note as its description, not only the wrapper round it
+    expect(box(wrapper).attributes('aria-describedby')).toBe(note(wrapper).attributes('id'))
+    expect(note(wrapper).attributes('id')).toBeTruthy()
     expect(chip(wrapper).exists()).toBe(false)
     // nothing is kept until the box is ticked
     expect(stored()).toBeNull()
@@ -163,6 +166,28 @@ describe('once a position is stored', () => {
     expect(chip(wrapper).attributes('aria-expanded')).toBe('true')
     expect(remembered()!.textContent).toContain('Remembered position: 53.55, 9.99')
     expect(forgetButton()!.textContent).toContain('Forget my position')
+  })
+
+  it('is a disclosure: Escape closes the position and "Forget" with the focus on the control, a click on it toggles them', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    await tick(wrapper)
+    await chip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(forgetButton()).not.toBeNull())
+    // the details follow the control, and are named by it
+    expect(chip(wrapper).attributes('aria-controls')).toBe(remembered()!.getAttribute('id'))
+    expect(wrapper.element.contains(forgetButton())).toBe(true)
+
+    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('keydown', { key: 'Escape' })
+    await vi.waitFor(() => expect(forgetButton()).toBeNull())
+    expect(chip(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(chip(wrapper).element)
+
+    await chip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(forgetButton()).not.toBeNull())
+    await chip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(forgetButton()).toBeNull())
   })
 
   it('is shown at once for a position that an earlier visit stored, with no box and no note, and the browser is not asked', async () => {
@@ -256,5 +281,52 @@ describe('the sequence of GH-4010: press, tick, forget, press, tick', () => {
     expect(JSON.parse(stored()!)).toEqual({ latitude: 53.55, longitude: 9.99 })
     expect(chip(wrapper).text()).toBe('Stored')
     expect(wrapper.emitted('position')).toHaveLength(2)
+  })
+})
+
+// the map's station card (GH-4011): the position's result is shown where the button is not, so the option to keep the
+// position, or the control that says it is kept, is there alone (`offerOnly`): no button, no status, no alert
+describe('with `offerOnly`, as on the map\'s station card', () => {
+  it('shows nothing where no position is in hand', async () => {
+    mockBrowser()
+    const wrapper = await mountControl({ offerOnly: true })
+    expect(button(wrapper).exists()).toBe(false)
+    expect(box(wrapper).exists()).toBe(false)
+    expect(note(wrapper).exists()).toBe(false)
+    expect(chip(wrapper).exists()).toBe(false)
+  })
+
+  it('shows the box and the note for a position in hand, which the one full copy found, and the control once it is ticked', async () => {
+    mockBrowser()
+    const full = await mountControl()
+    await press(full)
+    // the page shows one copy at a time: the full one is gone when the card is shown
+    full.unmount()
+
+    const card = await mountControl({ offerOnly: true })
+    expect(button(card).exists()).toBe(false)
+    expect(card.find('[data-testid="use-my-location-status"]').exists()).toBe(false)
+    expect(card.find('[data-testid="use-my-location-problem"]').exists()).toBe(false)
+    expect(box(card).attributes('aria-checked')).toBe('false')
+    expect(box(card).attributes('aria-describedby')).toBe(note(card).attributes('id'))
+    expect(note(card).text()).toContain('Rounded to about 1 km')
+    expect(stored()).toBeNull()
+
+    await tick(card)
+    expect(JSON.parse(stored()!)).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(box(card).exists()).toBe(false)
+    expect(chip(card).attributes('aria-label')).toBe('Stored: my position in this browser')
+    await vi.waitFor(() => expect(document.activeElement).toBe(chip(card).element))
+  })
+
+  it('forgets from the control, tells the page so it can place the focus, and shows nothing again', async () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    mockBrowser()
+    const card = await mountControl({ offerOnly: true })
+    await forget(card)
+    expect(card.emitted('forgotten')).toHaveLength(1)
+    expect(stored()).toBeNull()
+    expect(box(card).exists()).toBe(false)
+    expect(chip(card).exists()).toBe(false)
   })
 })

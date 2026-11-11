@@ -137,9 +137,20 @@ test.describe('the stored position', () => {
     await expect(page.getByTestId('use-my-location-remembered')).toHaveCount(0)
     await expect(chip).toBeFocused()
 
+    // opened again (a disclosure: the focus stays on the control), the next Tab is "Forget", which follows it in the tab
+    // order, and the one after it goes on to the next control of the page, not out of it or round in a loop
     await page.keyboard.press('Enter')
     const forget = page.getByRole('button', { name: en.location.forget })
-    await forget.focus()
+    await expect(chip).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(forget).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect.poll(() => page.evaluate(() => {
+      const active = document.activeElement
+      return active !== null && active !== document.body && !active.closest('[data-testid="use-my-location-remembered"]') && active.getAttribute('data-testid') !== 'use-my-location-stored'
+    })).toBe(true)
+    await page.keyboard.press('Shift+Tab')
+    await expect(forget).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(chip).toHaveCount(0)
     await expect(button).toBeFocused()
@@ -151,6 +162,46 @@ test.describe('the stored position', () => {
     await box.click()
     await expect(chip).toBeVisible()
     expect(JSON.parse((await stored(page))!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+  })
+})
+
+test.describe('the stored position, on the map', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  test('is offered on the station card that the press picked, kept there, and forgotten there, with one copy of the option in the page at a time (GH-4011)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', en.mapTool.title)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    const box = page.getByRole('checkbox', { name: en.location.remember })
+    const chip = page.getByRole('button', { name: en.location.storedLabel })
+
+    // the list has the button, and the option once a position is found; the station card replaces the list
+    await page.getByTestId('use-my-location-button').click()
+    await expect(page.getByTestId('map-station-name')).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await expect(page.getByTestId('use-my-location-button')).toHaveCount(0)
+    await expect(box).toHaveCount(1)
+    await expect(box).toBeVisible()
+    await expect(page.getByText(en.location.note)).toHaveCount(1)
+    expect(await page.evaluate(() => localStorage.getItem('wd-location'))).toBeNull()
+
+    await box.click()
+    await expect(chip).toHaveCount(1)
+    await expect(chip).toBeFocused()
+    await expect(box).toHaveCount(0)
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('wd-location')))!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: en.location.forget })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(chip).toHaveCount(0)
+    await expect(page.getByTestId('map-station-name')).toBeFocused()
+    expect(await page.evaluate(() => localStorage.getItem('wd-location'))).toBeNull()
+
+    // back to the list: the button alone again
+    await page.getByTestId('map-back').click()
+    await expect(page.getByTestId('use-my-location-button')).toBeVisible()
+    await expect(box).toHaveCount(0)
+    await expect(chip).toHaveCount(0)
   })
 })
 

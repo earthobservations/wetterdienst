@@ -1761,14 +1761,52 @@ describe('the reader\'s own position', () => {
     await listed(wrapper)
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 }))
-    // the button is in the list of the panel, which a station picked replaces: back to it, where the box is, with the
-    // position in hand (GH-4011: the box is offered after a press), and ticked it gives the Stored control
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-back"]').exists()).toBe(true))
-    await wrapper.find('[data-testid="map-back"]').trigger('click')
+    // the button is in the list of the panel, which the station card replaces: the card shows the option to keep the
+    // position (GH-4011), and the list is not in the page, so there is one copy of it to tab to
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
     await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    expect(wrapper.findAll('button[role="checkbox"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="use-my-location-note"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="use-my-location-button"]').exists()).toBe(false)
+    expect(wrapper.find('.map-detail [data-testid="use-my-location"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(false)
+    expect(localStorage.getItem('wd-location')).toBeNull()
+
+    // ticked, the box gives way to the Stored control, on the card, and the position is kept
     await wrapper.find('button[role="checkbox"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.map-detail [data-testid="use-my-location-stored"]').exists()).toBe(true))
+    expect(wrapper.findAll('[data-testid="use-my-location-stored"]')).toHaveLength(1)
+    expect(wrapper.find('button[role="checkbox"]').exists()).toBe(false)
+    expect(JSON.parse(localStorage.getItem('wd-location')!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+
+    // forgotten from the card: the mark and the position go, the station stays, and the focus goes to the card's heading
     await forgetFromStored(wrapper)
     await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(localStorage.getItem('wd-location')).toBeNull()
+    expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(false)
+    expect(wrapper.find('button[role="checkbox"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL')
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('[data-testid="map-station-name"]').element))
+  })
+
+  it('shows the option on the list again, with the button, after the way back from the card', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-back"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="map-back"]').trigger('click')
+    // the list has the full copy, and the card's is gone with it: one box, one note, and the button
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-button"]').exists()).toBe(true))
+    expect(wrapper.findAll('button[role="checkbox"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="use-my-location-note"]')).toHaveLength(1)
+  })
+
+  it('shows no option on a card whose station the reader picked themselves', async () => {
+    mockBrowser()
+    const wrapper = await mountMap('/map?station=10147')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
+    expect(wrapper.find('.map-detail [data-testid="use-my-location"]').exists()).toBe(false)
   })
 
   it('is forgotten by the panel as well: a position with no station within reach leaves no place and no notice behind', async () => {

@@ -229,8 +229,9 @@ meant to be understood, not to be the last word, and **a review by a native spea
 - **Machine-made**: the two strings of the "Stored" control of "Use my location" (`location.stored`, the word on the chip, and
   `location.storedLabel`, its accessible name, which opens with that word, GH-4011) were written by a language model (Claude)
   in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Bewahrt` (the note
-  says `bewahrt` for "stays in this browser"); `lb` `Gespäichert`; `pl` `Zapisana` and `cs` `Uloženo`; and in `fr`, `es` and
-  `it` the feminine (`Mémorisée`, `Guardada`, `Salvata`), which agrees with "position" and not with the chip's noun.
+  says `bewahrt` for "stays in this browser"); `lb` `Gespäichert`; `pl` `Zapisana` and `cs` `Uložená`; and in `fr`, `es`, `it`,
+  `pl` and `cs` the feminine (`Mémorisée`, `Guardada`, `Salvata`, `Zapisana`, `Uložená`), which agrees with the language's word
+  for the position (`position`, `ubicación`, `posizione`, `lokalizacja`, `poloha`), which the chip leaves out.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.

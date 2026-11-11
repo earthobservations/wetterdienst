@@ -120,22 +120,16 @@ export function useMyLocation() {
   }
 
   /**
-   * Ticks or unticks "remember": ticked, the position in hand is kept in the browser; unticked, what was kept is deleted.
-   * It cannot be ticked with no position in hand (GH-4010): there would be nothing to keep, and the box would say that
-   * something is kept when nothing is. The component shows the box only while a position is in hand.
+   * Ticks "remember": the position in hand is kept in the browser. It cannot be ticked with no position in hand
+   * (GH-4010): there would be nothing to keep, and the state would say that something is kept when nothing is. The
+   * component shows the box only while a position is in hand. There is no unticking: the box gives way to the "Stored"
+   * control once the position is stored, and `forget()` is the one way back.
    */
-  function setRemember(on: boolean) {
-    if (on && !position.value)
+  function rememberPosition() {
+    if (!position.value)
       return
-    remember.value = on
-    if (!on) {
-      forgetRememberedPosition()
-      // what was kept for the position goes with it; the place stays for the visit
-      dropPositionPlace(false)
-    }
-    else if (position.value) {
-      writeRememberedPosition(position.value)
-    }
+    remember.value = true
+    writeRememberedPosition(position.value)
   }
 
   /** The position is forgotten: in memory and in the browser */
@@ -144,8 +138,8 @@ export function useMyLocation() {
     remember.value = false
     failure.value = null
     forgetRememberedPosition()
-    dropPositionPlace(true)
+    dropPositionPlace()
   }
 
-  return { position, failure, busy, remember, remembered, locate, setRemember, forget }
+  return { position, failure, busy, remember, remembered, locate, rememberPosition, forget }
 }

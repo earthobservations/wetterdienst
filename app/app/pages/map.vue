@@ -241,6 +241,10 @@ const panel = ref<HTMLElement | null>(null)
 function setDetailHeading(element: unknown) {
   detailHeading.value = element as HTMLElement | null
 }
+/** The position was forgotten from the station card: the control that had the focus is gone, the card's heading takes it */
+function focusDetailHeading() {
+  void nextTick(() => detailHeading.value?.focus())
+}
 function setPanel(element: unknown) {
   panel.value = element as HTMLElement | null
 }
@@ -626,6 +630,10 @@ watch(() => route.query, (query) => {
                   <UIcon name="i-ph-map-pin" class="size-4 shrink-0" />
                   {{ placeText }}
                 </p>
+                <!-- the station is the one found for the reader's position (GH-4011): the list that holds the button is
+                     not in view, so the option to keep the position, or the control that says it is kept, is here; the
+                     list and the card are never both in the page, so there is one of them to tab to -->
+                <UseMyLocation v-if="origin.kind === 'position'" offer-only class="mt-2" @forgotten="focusDetailHeading" />
               </div>
 
               <!-- the forecast, at the nearest forecast point -->
