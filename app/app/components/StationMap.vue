@@ -25,6 +25,10 @@ const props = defineProps<{
   label: string
   /** Raised for a station picked outside the map (the address, the list): the map moves to it, once */
   recentre?: number
+  /** The reader's own position (GH-3651), marked as a target of its own; a press of "Use my location" raises `locate` */
+  position?: Point | null
+  /** Raised for each press that gave a position: the map centres on it, once */
+  locate?: number
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +48,7 @@ let dots: L.GridLayer | null = null
 let selection: L.CircleMarker | null = null
 let placeMarker: L.CircleMarker | null = null
 let link: L.Polyline | null = null
+let positionMarks: L.CircleMarker[] = []
 
 const { t } = useI18n()
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -128,14 +133,18 @@ function drawSelection() {
       dashArray: '4 5',
       interactive: false,
     }).addTo(map)
-    placeMarker = L.circleMarker([props.place.latitude, props.place.longitude], {
-      radius: 6,
-      color: NAVY,
-      weight: 2.5,
-      fillColor: '#ffffff',
-      fillOpacity: 1,
-      interactive: false,
-    }).addTo(map)
+    // the target of the reader's own position is that place: it is not drawn twice
+    const atPosition = props.position && props.position.latitude === props.place.latitude && props.position.longitude === props.place.longitude
+    if (!atPosition) {
+      placeMarker = L.circleMarker([props.place.latitude, props.place.longitude], {
+        radius: 6,
+        color: NAVY,
+        weight: 2.5,
+        fillColor: '#ffffff',
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(map)
+    }
   }
   selection = L.circleMarker([station.latitude, station.longitude], {
     radius: SELECTED_RADIUS_PX,
@@ -145,6 +154,33 @@ function drawSelection() {
     fillOpacity: 1,
     interactive: false,
   }).addTo(map)
+}
+
+/** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */
+function drawPosition() {
+  if (!map)
+    return
+  for (const mark of positionMarks)
+    mark.remove()
+  positionMarks = []
+  if (!props.position)
+    return
+  const at: L.LatLngExpression = [props.position.latitude, props.position.longitude]
+  positionMarks = [
+    L.circleMarker(at, { radius: 12, color: NAVY, weight: 2, fillColor: '#ffffff', fillOpacity: 0.55, interactive: false }).addTo(map),
+    L.circleMarker(at, { radius: 4, color: '#ffffff', weight: 2, fillColor: NAVY, fillOpacity: 1, interactive: false }).addTo(map),
+  ]
+}
+
+/** The presses of "Use my location" that the map has moved to */
+let located = 0
+
+/** Centres on the reader's position for a press that gave one, at a zoom where a station of the neighbourhood is seen */
+function centreOnPosition() {
+  if (!map || !props.position || (props.locate ?? 0) <= located)
+    return
+  located = props.locate ?? 0
+  map.setView([props.position.latitude, props.position.longitude], Math.max(map.getZoom(), 9), { animate: !reducedMotion.value })
 }
 
 /** The picks from outside the map that it has moved to */
@@ -203,7 +239,9 @@ onMounted(() => {
   })
   map.on('moveend', emitView)
   drawSelection()
+  drawPosition()
   reveal()
+  centreOnPosition()
   emitView()
 })
 
@@ -217,9 +255,13 @@ onBeforeUnmount(() => {
 })
 
 watch(() => [props.stations, props.reporting], () => dots?.redraw())
-watch(() => [props.selected, props.place, props.recentre], () => {
+watch(() => [props.selected, props.place, props.recentre, props.position], () => {
   drawSelection()
   reveal()
+})
+watch(() => [props.position, props.locate], () => {
+  drawPosition()
+  centreOnPosition()
 })
 </script>
 

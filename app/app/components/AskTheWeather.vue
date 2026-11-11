@@ -2,8 +2,10 @@
 import type { Station } from '#shared/types/api'
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
+import UseMyLocation from '~/components/UseMyLocation.vue'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { lastBoxingDay } from '~/utils/answers'
+import { distanceKm, formatDistance } from '~/utils/map-tool'
 import { isQuestion, QUESTIONS } from '~/utils/questions'
 
 // Ask the weather (GH-3518): the questions people bring to a weather service, as suggestions on the home page, each
@@ -14,7 +16,7 @@ import { isQuestion, QUESTIONS } from '~/utils/questions'
 // closes it. The open one is in the link (`?ask=summer`, `&day=2025-12-26` for the wind question, `&place=02564` for
 // a place the reader chose), so that an answer can be shared; a link without one opens none, and nothing is fetched
 // until a question is asked. The focus stays on the button; the answer is announced by its live region.
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { place, setPlace } = usePlace()
@@ -74,6 +76,47 @@ watch(() => route.query.place, async (id) => {
   }
 }, { immediate: true })
 
+// "Here" (GH-3651): the reader's own position, given by "Use my location" and rounded to about 1 km, takes the DWD station
+// nearest to it (the stations request, ranked by the position) as the place, for this visit only unless the reader ticked
+// "remember". The address then names no other place; the position itself is in no address.
+const { remember } = useMyLocation()
+const locating = ref(false)
+const locatedText = ref('')
+const locateProblem = ref('')
+let locateRequest = 0
+async function onPosition(point: { latitude: number, longitude: number }) {
+  const mine = ++locateRequest
+  locating.value = true
+  locatedText.value = ''
+  locateProblem.value = ''
+  try {
+    const response = await $fetch<{ stations: Station[] }>('/api/stations', {
+      query: { ...PLACE_NETWORK, latitude: point.latitude, longitude: point.longitude, rank: 1 },
+      ...API_FETCH,
+    })
+    if (mine !== locateRequest)
+      return
+    const found = response.stations?.[0] ? placeOf(response.stations[0]) : null
+    if (!found) {
+      locateProblem.value = t('location.noneNear')
+      return
+    }
+    setPlace({ ...found, fromPosition: true }, remember.value)
+    placeFailed.value = false
+    locatedText.value = t('location.here', { name: found.name, distance: formatDistance(distanceKm(point, found), locale.value) })
+    if (route.query.place)
+      void router.replace({ query: queryWith({ place: null }) }).catch(() => {})
+  }
+  catch {
+    if (mine === locateRequest)
+      locateProblem.value = t('location.lookupFailed')
+  }
+  finally {
+    if (mine === locateRequest)
+      locating.value = false
+  }
+}
+
 // the place dialog: the search of stations (AppCommandPalette in its place mode). A place chosen is in the link too.
 const placeOpen = ref(false)
 const placeButton = ref<HTMLButtonElement | null>(null)
@@ -112,6 +155,8 @@ function onPlace(chosen: { id: string }) {
       </button>
       <span v-if="placeFailed" class="text-sm text-error" role="status">{{ t('ask.placeNotFound') }}</span>
     </div>
+
+    <UseMyLocation class="mt-3" :resolving="locating" :status="locatedText" :problem="locateProblem" @position="onPosition" />
 
     <ul class="mt-4 flex flex-wrap gap-2" :aria-label="t('ask.questionsLabel')" data-testid="questions">
       <li v-for="entry in QUESTIONS" :key="entry.id" class="max-w-full">

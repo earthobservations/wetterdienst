@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearNuxtData } from '#app'
+import { clearNuxtData, clearNuxtState } from '#app'
 import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
@@ -32,8 +32,12 @@ registerEndpoint('/api/providers', (event) => {
   }
   return providersAnswer()
 })
+// the station nearest to a position the reader gave (GH-3651): asked with `rank`, answered by the DWD observation list
+const NEAREST = { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.63, longitude: 10, elevation: 11, start_timestamp: null, end_timestamp: null }
 registerEndpoint('/api/stations', (event) => {
   const query = record(event, 'stations')
+  if (query.get('rank') && query.get('network') === 'observation')
+    return { stations: [NEAREST] }
   return { stations: query.get('network') === 'mosmix' ? [KIEL_MOSMIX] : [] }
 })
 registerEndpoint('/api/values', (event) => {
@@ -258,5 +262,137 @@ describe('the suggestions', () => {
     await chip(wrapper, 'summer').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     expect(asked('values')[0]!.query.get('stations')).toBe('00183')
+  })
+})
+
+// "Here" (GH-3651): the reader's own position, given by "Use my location", takes the station nearest to it as the place
+describe('the place from the reader\'s position', () => {
+  function mockBrowser(options: { code?: number } = {}) {
+    const getCurrentPosition = vi.fn((success: (position: unknown) => void, failure: (error: unknown) => void) => {
+      if (options.code)
+        failure({ code: options.code })
+      else
+        success({ coords: { latitude: 53.6012, longitude: 10.0499 } })
+    })
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: 'prompt' })) } })
+    return getCurrentPosition
+  }
+  // the position's own state only: the place is the file's, which each test sets
+  const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
+  beforeEach(() => {
+    clearLocation()
+  })
+  afterEach(() => {
+    delete (navigator as any).geolocation
+    delete (navigator as any).permissions
+    vi.unstubAllGlobals()
+    clearLocation()
+  })
+  const locate = (wrapper: Awaited<ReturnType<typeof mountAsk>>) => wrapper.find('[data-testid="use-my-location-button"]')
+
+  it('asks the browser for nothing until the button is pressed', async () => {
+    const getCurrentPosition = mockBrowser()
+    await mountAsk()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(requests).toEqual([])
+  })
+
+  it('makes the nearest DWD station the place that the questions are about, and tells how far it is', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+
+    const request = asked('stations')[0]!.query
+    // the rounded position, asked as the stations request of the questions' own network
+    expect(Object.fromEntries(request)).toEqual({ provider: 'dwd', network: 'observation', parameters: 'daily/climate_summary', latitude: '53.6', longitude: '10.05', rank: '1' })
+    expect(wrapper.find('[data-testid="use-my-location-status"]').text()).toMatch(/^Asking about Hamburg-Fuhlsbüttel, the station \d+(\.\d)? km from your position\.$/)
+    expect(chip(wrapper, 'rain').text()).toBe('Will it rain in Hamburg-Fuhlsbüttel tomorrow?')
+
+    await chip(wrapper, 'summer').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+    expect(asked('values')[0]!.query.get('stations')).toBe('01975')
+  })
+
+  it('keeps the place for this visit only, unless the reader ticked remember', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
+  })
+
+  it('keeps the place in the browser with the position when remember is ticked', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('01975')
+    expect(JSON.parse(localStorage.getItem('wd-location')!)).toEqual({ latitude: 53.6, longitude: 10.05 })
+  })
+
+  it('takes the place of the link out of the address, and keeps the position out of it', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk('/?place=02564&ask=rain')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+    const address = useRoute().fullPath
+    expect(address).not.toContain('place=')
+    expect(address).not.toMatch(/lat|lon|53\.6|10\.05/)
+  })
+
+  it('takes the place back from the browser when the reader unticks remember, and keeps it for the visit', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem('wd-place') ?? 'null')?.fromPosition).toBe(true))
+
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel')
+  })
+
+  it('takes the place back, in the browser and in the page, when the reader forgets the position', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
+
+    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau'))
+  })
+
+  it('leaves a place the reader chose afterwards in the browser when remember is unticked', async () => {
+    mockBrowser()
+    const wrapper = await mountAsk()
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
+    usePlace().setPlace({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' })
+
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('00183')
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona')
+  })
+
+  it('leaves the place as it was where the reader refuses, and says so in the alert region', async () => {
+    const getCurrentPosition = mockBrowser({ code: 1 })
+    const wrapper = await mountAsk()
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-problem"]').text()).toContain('Your browser blocks location for this site'))
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau')
+    expect(asked('stations')).toEqual([])
+    // the questions still work
+    await chip(wrapper, 'summer').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
   })
 })

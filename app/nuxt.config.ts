@@ -248,6 +248,11 @@ export default defineNuxtConfig({
       // header. OpenStreetMap's tile servers reject refererless requests
       // ("Access denied, referer required"), so send the origin cross-origin.
       referrerPolicy: 'strict-origin-when-cross-origin',
+      // nuxt-security's default switches the browser's Geolocation API off for the page (`geolocation=()`), which
+      // would make "Use my location" (GH-3651) fail as a refusal that no setting of the browser can undo. The page
+      // itself may ask (on the reader's press, and the browser asks the reader); no frame of another origin may.
+      // Camera, microphone, screen capture and fullscreen stay as the module has them.
+      permissionsPolicy: { geolocation: ['self'] },
       contentSecurityPolicy: {
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by

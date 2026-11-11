@@ -769,6 +769,23 @@
     "removeStation": "Remove {name} from the selection",
     "announceList": "Station search"
   },
+  "location": {
+    "button": "Use my location",
+    "locating": "Finding your position …",
+    "remember": "Remember my position in this browser",
+    "note": "Rounded to about 1 km and used only to find the nearest station. It stays in this browser only if you tick the box.",
+    "privacyLink": "More in the privacy policy",
+    "remembered": "Remembered position: {position}",
+    "forget": "Forget my position",
+    "denied": "Your browser blocks location for this site. To allow it, open the site settings of your browser, set Location to Allow and press the button again. The search still works.",
+    "unsupported": "This browser cannot tell your position. Use the search instead.",
+    "unavailable": "Your position could not be found. Use the search instead.",
+    "timeout": "Finding your position took too long. Press the button to try again, or use the search.",
+    "nearest": "Nearest station: {name}, {distance} from your position.",
+    "noneNear": "No station was found near your position.",
+    "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
+    "here": "Asking about {name}, the station {distance} from your position."
+  },
   "interpolation": {
     "source": "Source",
     "manualCoords": "Manual coordinates",
@@ -835,6 +852,7 @@
     "chosen": "{name} chosen",
     "pickedPlace": "A point on the map, {distance} from this station",
     "pickedCentre": "The place at the centre of the map when it was picked, {distance} from this station",
+    "pickedPosition": "Your position, {distance} from this station",
     "pickedPlaceAddress": "The place picked, {distance} from this station",
     "pickedStationPlace": "The position of {name}, {distance} from this station",
     "elevation": "{value} m above sea level",

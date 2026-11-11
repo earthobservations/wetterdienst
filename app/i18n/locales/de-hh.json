@@ -769,6 +769,23 @@
     "removeStation": "{name} wegmaken",
     "announceList": "Stationssöök"
   },
+  "location": {
+    "button": "Mien Standort bruken",
+    "locating": "Standort warrt söcht …",
+    "remember": "Mien Standort in disse Browser beholen",
+    "note": "Op ungefähr 1 km rundt un blots bruukt, üm de neegste Station to finnen. Blots wenn du dat Höken sett'st, blifft he in disse Browser bewahrt.",
+    "privacyLink": "Mehr in de Datenschutzerklärung",
+    "remembered": "Beholen Standort: {position}",
+    "forget": "Mien Standort vergeten",
+    "denied": "Dien Browser sperrt den Standort för disse Siet. Üm em to verlöven, mak de Siet-Instellen vun dien Browser apen, stell Standort op Verlöven un drück den Knop noch mal. Dat Söken geiht jümmers noch.",
+    "unsupported": "Disse Browser kann dien Standort nich rutkriegen. Bruuk stattdessen dat Söken.",
+    "unavailable": "Dien Standort leet sik nich fastleggen. Bruuk stattdessen dat Söken.",
+    "timeout": "Dat Fastleggen vun dien Standort hett to lang duert. Drück den Knop noch mal oder bruuk dat Söken.",
+    "nearest": "Neegste Station: {name}, {distance} vun dien Standort af.",
+    "noneNear": "In de Neg vun dien Standort is keen Station funnen worrn.",
+    "lookupFailed": "De neegste Station leet sik nich afropen. Versöök dat noch mal oder bruuk dat Söken.",
+    "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af."
+  },
   "interpolation": {
     "source": "Quell",
     "manualCoords": "Manuelle Koordinaten",
@@ -835,6 +852,7 @@
     "chosen": "{name} utsöcht",
     "pickedPlace": "Een Punkt op de Kaart, {distance} vun disse Station af",
     "pickedCentre": "De Oort in de Midd vun de Kaart, as he utwählt wurr, {distance} vun disse Station af",
+    "pickedPosition": "Dien Standort, {distance} vun disse Station af",
     "pickedPlaceAddress": "De utwählte Oort, {distance} vun disse Station af",
     "pickedStationPlace": "De Stäe vun {name}, {distance} vun disse Station af",
     "elevation": "{value} m över Seehööch",

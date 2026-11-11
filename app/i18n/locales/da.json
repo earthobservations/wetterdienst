@@ -769,6 +769,23 @@
     "removeStation": "Fjern {name} fra valget",
     "announceList": "Stationssøgning"
   },
+  "location": {
+    "button": "Brug min placering",
+    "locating": "Finder din placering …",
+    "remember": "Husk min placering i denne browser",
+    "note": "Afrundet til omkring 1 km og kun brugt til at finde den nærmeste station. Den bliver kun i denne browser, hvis du sætter hak.",
+    "privacyLink": "Mere i privatlivspolitikken",
+    "remembered": "Husket placering: {position}",
+    "forget": "Glem min placering",
+    "denied": "Din browser blokerer placering for dette websted. For at tillade den skal du åbne webstedsindstillingerne i din browser, sætte Placering til Tillad og trykke på knappen igen. Søgningen virker stadig.",
+    "unsupported": "Denne browser kan ikke finde din placering. Brug søgningen i stedet.",
+    "unavailable": "Din placering kunne ikke findes. Brug søgningen i stedet.",
+    "timeout": "Det tog for lang tid at finde din placering. Tryk på knappen igen, eller brug søgningen.",
+    "nearest": "Nærmeste station: {name}, {distance} fra din placering.",
+    "noneNear": "Der blev ikke fundet nogen station i nærheden af din placering.",
+    "lookupFailed": "Den nærmeste station kunne ikke slås op. Prøv igen, eller brug søgningen.",
+    "here": "Der spørges om {name}, stationen {distance} fra din placering."
+  },
   "interpolation": {
     "source": "Kilde",
     "manualCoords": "Manuelle koordinater",
@@ -835,6 +852,7 @@
     "chosen": "{name} valgt",
     "pickedPlace": "Et punkt på kortet, {distance} fra denne station",
     "pickedCentre": "Stedet i midten af kortet, da det blev valgt, {distance} fra denne station",
+    "pickedPosition": "Din placering, {distance} fra denne station",
     "pickedPlaceAddress": "Det valgte sted, {distance} fra denne station",
     "pickedStationPlace": "Placeringen af {name}, {distance} fra denne station",
     "elevation": "{value} m over havet",

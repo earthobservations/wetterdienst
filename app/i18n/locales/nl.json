@@ -769,6 +769,23 @@
     "removeStation": "{name} uit de selectie verwijderen",
     "announceList": "Stations zoeken"
   },
+  "location": {
+    "button": "Mijn locatie gebruiken",
+    "locating": "Je locatie wordt bepaald …",
+    "remember": "Mijn locatie onthouden in deze browser",
+    "note": "Afgerond op ongeveer 1 km en alleen gebruikt om het dichtstbijzijnde station te vinden. Ze blijft alleen in deze browser staan als je het vakje aanvinkt.",
+    "privacyLink": "Meer in de privacyverklaring",
+    "remembered": "Onthouden locatie: {position}",
+    "forget": "Mijn locatie vergeten",
+    "denied": "Je browser blokkeert de locatie voor deze site. Om haar toe te staan, open je de site-instellingen van je browser, zet je Locatie op Toestaan en druk je opnieuw op de knop. Zoeken werkt gewoon door.",
+    "unsupported": "Deze browser kan je locatie niet bepalen. Gebruik in plaats daarvan het zoeken.",
+    "unavailable": "Je locatie kon niet worden bepaald. Gebruik in plaats daarvan het zoeken.",
+    "timeout": "Het bepalen van je locatie duurde te lang. Druk opnieuw op de knop of gebruik het zoeken.",
+    "nearest": "Dichtstbijzijnde station: {name}, {distance} van je locatie.",
+    "noneNear": "Er is geen station gevonden in de buurt van je locatie.",
+    "lookupFailed": "Het dichtstbijzijnde station kon niet worden opgezocht. Probeer het opnieuw of gebruik het zoeken.",
+    "here": "De vraag gaat over {name}, het station op {distance} van je locatie."
+  },
   "interpolation": {
     "source": "Bron",
     "manualCoords": "Handmatige coördinaten",
@@ -835,6 +852,7 @@
     "chosen": "{name} gekozen",
     "pickedPlace": "Een punt op de kaart, {distance} van dit station",
     "pickedCentre": "De plek in het midden van de kaart toen die werd gekozen, {distance} van dit station",
+    "pickedPosition": "Je locatie, {distance} van dit station",
     "pickedPlaceAddress": "De gekozen plek, {distance} van dit station",
     "pickedStationPlace": "De positie van {name}, {distance} van dit station",
     "elevation": "{value} m boven zeeniveau",

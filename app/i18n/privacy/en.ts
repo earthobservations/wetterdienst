@@ -46,7 +46,7 @@ export const privacy: PrivacyPolicy = {
       title: 'Cookie and local storage in the browser',
       paragraphs: [
         'The web app sets one functional cookie and keeps settings in your browser\'s local storage (localStorage). There are no tracking or advertising cookies. The web app does not pass cookies on to the backend.',
-        'The cookie and local storage are necessary for the web app to work (the language, colour scheme and display you choose) and are set without your consent (Section 25(2) no. 2 TDDDG). Where personal data is processed in the process, the legal basis is Art. 6(1)(f) GDPR.',
+        'The cookie and local storage are necessary for the web app to work (the language, colour scheme and display you choose) and are set without your consent (Section 25(2) no. 2 TDDDG). Where personal data is processed in the process, the legal basis is Art. 6(1)(f) GDPR. The entry localStorage wd-location is the exception: it is set only if you tick "Remember my position in this browser" next to "Use my location", and it is based on your consent (Section 25(1) TDDDG; see "Location").',
       ],
       items: [
         'Cookie wd_lang: stores the language of the interface. Lifetime 365 days, path /, SameSite=Lax.',
@@ -54,7 +54,19 @@ export const privacy: PrivacyPolicy = {
         'localStorage meteogram.view: whether the meteogram is shown as a chart, in its compact view or as a table. A value stored earlier under meteogram.compact is taken over once and deleted.',
         'localStorage wd-station-picker: whether the station picker in the explorer, the history, the forecast and the climate stripes shows the list or the map (for each tool separately).',
         'localStorage wd-place: the weather station of "Ask the weather" (its number, name, position and region), chosen on the home page or named by a link you opened. The entry itself stays in your browser. The station\'s number and position are in the requests for the answers (see "Log data"), and its number is in the address of the page (place=) once chosen.',
+        'localStorage wd-location: only if you tick "Remember my position in this browser" next to "Use my location": your position, rounded to about 1 km (latitude and longitude). Unlike the other entries it is set only with your consent (see "Location"); the entry itself stays in your browser.',
         'localStorage nuxt-color-mode: the colour scheme you chose (light, dark or system).',
+      ],
+    },
+    {
+      id: 'location',
+      icon: 'i-ph-crosshair',
+      title: 'Location ("Use my location")',
+      paragraphs: [
+        'In several places the web app offers the button "Use my location": in the station picker of the forecast, the explorer, the climate stripes and the station history, on the map, and in "Ask the weather". It is used to find the nearest station and to centre the map on your location. The location is requested only when you press the button, never when a page loads, and your browser also asks for your permission. Without a location, the search by place or station name and the choice on the map work as before.',
+        'Your browser determines the position, depending on the browser for example from GPS, Wi-Fi or mobile network data and possibly through its vendor\'s location service; the operator has no influence on this, and the browser vendor\'s privacy policy applies. The web app rounds it in your browser to two decimal places (about 1 km) before it is used any further. In the station picker of the forecast, the explorer and the station history and in "Ask the weather", the rounded coordinates are sent with each press of the button, also for a remembered position, as the coordinates of the stations request, to the backend of this service (see "Log data"). For the climate stripes and on the map, the nearest station is determined in the browser from the station list that has already been loaded; the coordinates are not sent to the backend there. If the map centres on your location, however, your browser fetches the map tiles of that area from tile.openstreetmap.org, so the OpenStreetMap Foundation learns roughly where you are (see "Resources from third parties (map and images)"). Beyond that, the coordinates are not passed on to third parties. The backend does not store them beyond the usual request log and does not link them with other data.',
+        'The position stays in the memory of the open page and is forgotten when the page is closed or reloaded. Only if you tick "Remember my position in this browser" is the rounded position kept in your browser\'s local storage (localStorage wd-location) and used for a later press of the button without asking again, until you choose "Forget my position" or untick the box. The nearest station that "Ask the weather" then takes as its place is then stored under wd-place and deleted together with the position when you choose "Forget my position" or untick the box; without the tick it applies to the visit only.',
+        'The legal basis for processing the position is your consent (Art. 6(1)(a) GDPR), which you give by pressing the button and by allowing it in your browser. Storage in local storage is based on your consent by ticking the box (Section 25(1) TDDDG). You can withdraw your consent at any time with effect for the future (Art. 7(3) GDPR) by withdrawing the permission in your browser\'s settings, unticking the box or choosing "Forget my position". The lawfulness of the processing carried out until then is not affected.',
       ],
     },
     {

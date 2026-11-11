@@ -5,6 +5,7 @@ import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import MapStripes from '~/components/MapStripes.vue'
+import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
 import {
   closerStoppedStation,
@@ -246,6 +247,56 @@ function setPanel(element: unknown) {
 const announcement = ref('')
 const reach = computed(() => formatDistance(REACH_KM, locale.value))
 
+// ---- the reader's own position (GH-3651) ------------------------------------------------------------------------
+
+/** The position the reader gave by "Use my location", rounded to about 1 km: marked on the map, and the place picked */
+const myPosition = ref<Point | null>(null)
+/** Counts the presses that gave a position: the map centres on it once for each */
+const locateCount = ref(0)
+/** A position that came before the list of the stations: picked as soon as the list is there */
+let pendingPosition: Point | null = null
+const { position: rememberedPosition } = useMyLocation()
+// "Forget my position" takes the position off the map and out of the panel: the mark, the place it made (the station
+// stays picked, as the reader's station, with no place apart from it) and a lookup that was waiting for the list
+watch(rememberedPosition, (now) => {
+  if (now)
+    return
+  myPosition.value = null
+  pendingPosition = null
+  if (origin.value.kind !== 'position')
+    return
+  if (selected.value) {
+    anchor.value = { latitude: selected.value.latitude, longitude: selected.value.longitude }
+    origin.value = { kind: 'station', name: stationName(selected.value) }
+  }
+  else {
+    anchor.value = null
+    origin.value = { kind: 'unknown' }
+    noStationNear.value = false
+  }
+})
+
+function pickPosition(point: Point) {
+  pickAt(point, SAME_PLACE_KM, true, 0, 0, { kind: 'position' })
+}
+
+function onPosition(point: Point) {
+  myPosition.value = point
+  locateCount.value++
+  if (listStatus.value === 'success')
+    pickPosition(point)
+  else
+    pendingPosition = point
+}
+
+watch(listStatus, (status) => {
+  if (status === 'success' && pendingPosition) {
+    const point = pendingPosition
+    pendingPosition = null
+    pickPosition(point)
+  }
+})
+
 /** Counts the picks from outside the map that it is to move to; the map moves once for each, as soon as the station is there */
 const recentre = ref(0)
 /** The station the address opened the page with, or a pick from outside, waits to be announced and moved to until its station is there */
@@ -464,7 +515,7 @@ const placeText = computed(() => {
   const from = origin.value
   if (from.kind === 'station')
     return t('mapTool.pickedStationPlace', { name: from.name, distance })
-  return t({ centre: 'mapTool.pickedCentre', unknown: 'mapTool.pickedPlaceAddress', point: 'mapTool.pickedPlace' }[from.kind], { distance })
+  return t({ centre: 'mapTool.pickedCentre', unknown: 'mapTool.pickedPlaceAddress', point: 'mapTool.pickedPlace', position: 'mapTool.pickedPosition' }[from.kind], { distance })
 })
 
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
@@ -485,7 +536,8 @@ function stationName(station: Station) {
 
 // ---- the address follows what is shown, and what the address says from outside is taken ---------------------------
 
-const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: place.value }))
+// the reader's own position is not written into the address, which is copied and shared: the station is
+const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: origin.value.kind === 'position' ? null : place.value }))
 const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
 
 watch(state, (shown) => {
@@ -696,6 +748,7 @@ watch(() => route.query, (query) => {
               <p v-if="listStatus === 'success'" class="text-sm text-muted sm:hidden" data-testid="map-count-panel">
                 {{ countLabel }}
               </p>
+              <UseMyLocation @position="onPosition" />
               <UInput
                 id="map-search"
                 v-model="search"
@@ -803,6 +856,8 @@ watch(() => route.query, (query) => {
                 :stations="stations"
                 :selected="selected"
                 :recentre="recentre"
+                :position="myPosition"
+                :locate="locateCount"
                 :place="place"
                 :reporting="reporting"
                 :label="mapLabel"
