@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 #: the routes whose answer is sent to be kept, with a request each and whether they have a `Last-Modified`
 _CATALOGUE = [
-    pytest.param("/api/v1/coverage", {}, id="coverage"),
     pytest.param("/api/v1/coverage", {"provider": "dwd", "network": "observation"}, id="coverage-of-a-network"),
     pytest.param("/api/v1/providers", {}, id="providers"),
     pytest.param("/api/v1/glossary", {"limit": 5}, id="glossary"),
@@ -366,7 +365,8 @@ def test_the_time_of_the_catalogue_moves_with_the_env_file_that_every_request_re
 
 
 def _aemet_configured(response: Any) -> bool:  # noqa: ANN401
-    return response.json()["aemet"]["observation"]["configured"]
+    aemet = next(provider for provider in response.json()["providers"] if provider["provider"] == "aemet")
+    return aemet["networks"][0]["configured"]
 
 
 def _read_date(value: str) -> dt.datetime:
@@ -386,7 +386,7 @@ def test_the_time_of_the_catalogue_does_not_go_back_when_the_env_file_goes_or_ge
     env.write_text("WD_AUTH__AEMET=a-token\n")
     now = dt.datetime.now(dt.UTC)
     os.utime(env, (now.timestamp(), now.timestamp()))
-    first = client.get("/api/v1/coverage")
+    first = client.get("/api/v1/providers")
     assert _aemet_configured(first) is True
 
     if how == "removed":
@@ -395,14 +395,14 @@ def test_the_time_of_the_catalogue_does_not_go_back_when_the_env_file_goes_or_ge
         env.write_text("# no credential\n")
         old = (now - dt.timedelta(days=30)).timestamp()
         os.utime(env, (old, old))
-    second = client.get("/api/v1/coverage", headers={"If-Modified-Since": first.headers["Last-Modified"]})
+    second = client.get("/api/v1/providers", headers={"If-Modified-Since": first.headers["Last-Modified"]})
 
     assert second.status_code == 200
     assert _aemet_configured(second) is False
     assert second.headers["ETag"] != first.headers["ETag"]
     assert _read_date(second.headers["Last-Modified"]) > _read_date(first.headers["Last-Modified"])
     # and it stays where it is while nothing changes
-    third = client.get("/api/v1/coverage", headers={"If-Modified-Since": second.headers["Last-Modified"]})
+    third = client.get("/api/v1/providers", headers={"If-Modified-Since": second.headers["Last-Modified"]})
     assert third.status_code == 304
     assert third.headers["Last-Modified"] == second.headers["Last-Modified"]
 

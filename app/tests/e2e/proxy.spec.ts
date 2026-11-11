@@ -21,20 +21,20 @@ function withoutRetrievalTime(text: string): string {
 
 test.describe('API proxy', () => {
   test('forwards a JSON response unchanged', async ({ request }) => {
-    const viaProxy = await request.get('/api/coverage', { timeout: REQUEST_TIMEOUT })
+    const viaProxy = await request.get('/api/providers', { timeout: REQUEST_TIMEOUT })
     expect(viaProxy.ok()).toBeTruthy()
     expect(viaProxy.headers()['content-type']).toContain('application/json')
 
-    const direct = await request.get(`${BACKEND_URL}/api/coverage`, { timeout: REQUEST_TIMEOUT })
+    const direct = await request.get(`${BACKEND_URL}/api/providers`, { timeout: REQUEST_TIMEOUT })
     expect(direct.ok()).toBeTruthy()
-    expect(await viaProxy.json()).toEqual(await direct.json())
+    expect(JSON.parse(withoutRetrievalTime(await viaProxy.text()))).toEqual(JSON.parse(withoutRetrievalTime(await direct.text())))
   })
 
   test('does not republish the backend\'s own response headers', async ({ request }) => {
     // Streaming relays upstream response headers, which buffering never did. uvicorn sends
     // `server: uvicorn` on every response, so this asserts against something the backend really
     // emits rather than passing vacuously.
-    const viaProxy = await request.get('/api/coverage', { timeout: REQUEST_TIMEOUT })
+    const viaProxy = await request.get('/api/providers', { timeout: REQUEST_TIMEOUT })
     expect(viaProxy.ok()).toBeTruthy()
 
     const headers = viaProxy.headers()
@@ -106,7 +106,7 @@ test.describe('API proxy', () => {
 test.describe('CORS', () => {
   // GH-3095: the app answered `access-control-allow-origin: *` on everything, so any web page could read the API
   // through it. Without `NUXT_CORS_ALLOWED_ORIGINS` it answers no page of another origin.
-  for (const path of ['/api/coverage', '/', '/docs']) {
+  for (const path of ['/api/providers', '/', '/docs']) {
     test(`answers no access-control-allow-origin on ${path}, to a page of another origin or to none`, async ({ request }) => {
       for (const headers of [{}, { origin: 'https://some-page.example' }]) {
         const response = await request.get(path, { headers, timeout: REQUEST_TIMEOUT })

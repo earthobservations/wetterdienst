@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Beschreiwung",
     "endpoints": {
-      "coverage": "Entdeck verfügbar Ubidder, Netzwierker, Opléisungen a Parameteren",
+      "providers": "Ubidder an hir Netzwierker opzielen",
+      "coverage": "Opléisungen, Datesätz a Parameter vun engem Netzwierk entdecken",
       "stations": "Ufro vu Wiederstatiounen iwwer verschidde Filteren",
       "history": "Ruff den Historique vun enger Statioun of (Numm, Bedreiwer, Geräter, Geografie, fehlend Daten)",
       "values": "Ruff Observatiounswäerter fir ausgewielte Statiounen a Parameteren of",
@@ -477,6 +478,7 @@
     "copied": "Kopéiert",
     "networksTitle": "Netzwierker",
     "source": "Quell",
+    "showDatasets": "Opléisungen an Datesätz weisen",
     "noResolutions": "Keng Zäitreih: hei gëtt et näischt opzelëschten.",
     "openExplorer": "Am Explorer opmaachen"
   },

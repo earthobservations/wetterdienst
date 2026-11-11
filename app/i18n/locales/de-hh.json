@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Beschrieven",
     "endpoints": {
-      "coverage": "Verfögbare Anbeders, Nettwarken, Oplösungen un Parameter entdecken",
+      "providers": "Anbeders un ehr Nettwarken oplisten",
+      "coverage": "Oplösungen, Datensätze un Parameter vun een Nettwark entdecken",
       "stations": "Wedderstationen na verscheden Filters afragen",
       "history": "Stationsverloop afropen (Naam, Bedriever, Reedschappen, Geografie, fehlende Daten)",
       "values": "Meetweerten för utsöchte Stationen un Parameter afropen",
@@ -477,6 +478,7 @@
     "copied": "Kopeert",
     "networksTitle": "Nettwarken",
     "source": "Quell",
+    "showDatasets": "Oplösungen un Datensätze wiesen",
     "noResolutions": "Keen Tietreeg: hier is nix to wiesen.",
     "openExplorer": "In'n Explorer apenmaken"
   },

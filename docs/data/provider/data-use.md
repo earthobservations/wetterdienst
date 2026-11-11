@@ -133,7 +133,7 @@ without an account. What that means for the data:
 - **It limits what costs something.** The web app counts requests per client (300 in 300 seconds by default, see
   [Rate limit](../../usage/app.md#rate-limit)); there is no limit that follows a provider's own limit.
 - **It holds the keys of the four providers that need one**, and keeps serving them. Read from its public
-  `/api/coverage` on 2026-11-06, `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
+  `/api/coverage` on 2026-11-06 (that list is `/api/providers` now), `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
   is within their terms is not settled; the question was put to KNMI and CEDA in November 2026 and no answer has come
   yet (see the next section).
 - **Its logs and the data protection of its users** are in the privacy policy of the app, not here.

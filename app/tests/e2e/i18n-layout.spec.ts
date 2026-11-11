@@ -191,11 +191,14 @@ function withDmo(): Handlers {
   const defaults = defaultHandlers()
   return {
     ...MANY_ROWS,
+    providers: async (url, route) => {
+      const answer = structuredClone(await defaults.providers!(url, route)) as { providers: Array<{ provider: string, networks: Array<{ network: string, kind: string }> }> }
+      const dwd = answer.providers.find(provider => provider.provider === 'dwd')!
+      dwd.networks.push({ ...dwd.networks.find(network => network.network === 'observation')!, network: 'dmo', kind: 'forecast' })
+      return answer
+    },
     coverage: async (url, route) => {
       const answer = await defaults.coverage!(url, route) as Record<string, any>
-      if (!url.searchParams.get('provider')) {
-        return { ...answer, dwd: { ...answer.dwd, dmo: { ...answer.dwd.observation, kind: 'forecast' } } }
-      }
       const hourly = answer.hourly
       return { ...answer, hourly: { ...hourly, datasets: { ...hourly.datasets, icon: hourly.datasets.temperature_air } } }
     },

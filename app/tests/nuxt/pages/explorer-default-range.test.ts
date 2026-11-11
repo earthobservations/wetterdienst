@@ -8,6 +8,7 @@ import { clearNuxtState, useRouter, useToast } from '#imports'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { networksAnswer } from '../fixtures/providers'
 
 // The date range the explorer starts for a selection whose whole record is more than the server sends as one
 // answer (GH-3457), and who the range belongs to once the user has touched it
@@ -49,11 +50,8 @@ const query = () => useRouter().currentRoute.value.query
 // opened at; without stations in it the selection is made by the test
 async function open(options: { route?: string, list?: ReturnType<typeof stations>, values?: (event: H3Event) => unknown, version?: unknown } = {}) {
   const list = options.list ?? stations(30)
-  endpoints.push(registerEndpoint('/api/coverage', (event) => {
-    if (getQuery(event).provider)
-      return dailyClimateSummaryCoverage()
-    return { dwd: { observation: {} } }
-  }))
+  endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+  endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
   endpoints.push(registerEndpoint('/api/stations', () => ({ stations: list })))
   endpoints.push(registerEndpoint('/api/values', options.values ?? (() => ({ values: [] }))))
   if (options.version)

@@ -70,7 +70,7 @@ def _once(response: Any, name: str = _NOSNIFF) -> list[str]:  # noqa: ANN401
         ("/api/v1/version", 200),
         ("/api/providers", 200),
         ("/api/glossary", 200),
-        ("/api/coverage", 200),
+        ("/api/coverage?provider=dwd&network=observation", 200),
         # the errors, each from a handler of its own: an unknown path, a route's 404 and a 422
         ("/nowhere", 404),
         ("/api/nowhere", 404),

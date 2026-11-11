@@ -20,7 +20,7 @@ the command line, in the REST API, in the MCP tools and in the app.
 A parameter is written `resolution/dataset/parameter` (`daily/climate_summary/temperature_air_mean_2m`), or
 `resolution/dataset` for every parameter of a dataset (`daily/climate_summary`, or `daily/kl` with the original name
 of the dataset). Which there are, per provider, is under [Data](../data/index.md); what a canonical name means and its
-unit is in the [glossary](../data/parameters.md), and `coverage` lists them for a network. Every provider is reached
+unit is in the [glossary](../data/parameters.md), and `coverage` lists them for one network. Every provider is reached
 the same way, and a parameter has one unit whichever provider reports it, see [Units](units.md).
 
 ## From a request to values

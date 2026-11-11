@@ -107,16 +107,19 @@ def test_the_app_names_the_same_resolutions() -> None:
     """Test that the app's `Resolution` is the document's list of this enum and nothing else (GH-3908).
 
     The app is TypeScript and cannot import the enum, so it takes the vocabulary from the OpenAPI document, where
-    the `name` of a resolution of `/api/providers` lists it (`ProviderResolution`); it once declared the same words
+    the keys of the coverage of a network list it (`Resolution`); it once declared the same words
     a second time and drifted both ways. A missing member is a type error at every call site handling that
     resolution; a surplus one is a value the app offers and the backend rejects. The document is held to the
     enum here, and the app to the document by its typecheck, which only holds where it declares no list of its own.
     """
     document = json.loads(OPENAPI_SNAPSHOT.read_text(encoding="utf-8"))
-    listed = document["components"]["schemas"]["ProviderResolution"]["properties"]["name"]["enum"]
+    listed = document["components"]["schemas"]["Resolution"]["enum"]
     assert listed == [resolution.value for resolution in Resolution]
+    # the coverage of a network is keyed by it
+    answer = document["paths"]["/api/v1/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert answer["propertyNames"] == {"$ref": "#/components/schemas/Resolution"}
 
     source = API_TYPES.read_text(encoding="utf-8")
-    assert re.search(r"^export type Resolution = Schemas\['ProviderResolution'\]\['name'\]$", source, re.MULTILINE), (
+    assert re.search(r"^export type Resolution = Schemas\['Resolution'\]$", source, re.MULTILINE), (
         f"`Resolution` of {API_TYPES} is not the document's"
     )

@@ -358,7 +358,7 @@ _KL = ["--parameters", "daily/kl"]
         pytest.param(["about", "providers", "--provider", "dwd"], 0, '"dwd"', id="providers"),
         pytest.param(["about", "providers", "--provider", "nowhere"], 2, "nowhere", id="providers-unknown"),
         pytest.param(["about", "coverage", *_DWD, "--datasets", "climate_summary"], 0, "daily", id="coverage"),
-        pytest.param(["about", "coverage", "--provider", "dwd"], 2, "Required with", id="coverage-usage"),
+        pytest.param(["about", "coverage", "--provider", "dwd"], 2, "about providers", id="coverage-usage"),
         pytest.param(["about", "auth", *_DWD], 0, '"valid": true', id="auth"),
         pytest.param(
             ["about", "fields", *_NOAA, "--resolution", "daily", "--dataset", "kl", "--period", "recent"],

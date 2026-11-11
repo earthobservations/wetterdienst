@@ -8,6 +8,7 @@ import {
   hourlyTemperatureIn,
   lastBoxingDay,
   lastSummer,
+  mapLimited,
   RAIN_AMOUNT,
   RAIN_CHANCE,
   rainTomorrow,
@@ -146,31 +147,23 @@ describe('how windy was it on a day', () => {
 })
 
 describe('where can I download hourly temperatures', () => {
-  const network = (name: string, kind: Provider['networks'][number]['kind'], resolutions: string[]) => ({
+  const network = (name: string, kind: Provider['networks'][number]['kind']) => ({
     network: name,
     kind,
     url: '',
     copyright: '',
     auth: false,
+    configured: true,
     date_required: false,
     parameters: 1,
-    resolutions: resolutions.map(resolution => ({ name: resolution, datasets: [] })),
   })
 
-  it('asks only the measurement networks with an hourly resolution', () => {
+  it('asks only the measurement networks: the list of providers does not say which have an hourly resolution', () => {
     const providers = [
-      { provider: 'dwd', networks: [network('observation', 'observation', ['hourly', 'daily']), network('mosmix', 'forecast', ['hourly']), network('radar', 'radar', [])] },
-      { provider: 'aemet', networks: [network('observation', 'observation', ['daily'])] },
+      { provider: 'dwd', networks: [network('observation', 'observation'), network('mosmix', 'forecast'), network('radar', 'radar')] },
+      { provider: 'aemet', networks: [network('observation', 'observation')] },
     ] as unknown as Provider[]
-    expect(hourlyNetworks(providers).map(({ provider, network }) => `${provider.provider}/${network}`)).toEqual(['dwd/observation'])
-  })
-
-  it('finds no hourly network in an answer without the lists of resolutions, and does not fail on it', () => {
-    // the compact answer of the backend has `resolutions: null`
-    const providers = [
-      { provider: 'dwd', networks: [{ network: 'observation', kind: 'observation', resolutions: null }, { network: 'mosmix', kind: 'observation', resolutions: null }] },
-    ] as unknown as Provider[]
-    expect(hourlyNetworks(providers)).toEqual([])
+    expect(hourlyNetworks(providers).map(({ provider, network }) => `${provider.provider}/${network}`)).toEqual(['dwd/observation', 'aemet/observation'])
   })
 
   it('finds the hourly air temperature, the dataset named for it first', () => {
@@ -187,6 +180,28 @@ describe('where can I download hourly temperatures', () => {
     expect(hourlyTemperatureIn({ hourly: { description: null, datasets: { data: { description: null, parameters: [parameter('temperature_air_mean_2m')] } } } } as any))
       .toEqual({ dataset: 'data', parameter: 'temperature_air_mean_2m' })
     expect(hourlyTemperatureIn({ daily: { description: null, datasets: {} } } as any)).toBeNull()
+  })
+})
+
+describe('the coverages the download question asks for', () => {
+  it('are asked for a few at a time, and the results come back in the order of the networks', async () => {
+    let underWay = 0
+    let most = 0
+    const results = await mapLimited(Array.from({ length: 27 }, (_, index) => index), 4, async (item) => {
+      underWay++
+      most = Math.max(most, underWay)
+      await new Promise(resolve => setTimeout(resolve, item % 3))
+      underWay--
+      return item * 2
+    })
+
+    expect(most).toBe(4)
+    expect(results).toEqual(Array.from({ length: 27 }, (_, index) => index * 2))
+  })
+
+  it('answer nothing for no network, and no more at once than there are', async () => {
+    expect(await mapLimited([], 4, async () => 1)).toEqual([])
+    expect(await mapLimited(['a'], 4, async item => item)).toEqual(['a'])
   })
 })
 

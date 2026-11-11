@@ -4,7 +4,7 @@ import type { Bar, RainAnswer, SummerAnswer, TemperatureSource, WindAnswer } fro
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { hourlyNetworks, hourlyTemperatureIn, lastSummer, RAIN_AMOUNT, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
+import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, lastSummer, mapLimited, RAIN_AMOUNT, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
 import { describeFetchError } from '~/utils/api-error'
 import { flagEmoji } from '~/utils/country'
 import { formatNumber } from '~/utils/format'
@@ -125,10 +125,15 @@ async function answerWind(turn: number): Promise<Status> {
   return answer ? 'ready' : 'empty'
 }
 
-async function answerDownload(): Promise<Status> {
-  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', { query: { datasets: true }, ...API_FETCH })).providers
-  const candidates = hourlyNetworks(providers)
-  const found = await Promise.all(candidates.map(async ({ provider, network }) => {
+// The services that publish hourly air temperature do not depend on the place or the language, so they are looked up once
+// for the visit (the promise is kept, as the server settings' is) and not again for each place the reader tries. The
+// coverage of each measurement network is asked for a few at a time: the list of providers does not say which have an
+// hourly resolution, and those that have none answer a 404, which is no answer to keep.
+const foundSources = useState<Promise<TemperatureSource[]> | undefined>('download-sources', () => undefined)
+
+async function findSources(): Promise<TemperatureSource[]> {
+  const providers = providerList.value?.providers ?? (await $fetch<{ providers: any[] }>('/api/providers', API_FETCH)).providers
+  const found = await mapLimited(hourlyNetworks(providers), COVERAGE_REQUESTS_AT_ONCE, async ({ provider, network }) => {
     try {
       const coverage = await $fetch<ProviderNetworkCoverageResponse>('/api/coverage', { query: { provider: provider.provider, network, resolutions: 'hourly' }, ...API_FETCH })
       const hit = hourlyTemperatureIn(coverage)
@@ -138,11 +143,21 @@ async function answerDownload(): Promise<Status> {
       // a network whose coverage could not be read is left out of the list, not guessed at
       return null
     }
-  }))
+  })
+  return found.filter((source): source is TemperatureSource => source !== null)
+}
+
+async function answerDownload(): Promise<Status> {
+  foundSources.value ??= findSources().catch((error) => {
+    // a failed lookup is asked again by the next question, Retry included
+    foundSources.value = undefined
+    throw error
+  })
+  const found = await foundSources.value
   const collator = new Intl.Collator(locale.value)
-  sources.value = found.filter((source): source is TemperatureSource => source !== null)
+  sources.value = found
     // the place's own service first, the rest by name
-    .sort((a, b) => Number(b.provider === 'dwd') - Number(a.provider === 'dwd') || collator.compare(a.name, b.name))
+    .toSorted((a, b) => Number(b.provider === 'dwd') - Number(a.provider === 'dwd') || collator.compare(a.name, b.name))
   return sources.value.length ? 'ready' : 'empty'
 }
 

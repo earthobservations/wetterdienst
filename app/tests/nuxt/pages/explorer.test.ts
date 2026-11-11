@@ -12,6 +12,7 @@ import StationPicker from '~/components/StationPicker.vue'
 import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { networksAnswer } from '../fixtures/providers'
 
 // DataViewer's copy-to-clipboard buttons use UTooltip, which needs a
 // TooltipProvider -- normally supplied by app.vue's root <UApp>. Mounting the
@@ -31,12 +32,8 @@ const endpoints: (() => void)[] = []
 
 // Mount the page with a station and a parameter selected, ready to fetch; `values` answers /api/values
 async function mountWithSelection(values: (event: H3Event) => unknown) {
-  endpoints.push(registerEndpoint('/api/coverage', (event) => {
-    const q = getQuery(event)
-    if (q.provider)
-      return dailyClimateSummaryCoverage()
-    return { dwd: { observation: {} } }
-  }))
+  endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+  endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
   endpoints.push(registerEndpoint('/api/stations', () => ({
     stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
   })))
@@ -47,7 +44,7 @@ async function mountWithSelection(values: (event: H3Event) => unknown) {
   const vm = wrapper.findComponent(ExplorerPage).vm as any
 
   // Let ParameterSelection's initialization settle before driving it externally -- otherwise its
-  // own emitUpdate() races and clobbers these. It no longer awaits /api/coverage in setup, so
+  // own emitUpdate() races and clobbers these. It no longer awaits /api/providers in setup, so
   // that window now spans the whole round trip and is too long to sleep through blindly.
   await vi.waitFor(
     () => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false),
@@ -376,10 +373,9 @@ describe('explorer Page DWD DMO lead time', () => {
       const q = getQuery(event)
       if (q.network === 'dmo')
         return dmoCoverage()
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { dmo: {}, observation: {} } }
+      return dailyClimateSummaryCoverage()
     }))
+    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { dmo: {}, observation: {} } })))
     endpoints.push(registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '10147', name: 'Hamburg', latitude: 53.6, longitude: 10.0 }],
     })))
@@ -527,11 +523,8 @@ describe('explorer Page DWD DMO parameters per run', () => {
 
   // Mount the page at icon with `query` added, as a shared link restores it, with a station chosen
   async function mountAt(query: string) {
-    endpoints.push(registerEndpoint('/api/coverage', (event) => {
-      if (getQuery(event).network === 'dmo')
-        return dmoCoverage()
-      return { dwd: { dmo: {} } }
-    }))
+    endpoints.push(registerEndpoint('/api/coverage', () => dmoCoverage()))
+    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { dmo: {} } })))
     endpoints.push(registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '10147', name: 'Hamburg', latitude: 53.6, longitude: 10.0 }],
     })))
@@ -1105,11 +1098,8 @@ describe('explorer Page names and units are the app settings\' (GH-3878)', () =>
     const LINK = `/explorer?${SELECTION}&humanize=false&convertUnits=false&shape=long`
 
     async function openLink(route: string) {
-      endpoints.push(registerEndpoint('/api/coverage', (event) => {
-        if (getQuery(event).provider)
-          return dailyClimateSummaryCoverage()
-        return { dwd: { observation: {} } }
-      }))
+      endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+      endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
       endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [] })))
       const wrapper = await mountSuspended(ExplorerWithApp, { route, attachTo: document.body })
       mounted.push(wrapper)
@@ -1439,11 +1429,8 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
 
   // Open the link in `mode`, with the elevation it names; `stations` answers /api/stations
   async function open(stations: () => unknown, { mode = 'interpolation', elevation = '11' } = {}) {
-    endpoints.push(registerEndpoint('/api/coverage', (event) => {
-      if (getQuery(event).provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    }))
+    endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
     endpoints.push(registerEndpoint('/api/stations', () => {
       stationsAsked += 1
       return stations()
@@ -1628,7 +1615,7 @@ describe('explorer Page date range from the stations\' span (GH-2439)', () => {
   })
 
   it('fills a required date range from the span the backend gives the chosen stations', async () => {
-    endpoints.push(registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} } })))
+    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
     const wrapper = await mountSuspended(ExplorerPage)
     mounted.push(wrapper)
     const vm = wrapper.vm as any

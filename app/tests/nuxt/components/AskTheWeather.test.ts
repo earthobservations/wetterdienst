@@ -31,7 +31,7 @@ registerEndpoint('/api/providers', (event) => {
     setResponseStatus(event, 404)
     return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
   }
-  return providersAnswer(event)
+  return providersAnswer()
 })
 // the station nearest to a position the reader gave (GH-3651): asked with `rank`, answered by the DWD observation list
 const NEAREST = { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.63, longitude: 10, elevation: 11, start_timestamp: null, end_timestamp: null }
@@ -99,9 +99,21 @@ registerEndpoint('/api/values', async (event) => {
     return inUnits(rainValues(station), query)
   return inUnits(parameters.startsWith('monthly/') ? summerValues(station) : windValues(station, query.get('timestamp')), query)
 })
-registerEndpoint('/api/coverage', () => ({
-  hourly: { description: null, datasets: { temperature_air: { description: null, parameters: [{ name: 'temperature_air_mean_2m', name_original: 'tt_tu', unit_type: 'temperature', unit: 'degree_celsius', description: '' }] } } },
-}))
+function coverage() {
+  return {
+    hourly: { description: null, datasets: { temperature_air: { description: null, parameters: [{ name: 'temperature_air_mean_2m', name_original: 'tt_tu', unit_type: 'temperature', unit: 'degree_celsius', description: '' }] } } },
+  }
+}
+// the networks that have no hourly resolution answer the 404 of a resolution the network lacks
+let withoutHourly: string[] = []
+registerEndpoint('/api/coverage', (event) => {
+  const query = record(event, 'coverage')
+  if (withoutHourly.includes(`${query.get('provider')}/${query.get('network')}`)) {
+    setResponseStatus(event, 404)
+    return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Resolution \'hourly\' not found.' }
+  }
+  return coverage()
+})
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountAsk(route = '/') {
@@ -116,11 +128,14 @@ const asked = (path: string) => requests.filter(request => request.path === path
 beforeEach(() => {
   failValues = false
   failFirstProviders = false
+  withoutHourly = []
   usePlace().place.value = DEFAULT_PLACE
 })
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
+  // the services found for the visit are kept, and the next test is another visit
+  clearNuxtState('download-sources')
   requests.length = 0
   holdValues = null
   holdOnlySpeed = null
@@ -199,15 +214,43 @@ describe('the suggestions', () => {
     expect(links[0]).toContain('stations=02564')
   })
 
-  it('ask for the datasets of each network themselves where the list of providers did not come, as the app does', async () => {
+  it('ask for the list of providers themselves where it did not come, as the app does', async () => {
     failFirstProviders = true
     const wrapper = await mountAsk()
     await chip(wrapper, 'download').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature: [1-9]\d*\.$/))
 
-    // the compact answer has no resolutions to find an hourly one in: every request asked for them
+    // the first request failed, the question asked again, and then the coverage of each measurement network
     expect(asked('providers').length).toBeGreaterThanOrEqual(2)
-    expect(asked('providers').map(request => request.query.get('datasets'))).toEqual(asked('providers').map(() => 'true'))
+    expect(asked('coverage').length).toBeGreaterThan(0)
+  })
+
+  it('leave out the networks that have no hourly resolution, which answer a 404, and count the others', async () => {
+    withoutHourly = ['aemet/observation']
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'download').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Weather services that publish hourly air temperature: 2.'))
+
+    // each measurement network of the list of providers was asked for its hourly resolution, the one without it too
+    const networks = asked('coverage').map(request => `${request.query.get('provider')}/${request.query.get('network')}`).toSorted()
+    expect(networks).toEqual(['aemet/observation', 'dwd/observation', 'metno/frost'])
+    expect(asked('coverage').map(request => request.query.get('resolutions'))).toEqual(['hourly', 'hourly', 'hourly'])
+    expect(wrapper.findAll('[data-testid="answer-sources"] a')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="answer-sources"]').text()).not.toContain('AEMET')
+  })
+
+  it('look the services up once for the visit, not again for each place tried', async () => {
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'download').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/: \d+\.$/))
+    const first = asked('coverage').length
+    expect(first).toBeGreaterThan(0)
+
+    usePlace().setPlace({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' })
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona'))
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/: \d+\.$/))
+
+    expect(asked('coverage')).toHaveLength(first)
   })
 
   it('close when the one open is pressed again, and the link follows', async () => {

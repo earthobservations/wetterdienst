@@ -406,7 +406,8 @@
     "paramHeader": "Paramètre",
     "descHeader": "Description",
     "endpoints": {
-      "coverage": "Découvrir les fournisseurs, réseaux, résolutions et paramètres disponibles",
+      "providers": "Lister les fournisseurs et leurs réseaux",
+      "coverage": "Découvrir les résolutions, jeux de données et paramètres d'un réseau",
       "stations": "Interroger les stations météo selon divers filtres",
       "history": "Récupérer l'historique d'une station (nom, exploitant, appareils, géographie, données manquantes)",
       "values": "Récupérer les valeurs d'observation pour les stations et paramètres sélectionnés",
@@ -477,6 +478,7 @@
     "copied": "Copié",
     "networksTitle": "Réseaux",
     "source": "Source",
+    "showDatasets": "Afficher les résolutions et jeux de données",
     "noResolutions": "Pas une série temporelle : rien à lister ici.",
     "openExplorer": "Ouvrir dans l'explorateur"
   },

@@ -49,7 +49,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import render_image, require_kaleido
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Extent
+from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     ValuesResult,
@@ -103,6 +103,7 @@ from wetterdienst.ui.core import (
     _get_stripes_stations,
     _require_plotting,
     check_timeseries_api,
+    coverage_needs_a_network,
     failure_status,
     get_auth,
     get_glossary,
@@ -453,7 +454,17 @@ def _writable(value: Any, depth: int = _ERROR_INPUT_DEPTH) -> Any:  # noqa: ANN4
 
 @app.exception_handler(RequestValidationError)
 async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """Answer a request that fails validation with a 422 problem, its entries under `errors`."""
+    """Answer a request that fails validation with a 422 problem, its entries under `errors`.
+
+    `coverage` with no fault but a missing `provider` or `network` is the one request that is a 400: it listed
+    every provider until 1.0.0, and its answer names `providers`, which does (GH-3996).
+    """
+    route = request.scope.get("route")
+    if getattr(route, "name", None) == "coverage" and all(
+        error.get("type") == "missing" and tuple(error.get("loc", ())[1:]) in {("provider",), ("network",)}
+        for error in exc.errors()
+    ):
+        return _problem_response(request, 400, coverage_needs_a_network(app.url_path_for("providers")))
     errors = jsonable_encoder(_writable(exc.errors()))
     return _problem_response(request, 422, _describe_validation_errors(errors), errors=errors)
 
@@ -530,7 +541,7 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
     pass by itself. This is what `configured: false` reports, without the setting's name; the body
-    points at `coverage` for it. The request's window and parameters are parsed by the time this is
+    points at `providers` for it. The request's window and parameters are parsed by the time this is
     raised, its stations are not, so the body does not vouch for the request. The message is not
     lost, it moves to the server log, as a warning: a state that lasts until someone configures the
     key is no incident.
@@ -542,7 +553,7 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
         501,
         (
             f"This server has no credential{of}, which the provider requires, so it cannot serve the "
-            f"request. {app.url_path_for('coverage')} tells whether a provider is "
+            f"request. {app.url_path_for('providers')} tells whether a provider is "
             "configured; otherwise ask whoever runs this instance."
         ),
         ProblemKind.CREDENTIAL_MISSING,
@@ -888,7 +899,8 @@ def index() -> HTMLResponse:
                 <h1>{info.slogan}</h1>
                 <h2>Endpoints</h2>
                 <ul>
-                    <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="api/providers" target="_blank" rel="noopener">providers</a></li>
+                    <li><a href="api/coverage?provider=dwd&amp;network=observation" target="_blank" rel="noopener">coverage</a></li>
                     <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
                     <li><a href="api/settings" target="_blank" rel="noopener">settings</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
@@ -1560,7 +1572,7 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
         raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
     except ApiNotFoundError as e:
         raise ProblemError(
-            404, f"Choose provider and network from {app.url_path_for('coverage')}", ProblemKind.UNKNOWN_NETWORK
+            404, f"Choose provider and network from {app.url_path_for('providers')}", ProblemKind.UNKNOWN_NETWORK
         ) from e
 
 
@@ -1580,7 +1592,7 @@ def auth(
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
     gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
-    once a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so
+    once a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so
     ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
     and the CLI command (`wetterdienst about auth`) are this call.
     """
@@ -1591,12 +1603,10 @@ def auth(
     return get_auth(api, provider, network)
 
 
-# What `/api/coverage` answers is what `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build,
-# described by the `Coverage*` models of `wetterdienst.model.metadata` and the two below. The answer is still sent as
-# those return it, so the models only describe it.
-# the answer without a provider and network: every provider, its networks and whether each needs
-# credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
-CoverageProviders = dict[str, dict[str, CoverageNetwork]]
+# What `/api/coverage` answers is what `TimeseriesRequest.discover()` builds, described by the `Coverage*` models of
+# `wetterdienst.model.metadata` and the two below. The answer is still sent as `discover()` returns it, so the models
+# only describe it. It is one answer (the resolutions of the network asked about, GH-3996), so the document types it
+# as one object, which a client generator can follow; the list of every provider and its networks is `/api/providers`.
 
 
 # The datasets and resolutions as the route describes them. They are `CoverageDataset` and `CoverageResolution` of
@@ -1620,37 +1630,32 @@ class CoverageResolution(TypedDict):
     datasets: dict[str, CoverageDataset]
 
 
+# the answer: the resolutions the network has, which a filter that matches none of leaves out
 CoverageResolutions = dict[Resolution, CoverageResolution]
-# What the route declares: one object holding either, as a union of the two would make the
-# schema's top level `anyOf`, and the MCP `coverage` tool, which takes its output schema from
-# this, would wrap its result in `{"result": ...}` and drop `pretty`. The two above are the exact
-# shapes, which the tests hold the answers to
-CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
 @router.get(
-    "/coverage", response_model=CoverageAnswer, tags=[TAG_CATALOGUE], responses=_revalidatable(last_modified=True)
+    "/coverage",
+    response_model=CoverageResolutions,
+    tags=[TAG_CATALOGUE],
+    responses=_revalidatable(last_modified=True),
 )
 def coverage(
     request: Annotated[CoverageRequest, Query()],
     http_request: Request,
 ) -> Response:
-    """List available data: providers/networks, or the resolutions, datasets and parameters within one.
+    """List the resolutions, datasets and parameters of one network.
 
-    Call with no arguments to list every provider and its networks. Pass provider+network (e.g.
-    provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
-    resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
+    `provider` and `network` are required (e.g. provider="dwd", network="observation"); `providers` lists the
+    providers and their networks, with whether each needs credentials and has them (`configured`). Narrow the
+    answer with resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names. It
+    is keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers
+    at once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
 
-    The list of every provider downloads nothing, so it answers at once. Per network it gives
-    `name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`
-    does not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a
-    timeseries network, which has stations and values (every network but two); `radar` and `alerts`
-    are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
-    that needs credentials, `configured` says whether they are present; whether the provider accepts
-    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and
-    network, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and
-    `country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the
-    network's. `providers` has the extent of every network.
+    Each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a
+    regional one): the dataset's own where it is narrower than its network's, else the network's. Whether the
+    network needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider
+    accepts them is `auth`'s.
 
     `unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or
     `convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`
@@ -1666,26 +1671,11 @@ def coverage(
     """
     provider, network = request.provider, request.network
 
-    if (provider and not network) or (not provider and network):
-        raise HTTPException(
-            status_code=400,
-            detail="Either both or none of 'provider' and 'network' must be given. If none are given, all providers "
-            "and networks are returned.",
-        )
+    # `provider=` is as good as none, as it is for the MCP tool and the command (GH-3996)
+    if not provider or not network:
+        raise HTTPException(status_code=400, detail=coverage_needs_a_network(app.url_path_for("providers")))
 
-    if not provider and not network:
-        # the list of every provider has no resolutions or datasets to narrow; answering it
-        # unfiltered would let the caller believe the filter applied
-        if request.resolutions or request.datasets:
-            raise HTTPException(
-                status_code=400,
-                detail="'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
-                "'provider' and 'network' must be given with them.",
-            )
-        cov = Wetterdienst.discover()
-        return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
-
-    api = _resolve_listed_network(str(provider), str(network), "list the coverage of")
+    api = _resolve_listed_network(provider, network, "list the coverage of")
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
@@ -1710,25 +1700,29 @@ def providers(
     request: Annotated[ProvidersRequest, Query()],
     http_request: Request,
 ) -> Response:
-    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+    """List the providers and their networks, and describe what each provider is: name, country, licence, credit line.
 
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
     of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
     line to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its
     networks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,
-    `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.
-    The answer is short: each network's `resolutions` is null, which is all a question about a licence or about
-    the providers that reach a place needs. Pass `datasets=true` and each network lists its resolutions and
-    datasets, with how many parameters each has (a dataset whose stations are fewer than its network's has an
-    `extent` of its own, and one without has its network's).
-    Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a
-    network, and `auth` checks whether its credentials are accepted.
+    `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),
+    whether a request has to give a date (`date_required`) and its number of `parameters`.
+
+    `kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values
+    (every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other
+    endpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are
+    present; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for
+    one network.
+
+    Nothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and
+    parameters of one network are `coverage`'s.
     """
     begin_response()
 
     try:
-        answer = get_providers(request.provider, datasets=request.datasets)
+        answer = get_providers(request.provider)
     except ApiNotFoundError as e:
         raise HTTPException(
             status_code=404,
@@ -1801,7 +1795,7 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
     try:
         return check_timeseries_api(resolve_network(provider, network), provider, network, history=history)
     except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        msg = f"{e} Use {app.url_path_for('providers')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
     except NotImplementedError as e:
@@ -2083,7 +2077,7 @@ def issues(
     try:
         api = resolve_network(request.provider, request.network)
     except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        msg = f"{e} Use {app.url_path_for('providers')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
 

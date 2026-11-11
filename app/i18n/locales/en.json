@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Description",
     "endpoints": {
-      "coverage": "Discover available providers, networks, resolutions, and parameters",
+      "providers": "List the providers and their networks",
+      "coverage": "Discover the resolutions, datasets and parameters of a network",
       "stations": "Query weather stations by various filters",
       "history": "Retrieve station history (name, operator, devices, geography, missing data)",
       "values": "Retrieve observation values for selected stations and parameters",
@@ -477,6 +478,7 @@
     "copied": "Copied",
     "networksTitle": "Networks",
     "source": "Source",
+    "showDatasets": "Show resolutions and datasets",
     "noResolutions": "Not a time series: nothing to list here.",
     "openExplorer": "Open in the explorer"
   },

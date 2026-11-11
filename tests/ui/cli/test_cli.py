@@ -295,7 +295,7 @@ def test_no_combination_of_provider_and_network() -> None:
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         "\n\nError: No API available for provider dwd and network abc. "
-        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+        "`wetterdienst about providers` lists the available ones.\n"
     )
 
 
@@ -1074,7 +1074,7 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
     [
         pytest.param(["cache"], id="cache"),
         pytest.param(["info"], id="info"),
-        pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["about", "providers"], id="about-providers"),
         pytest.param(["about", "coverage", "--provider=dwd", "--network=observation"], id="about-coverage-one-network"),
         pytest.param(["radar", "--dwd"], id="radar"),
         pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
@@ -1330,7 +1330,7 @@ def test_cli_timeseries_command_refuses_a_standalone_network(args: list[str], ne
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         f"\n\nError: Provider 'dwd' and network '{network}' have no stations or values to request. "
-        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+        "`wetterdienst about providers` lists the available ones.\n"
     )
 
 
@@ -1351,72 +1351,41 @@ def test_cli_history_refuses_a_network_without_history_before_the_station_lookup
     assert result.stderr.endswith("\n\nError: History not implemented for DwdMosmixRequest\n")
 
 
+_COVERAGE_NEEDS_A_NETWORK = (
+    "Error: coverage describes one network, so both provider and network are required. "
+    "To list the providers and their networks, use `wetterdienst about providers`.\n"
+)
+
+
 @pytest.mark.parametrize(
-    ("args", "message"),
+    "args",
     [
-        pytest.param(
-            ["--provider=dwd"], "Error: Missing option '--network'. Required with '--provider'.\n", id="provider-only"
-        ),
-        pytest.param(
-            ["--network=observation"],
-            "Error: Missing option '--provider'. Required with '--network'.\n",
-            id="network-only",
-        ),
+        pytest.param([], id="neither"),
+        pytest.param(["--provider=", "--network="], id="empty"),
+        pytest.param(["--provider=dwd"], id="provider-only"),
+        pytest.param(["--network=observation"], id="network-only"),
+        pytest.param(["--resolutions=daily"], id="resolutions"),
+        pytest.param(["--datasets=climate_summary"], id="datasets"),
+        pytest.param(["--resolutions=daily", "--datasets=climate_summary"], id="both"),
+        pytest.param(["--network=observation", "--datasets=climate_summary"], id="network-and-datasets"),
+        pytest.param(["--provider=dwd", "--datasets=climate_summary"], id="provider-and-datasets"),
     ],
 )
-def test_coverage_refuses_one_of_provider_and_network(args: list[str], message: str) -> None:
-    """Test coverage with only one of --provider / --network is a usage error, not every provider (GH-2498)."""
+def test_coverage_without_provider_and_network_is_a_usage_error_that_names_providers(args: list[str]) -> None:
+    """`about coverage` listed every provider until 1.0.0; the error says it is `about providers` now (GH-3996)."""
     result = CliRunner().invoke(cli, ["about", "coverage", *args])
     assert result.exit_code == 2, result.output
-    assert result.stderr.endswith(f"\n\n{message}")
+    assert result.stderr.endswith(f"\n\n{_COVERAGE_NEEDS_A_NETWORK}")
     assert result.stdout == ""
 
 
-def test_coverage_without_provider_and_network_lists_every_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test coverage without --provider and --network still lists every provider (GH-2498)."""
-    # the real catalogue validates the credentials a provider is configured with against its upstream
-    monkeypatch.setattr(Wetterdienst, "discover", classmethod(lambda _cls: {"dwd": {"observation": {}}}))
-    result = CliRunner().invoke(cli, ["about", "coverage"])
+def test_about_providers_lists_every_provider() -> None:
+    """`about providers` without --provider lists every provider and its networks, each with `configured`."""
+    result = CliRunner().invoke(cli, ["about", "providers"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"dwd": {"observation": {}}}
-
-
-@pytest.mark.parametrize(
-    ("args", "message"),
-    [
-        pytest.param(
-            ["--resolutions=daily"],
-            "Error: Missing options '--provider' and '--network'. Required with '--resolutions'.\n",
-            id="resolutions",
-        ),
-        pytest.param(
-            ["--datasets=climate_summary"],
-            "Error: Missing options '--provider' and '--network'. Required with '--datasets'.\n",
-            id="datasets",
-        ),
-        pytest.param(
-            ["--resolutions=daily", "--datasets=climate_summary"],
-            "Error: Missing options '--provider' and '--network'. Required with '--resolutions' and '--datasets'.\n",
-            id="both",
-        ),
-        pytest.param(
-            ["--network=observation", "--datasets=climate_summary"],
-            "Error: Missing option '--provider'. Required with '--network'.\n",
-            id="network-and-datasets",
-        ),
-        pytest.param(
-            ["--provider=dwd", "--datasets=climate_summary"],
-            "Error: Missing option '--network'. Required with '--provider'.\n",
-            id="provider-and-datasets",
-        ),
-    ],
-)
-def test_coverage_refuses_a_filter_without_provider_and_network(args: list[str], message: str) -> None:
-    """Test coverage with --resolutions / --datasets but no provider and network is a usage error (GH-2527)."""
-    result = CliRunner().invoke(cli, ["about", "coverage", *args])
-    assert result.exit_code == 2, result.output
-    assert result.stderr.endswith(f"\n\n{message}")
-    assert result.stdout == ""
+    answer = json.loads(result.stdout)
+    assert {provider["provider"] for provider in answer["providers"]} == set(Wetterdienst.registry)
+    assert all("configured" in network for provider in answer["providers"] for network in provider["networks"])
 
 
 def _stub_the_frost_probe(monkeypatch: pytest.MonkeyPatch, content: object, status: int) -> list[str]:
@@ -1490,7 +1459,7 @@ def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         "\n\nError: No API available for provider dwd and network abc. "
-        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+        "`wetterdienst about providers` lists the available ones.\n"
     )
     assert result.stdout == ""
 
@@ -1580,19 +1549,17 @@ def _fail_to_import(monkeypatch: pytest.MonkeyPatch, *, provider: str, network: 
     monkeypatch.setattr(Wetterdienst, "resolve", failing)
 
 
-def test_about_coverage_leaves_out_a_network_that_fails_to_import(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """The listing of every network does not list one it cannot import, as one that needs no credentials (GH-2801)."""
+def test_about_providers_leaves_out_a_network_that_fails_to_import(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The listing of every network does not list one it cannot import, and says so as a warning (GH-2801)."""
     _fail_to_import(monkeypatch, provider="dwd", network="dmo")
-    with caplog.at_level(logging.WARNING):
-        result = CliRunner().invoke(cli, ["about", "coverage"])
+    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
 
     assert result.exit_code == 0, result.output
-    listed = json.loads(result.stdout)
-    assert "dmo" not in listed["dwd"]
-    assert "observation" in listed["dwd"]
-    assert "Left dwd/dmo out of the listing" in caplog.text
+    answer = json.loads(result.stdout)
+    networks = [network["network"] for network in answer["providers"][0]["networks"]]
+    assert "dmo" not in networks
+    assert "observation" in networks
+    assert "network-not-importable" in {warning["code"] for warning in answer["metadata"]["warnings"]}
 
 
 @pytest.mark.parametrize(

@@ -283,18 +283,35 @@ const STATES: State[] = [
     path: '/history',
     // the page is restricted to dwd/observation and says so where the backend has no dwd
     handlers: {
-      coverage: () => ({
-        noaa: {
-          ghcn: {
-            name_short: 'NOAA',
-            country: 'United States Of America',
-            kind: 'observation',
-            url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
-            auth: false,
-            configured: false,
-            date_required: false,
-          },
+      providers: () => ({
+        metadata: {
+          api_version: '1',
+          schema_version: '1',
+          retrieved_at: '2026-10-17T10:00:00.000000+00:00',
+          counts: { providers: 1, networks: 1, parameters: 8 },
+          warnings: [],
         },
+        providers: [{
+          provider: 'noaa',
+          name_short: 'NOAA',
+          name_local: 'National Oceanic and Atmospheric Administration',
+          name_english: 'National Oceanic and Atmospheric Administration',
+          country: 'United States Of America',
+          country_code: 'US',
+          license: null,
+          attribution: null,
+          networks: [{
+            network: 'ghcn',
+            kind: 'observation',
+            extent: { scope: 'global', continents: [], bbox: [-180, -90, 180, 90] },
+            url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
+            copyright: '© NOAA',
+            auth: false,
+            configured: true,
+            date_required: false,
+            parameters: 8,
+          }],
+        }],
       }),
     },
     reach: async (page) => {

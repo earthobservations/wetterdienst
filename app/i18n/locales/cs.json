@@ -406,7 +406,8 @@
     "paramHeader": "Parametr",
     "descHeader": "Popis",
     "endpoints": {
-      "coverage": "Zjisti dostupné poskytovatele, sítě, rozlišení a parametry",
+      "providers": "Vypiš poskytovatele a jejich sítě",
+      "coverage": "Zjisti rozlišení, datové sady a parametry sítě",
       "stations": "Dotazuj se na meteorologické stanice pomocí různých filtrů",
       "history": "Získej historii stanice (název, provozovatel, zařízení, geografie, chybějící data)",
       "values": "Získej hodnoty pozorování pro vybrané stanice a parametry",
@@ -477,6 +478,7 @@
     "copied": "Zkopírováno",
     "networksTitle": "Sítě",
     "source": "Zdroj",
+    "showDatasets": "Zobrazit rozlišení a datové sady",
     "noResolutions": "Není to časová řada: není tu co vypisovat.",
     "openExplorer": "Otevřít v průzkumníku"
   },

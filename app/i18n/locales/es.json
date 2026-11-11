@@ -406,7 +406,8 @@
     "paramHeader": "Parámetro",
     "descHeader": "Descripción",
     "endpoints": {
-      "coverage": "Descubrir los proveedores, redes, resoluciones y parámetros disponibles",
+      "providers": "Listar los proveedores y sus redes",
+      "coverage": "Descubrir las resoluciones, los conjuntos de datos y los parámetros de una red",
       "stations": "Consultar estaciones meteorológicas mediante varios filtros",
       "history": "Obtener el historial de una estación (nombre, operador, dispositivos, geografía, datos faltantes)",
       "values": "Obtener valores de observación para las estaciones y parámetros seleccionados",
@@ -477,6 +478,7 @@
     "copied": "Copiado",
     "networksTitle": "Redes",
     "source": "Fuente",
+    "showDatasets": "Mostrar resoluciones y conjuntos de datos",
     "noResolutions": "No es una serie temporal: aquí no hay nada que listar.",
     "openExplorer": "Abrir en el explorador"
   },

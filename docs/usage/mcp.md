@@ -69,8 +69,8 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `summarize` | `/api/v1/summarize` | the nearest station with data at each timestamp, for a point; only when asked for |
 | `history` | `/api/v1/history` | the changes of a station (name, position, instruments), not weather |
 | `issues` | `/api/v1/issues` | the model runs of a forecast network |
-| `coverage` | `/api/v1/coverage` | which providers, networks, resolutions, datasets and parameters there are |
-| `providers` | `/api/v1/providers` | what a provider is: country, licence, credit line to cite, networks (`datasets=true` adds their resolutions and datasets) |
+| `providers` | `/api/v1/providers` | which provider has which network, and what a provider is: country, licence, credit line to cite, the networks with their `kind`, `extent` and whether they are `configured` |
+| `coverage` | `/api/v1/coverage` | the resolutions, datasets and parameters of one network (`provider` and `network` are required) |
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
@@ -96,8 +96,8 @@ The instructions and the descriptions of the tools are written for agents and ar
 The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
 well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
 the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
-network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the scope of every
-network and the extent of each dataset of one) and at
+network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the extent of each
+dataset of one network) and at
 what `stations` returns near the place. `providers` is the tool for which networks reach a place, as well as for the
 country, licence and credit line of a provider.
 

@@ -774,7 +774,7 @@
           "Catalogue"
         ],
         "summary": "Auth",
-        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
+        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
         "operationId": "auth_api_auth_get",
         "parameters": [
           {
@@ -783,10 +783,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -794,10 +794,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           }
         ],
         "responses": {
@@ -848,44 +848,30 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
+        "description": "List the resolutions, datasets and parameters of one network.\n\n`provider` and `network` are required (e.g. provider=\"dwd\", network=\"observation\"); `providers` lists the\nproviders and their networks, with whether each needs credentials and has them (`configured`). Narrow the\nanswer with resolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names. It\nis keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers\nat once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.\n\nEach dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a\nregional one): the dataset's own where it is narrower than its network's, else the network's. Whether the\nnetwork needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider\naccepts them is `auth`'s.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
             "name": "provider",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed.",
+              "type": "string",
+              "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks.",
               "title": "Provider"
             },
-            "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed."
+            "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks."
           },
           {
             "name": "network",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data network of the provider, e.g. 'observation'. Needs provider.",
+              "type": "string",
+              "description": "Data network of the provider, e.g. 'observation'. Required with provider.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. Needs provider."
+            "description": "Data network of the provider, e.g. 'observation'. Required with provider."
           },
           {
             "name": "resolutions",
@@ -903,10 +889,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
               "title": "Resolutions"
             },
-            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
             "style": "form",
             "explode": false
           },
@@ -926,10 +912,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
               "title": "Datasets"
             },
-            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
             "style": "form",
             "explode": false
           },
@@ -954,17 +940,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": {
-                          "$ref": "#/components/schemas/CoverageNetwork"
-                        }
-                      },
-                      {
-                        "$ref": "#/components/schemas/CoverageResolution"
-                      }
-                    ]
+                    "$ref": "#/components/schemas/CoverageResolution"
+                  },
+                  "propertyNames": {
+                    "$ref": "#/components/schemas/Resolution"
                   },
                   "title": "Response Coverage Api Coverage Get"
                 }
@@ -1053,7 +1032,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nThe answer is short: each network's `resolutions` is null, which is all a question about a licence or about\nthe providers that reach a place needs. Pass `datasets=true` and each network lists its resolutions and\ndatasets, with how many parameters each has (a dataset whose stations are fewer than its network's has an\n`extent` of its own, and one without has its network's).\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
+        "description": "List the providers and their networks, and describe what each provider is: name, country, licence, credit line.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),\nwhether a request has to give a date (`date_required`) and its number of `parameters`.\n\n`kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values\n(every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other\nendpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are\npresent; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for\none network.\n\nNothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and\nparameters of one network are `coverage`'s.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1073,18 +1052,6 @@
               "title": "Provider"
             },
             "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
-          },
-          {
-            "name": "datasets",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "List the resolutions and datasets of each network, with the number of parameters of each. Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
-              "default": false,
-              "title": "Datasets"
-            },
-            "description": "List the resolutions and datasets of each network, with the number of parameters of each. Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -1378,10 +1345,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -1389,10 +1356,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -2035,10 +2002,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2046,10 +2013,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "station",
@@ -2167,10 +2134,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2178,10 +2145,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -3221,10 +3188,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -3232,10 +3199,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -3786,10 +3753,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -3797,10 +3764,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -4932,10 +4899,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -4943,10 +4910,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -5489,68 +5456,6 @@
         ],
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
-      },
-      "CoverageNetwork": {
-        "properties": {
-          "name_short": {
-            "type": "string",
-            "title": "Name Short"
-          },
-          "country": {
-            "type": "string",
-            "title": "Country"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "observation",
-              "forecast",
-              "derived",
-              "radar",
-              "alerts"
-            ],
-            "title": "Kind"
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "global",
-              "national",
-              "regional"
-            ],
-            "title": "Scope"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "auth": {
-            "type": "boolean",
-            "title": "Auth"
-          },
-          "configured": {
-            "type": "boolean",
-            "title": "Configured"
-          },
-          "date_required": {
-            "type": "boolean",
-            "title": "Date Required"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name_short",
-          "country",
-          "kind",
-          "scope",
-          "url",
-          "auth",
-          "configured",
-          "date_required"
-        ],
-        "title": "CoverageNetwork",
-        "description": "A network in the list of every provider and its networks.\n\nWhether the credentials are accepted is not in it: that takes a request to the provider, which a list of\nevery provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641)."
       },
       "CoverageParameter": {
         "properties": {
@@ -6359,31 +6264,6 @@
         "title": "Provider",
         "description": "A provider of data, and the networks it offers."
       },
-      "ProviderDataset": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "parameters": {
-            "type": "integer",
-            "title": "Parameters",
-            "description": "How many parameters the dataset has, which `/api/coverage` lists."
-          },
-          "extent": {
-            "$ref": "#/components/schemas/Extent",
-            "description": "Where the stations of the dataset are, where that is less than its network's (`extent` of the network). Left out of the answer for a dataset that has the extent of its network."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "parameters"
-        ],
-        "title": "ProviderDataset",
-        "description": "A dataset of a resolution."
-      },
       "ProviderNetwork": {
         "properties": {
           "network": {
@@ -6421,6 +6301,11 @@
             "title": "Auth",
             "description": "Whether the network needs credentials; `/api/auth` tells whether they are accepted."
           },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "Whether the credentials the network needs are present on this server, true for a network that needs none. Whether the provider accepts them is not checked here: `/api/auth` does, for one network."
+          },
           "date_required": {
             "type": "boolean",
             "title": "Date Required",
@@ -6429,22 +6314,7 @@
           "parameters": {
             "type": "integer",
             "title": "Parameters",
-            "description": "How many parameters the network has in all of its datasets."
-          },
-          "resolutions": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ProviderResolution"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolutions",
-            "description": "The resolutions of the network, each with its datasets and their numbers of parameters; empty for a network that has none (`dwd/radar`, `dwd/alerts`), null unless `datasets=true` asks for them."
+            "description": "How many parameters the network has in all of its datasets, which `/api/coverage` lists for one network, with its resolutions and datasets."
           }
         },
         "additionalProperties": false,
@@ -6456,49 +6326,12 @@
           "url",
           "copyright",
           "auth",
+          "configured",
           "date_required",
-          "parameters",
-          "resolutions"
+          "parameters"
         ],
         "title": "ProviderNetwork",
-        "description": "A network of a provider, with what it offers."
-      },
-      "ProviderResolution": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "enum": [
-              "1_minute",
-              "5_minutes",
-              "6_minutes",
-              "10_minutes",
-              "15_minutes",
-              "hourly",
-              "6_hours",
-              "subdaily",
-              "daily",
-              "monthly",
-              "annual"
-            ],
-            "title": "Name",
-            "description": "The resolution, one of those of `Resolution` of the library."
-          },
-          "datasets": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderDataset"
-            },
-            "type": "array",
-            "title": "Datasets"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "datasets"
-        ],
-        "title": "ProviderResolution",
-        "description": "A resolution of a network."
+        "description": "A network of a provider: what it is and where, not what it offers (`/api/coverage` lists that)."
       },
       "ProvidersAnswer": {
         "properties": {
@@ -6663,6 +6496,24 @@
             "status": "ready"
           }
         ]
+      },
+      "Resolution": {
+        "type": "string",
+        "enum": [
+          "1_minute",
+          "5_minutes",
+          "6_minutes",
+          "10_minutes",
+          "15_minutes",
+          "hourly",
+          "6_hours",
+          "subdaily",
+          "daily",
+          "monthly",
+          "annual"
+        ],
+        "title": "Resolution",
+        "description": "Enumeration for granularity/resolution of the weather observation."
       },
       "ResolvedRequest": {
         "properties": {

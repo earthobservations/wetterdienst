@@ -406,7 +406,8 @@
     "paramHeader": "Parametr",
     "descHeader": "Opis",
     "endpoints": {
-      "coverage": "Odkryj dostępnych dostawców, sieci, rozdzielczości i parametry",
+      "providers": "Wyświetl dostawców i ich sieci",
+      "coverage": "Odkryj rozdzielczości, zbiory danych i parametry sieci",
       "stations": "Wyszukaj stacje pogodowe według różnych filtrów",
       "history": "Pobierz historię stacji (nazwa, operator, urządzenia, geografia, brakujące dane)",
       "values": "Pobierz wartości obserwacji dla wybranych stacji i parametrów",
@@ -477,6 +478,7 @@
     "copied": "Skopiowano",
     "networksTitle": "Sieci",
     "source": "Źródło",
+    "showDatasets": "Pokaż rozdzielczości i zbiory danych",
     "noResolutions": "To nie jest szereg czasowy: nie ma tu czego wymieniać.",
     "openExplorer": "Otwórz w eksploratorze"
   },

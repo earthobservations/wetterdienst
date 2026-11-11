@@ -1,6 +1,4 @@
-import type { H3Event } from 'h3'
-import type { Provider, ProvidersResponse } from '#shared/types/api'
-import { getQuery } from 'h3'
+import type { Provider, ProviderNetwork, ProvidersResponse } from '#shared/types/api'
 
 const CC_BY = {
   spdx_id: 'CC-BY-4.0',
@@ -10,7 +8,7 @@ const CC_BY = {
 
 // `GET /api/providers`, as the backend answers it, cut down to five providers that between them show
 // every case a card and a page tell apart: a licence with an SPDX identifier, a key, a provider that
-// states no terms, one of several countries, and the standalone networks that have no resolutions.
+// states no terms, one of several countries, and the standalone networks.
 // `satisfies` has `nuxt typecheck` hold the fixture to the contract. A fresh copy per call, so a test
 // that changes its answer changes no other test's.
 export function providers(): Provider[] {
@@ -31,12 +29,9 @@ export function providers(): Provider[] {
           url: 'https://opendata.dwd.de/climate_environment/CDC/',
           copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 12,
-          resolutions: [
-            { name: 'daily', datasets: [{ name: 'climate_summary', parameters: 8 }] },
-            { name: 'hourly', datasets: [{ name: 'temperature_air', parameters: 4 }] },
-          ],
         },
         {
           network: 'radar',
@@ -44,9 +39,9 @@ export function providers(): Provider[] {
           url: 'https://opendata.dwd.de/weather/radar/',
           copyright: '© Deutscher Wetterdienst (DWD), radar products',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 0,
-          resolutions: [],
         },
       ],
     },
@@ -66,9 +61,9 @@ export function providers(): Provider[] {
           url: 'https://opendata.aemet.es/',
           copyright: '© AEMET',
           auth: true,
+          configured: true,
           date_required: true,
           parameters: 6,
-          resolutions: [{ name: 'daily', datasets: [{ name: 'data', parameters: 6 }] }],
         },
       ],
     },
@@ -88,9 +83,9 @@ export function providers(): Provider[] {
           url: 'https://frost.met.no/',
           copyright: '© MET Norway',
           auth: true,
+          configured: true,
           date_required: false,
           parameters: 5,
-          resolutions: [{ name: 'hourly', datasets: [{ name: 'data', parameters: 5 }] }],
         },
       ],
     },
@@ -110,9 +105,9 @@ export function providers(): Provider[] {
           url: 'https://example.org/forecast/',
           copyright: '© the service',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 3,
-          resolutions: [{ name: 'hourly', datasets: [{ name: 'small', parameters: 3 }] }],
         },
       ],
     },
@@ -132,9 +127,9 @@ export function providers(): Provider[] {
           url: 'https://example.org/opera/',
           copyright: '© EUMETNET',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 0,
-          resolutions: [],
         },
       ],
     },
@@ -161,17 +156,42 @@ export function providersResponse(): ProvidersResponse {
 }
 
 /**
- * What the backend answers `GET /api/providers` with: the lists of each network (`resolutions`) only for
- * `datasets=true`, else `null`, as its compact answer has them. Every consumer is held to asking for them:
- * one that does not gets a network with nothing to list.
+ * What the backend answers `GET /api/providers` with: every provider and its networks, and no lists of what a network
+ * offers (those are `GET /api/coverage` of the network, `../fixtures/coverage`)
  */
-export function providersAnswer(event: H3Event): ProvidersResponse {
+export function providersAnswer(): ProvidersResponse {
+  return providersResponse()
+}
+
+/**
+ * `GET /api/providers` for the networks a test names, `{ provider: { network: { what the test needs of it } } }`: a
+ * network is a measurement network without credentials unless it says otherwise, and the rest of it is what the tests
+ * do not read. The providers are in the order given.
+ */
+export function networksAnswer(overview: Record<string, Record<string, Partial<Omit<ProviderNetwork, 'kind'>> & { kind?: string }>>): ProvidersResponse {
   const response = providersResponse()
-  if (getQuery(event).datasets !== 'true') {
-    for (const provider of response.providers) {
-      for (const network of provider.networks)
-        network.resolutions = null
-    }
-  }
+  response.providers = Object.entries(overview).map(([provider, networks]) => ({
+    provider,
+    name_short: provider.toUpperCase(),
+    name_local: provider,
+    name_english: provider,
+    country: 'Nowhere',
+    country_code: null,
+    license: null,
+    attribution: null,
+    networks: Object.entries(networks).map(([network, listed]) => ({
+      network,
+      extent: { scope: 'global', continents: [], bbox: [-180, -90, 180, 90] },
+      url: `https://example.org/${provider}/${network}/`,
+      copyright: `© ${provider}`,
+      auth: false,
+      configured: true,
+      date_required: false,
+      parameters: 0,
+      ...listed,
+      // a kind the backend has not (yet) is a test's to try
+      kind: (listed.kind ?? 'observation') as ProviderNetwork['kind'],
+    })),
+  }))
   return response
 }

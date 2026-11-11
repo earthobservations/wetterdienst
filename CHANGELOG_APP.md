@@ -30,6 +30,14 @@ Types of changes:
 
 ### Changed
 
+- `[Providers, Explorer, History, API]` The page of a provider lists the resolutions and datasets
+  of a network when its "Show resolutions and datasets" button is opened, asking the backend for
+  that network alone (its list of providers no longer carries them). The Explorer and History read
+  the providers and networks from that list, and the API page names `providers` beside `coverage`.
+  The question "Where can I download hourly temperatures?" asks for the coverage of the
+  measurement networks four at a time, once for the visit, not again for each place tried. The
+  button of each network names it for a screen reader. Needs the backend of the same release
+  (GH-3996)
 - `[Climate stripes, Map]` The numbers of the stripes follow the unit settings: the page and the map's
   panel ask for the unit the Settings page chooses for temperature or precipitation, and the sentence,
   the table and now the hover texts say the unit the answer names (`°F`, `K`, `l/m²`); the colours

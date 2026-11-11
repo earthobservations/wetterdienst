@@ -86,11 +86,13 @@ log = get_one_line_logger(__name__)
 # is attached to the field itself (pydantic drops it from a bare "Alias | None" union).
 _ProviderField = Annotated[
     str,
-    Field(description="Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."),
+    Field(
+        description="Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
+    ),
 ]
 _NetworkField = Annotated[
     str,
-    Field(description="Data network of the provider, e.g. 'observation'. List valid combinations via coverage."),
+    Field(description="Data network of the provider, e.g. 'observation'. List valid combinations via providers."),
 ]
 _ParametersField = Annotated[
     list[str],
@@ -1601,30 +1603,30 @@ class AuthRequest(_RefusesRenamedParameters):
 
 
 class CoverageRequest(_RefusesRenamedParameters):
-    """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
+    """Request model for listing the resolutions, datasets and parameters of one network."""
 
     route: ClassVar[str] = "coverage"
 
     model_config = {"extra": "forbid"}
 
     provider: Annotated[
-        str | None,
+        str,
         Field(
-            description="Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, "
-            "datasets and parameters; with neither, every provider and its networks are listed."
+            description="Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with "
+            "network; `providers` lists the providers and their networks."
         ),
-    ] = None
+    ]
     network: Annotated[
-        str | None,
-        Field(description="Data network of the provider, e.g. 'observation'. Needs provider."),
-    ] = None
+        str,
+        Field(description="Data network of the provider, e.g. 'observation'. Required with provider."),
+    ]
     resolutions: Annotated[
         list[str] | None,
-        Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network."),
+        Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'."),
     ] = None
     datasets: Annotated[
         list[str] | None,
-        Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network."),
+        Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'."),
     ] = None
     pretty: _PrettyField = False
 
@@ -1633,6 +1635,19 @@ class CoverageRequest(_RefusesRenamedParameters):
     def validate_lists(cls, v: str | list | None) -> list[str] | None:
         """Read a list given comma-separated, or repeated, None where it names nothing."""
         return _read_items(v)
+
+
+def coverage_needs_a_network(providers: str) -> str:
+    """Tell a caller that `coverage` describes one network, and where the providers and networks are listed.
+
+    Until 1.0.0 `coverage` without `provider` and `network` listed every provider and its networks; that is
+    `providers` now (GH-3996), named as the surface calls it (`providers` is `/api/providers` for REST,
+    `wetterdienst about providers` for the command line, the tool `providers` for MCP).
+    """
+    return (
+        "coverage describes one network, so both provider and network are required. "
+        f"To list the providers and their networks, use {providers}."
+    )
 
 
 class ProvidersRequest(_RefusesRenamedParameters):
@@ -1646,15 +1661,6 @@ class ProvidersRequest(_RefusesRenamedParameters):
         str | None,
         Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
     ] = None
-    datasets: Annotated[
-        bool,
-        Field(
-            description="List the resolutions and datasets of each network, with the number of parameters of each. "
-            "Default `false` leaves them out (`resolutions` is null), which keeps the answer a good deal shorter: "
-            "everything else stays, among it the number of parameters of each network. `coverage` lists the "
-            "parameters.",
-        ),
-    ] = False
     pretty: _PrettyField = False
 
 
@@ -1883,7 +1889,7 @@ _auth_probes = _ProbeCache()
 def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, network: str) -> AuthAnswer:
     """Check the credentials of one network, probing its provider where they are configured.
 
-    The one place a credential is checked against its provider: `/api/coverage` and `about coverage`
+    The one place a credential is checked against its provider: `/api/providers` and `about providers`
     do not probe (GH-2564), so this answers `valid` for the one network asked about, as a single
     attempt that gives up after `PROBE_TIMEOUT_SECONDS`. A network that needs none is `configured`
     and `valid` without a request; one whose credentials are missing is not `valid`, as a probe
@@ -2047,7 +2053,7 @@ def resolve_network(provider: str, network: str) -> type[TimeseriesRequest] | St
     """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts) too.
 
     `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other two.
-    The surfaces take both kinds by name -- `coverage` lists them, `auth` and `issues` answer for them, and
+    The surfaces take both kinds by name -- `providers` lists them, `auth` and `issues` answer for them, and
     the timeseries commands refuse them (`check_timeseries_api`) -- so this picks the one that applies.
 
     Raises:

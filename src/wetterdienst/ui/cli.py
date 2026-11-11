@@ -221,7 +221,7 @@ provider_opt = click.option(
     required=True,
     help=(
         "Data provider/organisation. List the provider/network combinations with: "
-        "wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
+        "wetterdienst about providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
     ),
 )
 network_opt = click.option(
@@ -683,7 +683,7 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
     return apply
 
 
-_COVERAGE_HINT = "`wetterdienst about coverage`, without --provider and --network, lists the available ones."
+_PROVIDERS_HINT = "`wetterdienst about providers` lists the available ones."
 
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -697,7 +697,7 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest] | Standalone
     try:
         return resolve_network(provider, network)
     except ApiNotFoundError as e:
-        msg = f"{e} {_COVERAGE_HINT}"
+        msg = f"{e} {_PROVIDERS_HINT}"
         raise click.UsageError(msg) from e
 
 
@@ -714,7 +714,7 @@ def get_timeseries_api(provider: str, network: str, *, history: bool = False) ->
     try:
         return check_timeseries_api(api, provider, network, history=history)
     except ApiNotFoundError as e:
-        msg = f"{e} {_COVERAGE_HINT}"
+        msg = f"{e} {_PROVIDERS_HINT}"
         raise click.UsageError(msg) from e
     except NotImplementedError as e:
         raise click.UsageError(str(e)) from e
@@ -932,7 +932,7 @@ Weather, climate and hydrology data from national weather services, in one inter
 A typical session finds a provider's network, then a station, then reads its data:
 
 \b
-    wetterdienst about coverage
+    wetterdienst about providers
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2020-05
 
@@ -1072,9 +1072,6 @@ SUMMARIZE_EXAMPLES = r"""
 """
 
 COVERAGE_EXAMPLES = r"""
-    # every provider and network
-    wetterdienst about coverage
-
     # the resolutions, datasets and parameters of one network, or of part of it
     wetterdienst about coverage --provider=dwd --network=observation
     wetterdienst about coverage --provider=dwd --network=observation --resolutions=1_minute
@@ -1435,6 +1432,22 @@ class _Command(click.Command):
             raise click.UsageError(msg, ctx) from e
 
 
+class _CoverageCommand(_Command):
+    """`about coverage`, which says what to call instead where it is given no provider or network (GH-3996).
+
+    It listed every provider and network before 1.0.0; that is `about providers` now. Click would say only
+    that the option is missing, which tells a caller of the old form nothing.
+    """
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except click.MissingParameter as e:
+            from wetterdienst.ui.core import coverage_needs_a_network
+
+            raise click.UsageError(coverage_needs_a_network("`wetterdienst about providers`"), ctx) from e
+
+
 class _Group(click.Group):
     """A group of commands that refuse a renamed option by its new name."""
 
@@ -1555,23 +1568,18 @@ def about() -> None:
     """Get information about the data."""
 
 
-@about.command(epilog=_examples(COVERAGE_EXAMPLES))
-@click.option(
-    "--provider",
-    type=click.STRING,
-    shell_complete=_complete_provider,
-    help="Data provider. Without it and --network, every combination.",
-)
-@click.option("--network", type=click.STRING, shell_complete=_complete_network, help="Data network of the provider.")
+@about.command(cls=_CoverageCommand, epilog=_examples(COVERAGE_EXAMPLES))
+@provider_opt
+@network_opt
 @click.option(
     "--resolutions",
     type=click.STRING,
-    help="Only these resolutions, comma-separated. Needs --provider and --network. Example: daily,hourly",
+    help="Only these resolutions, comma-separated. Example: daily,hourly",
 )
 @click.option(
     "--datasets",
     type=click.STRING,
-    help="Only these datasets, comma-separated. Needs --provider and --network. Example: climate_summary",
+    help="Only these datasets, comma-separated. Example: climate_summary",
 )
 @debug_opt
 def coverage(
@@ -1581,13 +1589,12 @@ def coverage(
     datasets: str,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Get coverage information.
+    """Get the resolutions, datasets and parameters of one network.
 
-    Without --provider and --network, every provider and network with its `name_short`, `country`, `url`
-    and `kind`, and whether it needs credentials and has them. `kind` is `observation`, `forecast` or
-    `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
-    standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
-    resolutions, datasets and parameters of that network. A parameter's `unit` is the unit its values come
+    --provider and --network are required; `about providers` lists the providers and their networks, with
+    their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations and
+    values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse) and whether
+    they need credentials and have them. A parameter's `unit` is the unit its values come
     back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `percent` for a
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
@@ -1596,33 +1603,14 @@ def coverage(
     (`instant`, `start`, `end`, `middle`); `null` in either: the source does not state it.
     """
     from wetterdienst import Settings
-    from wetterdienst.api import Wetterdienst
     from wetterdienst.model.request import TimeseriesRequest
-    from wetterdienst.ui.core import join_names
+    from wetterdienst.ui.core import coverage_needs_a_network
 
     _apply_log_level(debug=debug)
 
-    # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
-    # provider and network without the other, or resolutions / datasets, which that list has none of
-    filters = [name for name, value in (("resolutions", resolutions), ("datasets", datasets)) if value]
-    if bool(provider) != bool(network) or (filters and not (provider or network)):
-        ctx = click.get_current_context()
-        params = {param.name: param for param in ctx.command.params}
-        missing = [name for name, value in (("provider", provider), ("network", network)) if not value]
-        # what the missing ones are required with: the other of the two, else the filters given
-        given = [name for name in ("provider", "network") if name not in missing] or filters
-        message = f"Required with {join_names([_option_hint(name, params, ctx) for name in given])}."
-        hint = join_names([_option_hint(name, params, ctx) for name in missing])
-        raise click.MissingParameter(
-            message, ctx, param_hint=hint, param_type="options" if len(missing) > 1 else "option"
-        )
-
-    if not provider and not network:
-        # the listing marks a provider unconfigured where the settings are invalid, but this command
-        # tells them, and exits 1, as it did when the listing raised (GH-2335)
-        Settings()
-        print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
-        return
+    if not provider or not network:
+        # an empty value is as good as none, as it is for the REST route and the MCP tool
+        raise click.UsageError(coverage_needs_a_network("`wetterdienst about providers`"))
 
     resolutions_list = read_list(resolutions)
     datasets_list = read_list(datasets)
@@ -1635,8 +1623,8 @@ def coverage(
         msg = f"Coverage is not available for provider '{provider}' and network '{network}'."
         raise click.UsageError(msg)
 
-    # one network's metadata reads no setting, and a malformed one is told the same as for the listing
-    # of every network, after the usage errors above as in `stations` and `values` (GH-2619)
+    # one network's metadata reads no setting, and a malformed one is told the same as for the other commands,
+    # after the usage errors above as in `stations` and `values` (GH-2619)
     Settings()
     try:
         cov = api.discover(
@@ -1658,36 +1646,36 @@ def coverage(
     shell_complete=_complete_provider,
     help="Only this provider. Without it, every provider. Example: dwd",
 )
-@_bool_opt(
-    "--datasets",
-    default=False,
-    help="List the resolutions and datasets of each network, with their number of parameters. "
-    "Without it they are left out (`resolutions` is null), for a short answer. Default: false",
-)
 @debug_opt
 def providers(
     provider: str,
-    datasets: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+    """List the providers and their networks, and describe what each provider is.
 
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
     its data under (`license`, null where it states none), the credit line to cite (`attribution`; the `copyright`
-    of a network is the rights holder's notice, for information), and its networks with their `kind`, `extent`,
-    source `url`, whether they need credentials, their number of parameters and, with `--datasets`, their
-    resolutions and datasets (`resolutions` is null without it). Nothing is downloaded and no credential is read.
-    `about coverage` lists the parameters of a network.
+    of a network is the rights holder's notice, for information), and its networks with their `kind`
+    (`observation`, `forecast` or `derived` for a timeseries network, which has stations and values; `radar` or
+    `alerts` for a standalone one, which `stations` and `values` refuse), `extent`, source `url`, whether they need
+    credentials (`auth`) and have them (`configured`), whether a request has to give a date and their number of
+    parameters. Nothing is downloaded and no credential is probed. `about coverage` lists the resolutions, datasets
+    and parameters of one network.
     """
+    from wetterdienst import Settings
     from wetterdienst.ui.core import ProvidersRequest
     from wetterdienst.ui.providers import get_providers
 
     _apply_log_level(debug=debug)
     begin_response()
 
-    request = ProvidersRequest.model_validate({"provider": provider, "datasets": datasets})
+    # the listing marks a provider unconfigured where the settings are invalid, but this command tells them,
+    # and exits 1, as the listing of every network did (GH-2335)
+    Settings()
+
+    request = ProvidersRequest.model_validate({"provider": provider})
     try:
-        answer = get_providers(request.provider, datasets=request.datasets)
+        answer = get_providers(request.provider)
     except ApiNotFoundError as e:
         msg = f"{e} List them with: wetterdienst about providers"
         raise click.UsageError(msg) from e
@@ -1712,7 +1700,7 @@ def auth(
     provider): unknown, not rejected. A network that needs none is configured and valid.
 
     This is the one command that probes the provider, for the one network asked about: a single
-    attempt that gives up after a few seconds. `about coverage` does not probe and has no `valid`, only
+    attempt that gives up after a few seconds. `about providers` does not probe and has no `valid`, only
     whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the answer.
     """
     from wetterdienst import Settings
@@ -1754,7 +1742,7 @@ def glossary(
 
     The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
     override. `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...),
-    null for a plain name; `coverage` has the one of each provider.
+    null for a plain name; `coverage` has the one of each parameter of a network.
     """
     from wetterdienst import Settings
 
