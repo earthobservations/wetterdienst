@@ -26,6 +26,7 @@ from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedE
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
+from tests.provider.knmi.observation.catalogue import catalogue_csv, catalogue_frame
 from wetterdienst.exceptions import (
     CredentialRejectedError,
     DownloadError,
@@ -657,16 +658,22 @@ def test_knmi_station_list_raises_credential_rejected_error_for_a_refused_key(
 def test_knmi_station_list_keeps_the_empty_result_for_an_answer(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, where: str, answer: Exception
 ) -> None:
-    """A 404 or a 429 for the station list is KNMI answering: no stations, warned about, as before."""
+    """A 404 or a 429 for the station list is KNMI answering: no stations, warned about, as before.
+
+    A 429 is the catalogue refused, and the latest files are not asked of an API that has just refused: one warning. A
+    404 is the catalogue gone, so the latest file of the resolution is asked, and that is not there either: two.
+    """
     status = 404 if isinstance(answer, FileNotFoundError) else 429
     failed = _failed(answer, status)
     _serve_station_requests(monkeypatch, listing=failed if where == "listing" else None, resolve=failed)
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
         assert _stations().is_empty()
-    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == (
+        2 if status == 404 else 1
+    )
 
 
-def _serve_knmi(
+def _serve_knmi(  # noqa: C901
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     failure: Exception | None,
@@ -699,13 +706,15 @@ def _serve_knmi(
         # a copy is kept under the name of its file and fetched from its link, which is where the store names it
         url = fetch_url or url
         if "/files?maxKeys=1" in url:
-            return File(
-                url=url, content=BytesIO(json.dumps({"files": [{"filename": "latest.nc"}]}).encode()), status=200
-            )
+            # the catalogue of the stations is the list; the file of the resolution is read where there is none
+            name = "catalogue.csv" if "/waarneemstations_csv/" in url else "latest.nc"
+            return File(url=url, content=BytesIO(json.dumps({"files": [{"filename": name}]}).encode()), status=200)
         if url.endswith("/url"):
             name = url.rsplit("/", 2)[-2]
             if name == "latest.nc":
                 link = _STATION_FILE
+            elif name == "catalogue.csv":
+                link = "https://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/catalogue.csv?X-Amz-Signature=secret"
             elif name in ok or failure is None or at == "download":
                 link = f"https://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/{name}?X-Amz-Signature=secret"
             else:
@@ -715,6 +724,8 @@ def _serve_knmi(
         name = url.split("?", maxsplit=1)[0].rsplit("/", 1)[-1]
         if name == "stations.nc":
             return File(url=url, content=BytesIO(stations), status=200)
+        if name == "catalogue.csv":
+            return File(url=url, content=BytesIO(catalogue_csv(DE_BILT, EELDE)), status=200)
         if name in ok or failure is None:
             asked.append(name)
             return File(url=url, content=BytesIO(data), status=200)
@@ -920,6 +931,33 @@ def test_knmi_observation_stations() -> None:
 
 @pytest.mark.remote
 @requires_knmi_credentials
+def test_knmi_observation_stations_of_the_catalogue_by_resolution() -> None:
+    """The stations are those of the catalogue: fog stations at 10 minutes only, closed ones listed (GH-4008).
+
+    The four fog stations (Assendelft, Muiden, Nieuw-Vennep, Nieuwkoop) are held by no hourly file and by the 10-minute
+    ones; Valkenburg (closed 2016) and Soesterberg (2008) have history and no latest file lists them, and Soesterberg
+    closed before the 10-minute files began; no annual file holds the Caribbean stations (block 78).
+    """
+    fog = {"06233", "06236", "06237", "06238"}
+
+    def stations(resolution: str) -> set[str]:
+        request = KnmiObservationRequest(parameters=[(resolution, "data")])
+        return set(request.all().df.get_column("station_id"))
+
+    hourly = stations("hourly")
+    ten_minutes = stations("10_minutes")
+    annual = stations("annual")
+    assert not fog & hourly
+    assert fog <= ten_minutes
+    assert {"06210", "06265", DE_BILT} <= hourly
+    assert "06265" not in ten_minutes
+    assert "06210" in ten_minutes
+    assert not {"78871", "78873", "78990"} & annual
+    assert {"78871", "78873", "78990"} <= hourly
+
+
+@pytest.mark.remote
+@requires_knmi_credentials
 def test_knmi_observation_values_daily() -> None:
     """Daily values at De Bilt for 2020-01-01 match the KNMI reference values.
 
@@ -1049,10 +1087,8 @@ def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception
         return answers[min(len(attempted), len(answers)) - 1]
 
     monkeypatch.setattr(
-        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
-        staticmethod(
-            lambda *_args: pl.DataFrame({"station_id": [DE_BILT, EELDE], "name": ["De Bilt", "Eelde"]}),
-        ),
+        "wetterdienst.provider.knmi.observation.api._station_catalogue",
+        lambda *_args: catalogue_frame(DE_BILT, EELDE),
     )
     monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", fake_fetch_netcdf)
     return attempted
@@ -1115,8 +1151,8 @@ def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(
         return files.get(filename, FileNotFoundError(filename))
 
     monkeypatch.setattr(
-        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
-        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+        "wetterdienst.provider.knmi.observation.api._station_catalogue",
+        lambda *_args: catalogue_frame(DE_BILT),
     )
     monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", fetch)
     df = (
@@ -1158,8 +1194,8 @@ def test_knmi_10_minute_and_hourly_files_of_the_same_instant_agree_on_the_stamp(
         "hourly-observations-validated-20261014-09.nc": _station_file(tmp_path / "d.nc", {"T": 16.3, "P": 1030.0}),
     }
     monkeypatch.setattr(
-        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
-        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+        "wetterdienst.provider.knmi.observation.api._station_catalogue",
+        lambda *_args: catalogue_frame(DE_BILT),
     )
     monkeypatch.setattr(
         "wetterdienst.provider.knmi.observation.api._fetch_netcdf",

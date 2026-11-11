@@ -22,7 +22,7 @@ from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
 
 _ROW_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -105,6 +105,18 @@ def public_station_id(wsi: object) -> str:
     Caribbean Netherlands stations in block 78).
     """
     return decode_str(wsi).rsplit("-", 1)[-1]
+
+
+def station_wsis(variables: Mapping[str, Any]) -> list[str]:
+    """Give the WIGOS station identifier (`0-20000-0-06260`) of every station of a file, in the order of the file.
+
+    The files carry it in their `wsi` variable. The hourly, daily, monthly and annual files also key their stations
+    by it, but the 10-minute files key them by the bare WMO number (`06260`, read 2026-11-11 from the files of 2012,
+    2014, 2018, 2020, 2022, 2024 and 2026), so the key is no WSI there and was published as one (GH-4008). A file
+    without the variable is read by its key, which is the WSI wherever the files that do have one agree with it.
+    """
+    keys = variables["wsi"] if "wsi" in variables else variables["station"]
+    return [decode_str(wsi) for wsi in keys[:]]
 
 
 def parse_knmi_netcdf(
