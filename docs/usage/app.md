@@ -63,8 +63,12 @@ settings where it has answered in that load, and else to the defaults of the app
 again. The climate stripes, on their page and in the map's panel, ask for the unit the Settings page chooses for
 their kind (`unit_targets` of `/api/stripes/values`) and write the unit the answer names in the sentence, the table
 and the hover texts; the colours are relative and do not change with it. The forecast, its widget, the
-forecast in the map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
-the Settings page does not change.
+forecast in the map's panel, and the home page's questions ask in the units the Settings page chooses too (and for
+the values as the source has them where conversion is off), and write the unit the answer reports for each
+parameter (`with_metadata`) in their axes, tables and sentences. What they compare a value with (rain or snow, the
+weather of a day, the wind barbs, "hotter than usual", "stormy") is judged in millimetres, degrees Celsius and metres
+per second, so a verdict is the same in every unit. The widget has no unit parameter in its address: it takes the
+units from the settings of the browser it runs in.
 
 The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
 for them) nor the radar products.

@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettings } from '#imports'
 import MapForecast from '~/components/MapForecast.vue'
 import Meteogram from '~/components/Meteogram.vue'
 
@@ -140,5 +141,88 @@ describe('the forecast of the panel', () => {
     const wrapper = await mountForecast('10384')
     held[10384]!.release({ status: 200, body: { values: [] } })
     await vi.waitFor(() => expect(wrapper.text()).toContain('No forecast data available.'))
+  })
+})
+
+// The days follow the unit settings (GH-3980): the request carries them, the rows are told the unit the answer reports, and a
+// change of them while the days are shown fetches them again; the request under way is ended by the newer
+describe('the forecast of the panel in the unit of the settings', () => {
+  const queries: URLSearchParams[] = []
+  const signalsOfCalls: Array<AbortSignal | undefined> = []
+  let waiting: Array<() => void> = []
+
+  beforeEach(() => {
+    queries.length = 0
+    signalsOfCalls.length = 0
+    waiting = []
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const query = new URL(String(input), 'http://localhost').searchParams
+      queries.push(query)
+      signalsOfCalls.push(init?.signal ?? undefined)
+      const fahrenheit = JSON.parse(query.get('unit_targets')!).temperature === 'degree_fahrenheit'
+      // an answer held until the test lets it go
+      await new Promise<void>(resolve => waiting.push(resolve))
+      return new Response(JSON.stringify({
+        values: values('60001').map(row => ({ ...row, value: fahrenheit ? 50 : 10 })),
+        metadata: { parameters: [{ name: 'temperature_air_2m', quantity: 'temperature', unit: fahrenheit ? '°F' : '°C' }] },
+      }), { status: 200 })
+    }) as typeof fetch
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    useSettings().settings.value.units.temperature = 'degree_celsius'
+  })
+
+  it('asks in the unit the settings choose, and tells the rows the unit the answer reports', async () => {
+    // the first of October, which the values start on: the rows start at today
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T10:00:00Z') })
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    const wrapper = await mountForecast('60001')
+    expect(JSON.parse(queries[0]!.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    waiting.forEach(release => release())
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°F' }))
+    expect(wrapper.find('[data-testid="day-rows"]').text()).toContain('°F')
+  })
+
+  it('fetches the days again, in the new unit, where the settings change while they are shown', async () => {
+    const wrapper = await mountForecast('60001')
+    waiting.forEach(release => release())
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°C' }))
+    expect(queries).toHaveLength(1)
+
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(queries).toHaveLength(2))
+    expect(JSON.parse(queries[1]!.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    waiting.forEach(release => release())
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°F' }))
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(queries).toHaveLength(2)
+  })
+
+  it('does not fetch the days again for a unit they do not show: a speed, a pressure or an angle', async () => {
+    const wrapper = await mountForecast('60001')
+    waiting.forEach(release => release())
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.speed = 'knots'
+    useSettings().settings.value.units.pressure = 'pascal'
+    useSettings().settings.value.units.angle = 'radian'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(queries).toHaveLength(1)
+    useSettings().settings.value.units.speed = 'meter_per_second'
+    useSettings().settings.value.units.pressure = 'hectopascal'
+    useSettings().settings.value.units.angle = 'degree'
+  })
+
+  it('ends the request under way where the unit changes, and shows the answer of the newer one only', async () => {
+    const wrapper = await mountForecast('60001')
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(queries).toHaveLength(2))
+    expect(signalsOfCalls[0]?.aborted).toBe(true)
+    // the first answer comes late, after the second one
+    waiting[1]!()
+    await vi.waitFor(() => expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°F' }))
+    waiting[0]!()
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(wrapper.findComponent(Meteogram).props('units')).toEqual({ temperature_air_2m: '°F' })
   })
 })

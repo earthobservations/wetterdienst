@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Station } from '#shared/types/api'
+import type { Station, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
 import { UnexpectedAnswerError } from '~/utils/api-answer'
 import { describeFetchError } from '~/utils/api-error'
-import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
+import { meteogramUnitsKey, meteogramValuesSettings } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
+import { unitsOfAnswer } from '~/utils/units'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -41,7 +42,19 @@ watchEffect(() => {
 
 const station = ref<Station | null>(null)
 const values = ref<any[]>([])
+// the unit of each parameter of the values, as the answer says (GH-3980)
+const units = ref<Record<string, string>>({})
 const pending = ref(false)
+
+// The widget follows the app settings' units (GH-3980), as the forecast page does: it has no unit parameter of its own,
+// and an embedding page that wants another unit than the app's settings has none to ask for. Embedded in an iframe of
+// another site the browser may keep no settings for it, and the app's defaults (or the server's, `GET /api/settings`)
+// are what it shows. The settings are read at each request, and a change of them while a forecast is shown fetches it again.
+const { settings: appSettings } = useSettings()
+const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
+// the request that is the latest: the answer of an earlier one, which a change of the units has left behind, is not shown
+let valuesTicket = 0
 // why the request failed, as data: the message is written at render, in the language of the moment
 const failure = ref<RequestError | null>(null)
 const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)
@@ -75,6 +88,7 @@ async function loadStation(id: string) {
 }
 
 async function fetchValues(s: Station) {
+  const ticket = ++valuesTicket
   pending.value = true
   failure.value = null
   values.value = []
@@ -83,26 +97,36 @@ async function fetchValues(s: Station) {
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
     stations: s.station_id,
-    ...METEOGRAM_VALUES_SETTINGS,
+    ...meteogramValuesSettings(unitSettings.value),
   })
   try {
     const res = await fetch(`/api/values?${params}`)
+    if (ticket !== valuesTicket)
+      return
     if (!res.ok) {
-      failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
+      const failed = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
+      if (ticket === valuesTicket)
+        failure.value = failed
       return
     }
-    const json = await readJsonAnswer<{ values?: any[] }>('/api/values', res)
-    values.value = json.values ?? []
+    const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
+    if (ticket === valuesTicket) {
+      units.value = unitsOfAnswer(json)
+      values.value = json.values ?? []
+    }
   }
   catch (e: any) {
-    failure.value = failureOfError(e)
+    if (ticket === valuesTicket)
+      failure.value = failureOfError(e)
   }
   finally {
-    pending.value = false
+    if (ticket === valuesTicket)
+      pending.value = false
   }
 }
 
-watch(station, (s) => {
+// the station, or the units: one request for either, or both together
+watch([station, unitsAsked], ([s]) => {
   if (s)
     void fetchValues(s)
 })
@@ -159,6 +183,7 @@ onMounted(async () => {
           :station-name="station.name"
           :station-coords="{ latitude: station.latitude, longitude: station.longitude }"
           :widget="true"
+          :units="units"
         />
       </div>
 

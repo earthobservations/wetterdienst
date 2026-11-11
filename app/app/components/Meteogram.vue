@@ -3,6 +3,7 @@ import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
 import type { ChartTheme, SeriesLabel } from '~/utils/chart-theme'
 import type { MeteogramView } from '~/utils/meteogram'
+import type { Quantity } from '~/utils/units'
 import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
@@ -11,6 +12,7 @@ import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, week
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 import { fitAxisTitle, MARGIN_LEFT, MARGIN_RIGHT, plotWidth, tickStepHours } from '~/utils/meteogram-ticks'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
+import { CANONICAL_UNITS, differenceIn, digitsOf, fromCanonical, toCanonical, unitText, withUnit } from '~/utils/units'
 import { WEATHER_ICONS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
@@ -23,6 +25,13 @@ const props = defineProps<{
    * the reader's to choose and nothing is remembered or written to the address.
    */
   daysOnly?: boolean
+  /**
+   * The unit each parameter's values are in, by the parameter's canonical name, as the answer says (`metadata.parameters`
+   * of an answer `with_metadata`, `unitsOfAnswer`). The labels of the charts, the table and the day rows are written
+   * from it, and the verdicts (rain or snow, the weather of a day, the wind barbs) are judged in canonical units
+   * whatever it is (GH-3980). A parameter the answer gives no unit for is read as the canonical unit of its quantity.
+   */
+  units?: Record<string, string>
 }>()
 
 const { t, locale, localeProperties } = useI18n()
@@ -102,6 +111,61 @@ watch(visiblePanels, (newVal) => {
 }, { deep: true })
 
 const seriesCache = computed(() => buildSeries(props.values ?? []))
+
+// The quantity each group of series is of: what the unit of a series is looked up by, and the canonical unit a verdict
+// about it is judged in
+const GROUP_QUANTITY: Partial<Record<keyof typeof METEOGRAM_SERIES, Quantity>> = {
+  precipitation: 'precipitation',
+  temperature: 'temperature',
+  temperatureMax: 'temperature',
+  temperatureMin: 'temperature',
+  dewPoint: 'temperature',
+  humidity: 'fraction',
+  windSpeed: 'speed',
+  gust: 'speed',
+  windDirection: 'angle',
+  cloudCover: 'fraction',
+  cloudCoverLow: 'fraction',
+  cloudCoverMid: 'fraction',
+  cloudCoverHigh: 'fraction',
+  pressure: 'pressure',
+}
+
+// The unit the answer reports for each quantity: that of the first of its series the answer states a unit for (every
+// series of a quantity is asked for in the one unit), else the canonical unit of the quantity
+const quantityUnits = computed<Record<Quantity, string>>(() => {
+  const found: Record<Quantity, string> = { ...CANONICAL_UNITS }
+  const done = new Set<Quantity>()
+  for (const [group, quantity] of Object.entries(GROUP_QUANTITY) as [keyof typeof METEOGRAM_SERIES, Quantity][]) {
+    if (done.has(quantity))
+      continue
+    const stated = METEOGRAM_SERIES[group].map(name => props.units?.[name]).find((unit): unit is string => !!unit)
+    if (stated) {
+      found[quantity] = stated
+      done.add(quantity)
+    }
+  }
+  return found
+})
+/** The unit the answer's numbers of a quantity are in */
+const unitOf = (quantity: Quantity) => quantityUnits.value[quantity]
+/** A number of the answer, in the canonical unit of its quantity: what thresholds are compared with */
+const canon = (quantity: Quantity, value: number) => toCanonical(quantity, unitOf(quantity), value)
+/** A number in the canonical unit of its quantity, in the unit of the answer */
+const shown = (quantity: Quantity, value: number) => fromCanonical(quantity, unitOf(quantity), value)
+/** A canonical difference (a degree, a hectopascal), in the unit of the answer */
+const stretch = (quantity: Quantity, delta: number) => differenceIn(quantity, unitOf(quantity), delta)
+/** The unit of a quantity as a name has it: `Temperature °C` */
+const unitName = (quantity: Quantity) => unitText(unitOf(quantity))
+/** A number of a quantity with its unit after it, as the hover texts of the charts write it */
+function hoverUnit(quantity: Quantity) {
+  const unit = unitOf(quantity)
+  return withUnit(`%{y:.${digitsOf(quantity, unit)}f}`, unit)
+}
+/** The decimals the numbers of a quantity are written with in the unit of the answer */
+const digits = (quantity: Quantity) => digitsOf(quantity, unitOf(quantity))
+/** A name that carries the unit of its quantity (the translation has the place `{unit}` for it), trimmed where there is none */
+const named = (key: string, quantity: Quantity) => t(key, { unit: unitName(quantity) }).trim()
 
 // The view last chosen. The old key held only whether the view was the compact overview: its value is taken over
 // once, as the same choice under the new key, and the old key is gone.
@@ -417,19 +481,19 @@ const compactDays = computed(() => {
       let cloudCount = 0
       if (cloudKey && series.has(cloudKey)) {
         const cs = series.get(cloudKey)!
-        const nonNullY = cs.y.filter((v): v is number => v !== null && v !== undefined)
-        const scaleFactor = cloudScaleFactor(nonNullY)
         for (let i = 0; i < cs.x.length; i++) {
           const t = cs.x[i]!.getTime()
           if (t >= startUTC && t < endUTC) {
-            cloudSum += (cs.y[i] ?? 0) * scaleFactor
+            // in percent whatever the unit the cloud cover is shown in: the thresholds below are percentages
+            cloudSum += canon('fraction', cs.y[i] ?? 0)
             cloudCount++
           }
         }
       }
       const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
-      if (dayPrecip > 0.5)
-        kind = (Number.isFinite(minT) && minT <= 0.5) ? 'snow' : 'rain'
+      // judged in millimetres and degrees Celsius, whatever the units the day is shown in (GH-3980)
+      if (canon('precipitation', dayPrecip) > 0.5)
+        kind = (Number.isFinite(minT) && canon('temperature', minT) <= 0.5) ? 'snow' : 'rain'
       else if (avgCloud >= 70)
         kind = 'cloudy'
       else if (avgCloud >= 30)
@@ -438,8 +502,8 @@ const compactDays = computed(() => {
         kind = 'clear'
     }
 
-    const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
-    const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
+    const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? withUnit(`${Math.round(minT)} / ${Math.round(maxT)}`, unitOf('temperature')) : null
+    const precipLabel = canon('precipitation', dayPrecip) >= 0.1 ? withUnit(formatNumber(dayPrecip, locale.value, 1), unitOf('precipitation')) : null
     const isToday = dt.hasSame(today, 'day')
     // The last day of the run, when the run ends before it does: its minimum and maximum are those of the hours
     // the run reaches, so the row says how many they are, and is not read as a day's own
@@ -460,7 +524,7 @@ const compactDays = computed(() => {
 // What the chart draws, as a table and a sentence (WCAG 1.1.1, 1.3.1, and 1.4.13 for the values that appear
 // on hover only): the panels that are shown, one column for each series they plot, one row for each time
 // the forecast has a value, as far as the horizon chosen reaches. The values are the forecast's own, in
-// the units the chart labels them in, not the chart's resampled curve.
+// the units the answer reports them in, not the chart's resampled curve.
 const chartTable = computed(() => {
   const series = seriesCache.value
   if (!series.size)
@@ -468,20 +532,20 @@ const chartTable = computed(() => {
   const available = new Set(series.keys())
   const pick = (names: readonly string[]) => findFirstAvailable(names, available)
   const panels = visiblePanels.value
-  const specs: { shown: boolean, key: string | undefined, label: string, digits: number, percent?: boolean, main?: boolean }[] = [
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperature), label: t('meteogram.chart.seriesTemperature'), digits: 1, main: true },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMax), label: t('meteogram.chart.seriesMaxTemp'), digits: 1 },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMin), label: t('meteogram.chart.seriesMinTemp'), digits: 1 },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.dewPoint), label: `${t('meteogram.chart.seriesDewPoint')} °C`, digits: 1 },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windSpeed), label: t('meteogram.chart.seriesWind'), digits: 1 },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} °`, digits: 0 },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: t('meteogram.chart.seriesWindGust'), digits: 1 },
-    { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} mm`, digits: 2 },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCover), label: t('meteogram.chart.seriesTotalCloud'), digits: 0, percent: true },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverLow), label: t('meteogram.chart.seriesLowClouds'), digits: 0, percent: true },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverMid), label: t('meteogram.chart.seriesMidClouds'), digits: 0, percent: true },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverHigh), label: t('meteogram.chart.seriesHighClouds'), digits: 0, percent: true },
-    { shown: panels.pressure, key: pick(METEOGRAM_SERIES.pressure), label: t('meteogram.chart.seriesPressure'), digits: 1 },
+  const specs: { shown: boolean, key: string | undefined, label: string, digits: number, main?: boolean }[] = [
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperature), label: named('meteogram.chart.seriesTemperature', 'temperature'), digits: digits('temperature'), main: true },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMax), label: named('meteogram.chart.seriesMaxTemp', 'temperature'), digits: digits('temperature') },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMin), label: named('meteogram.chart.seriesMinTemp', 'temperature'), digits: digits('temperature') },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.dewPoint), label: `${t('meteogram.chart.seriesDewPoint')} ${unitName('temperature')}`, digits: digits('temperature') },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windSpeed), label: named('meteogram.chart.seriesWind', 'speed'), digits: digits('speed') },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} ${unitName('angle')}`, digits: digits('angle') },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: named('meteogram.chart.seriesWindGust', 'speed'), digits: digits('speed') },
+    { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCover), label: named('meteogram.chart.seriesTotalCloud', 'fraction'), digits: digits('fraction') },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverLow), label: named('meteogram.chart.seriesLowClouds', 'fraction'), digits: digits('fraction') },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverMid), label: named('meteogram.chart.seriesMidClouds', 'fraction'), digits: digits('fraction') },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverHigh), label: named('meteogram.chart.seriesHighClouds', 'fraction'), digits: digits('fraction') },
+    { shown: panels.pressure, key: pick(METEOGRAM_SERIES.pressure), label: named('meteogram.chart.seriesPressure', 'pressure'), digits: digits('pressure') },
   ]
   const columns = specs.filter((spec): spec is typeof spec & { key: string } => spec.shown && spec.key !== undefined)
   if (!columns.length)
@@ -492,14 +556,12 @@ const chartTable = computed(() => {
   const byTime = new Map<number, (number | null)[]>()
   columns.forEach((column, index) => {
     const s = series.get(column.key)!
-    // a fraction or an oktas count is a percentage on the chart, and so here
-    const scale = column.percent ? cloudScaleFactor(s.y) : 1
     s.x.forEach((date, i) => {
       const ms = date.getTime()
       if (ms > lastShown)
         return
       const row = byTime.get(ms) ?? Array.from<number | null>({ length: columns.length }).fill(null)
-      row[index] = s.y[i]! * scale
+      row[index] = s.y[i]!
       byTime.set(ms, row)
     })
   })
@@ -519,7 +581,7 @@ const chartTable = computed(() => {
     summary: [
       t('meteogram.chart.summaryRange', { from: writeTime(times[0]!), to: writeTime(times.at(-1)!) }),
       ...(temperatures.length
-        ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1) })]
+        ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1), unit: unitName('temperature') })]
         : []),
       // the page chooses the table with the view control above the chart; the widget has the table below it
       props.widget ? t('common.chartTableHint') : t('meteogram.chart.summaryTableHint'),
@@ -580,8 +642,7 @@ const summaryStats = computed(() => {
     const valid = s.y.filter(v => v !== null && !Number.isNaN(v))
     if (valid.length > 0) {
       const sum = valid.reduce((acc, val) => acc + val, 0)
-      const scale = cloudScaleFactor(valid)
-      avgCloud = (sum / valid.length) * scale
+      avgCloud = sum / valid.length
     }
   }
 
@@ -597,12 +658,25 @@ const summaryStats = computed(() => {
     })
   }
 
+  // each number in the unit the answer reports it in, with the unit written after it as the unit asks (`14°C`, `6.0 mm`)
+  const unit = (quantity: Quantity) => unitOf(quantity)
+  // a whole number is written plain, as it was (`1013`, not `1,013`), a fraction with the language's separator
+  const rounded = (value: number, places: number) => places === 0 ? String(Math.round(value)) : formatNumber(value, locale.value, places)
+  const temperature = unit('temperature')
+  const pressureDigits = Math.max(0, digits('pressure') - 1)
   return {
-    temp: Number.isFinite(minTemp) ? { min: Math.round(minTemp), max: Math.round(maxTemp) } : null,
-    precip: totalPrecip,
-    gust: maxGust,
-    cloud: Math.round(avgCloud),
-    pressure: Number.isFinite(minPres) ? { min: Math.round(minPres), max: Math.round(maxPres) } : null,
+    // the lower end has a degree sign where the unit has one (`10° / 14°C`), and none where it has not (`283 / 287 K`)
+    temp: Number.isFinite(minTemp)
+      ? {
+          min: temperature.startsWith('°') ? `${Math.round(minTemp)}°` : String(Math.round(minTemp)),
+          max: withUnit(String(Math.round(maxTemp)), temperature),
+        }
+      : null,
+    precip: { value: rounded(totalPrecip, 1), unit: unitName('precipitation') },
+    gust: { value: rounded(maxGust, 1), unit: unitName('speed') },
+    // nothing after a number that is a decimal, as everywhere a number is written with its unit
+    cloud: { value: rounded(avgCloud, digits('fraction')), unit: unitOf('fraction') === '-' ? '' : unitName('fraction') },
+    pressure: Number.isFinite(minPres) ? { range: `${rounded(minPres, pressureDigits)}–${rounded(maxPres, pressureDigits)}`, unit: unitName('pressure') } : null,
   }
 })
 
@@ -673,12 +747,10 @@ function updateOverlaySize() {
   ctx.clearRect(0, 0, w, h)
 }
 
-function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom: number, speed: number) {
-  // Standard meteorological wind barbs: speed encoded in knots
+function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom: number, kt: number) {
+  // Standard meteorological wind barbs: speed encoded in knots, which the caller works out from the speed in
+  // metres per second whatever unit the chart shows (a barb is a drawing of the wind, not of a number)
   // Pennant = 50 kt, full barb = 10 kt, half barb = 5 kt
-  // A knot is a nautical mile -- 1852 m exactly -- per hour, which is how the API converts it too;
-  // rounded to 1.944 a speed either side of a barb boundary could be drawn as the next barb up
-  const kt = (speed * 3600) / 1852
   const scale = compact.value ? 0.78 : 1.0
   // in the colours the chart was drawn in, which a switch of the scheme is yet to redraw it in
   const barbColor = (drawnTheme ?? theme.value).textStrong
@@ -755,7 +827,7 @@ function drawBarb(ctx: CanvasRenderingContext2D, px: number, py: number, dirFrom
   }
 }
 
-function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number]) {
+function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number, knots: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number]) {
   if (!chartRef.value || !visiblePanels.value.wind)
     return
   ensureOverlay()
@@ -799,13 +871,13 @@ function drawWindBarbs(arrowInfos: { timeMs: number, dir: number, speed: number 
   for (const a of arrowInfos) {
     const px = xToPx(a.timeMs)
     const py = yToPx(a.speed)
-    drawBarb(ctx, px, py, a.dir, a.speed)
+    drawBarb(ctx, px, py, a.dir, a.knots)
   }
 
   ctx.restore()
 }
 
-function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number, dir: number, speed: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number] }) {
+function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number, dir: number, speed: number, knots: number }[], minTime: number, maxTime: number, layoutObj: any, axisRange: [number, number], axisDomain: [number, number] }) {
   if (!chartRef.value)
     return
   if (overlayAttached)
@@ -900,15 +972,6 @@ function findFirstAvailable(names: readonly string[], available: Set<string>) {
       return n
   }
   return undefined
-}
-
-function cloudScaleFactor(values: number[]): number {
-  const maxY = values.length > 0 ? Math.max(...values) : 0
-  if (maxY <= 1.01)
-    return 100 // fraction 0–1 → percent
-  if (maxY <= 8.01)
-    return 12.5 // oktas 0–8 → percent
-  return 1
 }
 
 function buildSeries(values: Value[]) {
@@ -1117,21 +1180,6 @@ async function renderChartActual() {
   const precipStepKeys = new Set([precipKey].filter((k): k is string => !!k))
   const resampledSeries = resampleSeries(series, minTime, displayMaxTime, precipStepKeys)
 
-  // Normalize cloud fraction parameters to percentages
-  const cloudParams = [cloudKey, cloudLowKey, cloudMidKey, cloudHighKey].filter((x): x is string => !!x)
-  for (const k of cloudParams) {
-    if (!resampledSeries.has(k))
-      continue
-    const s = resampledSeries.get(k)!
-    if (!s || !s.y || s.y.length === 0)
-      continue
-    const scale = cloudScaleFactor(s.y.map(v => v ?? 0))
-    if (scale !== 1) {
-      s.y = s.y.map(v => (v ?? 0) * scale)
-      resampledSeries.set(k, s)
-    }
-  }
-
   // Build mapping of original ISO date strings
   const isoMap = new Map<number, string>()
   for (const v of vals) {
@@ -1216,7 +1264,8 @@ async function renderChartActual() {
   const cloudMap = new Map<number, number>()
   if (cloudKey) {
     const cs = resampledSeries.get(cloudKey)!
-    cs.x.forEach((d, i) => cloudMap.set(d.getTime(), (cs.y[i] ?? 0) / 100))
+    // a share from 0 to 1, whatever unit the cloud cover is in
+    cs.x.forEach((d, i) => cloudMap.set(d.getTime(), canon('fraction', cs.y[i] ?? 0) / 100))
   }
 
   // Build per-day day-band shapes
@@ -1330,11 +1379,13 @@ async function renderChartActual() {
   const traces: any[] = []
 
   // 1. Temperature & Dew Point
-  let tempMinY = 0
-  let tempMaxY = 25
+  // the axis holds the freezing point, which Plotly's zero line is only in degrees Celsius
+  const freezing = shown('temperature', 0)
+  let tempMinY = freezing
+  let tempMaxY = shown('temperature', 25)
   if (tempKey && visiblePanels.value.temp) {
     const s = resampledSeries.get(tempKey)!
-    tempMinY = Math.min(0, ...s.y)
+    tempMinY = Math.min(freezing, ...s.y)
     tempMaxY = Math.max(...s.y)
     const xs = s.x.map(d => d.toISOString())
 
@@ -1359,22 +1410,22 @@ async function renderChartActual() {
       for (let i = 0; i < xs.length; i++) {
         const tMs = new Date(xs[i]!).getTime()
         const rh = interpSeries(hs.x, hs.y, tMs)
-        const T = s.y[i]
-        if (rh !== null && T !== undefined && !Number.isNaN(T)) {
-          let rhPct = rh
-          if (rhPct <= 1)
-            rhPct = rhPct * 100
+        const reading = s.y[i]
+        if (rh !== null && reading !== undefined && !Number.isNaN(reading)) {
+          // Magnus' formula, in degrees Celsius and percent, and the dew point back in the unit of the chart
+          const T = canon('temperature', reading)
+          const rhPct = canon('fraction', rh)
           const a = 17.27
           const b = 237.7
           const alpha = (a * T) / (b + T) + Math.log(rhPct / 100)
           const td = (b * alpha) / (a - alpha)
-          dewLookup.set(xs[i]!, td)
+          dewLookup.set(xs[i]!, shown('temperature', td))
         }
       }
     }
 
     traces.push({
-      name: hasTxTn ? t('meteogram.chart.seriesMeanTemp') : t('meteogram.chart.seriesTemperature'),
+      name: hasTxTn ? named('meteogram.chart.seriesMeanTemp', 'temperature') : named('meteogram.chart.seriesTemperature', 'temperature'),
       x: xs,
       y: s.y,
       type: 'scatter',
@@ -1384,31 +1435,31 @@ async function renderChartActual() {
       fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)',
       yaxis: 'y3',
       hovertemplate: hasTxTn
-        ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: %{y:.1f}°C<extra></extra>`
-        : `<b>${t('meteogram.chart.hoverTemperature')}</b>: %{y:.1f}°C<extra></extra>`,
+        ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`
+        : `<b>${t('meteogram.chart.hoverTemperature')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
     })
 
     if (hasTxTn && sTx && sTn) {
       traces.push({
-        name: t('meteogram.chart.seriesMaxTemp'),
+        name: named('meteogram.chart.seriesMaxTemp', 'temperature'),
         x: sTx.x.map(d => d.toISOString()),
         y: sTx.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>: %{y:.1f}°C<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       traces.push({
-        name: t('meteogram.chart.seriesMinTemp'),
+        name: named('meteogram.chart.seriesMinTemp', 'temperature'),
         x: sTn.x.map(d => d.toISOString()),
         y: sTn.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>: %{y:.1f}°C<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...sTn.y.filter((v): v is number => v !== null))
@@ -1426,7 +1477,7 @@ async function renderChartActual() {
         mode: 'lines',
         line: { color: '#a855f7', width: 1.6, shape: 'spline' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: %{y:.1f}°C<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...ds.y)
@@ -1442,18 +1493,17 @@ async function renderChartActual() {
         const rh = interpSeries(hs.x, hs.y, tMs)
         if (rh === null || rh === undefined)
           continue
-        let rhPct = rh
-        if (rhPct <= 1)
-          rhPct = rhPct * 100
+        const rhPct = canon('fraction', rh)
         const a = 17.27
         const b = 237.7
-        const T = s.y[i] ?? Number.NaN
-        if (Number.isNaN(T) || rhPct <= 0)
+        const reading = s.y[i] ?? Number.NaN
+        if (Number.isNaN(reading) || rhPct <= 0)
           continue
+        const T = canon('temperature', reading)
         const alpha = (a * T) / (b + T) + Math.log(rhPct / 100)
         const td = (b * alpha) / (a - alpha)
         dewXs.push(tIso)
-        dewYs.push(td)
+        dewYs.push(shown('temperature', td))
       }
       if (dewXs.length) {
         traces.push({
@@ -1464,7 +1514,7 @@ async function renderChartActual() {
           mode: 'lines',
           line: { color: '#a855f7', width: 1.6, shape: 'spline' },
           yaxis: 'y3',
-          hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: %{y:.1f}°C<extra></extra>`,
+          hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
           showlegend: false,
         })
         tempMinY = Math.min(tempMinY, ...dewYs)
@@ -1487,18 +1537,17 @@ async function renderChartActual() {
       let isMixed = false
       if (tempKey && resampledSeries.has(tempKey)) {
         const tSeries = resampledSeries.get(tempKey)!
-        const tval = interpSeries(tSeries.x, tSeries.y, new Date(tIso).getTime())
-        if (tval !== null && !Number.isNaN(tval)) {
+        const reading = interpSeries(tSeries.x, tSeries.y, new Date(tIso).getTime())
+        if (reading !== null && !Number.isNaN(reading)) {
+          // the wet bulb is worked out in degrees Celsius and percent, and judged against 0.5 and 2 degrees Celsius,
+          // whatever the units the chart is drawn in (GH-3980)
+          const tval = canon('temperature', reading)
           let tw = tval
           if (humidityKey && resampledSeries.has(humidityKey)) {
             const hSeries = resampledSeries.get(humidityKey)!
             const rh = interpSeries(hSeries.x, hSeries.y, new Date(tIso).getTime())
-            if (rh !== null) {
-              let rhPct = rh
-              if (rhPct <= 1)
-                rhPct = rhPct * 100
-              tw = wetBulbApprox(tval, rhPct)
-            }
+            if (rh !== null)
+              tw = wetBulbApprox(tval, canon('fraction', rh))
           }
           if (tw <= 0.5)
             isSnow = true
@@ -1524,19 +1573,19 @@ async function renderChartActual() {
       }
     }
 
-    traces.push({ name: t('meteogram.chart.seriesRain'), x: pxs, y: rainYs, type: 'bar', marker: { color: '#3b82f6' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverRain')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
-    traces.push({ name: t('meteogram.chart.seriesMixed'), x: pxs, y: mixedYs, type: 'bar', marker: { color: '#0ea5e9' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverMixed')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
-    traces.push({ name: t('meteogram.chart.seriesSnow'), x: pxs, y: snowYs, type: 'bar', marker: { color: isDark.value ? '#9ca3af' : '#cbd5e1' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverSnow')}</b><br>%{y:.2f} mm<extra></extra>`, visible: true })
+    traces.push({ name: t('meteogram.chart.seriesRain'), x: pxs, y: rainYs, type: 'bar', marker: { color: '#3b82f6' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverRain')}</b><br>${hoverUnit('precipitation')}<extra></extra>`, visible: true })
+    traces.push({ name: t('meteogram.chart.seriesMixed'), x: pxs, y: mixedYs, type: 'bar', marker: { color: '#0ea5e9' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverMixed')}</b><br>${hoverUnit('precipitation')}<extra></extra>`, visible: true })
+    traces.push({ name: t('meteogram.chart.seriesSnow'), x: pxs, y: snowYs, type: 'bar', marker: { color: isDark.value ? '#9ca3af' : '#cbd5e1' }, yaxis: 'y2', hovertemplate: `<b>${t('meteogram.chart.hoverSnow')}</b><br>${hoverUnit('precipitation')}<extra></extra>`, visible: true })
   }
 
   // 3. Pressure
-  let pressureMin = 1000
-  let pressureMax = 1020
+  let pressureMin = shown('pressure', 1000)
+  let pressureMax = shown('pressure', 1020)
   if (pressureKey && visiblePanels.value.pressure) {
     const ps = resampledSeries.get(pressureKey)!
     const pxs = ps.x.map(d => d.toISOString())
     traces.push({
-      name: t('meteogram.chart.seriesPressure'),
+      name: named('meteogram.chart.seriesPressure', 'pressure'),
       x: pxs,
       y: ps.y,
       type: 'scatter',
@@ -1545,17 +1594,17 @@ async function renderChartActual() {
       fill: 'tozeroy',
       fillcolor: isDark.value ? 'rgba(132,204,22,0.02)' : 'rgba(132,204,22,0.04)',
       yaxis: 'y4',
-      hovertemplate: `<b>${t('meteogram.chart.hoverPressure')}</b><br>%{y:.1f} hPa<extra></extra>`,
+      hovertemplate: `<b>${t('meteogram.chart.hoverPressure')}</b><br>${hoverUnit('pressure')}<extra></extra>`,
     })
     pressureMin = Math.min(...ps.y)
     pressureMax = Math.max(...ps.y)
   }
 
   // 4. Wind & Gusts
-  let windMaxY = 10
+  let windMaxY = shown('speed', 10)
   if (windKey && visiblePanels.value.wind) {
     const s = resampledSeries.get(windKey)!
-    windMaxY = Math.max(...s.y, 5)
+    windMaxY = Math.max(...s.y, shown('speed', 5))
 
     const gustSeries = (gustKey && resampledSeries.has(gustKey)) ? resampledSeries.get(gustKey)! : undefined
     if (gustSeries) {
@@ -1566,13 +1615,13 @@ async function renderChartActual() {
     const dirByMs = new Map<number, number>()
     if (windDirKey) {
       const dirS = resampledSeries.get(windDirKey)!
-      dirS.x.forEach((d, i) => dirByMs.set(d.getTime(), Math.round(dirS.y[i]!)))
+      dirS.x.forEach((d, i) => dirByMs.set(d.getTime(), dirS.y[i]!))
     }
     const windSpeedCustom = s.x.map(d => dirByMs.get(d.getTime()) ?? null)
     const hasDir = windSpeedCustom.some(v => v !== null)
 
     traces.push({
-      name: t('meteogram.chart.seriesWind'),
+      name: named('meteogram.chart.seriesWind', 'speed'),
       x: s.x.map(d => d.toISOString()),
       y: s.y,
       customdata: windSpeedCustom,
@@ -1583,27 +1632,28 @@ async function renderChartActual() {
       fillcolor: isDark.value ? 'rgba(6,182,212,0.04)' : 'rgba(6,182,212,0.08)',
       yaxis: 'y',
       hovertemplate: hasDir
-        ? `<b>${t('meteogram.chart.hoverWind')}</b> %{y:.1f} m/s → %{customdata:.0f}°<extra></extra>`
-        : `<b>${t('meteogram.chart.hoverWindSpeed')}</b> %{y:.1f} m/s<extra></extra>`,
+        ? `<b>${t('meteogram.chart.hoverWind')}</b> ${hoverUnit('speed')} → ${withUnit(`%{customdata:.${digits('angle')}f}`, unitOf('angle'))}<extra></extra>`
+        : `<b>${t('meteogram.chart.hoverWindSpeed')}</b> ${hoverUnit('speed')}<extra></extra>`,
     })
 
     if (gustSeries) {
       traces.push({
-        name: t('meteogram.chart.seriesWindGust'),
+        name: named('meteogram.chart.seriesWindGust', 'speed'),
         x: gustSeries.x.map(d => d.toISOString()),
         y: gustSeries.y,
         type: 'scatter',
         mode: 'lines',
         line: { color: '#06b6d4', width: 1.6, dash: 'dash', shape: 'spline' },
         yaxis: 'y',
-        hovertemplate: `<b>${t('meteogram.chart.hoverWindGust')}</b> %{y:.1f} m/s<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverWindGust')}</b> ${hoverUnit('speed')}<extra></extra>`,
       })
     }
 
     if (windDirKey) {
       const dirS = resampledSeries.get(windDirKey)!
       const dirMap = new Map<number, number>()
-      dirS.x.forEach((d, i) => dirMap.set(d.getTime(), dirS.y[i]!))
+      // the arrow points from the direction in degrees, whatever unit the direction is in
+      dirS.x.forEach((d, i) => dirMap.set(d.getTime(), canon('angle', dirS.y[i]!)))
 
       const arrowX: string[] = []
       const arrowText: string[] = []
@@ -1618,7 +1668,7 @@ async function renderChartActual() {
       })
 
       traces.push({
-        name: t('meteogram.chart.seriesDirection'),
+        name: `${t('meteogram.chart.seriesDirection')} ${unitName('angle')}`,
         x: arrowX,
         y: Array.from({ length: arrowX.length }).fill(windMaxY * 1.36),
         text: arrowText,
@@ -1638,7 +1688,7 @@ async function renderChartActual() {
     if (cloudHighKey && resampledSeries.has(cloudHighKey)) {
       const s = resampledSeries.get(cloudHighKey)!
       traces.push({
-        name: t('meteogram.chart.seriesHighClouds'),
+        name: named('meteogram.chart.seriesHighClouds', 'fraction'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1647,14 +1697,14 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(148,163,184,0.1)' : 'rgba(203,213,225,0.15)',
         yaxis: 'y5',
-        hovertemplate: `<b>${t('meteogram.chart.hoverHighClouds')}</b><br>%{y:.0f}%<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverHighClouds')}</b><br>${hoverUnit('fraction')}<extra></extra>`,
       })
     }
 
     if (cloudMidKey && resampledSeries.has(cloudMidKey)) {
       const s = resampledSeries.get(cloudMidKey)!
       traces.push({
-        name: t('meteogram.chart.seriesMidClouds'),
+        name: named('meteogram.chart.seriesMidClouds', 'fraction'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1663,14 +1713,14 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(100,116,139,0.15)' : 'rgba(148,163,184,0.22)',
         yaxis: 'y5',
-        hovertemplate: `<b>${t('meteogram.chart.hoverMidClouds')}</b><br>%{y:.0f}%<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverMidClouds')}</b><br>${hoverUnit('fraction')}<extra></extra>`,
       })
     }
 
     if (cloudLowKey && resampledSeries.has(cloudLowKey)) {
       const s = resampledSeries.get(cloudLowKey)!
       traces.push({
-        name: t('meteogram.chart.seriesLowClouds'),
+        name: named('meteogram.chart.seriesLowClouds', 'fraction'),
         x: s.x.map(d => d.toISOString()),
         y: s.y,
         type: 'scatter',
@@ -1679,21 +1729,21 @@ async function renderChartActual() {
         fill: 'tozeroy',
         fillcolor: isDark.value ? 'rgba(71,85,105,0.22)' : 'rgba(100,116,139,0.3)',
         yaxis: 'y5',
-        hovertemplate: `<b>${t('meteogram.chart.hoverLowClouds')}</b><br>%{y:.0f}%<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverLowClouds')}</b><br>${hoverUnit('fraction')}<extra></extra>`,
       })
     }
 
     // Total Cloud Cover line on top
     const s = resampledSeries.get(cloudKey)!
     traces.push({
-      name: t('meteogram.chart.seriesTotalCloud'),
+      name: named('meteogram.chart.seriesTotalCloud', 'fraction'),
       x: s.x.map(d => d.toISOString()),
       y: s.y,
       type: 'scatter',
       mode: 'lines',
       line: { color: isDark.value ? '#e4e4e7' : '#334155', width: 2, shape: 'spline' },
       yaxis: 'y5',
-      hovertemplate: `<b>${t('meteogram.chart.hoverTotalCloud')}</b><br>%{y:.0f}%<extra></extra>`,
+      hovertemplate: `<b>${t('meteogram.chart.hoverTotalCloud')}</b><br>${hoverUnit('fraction')}<extra></extra>`,
     })
   }
 
@@ -1747,22 +1797,27 @@ async function renderChartActual() {
   if (precipKey && resampledSeries.has(precipKey)) {
     const ps = resampledSeries.get(precipKey)!
     const pMax = Math.max(...ps.y.map(v => (v ?? 0)))
-    axisRanges.precip = [0, Math.max(1, pMax * 1.15)]
+    axisRanges.precip = [0, Math.max(shown('precipitation', 1), pMax * 1.15)]
   }
   else {
-    axisRanges.precip = [0, 1]
+    axisRanges.precip = [0, shown('precipitation', 1)]
   }
 
-  axisRanges.cloud = [0, 100]
-  axisRanges.temp = [tempMinY - 1, tempMaxY + 3]
-  axisRanges.pressure = [pressureMin - 2, pressureMax + 2]
+  // the cloud cover's axis is the whole of the scale: 0 to 100 %, 0 to 1, 0 to 8 oktas
+  const cloudTop = shown('fraction', 100)
+  // a degree and a hectopascal, in the unit of the chart: a degree is 1.8 degrees Fahrenheit, a hectopascal 100 pascals
+  const degree = stretch('temperature', 1)
+  const hectopascal = stretch('pressure', 1)
+  axisRanges.cloud = [0, cloudTop]
+  axisRanges.temp = [tempMinY - degree, tempMaxY + 3 * degree]
+  axisRanges.pressure = [pressureMin - 2 * hectopascal, pressureMax + 2 * hectopascal]
 
   const originalRanges: Record<string, [number, number]> = {
     wind: [0, windMaxY * 1.60],
     precip: axisRanges.precip,
-    cloud: [0, 100],
-    temp: [tempMinY - 1, tempMaxY + 3],
-    pressure: [pressureMin - 2, pressureMax + 2],
+    cloud: [0, cloudTop],
+    temp: [tempMinY - degree, tempMaxY + 3 * degree],
+    pressure: [pressureMin - 2 * hectopascal, pressureMax + 2 * hectopascal],
   }
 
   const nticksMap: Record<string, number> = { wind: 4, precip: 3, cloud: 3, temp: 4, pressure: 3 }
@@ -1865,17 +1920,22 @@ async function renderChartActual() {
   const titleFont = compact.value ? 10 : TICK_FONT
   const plotHeight = (chartRef.value?.clientHeight ?? 540) - ((compact.value ? 44 : 72) + extraTop) - (compact.value ? 4 : 8)
   const axisTitleTexts = {
-    wind: t('meteogram.chart.axisWind'),
-    precip: t('meteogram.chart.axisPrecip'),
-    cloud: t('meteogram.chart.axisCloud'),
-    temp: t('meteogram.chart.axisTemp'),
-    pressure: t('meteogram.chart.axisPressure'),
+    wind: named('meteogram.chart.axisWind', 'speed'),
+    precip: named('meteogram.chart.axisPrecip', 'precipitation'),
+    cloud: named('meteogram.chart.axisCloud', 'fraction'),
+    temp: named('meteogram.chart.axisTemp', 'temperature'),
+    pressure: named('meteogram.chart.axisPressure', 'pressure'),
   }
   const axisTitles = Object.fromEntries(Object.entries(axisTitleTexts).map(([key, title]) => {
     const domain = domains[key]
     return [key, fitAxisTitle(title, domain ? (domain[1] - domain[0]) * plotHeight : Infinity, titleFont)]
   })) as Record<keyof typeof axisTitleTexts, ReturnType<typeof fitAxisTitle>>
   const wrapsTitle = Object.values(axisTitles).some(title => title.lines === 2)
+
+  // the freezing point of the temperature panel where Plotly's zero line is not it
+  const freezingLine: any[] = freezing !== 0 && domains.temp
+    ? [{ type: 'line', xref: 'paper', yref: 'y3', x0: 0, x1: 1, y0: freezing, y1: freezing, line: { color: theme.value.zeroline, width: 1 }, layer: 'below' }]
+    : []
 
   // Layout
   const layout: any = {
@@ -1888,7 +1948,7 @@ async function renderChartActual() {
     hoverlabel: { font: { family: '"Inter", system-ui, sans-serif' } },
     bargap: 0.05,
     barmode: 'stack',
-    shapes: [...dayShapes, ...separators, ...dividers],
+    shapes: [...dayShapes, ...separators, ...dividers, ...freezingLine],
     annotations,
     showlegend: false,
 
@@ -1962,7 +2022,9 @@ async function renderChartActual() {
       title: { text: axisTitles.temp.text, font: { size: titleFont, color: LABEL('red') }, standoff: 2 },
       gridcolor: GRID,
       linecolor: 'rgba(0,0,0,0)',
-      zeroline: true,
+      // Plotly's zero line is the freezing point in degrees Celsius only: in another unit the line is drawn at the
+      // freezing point, as a shape (and the zero of Kelvin or of Fahrenheit is no line to draw)
+      zeroline: freezing === 0,
       zerolinecolor: theme.value.zeroline,
       zerolinewidth: 1,
       range: originalRanges.temp,
@@ -2017,7 +2079,7 @@ async function renderChartActual() {
 
     // Setup overlay drawing of wind barbs using a canvas overlay
     if (typeof window !== 'undefined' && windKey && chartRef.value && visiblePanels.value.wind) {
-      const arrowInfos: { timeMs: number, dir: number, speed: number }[] = []
+      const arrowInfos: { timeMs: number, dir: number, speed: number, knots: number }[] = []
       const s = resampledSeries.get(windKey)!
       const dirSeries = windDirKey ? resampledSeries.get(windDirKey) : undefined
       const subsample = compact.value ? 2 : 3
@@ -2026,12 +2088,13 @@ async function renderChartActual() {
           continue
         const timeMs = s.x[i]!.getTime()
         const speed = s.y[i] ?? 0
-        const dir = dirSeries ? (dirSeries.y[i] ?? dirSeries.y[0] ?? 0) : 0
-        arrowInfos.push({ timeMs, dir, speed })
+        // the barb points from the direction in degrees and has the knots of the speed in metres per second
+        const dir = canon('angle', dirSeries ? (dirSeries.y[i] ?? dirSeries.y[0] ?? 0) : 0)
+        arrowInfos.push({ timeMs, dir, speed, knots: (canon('speed', speed) * 3600) / 1852 })
       }
 
       const gustSeriesY = (gustKey ? resampledSeries.get(gustKey)?.y : undefined) ?? [0]
-      const axisMax = Math.max(1, ...((resampledSeries.get(windKey)?.y) ?? [10]), ...gustSeriesY)
+      const axisMax = Math.max(shown('speed', 1), ...((resampledSeries.get(windKey)?.y) ?? [shown('speed', 10)]), ...gustSeriesY)
       const axisDomain = domains.wind ? domains.wind : [0, 0]
       const getParams = () => ({ arrowInfos, minTime, maxTime: displayMaxTime, layoutObj: layout, axisRange: [0, axisMax] as [number, number], axisDomain: axisDomain as [number, number] })
       attachOverlayListeners(getParams)
@@ -2160,30 +2223,29 @@ watch(
       <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
         <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
           <UIcon name="i-ph-thermometer" class="w-4 h-4 shrink-0" data-summary-icon="temp" :style="{ color: seriesLabelColor('red', isDark) }" />
-          <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
+          <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}</span>
           <span class="text-gray-500 dark:text-gray-400">/</span>
-          <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
+          <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-ph-wind" class="w-4 h-4 shrink-0" data-summary-icon="wind" :style="{ color: seriesLabelColor('cyan', isDark) }" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
-          <span class="text-gray-500 dark:text-gray-400 text-xs">m/s</span>
-          <span class="text-xs" :style="{ color: seriesLabelColor('cyan', isDark) }">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.gust.value }}</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">{{ summaryStats.gust.unit }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-ph-cloud-rain" class="w-4 h-4 shrink-0" data-summary-icon="precip" :style="{ color: seriesLabelColor('blue', isDark) }" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
-          <span class="text-gray-500 dark:text-gray-400 text-xs">mm</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.precip.value }}</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">{{ summaryStats.precip.unit }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-ph-cloud" class="w-4 h-4 shrink-0" data-summary-icon="cloud" :style="{ color: seriesLabelColor('slate', isDark) }" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
-          <span class="text-gray-500 dark:text-gray-400 text-xs">%</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud.value }}</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">{{ summaryStats.cloud.unit }}</span>
         </div>
         <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
           <UIcon name="i-ph-gauge" class="w-4 h-4 shrink-0" data-summary-icon="pressure" :style="{ color: seriesLabelColor('lime', isDark) }" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
-          <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.range }}</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">{{ summaryStats.pressure.unit }}</span>
         </div>
         <!-- the time zone of the chart's axis: the table names its own in its header -->
         <div v-if="view === 'chart'" class="hidden sm:block ml-auto self-center text-xs text-gray-500 dark:text-gray-400 select-none">

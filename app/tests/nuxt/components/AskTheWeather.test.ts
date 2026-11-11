@@ -3,6 +3,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData, clearNuxtState } from '#app'
+import { useSettings } from '#imports'
 import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
@@ -40,17 +41,63 @@ registerEndpoint('/api/stations', (event) => {
     return { stations: [NEAREST] }
   return { stations: query.get('network') === 'mosmix' ? [KIEL_MOSMIX] : [] }
 })
-registerEndpoint('/api/values', (event) => {
+// what the backend does with `unit_targets` (GH-3980): the values in the unit asked for, and each parameter's unit in the
+// metadata. The fixtures are written in degrees Celsius, metres per second, millimetres and decimals
+const FROM_CELSIUS: Record<string, [string, (value: number) => number]> = {
+  degree_celsius: ['°C', value => value],
+  degree_fahrenheit: ['°F', value => value * 1.8 + 32],
+  degree_kelvin: ['K', value => value + 273.15],
+}
+const FROM_METERS_PER_SECOND: Record<string, [string, (value: number) => number]> = {
+  meter_per_second: ['m/s', value => value],
+  kilometer_per_hour: ['km/h', value => value * 3.6],
+  knots: ['kn', value => value / (1852 / 3600)],
+  beaufort: ['bft', value => (value / 0.836) ** (2 / 3)],
+}
+const FROM_MILLIMETERS: Record<string, [string, (value: number) => number]> = {
+  millimeter: ['mm', value => value],
+  liter_per_square_meter: ['l/m²', value => value],
+}
+const QUANTITIES: Record<string, [string, Record<string, [string, (value: number) => number]>]> = {
+  temperature_air_mean_2m: ['temperature', FROM_CELSIUS],
+  precipitation_amount_significant_weather_last_1h: ['precipitation', FROM_MILLIMETERS],
+  wind_gust_max: ['speed', FROM_METERS_PER_SECOND],
+  wind_speed_mean: ['speed', FROM_METERS_PER_SECOND],
+}
+function inUnits(values: Array<{ parameter: string, value: number | null }>, query: URLSearchParams) {
+  const targets = JSON.parse(query.get('unit_targets') ?? '{}') as Record<string, string>
+  const convert = query.get('convert_units') !== 'false'
+  const conversion = (parameter: string) => {
+    const [quantity, units] = QUANTITIES[parameter] ?? []
+    return units && convert ? units[targets[quantity!] ?? Object.keys(units)[0]!]! : units ? Object.values(units)[0]! : undefined
+  }
+  const unitOf: Record<string, string> = {}
+  const converted = values.map((row) => {
+    const unit = conversion(row.parameter)
+    if (unit)
+      unitOf[row.parameter] = unit[0]
+    return unit && row.value !== null ? { ...row, value: unit[1](row.value) } : row
+  })
+  const parameters = [...new Set(values.map(row => row.parameter))].map(name => ({ name, unit: unitOf[name] ?? ('-') }))
+  return { values: converted, metadata: { parameters } }
+}
+// an answer of the values that waits for the test where it asks (a request to hold)
+let holdValues: Promise<void> | null = null
+// the speed unit of the only requests to hold, where the test holds those of one unit and lets the others through
+let holdOnlySpeed: string | null = null
+registerEndpoint('/api/values', async (event) => {
   const query = record(event, 'values')
   if (failValues) {
     setResponseStatus(event, 422)
     return { type: 'urn:wetterdienst:problem:invalid-request', title: 'Unprocessable', status: 422, detail: 'The request could not be processed.' }
   }
+  if (!holdOnlySpeed || JSON.parse(query.get('unit_targets') ?? '{}').speed === holdOnlySpeed)
+    await holdValues
   const station = query.get('stations') ?? ''
   const parameters = query.get('parameters') ?? ''
   if (query.get('network') === 'mosmix')
-    return { values: rainValues(station) }
-  return { values: parameters.startsWith('monthly/') ? summerValues(station) : windValues(station, query.get('timestamp')) }
+    return inUnits(rainValues(station), query)
+  return inUnits(parameters.startsWith('monthly/') ? summerValues(station) : windValues(station, query.get('timestamp')), query)
 })
 function coverage() {
   return {
@@ -90,6 +137,10 @@ afterEach(() => {
   // the services found for the visit are kept, and the next test is another visit
   clearNuxtState('download-sources')
   requests.length = 0
+  holdValues = null
+  holdOnlySpeed = null
+  Object.assign(useSettings().settings.value, { convertUnits: true })
+  Object.assign(useSettings().settings.value.units, { temperature: 'degree_celsius', speed: 'meter_per_second', precipitation: 'millimeter' })
 })
 
 describe('the suggestions', () => {
@@ -394,5 +445,132 @@ describe('the place from the reader\'s position', () => {
     // the questions still work
     await chip(wrapper, 'summer').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+  })
+})
+
+// The answers follow the unit settings (GH-3980): the request carries the unit, the sentences, the chart and its table say the unit
+// the answer reports, the verdict is the same in every unit, and a change of the unit refetches
+describe('the answers in the unit of the settings', () => {
+  const settings = () => useSettings().settings.value
+
+  it('says the summer in degrees Fahrenheit, with the difference as degrees of it, and the same verdict', async () => {
+    const celsius = await mountAsk('/?ask=summer')
+    await vi.waitFor(() => expect(verdict(celsius).text()).toMatch(/^Yes, [\d.]+ °C warmer than usual\.$/))
+    const inCelsius = Number(/([\d.]+) °C/.exec(verdict(celsius).text())![1])
+    celsius.unmount()
+    mounted.pop()
+
+    settings().units.temperature = 'degree_fahrenheit'
+    const wrapper = await mountAsk('/?ask=summer')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Yes, [\d.]+ °F warmer than usual\.$/))
+    expect(JSON.parse(asked('values').at(-1)!.query.get('unit_targets')!)).toEqual({ temperature: 'degree_fahrenheit' })
+    // 1 degree Celsius is 1.8 degrees Fahrenheit
+    expect(Number(/([\d.]+) °F/.exec(verdict(wrapper).text())![1])).toBeCloseTo(inCelsius * 1.8, 0)
+    expect(wrapper.text()).toContain('averaged')
+    expect(wrapper.text()).toMatch(/averaged [\d.]+ °F;/)
+    expect(wrapper.find('figure figcaption').text()).toContain('in °F')
+    expect(wrapper.find('figure table thead th:last-child').text()).toBe('°F')
+    expect(wrapper.text()).not.toContain('°C')
+  })
+
+  it.each([
+    ['kilometer_per_hour', 'km/h', 77.8],
+    ['knots', 'kn', 42],
+    ['beaufort', 'bft', 8.7],
+  ])('says the wind in %s, with the same verdict and the same Beaufort force', async (unit, symbol, gust) => {
+    settings().units.speed = unit
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    expect(JSON.parse(asked('values')[0]!.query.get('unit_targets')!)).toEqual({ speed: unit })
+    expect(wrapper.text()).toContain(`Strongest gust ${gust}`)
+    expect(wrapper.text()).toMatch(new RegExp(`Strongest gust [\\d.]+ ${symbol.replace('/', '\\/')}, Beaufort 9\\.`))
+    expect(wrapper.text()).toMatch(new RegExp(`Mean wind [\\d.]+ ${symbol.replace('/', '\\/')}, Beaufort 5\\.`))
+    expect(wrapper.find('figure figcaption').text()).toBe(`Strongest gust per day, in ${symbol}`)
+  })
+
+  it('says the rain in litres per square metre, and asks the chance as a decimal whatever the settings', async () => {
+    settings().units.precipitation = 'liter_per_square_meter'
+    settings().units.fraction = 'one_eighth'
+    const wrapper = await mountAsk('/?ask=rain')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Yes, rain is likely.'))
+    expect(JSON.parse(asked('values')[0]!.query.get('unit_targets')!)).toEqual({ precipitation: 'liter_per_square_meter', fraction: 'decimal' })
+    expect(wrapper.text()).toMatch(/[\d.]+ l\/m² forecast for the whole day\./)
+    expect(wrapper.text()).toMatch(/Wettest hour: 15:00 to 16:00, [\d.]+ l\/m²\./)
+    expect(wrapper.find('figure figcaption').text()).toBe('Rain per hour tomorrow, in l/m²')
+    expect(wrapper.text()).toContain('Highest chance of rain in any hour: 85%.')
+  })
+
+  it('asks for the values as the source has them, and reads the unit the answer says, where the settings do not convert', async () => {
+    settings().convertUnits = false
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    expect(asked('values')[0]!.query.get('convert_units')).toBe('false')
+    expect(wrapper.text()).toMatch(/Strongest gust 21\.6 m\/s, Beaufort 9\./)
+  })
+
+  it('asks again, in the new unit, where the settings change while the answer is shown', async () => {
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    expect(asked('values')).toHaveLength(1)
+    settings().units.speed = 'kilometer_per_hour'
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('km/h'))
+    expect(JSON.parse(asked('values')[1]!.query.get('unit_targets')!)).toEqual({ speed: 'kilometer_per_hour' })
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(asked('values')).toHaveLength(2)
+  })
+
+  it('leaves the answer as it is where the unit of another quantity changes', async () => {
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    settings().units.temperature = 'degree_fahrenheit'
+    settings().units.precipitation = 'liter_per_square_meter'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(asked('values')).toHaveLength(1)
+  })
+
+  it('shows the answer of the newest request where the unit changes while one is under way, followed by one more fetch', async () => {
+    let release!: () => void
+    holdValues = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(1))
+    settings().units.speed = 'knots'
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
+    release()
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/)
+    expect(wrapper.text()).not.toContain('m/s')
+    expect(asked('values')).toHaveLength(2)
+  })
+
+  it('keeps the answer of the newer request where the older one comes back last, as the first visit\'s seeding of the settings makes it', async () => {
+    // the request in metres per second is held; the unit changes to knots, and that answer comes first
+    let release!: () => void
+    holdValues = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    holdOnlySpeed = 'meter_per_second'
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(1))
+    settings().units.speed = 'knots'
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/))
+    // now the older one returns
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.text()).toMatch(/Strongest gust [\d.]+ kn,/)
+    expect(wrapper.text()).not.toContain('m/s')
+    expect(wrapper.find('figure figcaption').text()).toBe('Strongest gust per day, in kn')
+  })
+
+  it('asks again for no unit where the values are not converted: the unit chosen changes nothing of them', async () => {
+    settings().convertUnits = false
+    const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+    settings().units.speed = 'knots'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(asked('values')).toHaveLength(1)
   })
 })
