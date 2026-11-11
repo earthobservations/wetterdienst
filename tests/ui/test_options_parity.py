@@ -415,6 +415,8 @@ def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: o
 
     advertised = {(tool, name) for tool, names in asyncio.run(tools()).items() for name in names}
     held = {(param.values[1], name) for param in _object_cases() for name in param.values[2]}
+    # an exemption of an argument no tool advertises any more is stale
+    assert _OBJECT_ARGUMENTS_HELD_ELSEWHERE.keys() <= advertised
     assert advertised - _OBJECT_ARGUMENTS_HELD_ELSEWHERE.keys() == held
 
 

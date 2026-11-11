@@ -705,11 +705,15 @@ describe('stripes Page units', () => {
 
   // the query of each request of values, and the backend's answer: in the unit asked for, from degree Celsius
   const asked: Array<Record<string, string>> = []
+  const other = { ...station, station_id: '3987', name: 'Potsdam' }
+  // an answer of the values held until the test lets it go
+  let gate: Promise<void> | null = null
   function serveValues() {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', (event) => {
+    registerEndpoint('/api/stripes/values', async (event) => {
       const query = getQuery(event) as Record<string, string>
       asked.push(query)
+      await gate
       const targets = JSON.parse(query.unit_targets ?? '{}') as { temperature?: string, precipitation?: string }
       const fahrenheit = targets.temperature === 'degree_fahrenheit'
       return {
@@ -727,20 +731,24 @@ describe('stripes Page units', () => {
     wrapper?.unmount()
     wrapper = undefined
     asked.length = 0
+    gate = null
     const { units } = useSettings().settings.value
     units.temperature = 'degree_celsius'
     units.precipitation = 'millimeter'
   })
 
-  async function show(route: string) {
+  const showButton = () => wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!
+  async function show(route: string, years?: { startYear: number, endYear: number }) {
     serveValues()
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
-    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    await vi.waitFor(() => expect(vm.stations.length).toBeGreaterThan(0))
     vm.selectedStation = station
+    if (years)
+      Object.assign(vm, years)
     await nextTick()
     plotly.newPlot.mockClear()
-    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await showButton().trigger('click')
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
     return vm
   }
@@ -782,6 +790,43 @@ describe('stripes Page units', () => {
     await show('/stripes?kind=precipitation')
     expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ precipitation: 'liter_per_square_meter' }])
     expect(await tableHead()).toContain('Value (l/m²)')
+  })
+
+  it('fetches the values shown again, not the selection the form holds now, where the unit changes (GH-3980)', async () => {
+    const vm = await show('/stripes?kind=temperature', { startYear: 2005, endYear: 2015 })
+    expect(asked).toHaveLength(1)
+    // a station and years chosen, and not confirmed with Show
+    vm.selectedStation = other
+    vm.startYear = 1990
+    vm.endYear = 2000
+    await nextTick()
+
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(asked).toHaveLength(2))
+
+    expect(asked[1]).toMatchObject({ station: '1048', start_year: '2005', end_year: '2015' })
+    expect(JSON.parse(asked[1]!.unit_targets!)).toEqual({ temperature: 'degree_fahrenheit' })
+  })
+
+  it('fetches again, in the new unit, once a fetch under way ends, where the unit changes during it', async () => {
+    await show('/stripes?kind=temperature')
+    let release!: () => void
+    gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(asked).toHaveLength(2))
+
+    // the fetch under way asked for degree Celsius
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await nextTick()
+    expect(asked).toHaveLength(2)
+    gate = null
+    release()
+
+    await vi.waitFor(() => expect(asked).toHaveLength(3))
+    expect(JSON.parse(asked[2]!.unit_targets!)).toEqual({ temperature: 'degree_fahrenheit' })
+    await vi.waitFor(() => expect(sentence()).toContain('°F'))
   })
 
   it('fetches the values again, in the new unit, where the settings change while the stripes are shown', async () => {

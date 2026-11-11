@@ -7091,6 +7091,60 @@ def test_stripes_values_refuse_unit_targets_as_the_values_route_does(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
+)
+@pytest.mark.parametrize("unit_targets", [None, '{"temperature": "degree_fahrenheit"}'], ids=["none", "fahrenheit"])
+def test_stripes_values_override_a_malformed_variable_for_their_options(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str], unit_targets: str | None
+) -> None:
+    """A malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes fix themselves, does not stop the route (GH-2348).
+
+    The check of `unit_targets` built the server's options from the environment, which reads them, and answered 500.
+    """
+    monkeypatch.setenv(*variable)
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    params = {"kind": "temperature", "station": "01048"}
+    if unit_targets:
+        params["unit_targets"] = unit_targets
+
+    response = client.get("/api/stripes/values", params=params)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["series"]["unit"] == ("degree_fahrenheit" if unit_targets else "degree_celsius")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
+)
+def test_mcp_stripes_values_override_a_malformed_variable_for_their_options(
+    monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str]
+) -> None:
+    """The MCP `stripes_values` tool, which is the route, is as little stopped by a malformed variable (GH-2348)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv(*variable)
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    async def _call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool(
+                "stripes_values",
+                {"kind": "temperature", "station": "01048", "unit_targets": {"temperature": "degree_fahrenheit"}},
+            )
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call())["result"]
+    assert data["series"]["unit"] == "degree_fahrenheit"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_stripes_image_takes_no_unit_targets(client: TestClient) -> None:
     """The image shows no number or unit, so it takes no `unit_targets` (GH-3980)."""
     response = client.get(

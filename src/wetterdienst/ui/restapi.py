@@ -98,6 +98,7 @@ from wetterdienst.ui.core import (
     _caller_refusal_status,
     _draw_stripes,
     _get_stripes_data,
+    _get_stripes_options,
     _get_stripes_stations,
     _require_plotting,
     check_timeseries_api,
@@ -2160,7 +2161,10 @@ def values(
 
 
 def _request_options(
-    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings | StripesSettings]
+    request: BaseModel,
+    given: Collection[str],
+    applied: type[_AppliedSettings | StationsSettings | StripesSettings],
+    base: Options | None = None,
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -2174,8 +2178,11 @@ def _request_options(
     not tell, as the request's dicts are merged into the ones the server sets. With the server's
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
+
+    `base` stands in for the server's options where an endpoint fixes some of them itself, as the stripes do
+    (GH-2348, GH-3980).
     """
-    server = Options()
+    server = base if base is not None else Options()
     # each option given by the field that sets it
     passed = {
         str(option.validation_alias): (field, value)
@@ -2579,7 +2586,7 @@ def stripes_values(
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
-    _request_options(request, http_request.query_params.keys(), StripesSettings)
+    _request_options(request, http_request.query_params.keys(), StripesSettings, _get_stripes_options())
     try:
         stripes_data = _get_stripes_data(request)
     except AssertionError:
