@@ -153,6 +153,15 @@ watch(() => props.parameterSelection, (ps) => {
   }
 }, { deep: true, immediate: true })
 
+// "Use my location" asks for the station nearest to the reader among those of the dataset chosen, as the list is asked
+const locateQuery = computed(() => props.parameterSelection.parameters?.length
+  ? {
+      provider: props.parameterSelection.provider,
+      network: props.parameterSelection.network,
+      parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
+    }
+  : undefined)
+
 // A pick, from the search, the map or the chips
 function onPick(val: Station[]) {
   selectedStations.value = val
@@ -170,6 +179,7 @@ function onPick(val: Station[]) {
     :loading="stationsPending"
     :error="!!stationsError"
     :empty="stationsLoaded && !allStations.length"
+    :locate="locateQuery"
     @update:selected="onPick"
     @update:open="selectOpen = $event"
     @update:mode="mode = $event"

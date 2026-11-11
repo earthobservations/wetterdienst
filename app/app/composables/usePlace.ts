@@ -14,6 +14,8 @@ export interface Place {
   latitude: number
   longitude: number
   region: string | null
+  /** The station nearest to the reader's own position (GH-3651): kept in the browser only with "remember", and forgotten with the position */
+  fromPosition?: boolean
 }
 
 /** Kiel-Holtenau: the station of the town the first question names */
@@ -28,7 +30,7 @@ function stored(): Place | null {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
     if (raw && typeof raw.id === 'string' && typeof raw.name === 'string' && Number.isFinite(raw.latitude) && Number.isFinite(raw.longitude))
-      return { id: raw.id, name: raw.name, latitude: raw.latitude, longitude: raw.longitude, region: typeof raw.region === 'string' ? raw.region : null }
+      return { id: raw.id, name: raw.name, latitude: raw.latitude, longitude: raw.longitude, region: typeof raw.region === 'string' ? raw.region : null, ...(raw.fromPosition === true ? { fromPosition: true } : {}) }
   }
   catch {}
   return null
@@ -44,13 +46,34 @@ export function placeOf(station: Station): Place | null {
 export function usePlace() {
   const place = useState<Place>('place', () => stored() ?? DEFAULT_PLACE)
 
-  function setPlace(next: Place) {
+  /**
+   * Makes `next` the place. It is kept in the browser unless `keep` is false: the station nearest to the reader's own
+   * position (GH-3651) is a place for this visit only, as the position is, unless the reader ticked "remember".
+   */
+  function setPlace(next: Place, keep = true) {
     place.value = next
+    if (!keep)
+      return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     }
     catch {}
   }
 
-  return { place, setPlace }
+  /**
+   * What the reader's position made of the place is taken back (GH-3651): the entry in the browser goes where it is the
+   * one that came from the position (the reader's own choice of a place is theirs), and with `memory` the place of the
+   * page is the one the browser still keeps, or Kiel, as the position it was derived from is forgotten.
+   */
+  function dropPositionPlace(memory: boolean) {
+    try {
+      if (stored()?.fromPosition)
+        localStorage.removeItem(STORAGE_KEY)
+    }
+    catch {}
+    if (memory && place.value.fromPosition)
+      place.value = stored() ?? DEFAULT_PLACE
+  }
+
+  return { place, setPlace, dropPositionPlace }
 }

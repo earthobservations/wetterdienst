@@ -767,6 +767,23 @@
     "removeStation": "Quitar {name} de la selección",
     "announceList": "Búsqueda de estaciones"
   },
+  "location": {
+    "button": "Usar mi ubicación",
+    "locating": "Buscando tu ubicación …",
+    "remember": "Recordar mi ubicación en este navegador",
+    "note": "Redondeada a aproximadamente 1 km y usada solo para encontrar la estación más cercana. Solo se queda en este navegador si marcas la casilla.",
+    "privacyLink": "Más en la política de privacidad",
+    "remembered": "Ubicación recordada: {position}",
+    "forget": "Olvidar mi ubicación",
+    "denied": "Tu navegador bloquea la ubicación para este sitio. Para permitirla, abre los ajustes del sitio en tu navegador, pon Ubicación en Permitir y vuelve a pulsar el botón. La búsqueda sigue funcionando.",
+    "unsupported": "Este navegador no puede determinar tu ubicación. Usa la búsqueda en su lugar.",
+    "unavailable": "No se pudo encontrar tu ubicación. Usa la búsqueda en su lugar.",
+    "timeout": "Encontrar tu ubicación tardó demasiado. Vuelve a pulsar el botón o usa la búsqueda.",
+    "nearest": "Estación más cercana: {name}, a {distance} de tu ubicación.",
+    "noneNear": "No se encontró ninguna estación cerca de tu ubicación.",
+    "lookupFailed": "No se pudo buscar la estación más cercana. Inténtalo de nuevo o usa la búsqueda.",
+    "here": "Se pregunta por {name}, la estación a {distance} de tu ubicación."
+  },
   "interpolation": {
     "source": "Fuente",
     "manualCoords": "Coordenadas manuales",
@@ -833,6 +850,7 @@
     "chosen": "{name} elegida",
     "pickedPlace": "Un punto del mapa, a {distance} de esta estación",
     "pickedCentre": "El lugar en el centro del mapa cuando se eligió, a {distance} de esta estación",
+    "pickedPosition": "Tu ubicación, a {distance} de esta estación",
     "pickedPlaceAddress": "El lugar elegido, a {distance} de esta estación",
     "pickedStationPlace": "La posición de {name}, a {distance} de esta estación",
     "elevation": "{value} m sobre el nivel del mar",

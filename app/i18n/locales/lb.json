@@ -767,6 +767,23 @@
     "removeStation": "{name} ewechhuelen",
     "announceList": "Statiounssich"
   },
+  "location": {
+    "button": "Meng Positioun benotzen",
+    "locating": "Deng Positioun gëtt gesicht …",
+    "remember": "Meng Positioun an dësem Browser behalen",
+    "note": "Op ongeféier 1 km ofgerënnt a just benotzt, fir déi nootst Statioun ze fannen. Si bleift nëmmen an dësem Browser, wann du d'Këscht ukräizs.",
+    "privacyLink": "Méi an der Dateschutzerklärung",
+    "remembered": "Behalen Positioun: {position}",
+    "forget": "Meng Positioun vergiessen",
+    "denied": "Däi Browser blockéiert d'Positioun fir dës Säit. Fir se z'erlaben, maach d'Säiteastellunge vun dengem Browser op, stell Positioun op Erlaben a dréck nach eng Kéier op de Knäppchen. D'Sich funktionéiert weider.",
+    "unsupported": "Dëse Browser kann deng Positioun net erkennen. Benotz amplaz d'Sich.",
+    "unavailable": "Deng Positioun konnt net fonnt ginn. Benotz amplaz d'Sich.",
+    "timeout": "D'Sich no denger Positioun huet ze laang gedauert. Dréck nach eng Kéier op de Knäppchen oder benotz d'Sich.",
+    "nearest": "Nootst Statioun: {name}, {distance} vun denger Positioun ewech.",
+    "noneNear": "Bei denger Positioun gouf keng Statioun fonnt.",
+    "lookupFailed": "Déi nootst Statioun konnt net nogeschloe ginn. Probéier et nach eng Kéier oder benotz d'Sich.",
+    "here": "D'Fro geet iwwer {name}, d'Statioun {distance} vun denger Positioun ewech."
+  },
   "interpolation": {
     "source": "Quell",
     "manualCoords": "Manuell Koordinaten",
@@ -833,6 +850,7 @@
     "chosen": "{name} gewielt",
     "pickedPlace": "E Punkt op der Kaart, {distance} vun dëser Statioun ewech",
     "pickedCentre": "D'Plaz an der Mëtt vun der Kaart, wéi se gewielt gouf, {distance} vun dëser Statioun ewech",
+    "pickedPosition": "Deng Positioun, {distance} vun dëser Statioun ewech",
     "pickedPlaceAddress": "Déi gewielte Plaz, {distance} vun dëser Statioun ewech",
     "pickedStationPlace": "D'Positioun vun {name}, {distance} vun dëser Statioun ewech",
     "elevation": "{value} m iwwer dem Mieresspigel",

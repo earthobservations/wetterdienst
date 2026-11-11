@@ -250,9 +250,9 @@ export function closerStoppedStation(stations: PlacedStation[], point: Point, pi
  * Where the place of a pick came from, which the panel says (GH-3875): a click on the map, the centre of the map (the
  * keyboard's click), the position of a station the reader chose (a search, the list, a dot, the forecast station a
  * layer was changed from), which is no click and is not told as one, or of no known origin (a place the address
- * brings: a link, a reload, the browser's Back).
+ * brings: a link, a reload, the browser's Back), or the reader's own position (GH-3651), which is kept out of the address.
  */
-export type PlaceOrigin = { kind: 'point' | 'centre' | 'unknown' } | { kind: 'station', name: string }
+export type PlaceOrigin = { kind: 'point' | 'centre' | 'unknown' | 'position' } | { kind: 'station', name: string }
 
 /** The station a point is on, within `tolerance` kilometres of it, or null: the nearest, whatever its status */
 export function stationAt(stations: PlacedStation[], point: Point, tolerance: number): PlacedStation | null {
