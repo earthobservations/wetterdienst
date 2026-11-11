@@ -433,6 +433,18 @@ describe('explorer Page DWD DMO lead time', () => {
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query.leadTime).toBe('long'))
   })
 
+  it('tells which run is chosen: aria-pressed is true on that button alone, in a group named Forecast run (GH-3989)', async () => {
+    const { wrapper } = await mountAt(ICON)
+    const group = leadTimeCard(wrapper).find('[role="group"]')
+    expect(group.attributes('aria-label')).toBe('Forecast run')
+    const pressed = () => group.findAll('button').map((b: any) => b.attributes('aria-pressed'))
+    expect(group.findAll('button')).toHaveLength(2)
+    expect(pressed()).toEqual(['true', 'false'])
+
+    await group.findAll('button')[1]!.trigger('click')
+    await vi.waitFor(() => expect(pressed()).toEqual(['false', 'true']))
+  })
+
   it('restores the long run from a shared link, and sends it', async () => {
     const { wrapper } = await mountAt(`${ICON}&leadTime=long`)
     expect((await show(wrapper)).lead_time).toBe('long')
@@ -582,6 +594,58 @@ describe('explorer Page DWD DMO parameters per run', () => {
       parameters: ['hourly/icon/precipitation_amount_last_3h', 'hourly/icon/temperature_air_2m'],
       leadTime: 'long',
     })
+  })
+})
+
+describe('explorer Page toggle groups tell which button is chosen (GH-3989)', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+  })
+
+  // the chosen button of a group named `label`, and every button's `aria-pressed`, by its text
+  const groupOf = (wrapper: any, label: string) => wrapper.find(`[role="group"][aria-label="${label}"]`)
+  const pressedIn = (group: any) => Object.fromEntries(group.findAll('button').map((b: any) => [b.text(), b.attributes('aria-pressed')]))
+
+  it('says which mode is chosen, and moves it with a click', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    const group = groupOf(wrapper, 'Mode')
+    expect(group.exists()).toBe(true)
+    expect(pressedIn(group)).toEqual({ Station: 'true', Interpolation: 'false', Summary: 'false' })
+
+    await group.findAll('button').find((b: any) => b.text() === 'Interpolation')!.trigger('click')
+    await vi.waitFor(() => expect(pressedIn(groupOf(wrapper, 'Mode'))).toEqual({ Station: 'false', Interpolation: 'true', Summary: 'false' }))
+    expect(vm.stationSelectionState.mode).toBe('interpolation')
+
+    // a change that does not come from a click is told as well
+    vm.stationSelectionState.mode = 'summary'
+    await vi.waitFor(() => expect(pressedIn(groupOf(wrapper, 'Mode'))).toEqual({ Station: 'false', Interpolation: 'false', Summary: 'true' }))
+  })
+
+  it('says which shape and which skip criterion are chosen, in groups named by their labels', async () => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[role="group"][aria-labelledby="explorer-shape-label"]').exists()).toBe(true))
+
+    const shape = () => wrapper.find('[role="group"][aria-labelledby="explorer-shape-label"]')
+    expect(wrapper.find('#explorer-shape-label').text()).toBe('Shape:')
+    const before = pressedIn(shape())
+    expect(Object.keys(before)).toHaveLength(2)
+    expect(Object.values(before).sort()).toEqual(['false', 'true'])
+
+    const other = vm.dataSettings.shape === 'long' ? 'wide' : 'long'
+    const otherButton = shape().findAll('button').find((b: any) => b.attributes('aria-pressed') === 'false')!
+    await otherButton.trigger('click')
+    await vi.waitFor(() => expect(vm.dataSettings.shape).toBe(other))
+    await vi.waitFor(() => expect(shape().find('button[aria-pressed="true"]').element).toBe(otherButton.element))
+
+    vm.dataSettings.skipEmpty = true
+    await vi.waitFor(() => expect(wrapper.find('[role="group"][aria-labelledby="explorer-skip-criteria-label"]').exists()).toBe(true))
+    const criteria = () => pressedIn(wrapper.find('[role="group"][aria-labelledby="explorer-skip-criteria-label"]'))
+    expect(Object.keys(criteria())).toEqual(['min', 'mean', 'max'])
+    expect(Object.values(criteria()).filter(v => v === 'true')).toHaveLength(1)
+    vm.dataSettings.skipCriteria = 'max'
+    await vi.waitFor(() => expect(criteria()).toEqual({ min: 'false', mean: 'false', max: 'true' }))
   })
 })
 
