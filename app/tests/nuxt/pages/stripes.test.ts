@@ -10,6 +10,9 @@ import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 
+// the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
+const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
+
 // Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
 // holds the real one, for the station map to centre; it never emits ready, so no markers are built.
 const { leafletMap } = vi.hoisted(() => ({
@@ -449,7 +452,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
     expect(retry()).toBeUndefined()
-    expect(document.body.textContent).toContain('Select a station and click Show')
+    expect(document.body.textContent).toContain(PLACEHOLDER)
   })
 
   it('takes the note, and its Retry of the earlier values, away as Show fetches the stripes anew', async () => {
@@ -730,6 +733,20 @@ describe('stripes Page values that could not be fetched', () => {
     await button('Show').trigger('click')
   }
 
+  it('shows the placeholder of the tools, and no result card, before there is anything to put in it (GH-3850)', async () => {
+    registerEndpoint('/api/stripes/values', () => new Promise(() => {}))
+    const vm = await mountPage()
+    expect(document.querySelector('[data-testid="tool-placeholder"]')?.getAttribute('data-tool')).toBe('stripes')
+    expect(document.body.textContent).not.toContain('Visualization')
+    expect(document.body.textContent, 'the card that holds the station and the years').toContain('Station and period')
+
+    // the card comes for the loading, which has no other place to be
+    await show(vm, tempelhof)
+    expect(document.querySelector('[data-testid="tool-placeholder"]')).toBeNull()
+    expect(document.body.textContent).toContain('Visualization')
+    expect(document.querySelector('[role="figure"]'), 'the chart\'s container is there before anything is drawn').not.toBeNull()
+  })
+
   it('tells the backend\'s reason in the chart area', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/values', (event) => {
@@ -741,12 +758,12 @@ describe('stripes Page values that could not be fetched', () => {
 
     await vi.waitFor(() => expect(note()).toBe('Failed to load data / No precipitation data for station 1048'))
     expect(vm.isLoading).toBe(false)
-    expect(document.body.textContent).not.toContain('Select a station and click Show')
+    expect(document.body.textContent).not.toContain(PLACEHOLDER)
 
     // Reset takes the note away
     await button('Reset').trigger('click')
     expect(note()).toBeUndefined()
-    expect(document.body.textContent).toContain('Select a station and click Show')
+    expect(document.body.textContent).toContain(PLACEHOLDER)
   })
 
   it('takes another station\'s stripes away as this one\'s are fetched, and tells why they could not be', async () => {
@@ -832,7 +849,7 @@ describe('stripes Page values that could not be fetched', () => {
     await settled()
     expect(plotly.newPlot).not.toHaveBeenCalled()
     expect(vm.hasPlot).toBe(false)
-    expect(document.body.textContent).toContain('Select a station and click Show')
+    expect(document.body.textContent).toContain(PLACEHOLDER)
   })
 
   it('tells nothing where the kind changed while a fetch that then failed was under way', async () => {
@@ -1324,7 +1341,9 @@ describe('stripes Page text alternative', () => {
     await showStripes()
     wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
     await vi.waitFor(() => expect(toggle()).toBeUndefined())
-    expect(figure().getAttribute('aria-describedby')).toBeNull()
+    // the card goes with them, and the placeholder takes its place (GH-3850)
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="tool-placeholder"]')).not.toBeNull())
+    expect(document.querySelector('[role="figure"]')).toBeNull()
   })
 })
 

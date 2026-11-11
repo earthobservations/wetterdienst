@@ -480,6 +480,17 @@
     "noResolutions": "Keen Tietreeg: hier is nix to wiesen.",
     "openExplorer": "In'n Explorer apenmaken"
   },
+  "cardTitle": {
+    "station": "Station",
+    "stationAndPeriod": "Station un Tietruum",
+    "placeAndPeriod": "Oort un Tietruum"
+  },
+  "toolPlaceholder": {
+    "forecast": "Söök na een Station oder söök een op de Kaart ut – denn gifft dat de Utsicht.",
+    "explorer": "Söök Parameter ut, denn een Station oder een Punkt – per Söök oder op de Kaart – un klick op „Wiesen“, denn warrt de Daten laadt.",
+    "stripes": "Söök na een Station oder söök een op de Kaart ut un klick op „Wiesen“ – denn gifft dat Klimastrepen.",
+    "history": "Söök na Stationen oder söök se op de Kaart ut un klick op „Wiesen“ – denn warrt ehr Chronik laadt."
+  },
   "meteogram": {
     "title": "Wedderutsicht",
     "subtitle": "DWD-MOSMIX-Utsicht – Temperatur, Nedderslag un Wind",
@@ -488,7 +499,6 @@
     "aboutText2": "Dat Diagramm wiest Temperatur un Daupunkt, Windgauheit un Bööen mit Windfahnen, na Phaas klassifizeerten Nedderslag (Regen / Mix / Snee), Bewölkung na Hööchd un den Luftdruck. Dag-/Nachtbänner ergeevt sik ut de geografische Laag vun de Station. Söök di een DWD-Station na Naam oder ID ut, denn warrt de Utsicht laadt.",
     "selectStation": "Station utsöken",
     "loading": "MOSMIX-Utsicht laadt …",
-    "emptyHint": "Söök baven na een Station, denn gifft dat een Utsicht.",
     "openWidget": "As inbettbaret Widget apenmaken",
     "chart": {
       "noData": "Keen Daten för de utsöchte Afraag verfögbar",
@@ -617,7 +627,6 @@
     "showTrendline": "Trendlinie wiesen",
     "visualizationTitle": "Visualisatschoon",
     "loadingViz": "Daten warrt laadt un de Visualisatschoon warrt maakt …",
-    "emptyHint": "Söök een Station ut un klick op „Wiesen“ – denn man tau, denn gifft dat Klimastrepen.",
     "downloadImage": "Bild runnerladen",
     "downloadPng": "As PNG runnerladen",
     "downloadJpg": "As JPG runnerladen",
@@ -708,7 +717,6 @@
     "minGainHint": "Mindestswell för dat Tofögen vun wiedere Stationen. Weegt den Mehraufwand gegen den Gewinn vun tosätzliche Tietpunkte af. (Standard: 0,10)",
     "additionalStations": "Tosätzliche Stationen",
     "additionalStationsHint": "Tahl vun tosätzliche Stationen, de ahn Rücksicht op de Gewinnswell bruukt warrt. (Standard: 3)",
-    "dataSource": "Datenquell",
     "stationsDetails": "Stationsdetails",
     "valuesDetails": "Weertendetails",
     "leadTime": "Utsichtloop",
@@ -734,7 +742,7 @@
     "endDate": "Enndatum"
   },
   "parameterSelection": {
-    "title": "Parameter utsöken",
+    "title": "Daten",
     "selectProvider": "Anbeder utsöken",
     "selectNetwork": "Nettwark utsöken",
     "selectResolution": "Oplösung utsöken",
@@ -970,7 +978,6 @@
     "selectSections": "Afsnitte utsöken",
     "error": "Fehler",
     "resultsTitle": "Ergebnisse",
-    "noHistories": "Noch nix laadt. Klick op „Wiesen“, denn warrt de Daten afropen.",
     "selectedStations": "Utsöchte Stationen",
     "colStationId": "Stations-ID",
     "colName": "Naam",
@@ -1000,6 +1007,7 @@
     "missingDataHistory": "Verloop vun fehlende Daten",
     "summary": "Tosamenfaat",
     "periods": "Tietrüüm",
-    "colMissingCount": "Tahl fehlend"
+    "colMissingCount": "Tahl fehlend",
+    "noneFound": "För de utsöchten Stationen gifft dat keen Chronik."
   }
 }

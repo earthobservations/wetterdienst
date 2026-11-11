@@ -480,6 +480,17 @@
     "noResolutions": "No es una serie temporal: aquí no hay nada que listar.",
     "openExplorer": "Abrir en el explorador"
   },
+  "cardTitle": {
+    "station": "Estación",
+    "stationAndPeriod": "Estación y periodo",
+    "placeAndPeriod": "Lugar y periodo"
+  },
+  "toolPlaceholder": {
+    "forecast": "Busca una estación o elige una en el mapa para ver su pronóstico",
+    "explorer": "Selecciona parámetros, luego elige una estación o un punto, con la búsqueda o en el mapa, y haz clic en «Mostrar» para cargar los datos",
+    "stripes": "Busca una estación o elige una en el mapa y haz clic en «Mostrar» para crear franjas climáticas",
+    "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial"
+  },
   "meteogram": {
     "title": "Pronóstico del tiempo",
     "subtitle": "Pronóstico DWD MOSMIX — temperatura, precipitación y viento",
@@ -488,7 +499,6 @@
     "aboutText2": "El gráfico muestra la temperatura y el punto de rocío, la velocidad del viento y las rachas con barbas de viento meteorológicas, la precipitación clasificada por fase (lluvia / mixta / nieve), la nubosidad por altitud y la presión atmosférica. Las franjas de día/noche se derivan de la ubicación geográfica de la estación. Selecciona cualquier estación del DWD por nombre o ID para cargar su pronóstico.",
     "selectStation": "Seleccionar estación",
     "loading": "Obteniendo el pronóstico MOSMIX …",
-    "emptyHint": "Busca una estación arriba para generar un pronóstico",
     "openWidget": "Abrir como widget integrable",
     "chart": {
       "noData": "No hay datos disponibles para la consulta seleccionada",
@@ -617,7 +627,6 @@
     "showTrendline": "Mostrar la línea de tendencia",
     "visualizationTitle": "Visualización",
     "loadingViz": "Cargando datos y generando la visualización …",
-    "emptyHint": "Selecciona una estación y haz clic en Mostrar para crear franjas climáticas",
     "downloadImage": "Descargar la imagen",
     "downloadPng": "Descargar como PNG",
     "downloadJpg": "Descargar como JPG",
@@ -708,7 +717,6 @@
     "minGainHint": "Umbral de ganancia mínima para añadir estaciones adicionales. Sopesa el esfuerzo adicional frente a la ganancia de marcas de tiempo adicionales. (Predeterminado: 0,10)",
     "additionalStations": "Estaciones adicionales",
     "additionalStationsHint": "Número de estaciones adicionales que usar independientemente del umbral de ganancia. (Predeterminado: 3)",
-    "dataSource": "Fuente de datos",
     "stationsDetails": "Detalles de las estaciones",
     "valuesDetails": "Detalles de los valores",
     "leadTime": "Pasada del pronóstico",
@@ -734,7 +742,7 @@
     "endDate": "Fecha de fin"
   },
   "parameterSelection": {
-    "title": "Seleccionar parámetros",
+    "title": "Datos",
     "selectProvider": "Seleccionar proveedor",
     "selectNetwork": "Seleccionar red",
     "selectResolution": "Seleccionar resolución",
@@ -970,7 +978,6 @@
     "selectSections": "Selecciona las secciones que incluir",
     "error": "Error",
     "resultsTitle": "Resultados",
-    "noHistories": "No se ha cargado ningún historial. Haz clic en «Mostrar» para consultar el backend.",
     "selectedStations": "Estaciones seleccionadas",
     "colStationId": "ID de estación",
     "colName": "Nombre",
@@ -1000,6 +1007,7 @@
     "missingDataHistory": "Historial de datos faltantes",
     "summary": "Resumen",
     "periods": "Periodos",
-    "colMissingCount": "Número de valores faltantes"
+    "colMissingCount": "Número de valores faltantes",
+    "noneFound": "No se ha encontrado ningún historial para las estaciones seleccionadas."
   }
 }

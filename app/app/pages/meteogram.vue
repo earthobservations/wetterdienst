@@ -323,7 +323,9 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
             <template #header>
               <div class="flex items-center gap-2 flex-wrap">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
-                <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
+                <h2 class="text-lg font-bold">
+                  {{ t('cardTitle.station') }}
+                </h2>
                 <div class="ml-auto flex items-center gap-2">
                   <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
                   <select
@@ -424,15 +426,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
           </UCard>
 
           <!-- Empty state before selection -->
-          <div
-            v-else-if="!selectedStation"
-            class="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-16 text-center text-gray-500 dark:text-gray-400 space-y-2"
-          >
-            <UIcon name="i-ph-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
-            <p class="text-sm">
-              {{ t('meteogram.emptyHint') }}
-            </p>
-          </div>
+          <ToolPlaceholder v-else-if="!selectedStation" tool="forecast" />
         </template>
       </ToolWorkbench>
     </div>

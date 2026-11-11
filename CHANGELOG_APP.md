@@ -18,6 +18,14 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Explorer, Climate stripes, Station history]` Before there is a result, all four tools
+  show the same placeholder: a dashed frame with the tool's own mark and one sentence that names
+  both ways in, searching for a station or picking one on the map, and no longer says "above".
+  Climate stripes and Station history show their result card only once there is something in it;
+  a Station history query that finds nothing says "No history was found for the selected stations."
+  The setup cards are titled by what they hold: "Data" (was "Select parameters"), "Station" (was
+  "Data source") on Forecast and History, "Station and period" on Climate stripes and "Place and
+  period" on Explorer, in all eleven languages (GH-3850)
 - `[Explorer, Settings]` The Explorer's own "General settings" (readable names, convert to SI, unit
   targets) are gone: its requests send the plain-language labels, the conversion and the units of
   the Settings page, which were stored there and used by nothing, so a change there reaches the next

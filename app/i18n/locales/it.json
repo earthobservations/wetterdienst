@@ -480,6 +480,17 @@
     "noResolutions": "Non è una serie temporale: qui non c'è nulla da elencare.",
     "openExplorer": "Apri nell'esploratore"
   },
+  "cardTitle": {
+    "station": "Stazione",
+    "stationAndPeriod": "Stazione e periodo",
+    "placeAndPeriod": "Luogo e periodo"
+  },
+  "toolPlaceholder": {
+    "forecast": "Cerca una stazione o sceglila sulla mappa per vedere la sua previsione",
+    "explorer": "Seleziona i parametri, poi scegli una stazione o un punto, con la ricerca o sulla mappa, e fai clic su «Mostra» per caricare i dati",
+    "stripes": "Cerca una stazione o sceglila sulla mappa e fai clic su «Mostra» per creare le strisce climatiche",
+    "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia"
+  },
   "meteogram": {
     "title": "Previsioni meteo",
     "subtitle": "Previsione DWD MOSMIX — temperatura, precipitazioni e vento",
@@ -488,7 +499,6 @@
     "aboutText2": "Il grafico mostra la temperatura e il punto di rugiada, la velocità del vento e le raffiche con le barbe del vento meteorologiche, le precipitazioni classificate per fase (pioggia / mista / neve), la copertura nuvolosa per altitudine e la pressione atmosferica. Le fasce giorno/notte derivano dalla posizione geografica della stazione. Seleziona una qualsiasi stazione DWD per nome o ID per caricarne la previsione.",
     "selectStation": "Seleziona stazione",
     "loading": "Recupero della previsione MOSMIX …",
-    "emptyHint": "Cerca una stazione qui sopra per generare una previsione",
     "openWidget": "Apri come widget integrabile",
     "chart": {
       "noData": "Nessun dato disponibile per la query selezionata",
@@ -617,7 +627,6 @@
     "showTrendline": "Mostra la linea di tendenza",
     "visualizationTitle": "Visualizzazione",
     "loadingViz": "Caricamento dei dati e generazione della visualizzazione …",
-    "emptyHint": "Seleziona una stazione e fai clic su Mostra per creare le strisce climatiche",
     "downloadImage": "Scarica l'immagine",
     "downloadPng": "Scarica come PNG",
     "downloadJpg": "Scarica come JPG",
@@ -708,7 +717,6 @@
     "minGainHint": "Soglia di guadagno minimo per aggiungere stazioni aggiuntive. Valuta lo sforzo aggiuntivo rispetto al guadagno di marche temporali aggiuntive. (Predefinito: 0,10)",
     "additionalStations": "Stazioni aggiuntive",
     "additionalStationsHint": "Numero di stazioni aggiuntive da usare indipendentemente dalla soglia di guadagno. (Predefinito: 3)",
-    "dataSource": "Fonte di dati",
     "stationsDetails": "Dettagli delle stazioni",
     "valuesDetails": "Dettagli dei valori",
     "leadTime": "Corsa della previsione",
@@ -734,7 +742,7 @@
     "endDate": "Data di fine"
   },
   "parameterSelection": {
-    "title": "Seleziona i parametri",
+    "title": "Dati",
     "selectProvider": "Seleziona fornitore",
     "selectNetwork": "Seleziona rete",
     "selectResolution": "Seleziona risoluzione",
@@ -970,7 +978,6 @@
     "selectSections": "Seleziona le sezioni da includere",
     "error": "Errore",
     "resultsTitle": "Risultati",
-    "noHistories": "Nessuna cronologia caricata. Fai clic su «Mostra» per interrogare il backend.",
     "selectedStations": "Stazioni selezionate",
     "colStationId": "ID stazione",
     "colName": "Nome",
@@ -1000,6 +1007,7 @@
     "missingDataHistory": "Cronologia dei dati mancanti",
     "summary": "Sintesi",
     "periods": "Periodi",
-    "colMissingCount": "Numero di valori mancanti"
+    "colMissingCount": "Numero di valori mancanti",
+    "noneFound": "Nessuna cronologia trovata per le stazioni selezionate."
   }
 }

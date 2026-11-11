@@ -480,6 +480,17 @@
     "noResolutions": "To nie jest szereg czasowy: nie ma tu czego wymieniać.",
     "openExplorer": "Otwórz w eksploratorze"
   },
+  "cardTitle": {
+    "station": "Stacja",
+    "stationAndPeriod": "Stacja i okres",
+    "placeAndPeriod": "Miejsce i okres"
+  },
+  "toolPlaceholder": {
+    "forecast": "Wyszukaj stację lub wybierz ją na mapie, aby zobaczyć jej prognozę",
+    "explorer": "Wybierz parametry, a następnie stację lub punkt, wyszukując albo na mapie, i kliknij „Pokaż”, aby wczytać dane",
+    "stripes": "Wyszukaj stację lub wybierz ją na mapie i kliknij „Pokaż”, aby utworzyć paski klimatyczne",
+    "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię"
+  },
   "meteogram": {
     "title": "Prognoza pogody",
     "subtitle": "Prognoza DWD MOSMIX — temperatura, opady i wiatr",
@@ -488,7 +499,6 @@
     "aboutText2": "Wykres pokazuje temperaturę i punkt rosy, prędkość wiatru i porywy z meteorologicznymi proporczykami wiatru, opady sklasyfikowane według fazy (deszcz / mieszane / śnieg), zachmurzenie według wysokości oraz ciśnienie atmosferyczne. Pasy dzień/noc są wyznaczane na podstawie położenia geograficznego stacji. Wybierz dowolną stację DWD według nazwy lub identyfikatora, aby wczytać jej prognozę.",
     "selectStation": "Wybierz stację",
     "loading": "Pobieranie prognozy MOSMIX …",
-    "emptyHint": "Wyszukaj stację powyżej, aby wygenerować prognozę",
     "openWidget": "Otwórz jako osadzalny widżet",
     "chart": {
       "noData": "Brak dostępnych danych dla wybranego zapytania",
@@ -617,7 +627,6 @@
     "showTrendline": "Pokaż linię trendu",
     "visualizationTitle": "Wizualizacja",
     "loadingViz": "Ładowanie danych i generowanie wizualizacji …",
-    "emptyHint": "Wybierz stację i kliknij Pokaż, aby utworzyć paski klimatyczne",
     "downloadImage": "Pobierz obraz",
     "downloadPng": "Pobierz jako PNG",
     "downloadJpg": "Pobierz jako JPG",
@@ -708,7 +717,6 @@
     "minGainHint": "Minimalny próg zysku dla dodawania kolejnych stacji. Waży dodatkowy wysiłek względem zysku dodatkowych znaczników czasu. (Domyślnie: 0,10)",
     "additionalStations": "Dodatkowe stacje",
     "additionalStationsHint": "Liczba dodatkowych stacji do użycia niezależnie od progu zysku. (Domyślnie: 3)",
-    "dataSource": "Źródło danych",
     "stationsDetails": "Szczegóły stacji",
     "valuesDetails": "Szczegóły wartości",
     "leadTime": "Przebieg prognozy",
@@ -734,7 +742,7 @@
     "endDate": "Data końcowa"
   },
   "parameterSelection": {
-    "title": "Wybierz parametry",
+    "title": "Dane",
     "selectProvider": "Wybierz dostawcę",
     "selectNetwork": "Wybierz sieć",
     "selectResolution": "Wybierz rozdzielczość",
@@ -970,7 +978,6 @@
     "selectSections": "Wybierz sekcje do uwzględnienia",
     "error": "Błąd",
     "resultsTitle": "Wyniki",
-    "noHistories": "Nie wczytano żadnej historii. Kliknij „Pokaż”, aby odpytać backend.",
     "selectedStations": "Wybrane stacje",
     "colStationId": "Identyfikator stacji",
     "colName": "Nazwa",
@@ -1000,6 +1007,7 @@
     "missingDataHistory": "Historia brakujących danych",
     "summary": "Podsumowanie",
     "periods": "Okresy",
-    "colMissingCount": "Liczba braków"
+    "colMissingCount": "Liczba braków",
+    "noneFound": "Nie znaleziono historii dla wybranych stacji."
   }
 }

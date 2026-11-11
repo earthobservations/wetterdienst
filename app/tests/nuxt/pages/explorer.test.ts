@@ -101,9 +101,20 @@ describe('explorer Page', () => {
 
     const wrapper = await mountSuspended(ExplorerPage)
     mounted.push(wrapper)
-    const text = wrapper.text()
 
-    expect(text).toContain('Select Parameters')
+    expect(wrapper.find('h2').text(), 'the card that holds provider, network, resolution and dataset').toBe('Data')
+  })
+
+  it('shows the placeholder of the tools where the result will be, until a place is chosen', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('explorer')
+    expect(wrapper.text()).toContain('choose a station or a point, by search or on the map, and click “Show” to load data')
   })
 
   it('displays station mode options', async () => {

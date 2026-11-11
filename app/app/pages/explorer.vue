@@ -1148,13 +1148,13 @@ function removeParameterDistance(id: string, paramName: string) {
         <template #result>
           <!-- Where and when, beside what: the data source and its map take the wide column, where the map has room
                for its markers (WCAG 2.5.8), and the results follow under it -->
-          <!-- Data Source Selection -->
+          <!-- Place and period -->
           <UCard v-if="showModeSelection">
             <template #header>
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
-                  {{ t('explorer.dataSource') }}
+                  {{ t('cardTitle.placeAndPeriod') }}
                 </h2>
               </div>
             </template>
@@ -1261,16 +1261,7 @@ function removeParameterDistance(id: string, paramName: string) {
             @apply-range="applyRange"
           />
           <!-- where the result will be, until a place is chosen: the column of the result is not an empty hole -->
-          <div
-            v-else
-            class="rounded-xl border-2 border-dashed border-default p-12 text-center text-muted"
-            data-testid="explorer-empty"
-          >
-            <ToolTile tile="rain" icon="i-ph-compass-fill" size="2.5rem" class="mx-auto mb-3 opacity-80" />
-            <p class="text-sm">
-              {{ t('dataViewer.emptyHint') }}
-            </p>
-          </div>
+          <ToolPlaceholder v-else tool="explorer" />
         </template>
       </ToolWorkbench>
     </div>

@@ -398,6 +398,8 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.axisWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'stripes.typeTemperature': { de: ['da'], why: COGNATE },
   'stripes.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'cardTitle.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'parameterSelection.title': { en: ['cs', 'da'], why: COGNATE },
   'stripes.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stripes.auto': { en: ['cs', 'da', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
   'stripes.hoverTrend': { en: ['cs', 'de-hh', 'de', 'lb', 'nl', 'pl'], why: COGNATE },

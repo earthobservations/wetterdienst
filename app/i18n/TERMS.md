@@ -199,6 +199,12 @@ meant to be understood, not to be the last word, and **a review by a native spea
   Least certain: `de-hh` `Deeldag`, then `lb` `deelweis` and `cs` `částečně`; `de` `unvollständig` is plain German for
   "incomplete".
 
+- **Machine-made**: the sentences every tool shows where its result will be (`toolPlaceholder.*`, `history.noneFound`) and the
+  titles of the setup cards (`cardTitle.*`, `parameterSelection.title`, GH-3850) were written by a language model (Claude)
+  in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Oort un Tietruum`
+  and `Chronik`; `lb` `Plaz a Period` and `Historique`; `pl` `Miejsce i okres`; `cs` `Místo a období`; and in every
+  language "Place and period" (the Explorer's card, where an interpolation takes a point and not a station).
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

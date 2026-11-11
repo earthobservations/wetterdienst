@@ -164,6 +164,20 @@ const { data, pending, status, refresh, clear: clearHistories, error } = useFetc
   default: () => ({ histories: [], stations: [] }),
 })
 
+// Whether an answer came and has not been cleared. Nuxt's `status` is 'pending' again as the next Show goes out, so
+// an answer that found no histories would lose its card then; this flag keeps it. A failed fetch and Reset end it.
+const answered = ref(false)
+watch(status, (now) => {
+  if (now === 'success')
+    answered.value = true
+  else if (now === 'error' || now === 'idle')
+    answered.value = false
+})
+
+// whether there is anything to put in the result card: an answer, one under way (the spinner is in the card, as
+// Stripes' is), or histories still shown; a failed first fetch has its error in the form's card, and the placeholder
+const hasResult = computed(() => answered.value || status.value === 'pending' || (data.value?.histories?.length ?? 0) > 0)
+
 // the last fetch's error, gone once Show or Reset is pressed: a new fetch keeps `error` until it answers
 const fetchErrorMessage = computed(() =>
   status.value === 'error' && error.value ? describeFetchError(error.value) : null)
@@ -187,6 +201,7 @@ function run() {
 
 function clear() {
   // aborts a fetch under way, and empties the results
+  answered.value = false
   clearHistories()
 }
 </script>
@@ -218,7 +233,7 @@ function clear() {
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                 <h2 class="text-lg font-bold">
-                  {{ t('explorer.dataSource') }}
+                  {{ t('cardTitle.station') }}
                 </h2>
               </div>
             </template>
@@ -268,7 +283,9 @@ function clear() {
           </UCard>
         </template>
         <template #result>
-          <UCard>
+          <!-- the card is for what there is to put in it; before a query the placeholder every tool shows (GH-3850) -->
+          <ToolPlaceholder v-if="!hasResult" tool="history" />
+          <UCard v-else>
             <template #header>
               <div class="flex items-center gap-2">
                 <UIcon name="i-ph-table" class="text-primary-600 dark:text-primary-500 shrink-0" />
@@ -279,8 +296,12 @@ function clear() {
             </template>
 
             <div>
-              <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600 dark:text-gray-400">
-                {{ t('history.noHistories') }}
+              <div v-if="pending && !data.histories?.length" class="flex items-center justify-center gap-2 py-8 text-gray-600 dark:text-gray-400">
+                <UIcon name="i-ph-circle-notch" class="animate-spin shrink-0" />
+                {{ t('common.loading') }}
+              </div>
+              <div v-else-if="data.histories && data.histories.length === 0" class="text-sm text-gray-600 dark:text-gray-400">
+                {{ t('history.noneFound') }}
               </div>
               <div v-else class="space-y-6">
                 <!-- Selected Stations Overview -->

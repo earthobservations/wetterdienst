@@ -45,7 +45,7 @@ describe('parameterSelection Component', () => {
     })
     mountedWrappers.push(wrapper)
 
-    expect(wrapper.text()).toContain('Select Parameters')
+    expect(wrapper.find('h2').text()).toBe('Data')
     expect((wrapper.vm as any).coveragePending).toBe(true)
     // An unanswered request is not an answer of "no such provider": while it is out, every
     // restriction looks unavailable, and the alert must not flash on each cold load.
@@ -62,7 +62,7 @@ describe('parameterSelection Component', () => {
     })
 
     expect(wrapper.exists()).toBe(true)
-    expect(wrapper.text()).toContain('Select Parameters')
+    expect(wrapper.find('h2').text()).toBe('Data')
   })
 
   it('disables dependent selects when previous not selected', async () => {
