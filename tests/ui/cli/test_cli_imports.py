@@ -304,9 +304,9 @@ def test_a_name_set_before_the_first_use_is_honoured(monkeypatch: pytest.MonkeyP
         pytest.param(["radar", "--help"], id="radar-help"),
         pytest.param(["restapi", "--help"], id="restapi-help"),
         pytest.param(["stripes", "image", "--help"], id="stripes-image-help"),
-        pytest.param(["about", "--help"], id="about-help"),
-        pytest.param(["about", "coverage", "--help"], id="about-coverage-help"),
-        pytest.param(["about", "glossary", "--help"], id="about-glossary-help"),
+        pytest.param(["providers", "--help"], id="providers-help"),
+        pytest.param(["coverage", "--help"], id="coverage-help"),
+        pytest.param(["glossary", "--help"], id="glossary-help"),
     ],
 )
 def test_help_and_version_import_no_heavy_package(args: list[str], tmp_path: Path) -> None:
@@ -354,14 +354,14 @@ _KL = ["--parameters", "daily/kl"]
     ("args", "code", "output"),
     [
         pytest.param(["info"], 0, "open weather data for humans", id="info"),
-        pytest.param(["about", "glossary", "--limit", "1"], 0, '"unit_symbol"', id="glossary"),
-        pytest.param(["about", "providers", "--provider", "dwd"], 0, '"dwd"', id="providers"),
-        pytest.param(["about", "providers", "--provider", "nowhere"], 2, "nowhere", id="providers-unknown"),
-        pytest.param(["about", "coverage", *_DWD, "--datasets", "climate_summary"], 0, "daily", id="coverage"),
-        pytest.param(["about", "coverage", "--provider", "dwd"], 2, "about providers", id="coverage-usage"),
-        pytest.param(["about", "auth", *_DWD], 0, '"valid": true', id="auth"),
+        pytest.param(["glossary", "--limit", "1"], 0, '"unit_symbol"', id="glossary"),
+        pytest.param(["providers", "--provider", "dwd"], 0, '"dwd"', id="providers"),
+        pytest.param(["providers", "--provider", "nowhere"], 2, "nowhere", id="providers-unknown"),
+        pytest.param(["coverage", *_DWD, "--datasets", "climate_summary"], 0, "daily", id="coverage"),
+        pytest.param(["coverage", "--provider", "dwd"], 2, "wetterdienst providers", id="coverage-usage"),
+        pytest.param(["auth", *_DWD], 0, '"valid": true', id="auth"),
         pytest.param(
-            ["about", "fields", *_NOAA, "--resolution", "daily", "--dataset", "kl", "--period", "recent"],
+            ["fields", *_NOAA, "--resolution", "daily", "--dataset", "kl", "--period", "recent"],
             2,
             "observation",
             id="fields",
@@ -423,7 +423,7 @@ def test_a_dependency_that_fails_to_import_fails_the_command_that_needs_it_once(
     environment = {"PYTHONPATH": str(broken), "HOME": str(tmp_path), "WD_CACHE_DIR": str(tmp_path / "cache")}
 
     version, _ = _run(_RUN_CLI, "--version", tmp_path=tmp_path, **environment)
-    glossary, _ = _run(_RUN_CLI, "about", "glossary", tmp_path=tmp_path, **environment)
+    glossary, _ = _run(_RUN_CLI, "glossary", tmp_path=tmp_path, **environment)
 
     assert version.returncode == 0, version.stderr
     assert glossary.returncode != 0

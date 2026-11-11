@@ -35,13 +35,17 @@ def test_cli_help() -> None:
     commands = dedent(
         """
         Commands:
-          about        Get information about the data.
           alerts       Acquire DWD weather alerts (CAP warnings).
+          auth         Check whether the credentials for a provider and network are...
           cache        Display cache location.
+          coverage     Get the resolutions, datasets and parameters of one network.
+          fields       Describe the fields of a dataset's files, from the...
+          glossary     Look up what a parameter measures and which unit it is...
           history      Acquire station history.
           info         Display project information.
           interpolate  Interpolate data for a point from the stations around it.
           issues       List available issue (model-run) datetimes for a station.
+          providers    List the providers and their networks, and describe what...
           radar        List radar stations.
           restapi      Start the Wetterdienst REST API web service.
           stations     Acquire stations.
@@ -146,10 +150,10 @@ def test_cli_help_example_continues(name: str) -> None:
             assert previous.rstrip().endswith("\\"), previous
 
 
-def test_cli_about_parameters() -> None:
+def test_cli_parameters() -> None:
     """Test cli coverage of dwd parameters."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
+    result = runner.invoke(cli, ["coverage", "--provider=dwd", "--network=observation"])
     # resolution
     assert "1_minute" in result.output
     # datasets
@@ -161,13 +165,12 @@ def test_cli_about_parameters() -> None:
 
 
 @pytest.mark.remote
-def test_cli_about_fields_dwd_observation() -> None:
-    """Test cli about fields for dwd observation (regression: resolution + dataset args)."""
+def test_cli_fields_dwd_observation() -> None:
+    """Test cli fields for dwd observation (regression: resolution + dataset args)."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
         [
-            "about",
             "fields",
             "--provider=dwd",
             "--network=observation",
@@ -181,25 +184,25 @@ def test_cli_about_fields_dwd_observation() -> None:
     assert "quality_information" in result.output
 
 
-_ABOUT_FIELDS = ["about", "fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
+_FIELDS = ["fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
 
 
-def test_cli_about_fields_refuses_other_providers() -> None:
-    """Test about fields refuses a network without field descriptions, rather than failing on it.
+def test_cli_fields_refuses_other_providers() -> None:
+    """Test fields refuses a network without field descriptions, rather than failing on it.
 
     Its check looked for an option the command does not have, so it never refused, and NOAA GHCN
     ended in an AttributeError traceback.
     """
     runner = CliRunner()
-    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=noaa", "--network=ghcn"])
+    result = runner.invoke(cli, [*_FIELDS, "--provider=noaa", "--network=ghcn"])
     assert result.exit_code == 2, result.output
     assert (
         "Error: Fields are described for provider 'dwd', network 'observation' only, not noaa/ghcn.\n" in result.output
     )
 
 
-def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test about fields applies --debug, which its `**kwargs` used to swallow."""
+def test_cli_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test fields applies --debug, which its `**kwargs` used to swallow."""
     levels = []
     monkeypatch.setattr("wetterdienst.ui.cli.set_logging_level", lambda *, debug: levels.append(debug))
     monkeypatch.setattr(
@@ -207,7 +210,7 @@ def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None
         lambda **_kwargs: {"parameters": {}},
     )
     runner = CliRunner()
-    result = runner.invoke(cli, [*_ABOUT_FIELDS, "--provider=dwd", "--network=observation", "--debug"])
+    result = runner.invoke(cli, [*_FIELDS, "--provider=dwd", "--network=observation", "--debug"])
     assert result.exit_code == 0, result.output
     assert levels == [True]
 
@@ -236,10 +239,10 @@ def _debug_lines_of_the_models(caplog: pytest.LogCaptureFixture) -> list[str]:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["about", "providers", "--provider=wsv", "--debug"],
+        ["providers", "--provider=wsv", "--debug"],
         ["restapi", "--debug"],
     ],
-    ids=["about", "restapi"],
+    ids=["providers", "restapi"],
 )
 def test_debug_shows_the_debug_lines_of_the_whole_package(
     monkeypatch: pytest.MonkeyPatch,
@@ -272,7 +275,7 @@ def test_without_debug_the_level_of_the_package_is_left_alone(
     """A command without `--debug` leaves the level the host configured as it is (GH-3388)."""
     package_logger.setLevel(logging.WARNING)
 
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=wsv"])
 
     assert result.exit_code == 0, result.output
     assert package_logger.level == logging.WARNING
@@ -295,14 +298,14 @@ def test_no_combination_of_provider_and_network() -> None:
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         "\n\nError: No API available for provider dwd and network abc. "
-        "`wetterdienst about providers` lists the available ones.\n"
+        "`wetterdienst providers` lists the available ones.\n"
     )
 
 
 def test_coverage() -> None:
     """Test coverage."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation"])
+    result = runner.invoke(cli, ["coverage", "--provider=dwd", "--network=observation"])
     assert result.exit_code == 0
     response = json.loads(result.stdout)
     assert "1_minute" in response
@@ -321,7 +324,7 @@ def test_coverage() -> None:
 def test_coverage_standalone_network_reports_cleanly(network: str) -> None:
     """Test coverage for a metadata-less standalone network is a one-line usage error (GH-2465)."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "coverage", "--provider=dwd", f"--network={network}"])
+    result = runner.invoke(cli, ["coverage", "--provider=dwd", f"--network={network}"])
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(f"\n\nError: Coverage is not available for provider 'dwd' and network '{network}'.\n")
 
@@ -331,7 +334,7 @@ def test_coverage_resolution_1_minute() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["about", "coverage", "--provider=dwd", "--network=observation", "--resolutions=1_minute"],
+        ["coverage", "--provider=dwd", "--network=observation", "--resolutions=1_minute"],
     )
     assert result.exit_code == 0
     response = json.loads(result.stdout)
@@ -347,7 +350,7 @@ def test_coverage_resolution_1_minute() -> None:
 )
 def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_usage_error(option: str, message: str) -> None:
     """Test a name the network does not have is a one-line usage error, not an empty answer (GH-2636)."""
-    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation", option])
+    result = CliRunner().invoke(cli, ["coverage", "--provider=dwd", "--network=observation", option])
 
     assert result.exit_code == 2, result.output
     error = result.stderr.split("\n\nError: ")[-1]
@@ -360,7 +363,7 @@ def test_coverage_dataset_climate_summary() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["about", "coverage", "--provider=dwd", "--network=observation", "--datasets=climate_summary"],
+        ["coverage", "--provider=dwd", "--network=observation", "--datasets=climate_summary"],
     )
     assert result.exit_code == 0
     response = json.loads(result.stdout)
@@ -466,7 +469,7 @@ def test_issues_refuses_a_station_that_is_no_id_as_a_usage_error() -> None:
 def test_cli_glossary() -> None:
     """Test that the glossary reports what a parameter measures and its returned unit."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--parameter=radiation_global_intensity_mean"])
+    result = runner.invoke(cli, ["glossary", "--parameter=radiation_global_intensity_mean"])
     assert result.exit_code == 0
     entries = json.loads(result.stdout)
     assert entries == [
@@ -486,7 +489,7 @@ def test_cli_glossary() -> None:
 def test_cli_glossary_unit_type() -> None:
     """Test that filtering by unit type returns only parameters of that quantity."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--unit-type=turbidity"])
+    result = runner.invoke(cli, ["glossary", "--unit-type=turbidity"])
     assert result.exit_code == 0
     entries = json.loads(result.stdout)
     assert [entry["name"] for entry in entries] == ["turbidity"]
@@ -500,7 +503,7 @@ def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
     """
     runner = CliRunner()
     with caplog.at_level(logging.WARNING):
-        result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
+        result = runner.invoke(cli, ["glossary", "--parameter=not_a_parameter"])
     assert result.exit_code == 0
     assert json.loads(result.output) == []
     assert "No parameter matches the given filters." in caplog.text
@@ -513,7 +516,7 @@ def test_cli_glossary_unknown_unit_type() -> None:
     the user what to type instead of returning nothing.
     """
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--unit-type=celsius"])
+    result = runner.invoke(cli, ["glossary", "--unit-type=celsius"])
     assert result.exit_code == 2
     assert "'celsius' is not one of" in result.output
     assert "temperature" in result.output
@@ -522,7 +525,7 @@ def test_cli_glossary_unknown_unit_type() -> None:
 def test_cli_glossary_limit() -> None:
     """Test that --limit bounds the output."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--limit=3"])
+    result = runner.invoke(cli, ["glossary", "--limit=3"])
     assert result.exit_code == 0
     assert len(json.loads(result.stdout)) == 3
 
@@ -719,7 +722,7 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
             ),
         ),
         (
-            ["about", "fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
+            ["fields", "--provider=dwd", "--network=observation", "--resolution=daily", "--dataset=kl"],
             "Error: Missing option '--period'.",
         ),
     ],
@@ -1074,10 +1077,10 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
     [
         pytest.param(["cache"], id="cache"),
         pytest.param(["info"], id="info"),
-        pytest.param(["about", "providers"], id="about-providers"),
-        pytest.param(["about", "coverage", "--provider=dwd", "--network=observation"], id="about-coverage-one-network"),
+        pytest.param(["providers"], id="providers"),
+        pytest.param(["coverage", "--provider=dwd", "--network=observation"], id="coverage-one-network"),
         pytest.param(["radar", "--dwd"], id="radar"),
-        pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
+        pytest.param(["auth", "--provider=aemet", "--network=observation"], id="auth"),
         pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
         pytest.param(["history", *_DWD_KL, "--stations=01048"], id="history"),
@@ -1107,15 +1110,15 @@ def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.Monke
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["about", "coverage", "--provider=dwd", "--network=radar"], id="coverage-no-discover"),
-        pytest.param(["about", "coverage", "--provider=nope", "--network=nope"], id="coverage-unknown-network"),
-        pytest.param(["about", "coverage", "--provider=dwd"], id="coverage-missing-network"),
+        pytest.param(["coverage", "--provider=dwd", "--network=radar"], id="coverage-no-discover"),
+        pytest.param(["coverage", "--provider=nope", "--network=nope"], id="coverage-unknown-network"),
+        pytest.param(["coverage", "--provider=dwd"], id="coverage-missing-network"),
         pytest.param(["radar", "--odim-code=x"], id="radar-bad-code"),
         pytest.param(["radar"], id="radar-no-selector"),
     ],
 )
 def test_cli_tells_a_usage_error_before_a_malformed_setting(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
-    """Test a usage error of `about coverage` or `radar` is still exit 2 beside a malformed setting (GH-2619).
+    """Test a usage error of `coverage` or `radar` is still exit 2 beside a malformed setting (GH-2619).
 
     As in `stations` and `values`, the command line is checked before the environment is told.
     """
@@ -1330,7 +1333,7 @@ def test_cli_timeseries_command_refuses_a_standalone_network(args: list[str], ne
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         f"\n\nError: Provider 'dwd' and network '{network}' have no stations or values to request. "
-        "`wetterdienst about providers` lists the available ones.\n"
+        "`wetterdienst providers` lists the available ones.\n"
     )
 
 
@@ -1353,7 +1356,7 @@ def test_cli_history_refuses_a_network_without_history_before_the_station_lookup
 
 _COVERAGE_NEEDS_A_NETWORK = (
     "Error: coverage describes one network, so both provider and network are required. "
-    "To list the providers and their networks, use `wetterdienst about providers`.\n"
+    "To list the providers and their networks, use `wetterdienst providers`.\n"
 )
 
 
@@ -1372,16 +1375,16 @@ _COVERAGE_NEEDS_A_NETWORK = (
     ],
 )
 def test_coverage_without_provider_and_network_is_a_usage_error_that_names_providers(args: list[str]) -> None:
-    """`about coverage` listed every provider until 1.0.0; the error says it is `about providers` now (GH-3996)."""
-    result = CliRunner().invoke(cli, ["about", "coverage", *args])
+    """`coverage` listed every provider until 1.0.0; the error says it is `providers` now (GH-3996)."""
+    result = CliRunner().invoke(cli, ["coverage", *args])
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(f"\n\n{_COVERAGE_NEEDS_A_NETWORK}")
     assert result.stdout == ""
 
 
-def test_about_providers_lists_every_provider() -> None:
-    """`about providers` without --provider lists every provider and its networks, each with `configured`."""
-    result = CliRunner().invoke(cli, ["about", "providers"])
+def test_providers_lists_every_provider() -> None:
+    """`providers` without --provider lists every provider and its networks, each with `configured`."""
+    result = CliRunner().invoke(cli, ["providers"])
     assert result.exit_code == 0, result.output
     answer = json.loads(result.stdout)
     assert {provider["provider"] for provider in answer["providers"]} == set(Wetterdienst.registry)
@@ -1403,8 +1406,8 @@ def _stub_the_frost_probe(monkeypatch: pytest.MonkeyPatch, content: object, stat
 
 
 def _auth(*args: str) -> dict[str, object]:
-    """Run `about auth` for `metno/frost` (or the given options), and return the JSON it printed."""
-    result = CliRunner().invoke(cli, ["about", "auth", *(args or ("--provider=metno", "--network=frost"))])
+    """Run `auth` for `metno/frost` (or the given options), and return the JSON it printed."""
+    result = CliRunner().invoke(cli, ["auth", *(args or ("--provider=metno", "--network=frost"))])
     assert result.exit_code == 0, result.output
     return json.loads(result.stdout)
 
@@ -1455,11 +1458,11 @@ def test_auth_tells_what_the_probe_could_tell(
 
 def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
     """An unknown provider or network is a usage error pointing at the coverage listing, as a 404 is for REST."""
-    result = CliRunner().invoke(cli, ["about", "auth", "--provider=dwd", "--network=abc"])
+    result = CliRunner().invoke(cli, ["auth", "--provider=dwd", "--network=abc"])
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(
         "\n\nError: No API available for provider dwd and network abc. "
-        "`wetterdienst about providers` lists the available ones.\n"
+        "`wetterdienst providers` lists the available ones.\n"
     )
     assert result.stdout == ""
 
@@ -1468,7 +1471,7 @@ def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
 def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverage(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, command: str
 ) -> None:
-    """`about auth` and `about coverage` for a network whose extra is not installed print what to install (GH-2788).
+    """`auth` and `coverage` for a network whose extra is not installed print what to install (GH-2788).
 
     The same line and exit 1 as the data commands, not a traceback and not a usage error: the command
     line was right, the environment lacks the package.
@@ -1484,7 +1487,7 @@ def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverag
 
     monkeypatch.setattr(Wetterdienst, "resolve", resolve)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, ["about", command, "--provider=knmi", "--network=observation"])
+        result = CliRunner().invoke(cli, [command, "--provider=knmi", "--network=observation"])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -1496,13 +1499,12 @@ def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverag
 @pytest.mark.parametrize("args", [["--provider=metno"], ["--network=frost"], []])
 def test_auth_requires_provider_and_network(args: list[str]) -> None:
     """Both options are required: there is no listing of every network to fall back to."""
-    result = CliRunner().invoke(cli, ["about", "auth", *args])
+    result = CliRunner().invoke(cli, ["auth", *args])
     assert result.exit_code == 2, result.output
     assert "Missing option" in result.stderr
 
 
-_ABOUT_FIELDS_DWD = [
-    "about",
+_FIELDS_DWD = [
     "fields",
     "--provider=dwd",
     "--network=observation",
@@ -1512,10 +1514,10 @@ _ABOUT_FIELDS_DWD = [
 ]
 
 
-def test_cli_about_fields_without_pypdf_is_one_logged_line(
+def test_cli_fields_without_pypdf_is_one_logged_line(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test about fields without pypdf prints what to install in one line, exit 1, and no traceback (GH-2667).
+    """Test fields without pypdf prints what to install in one line, exit 1, and no traceback (GH-2667).
 
     The command logged "Could not retrieve fields." and the whole traceback for any `ImportError`,
     which `MissingDependencyError` is.
@@ -1529,7 +1531,7 @@ def test_cli_about_fields_without_pypdf_is_one_logged_line(
 
     monkeypatch.setattr("wetterdienst.provider.dwd.observation.DwdObservationRequest.describe_fields", describe_fields)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, _ABOUT_FIELDS_DWD)
+        result = CliRunner().invoke(cli, _FIELDS_DWD)
 
     assert result.exit_code == 1
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
@@ -1549,10 +1551,10 @@ def _fail_to_import(monkeypatch: pytest.MonkeyPatch, *, provider: str, network: 
     monkeypatch.setattr(Wetterdienst, "resolve", failing)
 
 
-def test_about_providers_leaves_out_a_network_that_fails_to_import(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_providers_leaves_out_a_network_that_fails_to_import(monkeypatch: pytest.MonkeyPatch) -> None:
     """The listing of every network does not list one it cannot import, and says so as a warning (GH-2801)."""
     _fail_to_import(monkeypatch, provider="dwd", network="dmo")
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=dwd"])
 
     assert result.exit_code == 0, result.output
     answer = json.loads(result.stdout)
@@ -1565,8 +1567,8 @@ def test_about_providers_leaves_out_a_network_that_fails_to_import(monkeypatch: 
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["about", "coverage"], id="coverage"),
-        pytest.param(["about", "auth"], id="auth"),
+        pytest.param(["coverage"], id="coverage"),
+        pytest.param(["auth"], id="auth"),
         pytest.param(["stations", "--parameters=hourly/icon", "--all"], id="stations"),
     ],
 )
@@ -1643,3 +1645,39 @@ def test_cli_stations_lead_time_is_not_answered_with_end_date() -> None:
     assert "No such option" in result.output
     assert "--lead-time" in result.output
     assert "--end-date" not in result.output
+
+
+_MOVED_FROM_ABOUT = ["auth", "coverage", "fields", "glossary", "providers"]
+
+
+@pytest.mark.parametrize("command", _MOVED_FROM_ABOUT)
+@pytest.mark.parametrize("options", [[], ["--provider=dwd", "--network=observation"], ["--help"]])
+def test_about_command_moved_to_the_top_level_is_a_usage_error_that_names_it(command: str, options: list[str]) -> None:
+    """`wetterdienst about <command>` is refused, with any options, naming `wetterdienst <command>` (GH-4000)."""
+    result = CliRunner().invoke(cli, ["about", command, *options])
+
+    assert result.exit_code == 2, result.output
+    assert f"`wetterdienst about {command}` moved to `wetterdienst {command}`" in result.output
+    # the old path is no alias: nothing was run, and nothing of the command's own is printed
+    assert "Usage: wetterdienst [OPTIONS]" in result.output
+
+
+@pytest.mark.parametrize("args", [[], ["--help"], ["--provider=dwd"], ["info"], ["nope"]])
+def test_about_alone_is_a_usage_error_that_names_the_commands_that_moved(args: list[str]) -> None:
+    """`wetterdienst about` is no group any more: it names the five commands that were its own (GH-4000)."""
+    result = CliRunner().invoke(cli, ["about", *args])
+
+    assert result.exit_code == 2, result.output
+    for command in _MOVED_FROM_ABOUT:
+        assert f"`wetterdienst {command}`" in result.output
+
+
+def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
+    """The five commands are in the top-level help, and `about` is neither listed nor hidden (GH-4000)."""
+    assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
+    assert "about" not in cli.commands
+    assert "about" not in cli.list_commands(click.Context(cli))
+    assert len(cli.commands) == 17
+
+    help_text = CliRunner().invoke(cli, ["--help"]).output
+    assert "about" not in help_text.split("Commands:", 1)[1]

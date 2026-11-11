@@ -633,11 +633,11 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
 
 #: the old names of `RENAMED_REQUEST_PARAMETERS` that each route took in 0.139.0, the release the renames are counted
 #: from, by route: the name of its MCP tool (`stations`, `stripes_values`), which is that of its REST path and of its
-#: command (`about coverage` is `coverage`). A route is told that an old name "was renamed" only if it had it: a route
-#: that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route added since had
-#: no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that release's code
-#: declared (`tests/ui/routes_0_139_0.json`, read from the tag), over REST and on the command line, so it is not a
-#: table from memory (GH-3869)
+#: command (`coverage` was `about coverage` in 0.139.0). A route is told that an old name "was renamed" only if it had
+#: it: a route that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route
+#: added since had no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that
+#: release's code declared (`tests/ui/routes_0_139_0.json`, read from the tag), over REST and on the command line, so
+#: it is not a table from memory (GH-3869)
 OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
     "stations": frozenset({"station"}),
     "history": frozenset({"station"}),
@@ -647,7 +647,7 @@ OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
     "issues": frozenset({"dataset", "station"}),
     "glossary": frozenset({"parameter"}),
     "alerts": frozenset({"date"}),
-    # the command `about fields` only, which still takes all three
+    # the command `fields` only, which still takes all three
     "fields": frozenset({"dataset", "period", "resolution"}),
     "stripes_values": frozenset({"station"}),
     "stripes_image": frozenset({"station"}),
@@ -1642,7 +1642,7 @@ def coverage_needs_a_network(providers: str) -> str:
 
     Until 1.0.0 `coverage` without `provider` and `network` listed every provider and its networks; that is
     `providers` now (GH-3996), named as the surface calls it (`providers` is `/api/providers` for REST,
-    `wetterdienst about providers` for the command line, the tool `providers` for MCP).
+    `wetterdienst providers` for the command line, the tool `providers` for MCP).
     """
     return (
         "coverage describes one network, so both provider and network are required. "
@@ -1889,7 +1889,7 @@ _auth_probes = _ProbeCache()
 def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, network: str) -> AuthAnswer:
     """Check the credentials of one network, probing its provider where they are configured.
 
-    The one place a credential is checked against its provider: `/api/providers` and `about providers`
+    The one place a credential is checked against its provider: `/api/providers` and `providers`
     do not probe (GH-2564), so this answers `valid` for the one network asked about, as a single
     attempt that gives up after `PROBE_TIMEOUT_SECONDS`. A network that needs none is `configured`
     and `valid` without a request; one whose credentials are missing is not `valid`, as a probe

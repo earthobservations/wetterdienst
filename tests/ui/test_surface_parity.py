@@ -726,10 +726,10 @@ _SURFACES = {
     core.HistoryRequest: (("history",), "/api/history", "history"),
     core.IssuesRequest: (("issues",), "/api/issues", "issues"),
     core.AlertsRequest: (("alerts",), "/api/alerts", "alerts"),
-    core.AuthRequest: (("about", "auth"), "/api/auth", "auth"),
-    core.CoverageRequest: (("about", "coverage"), "/api/coverage", "coverage"),
-    core.GlossaryRequest: (("about", "glossary"), "/api/glossary", "glossary"),
-    core.ProvidersRequest: (("about", "providers"), "/api/providers", "providers"),
+    core.AuthRequest: (("auth",), "/api/auth", "auth"),
+    core.CoverageRequest: (("coverage",), "/api/coverage", "coverage"),
+    core.GlossaryRequest: (("glossary",), "/api/glossary", "glossary"),
+    core.ProvidersRequest: (("providers",), "/api/providers", "providers"),
     core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
     # the data of the stripes has no command of its own yet (GH-3035)
     core.StripesImageRequest: (("stripes", "image"), "/api/stripes/image", "stripes_image"),
@@ -904,8 +904,7 @@ def test_no_option_of_the_command_line_has_an_underscore() -> None:
         for path, param in _options_of_every_command()
         if "-" in param.opts[0].removeprefix("--")
         # only a command that spelled it with an underscore in 0.139.0 was renamed (GH-3869, test_renamed_routes.py)
-        and param.opts[0].removeprefix("--").replace("-", "_")
-        in core.old_underscore_options_of_route("_".join(part for part in path if part != "about"))
+        and param.opts[0].removeprefix("--").replace("-", "_") in core.old_underscore_options_of_route("_".join(path))
     ],
 )
 @pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])

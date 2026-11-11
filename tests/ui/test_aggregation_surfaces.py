@@ -273,7 +273,7 @@ def test_coverage_is_the_same_on_rest_the_command_line_and_mcp(client: TestClien
     arguments = {"provider": "dmi", "network": "observation", "resolutions": "hourly", "datasets": "data"}
     rest = client.get("/api/coverage", params=arguments).json()
     run = CliRunner().invoke(
-        cli, ["about", "coverage", "--provider=dmi", "--network=observation", "--resolutions=hourly", "--datasets=data"]
+        cli, ["coverage", "--provider=dmi", "--network=observation", "--resolutions=hourly", "--datasets=data"]
     )
     assert run.exit_code == 0, run.output
     assert json.loads(run.output) == rest
@@ -284,7 +284,7 @@ def test_coverage_is_the_same_on_rest_the_command_line_and_mcp(client: TestClien
 def test_glossary_is_the_same_on_rest_the_command_line_and_mcp(client: TestClient) -> None:
     """The three give the same entries, `aggregation` included."""
     rest = client.get("/api/glossary", params={"parameter": "wind_direction_gust"}).json()
-    run = CliRunner().invoke(cli, ["about", "glossary", "--parameter=wind_direction_gust"])
+    run = CliRunner().invoke(cli, ["glossary", "--parameter=wind_direction_gust"])
     assert run.exit_code == 0, run.output
     assert json.loads(run.output) == rest
     assert _mcp("glossary", {"parameter": "wind_direction_gust"}) == {"result": rest}

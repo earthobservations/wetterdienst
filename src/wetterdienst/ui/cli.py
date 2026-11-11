@@ -221,7 +221,7 @@ provider_opt = click.option(
     required=True,
     help=(
         "Data provider/organisation. List the provider/network combinations with: "
-        "wetterdienst about providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
+        "wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
     ),
 )
 network_opt = click.option(
@@ -683,7 +683,7 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
     return apply
 
 
-_PROVIDERS_HINT = "`wetterdienst about providers` lists the available ones."
+_PROVIDERS_HINT = "`wetterdienst providers` lists the available ones."
 
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -932,7 +932,7 @@ Weather, climate and hydrology data from national weather services, in one inter
 A typical session finds a provider's network, then a station, then reads its data:
 
 \b
-    wetterdienst about providers
+    wetterdienst providers
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2020-05
 
@@ -1073,17 +1073,17 @@ SUMMARIZE_EXAMPLES = r"""
 
 COVERAGE_EXAMPLES = r"""
     # the resolutions, datasets and parameters of one network, or of part of it
-    wetterdienst about coverage --provider=dwd --network=observation
-    wetterdienst about coverage --provider=dwd --network=observation --resolutions=1_minute
-    wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
+    wetterdienst coverage --provider=dwd --network=observation
+    wetterdienst coverage --provider=dwd --network=observation --resolutions=1_minute
+    wetterdienst coverage --provider=dwd --network=observation --datasets=climate_summary
 """
 
 AUTH_EXAMPLES = r"""
     # whether the credentials this installation holds for a provider are present and accepted
-    wetterdienst about auth --provider=aemet --network=observation
+    wetterdienst auth --provider=aemet --network=observation
 
     # a network that needs none is configured and valid without a request
-    wetterdienst about auth --provider=dwd --network=observation
+    wetterdienst auth --provider=dwd --network=observation
 """
 
 RESTAPI_EXAMPLES = r"""
@@ -1374,12 +1374,12 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
 
 
 def _route_of(ctx: click.Context) -> str:
-    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage` for `about coverage`."""
+    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage`."""
     names = []
     while ctx.parent is not None:
         names.append(ctx.info_name or "")
         ctx = ctx.parent
-    return "_".join(name for name in reversed(names) if name != "about")
+    return "_".join(reversed(names))
 
 
 def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
@@ -1389,7 +1389,7 @@ def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
     (`--convert_units`, now `--convert-units`) or in the plural (`--station`, now `--stations`): the
     spellings a command line is free to mistake for the new one, and the only ones it can have kept.
     Either is a rename only on a route that had the old spelling in 0.139.0 (`OLD_NAMES_OF_ROUTE`,
-    `OLD_UNDERSCORE_OPTIONS_OF_ROUTE`): `about providers` never had `--dataset`, nor `stations` `--date`
+    `OLD_UNDERSCORE_OPTIONS_OF_ROUTE`): `providers` never had `--dataset`, nor `stations` `--date`
     or `--name_threshold`.
     """
     # a hidden option is itself a refusal, such as `--start-date`, and no name to send the caller to
@@ -1433,9 +1433,9 @@ class _Command(click.Command):
 
 
 class _CoverageCommand(_Command):
-    """`about coverage`, which says what to call instead where it is given no provider or network (GH-3996).
+    """`coverage`, which says what to call instead where it is given no provider or network (GH-3996).
 
-    It listed every provider and network before 1.0.0; that is `about providers` now. Click would say only
+    It listed every provider and network before 1.0.0; that is `providers` now. Click would say only
     that the option is missing, which tells a caller of the old form nothing.
     """
 
@@ -1445,13 +1445,17 @@ class _CoverageCommand(_Command):
         except click.MissingParameter as e:
             from wetterdienst.ui.core import coverage_needs_a_network
 
-            raise click.UsageError(coverage_needs_a_network("`wetterdienst about providers`"), ctx) from e
+            raise click.UsageError(coverage_needs_a_network("`wetterdienst providers`"), ctx) from e
 
 
 class _Group(click.Group):
     """A group of commands that refuse a renamed option by its new name."""
 
     command_class = _Command
+
+
+#: the commands that were `wetterdienst about <command>` before 1.0.0 and are `wetterdienst <command>` now (GH-4000)
+_MOVED_FROM_ABOUT = ("auth", "coverage", "fields", "glossary", "providers")
 
 
 class _Cli(_Group):
@@ -1462,7 +1466,23 @@ class _Cli(_Group):
     the value. Whatever command it comes from, such an error is told here instead, a line each, with
     exit status 1: the environment is not the command line's to fix. An error the settings from
     the environment alone do not reproduce is the options', and is left as it is.
+
+    `about` was the group of `auth`, `coverage`, `fields`, `glossary` and `providers`, which are commands of their
+    own now. It is no command and no alias: a call of it is a usage error that names the command to call (GH-4000).
     """
+
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
+        if args and args[0] == "about":
+            moved = args[1] if len(args) > 1 and args[1] in _MOVED_FROM_ABOUT else None
+            if moved:
+                msg = f"`wetterdienst about {moved}` moved to `wetterdienst {moved}`."
+            else:
+                names = ", ".join(f"`wetterdienst {name}`" for name in _MOVED_FROM_ABOUT)
+                msg = f"`wetterdienst about` is gone: its commands moved up to {names}."
+            raise click.UsageError(msg, ctx)
+        return super().resolve_command(ctx, args)
 
     def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
         try:
@@ -1563,12 +1583,7 @@ def restapi(
     restapi_module.start_service(listen, reload=reload)
 
 
-@cli.group(cls=_Group)
-def about() -> None:
-    """Get information about the data."""
-
-
-@about.command(cls=_CoverageCommand, epilog=_examples(COVERAGE_EXAMPLES))
+@cli.command(cls=_CoverageCommand, epilog=_examples(COVERAGE_EXAMPLES))
 @provider_opt
 @network_opt
 @click.option(
@@ -1591,11 +1606,11 @@ def coverage(
 ) -> None:
     """Get the resolutions, datasets and parameters of one network.
 
-    --provider and --network are required; `about providers` lists the providers and their networks, with
+    --provider and --network are required; `providers` lists the providers and their networks, with
     their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations and
     values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse) and whether
     they need credentials and have them. A parameter's `unit` is the unit its values come
-    back in when no unit target is given (the one `about glossary` gives; `degree_celsius`, `percent` for a
+    back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
     only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
     not this answer. `aggregation` is what the value is relative to its interval (`mean`, `max`, `sum`, ...,
@@ -1610,7 +1625,7 @@ def coverage(
 
     if not provider or not network:
         # an empty value is as good as none, as it is for the REST route and the MCP tool
-        raise click.UsageError(coverage_needs_a_network("`wetterdienst about providers`"))
+        raise click.UsageError(coverage_needs_a_network("`wetterdienst providers`"))
 
     resolutions_list = read_list(resolutions)
     datasets_list = read_list(datasets)
@@ -1639,7 +1654,7 @@ def coverage(
     print(json.dumps(cov, indent=2))  # noqa: T201
 
 
-@about.command("providers")
+@cli.command("providers")
 @click.option(
     "--provider",
     type=click.STRING,
@@ -1659,7 +1674,7 @@ def providers(
     (`observation`, `forecast` or `derived` for a timeseries network, which has stations and values; `radar` or
     `alerts` for a standalone one, which `stations` and `values` refuse), `extent`, source `url`, whether they need
     credentials (`auth`) and have them (`configured`), whether a request has to give a date and their number of
-    parameters. Nothing is downloaded and no credential is probed. `about coverage` lists the resolutions, datasets
+    parameters. Nothing is downloaded and no credential is probed. `coverage` lists the resolutions, datasets
     and parameters of one network.
     """
     from wetterdienst import Settings
@@ -1677,12 +1692,12 @@ def providers(
     try:
         answer = get_providers(request.provider)
     except ApiNotFoundError as e:
-        msg = f"{e} List them with: wetterdienst about providers"
+        msg = f"{e} List them with: wetterdienst providers"
         raise click.UsageError(msg) from e
     print(answer.model_dump_json(indent=2))  # noqa: T201
 
 
-@about.command("auth", epilog=_examples(AUTH_EXAMPLES))
+@cli.command("auth", epilog=_examples(AUTH_EXAMPLES))
 @provider_opt
 @network_opt
 @debug_opt
@@ -1700,7 +1715,7 @@ def auth(
     provider): unknown, not rejected. A network that needs none is configured and valid.
 
     This is the one command that probes the provider, for the one network asked about: a single
-    attempt that gives up after a few seconds. `about providers` does not probe and has no `valid`, only
+    attempt that gives up after a few seconds. `providers` does not probe and has no `valid`, only
     whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the answer.
     """
     from wetterdienst import Settings
@@ -1714,7 +1729,7 @@ def auth(
     print(json.dumps(get_auth(api, provider, network), indent=2))  # noqa: T201
 
 
-@about.command("glossary")
+@cli.command("glossary")
 @click.option(
     "--parameter",
     type=click.STRING,
@@ -1761,7 +1776,7 @@ def glossary(
     print(json.dumps(entries, indent=2, ensure_ascii=False))  # noqa: T201
 
 
-@about.command("fields")
+@cli.command("fields")
 @provider_opt
 @network_opt
 @click.option(

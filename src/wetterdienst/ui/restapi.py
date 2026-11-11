@@ -1594,7 +1594,7 @@ def auth(
     gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
     once a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so
     ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
-    and the CLI command (`wetterdienst about auth`) are this call.
+    and the CLI command (`wetterdienst auth`) are this call.
     """
     provider, network = request.provider, request.network
 

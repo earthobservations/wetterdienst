@@ -9,7 +9,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | --- | --- | --- |
 | `InvalidParameterError`, exit 2, 400 `request-refused` | the request is understood and cannot be served as phrased | read the message, it names the entry and the close match |
 | 422 `invalid-parameters` | a query parameter is unknown or malformed | `errors` names each; check the spelling and the [vocabulary](restapi.md#one-vocabulary) |
-| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look up providers and networks with `providers` or `about providers`, and resolutions and datasets with `coverage` or `about coverage` of the network |
+| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look up providers and networks with `providers`, and resolutions and datasets with `coverage` of the network |
 | `MissingDependencyError`, 501 `dependency-missing` | an extra is not installed | install the extra the message names, see [Installation](quickstart.md#installation) |
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
@@ -119,7 +119,7 @@ AEMET, KNMI, MET Norway Frost and the Met Office (CEDA) need a key or an account
 
 `CredentialMissingError` says the setting to change. `CredentialRejectedError` says the provider answered 401 or 403
 to the one you gave: it has expired (the Met Office token lives three days), was mistyped, or was revoked. Whether a
-network accepts the credentials the process holds is one call: `wetterdienst about auth --provider=aemet
+network accepts the credentials the process holds is one call: `wetterdienst auth --provider=aemet
 --network=observation`, `GET /api/auth`, the MCP tool `auth`, or `Wetterdienst.is_valid(...)`; `providers` says only
 whether they are `configured`. `valid` is `null` where the provider could not be asked in time: treat it as unknown.
 

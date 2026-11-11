@@ -98,8 +98,8 @@ def test_a_quality_name_is_found_like_any_unknown_name(client: TestClient, name:
 
 
 def test_cli_answers_the_union() -> None:
-    """`wetterdienst about glossary` lists the same names."""
-    result = CliRunner().invoke(cli, ["about", "glossary"])
+    """`wetterdienst glossary` lists the same names."""
+    result = CliRunner().invoke(cli, ["glossary"])
     assert result.exit_code == 0
     assert set(_names(json.loads(result.stdout))) == _offered()
 
