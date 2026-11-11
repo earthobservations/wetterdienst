@@ -212,10 +212,10 @@ request that added this file, and the issue it belongs to is
 - `nl`: `Colofon` for the legal notice (`footer.legal`, `impressum.title`) names the publisher's
   imprint; a Dutch reader may expect `Juridische informatie`.
 - `fr`: `Paramètres` is both "Settings" (`common.settings`, `settings.title`, `stripes.settingsTitle`,
-  `explorer.settings`, `explorer.generalSettings`, `explorer.advancedSettings`,
-  `dataViewer.chartSettings`) and "Parameters" (`glossary.parametersTitle`,
-  `parameterSelection.parametersLabel`), on the same pages. `Réglages` for the settings would keep
-  the two apart.
+  `explorer.settings`, `explorer.settingsChange`, `explorer.settingsLinkOverride`,
+  `explorer.settingsUseMine`, `explorer.advancedSettings`, `dataViewer.chartSettings`) and "Parameters"
+  (`glossary.parametersTitle`, `parameterSelection.parametersLabel`), on the same pages. `Réglages`
+  for the settings would keep the two apart.
 
 The review of GH-2610 fixed what could be shown to be wrong without a native speaker: the claim of
 "no limit" in `home.dataIntro` after the rate limit, a formal address in the `es` catalog, a word

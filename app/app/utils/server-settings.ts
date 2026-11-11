@@ -1,6 +1,5 @@
 import type { InterpolationSettings, ServerSettings, ValuesSettings } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
-import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 // what `GET /api/interpolate` and `GET /api/summarize` take at most (the bounds of their query parameters)
 export const MAX_STATION_DISTANCE = 200
@@ -25,9 +24,10 @@ function radius(value: unknown): number | undefined {
 }
 
 /**
- * The explorer's settings as `GET /api/settings` reports them: the `values` block's for the general
- * and values settings, the `interpolate` block's for the interpolation and summary ones, which the
- * `summarize` block reports alike, both being read from the same `WD_TS_GEO_*` variables.
+ * The explorer's settings as `GET /api/settings` reports them: the `values` block's for the values
+ * settings, the `interpolate` block's for the interpolation and summary ones, which the `summarize`
+ * block reports alike, both being read from the same `WD_TS_GEO_*` variables. The names and units are
+ * not among them: they are the app settings', which every request names (GH-3878).
  *
  * Only the settings the explorer holds one value for. Each is checked, as a backend of another
  * version may answer otherwise: one the answer lacks, or holds where the explorer can't (a nearby
@@ -37,10 +37,6 @@ export function serverDataSettings(server: ServerSettings): Partial<DataSettings
   const values: Partial<ValuesSettings> = server.values ?? {}
   const geo: Partial<InterpolationSettings> = server.interpolate ?? {}
   const settings: Partial<DataSettings> = {}
-  if (typeof values.humanize === 'boolean')
-    settings.humanize = values.humanize
-  if (typeof values.convert_units === 'boolean')
-    settings.convertUnits = values.convert_units
   if (values.shape === 'long' || values.shape === 'wide')
     settings.shape = values.shape
   if (typeof values.skip_empty === 'boolean')
@@ -65,16 +61,4 @@ export function serverDataSettings(server: ServerSettings): Partial<DataSettings
   if (finite(geo.num_additional_stations))
     settings.numAdditionalStations = Math.min(geo.num_additional_stations, MAX_ADDITIONAL_STATIONS)
   return settings
-}
-
-/**
- * The unit each type the explorer lists comes in where the user leaves it at "Default": the
- * server's, as `GET /api/settings` reports it, else the listed one.
- */
-export function defaultUnitTargets(server: ServerSettings | null): Record<string, string> {
-  const reported: Record<string, unknown> = server?.values?.unit_targets ?? {}
-  return Object.fromEntries(UNIT_TARGET_TYPES.map(({ type, default: listed }) => {
-    const unit = reported[type]
-    return [type, typeof unit === 'string' && unit.trim() !== '' ? unit : listed]
-  }))
 }

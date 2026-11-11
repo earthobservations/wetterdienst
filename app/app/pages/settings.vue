@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { UnitSettings } from '~/composables/useSettings'
+import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
+
 const { t, locale, setLocale } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
@@ -29,44 +32,18 @@ const selectedLanguage = computed({
   set: (v: string) => setLocale(v as typeof locale.value),
 })
 
+// a unit's name is read in full, in the trigger and in the list (which is as wide as the trigger)
+const unitSelectUi = { value: 'whitespace-normal text-left', itemLabel: 'whitespace-normal' }
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
   { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
   { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 
-// The unit choices this page offers and stores. They are *not* applied to a request today: a query
-// converts by `dataSettings.unitTargets`, which the explorer's own picker writes and which starts
-// empty, so what is chosen here is persisted and read by nothing. Curated rather than a mirror of the
-// backend UnitConverter besides -- precipitation_intensity leaves out millimeter_per_second, which it
-// refuses as a target, concentration the two per-cubic-metre spellings of what it offers per litre,
-// and mass_per_volume, degree_hour, volume and length_tiny are convertible types with no row at all.
-// Length types share the same unit list.
-const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
-
-const weatherUnitGroups = [
-  { key: 'temperature', label: 'settings.unitTemperature', units: ['degree_celsius', 'degree_kelvin', 'degree_fahrenheit'] },
-  { key: 'precipitation', label: 'settings.unitPrecipitation', units: ['millimeter', 'liter_per_square_meter'] },
-  { key: 'precipitation_intensity', label: 'settings.unitPrecipitationIntensity', units: ['millimeter_per_hour', 'liter_per_square_meter_per_hour'] },
-  { key: 'pressure', label: 'settings.unitPressure', units: ['pascal', 'hectopascal', 'kilopascal'] },
-  { key: 'speed', label: 'settings.unitSpeed', units: ['meter_per_second', 'kilometer_per_hour', 'knots', 'beaufort'] },
-  { key: 'angle', label: 'settings.unitAngle', units: ['degree', 'radian', 'gradian'] },
-  { key: 'fraction', label: 'settings.unitFraction', units: ['decimal', 'percent', 'one_eighth'] },
-  { key: 'length_short', label: 'settings.unitLengthShort', units: LENGTH },
-  { key: 'length_medium', label: 'settings.unitLengthMedium', units: LENGTH },
-  { key: 'length_long', label: 'settings.unitLengthLong', units: LENGTH },
-  { key: 'energy_per_area', label: 'settings.unitEnergyPerArea', units: ['joule_per_square_centimeter', 'joule_per_square_meter', 'kilojoule_per_square_meter', 'megajoule_per_square_meter'] },
-  { key: 'power_per_area', label: 'settings.unitPowerPerArea', units: ['watt_per_square_centimeter', 'watt_per_square_meter', 'kilowatt_per_square_meter'] },
-  { key: 'time', label: 'settings.unitTime', units: ['second', 'minute', 'hour'] },
-  { key: 'duration', label: 'settings.unitDuration', units: ['second', 'minute', 'hour'] },
-  { key: 'degree_day', label: 'settings.unitDegreeDay', units: ['degree_celsius_day', 'degree_kelvin_day', 'degree_fahrenheit_day'] },
-] as const
-
-const otherUnitGroups = [
-  { key: 'concentration', label: 'settings.unitConcentration', units: ['milligram_per_liter', 'gram_per_liter'] },
-  { key: 'conductivity', label: 'settings.unitConductivity', units: ['microsiemens_per_centimeter', 'microsiemens_per_meter', 'siemens_per_centimeter', 'siemens_per_meter'] },
-  { key: 'volume_per_time', label: 'settings.unitVolumePerTime', units: ['liter_per_second', 'cubic_meter_per_second'] },
-] as const
+// The unit choices this page offers and stores are the ones the requests of the Explorer send (GH-3878), from the
+// one list of `UNIT_TARGET_TYPES`, which also says which types and units are left out.
+const weatherUnitGroups = UNIT_TARGET_TYPES.filter(unitType => unitType.group === 'weather')
+const otherUnitGroups = UNIT_TARGET_TYPES.filter(unitType => unitType.group === 'other')
 
 function unitItems(units: readonly string[]) {
   return units.map(u => ({ value: u, label: t(`units.${u}`) }))
@@ -106,12 +83,13 @@ function unitItems(units: readonly string[]) {
           </div>
         </template>
         <!-- toggle buttons: the chosen theme is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3969) -->
-        <UFieldGroup role="group" :aria-label="t('settings.theme')">
+        <UFieldGroup role="group" :aria-label="t('settings.theme')" class="w-full sm:w-auto">
           <UButton
             v-for="opt in themeOptions"
             :key="opt.value"
             :icon="opt.icon"
             :label="opt.label"
+            :ui="{ base: 'flex-auto justify-center max-[24rem]:px-1.5 sm:flex-none', leadingIcon: 'max-[24rem]:hidden' }"
             color="neutral"
             :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
             :aria-pressed="colorMode.preference === opt.value"
@@ -178,15 +156,16 @@ function unitItems(units: readonly string[]) {
               </div>
               <div
                 v-for="group in weatherUnitGroups"
-                :key="group.key"
-                class="flex items-center justify-between gap-4"
+                :key="group.type"
+                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
-                <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
+                <label :for="`settings-unit-${group.type}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
-                  :id="`settings-unit-${group.key}`"
-                  v-model="settings.units[group.key]"
+                  :id="`settings-unit-${group.type}`"
+                  v-model="settings.units[group.type as keyof UnitSettings]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  :ui="unitSelectUi"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -197,15 +176,16 @@ function unitItems(units: readonly string[]) {
               </div>
               <div
                 v-for="group in otherUnitGroups"
-                :key="group.key"
-                class="flex items-center justify-between gap-4"
+                :key="group.type"
+                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
-                <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
+                <label :for="`settings-unit-${group.type}`" class="text-sm">{{ t(group.label) }}</label>
                 <USelect
-                  :id="`settings-unit-${group.key}`"
-                  v-model="settings.units[group.key]"
+                  :id="`settings-unit-${group.type}`"
+                  v-model="settings.units[group.type as keyof UnitSettings]"
                   :items="unitItems(group.units)"
-                  class="w-56"
+                  :ui="unitSelectUi"
+                  class="w-full sm:w-56"
                 />
               </div>
             </div>
@@ -213,7 +193,7 @@ function unitItems(units: readonly string[]) {
         </div>
       </UCard>
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <p class="text-xs text-gray-500 dark:text-gray-400">
           {{ t('settings.savedHint') }}
         </p>
@@ -223,6 +203,7 @@ function unitItems(units: readonly string[]) {
           color="neutral"
           variant="outline"
           size="sm"
+          :ui="{ base: 'max-w-full whitespace-normal text-left', label: 'whitespace-normal' }"
           @click="reset"
         />
       </div>
