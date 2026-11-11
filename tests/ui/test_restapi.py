@@ -4472,7 +4472,7 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
         values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
     )
     request = SimpleNamespace(filter_by_station_id=lambda _station: result, _gaps_that_may_list=lambda _station: {})
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
 
 
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
@@ -4660,7 +4660,7 @@ def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
         raise IndexError(msg)
 
     request = SimpleNamespace(filter_by_station_id=lambda _station: SimpleNamespace(to_dict=to_dict))
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
@@ -7053,6 +7053,182 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
     data = asyncio.run(_call())["result"]
     assert data["series"]["unit"] == "degree_fahrenheit"
     assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("kind", "unit_targets", "unit", "expected"),
+    [
+        pytest.param("temperature", '{"temperature": "degree_fahrenheit"}', "degree_fahrenheit", [33.8, 35.6], id="f"),
+        pytest.param("temperature", '{"temperature": "degree_celsius"}', "degree_celsius", [1.0, 2.0], id="c"),
+        pytest.param("temperature", '{"temperature": "degree_kelvin"}', "degree_kelvin", [274.15, 275.15], id="k"),
+        pytest.param(
+            "precipitation", '{"precipitation": "liter_per_square_meter"}', "liter_per_square_meter", [1.0, 2.0], id="l"
+        ),
+        # the other quantity is none of the kind's: the unit stays the source's
+        pytest.param("precipitation", '{"temperature": "degree_fahrenheit"}', "millimeter", [1.0, 2.0], id="other"),
+    ],
+)
+def test_stripes_values_take_the_unit_targets_as_the_values_do(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    unit_targets: str,
+    unit: str,
+    expected: list[float],
+) -> None:
+    """`unit_targets` of `/api/stripes/values` chooses the unit of the values, named in `series.unit` (GH-3980)."""
+    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
+
+    response = client.get(
+        "/api/stripes/values", params={"kind": kind, "station": "01048", "unit_targets": unit_targets}
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["series"]["unit"] == unit
+    assert [item["value"] for item in data["values"]] == pytest.approx(expected)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_stripes_values_without_unit_targets_are_unchanged(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request giving no `unit_targets` is answered in degree Celsius and millimetre, as before (GH-3980)."""
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    data = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"}).json()
+    assert data["series"]["unit"] == "degree_celsius"
+    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_stripes_values_unit_targets_win_over_the_servers_for_the_quantity(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A request's `unit_targets` entry replaces the server's `WD_TS_UNIT_TARGETS` one for its quantity (GH-3980)."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    params = {"kind": "temperature", "station": "01048"}
+    data = client.get("/api/stripes/values", params={**params, "unit_targets": '{"temperature": "degree_kelvin"}'})
+    assert data.json()["series"]["unit"] == "degree_kelvin"
+    # a quantity it leaves out keeps the server's
+    data = client.get(
+        "/api/stripes/values", params={**params, "unit_targets": '{"precipitation": "liter_per_square_meter"}'}
+    )
+    assert data.json()["series"]["unit"] == "degree_fahrenheit"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("unit_targets", "message"),
+    [
+        ('{"foo": "degree_celsius"}', "Invalid unit targets: quantities not supported: foo."),
+        ('{"temperature": "furlong"}', "Invalid unit targets: Unit furlong not supported for type temperature."),
+    ],
+)
+def test_stripes_values_refuse_unit_targets_as_the_values_route_does(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, unit_targets: str, message: str
+) -> None:
+    """An unknown quantity or unit is the request's 400, worded as `/api/values` words it (GH-3980)."""
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    response = client.get(
+        "/api/stripes/values", params={"kind": "temperature", "station": "01048", "unit_targets": unit_targets}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("Invalid value for 'unit_targets': ")
+    assert message in response.json()["detail"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
+)
+@pytest.mark.parametrize("unit_targets", [None, '{"temperature": "degree_fahrenheit"}'], ids=["none", "fahrenheit"])
+def test_stripes_values_override_a_malformed_variable_for_their_options(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str], unit_targets: str | None
+) -> None:
+    """A malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes fix themselves, does not stop the route (GH-2348).
+
+    The check of `unit_targets` built the server's options from the environment, which reads them, and answered 500.
+    """
+    monkeypatch.setenv(*variable)
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    params = {"kind": "temperature", "station": "01048"}
+    if unit_targets:
+        params["unit_targets"] = unit_targets
+
+    response = client.get("/api/stripes/values", params=params)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["series"]["unit"] == ("degree_fahrenheit" if unit_targets else "degree_celsius")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
+)
+def test_mcp_stripes_values_override_a_malformed_variable_for_their_options(
+    monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str]
+) -> None:
+    """The MCP `stripes_values` tool, which is the route, is as little stopped by a malformed variable (GH-2348)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setenv(*variable)
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    async def _call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool(
+                "stripes_values",
+                {"kind": "temperature", "station": "01048", "unit_targets": {"temperature": "degree_fahrenheit"}},
+            )
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call())["result"]
+    assert data["series"]["unit"] == "degree_fahrenheit"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_stripes_image_takes_no_unit_targets(client: TestClient) -> None:
+    """The image shows no number or unit, so it takes no `unit_targets` (GH-3980)."""
+    response = client.get(
+        "/api/stripes/image",
+        params={"kind": "temperature", "station": "01048", "unit_targets": '{"temperature": "degree_fahrenheit"}'},
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_stripes_values_take_unit_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP `stripes_values` tool takes `unit_targets` as an object, like `values` does (GH-3980)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    async def _call(arguments: dict) -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool(
+                "stripes_values", {"kind": "temperature", "station": "01048", **arguments}
+            )
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call({"unit_targets": {"temperature": "degree_fahrenheit"}}))["result"]
+    assert data["series"]["unit"] == "degree_fahrenheit"
+    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+    # the default is unchanged
+    data = asyncio.run(_call({}))["result"]
+    assert data["series"]["unit"] == "degree_celsius"
+    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
 
 
 def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:

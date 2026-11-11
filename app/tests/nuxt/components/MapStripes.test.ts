@@ -1,7 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearNuxtData } from '#imports'
+import { clearNuxtData, useSettings } from '#imports'
 import MapStripes from '~/components/MapStripes.vue'
 
 // The climate stripes of the map's panel (GH-3650): the colours of the band, one stripe a year, and the sentence.
@@ -9,16 +9,21 @@ import MapStripes from '~/components/MapStripes.vue'
 let years: number[] = []
 let status = 200
 const asked: string[] = []
+// the `unit_targets` each request carried, and the unit the backend answers in for them (GH-3980)
+const unitTargetsAsked: unknown[] = []
 registerEndpoint('/api/stripes/values', (event) => {
   asked.push(String(getQuery(event).station))
+  const unitTargets = JSON.parse(String(getQuery(event).unit_targets ?? '{}')) as { temperature?: string }
+  unitTargetsAsked.push(unitTargets)
   if (status !== 200) {
     setResponseStatus(event, status)
     return { detail: 'This station has no complete years.' }
   }
   return {
     metadata: {},
-    series: { station: { station_id: '00011' }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    values: years.map((value, index) => ({ timestamp: `${2000 + index}-01-01T00:00:00+00:00`, value })),
+    series: { station: { station_id: '00011' }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: unitTargets.temperature ?? 'degree_celsius' },
+    // the numbers in the unit asked for, as the backend converts them from degree Celsius
+    values: years.map((value, index) => ({ timestamp: `${2000 + index}-01-01T00:00:00+00:00`, value: unitTargets.temperature === 'degree_fahrenheit' ? value * 1.8 + 32 : value })),
   }
 })
 
@@ -33,7 +38,9 @@ const colours = (wrapper: Awaited<ReturnType<typeof mountStripes>>) => wrapper.f
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
+  useSettings().settings.value.units.temperature = 'degree_celsius'
   asked.length = 0
+  unitTargetsAsked.length = 0
   status = 200
 })
 
@@ -82,5 +89,33 @@ describe('the climate stripes of the panel', () => {
     await wrapper.find('button').trigger('click')
     await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(2))
     expect(asked).toEqual(['00011', '00011'])
+  })
+
+  it('asks for the unit of the settings, degree Celsius by default, and says the unit it is answered in', async () => {
+    years = [8, 12, 9]
+    const wrapper = await mountStripes()
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(unitTargetsAsked).toEqual([{ temperature: 'degree_celsius' }])
+    expect(wrapper.find('figcaption').text()).toBe('From 2000 to 2002. Lowest value 8.0 °C in 2000, highest value 12.0 °C in 2001.')
+  })
+
+  it('asks for degree Fahrenheit where the settings choose it, writes the numbers in it, and colours them as before', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    years = [8, 12, 9]
+    const wrapper = await mountStripes()
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(unitTargetsAsked).toEqual([{ temperature: 'degree_fahrenheit' }])
+    expect(wrapper.find('figcaption').text()).toBe('From 2000 to 2002. Lowest value 46.4 °F in 2000, highest value 53.6 °F in 2001.')
+    // the colours are relative: the same as in degree Celsius
+    expect(colours(wrapper)).toEqual(['rgb(5, 48, 97)', 'rgb(178, 24, 43)', 'rgb(61, 126, 185)'])
+  })
+
+  it('asks again, in the new unit, where the settings change while the stripes are shown', async () => {
+    years = [8, 12, 9]
+    const wrapper = await mountStripes()
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    useSettings().settings.value.units.temperature = 'degree_kelvin'
+    await vi.waitFor(() => expect(unitTargetsAsked).toEqual([{ temperature: 'degree_celsius' }, { temperature: 'degree_kelvin' }]))
+    await vi.waitFor(() => expect(wrapper.find('figcaption').text()).toContain('K in 2000'))
   })
 })

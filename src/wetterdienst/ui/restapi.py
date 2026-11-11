@@ -99,6 +99,7 @@ from wetterdienst.ui.core import (
     _caller_refusal_status,
     _draw_stripes,
     _get_stripes_data,
+    _get_stripes_options,
     _get_stripes_stations,
     _require_plotting,
     check_timeseries_api,
@@ -146,6 +147,7 @@ from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
+    StripesSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -2160,7 +2162,10 @@ def values(
 
 
 def _request_options(
-    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings]
+    request: BaseModel,
+    given: Collection[str],
+    applied: type[_AppliedSettings | StationsSettings | StripesSettings],
+    base: Options | None = None,
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -2174,8 +2179,11 @@ def _request_options(
     not tell, as the request's dicts are merged into the ones the server sets. With the server's
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
+
+    `base` stands in for the server's options where an endpoint fixes some of them itself, as the stripes do
+    (GH-2348, GH-3980).
     """
-    server = Options()
+    server = base if base is not None else Options()
     # each option given by the field that sets it
     passed = {
         str(option.validation_alias): (field, value)
@@ -2563,18 +2571,23 @@ def stripes_stations(
 @router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Get climate stripes data values with timestamps, and the series they are of.
 
     The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
-    "degree_celsius"; `metadata` is the block every answer has. The server's
-    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
-    for: the target of the quantity where the values are converted, the source's unit where not.
+    "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
+    `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
+    quantity where the values are converted, the source's unit where not. The colours of the stripes
+    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
     """
     begin_response()
 
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
+    # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
+    _request_options(request, http_request.query_params.keys(), StripesSettings, _get_stripes_options())
     try:
         stripes_data = _get_stripes_data(request)
     except AssertionError:

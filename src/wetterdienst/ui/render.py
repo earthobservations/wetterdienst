@@ -119,6 +119,14 @@ class StationsSettings(BaseModel):
     )
 
 
+class StripesSettings(BaseModel):
+    """The settings of `/api/stripes/values`: the unit its values are returned in (GH-3980)."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    unit_targets: dict[str, str] = Field(validation_alias="unit_targets")
+
+
 def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
     """Make the setting that reports the mode of a plausibility check, set by the request field of the same name."""
     return Field(

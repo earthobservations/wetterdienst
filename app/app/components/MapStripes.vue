@@ -4,7 +4,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { STRIPES_KIND } from '~/utils/map-tool'
 import { COLOR_MAPS, stripeColour, stripesSummaryParams, stripeYears } from '~/utils/stripes'
-import { unitSymbol } from '~/utils/unit-targets'
+import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 // The climate stripes of a station, as a band of colour in the map's panel (GH-3650): one stripe a year, drawn in
 // plain elements with the stripes page's colour scale. The page, which the link under the band opens, has the chart,
@@ -14,9 +14,14 @@ const props = defineProps<{ stationId: string, stationName: string }>()
 
 const { t, locale } = useI18n()
 
+// the unit the app settings choose (GH-3980): in the query, so that a change of it fetches the values again, and in the
+// key, so that the values of another unit are not taken for these
+const { settings } = useSettings()
+const unitTargets = computed(() => JSON.stringify(stripesUnitTargets(STRIPES_KIND, settings.value.units)))
+
 const { data, pending, error, refresh } = useFetch<StripesValuesResponse>('/api/stripes/values', {
-  query: computed(() => ({ kind: STRIPES_KIND, station: props.stationId, format: 'json' })),
-  key: computed(() => `map-stripes-${props.stationId}`),
+  query: computed(() => ({ kind: STRIPES_KIND, station: props.stationId, format: 'json', unit_targets: unitTargets.value })),
+  key: computed(() => `map-stripes-${props.stationId}-${unitTargets.value}`),
   ...API_FETCH,
 })
 

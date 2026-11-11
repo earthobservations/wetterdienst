@@ -4448,7 +4448,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not. The colours of the stripes\n(`/api/stripes/image`) are relative to the years' own range and are the same in any unit.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -4589,6 +4589,27 @@
               "title": "Pretty"
             },
             "description": "Pretty-print JSON/GeoJSON output."
+          },
+          {
+            "name": "unit_targets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit.",
+              "title": "Unit Targets"
+            },
+            "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit."
           }
         ],
         "responses": {

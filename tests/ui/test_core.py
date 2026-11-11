@@ -300,7 +300,7 @@ def _stripes_of(
         options=real.options,
     )
     request = SimpleNamespace(filter_by_station_id=lambda _station: stations)
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
 
 
 def test_stripes_are_scaled_over_the_years_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -377,6 +377,38 @@ def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPat
     request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
     df = _get_stripes_data(request).df
     assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
+
+
+def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the colours, scaled over the years, and the order of the years do not change with the unit (GH-3980).
+
+    The values come back in the unit asked for, the series names it, and `value_scaled`, which the colours are
+    taken from, is the same in degree Celsius, degree Fahrenheit and kelvin up to the rounding of the conversion.
+    """
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    celsius = [1.23, 5.5, -2.1, 9.87, 7.0, 3.3, 8.8]
+    _stub_stripes_station(monkeypatch, "temperature", celsius)
+    request = {"kind": "temperature", "station": "01048"}
+
+    default = _get_stripes_data(StripesValuesRequest(**request))
+    fahrenheit = _get_stripes_data(StripesValuesRequest(**request, unit_targets={"temperature": "degree_fahrenheit"}))
+    kelvin = _get_stripes_data(StripesValuesRequest(**request, unit_targets='{"temperature": "degree_kelvin"}'))
+
+    assert (default.series.unit, fahrenheit.series.unit, kelvin.series.unit) == (
+        "degree_celsius",
+        "degree_fahrenheit",
+        "degree_kelvin",
+    )
+    assert default.df.get_column("value").to_list() == pytest.approx(celsius)
+    assert fahrenheit.df.get_column("value").to_list() == pytest.approx([c * 1.8 + 32 for c in celsius], abs=1e-3)
+    for other in (fahrenheit, kelvin):
+        assert other.df.get_column("value_scaled").to_list() == pytest.approx(
+            default.df.get_column("value_scaled").to_list(), abs=1e-3
+        )
+        assert other.df.get_column("timestamp").to_list() == default.df.get_column("timestamp").to_list()
+        # the order of the years, which the colours rank
+        assert other.df.get_column("value").arg_sort().to_list() == default.df.get_column("value").arg_sort().to_list()
 
 
 @pytest.mark.parametrize(
