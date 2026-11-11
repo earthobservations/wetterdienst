@@ -42,7 +42,7 @@ const hasPlaceholders = computed(() =>
             {{ operator.name }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('impressum.addressLabel') }}:<br>
+            {{ t('impressum.addressLabel') }}{{ t('common.colon') }}<br>
             {{ operator.street }}<br>
             {{ operator.city }}<br>
             {{ operator.country }}

@@ -2316,7 +2316,7 @@ watch(
           <span class="text-sm text-toned">
             <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
             <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums">
-              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }} </span>{{ d.precipLabel }}
+              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
             </span>
           </span>
           <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
@@ -2358,7 +2358,7 @@ watch(
               </div>
               <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
                 <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
-                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }} </span>{{ d.precipLabel }}
+                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
               </div>
             </div>
           </template>

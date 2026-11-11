@@ -25,16 +25,17 @@ Types of changes:
 ### Fixed
 
 - `[Forecast]` The run picker writes a run's date and time as the page's language does
-  ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every language
-  (GH-2610)
-- `[Translations]` French sets its no-break space before the colon that follows a label (chart hover
-  texts, the history page, the legal page), and the station map's screen-reader description says "map"
-  in the page's language, not English (GH-2610)
+  ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every
+  language (GH-2610)
+- `[Translations]` French sets its no-break space before the colon that follows a label, in the
+  chart hover texts, the Explorer, the data viewer, the interpolation panel, the history page, the
+  climate stripes and the legal page; the station map's screen-reader description says "map" in
+  the page's language, not in English (GH-2610)
 - `[Translations]` Review of the strings added since the second pass and of the glossary labels:
-  typos, wrong prepositions and cases, texts that dropped what English says, and words spelt two ways
-  in one catalog are corrected in French ("De 1950 à 2020" for the stripes' range), Italian, Spanish,
-  Polish, Czech, Danish, German, Luxembourgish and Low German; what needs a native speaker is listed
-  in `app/i18n/TERMS.md` (GH-2610)
+  typos, wrong prepositions and cases, texts that dropped what English says, and words spelt two
+  ways in one catalog are corrected in French ("De 1950 à 2020" for the stripes' range), Italian,
+  Spanish, Polish, Czech, Danish, German, Luxembourgish and Low German; what needs a native
+  speaker is listed in `app/i18n/TERMS.md` (GH-2610)
 
 ## [0.47.0] - 2026-11-11
 

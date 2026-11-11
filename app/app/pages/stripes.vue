@@ -835,9 +835,9 @@ onBeforeUnmount(() => {
               />
 
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>
+                <p><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
                 <p>
-                  <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
+                  <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
                   {{ selectedStation.end_timestamp?.slice(0, 4) }}
                 </p>
               </div>

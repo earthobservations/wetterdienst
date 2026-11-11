@@ -33,14 +33,14 @@ are in `glossary/<locale>.ts`).
 ## Terms that are different things
 
 - **Settings** (what the user switches in the app: units, names, an interpolation's distances) and
-  **parameters** (what is measured) are two words in every locale. French used `Paramètres` for both
-  until GH-2610; settings are `Réglages` now (`Réglages avancés`, `Réglages du graphique`, `tes réglages
-  de l'application`) and `Paramètres` stays the measured quantity. In the browser's own words (`fr`
-  `denied`: "les paramètres du site") the browser's name is kept.
-- The **legal notice** is `Impressum` in `de`, `de-hh` and `lb` (the German name of the page), `Mentions légales`, `Aviso legal`, `Note legali`, `Nota prawna`, `Právní
-  informace` and `Juridisk meddelelse` elsewhere; `nl` is `Juridische informatie`, not `Colofon`, which
-  is the imprint a publisher prints in a book.
-
+  **parameters** (what is measured) are two words in every locale. French used `Paramètres` for
+  both until GH-2610; settings are `Réglages` now (`Réglages avancés`, `Réglages du graphique`,
+  `tes réglages de l'application`) and `Paramètres` stays the measured quantity. In the browser's
+  own words (`fr` `location.denied`: "les paramètres du site") the browser's name is kept.
+- The **legal notice** is `Impressum` in `de`, `de-hh` and `lb` (the German name of the page),
+  `Mentions légales`, `Aviso legal`, `Note legali`, `Nota prawna`, `Právní informace` and `Juridisk
+  meddelelse` elsewhere; `nl` is `Juridische informatie`, not `Colofon`, which is the imprint a
+  publisher prints in a book.
 - **Period** is a stretch of time in a station's history (the periods of missing data), and **date
   range** is what the user picks in the date picker. Both are "Zeitraum" in German and `Tietruum` in
   `de-hh` (the period's plural is `Tietrüüm`), where the two collapse; every other locale has two
@@ -104,15 +104,17 @@ locale to the number of forms and to `{count}` in each of them. A count that nee
 A number the app shows is written in the language of the page: `formatNumber` for text, and the
 `separators` of every Plotly layout (`plotlySeparators`) for hover texts and axes. The day and month
 of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
-them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is written by `formatRunTime`, in the language's order
-("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"). The timestamps of a table of data (the history's dates, the
-data viewer's `timestamp` column) stay ISO 8601 as the API gives them, since a reader copies them. A label that is
-followed by its value takes the colon from `common.colon`, which French sets with a no-break space before it
-(`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out of its parts and an `Intl` call
-that names no language). Coordinates and elevations are the exception to the rule for numbers and keep a point in
-every language (`toFixed`): a position is copied into a map or a query, and the number input that
-takes one reads a point. Chrome has no data for Luxembourgish, so `withData` writes `lb` as German
-(`de-LU`) is written, which is the same.
+them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is
+written by `formatRunTime`, in the language's order ("15.10.2026, 04:00 UTC", "15/10/2026,
+04:00 UTC"). The timestamps of a table of data (the history's dates, the data viewer's
+`timestamp` column) stay ISO 8601 as the API gives them, since a reader copies them. A label that
+is followed by its value takes the colon from `common.colon`, which French sets with a no-break
+space before it (`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out
+of its parts and an `Intl` call that names no language). Coordinates and elevations are the
+exception to the rule for numbers and keep a point in every language (`toFixed`): a position is
+copied into a map or a query, and the number input that takes one reads a point. Chrome has no
+data for Luxembourgish, so `withData` writes `lb` as German (`de-LU`) is written, which is the
+same.
 
 ## Parameter glossaries
 
@@ -235,11 +237,12 @@ request that added this file, and the issue it belongs to is
 
 - `nl`: `waarneming` (glossary, one label) and `observatie` (the UI) are both used for "observation".
 
-The third pass of GH-2610 read the strings added since the second one (the `ask.*`, `mapTool.*`, `shell.*`,
-`location.*` and `settings.*` texts, those of #3459 in `pl`, `cs`, `lb` and `de-hh`) and the glossaries once
-more, against `en`, this file and the other texts of the same catalog. It changed only what is wrong by the
-evidence of the catalog itself (a typo, a case or preposition that is wrong, a text that drops what `en` says, a
-word spelt differently in the same file or the glossary, a term of this file); the rest is in the tables below.
+The third pass of GH-2610 read the strings added since the second one (the `ask.*`, `mapTool.*`,
+`shell.*`, `location.*` and `settings.*` texts, those of #3459 in `pl`, `cs`, `lb` and `de-hh`) and
+the glossaries once more, against `en`, this file and the other texts of the same catalog. It
+changed only what is wrong by the evidence of the catalog itself (a typo, a case or preposition
+that is wrong, a text that drops what `en` says, a word spelt differently in the same file or the
+glossary, a term of this file); the rest is in the tables below.
 
 The review of GH-2610 fixed what could be shown to be wrong without a native speaker: the claim of
 "no limit" in `home.dataIntro` after the rate limit, a formal address in the `es` catalog, a word
@@ -295,6 +298,12 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `da` | `ask.wind.context` | `Dage omkring med kraftigere vindstød` | `Omkringliggende dage med kraftigere vindstød` | medium |
 | `da` | `ask.placeFailed` | `Stederne kunne ikke søges.` | `Der kunne ikke søges efter steder.` | medium |
 | `da` | `mapTool.legendStopped` | `Er stoppet` | `Måler ikke længere`, to pair with `Måler stadig` | medium |
+| `de-hh` | `location.denied`, `location.timeout`, `location.lookupFailed`, against `stationSelection.loadError`, `map.markersNotShown` | `noch mal` (3 texts) and `noch eenmal` (3 texts), the same number in the catalog | one form | low |
+| `de-hh` | `ask.rain.wettest`, `stripes.table.note.precipitation` | `Natteste` (1) and `natste` (1) | one form of the superlative | low |
+| `de-hh` | `meteogram.chart.weather.drizzle` | `Meddelregen`, as the glossary has it (5 labels) | `Niesregen` was the text before the third pass; one word for drizzle | low |
+| `de-hh` | `location.unsupported`, `location.unavailable` | `stattdessen` (German); `statts` is a preposition in this file (`mapTool.pickCloser`) | an adverb of Low German for "instead" | low |
+| `lb` | `seo.pages.glossary`, `glossary.subtitle` | `mierkt` and `mëst` for "what a parameter measures" | the 3rd person of `miessen` is `mësst`; which form, and whether `mierkt` is right at all | low |
+| `lb` | `explorer.modeSummaryDesc`, `mapTool.about1`, `history.about3` | `gemoossene`, `moossen`, `gemoosse`, `Moossmethoden`, `Moossregëster`, where the rest of the catalog writes `Miessung`, `Miesswäert` | the `Miess-` stem throughout | medium |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
 of the ten languages, against `en`, this file and the weather service's own terms). What was

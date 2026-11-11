@@ -150,7 +150,7 @@
       "history": "Wéi sech eng DWD-Statioun mat der Zäit geännert huet: Numm, Standuert an Instrumenter.",
       "api": "D'REST-API an de MCP-Server vu Wetterdienst: Formater an Beispiller fir Statioune, Wäerter, Interpolatioun a Klimasträifen.",
       "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
-      "glossary": "Wat all Wieder- a Klimaparameter mëst a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
+      "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
       "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
       "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou."
@@ -641,7 +641,7 @@
       "class": "Klass",
       "note": {
         "temperature": "Klass: Wou d'Joer tëscht dem kéelste an dem waarmste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vun Donkelblo (kéelst) bis Donkelrout (waarmst).",
-        "precipitation": "Klass: Wou d'Joer tëscht dem dréchenste an dem naassste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vu Brong (dréchenst) bis Donkelgréng (naasst)."
+        "precipitation": "Klass: Wou d'Joer tëscht dem dréchenste an dem naasste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vu Brong (dréchenst) bis Donkelgréng (naasst)."
       },
       "classes": {
         "temperature": {

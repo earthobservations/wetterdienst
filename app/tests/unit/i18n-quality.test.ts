@@ -165,8 +165,9 @@ describe('whitespace', () => {
   it.each(sets)('has no stray whitespace in a %s', (_name, catalogs) => {
     const stray = Object.entries(catalogs).flatMap(([locale, catalog]) =>
       Object.entries(catalog)
-        // the colon that follows a label is French's no-break space and a colon: a space by design
-        .filter(([key, text]) => key !== 'common.colon' && (text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text)))
+        // the colon that follows a label is a colon, or French's no-break space (U+00A0) and a colon: a space by design,
+        // and only that one
+        .filter(([key, text]) => !(key === 'common.colon' && /^\u00A0?:$/.test(text)) && (text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text)))
         .map(([key, text]) => `${locale} ${key}: ${JSON.stringify(text)}`),
     )
     expect(stray).toEqual([])

@@ -921,7 +921,7 @@ function removeParameterDistance(id: string, paramName: string) {
                   </div>
                   <div class="space-y-3">
                     <div class="flex items-center gap-4">
-                      <span id="explorer-shape-label" class="text-sm">{{ t('explorer.shape') }}:</span>
+                      <span id="explorer-shape-label" class="text-sm">{{ t('explorer.shape') }}{{ t('common.colon') }}</span>
                       <UFieldGroup role="group" aria-labelledby="explorer-shape-label">
                         <UButton
                           :label="t('explorer.shapeLong')"
@@ -946,7 +946,7 @@ function removeParameterDistance(id: string, paramName: string) {
                       <UCheckbox v-model="dataSettings.dropNulls" :label="t('explorer.dropNulls')" />
                     </div>
                     <div v-if="dataSettings.skipEmpty" class="flex items-center gap-4">
-                      <span id="explorer-skip-criteria-label" class="text-sm">{{ t('explorer.skipCriteria') }}:</span>
+                      <span id="explorer-skip-criteria-label" class="text-sm">{{ t('explorer.skipCriteria') }}{{ t('common.colon') }}</span>
                       <UFieldGroup role="group" aria-labelledby="explorer-skip-criteria-label">
                         <UButton
                           v-for="criteria in ['min', 'mean', 'max']"
@@ -959,7 +959,7 @@ function removeParameterDistance(id: string, paramName: string) {
                           @click="dataSettings.skipCriteria = criteria as 'min' | 'mean' | 'max'"
                         />
                       </UFieldGroup>
-                      <label class="text-sm">{{ t('explorer.threshold') }}:</label>
+                      <label class="text-sm">{{ t('explorer.threshold') }}{{ t('common.colon') }}</label>
                       <UInputNumber
                         v-model="dataSettings.skipThreshold"
                         :min="0.05"
@@ -987,7 +987,7 @@ function removeParameterDistance(id: string, paramName: string) {
                     <!-- interpolation only: a summary takes the nearest station anyway (GH-2333) -->
                     <div v-if="isInterpolationMode" class="space-y-2">
                       <div class="flex items-center gap-4">
-                        <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}:</label>
+                        <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}{{ t('common.colon') }}</label>
                         <UInputNumber
                           v-model="dataSettings.useNearbyStationDistance"
                           :min="0"
@@ -1014,14 +1014,14 @@ function removeParameterDistance(id: string, paramName: string) {
                         <div class="pt-3 space-y-4">
                           <!-- Station Distance Mapping -->
                           <div class="space-y-2">
-                            <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}:</label>
+                            <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}{{ t('common.colon') }}</label>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
                               {{ t('explorer.stationDistanceHint') }}
                             </p>
 
                             <!-- The two default radii, one per kind of parameter -->
                             <div class="flex items-center gap-2">
-                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}:</span>
+                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}{{ t('common.colon') }}</span>
                               <UInputNumber
                                 v-model="dataSettings.stationDistanceHomogeneous"
                                 :min="0"
@@ -1034,7 +1034,7 @@ function removeParameterDistance(id: string, paramName: string) {
                               <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                             </div>
                             <div class="flex items-center gap-2">
-                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}:</span>
+                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}{{ t('common.colon') }}</span>
                               <UInputNumber
                                 v-model="dataSettings.stationDistanceHeterogeneous"
                                 :min="0"
@@ -1111,7 +1111,7 @@ function removeParameterDistance(id: string, paramName: string) {
 
                           <div class="space-y-2">
                             <div class="flex items-center gap-4">
-                              <label class="text-sm font-medium">{{ t('explorer.minGain') }}:</label>
+                              <label class="text-sm font-medium">{{ t('explorer.minGain') }}{{ t('common.colon') }}</label>
                               <UInputNumber
                                 v-model="dataSettings.minGainOfValuePairs"
                                 :min="0.01"
@@ -1128,7 +1128,7 @@ function removeParameterDistance(id: string, paramName: string) {
 
                           <div class="space-y-2">
                             <div class="flex items-center gap-4">
-                              <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}:</label>
+                              <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}{{ t('common.colon') }}</label>
                               <UInputNumber
                                 v-model="dataSettings.numAdditionalStations"
                                 :min="0"
