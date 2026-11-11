@@ -58,6 +58,11 @@ Types of changes:
 
 ### Fixed
 
+- `[Map]` On the measuring layer the stations that have stopped are drawn as hollow dots, with a
+  legend, and when the station picked is not the nearest the panel says why (the nearest that
+  still reports, and the closer one that has stopped, with its distance and last year) and offers
+  the closer one; it also says whether the place is a click, the centre of the map or a station's
+  position, and the screen-reader announcement carries the reason (GH-3875)
 - `[Layout]` At 320 px the Italian and French stripes and history pages, and the Spanish settings
   page, no longer scroll sideways: the "About" and "Reset to defaults" buttons wrap their label,
   and the unit selects of the settings fill the card, in every language, with the full unit name

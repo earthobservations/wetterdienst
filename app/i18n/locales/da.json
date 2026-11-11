@@ -828,6 +828,9 @@
     "back": "Tilbage til stationerne",
     "chosen": "{name} valgt",
     "pickedPlace": "Et punkt på kortet, {distance} fra denne station",
+    "pickedCentre": "Stedet i midten af kortet, da det blev valgt, {distance} fra denne station",
+    "pickedPlaceAddress": "Det valgte sted, {distance} fra denne station",
+    "pickedStationPlace": "Placeringen af {name}, {distance} fra denne station",
     "elevation": "{value} m over havet",
     "at": "{name}, {distance} væk",
     "noneNearby": "Ingen station inden for {distance}.",
@@ -840,7 +843,13 @@
     "period": "{from} til {to}",
     "stripesFigure": "Klimastriber for {name}",
     "stripesNone": "Ingen klimastriber for denne station.",
-    "stationNotFound": "Der er ingen station {id} på dette kort."
+    "stationNotFound": "Der er ingen station {id} på dette kort.",
+    "legend": "Signaturforklaring",
+    "legendReporting": "Måler stadig",
+    "legendStopped": "Er stoppet",
+    "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
+    "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
+    "pickCloser": "Vælg {name} i stedet"
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

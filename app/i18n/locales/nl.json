@@ -828,6 +828,9 @@
     "back": "Terug naar de stations",
     "chosen": "{name} gekozen",
     "pickedPlace": "Een punt op de kaart, {distance} van dit station",
+    "pickedCentre": "De plek in het midden van de kaart toen die werd gekozen, {distance} van dit station",
+    "pickedPlaceAddress": "De gekozen plek, {distance} van dit station",
+    "pickedStationPlace": "De positie van {name}, {distance} van dit station",
     "elevation": "{value} m boven zeeniveau",
     "at": "{name}, {distance} verderop",
     "noneNearby": "Geen station binnen {distance}.",
@@ -840,7 +843,13 @@
     "period": "{from} tot {to}",
     "stripesFigure": "Klimaatstrepen van {name}",
     "stripesNone": "Geen klimaatstrepen voor dit station.",
-    "stationNotFound": "Er is geen station {id} op deze kaart."
+    "stationNotFound": "Er is geen station {id} op deze kaart.",
+    "legend": "Legenda",
+    "legendReporting": "Meldt nog",
+    "legendStopped": "Is gestopt",
+    "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
+    "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
+    "pickCloser": "Kies in plaats daarvan {name}"
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",
