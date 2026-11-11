@@ -308,12 +308,36 @@ describe('"remember"', () => {
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 
-  it('keeps the rounded position in the browser when it is ticked before the press', async () => {
+  it('cannot be ticked with no position in hand: nothing would be kept, and the state would say that something is (GH-4010)', async () => {
     mockGeolocation({ latitude: 53.551234, longitude: 9.993456 })
     mockPermission('granted')
     const location = await mountHarness()
     location.setRemember(true)
+    expect(location.remember).toBe(false)
+    expect(location.remembered).toBe(false)
     await location.locate()
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+    expect(location.remembered).toBe(false)
+  })
+
+  it('stores the position again after a forget, when it is pressed for and ticked again (GH-4010)', async () => {
+    mockGeolocation({ latitude: 53.551234, longitude: 9.993456 })
+    mockPermission('granted')
+    const location = await mountHarness()
+    await location.locate()
+    location.setRemember(true)
+    expect(location.remembered).toBe(true)
+    location.forget()
+    expect(location.remembered).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+
+    // ticked with nothing in hand, it stays unticked and stores nothing
+    location.setRemember(true)
+    expect(location.remember).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+
+    await location.locate()
+    location.setRemember(true)
     expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
     expect(location.remembered).toBe(true)
   })
@@ -332,8 +356,8 @@ describe('"remember"', () => {
     mockGeolocation({ latitude: 53.55, longitude: 9.99 })
     mockPermission('granted')
     const location = await mountHarness()
-    location.setRemember(true)
     await location.locate()
+    location.setRemember(true)
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
     location.setRemember(false)
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
@@ -375,8 +399,8 @@ describe('"remember"', () => {
     mockGeolocation({ latitude: 53.55, longitude: 9.99 })
     mockPermission('granted')
     const location = await mountHarness()
-    location.setRemember(true)
     expect(await location.locate()).toEqual({ latitude: 53.55, longitude: 9.99 })
+    location.setRemember(true)
     expect(location.position).toEqual({ latitude: 53.55, longitude: 9.99 })
   })
 })

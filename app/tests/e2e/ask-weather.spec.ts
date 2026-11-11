@@ -133,13 +133,9 @@ test.describe('the suggestions', () => {
   test('are worked with the keyboard, and the focus stays on the one pressed', async ({ page, baseURL }) => {
     await home(page, baseURL!)
     await page.getByTestId('place-button').focus()
-    // "Use my location" (GH-3651) follows the place: its button, the box that keeps the position and the link to the privacy policy, then the suggestions
+    // "Use my location" (GH-3651) follows the place: its button (the box and the note come after a press, GH-4011), then the suggestions
     await page.keyboard.press('Tab')
     await expect(page.getByTestId('use-my-location-button')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByTestId('use-my-location-remember')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.getByTestId('use-my-location-privacy')).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(chip(page, 'rain')).toBeFocused()
     await page.keyboard.press('Tab')

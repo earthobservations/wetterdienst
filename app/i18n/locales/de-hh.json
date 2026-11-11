@@ -778,6 +778,8 @@
     "privacyLink": "Mehr in de Datenschutzerklärung",
     "remembered": "Beholen Standort: {position}",
     "forget": "Mien Standort vergeten",
+    "stored": "Bewahrt",
+    "storedLabel": "Bewahrt: mien Standort in disse Browser",
     "denied": "Dien Browser sperrt den Standort för disse Siet. Üm em to verlöven, mak de Siet-Instellungen vun dien Browser apen, stell Standort op Verlöven un drück den Knop noch mal. Dat Söken geiht jümmers noch.",
     "unsupported": "Disse Browser kann dien Standort nich rutkriegen. Bruuk stattdessen dat Söken.",
     "unavailable": "Dien Standort leet sik nich fastleggen. Bruuk stattdessen dat Söken.",

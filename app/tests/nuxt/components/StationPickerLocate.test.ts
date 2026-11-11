@@ -116,9 +116,14 @@ describe('the button', () => {
     expect(requests).toEqual([])
   })
 
-  it('says in a note what is done with the position, and has a box for keeping it that is not ticked', async () => {
+  it('shows only the button at first, and after a press the note of what is done with the position and a box for keeping it that is not ticked', async () => {
     mockBrowser({})
-    const { wrapper } = await mountPage({ locate: query })
+    const { wrapper, picked } = await mountPage({ locate: query })
+    expect(wrapper.find('[data-testid="use-my-location"]').text()).not.toContain('Rounded to about 1 km')
+    expect(remember(wrapper).exists()).toBe(false)
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(picked.value).toEqual([berlin]))
     expect(wrapper.find('[data-testid="use-my-location"]').text()).toContain('Rounded to about 1 km')
     expect(remember(wrapper).attributes('aria-checked')).toBe('false')
   })
@@ -214,6 +219,9 @@ describe('a press, with a ranked request', () => {
   it('has a link to the section of the privacy policy beside its note', async () => {
     mockBrowser({})
     const { wrapper } = await mountPage({ locate: query })
+    // the note and its link come with the box, after a press
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-privacy"]').exists()).toBe(true))
     const link = wrapper.find('[data-testid="use-my-location-privacy"]')
     expect(link.text()).toBe('More in the privacy policy')
     expect(link.attributes('href')).toBe('/datenschutz#location')
@@ -313,19 +321,25 @@ describe('a refusal', () => {
 })
 
 describe('"remember"', () => {
-  it('keeps the rounded position in the browser when ticked, and shows it with a way to forget it', async () => {
+  it('keeps the rounded position in the browser when ticked after the press, and shows the Stored control, with a way to forget it', async () => {
     mockBrowser({ fix: { latitude: 52.523401, longitude: 13.411199 } })
     const { wrapper } = await mountPage({ locate: query })
 
-    await remember(wrapper).trigger('click')
-    expect(remember(wrapper).attributes('aria-checked')).toBe('true')
     await button(wrapper).trigger('click')
-    await vi.waitFor(() => expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBe('{"latitude":52.52,"longitude":13.41}'))
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-remembered"]').text()).toContain('52.52, 13.41'))
-
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(remember(wrapper).exists()).toBe(true))
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
-    expect(wrapper.find('[data-testid="use-my-location-remembered"]').exists()).toBe(false)
+    await remember(wrapper).trigger('click')
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBe('{"latitude":52.52,"longitude":13.41}')
+    const stored = () => wrapper.find('[data-testid="use-my-location-stored"]')
+    await vi.waitFor(() => expect(stored().exists()).toBe(true))
+    expect(remember(wrapper).exists()).toBe(false)
+
+    await stored().trigger('click')
+    // the popover's content is teleported to the body
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-remembered"]')?.textContent).toContain('52.52, 13.41'))
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(stored().exists()).toBe(false))
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 
   it('keeps nothing in the browser when it is not ticked', async () => {

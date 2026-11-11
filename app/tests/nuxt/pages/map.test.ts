@@ -1667,6 +1667,13 @@ describe('the reader\'s own position', () => {
     clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
   })
   const locate = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="use-my-location-button"]')
+  /** Opens the Stored control and presses "Forget my position" in its popover, which is teleported to the body */
+  async function forgetFromStored(wrapper: Awaited<ReturnType<typeof mountMap>>) {
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="use-my-location-stored"]').trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+  }
 
   it('is asked for by the button alone: a map that is only opened asks the browser nothing', async () => {
     const getCurrentPosition = mockBrowser()
@@ -1752,14 +1759,15 @@ describe('the reader\'s own position', () => {
     mockBrowser()
     const wrapper = await mountMap()
     await listed(wrapper)
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 }))
-    // the button is in the list of the panel, which a station picked replaces: back to it
+    // the button is in the list of the panel, which a station picked replaces: back to it, where the box is, with the
+    // position in hand (GH-4011: the box is offered after a press), and ticked it gives the Stored control
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-back"]').exists()).toBe(true))
     await wrapper.find('[data-testid="map-back"]').trigger('click')
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-forget"]').exists()).toBe(true))
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await forgetFromStored(wrapper)
     await vi.waitFor(() => expect(stage.props.position).toBeNull())
   })
 
@@ -1768,12 +1776,13 @@ describe('the reader\'s own position', () => {
     mockBrowser({ fix: { latitude: 0.0004, longitude: 0.0004 } })
     const wrapper = await mountMap()
     await listed(wrapper)
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
     expect(stage.props.position).toEqual({ latitude: 0, longitude: 0 })
 
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await forgetFromStored(wrapper)
     await vi.waitFor(() => expect(stage.props.position).toBeNull())
     expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(false)
   })

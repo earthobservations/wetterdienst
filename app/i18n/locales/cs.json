@@ -778,6 +778,8 @@
     "privacyLink": "Více v zásadách ochrany osobních údajů",
     "remembered": "Zapamatovaná poloha: {position}",
     "forget": "Zapomenout moji polohu",
+    "stored": "Uloženo",
+    "storedLabel": "Uloženo: moje poloha v tomto prohlížeči",
     "denied": "Tvůj prohlížeč blokuje polohu pro tento web. Chceš-li ji povolit, otevři nastavení webu v prohlížeči, nastav Polohu na Povolit a tlačítko stiskni znovu. Vyhledávání funguje dál.",
     "unsupported": "Tento prohlížeč tvoji polohu zjistit neumí. Použij místo toho vyhledávání.",
     "unavailable": "Tvoji polohu se nepodařilo zjistit. Použij místo toho vyhledávání.",

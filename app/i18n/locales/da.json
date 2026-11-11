@@ -778,6 +778,8 @@
     "privacyLink": "Mere i privatlivspolitikken",
     "remembered": "Husket placering: {position}",
     "forget": "Glem min placering",
+    "stored": "Gemt",
+    "storedLabel": "Gemt: min placering i denne browser",
     "denied": "Din browser blokerer placering for dette websted. For at tillade den skal du åbne webstedsindstillingerne i din browser, sætte Placering til Tillad og trykke på knappen igen. Søgningen virker stadig.",
     "unsupported": "Denne browser kan ikke finde din placering. Brug søgningen i stedet.",
     "unavailable": "Din placering kunne ikke findes. Brug søgningen i stedet.",

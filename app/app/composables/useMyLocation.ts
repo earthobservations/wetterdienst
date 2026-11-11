@@ -23,6 +23,8 @@ let latestPress = 0
  *   sees a more exact one.
  * - It is kept in memory, shared by every place that asks; with "remember" ticked also in localStorage
  *   (`wd-location`), where a later press of the button uses it without asking the browser, until the reader forgets it.
+ *   "Remember" can be ticked only with a position in hand, and forgetting takes the position too, so that the state
+ *   is one of three: no position, a position for this visit, a position kept in the browser (GH-4010).
  * - A refusal, no support, no fix and a timeout are failures to tell, not errors: nothing else is affected.
  */
 export function useMyLocation() {
@@ -117,8 +119,14 @@ export function useMyLocation() {
     }
   }
 
-  /** Ticks or unticks "remember": ticked, the position in hand is kept in the browser; unticked, what was kept is deleted */
+  /**
+   * Ticks or unticks "remember": ticked, the position in hand is kept in the browser; unticked, what was kept is deleted.
+   * It cannot be ticked with no position in hand (GH-4010): there would be nothing to keep, and the box would say that
+   * something is kept when nothing is. The component shows the box only while a position is in hand.
+   */
   function setRemember(on: boolean) {
+    if (on && !position.value)
+      return
     remember.value = on
     if (!on) {
       forgetRememberedPosition()

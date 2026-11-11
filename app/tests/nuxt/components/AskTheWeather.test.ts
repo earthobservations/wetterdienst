@@ -378,8 +378,9 @@ describe('the place from the reader\'s position', () => {
   it('keeps the place in the browser with the position when remember is ticked', async () => {
     mockBrowser()
     const wrapper = await mountAsk()
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
     await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
     expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('01975')
     expect(JSON.parse(localStorage.getItem('wd-location')!)).toEqual({ latitude: 53.6, longitude: 10.05 })
@@ -395,43 +396,21 @@ describe('the place from the reader\'s position', () => {
     expect(address).not.toMatch(/lat|lon|53\.6|10\.05/)
   })
 
-  it('takes the place back from the browser when the reader unticks remember, and keeps it for the visit', async () => {
-    mockBrowser()
-    const wrapper = await mountAsk()
-    await wrapper.find('button[role="checkbox"]').trigger('click')
-    await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem('wd-place') ?? 'null')?.fromPosition).toBe(true))
-
-    await wrapper.find('button[role="checkbox"]').trigger('click')
-    expect(localStorage.getItem('wd-place')).toBeNull()
-    expect(localStorage.getItem('wd-location')).toBeNull()
-    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel')
-  })
-
   it('takes the place back, in the browser and in the page, when the reader forgets the position', async () => {
     mockBrowser()
     const wrapper = await mountAsk()
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
     await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
 
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
-    expect(localStorage.getItem('wd-place')).toBeNull()
+    // "Stored" opens the position and the way to forget it; the popover is teleported to the body
+    await wrapper.find('[data-testid="use-my-location-stored"]').trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).toBeNull())
     expect(localStorage.getItem('wd-location')).toBeNull()
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau'))
-  })
-
-  it('leaves a place the reader chose afterwards in the browser when remember is unticked', async () => {
-    mockBrowser()
-    const wrapper = await mountAsk()
-    await wrapper.find('button[role="checkbox"]').trigger('click')
-    await locate(wrapper).trigger('click')
-    await vi.waitFor(() => expect(localStorage.getItem('wd-place')).not.toBeNull())
-    usePlace().setPlace({ id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' })
-
-    await wrapper.find('button[role="checkbox"]').trigger('click')
-    expect(JSON.parse(localStorage.getItem('wd-place')!).id).toBe('00183')
-    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona')
   })
 
   it('leaves the place as it was where the reader refuses, and says so in the alert region', async () => {
