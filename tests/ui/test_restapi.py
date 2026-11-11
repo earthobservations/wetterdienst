@@ -9194,6 +9194,7 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     """
     import sys  # noqa: PLC0415
 
+    from tests.provider.knmi.observation.catalogue import catalogue_frame  # noqa: PLC0415
     from wetterdienst.provider.knmi.observation import api as knmi_api  # noqa: PLC0415
 
     monkeypatch.setenv("WD_AUTH__KNMI", "key")
@@ -9201,16 +9202,7 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args, **_kwargs: "file.nc")
     monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args, **_kwargs: b"not read")
     if known_stations:
-        stations = pl.DataFrame(
-            {
-                "station_id": ["06260"],
-                "name": ["De Bilt"],
-                "latitude": [52.1],
-                "longitude": [5.18],
-                "elevation": [1.9],
-            },
-        )
-        monkeypatch.setattr(knmi_api.KnmiObservationRequest, "_station_frame", staticmethod(lambda *_a, **_k: stations))
+        monkeypatch.setattr(knmi_api, "_station_catalogue", lambda *_a, **_k: catalogue_frame("06260"))
 
     with caplog.at_level(logging.INFO):
         response = client.get(

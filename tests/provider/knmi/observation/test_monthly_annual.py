@@ -239,6 +239,35 @@ def test_the_latest_file_of_a_period_dataset_is_the_last_period(
     assert f"orderBy={order}&sorting=desc" in _latest(monkeypatch, dataset)
 
 
+def test_the_latest_catalogue_is_the_last_date_in_a_name_and_its_listing_is_kept_for_a_week(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The catalogue file of 2012-01-01 was made after those of 2023 to 2026 (read 2026-11-11), so not `created`.
+
+    Its listing is kept as long as the file (`_CATALOGUE_EXPIRY`), where that of the others is kept an hour.
+    """
+    asked: list[tuple[str, CacheExpiry]] = []
+
+    def download(url: str, _settings: Settings, ttl: CacheExpiry, **_kwargs: object) -> File:
+        import io  # noqa: PLC0415
+
+        asked.append((url, ttl))
+        return File(url=url, content=io.BytesIO(b'{"files": [{"filename": "csv_knmi_nl_20260615.csv"}]}'), status=200)
+
+    monkeypatch.setattr(knmi_api, "_download_with_retry", download)
+    settings = Settings(auth={"knmi": "dummy-key-for-test"})
+    dataset, version = knmi_api._STATIONS_DATASET  # noqa: SLF001
+
+    assert _latest_filename(dataset, version, settings, CacheExpiry.ONE_WEEK) == "csv_knmi_nl_20260615.csv"
+    assert _latest_filename("daily-in-situ-meteorological-observations-validated", "1.0", settings) is not None
+    (catalogue, week), (daily, hour) = asked
+    assert "/datasets/waarneemstations_csv/versions/1.0/files?" in catalogue
+    assert "orderBy=filename&sorting=desc" in catalogue
+    assert week == CacheExpiry.ONE_WEEK
+    assert "orderBy=created" in daily
+    assert hour == CacheExpiry.ONE_HOUR
+
+
 def test_the_datasets_are_the_validated_ones() -> None:
     """The names and the version the Open Data API lists (2026-11-11: 1510 monthly files, 125 annual files)."""
     datasets = knmi_api._DATASET_BY_RESOLUTION  # noqa: SLF001

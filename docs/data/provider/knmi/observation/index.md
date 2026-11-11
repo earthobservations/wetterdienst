@@ -36,8 +36,9 @@ dataset pages say that "daily observations have been aggregated to monthly inter
 have been aggregated to annual intervals", which is why `PG`, whose description reads "mean sea level pressure" and no
 more, is named a mean (the daily one is "calculated as a mean of the 24 pressure values of that day"). The files of
 the early years hold few of them (January 1901: the temperatures, the humidity and the sunshine of one station), and a
-variable a station does not measure is missing. A file that is not published (the current month) is skipped with a
-warning.
+variable a station does not measure is missing. A period that has not ended (the current month, the current year) has
+no file and is not asked for, with no warning; a file that KNMI has not published for a period that has ended is
+skipped with a warning.
 
 Not served from the monthly and annual files, because the canonical parameters have no name for them yet:
 `EV24` (the potential evapotranspiration of the period, where `evapotranspiration_potential_last_24h` is a day's),
@@ -46,9 +47,30 @@ maximum visibility, a code from 0 to 89 and no distance), and `W1`, `W2`, `W3`, 
 intervals" with fog, rain, snow, thunderstorm and ice formation: they hold 0 or 1 for a whole year, so they are no count
 of days, which the description does not explain).
 
-The station list of a monthly or annual request is that of the latest file (October 2026, and 2025), so a station that
-is no longer in the network (Soesterberg `06265`, Valkenburg `06210`), whose
-values are in the old files, is not listed.
+## Stations
+
+The stations are those of KNMI's own catalogue of its observation network, the dataset `waarneemstations_csv`
+(version 1.0, one small CSV file for each date a station was opened, closed or moved, 77 stations in the file of
+2026-06-15). The Open Data API serves it with the same key as the observations, so the list needs no second key and
+costs two requests of the quota (the listing and the link of the file) whatever the resolutions asked for; it is kept
+for a week. It replaced the station axis of the latest file of each resolution (GH-4008), which holds the stations that
+reported in its interval: the latest 10-minute file held 57 stations, where those of 2024 held 69 and the files since
+2012 76 of the 77, and a station that had closed was in none (Soesterberg `06265`, closed in 2008, and Valkenburg
+`06210`, closed in 2016, whose values are in the files, were not listed).
+
+- The list of a resolution is the catalogue without the stations its dataset cannot hold. The four fog stations
+  (Assendelft `06233`, Muiden `06236`, Nieuw-Vennep `06237`, Nieuwkoop `06238`) are in the 10-minute files only and are
+  not listed at the other resolutions, and a station that closed before a dataset began (the 10-minute files start in
+  2012) is not listed for it.
+- The name, the position and the height are those of the newest catalogue. A station that was moved is listed where
+  it is now: Eindhoven `06370` was at 51.4497, 5.3769 and Deelen `06275` at 52.0547, 5.8722 in the files until
+  June 2026, and De Bilt was "DE BILT AWS" in the files until late 2024.
+- `start_timestamp` and `end_timestamp` are empty. The catalogue has a start and a stop date, but they are not those of
+  the data: Schiphol's data begins in 1951 and its start is 1990-07-01, Soesterberg's data runs six weeks past its stop
+  date and F16-A's ends before its own. A request is therefore not narrowed to the stations whose dates it overlaps; a
+  station that has no data in the window answers with no rows.
+- Where the catalogue cannot be read (it is gone, or its columns changed), the stations are read from the latest file
+  of each resolution as before, with their WSI from the file's `wsi` variable.
 
 KNMI's NetCDF `time` coordinate marks the *end* of the measuring interval, and the three datasets
 name their files differently (read from real files, GH-2824): a 10-minute file is named for that end

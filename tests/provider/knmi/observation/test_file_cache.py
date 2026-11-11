@@ -17,9 +17,9 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
-import polars as pl
 import pytest
 
+from tests.provider.knmi.observation.catalogue import catalogue_frame
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -272,11 +272,17 @@ def test_a_failed_download_names_the_file_and_not_the_link_and_keeps_no_copy(
         pytest.param(_ago(hours=5, minutes=50), CacheExpiry.FIVE_MINUTES, id="just under six hours"),
         pytest.param(_ago(hours=6, minutes=10), CacheExpiry.TWELVE_HOURS, id="just over six hours"),
         pytest.param(_ago(days=30), CacheExpiry.TWELVE_HOURS, id="a month"),
+        pytest.param(_ago(days=36500), CacheExpiry.TWELVE_HOURS, id="a century"),
         pytest.param(_ago(hours=7).replace(tzinfo=None), CacheExpiry.TWELVE_HOURS, id="without a zone"),
     ],
 )
 def test_the_age_of_the_end_says_how_long_a_file_is_kept(end: dt.datetime | None, expected: CacheExpiry) -> None:
-    """Ended less than six hours ago is five minutes, earlier is twelve hours; a time without a zone is UTC."""
+    """Ended less than six hours ago is five minutes, earlier is twelve hours, however much earlier (GH-4008).
+
+    No age makes a file final: KNMI replaces the hourly and daily files two to four weeks after their period, and
+    corrects a daily or monthly file a year on (`_file_expiry`), so twelve hours is the longest a copy is held. A time
+    without a zone is UTC.
+    """
     assert _file_expiry(end) == expected
 
 
@@ -321,11 +327,7 @@ def test_a_body_that_is_no_netcdf_is_not_kept_for_the_next_read(
     # the reader of the body, which is missing without the knmi extra: that is no failure of the body
     pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
     pytest.importorskip("h5py", reason="h5py not installed")
-    monkeypatch.setattr(
-        KnmiObservationRequest,
-        "_station_frame",
-        staticmethod(lambda *_args: pl.DataFrame({"station_id": ["06260"], "name": ["De Bilt"]})),
-    )
+    monkeypatch.setattr(api, "_station_catalogue", lambda *_args: catalogue_frame("06260"))
 
     def read() -> None:
         request = KnmiObservationRequest(
@@ -359,3 +361,36 @@ def test_the_copy_of_a_file_is_dropped_whichever_age_chose_its_directory(
             _unreadable(settings, filename)
         assert _fetch(settings, filename) == BODY
     assert len(_store_requests(platform)) == 4
+
+
+CATALOGUE = "csv_knmi_nl_20260615.csv"
+
+
+def test_the_catalogue_is_a_hit_for_a_week_and_fetched_again_after(
+    platform: ThreadingHTTPServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The list of the stations changes when a station is opened, closed or moved: its copy is held for a week."""
+    settings = _settings(tmp_path)
+    key = ("waarneemstations_csv", VERSION, CATALOGUE, settings, CacheExpiry.ONE_WEEK)
+    assert _fetch_netcdf(*key) == BODY
+
+    _later(monkeypatch, days=6, hours=23)
+    assert _fetch_netcdf(*key) == BODY
+    assert len(_store_requests(platform)) == 1
+
+    _later(monkeypatch, days=7, minutes=1)
+    assert _fetch_netcdf(*key) == BODY
+    assert len(_store_requests(platform)) == 2
+    assert len(_resolve_requests(platform)) == 2
+
+
+def test_a_catalogue_that_cannot_be_read_is_dropped_from_the_directory_of_its_week(
+    platform: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """`_forget_file` drops the copy of the week as well as those of 5 minutes and 12 hours."""
+    settings = _settings(tmp_path)
+    key = ("waarneemstations_csv", VERSION, CATALOGUE, settings, CacheExpiry.ONE_WEEK)
+    assert _fetch_netcdf(*key) == BODY
+    api._forget_file("waarneemstations_csv", VERSION, CATALOGUE, settings)  # noqa: SLF001
+    assert _fetch_netcdf(*key) == BODY
+    assert len(_store_requests(platform)) == 2

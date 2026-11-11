@@ -62,11 +62,10 @@ _KnmiObservationMetadataSpec = {
         "scope": "national",
         "continents": ["europe", "north_america"],
         "country_codes": ["NL"],
-        # declared from the documentation of KNMI, no list was read (a key is needed): the 10-minute stations include
-        # the Caribbean Netherlands (WMO block 78) and the platforms of the North Sea, north to F3-FB-1 (54.85 N) and
-        # A12 (55.4 N), so the box reaches 56, and west to 70.5 so that Aruba (70.0 W) is in it whether or not the
-        # dataset lists it: the parser (`public_station_id`) names the Caribbean stations of block 78, and the list was
-        # not read
+        # the stations of KNMI's catalogue (77 in the file of 2026-06-15, read 2026-11-11) are in the Netherlands, on
+        # the platforms of the North Sea, north to A12-CPP (55.40 N), and on the Caribbean Netherlands (WMO block 78:
+        # Bonaire 12.13 N, 68.28 W; Saba and Sint Eustatius at 17.5 N, 63 W). The box is wider than the list, west to
+        # 70.5 so that Aruba (70.0 W) is in it if KNMI ever lists it
         "bbox": [-70.5, 12.0, 8.0, 56.0],
     },
     "timezone": "Europe/Amsterdam",

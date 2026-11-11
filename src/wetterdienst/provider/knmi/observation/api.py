@@ -20,19 +20,32 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError, NoInternetError
+from wetterdienst.exceptions import (
+    CredentialMissingError,
+    CredentialRejectedError,
+    DownloadError,
+    NoInternetError,
+    UpstreamError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
-from wetterdienst.provider.knmi.observation.parser import decode_str, open_netcdf, parse_knmi_netcdf, public_station_id
+from wetterdienst.provider.knmi.observation.parser import (
+    decode_str,
+    open_netcdf,
+    parse_knmi_netcdf,
+    public_station_id,
+    station_wsis,
+)
 from wetterdienst.settings import reveal
 from wetterdienst.util.network import (
     CREDENTIAL_REJECTED_STATUSES,
@@ -67,11 +80,44 @@ _DATASET_BY_RESOLUTION = {
     Resolution.ANNUAL: ("annual-in-situ-meteorological-observations-validated", "1.0"),
 }
 
-#: The datasets whose files are named for a period (a month, a year) and not for the moment they were made: the latest
-#: file is the last period, which is not always the one made last (the annual file of 2023 was made after those of 2024
-#: and 2025, read 2026-11-11)
+#: The catalogue of the stations of KNMI's network ("Meteo data - information on stations in the KNMI observations
+#: network", https://dataplatform.knmi.nl/dataset/waarneemstations-csv-1-0): one small CSV file (7.7 kB, 77 stations)
+#: for every date a station was opened, closed or moved, named `csv_knmi_nl_YYYYMMDD.csv`. It is served by the same API
+#: and with the same key as the observations (read 2026-11-11), so the list of the stations needs no second key.
+_STATIONS_DATASET = ("waarneemstations_csv", "1.0")
+
+#: How long the catalogue of the stations, its listing and its file, is kept. A file is made only when a station is
+#: opened, closed or moved (four in the 20 months to 2026-07: made 2024-11-22, 2025-11-28, 2026-03-09 and 2026-07-07,
+#: the last for 15 June), and weeks after the date in its name, so a station that is not listed for a week more is no
+#: news. The one list serves every resolution, so a week costs two requests of the quota (the listing and the link of
+#: the file; the download costs none) where the list of the latest file of each resolution cost two for each, every
+#: 12 hours.
+_CATALOGUE_EXPIRY = CacheExpiry.ONE_WEEK
+
+#: The first day of the data of each dataset (the name of its oldest file, read 2026-11-11): a station that was
+#: closed before it has none in it. The 10-minute files start in 2012, the stations before the 1990s are in the others.
+_DATASET_START = {
+    Resolution.MINUTE_10: dt.date(2012, 1, 1),
+    Resolution.HOURLY: dt.date(1951, 1, 1),
+    Resolution.DAILY: dt.date(1901, 1, 1),
+    Resolution.MONTHLY: dt.date(1901, 1, 1),
+    Resolution.ANNUAL: dt.date(1901, 1, 1),
+}
+
+#: The types of station of the catalogue that only the 10-minute files hold: the four fog stations (Assendelft 06233,
+#: Muiden 06236, Nieuw-Vennep 06237 and Nieuwkoop 06238) are in the 10-minute files of 2014 to 2024 and in none of the
+#: 37 hourly, daily, monthly and annual files of 1901 to 2026 that were read (2026-11-11). "Fog station/Meteo site"
+#: (Voorschoten 06215) is in them all and is not this type.
+_TEN_MINUTE_ONLY_TYPES = frozenset({"Fog station"})
+
+#: The datasets whose files are named for a period (a month, a year) or a date and not for the moment they were made:
+#: the latest file is the last period, which is not always the one made last (the annual file of 2023 was made after
+#: those of 2024 and 2025, and the catalogue file of 2012-01-01 after those of 2023, read 2026-11-11)
 _LATEST_BY_FILENAME = frozenset(
-    _DATASET_BY_RESOLUTION[resolution][0] for resolution in (Resolution.MONTHLY, Resolution.ANNUAL)
+    (
+        *(_DATASET_BY_RESOLUTION[resolution][0] for resolution in (Resolution.MONTHLY, Resolution.ANNUAL)),
+        _STATIONS_DATASET[0],
+    )
 )
 
 _STEP_BY_RESOLUTION = {
@@ -172,7 +218,14 @@ def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
 
 
 def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> Iterator[dt.datetime]:
-    """Yield the moments that name the files whose values are stamped within [start_date, end_date]."""
+    """Yield the moments that name the files whose values are stamped within [start_date, end_date].
+
+    Only a file whose interval has ended can exist: the hour, the day, the month or the year that is still running has
+    no file yet (the annual file of the year that is running is made in the next one), so the moments stop at the first
+    one whose interval ends after now (`_end_of`), with no request and so no 404 that would be reported as a file
+    skipped, a partial answer to try again later (GH-4008). The running 10 minutes or hour of a range that reaches
+    now are asked for as soon as they have ended, which is when their file is made.
+    """
     if resolution == Resolution.HOURLY:
         # the hour that ends at the first stamp at or after start_date (its file is named for the start of it)
         current = _ceil(start_date, resolution) - _STEP_BY_RESOLUTION[resolution]
@@ -189,13 +242,18 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
         # a daily file is stamped with its own date. When the whole request is daily, __post_init__ has already floored
         # start to the day so the moments are aligned; a mixed request keeps the (harmless) unaligned label
         current = start_date
+    now = _now()
     while _stamp(current, resolution) <= end_date:
+        interval_end = _end_of(_filename_for(resolution, current))
+        if interval_end is not None and interval_end > now:
+            return
         yield current
         current = _advance(current, resolution)
 
 
-#: How old the end of the interval a file covers must be for its content to be kept long: KNMI may still fill in a
-#: file whose interval ended later
+#: How old the end of the interval a file covers must be for its content to be kept long: for the first hours KNMI
+#: still fills a file in (the hourly files are made 5.5 to 78 hours after their hour, at a median of 25, read
+#: 2026-11-11)
 _SETTLED_AFTER = dt.timedelta(hours=6)
 
 
@@ -208,8 +266,21 @@ def _file_expiry(end: dt.datetime | None) -> CacheExpiry:
     """Say how long the content of a file is kept, by the end of the interval it covers (`_end_of`, GH-3927).
 
     A file whose end is younger than `_SETTLED_AFTER` is kept for `CacheExpiry.FIVE_MINUTES`, as it was before:
-    it is fetched again for what KNMI has added since. An older one is no longer changed and is kept for
-    `CacheExpiry.TWELVE_HOURS`. A file whose end is not known counts as young.
+    it is fetched again for what KNMI has added since. An older one is kept for `CacheExpiry.TWELVE_HOURS`. That is
+    no claim that it is final, for no age makes a file so (GH-4008, read 2026-11-11 from the `lastModified` of the
+    newest 1,000 hourly and daily files, all monthly and all annual ones):
+
+    - KNMI validates the hourly and the daily files two to four weeks after their period and replaces them then, in
+      batches: 408 hourly files of 15 to 31 October on 10 and 11 November, 21 daily files of 15 October to 4 November
+      on 10 November, 15 of 1 to 15 September on 24 September, 15 of 11 to 26 August on 31 August.
+    - It corrects older files now and then: 349 daily files were replaced more than a week after their day, 251 of
+      them on 18 September 2025, nine days after the archive was loaded, and the rest on 18 other days, a few at a
+      time. Of the 1,510 monthly files 4 were replaced after they were made (1976-06 on 24 September, 2026-01 on 29
+      September, 2026-09 six hours later, 2026-10 eight days later), of the 125 annual ones 1.
+
+    So the twelve hours are no longer than a replaced file takes to be read again: the cap, not the age, limits how
+    stale a copy is, and a shorter one would only repeat requests (one each) for files that change once, weeks away.
+    A file whose end is not known counts as young.
     """
     if end is None:
         return CacheExpiry.FIVE_MINUTES
@@ -260,9 +331,9 @@ def _forget_file(dataset_name: str, version: str, filename: str, settings: Setti
     """Drop the copy kept for a file, so that the next read asks KNMI again. Never raises.
 
     For a body that arrived (a 200) and is no file the reader can open: it would be served until it expires, up to 12
-    hours. Dropped from the directory of both expiries, since the age that chose one moves.
+    hours (a week for the catalogue). Dropped from the directory of every expiry, since the age that chose one moves.
     """
-    for expiry in (CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS):
+    for expiry in (CacheExpiry.FIVE_MINUTES, CacheExpiry.TWELVE_HOURS, _CATALOGUE_EXPIRY):
         drop_cached_file(
             _file_key(dataset_name, version, filename),
             settings.cache_dir,
@@ -351,8 +422,10 @@ def _key_rejected(status: int) -> CredentialRejectedError:
     return credential_rejected("KNMI", "KNMI", "API key", status)
 
 
-def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str | Exception:
-    """Look up the most recently published file in a dataset.
+def _latest_filename(
+    dataset_name: str, version: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.ONE_HOUR
+) -> str | Exception:
+    """Look up the most recently published file in a dataset, the listing being kept for `ttl`.
 
     "Validated" datasets lag well behind real time (observed: ~1-2 days for hourly),
     so guessing a fixed offset from now() isn't reliable -- ask the API directly.
@@ -363,7 +436,7 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
         **settings.fsspec_client_kwargs,
         "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": reveal(settings.auth.knmi)},
     }
-    file = _download_with_retry(url, settings, CacheExpiry.ONE_HOUR, client_kwargs=client_kwargs)
+    file = _download_with_retry(url, settings, ttl, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):
         if file.status in CREDENTIAL_REJECTED_STATUSES:
             return _key_rejected(file.status)
@@ -374,8 +447,13 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
     return files[0]["filename"]
 
 
-def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Settings) -> bytes | Exception:
+def _fetch_netcdf(
+    dataset_name: str, version: str, filename: str, settings: Settings, expiry: CacheExpiry | None = None
+) -> bytes | Exception:
     """Read a dataset file from the cache, or resolve a temporary download URL for it and download it.
+
+    A file of an observation dataset is kept as `_file_expiry` says, by the interval its name gives. `expiry` is for a
+    file that has none (the CSV of the catalogue of the stations, `_station_catalogue`), which is kept for that long.
 
     The resolve step needs the API key (in the Authorization header); the resulting
     temporary S3 URL is pre-signed and needs no auth of its own.
@@ -404,7 +482,8 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     a request is not ours to change.
     """
     key = _file_key(dataset_name, version, filename)
-    expiry = _file_expiry(_end_of(filename))
+    if expiry is None:
+        expiry = _file_expiry(_end_of(filename))
     kept = read_cached_copy(
         key,
         settings.cache_dir,
@@ -515,6 +594,91 @@ class KnmiObservationValues(TimeseriesValues):
         return pl.concat(frames) if frames else pl.DataFrame()
 
 
+def _read_station_catalogue(payload: bytes) -> pl.DataFrame:
+    """Read the CSV of the catalogue into one row for each station, with the columns of the station list.
+
+    The columns of the file (read 2026-11-11, 77 rows)::
+
+        STN,WSI,STARTT,STOPT,LOCATIE,TYPE,HOOGTE,POS_X,POS_Y,POS_NB,POS_OL
+        260,0-20000-0-06260,1896-04-01,9999-12-31,De Bilt,Meteo site,1.9,140.78,456.76,52.0989,5.1797
+
+    `STN` is the number without its zeros (260), the WSI at its tail has them (06260): `station_id` is the tail of the
+    WSI, as it is in the files. `POS_NB` and `POS_OL` are the latitude and the longitude (`POS_X` and `POS_Y` the
+    Dutch grid), `HOOGTE` the height in metres, `STOPT` the day the station was closed (9999-12-31 for one that is
+    open). `STARTT` is not read: it is the start of the station as it is now, not of the data of its predecessors
+    (Schiphol's data begins in 1951 and its `STARTT` is 1990-07-01, De Kooy's before 1955-12-25 and Eelde's before
+    1948-08-01: 15 of the 77 in the 37 files read),
+    and `STOPT` is no exact end either (Soesterberg's data runs six weeks past its 2008-11-15, F16-A's ends before its
+    2020-09-01), so neither is handed on as the start or the end of a station, which would hide the data a window that
+    is later or earlier asks for. `STOPT` only tells which datasets a station closed long ago is no station of.
+
+    Raises:
+        UpstreamError: the file lacks a column, or a row.
+
+    """
+    df = pl.read_csv(BytesIO(payload), infer_schema=False, encoding="utf8-lossy")
+    needed = {"WSI", "STOPT", "LOCATIE", "TYPE", "HOOGTE", "POS_NB", "POS_OL"}
+    if not needed <= set(df.columns) or df.is_empty():
+        msg = "The KNMI catalogue of the stations lacks a column or has no station."
+        raise UpstreamError(msg)
+    return df.select(
+        pl.col("WSI").str.split("-").list.last().alias("station_id"),
+        pl.col("WSI").alias("wigos_id"),
+        pl.col("LOCATIE").str.strip_chars().alias("name"),
+        pl.col("POS_NB").cast(pl.Float64, strict=False).alias("latitude"),
+        pl.col("POS_OL").cast(pl.Float64, strict=False).alias("longitude"),
+        pl.col("HOOGTE").cast(pl.Float64, strict=False).alias("elevation"),
+        pl.col("TYPE").alias("type"),
+        pl.col("STOPT").str.to_date("%Y-%m-%d", strict=False).alias("closed"),
+    )
+
+
+def _station_catalogue(settings: Settings) -> pl.DataFrame | None:
+    """Read the newest catalogue of the stations of KNMI, None where there is none to be read (GH-4008).
+
+    The stations were the ones of the latest file of a resolution, which is no list of the stations that have data: a
+    file holds the stations that reported in its interval, so the latest 10-minute file held 57 stations where those of
+    2024 held 69 and the 12 years of them 76 of the 77, and a station that was closed has no file in which it is
+    found at all (Valkenburg 06210 until 2016, Soesterberg 06265 until 2008, whose data is there). The catalogue lists
+    every station there was, with the name and the position that it has now, which is the newest one: a station that
+    was moved or renamed is listed as it is in the newest catalogue, which the files since agree with (De Bilt was
+    "DE BILT AWS" in the files until late 2024; Eindhoven 06370 moved from 51.4497, 5.3769 to 51.4631, 5.3856 and
+    Deelen 06275 from 52.0547, 5.8722 to 52.0589, 5.8731, which the files carry as it was until June 2026 and the
+    newest of 10 November carries as it is). It costs the same two requests whatever the resolutions asked for.
+
+    A KNMI that does not answer, no network or a key it refuses is raised as everywhere else. A catalogue that is not
+    there or is no file this reads is None, and the stations are read from the latest files as they were
+    (`KnmiObservationRequest._station_frame`).
+    """
+    dataset_name, version = _STATIONS_DATASET
+    filename = _latest_filename(dataset_name, version, settings, _CATALOGUE_EXPIRY)
+    if isinstance(filename, _UNANSWERED):
+        raise filename
+    if isinstance(filename, Exception):
+        log.warning(f"Failed to look up the latest KNMI catalogue of the stations: {filename}")
+        return None
+    payload = _fetch_netcdf(dataset_name, version, filename, settings, _CATALOGUE_EXPIRY)
+    if isinstance(payload, _UNANSWERED):
+        raise payload
+    if isinstance(payload, Exception):
+        log.warning(f"Failed to fetch the KNMI catalogue of the stations: {_without_url_secrets_in(str(payload))}")
+        return None
+    try:
+        return _read_station_catalogue(payload)
+    except (pl.exceptions.PolarsError, UpstreamError) as error:
+        _forget_file(dataset_name, version, filename, settings)
+        log.warning(f"The KNMI catalogue of the stations {filename} could not be read: {error}")
+        return None
+
+
+def _catalogue_stations(catalogue: pl.DataFrame, resolution: Resolution) -> pl.DataFrame:
+    """Give the stations of the catalogue that have data at a resolution: without those that cannot."""
+    df = catalogue.filter(pl.col("closed").is_null() | (pl.col("closed") >= _DATASET_START[resolution]))
+    if resolution != Resolution.MINUTE_10:
+        df = df.filter(~pl.col("type").is_in(_TEN_MINUTE_ONLY_TYPES))
+    return df.drop("type", "closed")
+
+
 @dataclass
 class KnmiObservationRequest(TimeseriesRequest):
     """Request class for KNMI observation data."""
@@ -564,12 +728,13 @@ class KnmiObservationRequest(TimeseriesRequest):
                 self.start = _floor(cast("dt.datetime", self.start), resolution)
 
     def _all(self) -> pl.LazyFrame:
-        """Enumerate stations per requested resolution.
+        """Enumerate stations per requested resolution, from the catalogue of the stations of KNMI.
 
-        KNMI has no separate station registry -- each file lists the whole network for its
-        own resolution, and those inventories differ (the 10-minute network is a superset of
-        the hourly/daily one), so stations are read from the latest file of each requested
-        resolution rather than a single shared one.
+        The catalogue is one list for every resolution (`_station_catalogue`), of which a resolution lists the stations
+        that have data in its dataset (`_catalogue_stations`): the 10-minute network holds the fog stations that the
+        other four do not, and no station of the 10-minute files closed before them. Where there is no catalogue to
+        read, each file of KNMI lists the whole network for its own resolution and those inventories differ, so the
+        stations are read from the latest file of each requested resolution.
         """
         settings = cast("Settings", self.settings)
         # in the order the request names them (a set would give the stations in the order of the hash seed of the
@@ -579,11 +744,16 @@ class KnmiObservationRequest(TimeseriesRequest):
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         )
+        catalogue = _station_catalogue(settings) if requested else None
         station_frames: dict[Resolution, pl.DataFrame | None] = {}
         data = []
         for resolution, resolution_name, dataset in requested:
             if resolution not in station_frames:
-                station_frames[resolution] = self._station_frame(resolution, settings)
+                station_frames[resolution] = (
+                    self._station_frame(resolution, settings)
+                    if catalogue is None
+                    else _catalogue_stations(catalogue, resolution)
+                )
             df = station_frames[resolution]
             if df is None:
                 continue
@@ -599,7 +769,11 @@ class KnmiObservationRequest(TimeseriesRequest):
 
     @staticmethod
     def _station_frame(resolution: Resolution, settings: Settings) -> pl.DataFrame | None:
-        """Read the station inventory from the most recent file of the given resolution."""
+        """Read the station inventory from the most recent file of the given resolution.
+
+        What lists the stations where the catalogue cannot be read. It holds the stations that reported in that one
+        file, which is not every station that has data (`_station_catalogue`).
+        """
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
         filename = _latest_filename(dataset_name, version, settings)
         # an unreachable KNMI is no network without stations (GH-2640), nor is one that does not answer
@@ -621,7 +795,8 @@ class KnmiObservationRequest(TimeseriesRequest):
             return pl.DataFrame(
                 {
                     "station_id": [public_station_id(wsi) for wsi in variables["station"][:]],
-                    "wigos_id": [decode_str(wsi) for wsi in variables["station"][:]],
+                    # the 10-minute files key a station by its bare number, and carry the WSI in a variable of its own
+                    "wigos_id": station_wsis(variables),
                     "name": [decode_str(name) for name in variables["stationname"][:]],
                     "latitude": variables["lat"][:].tolist(),
                     "longitude": variables["lon"][:].tolist(),
