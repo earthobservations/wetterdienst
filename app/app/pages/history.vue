@@ -278,7 +278,7 @@ function clear() {
               </div>
               <div v-if="fetchErrorMessage" class="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                 <UIcon name="i-ph-warning-circle" class="shrink-0" />
-                {{ t('history.error') }}: {{ fetchErrorMessage }}
+                {{ t('history.error') }}{{ t('common.colon') }} {{ fetchErrorMessage }}
               </div>
             </div>
           </UCard>
@@ -374,7 +374,7 @@ function clear() {
                           <div class="flex items-center gap-2 flex-wrap">
                             <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
                             <h3 class="text-lg font-bold">
-                              {{ t('history.stationIdPrefix') }}: {{ history.station_id }}
+                              {{ t('history.stationIdPrefix') }}{{ t('common.colon') }} {{ history.station_id }}
                               <span
                                 v-if="getStationName(history)"
                                 class="text-sm text-gray-600 dark:text-gray-400 font-normal ml-2"

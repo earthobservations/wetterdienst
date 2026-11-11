@@ -15,23 +15,32 @@ table at the bottom of that test, in one commit.
 Each cell is the label the app shows for the term, from the key in the second row (`glossary:` keys
 are in `glossary/<locale>.ts`).
 
-| Locale | Station | Parameter | Dataset | Resolution | Period | Provider | Network | Date range | Weather service |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Source key | `stripes.station` | `dataViewer.statParameter` | `parameterSelection.datasetLabel` | `parameterSelection.resolutionLabel` | `history.periods` | `parameterSelection.providerLabel` | `parameterSelection.networkLabel` | `dateRange.label` | `home.dataProvidersTitle` |
-| `en` | Station | Parameter | Dataset | Resolution | Periods | Provider | Network | Date Range | Weather services |
-| `de` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Anbieter | Netzwerk | Zeitraum | Wetterdienste |
-| `de-hh` | Station | Parameter | Datensatz | Oplösung | Tietrüüm | Anbeder | Nettwark | Tietruum | Wedderdeenste |
-| `fr` | Station | Paramètre | Jeu de données | Résolution | Périodes | Fournisseur | Réseau | Plage de dates | Services météorologiques |
-| `es` | Estación | Parámetro | Conjunto de datos | Resolución | Periodos | Proveedor | Red | Rango de fechas | Servicios meteorológicos |
-| `it` | Stazione | Parametro | Dataset | Risoluzione | Periodi | Fornitore | Rete | Intervallo di date | Servizi meteorologici |
-| `nl` | Station | Parameter | Dataset | Resolutie | Perioden | Aanbieder | Netwerk | Datumbereik | Weerdiensten |
-| `pl` | Stacja | Parametr | Zbiór danych | Rozdzielczość | Okresy | Dostawca | Sieć | Zakres dat | Służby meteorologiczne |
-| `cs` | Stanice | Parametr | Datová sada | Rozlišení | Období | Poskytovatel | Síť | Rozsah dat | Meteorologické služby |
-| `da` | Station | Parameter | Datasæt | Opløsning | Perioder | Udbyder | Netværk | Datointerval | Vejrtjenester |
-| `lb` | Statioun | Parameter | Datesaz | Opléisung | Perioden | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter |
+| Locale | Station | Parameter | Dataset | Resolution | Period | Provider | Network | Date range | Weather service | Settings | Legal notice |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Source key | `stripes.station` | `dataViewer.statParameter` | `parameterSelection.datasetLabel` | `parameterSelection.resolutionLabel` | `history.periods` | `parameterSelection.providerLabel` | `parameterSelection.networkLabel` | `dateRange.label` | `home.dataProvidersTitle` | `common.settings` | `footer.legal` |
+| `en` | Station | Parameter | Dataset | Resolution | Periods | Provider | Network | Date Range | Weather services | Settings | Legal notice |
+| `de` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Anbieter | Netzwerk | Zeitraum | Wetterdienste | Einstellungen | Impressum |
+| `de-hh` | Station | Parameter | Datensatz | Oplösung | Tietrüüm | Anbeder | Nettwark | Tietruum | Wedderdeenste | Instellungen | Impressum |
+| `fr` | Station | Paramètre | Jeu de données | Résolution | Périodes | Fournisseur | Réseau | Plage de dates | Services météorologiques | Réglages | Mentions légales |
+| `es` | Estación | Parámetro | Conjunto de datos | Resolución | Periodos | Proveedor | Red | Rango de fechas | Servicios meteorológicos | Ajustes | Aviso legal |
+| `it` | Stazione | Parametro | Dataset | Risoluzione | Periodi | Fornitore | Rete | Intervallo di date | Servizi meteorologici | Impostazioni | Note legali |
+| `nl` | Station | Parameter | Dataset | Resolutie | Perioden | Aanbieder | Netwerk | Datumbereik | Weerdiensten | Instellingen | Juridische informatie |
+| `pl` | Stacja | Parametr | Zbiór danych | Rozdzielczość | Okresy | Dostawca | Sieć | Zakres dat | Służby meteorologiczne | Ustawienia | Nota prawna |
+| `cs` | Stanice | Parametr | Datová sada | Rozlišení | Období | Poskytovatel | Síť | Rozsah dat | Meteorologické služby | Nastavení | Právní informace |
+| `da` | Station | Parameter | Datasæt | Opløsning | Perioder | Udbyder | Netværk | Datointerval | Vejrtjenester | Indstillinger | Juridisk meddelelse |
+| `lb` | Statioun | Parameter | Datesaz | Opléisung | Perioden | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter | Astellungen | Impressum |
 
 ## Terms that are different things
 
+- **Settings** (what the user switches in the app: units, names, an interpolation's distances) and
+  **parameters** (what is measured) are two words in every locale. French used `Paramètres` for
+  both until GH-2610; settings are `Réglages` now (`Réglages avancés`, `Réglages du graphique`,
+  `tes réglages de l'application`) and `Paramètres` stays the measured quantity. In the browser's
+  own words (`fr` `location.denied`: "les paramètres du site") the browser's name is kept.
+- The **legal notice** is `Impressum` in `de`, `de-hh` and `lb` (the German name of the page),
+  `Mentions légales`, `Aviso legal`, `Note legali`, `Nota prawna`, `Právní informace` and `Juridisk
+  meddelelse` elsewhere; `nl` is `Juridische informatie`, not `Colofon`, which is the imprint a
+  publisher prints in a book.
 - **Period** is a stretch of time in a station's history (the periods of missing data), and **date
   range** is what the user picks in the date picker. Both are "Zeitraum" in German and `Tietruum` in
   `de-hh` (the period's plural is `Tietrüüm`), where the two collapse; every other locale has two
@@ -95,10 +104,17 @@ locale to the number of forms and to `{count}` in each of them. A count that nee
 A number the app shows is written in the language of the page: `formatNumber` for text, and the
 `separators` of every Plotly layout (`plotlySeparators`) for hover texts and axes. The day and month
 of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
-them), as the bare `en` is American. Coordinates and elevations are the exception and keep a point in
-every language (`toFixed`): a position is copied into a map or a query, and the number input that
-takes one reads a point. Chrome has no data for Luxembourgish, so `withData` writes `lb` as German
-(`de-LU`) is written, which is the same.
+them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is
+written by `formatRunTime`, in the language's order ("15.10.2026, 04:00 UTC", "15/10/2026,
+04:00 UTC"). The timestamps of a table of data (the history's dates, the data viewer's
+`timestamp` column) stay ISO 8601 as the API gives them, since a reader copies them. A label that
+is followed by its value takes the colon from `common.colon`, which French sets with a no-break
+space before it (`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out
+of its parts and an `Intl` call that names no language). Coordinates and elevations are the
+exception to the rule for numbers and keep a point in every language (`toFixed`): a position is
+copied into a map or a query, and the number input that takes one reads a point. Chrome has no
+data for Luxembourgish, so `withData` writes `lb` as German (`de-LU`) is written, which is the
+same.
 
 ## Parameter glossaries
 
@@ -220,13 +236,13 @@ request that added this file, and the issue it belongs to is
 [GH-2610](https://github.com/earthobservations/wetterdienst/issues/2610).
 
 - `nl`: `waarneming` (glossary, one label) and `observatie` (the UI) are both used for "observation".
-- `nl`: `Colofon` for the legal notice (`footer.legal`, `impressum.title`) names the publisher's
-  imprint; a Dutch reader may expect `Juridische informatie`.
-- `fr`: `Paramètres` is both "Settings" (`common.settings`, `settings.title`, `stripes.settingsTitle`,
-  `explorer.settings`, `explorer.settingsChange`, `explorer.settingsLinkOverride`,
-  `explorer.settingsUseMine`, `explorer.advancedSettings`, `dataViewer.chartSettings`) and "Parameters"
-  (`glossary.parametersTitle`, `parameterSelection.parametersLabel`), on the same pages. `Réglages`
-  for the settings would keep the two apart.
+
+The third pass of GH-2610 read the strings added since the second one (the `ask.*`, `mapTool.*`,
+`shell.*`, `location.*` and `settings.*` texts, those of #3459 in `pl`, `cs`, `lb` and `de-hh`) and
+the glossaries once more, against `en`, this file and the other texts of the same catalog. It
+changed only what is wrong by the evidence of the catalog itself (a typo, a case or preposition
+that is wrong, a text that drops what `en` says, a word spelt differently in the same file or the
+glossary, a term of this file); the rest is in the tables below.
 
 The review of GH-2610 fixed what could be shown to be wrong without a native speaker: the claim of
 "no limit" in `home.dataIntro` after the rate limit, a formal address in the `es` catalog, a word
@@ -251,6 +267,43 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `pl` | `widget.poweredBy` | `Obsługiwane przez` ("served by") | `Działa dzięki` | low |
 | `pl` | `explorer.minGain` | `Min. zysk par wartości` | `Min. przyrost par wartości` | low |
 | `cs` | `glossary.noResults`, `providers.noResults` | `Hledání neodpovídá žádný parametr.` | `Hledanému výrazu neodpovídá žádný parametr.` | low |
+| `fr` | `ask.rain.chance` | `Plus forte probabilité de pluie sur une heure : {chance}.` ("over one hour") | `pour une heure donnée` ("in any hour") | medium |
+| `fr` | `meteogram.chart.weather.blowingSnow`, glossary `weather_type_blowing_drifting_snow` | `Poudrerie` (UI, the Canadian term) next to `chasse-neige` (glossary) | one word; Météo-France writes `chasse-neige`, which alone also means a snowplough | low |
+| `fr` | `meteogram.chart.weather.sleet` | `Pluie et neige` | `Pluie et neige mêlées` (Météo-France) or `Neige fondue` (the glossary) | low |
+| `es` | `ask.placePlaceholder`, `ask.placeHint` | `pueblo` (village) where en says "town" | `localidad` | medium |
+| `es` | `settings.bar.hint` | `la barra del pie de la pantalla` | `la barra inferior de la pantalla` | medium |
+| `es` | `ask.rain.chance` | `Mayor probabilidad de lluvia en una hora` ("within one hour") | `en una hora cualquiera` | low |
+| `es` | `settings.bar.hint`, `settings.bar.instructions`, `settings.bar.instructionsHeader` | `por su asa` for a drag handle | the control's usual UI term (`por el control de arrastre`) | low |
+| `it` | `ask.rain.chance` | `Probabilità di pioggia più alta in un'ora` ("within one hour") | `in una singola ora` | low |
+| `it` | `meteogram.chart.weather.sleet`, `meteogram.chart.weather.clear`, `ask.wind.calm` | `Nevischio` (light dry snow), `Soleggiato`, `Calmo` | `Pioggia mista a neve`, `Sereno` (Aeronautica Militare), `Calma` (the Beaufort word) | low |
+| `pl` | `ask.wind.context` | `Dni wokół z silniejszymi porywami` | `Pobliskie dni z silniejszymi porywami` | low |
+| `pl` | `stripes.table.note.temperature`, `stripes.table.note.precipitation` | `w piątych częściach` ("in fifths") | a clearer phrase, for example `w pięciu klasach` | low |
+| `cs` | `ask.q.summer` | `Bylo poslední léto tady teplejší než obvykle?` (reads as "the final summer") | `Bylo minulé léto tady teplejší než obvykle?` | medium |
+| `lb` | `seo.pages.explorer` | `liest d'Miessungen` (third person) | `lies d'Miessungen` (the singular imperative, as the other verbs of the sentence); `luet` in `home.featureExportDesc` is the same form | high that it is the third person |
+| `lb` | `providers.attribution` | `Quellenangab` (German) | `Quell, déi du uginn muss` | medium |
+| `lb` | `ask.placeSearching`, `ask.placeFailed`, against the other `ask.place*` and `api.endpoints.interpolate` | `Plaze` and `Uert` for "place" on the same page | one word (`Uert`, plural `Uerter`, or `Plaz`) throughout | medium |
+| `lb` | `explorer.tip1` | `verständlech` ("understandable") where en says "reasonable" | `vernünfteg` | medium |
+| `lb` | `meteogram.chart.weather.drizzle`, `meteogram.chart.weather.blowingSnow` | `Niselreen`, `Schnéigestéber` | `Sprëtzreen`, `Schnéidreiwen` as the glossary has them | low |
+| `lb` | `meteogram.aboutText2`, `meteogram.chart.axisPrecip`, against `seo.pages.meteogram`, `seo.pages.stripes` and the glossary (about 90 labels) | `Néierschlag` and `Nidderschlag` both | one spelling | medium |
+| `de` | `mapTool.about1`, `mapTool.about2` | `das Feld daneben`, `Das Feld zeigt` (reads as an input field) | `Bereich`, as `meteogram.chart.panels` has it | medium |
+| `de` | `ask.placeLabel` | `Gefragt für` | `Frage zu` | medium |
+| `de` | `location.note` | `... bleibt er in diesem Browser gespeichert` (`er` has no antecedent) | name the Standort in the first sentence | low |
+| `de-hh` | `dataViewer.limitNarrow`, `limitNarrowPoint`, `limitStationsBody`, `mapTool.pickedCentre` | `Wähl`, `utwählt` (German forms) next to `utsöcht` | `Söök ... ut` and `utsöcht` throughout | medium |
+| `de-hh` | `ask.summer.usual` | `Nich würklich: so warm as anners.` | add the "about" of en (`ungefähr`, `rund`) | medium |
+| `de-hh` | `location.*`, `footer.privacy`, `location.privacyLink` | `Standort`, `ungefähr`, `Datenschutz`, `Rückt` (German words) | Low German words where there are any (`Standoort`/`Städ`, `rund`) | low |
+| `de-hh` | `mapTool.count`, `shell.results`, `mapTool.results` | `Wiest Stationen: {shown}`; `Resultaten` next to `Ergebnisse` in the older texts | a participle (`Stationen wiest`); one word for "results" | low |
+| `nl` | `location.denied` | `Om haar toe te staan` | `Om dit toe te staan` | medium |
+| `nl` | `mapTool.legendStopped` | `Is gestopt` | `Meldt niet meer`, to pair with `Meldt nog` | medium |
+| `nl` | `seo.title`, `seo.description`, `seo.noscript`, `seo.pages.providers` | `data` (the catalog says `gegevens` 51 times) | `gegevens` | low |
+| `da` | `ask.wind.context` | `Dage omkring med kraftigere vindstød` | `Omkringliggende dage med kraftigere vindstød` | medium |
+| `da` | `ask.placeFailed` | `Stederne kunne ikke søges.` | `Der kunne ikke søges efter steder.` | medium |
+| `da` | `mapTool.legendStopped` | `Er stoppet` | `Måler ikke længere`, to pair with `Måler stadig` | medium |
+| `de-hh` | `location.denied`, `location.timeout`, `location.lookupFailed`, against `stationSelection.loadError`, `map.markersNotShown` | `noch mal` (3 texts) and `noch eenmal` (3 texts), the same number in the catalog | one form | low |
+| `de-hh` | `ask.rain.wettest`, `stripes.table.note.precipitation` | `Natteste` (1) and `natste` (1) | one form of the superlative | low |
+| `de-hh` | `meteogram.chart.weather.drizzle` | `Meddelregen`, as the glossary has it (5 labels) | `Niesregen` was the text before the third pass; one word for drizzle | low |
+| `de-hh` | `location.unsupported`, `location.unavailable` | `stattdessen` (German); `statts` is a preposition in this file (`mapTool.pickCloser`) | an adverb of Low German for "instead" | low |
+| `lb` | `seo.pages.glossary`, `glossary.subtitle` | `mierkt` and `mëst` for "what a parameter measures" | the 3rd person of `miessen` is `mësst`; which form, and whether `mierkt` is right at all | low |
+| `lb` | `explorer.modeSummaryDesc`, `mapTool.about1`, `history.about3` | `gemoossene`, `moossen`, `gemoosse`, `Moossmethoden`, `Moossregëster`, where the rest of the catalog writes `Miessung`, `Miesswäert` | the `Miess-` stem throughout | medium |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
 of the ten languages, against `en`, this file and the weather service's own terms). What was
@@ -281,3 +334,17 @@ The key is a glossary key (a family is named by its stem, `...` standing for the
 | `da` | `sunshine_duration`, `sunshine_duration_*` | `Solskinstimer` (parameter, dataset) next to `Relativ solskinsvarighed` | `Solskinsvarighed` | low |
 | `da` | `phenology_turning_green_beginning`, `phenology_panicle_emergence_beginning`, `phenology_tassel_tip_visible` | `Grønnes` (a verb), `Toplysskridning`, `Toppens spids synlig` | `Grønning, begyndelse`; a word for panicle emergence | low |
 | `da` | `*loamy_sand`, `*loamy_silt*` | `leret sand`, `leret silt` (`leret` is clayey) | `lerblandet sand` | low |
+| `fr` | `weather_type_blowing_drifting_snow` | `chasse-neige` next to the UI `Poudrerie` | see the UI row | low |
+| `it` | `phenology_planting_beginning` | `Trapianto, inizio` (transplanting) | `Messa a dimora, inizio` | low |
+| `pl` | `weather_type_*` | `Typ pogody`, where `precipitation_form` is `Rodzaj opadu` and `cloud_type` `Rodzaj chmur` | `Rodzaj` or `Typ` throughout | low |
+| `cs` | `temperature_wind_chill` | `Pocitová teplota větrem` | `Pocitová teplota (wind chill)` | low |
+| `lb` | `discharge_*`, `precipitation_amount_max*`, `weather_type_heavy_fog`, `weather_type_ice_fog_freezing_fog`, `snow_depth_max`, `snow_depth_new_max`, `frozen_ground_layer_thickness_max_month` | `Maximalen Ofloss`, `Mëttleren Ofloss`, `Héchsten Nidderschlag`, `dichten Niwwel`, `Gréisste Schnéihéicht`, `Gréissten Frostschichtdicht` | the file's own pattern: masculine `-e` (`Maximale Ofloss`, `Héchste Nidderschlag`, `dichte Niwwel`), feminine no ending (`Gréisst Schnéihéicht`) | medium |
+| `lb` | `tassel_tip_visible` | `Fändelschéiwen, Ufank` | `Spëtz vum Fändel ze gesinn` | low |
+| `lb` | `evapotranspiration_last_24h`, `evapotranspiration_potential_*` | `Verdonstung`, `Potenziell Verdonstung` (the label of `evaporation_amount`) | a word of its own for evapotranspiration | low |
+| `de` | `precipitation_amount`, `precipitation_amount_max`, `precipitation_amount_max_30min` | `Niederschlagsmenge` | `Niederschlagshöhe`, DWD's term, as the other precipitation labels | low |
+| `de, nl, da` | `cloud_height_layer1` | `Wolkenuntergrenze (1. Schicht)`, `Wolkenbasis (1e laag)`, `Skybase (1. lag)`; the "(1st layer)" form of en | the form of layers 2 to 4 (`..., Schicht 1`, `..., laag 1`) | low |
+| `de-hh` | `humidity_relative*`, `humidity_absolute`, `temperature_wet*`, `moisture` | `Luftfuchtigkeit`, `Fuchttemperatur`, `Fuchtigkeit` | one spelling next to `Füchtigkeit` of the other labels | low |
+| `nl` | `probability_precipitation_freezing_last_*h` | `Kans op ijzel` (freezing rain only; en says freezing precipitation) | `Kans op onderkoelde neerslag` | medium |
+| `nl` | `pressure_vapor`, `pressure_vapor_mean` | `Dampdruk` | `Dampspanning`, the term of KNMI | low |
+| `da` | `temperature_air_mean_2m`, `temperature_air_mean_minmax_2m` | `Middellufttemperatur` next to `Gennemsnitlig` in 40 labels | one word for "mean" (`Gennemsnitlig`; `Middelvandføring` is a hydrology term and stays) | medium |
+| `da` | `weather_type_blowing_spray`, `annual_autumn_crocus`, `urban_*` | `fygende havskum` (sea foam), `Høst-tidløs`, `Byens nedbør` | `fygende søsprøjt`, `Høsttidløs`, `Nedbør i byområder` | low |

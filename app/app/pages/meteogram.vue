@@ -4,6 +4,7 @@ import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import StationPicker from '~/components/StationPicker.vue'
+import { formatRunTime } from '~/utils/format'
 import { meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { unitsOfAnswer } from '~/utils/units'
@@ -11,7 +12,7 @@ import { unitsOfAnswer } from '~/utils/units'
 // Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
 const MOSMIX = MOSMIX_METEOGRAM
 
-const { t } = useI18n()
+const { t, locale, localeProperties } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('meteogram.title') })
@@ -46,12 +47,7 @@ let applyingUrl = false
 const availableIssues = ref<string[]>([])
 
 function formatIssueLabel(iso: string): string {
-  const d = new Date(iso)
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const yyyy = d.getUTCFullYear()
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  return `${dd}.${mm}.${yyyy} – ${hh}:00 UTC`
+  return formatRunTime(iso, localeProperties.value.language ?? locale.value)
 }
 
 const runItems = computed(() => [

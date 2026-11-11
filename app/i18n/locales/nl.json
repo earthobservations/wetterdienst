@@ -8,6 +8,7 @@
     "reloadPage": "Pagina opnieuw laden",
     "open": "Openen",
     "all": "Alles",
+    "colon": ":",
     "settings": "Instellingen",
     "documentation": "Documentatie",
     "stationSearch": "Zoek op naam of station-id (bijv. München, 10738)",
@@ -231,7 +232,7 @@
   },
   "footer": {
     "copyright": "© {year} earthobservations",
-    "legal": "Colofon",
+    "legal": "Juridische informatie",
     "privacy": "Privacy",
     "about": "Over",
     "licenses": "Licenties van derden"
@@ -373,7 +374,7 @@
     "donateText": "Als je het project nuttig vindt, overweeg dan ons te steunen via donaties of sponsoring."
   },
   "impressum": {
-    "title": "Colofon",
+    "title": "Juridische informatie",
     "operatorNote": "Opmerking voor beheerders: de met «…» gemarkeerde velden moeten vóór publicatie worden vervangen door de wettelijk vereiste gegevens (§ 5 DDG).",
     "providerTitle": "Informatie volgens § 5 DDG",
     "addressLabel": "Adres",

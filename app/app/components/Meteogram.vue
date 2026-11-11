@@ -1435,8 +1435,8 @@ async function renderChartActual() {
       fillcolor: isDark.value ? 'rgba(239,68,68,0.02)' : 'rgba(239,68,68,0.04)',
       yaxis: 'y3',
       hovertemplate: hasTxTn
-        ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`
-        : `<b>${t('meteogram.chart.hoverTemperature')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
+        ? `<b>${t('meteogram.chart.hoverMeanTemp')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`
+        : `<b>${t('meteogram.chart.hoverTemperature')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`,
     })
 
     if (hasTxTn && sTx && sTn) {
@@ -1448,7 +1448,7 @@ async function renderChartActual() {
         mode: 'lines',
         line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       traces.push({
@@ -1459,7 +1459,7 @@ async function renderChartActual() {
         mode: 'lines',
         line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...sTn.y.filter((v): v is number => v !== null))
@@ -1477,7 +1477,7 @@ async function renderChartActual() {
         mode: 'lines',
         line: { color: '#a855f7', width: 1.6, shape: 'spline' },
         yaxis: 'y3',
-        hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
+        hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`,
         showlegend: false,
       })
       tempMinY = Math.min(tempMinY, ...ds.y)
@@ -1514,7 +1514,7 @@ async function renderChartActual() {
           mode: 'lines',
           line: { color: '#a855f7', width: 1.6, shape: 'spline' },
           yaxis: 'y3',
-          hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>: ${hoverUnit('temperature')}<extra></extra>`,
+          hovertemplate: `<b>${t('meteogram.chart.hoverDewPoint')}</b>${t('common.colon')} ${hoverUnit('temperature')}<extra></extra>`,
           showlegend: false,
         })
         tempMinY = Math.min(tempMinY, ...dewYs)
@@ -2316,7 +2316,7 @@ watch(
           <span class="text-sm text-toned">
             <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
             <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums">
-              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
+              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
             </span>
           </span>
           <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
@@ -2358,7 +2358,7 @@ watch(
               </div>
               <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
                 <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
-                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
+                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
               </div>
             </div>
           </template>
