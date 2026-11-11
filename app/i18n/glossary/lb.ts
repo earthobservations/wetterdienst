@@ -583,7 +583,7 @@ export const parameters: Record<string, string> = {
   temperature_concrete_min_0m: 'Minimal Bëtongowerflächentemperatur',
   temperature_humidex: 'Humidex',
   temperature_radiant_2m: 'Stralungstemperatur (2 m)',
-  temperature_surface_mean: 'Mëttel Uewerflächentemperatur (Buedem oder Gras)',
+  temperature_surface_mean: 'Mëttler Uewerflächentemperatur (Buedem oder Gras)',
   temperature_surface: 'Buedemowerflächentemperatur',
   temperature_water: 'Waassertemperatur',
   temperature_water_evaporation_pan_max: 'Maximal Waassertemperatur am Verdonstungskessel',
@@ -702,7 +702,7 @@ export const datasets: Record<string, string> = {
   hydrology: 'Hydrologie',
   climate: 'Klima',
   synop: 'SYNOP',
-  data: 'Beobachtungen',
+  data: 'Observatiounen',
   // Météo-France, Met Office, DWD Stadtklima
   core: 'Basisparameter',
   others: 'Aner Parameter',

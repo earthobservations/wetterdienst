@@ -540,7 +540,7 @@ export const parameters: Record<string, string> = {
   radiation_short_wave_net_last_3h: 'Kortwellige Strahlenbilanz (lest 3 h)',
   radiation_sky_short_wave_direct_perpendicular: 'Direkte Normalstrahlen',
   road_surface_condition: 'Fahrbahntostand',
-  road_surface_condition_forecast: 'Fahrbahntostand (Vörhersaag)',
+  road_surface_condition_forecast: 'Fahrbahntostand (Utsicht)',
   snow_cover: 'Snéedeek',
   snow_depth_sampled: 'Snééhööchd (Proov)',
   snow_depth_manual: 'Snehööch (Oogbeobachten)',

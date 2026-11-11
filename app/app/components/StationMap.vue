@@ -266,7 +266,7 @@ watch(() => [props.position, props.locate], () => {
 </script>
 
 <template>
-  <div ref="container" class="station-map" role="application" :aria-label="label" aria-roledescription="map" />
+  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" />
 </template>
 
 <style>

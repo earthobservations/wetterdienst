@@ -8,6 +8,7 @@
     "reloadPage": "Reload page",
     "open": "Open",
     "all": "All",
+    "colon": ":",
     "settings": "Settings",
     "documentation": "Documentation",
     "stationSearch": "Search by name or station ID (e.g. München, 10738)",

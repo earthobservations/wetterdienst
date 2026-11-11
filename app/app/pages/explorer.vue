@@ -1104,7 +1104,7 @@ function removeParameterDistance(id: string, paramName: string) {
                                 @click="addParameterDistance"
                               />
                               <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
-                                {{ t('explorer.available') }}: {{ selectedParameters.join(', ') }}
+                                {{ t('explorer.available') }}{{ t('common.colon') }} {{ selectedParameters.join(', ') }}
                               </span>
                             </div>
                           </div>

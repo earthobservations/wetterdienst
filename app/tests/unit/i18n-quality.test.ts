@@ -165,7 +165,8 @@ describe('whitespace', () => {
   it.each(sets)('has no stray whitespace in a %s', (_name, catalogs) => {
     const stray = Object.entries(catalogs).flatMap(([locale, catalog]) =>
       Object.entries(catalog)
-        .filter(([, text]) => text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text))
+        // the colon that follows a label is French's no-break space and a colon: a space by design
+        .filter(([key, text]) => key !== 'common.colon' && (text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text)))
         .map(([key, text]) => `${locale} ${key}: ${JSON.stringify(text)}`),
     )
     expect(stray).toEqual([])
@@ -332,6 +333,7 @@ const COGNATE = 'the ordinary word in that language is spelled the same'
 interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
+  'common.colon': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation: a colon is a colon (fr sets a no-break space before it)' },
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
   'stationSelection.modeList': { de: ['da', 'fr'], why: COGNATE },
   'mapTool.panelTitle': { en: ['fr', 'nl'], why: COGNATE },
@@ -682,6 +684,36 @@ describe('terminology', () => {
       'lb': 'endpunkt',
       'nl': 'eindpunt',
       'pl': 'punkt\\S* końcow',
+    } },
+    // what the user switches in the app, which is no parameter: fr said `Paramètres` for both until GH-2610
+    settings: { en: /\bsettings?\b/i, label: 'common.settings', stems: {
+      'cs': 'nastaven',
+      'da': 'indstilling',
+      'de': 'einstellung',
+      'de-hh': 'instell',
+      'en': 'setting',
+      'es': 'ajuste',
+      'fr': 'réglage',
+      'it': 'impostazion',
+      'lb': 'astellung',
+      'nl': 'instelling',
+      'pl': 'ustawie[nń]',
+    }, rephrased: {
+      'location.denied': { locales: ['fr'], why: 'tells the reader where the browser keeps it, and French browsers call that "Paramètres du site"' },
+    } },
+    // the page `/impressum`, which nl called `Colofon` until GH-2610
+    legal: { en: /\blegal notice\b/i, label: 'footer.legal', stems: {
+      'cs': 'právní informace',
+      'da': 'juridisk meddelelse',
+      'de': 'impressum',
+      'de-hh': 'impressum',
+      'en': 'legal notice',
+      'es': 'aviso legal',
+      'fr': 'mentions légales',
+      'it': 'note legali',
+      'lb': 'impressum',
+      'nl': 'juridische informatie',
+      'pl': 'nota prawna',
     } },
     period: { en: /\bperiods?\b/i, label: 'history.periods', stems: {
       'cs': 'období',

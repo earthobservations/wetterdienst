@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Translations]` French calls the app's settings "Réglages" (it was "Paramètres", the word for the
+  measured parameters on the same pages), and Dutch calls the legal notice "Juridische informatie"
+  instead of "Colofon" (GH-2610)
+
+### Fixed
+
+- `[Forecast]` The run picker writes a run's date and time as the page's language does
+  ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every language
+  (GH-2610)
+- `[Translations]` French sets its no-break space before the colon that follows a label (chart hover
+  texts, the history page, the legal page), and the station map's screen-reader description says "map"
+  in the page's language, not English (GH-2610)
+- `[Translations]` Review of the strings added since the second pass and of the glossary labels:
+  typos, wrong prepositions and cases, texts that dropped what English says, and words spelt two ways
+  in one catalog are corrected in French ("De 1950 à 2020" for the stripes' range), Italian, Spanish,
+  Polish, Czech, Danish, German, Luxembourgish and Low German; what needs a native speaker is listed
+  in `app/i18n/TERMS.md` (GH-2610)
+
 ## [0.47.0] - 2026-11-11
 
 ### Added

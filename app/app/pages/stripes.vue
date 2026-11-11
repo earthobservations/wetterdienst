@@ -377,7 +377,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -405,7 +405,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
   }
 
@@ -432,7 +432,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
       customdata: trendlineValues,
     }
   }

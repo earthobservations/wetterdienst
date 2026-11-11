@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
 
 describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
@@ -140,6 +140,26 @@ describe('formatDayMonth', () => {
     // 23:30 UTC on the 5th is the 6th in Berlin
     const late = DateTime.fromISO('2026-10-05T23:30:00Z', { zone: 'Europe/Berlin' })
     expect(formatDayMonth(late, 'de-DE')).toBe('06.10.')
+  })
+})
+
+describe('formatRunTime', () => {
+  const run = '2026-10-15T04:00:00+00:00'
+
+  it('writes the run in the order and with the separators of the language, in UTC', () => {
+    expect(formatRunTime(run, 'de-DE')).toBe('15.10.2026, 04:00 UTC')
+    expect(formatRunTime(run, 'en-GB')).toBe('15/10/2026, 04:00 UTC')
+    expect(formatRunTime(run, 'nl-NL')).toMatch(/^15-10-2026.+04:00 UTC$/)
+    expect(formatRunTime(run, 'da-DK')).toMatch(/^15\.10\.2026.+04[.:]00 UTC$/)
+  })
+
+  it('does not take the day of the machine\'s zone', () => {
+    // 23:00 UTC is already the next day in Berlin, and stays the 14th here
+    expect(formatRunTime('2026-10-14T23:00:00+00:00', 'de-DE')).toBe('14.10.2026, 23:00 UTC')
+  })
+
+  it('writes midnight as 00:00, not 24:00', () => {
+    expect(formatRunTime('2026-10-15T00:00:00+00:00', 'en-GB')).toContain('00:00')
   })
 })
 
