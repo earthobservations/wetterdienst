@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler
 from pydantic.json_schema import SkipJsonSchema  # noqa: TC002, needed at runtime by pydantic
 
 from wetterdienst.api import Wetterdienst
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (  # noqa: TC001, needed at runtime by pydantic
     Extent,
     LicenseModel,
@@ -65,7 +66,12 @@ class ProviderResolution(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
+    # a `str` for a caller of the library, and a closed set in the OpenAPI document: `ResolutionModel` holds every
+    # network's resolution to `Resolution`, so the enum lists exactly the names an answer can carry
+    name: str = Field(
+        description="The resolution, one of those of `Resolution` of the library.",
+        json_schema_extra={"enum": [resolution.value for resolution in Resolution]},
+    )
     datasets: list[ProviderDataset]
 
 

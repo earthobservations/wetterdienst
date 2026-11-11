@@ -130,10 +130,11 @@ const MOSMIX_STATIONS: Station[] = [
 
 const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => ({
   station_id: station.station_id,
-  name: station.name as string,
-  region: station.region as string,
-  latitude: station.latitude as number,
-  longitude: station.longitude as number,
+  name: station.name,
+  region: station.region,
+  latitude: station.latitude,
+  longitude: station.longitude,
+  elevation: station.elevation,
   start_timestamp: '1950-01-01T00:00:00+00:00',
   // an annual list ends with the last year, as the real one does
   end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00`,
@@ -290,7 +291,6 @@ function forecastValues(url: URL, now: Date): Value[] {
 function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
-    metadata: {},
     series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
     values: Array.from({ length: 70 }, (_, index) => ({
       timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
