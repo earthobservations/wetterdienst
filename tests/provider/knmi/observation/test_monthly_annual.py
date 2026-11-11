@@ -23,6 +23,7 @@ import pytest
 from tests.provider.value_stubs import stations_result
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.options import Options
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.knmi.observation import api as knmi_api
 from wetterdienst.provider.knmi.observation.api import (
@@ -393,6 +394,38 @@ def test_the_trace_code_is_the_one_of_the_hourly_and_daily_files_only(tmp_path: 
     summed = parse_knmi_netcdf(payload, DE_BILT, ["RH", "SQ"], moment, trace_codes=False)
     assert summed["value"].to_list() == [-1.0, -1.0]
     assert summed["quality_flags"].to_list() == [None, None]
+
+
+@pytest.mark.synthetic_values  # the -1 is served on purpose, where it is no reading
+@pytest.mark.parametrize("resolution", ["monthly", "annual"])
+def test_a_minus_one_of_a_monthly_or_annual_file_is_not_read_as_a_trace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, resolution: str
+) -> None:
+    """The values path does not turn a -1 of `RH` or `SQ` of these files into 0.0 with `raw:-1`.
+
+    The hourly and the daily file write a trace so; the sums of these two describe no such code, so a -1 is a number
+    that is no precipitation, which the range check rejects (and `trace_codes` of `parse_knmi_netcdf` is wired by the
+    resolution, not set for all).
+    """
+    payload = _write(tmp_path / "minus_one.nc", {"RH": -1.0, "SQ": -1.0, "TG": 3.2})
+    monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args: payload)
+    moment = dt.datetime(2026, 9, 1, tzinfo=UTC) if resolution == "monthly" else dt.datetime(2024, 1, 1, tzinfo=UTC)
+    request = KnmiObservationRequest(
+        parameters=[(resolution, "data", "precipitation_amount"), (resolution, "data", "sunshine_duration")],
+        start=moment,
+        end=moment,
+        settings=Settings(auth={"knmi": "dummy-key-for-test"}),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, resolution, "data", DE_BILT).values().all().df
+    rows = {row["parameter"]: row for row in df.to_dicts()}
+    assert set(rows) == {"precipitation_amount", "sunshine_duration"}
+    for row in rows.values():
+        # a trace would be 0.0 with `raw:-1`; the number is kept out of range and rejected, not turned into a zero
+        assert row["value"] is None
+        assert row["quality_flags"] != "raw:-1"
+        assert "rejected:range" in row["quality_flags"]
+        assert row["quality_flags"].endswith("raw:-1")
 
 
 def test_the_missing_value_of_a_variable_is_null(tmp_path: Path) -> None:

@@ -31,7 +31,7 @@
 | {term}`precipitation_amount` | RH | Annual precipitation amount, in millimeters. | mm |
 | {term}`precipitation_amount_max` | RHX | Annual maximum hourly precipitation amount. | mm |
 | {term}`precipitation_duration` | DR | Annual precipitation duration, in hours. | h |
-| {term}`pressure_air_sea_level_mean` | PG | Annual mean sea level pressure, in hectopascal. The dataset aggregates the daily observations, whose pressure is calculated as a mean of the 24 pressure values of the day. | hPa |
+| {term}`pressure_air_sea_level_mean` | PG | Annual mean sea level pressure, in hectopascal. | hPa |
 | {term}`pressure_air_sea_level_min` | PN | Annual minimum mean sea level pressure, in hectopascal. | hPa |
 | {term}`pressure_air_sea_level_max` | PX | Annual maximum hourly mean sea level pressure, in hectopascal. | hPa |
 | {term}`sunshine_duration` | SQ | Annual sunshine duration in hours, calculated from global solar radiation. | h |

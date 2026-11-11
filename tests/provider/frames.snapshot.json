@@ -295,6 +295,8 @@
   "tests/provider/knmi/observation/test_api.py::test_knmi_values_skip_a_file_whose_download_link_is_refused[403]": [["KnmiObservationValues daily/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
   "tests/provider/knmi/observation/test_api.py::test_knmi_values_skip_a_missing_day_and_keep_the_others": [["KnmiObservationValues daily/data", "d9b22919", 1, "d3b5e803981a1aba"]],
   "tests/provider/knmi/observation/test_monthly_annual.py::test_a_file_of_the_first_years_holds_few_variables": [["KnmiObservationValues monthly/data", "d9b22919", 6, "e30060b9bb6ff4c6"]],
+  "tests/provider/knmi/observation/test_monthly_annual.py::test_a_minus_one_of_a_monthly_or_annual_file_is_not_read_as_a_trace[annual]": [["KnmiObservationValues annual/data", "d9b22919", 2, "22880e080957bdaa"]],
+  "tests/provider/knmi/observation/test_monthly_annual.py::test_a_minus_one_of_a_monthly_or_annual_file_is_not_read_as_a_trace[monthly]": [["KnmiObservationValues monthly/data", "d9b22919", 2, "f6c9ac4f4cbb15c7"]],
   "tests/provider/knmi/observation/test_monthly_annual.py::test_a_month_that_is_not_published_is_left_out_and_the_others_read": [["KnmiObservationValues monthly/data", "d9b22919", 1, "705c37406c598bca"]],
   "tests/provider/knmi/observation/test_monthly_annual.py::test_annual_values_of_a_real_file": [["KnmiObservationValues annual/data", "d9b22919", 1, "c0d76e1c6985004b"]],
   "tests/provider/knmi/observation/test_monthly_annual.py::test_monthly_values_of_a_real_file": [["KnmiObservationValues monthly/data", "d9b22919", 22, "589ed5bb957f582d"]],

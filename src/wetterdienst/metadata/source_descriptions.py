@@ -3678,10 +3678,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "data", "FXX"): ("Annual maximum wind gust, representative for 10 meters, in meters per second."),
         ("annual", "data", "NG"): ("Annual mean cloud cover, in okta. 9=sky invisible."),
-        ("annual", "data", "PG"): (
-            "Annual mean sea level pressure, in hectopascal. The dataset aggregates the daily observations, whose "
-            "pressure is calculated as a mean of the 24 pressure values of the day."
-        ),
+        ("annual", "data", "PG"): ("Annual mean sea level pressure, in hectopascal."),
         ("annual", "data", "PN"): ("Annual minimum mean sea level pressure, in hectopascal."),
         ("annual", "data", "PX"): ("Annual maximum hourly mean sea level pressure, in hectopascal."),
         ("annual", "data", "Q"): ("Annual global solar radiation, in joules per square centimeter."),
@@ -3740,10 +3737,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "FXX"): ("Monthly maximum wind gust, representative for 10 meters, in meters per second."),
         ("monthly", "data", "NG"): ("Monthly mean cloud cover, in okta. 9=sky invisible."),
-        ("monthly", "data", "PG"): (
-            "Monthly mean sea level pressure, in hectopascal. The dataset aggregates the daily observations, whose "
-            "pressure is calculated as a mean of the 24 pressure values of the day."
-        ),
+        ("monthly", "data", "PG"): ("Monthly mean sea level pressure, in hectopascal."),
         ("monthly", "data", "PN"): ("Monthly minimum mean sea level pressure, in hectopascal."),
         ("monthly", "data", "PX"): ("Monthly maximum hourly mean sea level pressure, in hectopascal."),
         ("monthly", "data", "Q"): ("Monthly global solar radiation, in joules per square centimeter."),

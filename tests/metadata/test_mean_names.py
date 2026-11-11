@@ -67,6 +67,14 @@ _PLAIN_ON_PURPOSE = {
 # a provider whose "average" is not evidence yet: PEGELONLINE publishes raw data at the equidistance of each station and
 # the audit of GH-2614 doubts the descriptions, so its rows wait for WSV's confirmation (GH-3151)
 _NOT_EVIDENCE = {"WsvPegelMetadata"}
+# rows named a mean whose description says only "mean sea level pressure", where "mean sea level" is a datum and no
+# statistic: the dataset pages of KNMI say that its daily observations are aggregated to monthly intervals (and the
+# monthly ones to annual intervals), and the daily `PG` is "calculated as a mean of the 24 pressure values of that day",
+# so the period value is a mean (GH-4006)
+_MEAN_BY_AGGREGATION = {
+    ("KnmiObservationMetadata", "monthly", "data", "PG"),
+    ("KnmiObservationMetadata", "annual", "data", "PG"),
+}
 
 
 def _quantity(name: str) -> str:
@@ -115,7 +123,9 @@ def test_a_mean_name_needs_a_source_that_states_a_mean() -> None:
     wrong = [
         f"{metadata} {resolution}/{dataset}/{name} [{original}]: named a mean, but the source states none"
         for metadata, resolution, dataset, name, original, states in _rows()
-        if _quantity(name) != name and not states
+        if _quantity(name) != name
+        and not states
+        and (metadata, resolution, dataset, original) not in _MEAN_BY_AGGREGATION
     ]
     assert not wrong, "\n".join(wrong)
 
