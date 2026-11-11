@@ -236,7 +236,7 @@ _TOOL_NAMES = {
 # listing or the values -- or probes it (`auth`, the one call that does so to check the credentials).
 _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "auth": ("Check provider credentials", True),
-    "coverage": ("List available data", False),
+    "coverage": ("List a network's datasets and parameters", False),
     "glossary": ("Look up a parameter", False),
     "providers": ("Describe data providers", False),
     "stations": ("Find stations", True),

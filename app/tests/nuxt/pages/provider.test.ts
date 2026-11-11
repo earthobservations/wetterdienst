@@ -24,7 +24,7 @@ async function mountProvider(provider: string) {
 
 async function openDatasets(wrapper: Awaited<ReturnType<typeof mountProvider>>, network: string) {
   const item = wrapper.findAll('li').find(li => li.find('h3').exists() && li.find('h3').text() === network)!
-  await item.findAll('button').find(button => button.text() === 'Show resolutions and datasets')!.trigger('click')
+  await item.findAll('button').find(button => button.text().startsWith('Show resolutions and datasets'))!.trigger('click')
 }
 
 function hrefs(wrapper: { findAll: (selector: string) => Array<{ attributes: (name: string) => string | undefined }> }) {
@@ -119,6 +119,18 @@ describe('provider Page', () => {
     expect(text).toContain('Parameters: 12')
     const source = observation.findAll('a').find(a => a.text() === 'Source')
     expect(source?.attributes('href')).toBe('https://opendata.dwd.de/climate_environment/CDC/')
+  })
+
+  it('names the network in the button that opens its datasets, which every network has, and says whether it is open', async () => {
+    const wrapper = await mountProvider('dwd')
+    const item = wrapper.findAll('li').find(li => li.find('h3').exists() && li.find('h3').text() === 'observation')!
+    const button = item.findAll('button').find(candidate => candidate.text().startsWith('Show resolutions and datasets'))!
+
+    expect(button.text()).toContain('(observation)')
+    expect(button.attributes('aria-expanded')).toBe('false')
+    await button.trigger('click')
+    await vi.waitFor(() => expect(button.attributes('aria-expanded')).toBe('true'))
+    expect(button.find('[class*="rotate-180"]').exists()).toBe(true)
   })
 
   it('lists the resolutions and datasets of a network, with the number of parameters of each', async () => {

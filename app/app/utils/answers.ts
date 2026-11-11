@@ -316,6 +316,23 @@ export function hourlyNetworks(providers: Provider[]): Array<{ provider: Provide
     .map(network => ({ provider, network: network.network })))
 }
 
+/** How many coverages the download question asks for at once: the server serves 32 requests at a time, for every client */
+export const COVERAGE_REQUESTS_AT_ONCE = 4
+
+/** The results of `work` for each item, in order, with at most `limit` of them under way at once */
+export async function mapLimited<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = Array.from({ length: items.length })
+  let next = 0
+  async function lane() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await work(items[index]!)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane))
+  return results
+}
+
 /**
  * The dataset and parameter of a network's coverage that hold the hourly air temperature, the dataset named for it
  * first (DWD's `temperature_air`), or null where it has none

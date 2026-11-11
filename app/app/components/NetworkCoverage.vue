@@ -29,22 +29,27 @@ const resolutions = computed(() => Object.entries(data.value ?? {}).map(([name, 
 const failure = computed(() => error.value ? describeFetchError(error.value) : '')
 
 // Asked for the first time the list is opened, and again only where that failed (Retry)
-function load(open: boolean) {
-  if (open && status.value === 'idle')
+const open = ref(false)
+watch(open, (isOpen) => {
+  if (isOpen && status.value === 'idle')
     execute()
-}
+})
 </script>
 
 <template>
-  <UCollapsible @update:open="load">
+  <UCollapsible v-model:open="open">
+    <!-- every network of the page has this button: its name is told to a reader who lists the buttons, and the caret
+         shows whether the list is open -->
     <UButton
-      :label="t('providers.showDatasets')"
       icon="i-ph-list-bullets"
       variant="subtle"
       color="neutral"
       trailing-icon="i-ph-caret-down"
       size="sm"
-    />
+      :ui="{ trailingIcon: `transition-transform duration-200 ${open ? 'rotate-180' : ''}` }"
+    >
+      {{ t('providers.showDatasets') }}<span class="sr-only"> ({{ network }})</span>
+    </UButton>
     <template #content>
       <div class="pt-3">
         <UAlert

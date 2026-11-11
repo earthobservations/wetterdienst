@@ -22,7 +22,10 @@ Types of changes:
   of a network when its "Show resolutions and datasets" button is opened, asking the backend for
   that network alone (its list of providers no longer carries them). The Explorer and History read
   the providers and networks from that list, and the API page names `providers` beside `coverage`.
-  Needs the backend of the same release (GH-3996)
+  The question "Where can I download hourly temperatures?" asks for the coverage of the
+  measurement networks four at a time, once for the visit, not again for each place tried. The
+  button of each network names it for a screen reader. Needs the backend of the same release
+  (GH-3996)
 - `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
   "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
   next to its zoom buttons) and the picked stations as chips under it in both modes; a station

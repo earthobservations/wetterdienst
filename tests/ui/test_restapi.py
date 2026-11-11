@@ -540,6 +540,8 @@ def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(c
         pytest.param({"network": "observation"}, id="network-only"),
         pytest.param({"resolutions": "daily"}, id="a-filter-only"),
         pytest.param({"pretty": "true"}, id="pretty-only"),
+        pytest.param({"provider": "", "network": ""}, id="empty"),
+        pytest.param({"provider": "dwd", "network": ""}, id="empty-network"),
     ],
 )
 def test_coverage_without_provider_and_network_is_a_400_that_names_providers(
@@ -7730,7 +7732,9 @@ def test_values_a_timed_out_download_is_a_504_logged_with_the_file(
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
 # and what of it a refused request must not reach (GH-2479)
 _LOOSE_ENDPOINTS = [
-    pytest.param("/api/coverage", {"provider": "dwd", "network": "observation"}, "Wetterdienst", id="coverage"),
+    pytest.param(
+        "/api/coverage", {"provider": "dwd", "network": "observation"}, "_resolve_listed_network", id="coverage"
+    ),
     pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
     pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
     pytest.param("/api/alerts", {}, None, id="alerts"),

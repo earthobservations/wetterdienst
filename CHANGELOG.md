@@ -64,7 +64,8 @@ Types of changes:
   parameters (GH-3536, GH-3996)
 - **Breaking**: `coverage` (REST `/api/coverage`, `wetterdienst about coverage`, the MCP tool)
   needs `provider` and `network`, and no longer lists every provider and network: a call without
-  them is a 400 problem, a usage error or a tool error that names `providers`, which lists them
+  them (or with them empty) is a 400 problem, a usage error or a tool error that names `providers`,
+  which lists them
   (`providers[].networks[]` has `kind`, `url`, `auth`, `configured`, `date_required`, and `scope` as
   `extent.scope`). The OpenAPI document types its answer as one object keyed by resolution
   (GH-3996)

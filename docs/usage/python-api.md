@@ -32,12 +32,16 @@ coverage = Wetterdienst.discover()
 coverage
 ```
 
-Each network says what it is: `name_short`, `country`, `url` and `kind`, where `observation`, `forecast` and
+Each network says what it is: `name_short`, `country`, `url`, `kind` and `scope` (how far it reaches: `global`,
+`national` or `regional`), `auth`, `configured` and `date_required`, where `observation`, `forecast` and
 `derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
 (`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
-`Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. The fields are
-described with the [REST API](restapi.md#providers), which lists the same, as `/api/providers`.
+`Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. `discover()` is the
+Python counterpart of the REST route [`/api/providers`](restapi.md#providers), which lists the same networks
+in another shape: `name_short` and `country` once for each provider (not for each network), `scope` as
+`extent.scope` beside the `continents` and the `bbox`, and the terms of the provider besides. The resolutions,
+datasets and parameters of one network are `/api/coverage`, which is the `discover()` of the request class of a network.
 
 To load the request class of a timeseries network pass the provider and the network of data to
 `Wetterdienst.resolve`:

@@ -1361,6 +1361,7 @@ _COVERAGE_NEEDS_A_NETWORK = (
     "args",
     [
         pytest.param([], id="neither"),
+        pytest.param(["--provider=", "--network="], id="empty"),
         pytest.param(["--provider=dwd"], id="provider-only"),
         pytest.param(["--network=observation"], id="network-only"),
         pytest.param(["--resolutions=daily"], id="resolutions"),

@@ -8,6 +8,7 @@ import {
   hourlyTemperatureIn,
   lastBoxingDay,
   lastSummer,
+  mapLimited,
   RAIN_AMOUNT,
   RAIN_CHANCE,
   rainTomorrow,
@@ -179,5 +180,27 @@ describe('where can I download hourly temperatures', () => {
     expect(hourlyTemperatureIn({ hourly: { description: null, datasets: { data: { description: null, parameters: [parameter('temperature_air_mean_2m')] } } } } as any))
       .toEqual({ dataset: 'data', parameter: 'temperature_air_mean_2m' })
     expect(hourlyTemperatureIn({ daily: { description: null, datasets: {} } } as any)).toBeNull()
+  })
+})
+
+describe('the coverages the download question asks for', () => {
+  it('are asked for a few at a time, and the results come back in the order of the networks', async () => {
+    let underWay = 0
+    let most = 0
+    const results = await mapLimited(Array.from({ length: 27 }, (_, index) => index), 4, async (item) => {
+      underWay++
+      most = Math.max(most, underWay)
+      await new Promise(resolve => setTimeout(resolve, item % 3))
+      underWay--
+      return item * 2
+    })
+
+    expect(most).toBe(4)
+    expect(results).toEqual(Array.from({ length: 27 }, (_, index) => index * 2))
+  })
+
+  it('answer nothing for no network, and no more at once than there are', async () => {
+    expect(await mapLimited([], 4, async () => 1)).toEqual([])
+    expect(await mapLimited(['a'], 4, async item => item)).toEqual(['a'])
   })
 })

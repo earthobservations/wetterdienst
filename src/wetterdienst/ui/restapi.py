@@ -1669,6 +1669,10 @@ def coverage(
     """
     provider, network = request.provider, request.network
 
+    # `provider=` is as good as none, as it is for the MCP tool and the command (GH-3996)
+    if not provider or not network:
+        raise HTTPException(status_code=400, detail=coverage_needs_a_network(app.url_path_for("providers")))
+
     api = _resolve_listed_network(provider, network, "list the coverage of")
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network

@@ -1604,8 +1604,13 @@ def coverage(
     """
     from wetterdienst import Settings
     from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.ui.core import coverage_needs_a_network
 
     _apply_log_level(debug=debug)
+
+    if not provider or not network:
+        # an empty value is as good as none, as it is for the REST route and the MCP tool
+        raise click.UsageError(coverage_needs_a_network("`wetterdienst about providers`"))
 
     resolutions_list = read_list(resolutions)
     datasets_list = read_list(datasets)
