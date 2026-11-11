@@ -59,8 +59,19 @@ describe('privacy policy texts', () => {
 
   it.each(Object.keys(texts))('name the cookie and the localStorage keys the app writes in %s', (code) => {
     const text = allText(texts[code as keyof typeof texts])
-    for (const key of ['wd_lang', 'wd_settings', 'meteogram.view', 'wd-station-picker', 'wd-place', 'nuxt-color-mode'])
+    for (const key of ['wd_lang', 'wd_settings', 'meteogram.view', 'wd-station-picker', 'wd-place', 'wd-location', 'nuxt-color-mode'])
       expect(text, key).toContain(key)
+  })
+
+  it.each(Object.keys(texts))('have a section on the location in %s: purpose, rounding, the legal basis of consent, and storage only on "remember"', (code) => {
+    const section = texts[code as keyof typeof texts].sections.find(s => s.id === 'location')!
+    const text = section.paragraphs.join(' ')
+    expect(section.icon).toBe('i-ph-crosshair')
+    expect(text).toContain('1 km')
+    expect(text).toContain('wd-location')
+    // consent as the legal basis (Art. 6(1)(a) GDPR), and its withdrawal (Art. 7(3) GDPR), in the way each text cites it
+    expect(text).toMatch(code === 'de' ? /Art\. 6 Abs\. 1 lit\. a DSGVO/ : /Art\. 6\(1\)\(a\) GDPR/)
+    expect(text).toMatch(code === 'de' ? /Art\. 7 Abs\. 3 DSGVO/ : /Art\. 7\(3\) GDPR/)
   })
 
   it.each(Object.keys(texts))('state no retention period in days in %s: none is configured, only the cookie has a lifetime', (code) => {
