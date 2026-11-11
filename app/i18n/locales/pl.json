@@ -580,9 +580,6 @@
         "clear": "Słonecznie"
       }
     },
-    "orChooseMap": "lub",
-    "chooseOnMap": "Wybierz stację na mapie",
-    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
     "runLabel": "Uruchomienie modelu",
     "runLatest": "Najnowsza (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Opady",
     "station": "Stacja",
     "selectStation": "Wybierz stację",
-    "showMap": "Pokaż mapę",
-    "loadingStations": "Ładowanie stacji …",
     "region": "Region",
     "available": "Dostępne",
     "startYear": "Rok początkowy",
@@ -634,8 +629,6 @@
     "plotTitle": "Paski klimatyczne ({kind}) dla {name}, Niemcy ({id})",
     "plotDataAvailability": "Dostępność danych",
     "plotSource": "Źródło: Deutscher Wetterdienst",
-    "chooseOnMap": "Wybierz na mapie",
-    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
     "hoverValue": "Wartość",
     "hoverTrend": "Trend",
     "summary": "Od {from} do {to}. Najniższa wartość {min} w roku {minYear}, najwyższa {max} w roku {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Wybierz stację",
     "selectedStations": "Wybrane stacje:",
     "clearAll": "Wyczyść wszystko",
-    "clearStation": "Wyczyść wybraną stację",
-    "showMap": "Pokaż mapę",
-    "chooseOnMap": "Wybierz na mapie",
     "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
-    "mapHintMultiple": "Dotykaj punktów na mapie, aby dodawać lub usuwać stacje."
+    "mapHintMultiple": "Dotykaj punktów na mapie, aby dodawać lub usuwać stacje.",
+    "modeLabel": "Wybierz stację z listy lub na mapie",
+    "modeList": "Lista",
+    "modeMap": "Mapa",
+    "selectedStation": "Wybrana stacja:",
+    "removeStation": "Usuń {name} z wyboru",
+    "announceList": "Wyszukiwanie stacji"
   },
   "interpolation": {
     "source": "Źródło",

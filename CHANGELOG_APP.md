@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
+  "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
+  next to its zoom buttons) and the picked stations as chips under it in both modes; a station
+  picked in one shows in the other. Each tool remembers its mode in this browser
+  (`wd-station-picker`, named in the privacy policy), the chips are buttons that remove a station by
+  keyboard too, and a map marker that Tab reaches is scrolled into the window (GH-3877)
 - `[Explorer, Forecast, Climate stripes, History, Map]` On a wide window the "About" panel of a tool
   opens under its button, right-aligned and at the width of text, so that the two read as one
   control (it opened at the left edge, up to 750 px from the button at 2,450 px). On a phone it is

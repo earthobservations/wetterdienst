@@ -580,9 +580,6 @@
         "clear": "Sonnig"
       }
     },
-    "orChooseMap": "oder",
-    "chooseOnMap": "Station auf der Karte auswählen",
-    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
     "runLabel": "Modellauf",
     "runLatest": "Aktuellste (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Niederschlag",
     "station": "Station",
     "selectStation": "Station auswählen",
-    "showMap": "Karte anzeigen",
-    "loadingStations": "Stationen werden geladen …",
     "region": "Region",
     "available": "Verfügbar",
     "startYear": "Startjahr",
@@ -634,8 +629,6 @@
     "plotTitle": "Klimastreifen ({kind}) für {name}, Deutschland ({id})",
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
-    "chooseOnMap": "Auf der Karte auswählen",
-    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
     "hoverValue": "Wert",
     "hoverTrend": "Trend",
     "summary": "Von {from} bis {to}. Niedrigster Wert {min} im Jahr {minYear}, höchster Wert {max} im Jahr {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Station auswählen",
     "selectedStations": "Ausgewählte Stationen:",
     "clearAll": "Alle entfernen",
-    "clearStation": "Ausgewählte Station entfernen",
-    "showMap": "Karte anzeigen",
-    "chooseOnMap": "Auf der Karte auswählen",
     "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
-    "mapHintMultiple": "Tippe auf Punkte auf der Karte, um Stationen hinzuzufügen oder zu entfernen."
+    "mapHintMultiple": "Tippe auf Punkte auf der Karte, um Stationen hinzuzufügen oder zu entfernen.",
+    "modeLabel": "Station aus einer Liste oder auf einer Karte wählen",
+    "modeList": "Liste",
+    "modeMap": "Karte",
+    "selectedStation": "Ausgewählte Station:",
+    "removeStation": "{name} aus der Auswahl entfernen",
+    "announceList": "Stationssuche"
   },
   "interpolation": {
     "source": "Quelle",
