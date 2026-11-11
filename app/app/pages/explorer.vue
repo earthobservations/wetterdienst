@@ -803,13 +803,15 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <FittingButtonGroup>
+              <!-- toggle buttons: the chosen one is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3989) -->
+              <FittingButtonGroup role="group" :aria-label="t('explorer.leadTime')">
                 <UButton
                   v-for="option in leadTimeOptions"
                   :key="option.value"
                   :label="option.label"
                   color="neutral"
                   :variant="leadTime === option.value ? 'solid' : 'ghost'"
+                  :aria-pressed="leadTime === option.value"
                   size="sm"
                   @click="leadTime = option.value"
                 />
@@ -831,7 +833,7 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <FittingButtonGroup>
+              <FittingButtonGroup role="group" :aria-label="t('explorer.mode')">
                 <UButton
                   v-for="option in modeOptions"
                   :key="option.value"
@@ -839,6 +841,7 @@ function removeParameterDistance(id: string, paramName: string) {
                   :label="option.label"
                   color="neutral"
                   :variant="stationSelectionState.mode === option.value ? 'solid' : 'ghost'"
+                  :aria-pressed="stationSelectionState.mode === option.value"
                   size="sm"
                   @click="stationSelectionState.mode = option.value"
                 />
@@ -918,12 +921,13 @@ function removeParameterDistance(id: string, paramName: string) {
                   </div>
                   <div class="space-y-3">
                     <div class="flex items-center gap-4">
-                      <label class="text-sm">{{ t('explorer.shape') }}:</label>
-                      <UFieldGroup>
+                      <span id="explorer-shape-label" class="text-sm">{{ t('explorer.shape') }}:</span>
+                      <UFieldGroup role="group" aria-labelledby="explorer-shape-label">
                         <UButton
                           :label="t('explorer.shapeLong')"
                           color="neutral"
                           :variant="dataSettings.shape === 'long' ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.shape === 'long'"
                           size="xs"
                           @click="dataSettings.shape = 'long'"
                         />
@@ -931,6 +935,7 @@ function removeParameterDistance(id: string, paramName: string) {
                           :label="t('explorer.shapeWide')"
                           color="neutral"
                           :variant="dataSettings.shape === 'wide' ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.shape === 'wide'"
                           size="xs"
                           @click="dataSettings.shape = 'wide'"
                         />
@@ -941,14 +946,15 @@ function removeParameterDistance(id: string, paramName: string) {
                       <UCheckbox v-model="dataSettings.dropNulls" :label="t('explorer.dropNulls')" />
                     </div>
                     <div v-if="dataSettings.skipEmpty" class="flex items-center gap-4">
-                      <label class="text-sm">{{ t('explorer.skipCriteria') }}:</label>
-                      <UFieldGroup>
+                      <span id="explorer-skip-criteria-label" class="text-sm">{{ t('explorer.skipCriteria') }}:</span>
+                      <UFieldGroup role="group" aria-labelledby="explorer-skip-criteria-label">
                         <UButton
                           v-for="criteria in ['min', 'mean', 'max']"
                           :key="criteria"
                           :label="criteria"
                           color="neutral"
                           :variant="dataSettings.skipCriteria === criteria ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.skipCriteria === criteria"
                           size="xs"
                           @click="dataSettings.skipCriteria = criteria as 'min' | 'mean' | 'max'"
                         />
