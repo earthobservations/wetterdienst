@@ -27,7 +27,7 @@ test.describe('API proxy', () => {
 
     const direct = await request.get(`${BACKEND_URL}/api/providers`, { timeout: REQUEST_TIMEOUT })
     expect(direct.ok()).toBeTruthy()
-    expect(await viaProxy.json()).toEqual(await direct.json())
+    expect(JSON.parse(withoutRetrievalTime(await viaProxy.text()))).toEqual(JSON.parse(withoutRetrievalTime(await direct.text())))
   })
 
   test('does not republish the backend\'s own response headers', async ({ request }) => {
