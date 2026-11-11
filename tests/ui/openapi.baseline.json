@@ -12,7 +12,7 @@
       "name": "MIT",
       "identifier": "MIT"
     },
-    "version": "0.185.0",
+    "version": "0.186.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -775,7 +775,7 @@
           "Catalogue"
         ],
         "summary": "Auth",
-        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
+        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst auth`) are this call.",
         "operationId": "auth_api_auth_get",
         "parameters": [
           {
@@ -784,10 +784,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -795,10 +795,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           }
         ],
         "responses": {
@@ -849,44 +849,30 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.",
+        "description": "List the resolutions, datasets and parameters of one network.\n\n`provider` and `network` are required (e.g. provider=\"dwd\", network=\"observation\"); `providers` lists the\nproviders and their networks, with whether each needs credentials and has them (`configured`). Narrow the\nanswer with resolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names. It\nis keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers\nat once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.\n\nEach dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a\nregional one): the dataset's own where it is narrower than its network's, else the network's. Whether the\nnetwork needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider\naccepts them is `auth`'s.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
             "name": "provider",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed.",
+              "type": "string",
+              "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks.",
               "title": "Provider"
             },
-            "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed."
+            "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks."
           },
           {
             "name": "network",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data network of the provider, e.g. 'observation'. Needs provider.",
+              "type": "string",
+              "description": "Data network of the provider, e.g. 'observation'. Required with provider.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. Needs provider."
+            "description": "Data network of the provider, e.g. 'observation'. Required with provider."
           },
           {
             "name": "resolutions",
@@ -904,10 +890,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
               "title": "Resolutions"
             },
-            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
             "style": "form",
             "explode": false
           },
@@ -927,10 +913,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
               "title": "Datasets"
             },
-            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
             "style": "form",
             "explode": false
           },
@@ -955,17 +941,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": {
-                          "$ref": "#/components/schemas/CoverageNetwork"
-                        }
-                      },
-                      {
-                        "$ref": "#/components/schemas/CoverageResolution"
-                      }
-                    ]
+                    "$ref": "#/components/schemas/CoverageResolution"
+                  },
+                  "propertyNames": {
+                    "$ref": "#/components/schemas/Resolution"
                   },
                   "title": "Response Coverage Api Coverage Get"
                 }
@@ -1054,7 +1033,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and its number of `parameters`.\nEach network also lists its resolutions and datasets, with how many parameters each has (a dataset whose\nstations are fewer than its network's has an `extent` of its own, and one without has its network's): pass\n`datasets=false` for a short answer without them, which is all a question about a licence or about the\nproviders that reach a place needs.\nNothing is downloaded and no credential is read, so it answers at once; `coverage` lists the parameters of a\nnetwork, and `auth` checks whether its credentials are accepted.",
+        "description": "List the providers and their networks, and describe what each provider is: name, country, licence, credit line.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),\nwhether a request has to give a date (`date_required`) and its number of `parameters`.\n\n`kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values\n(every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other\nendpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are\npresent; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for\none network.\n\nNothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and\nparameters of one network are `coverage`'s.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1074,18 +1053,6 @@
               "title": "Provider"
             },
             "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
-          },
-          {
-            "name": "datasets",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters.",
-              "default": true,
-              "title": "Datasets"
-            },
-            "description": "List the resolutions and datasets of each network, with the number of parameters of each (the default for now). `false` leaves them out, which makes the answer a good deal shorter: everything else stays, among it the number of parameters of each network. `coverage` lists the parameters."
           },
           {
             "name": "pretty",
@@ -1190,7 +1157,7 @@
           "Catalogue"
         ],
         "summary": "Glossary",
-        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
+        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,\n...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each\nprovider and the `timestamp_position`, which the glossary does not know.",
         "operationId": "glossary_api_glossary_get",
         "parameters": [
           {
@@ -1379,10 +1346,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -1390,10 +1357,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -1792,11 +1759,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "format",
@@ -2036,10 +2003,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2047,10 +2014,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "station",
@@ -2159,7 +2126,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -2168,10 +2135,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2179,10 +2146,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -2583,11 +2550,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -3222,10 +3189,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -3233,10 +3200,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -3614,11 +3581,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -3787,10 +3754,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -3798,10 +3765,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -4166,11 +4133,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -4449,7 +4416,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not. The colours of the stripes\n(`/api/stripes/image`) are relative to the years' own range and are the same in any unit.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -4590,6 +4557,27 @@
               "title": "Pretty"
             },
             "description": "Pretty-print JSON/GeoJSON output."
+          },
+          {
+            "name": "unit_targets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit.",
+              "title": "Unit Targets"
+            },
+            "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit."
           }
         ],
         "responses": {
@@ -4912,10 +4900,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -4923,10 +4911,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -5036,11 +5024,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "with_stations",
@@ -5470,68 +5458,6 @@
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
       },
-      "CoverageNetwork": {
-        "properties": {
-          "name_short": {
-            "type": "string",
-            "title": "Name Short"
-          },
-          "country": {
-            "type": "string",
-            "title": "Country"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "observation",
-              "forecast",
-              "derived",
-              "radar",
-              "alerts"
-            ],
-            "title": "Kind"
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "global",
-              "national",
-              "regional"
-            ],
-            "title": "Scope"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "auth": {
-            "type": "boolean",
-            "title": "Auth"
-          },
-          "configured": {
-            "type": "boolean",
-            "title": "Configured"
-          },
-          "date_required": {
-            "type": "boolean",
-            "title": "Date Required"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name_short",
-          "country",
-          "kind",
-          "scope",
-          "url",
-          "auth",
-          "configured",
-          "date_required"
-        ],
-        "title": "CoverageNetwork",
-        "description": "A network in the list of every provider and its networks.\n\nWhether the credentials are accepted is not in it: that takes a request to the provider, which a list of\nevery provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641)."
-      },
       "CoverageParameter": {
         "properties": {
           "name": {
@@ -5596,6 +5522,53 @@
             ],
             "title": "Description"
           },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
+          },
           "lead_times": {
             "items": {
               "type": "string",
@@ -5615,7 +5588,9 @@
           "name_original",
           "unit_type",
           "unit",
-          "description"
+          "description",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "CoverageParameter",
         "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`."
@@ -5794,6 +5769,35 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the one of each provider, which declares one for a plain name where its source states it (`instant`)."
           }
         },
         "type": "object",
@@ -5802,10 +5806,11 @@
           "unit_type",
           "unit",
           "unit_symbol",
-          "description"
+          "description",
+          "aggregation"
         ],
         "title": "GlossaryEntry",
-        "description": "One canonical parameter: what it measures and which unit it is returned in."
+        "description": "One canonical parameter: what it measures and which unit it is returned in.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a\nplain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares\none for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which\nthe glossary does not have, since it knows no dataset."
       },
       "Health": {
         "properties": {
@@ -6111,6 +6116,53 @@
             "type": "string",
             "title": "Unit",
             "description": "The symbol of the unit of the values: the target of the quantity where `convert_units` is on, else the unit the source publishes."
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
           }
         },
         "additionalProperties": false,
@@ -6122,7 +6174,9 @@
           "name_original",
           "description",
           "quantity",
-          "unit"
+          "unit",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "ParameterInfo",
         "description": "One parameter of the answer, with the unit its values are in."
@@ -6211,31 +6265,6 @@
         "title": "Provider",
         "description": "A provider of data, and the networks it offers."
       },
-      "ProviderDataset": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "parameters": {
-            "type": "integer",
-            "title": "Parameters",
-            "description": "How many parameters the dataset has, which `/api/coverage` lists."
-          },
-          "extent": {
-            "$ref": "#/components/schemas/Extent",
-            "description": "Where the stations of the dataset are, where that is less than its network's (`extent` of the network). Left out of the answer for a dataset that has the extent of its network."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "parameters"
-        ],
-        "title": "ProviderDataset",
-        "description": "A dataset of a resolution."
-      },
       "ProviderNetwork": {
         "properties": {
           "network": {
@@ -6273,6 +6302,11 @@
             "title": "Auth",
             "description": "Whether the network needs credentials; `/api/auth` tells whether they are accepted."
           },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "Whether the credentials the network needs are present on this server, true for a network that needs none. Whether the provider accepts them is not checked here: `/api/auth` does, for one network."
+          },
           "date_required": {
             "type": "boolean",
             "title": "Date Required",
@@ -6281,22 +6315,7 @@
           "parameters": {
             "type": "integer",
             "title": "Parameters",
-            "description": "How many parameters the network has in all of its datasets."
-          },
-          "resolutions": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ProviderResolution"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolutions",
-            "description": "The resolutions of the network, each with its datasets and their numbers of parameters; empty for a network that has none (`dwd/radar`, `dwd/alerts`), null with `datasets=false`, which leaves them out."
+            "description": "How many parameters the network has in all of its datasets, which `/api/coverage` lists for one network, with its resolutions and datasets."
           }
         },
         "additionalProperties": false,
@@ -6308,35 +6327,12 @@
           "url",
           "copyright",
           "auth",
+          "configured",
           "date_required",
-          "parameters",
-          "resolutions"
+          "parameters"
         ],
         "title": "ProviderNetwork",
-        "description": "A network of a provider, with what it offers."
-      },
-      "ProviderResolution": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "datasets": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderDataset"
-            },
-            "type": "array",
-            "title": "Datasets"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "datasets"
-        ],
-        "title": "ProviderResolution",
-        "description": "A resolution of a network."
+        "description": "A network of a provider: what it is and where, not what it offers (`/api/coverage` lists that)."
       },
       "ProvidersAnswer": {
         "properties": {
@@ -6501,6 +6497,24 @@
             "status": "ready"
           }
         ]
+      },
+      "Resolution": {
+        "type": "string",
+        "enum": [
+          "1_minute",
+          "5_minutes",
+          "6_minutes",
+          "10_minutes",
+          "15_minutes",
+          "hourly",
+          "6_hours",
+          "subdaily",
+          "daily",
+          "monthly",
+          "annual"
+        ],
+        "title": "Resolution",
+        "description": "Enumeration for granularity/resolution of the weather observation."
       },
       "ResolvedRequest": {
         "properties": {
@@ -6823,9 +6837,113 @@
       "StripesSeries": {
         "properties": {
           "station": {
+            "properties": {
+              "resolution": {
+                "type": "string",
+                "title": "Resolution"
+              },
+              "dataset": {
+                "type": "string",
+                "title": "Dataset"
+              },
+              "station_id": {
+                "type": "string",
+                "title": "Station Id"
+              },
+              "start_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Start Timestamp"
+              },
+              "end_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "End Timestamp"
+              },
+              "latitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Latitude"
+              },
+              "longitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Longitude"
+              },
+              "elevation": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Elevation"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              },
+              "region": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Region"
+              }
+            },
             "additionalProperties": true,
             "type": "object",
-            "title": "Station"
+            "required": [
+              "resolution",
+              "dataset",
+              "station_id",
+              "start_timestamp",
+              "end_timestamp",
+              "latitude",
+              "longitude",
+              "elevation",
+              "name",
+              "region"
+            ],
+            "title": "_Station",
+            "description": "Type definition for station."
           },
           "resolution": {
             "type": "string",
@@ -7524,6 +7642,560 @@
         "title": "_EstimateStation",
         "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
       },
+      "_HistoryDevice": {
+        "properties": {
+          "device_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Type"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "device_height": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Height"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_type",
+          "station_id",
+          "station_name",
+          "longitude",
+          "latitude",
+          "station_elevation",
+          "device_height",
+          "valid_from",
+          "valid_to",
+          "method"
+        ],
+        "title": "_HistoryDevice",
+        "description": "A device of a station, for the period it was in use."
+      },
+      "_HistoryEntry": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "name": {
+            "$ref": "#/components/schemas/_HistoryNames"
+          },
+          "parameter": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryParameter"
+            },
+            "type": "array",
+            "title": "Parameter"
+          },
+          "device": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryDevice"
+            },
+            "type": "array",
+            "title": "Device"
+          },
+          "geography": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryGeography"
+            },
+            "type": "array",
+            "title": "Geography"
+          },
+          "missing_data": {
+            "$ref": "#/components/schemas/_HistoryMissingData"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "resolution",
+          "dataset"
+        ],
+        "title": "_HistoryEntry",
+        "description": "The history of one station and dataset: who it is of, and the sections asked for (all where none were)."
+      },
+      "_HistoryGeography": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_elevation",
+          "latitude",
+          "longitude",
+          "valid_from",
+          "valid_to",
+          "station_name"
+        ],
+        "title": "_HistoryGeography",
+        "description": "Where a station was, for a period."
+      },
+      "_HistoryMissing": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "missing_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Count"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "parameter",
+          "valid_from",
+          "valid_to",
+          "missing_count",
+          "description"
+        ],
+        "title": "_HistoryMissing",
+        "description": "A summary of the missing data of a parameter, or one period of it: the two have the same fields."
+      },
+      "_HistoryMissingData": {
+        "properties": {
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "summary",
+          "periods"
+        ],
+        "title": "_HistoryMissingData",
+        "description": "The summaries of a station's missing data, and the periods it is missing for."
+      },
+      "_HistoryNames": {
+        "properties": {
+          "station": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryStationName"
+            },
+            "type": "array",
+            "title": "Station"
+          },
+          "operator": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryOperatorName"
+            },
+            "type": "array",
+            "title": "Operator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station",
+          "operator"
+        ],
+        "title": "_HistoryNames",
+        "description": "The names of a station and of its operator."
+      },
+      "_HistoryOperatorName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "operator_name": {
+            "type": "string",
+            "title": "Operator Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "operator_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryOperatorName",
+        "description": "One name of a station's operator, for the period it held."
+      },
+      "_HistoryParameter": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "data_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Source"
+          },
+          "extra_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Info"
+          },
+          "special": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special"
+          },
+          "literature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Literature"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "valid_from",
+          "valid_to",
+          "station_name",
+          "parameter",
+          "description",
+          "unit",
+          "data_source",
+          "extra_info",
+          "special",
+          "literature"
+        ],
+        "title": "_HistoryParameter",
+        "description": "How a parameter was measured at a station, for a period."
+      },
+      "_HistoryStationName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryStationName",
+        "description": "One name of a station, for the period it held."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -7538,8 +8210,7 @@
           },
           "histories": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/_HistoryEntry"
             },
             "type": "array",
             "title": "Histories"
@@ -9001,5 +9672,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.185.0"
+  "x-release": "0.186.0"
 }

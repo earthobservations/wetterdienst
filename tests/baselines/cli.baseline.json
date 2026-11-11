@@ -65,656 +65,6 @@
         }
       }
     },
-    "wetterdienst about": {
-      "options": {
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        }
-      }
-    },
-    "wetterdienst about auth": {
-      "options": {
-        "--debug": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--debug"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--network": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--network"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--provider": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--provider"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--quiet": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--quiet"
-          ],
-          "required": false,
-          "default": false
-        }
-      }
-    },
-    "wetterdienst about coverage": {
-      "options": {
-        "--datasets": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--datasets"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--debug": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--debug"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--network": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--network"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--provider": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--provider"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--quiet": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--quiet"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--resolutions": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--resolutions"
-          ],
-          "required": false,
-          "default": null
-        }
-      }
-    },
-    "wetterdienst about fields": {
-      "options": {
-        "--dataset": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--dataset"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--debug": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--debug"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--language": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "choice",
-          "choices": [
-            "de",
-            "en"
-          ],
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--language"
-          ],
-          "required": false,
-          "default": "en"
-        },
-        "--network": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--network"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--period": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--period"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--provider": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--provider"
-          ],
-          "required": true,
-          "default": null
-        },
-        "--quiet": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--quiet"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--resolution": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--resolution"
-          ],
-          "required": true,
-          "default": null
-        }
-      }
-    },
-    "wetterdienst about glossary": {
-      "options": {
-        "--debug": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--debug"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--limit": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "integer range",
-          "choices": null,
-          "min": 1,
-          "max": null,
-          "spellings": [
-            "--limit"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--parameter": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--parameter"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--quiet": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--quiet"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--unit-type": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "choice",
-          "choices": [
-            "angle",
-            "concentration",
-            "conductivity",
-            "degree_day",
-            "degree_hour",
-            "dimensionless",
-            "duration",
-            "energy_per_area",
-            "fraction",
-            "length_day",
-            "length_long",
-            "length_medium",
-            "length_short",
-            "length_tiny",
-            "mass_per_volume",
-            "power_per_area",
-            "precipitation",
-            "precipitation_intensity",
-            "pressure",
-            "significant_weather",
-            "speed",
-            "temperature",
-            "temperature_difference",
-            "time",
-            "turbidity",
-            "volume",
-            "volume_per_time",
-            "wind_scale"
-          ],
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--unit-type"
-          ],
-          "required": false,
-          "default": null
-        }
-      }
-    },
-    "wetterdienst about providers": {
-      "options": {
-        "--datasets": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--datasets"
-          ],
-          "required": false,
-          "default": true
-        },
-        "--debug": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--debug"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--help": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": true,
-          "count": false,
-          "envvar": null,
-          "flag_value": true,
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--help"
-          ],
-          "required": false,
-          "default": false
-        },
-        "--provider": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": null,
-          "type": "text",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--provider"
-          ],
-          "required": false,
-          "default": null
-        },
-        "--quiet": {
-          "param_type_name": "option",
-          "nargs": 1,
-          "multiple": false,
-          "is_flag": false,
-          "count": false,
-          "envvar": null,
-          "flag_value": "true",
-          "type": "boolean",
-          "choices": null,
-          "min": null,
-          "max": null,
-          "spellings": [
-            "--quiet"
-          ],
-          "required": false,
-          "default": false
-        }
-      }
-    },
     "wetterdienst alerts": {
       "options": {
         "--date": {
@@ -953,6 +303,100 @@
         }
       }
     },
+    "wetterdienst auth": {
+      "options": {
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--network": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--network"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        }
+      }
+    },
     "wetterdienst cache": {
       "options": {
         "--help": {
@@ -972,6 +416,446 @@
           ],
           "required": false,
           "default": false
+        }
+      }
+    },
+    "wetterdienst coverage": {
+      "options": {
+        "--datasets": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--datasets"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--network": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--network"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--resolutions": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--resolutions"
+          ],
+          "required": false,
+          "default": null
+        }
+      }
+    },
+    "wetterdienst fields": {
+      "options": {
+        "--dataset": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--dataset"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--language": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "de",
+            "en"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--language"
+          ],
+          "required": false,
+          "default": "en"
+        },
+        "--network": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--network"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--period": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--period"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--resolution": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--resolution"
+          ],
+          "required": true,
+          "default": null
+        }
+      }
+    },
+    "wetterdienst glossary": {
+      "options": {
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--limit": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer range",
+          "choices": null,
+          "min": 1,
+          "max": null,
+          "spellings": [
+            "--limit"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--parameter": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--parameter"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--unit-type": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "angle",
+            "concentration",
+            "conductivity",
+            "degree_day",
+            "degree_hour",
+            "dimensionless",
+            "duration",
+            "energy_per_area",
+            "fraction",
+            "length_day",
+            "length_long",
+            "length_medium",
+            "length_short",
+            "length_tiny",
+            "mass_per_volume",
+            "power_per_area",
+            "precipitation",
+            "precipitation_intensity",
+            "pressure",
+            "significant_weather",
+            "speed",
+            "temperature",
+            "temperature_difference",
+            "time",
+            "turbidity",
+            "volume",
+            "volume_per_time",
+            "wind_scale"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--unit-type"
+          ],
+          "required": false,
+          "default": null
         }
       }
     },
@@ -2112,6 +1996,82 @@
           ],
           "required": true,
           "default": null
+        }
+      }
+    },
+    "wetterdienst providers": {
+      "options": {
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
         }
       }
     },
@@ -5145,5 +5105,5 @@
       }
     }
   },
-  "x-release": "0.185.0"
+  "x-release": "0.186.0"
 }

@@ -35,21 +35,7 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-_COVERAGE_NEEDS_A_NETWORK = (
-    "GH-3996, before 1.0.0: the tool `coverage` describes one network, so `provider` and `network` are required; the "
-    "list of every provider and its networks is the tool `providers`, which has `configured` for each network, and a "
-    "call without them is a tool error that names it"
-)
-ACCEPTED_BREAKS: dict[str, str] = {
-    "tool coverage: argument provider became required": _COVERAGE_NEEDS_A_NETWORK,
-    "tool coverage: argument provider: null is no longer one of the alternatives": _COVERAGE_NEEDS_A_NETWORK,
-    "tool coverage: argument network became required": _COVERAGE_NEEDS_A_NETWORK,
-    "tool coverage: argument network: null is no longer one of the alternatives": _COVERAGE_NEEDS_A_NETWORK,
-    "tool providers: argument datasets was removed": (
-        "GH-3996, before 1.0.0: the tool `providers` lists the providers and their networks only; the resolutions, "
-        "datasets and parameters of a network are the tool `coverage` of that network"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

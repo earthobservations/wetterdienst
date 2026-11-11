@@ -35,13 +35,7 @@ from tests.baselines.common import DIRECTORY, RELEASE, read, write
 BASELINE = DIRECTORY / "parameters.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    # GH-3134: NWS states the visibility as "the ASOS's harmonic mean over 10 minutes" of the 1-minute values, so the
-    # name carries the mean and its window (GH-3151). `visibility` is also the source's own field name there, so a
-    # request for it still selects the row and no rename entry can name it; what changes is the name the values come
-    # back under (`visibility_mean_last_10min`)
-    "nws/observation/hourly/data/visibility was removed": "renamed to visibility_mean_last_10min (GH-3134)",
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: a rename that ends up in a name that is renamed again is followed this far
 _CHAIN = 10
