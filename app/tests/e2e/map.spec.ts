@@ -275,6 +275,61 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await page.mouse.click(box.x + box.width / 2 + beside.x, box.y + box.height / 2 + beside.y)
     await expect(page.getByTestId('map-station-name')).toHaveText('Neuhaus am Rennweg')
     await expect(page.getByTestId('map-place')).toBeVisible()
+    // and the panel says why it is not the nearest: Artern is, and stopped in 2018 (GH-3875)
+    const why = page.getByTestId('map-why')
+    await expect(why).toContainText(/The nearest station that still reports\. Closer: Artern, \d+ km, until 2018\./)
+    // the nearer one is offered, by keyboard too: its record can still matter for the history and the stripes
+    await page.getByTestId('map-pick-closer').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
+    await expect(page.getByTestId('map-station-name')).toBeFocused()
+    await expect(page.getByTestId('map-why')).toHaveCount(0)
+    await expect(page.getByTestId('map-place')).toContainText('A point on the map')
+  })
+
+  test('draws the stations that have stopped as hollow dots, tells them in a legend, and shows neither on the forecast layer', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured')
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const legend = page.getByTestId('map-legend')
+    await expect(legend).toBeVisible()
+    await expect(legend.getByRole('listitem')).toHaveText([en.mapTool.legendReporting, en.mapTool.legendStopped])
+    const map = page.getByRole('application', { name: /^Station map/ })
+    const box = (await map.boundingBox())!
+    const centre = (latitude: number, longitude: number) => {
+      const at = offsetAtOpening(latitude, longitude)
+      return { x: box.x + box.width / 2 + at.x, y: box.y + box.height / 2 + at.y }
+    }
+    // the middle of a dot, by the pixel the canvas has there: the blue of a station that reports, the light of the
+    // halo in the ring of one that has stopped (a difference of fill, not of colour alone)
+    const pixel = ({ x, y }: { x: number, y: number }) => page.evaluate(({ x, y }) => {
+      for (const canvas of document.querySelectorAll<HTMLCanvasElement>('.leaflet-layer canvas')) {
+        const rect = canvas.getBoundingClientRect()
+        if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom)
+          continue
+        const ratio = canvas.width / rect.width
+        const data = canvas.getContext('2d')!.getImageData(Math.round((x - rect.left) * ratio), Math.round((y - rect.top) * ratio), 1, 1).data
+        if (data[3]! > 0)
+          return [data[0], data[1], data[2]]
+      }
+      return null
+    }, { x, y })
+    // Neuhaus am Rennweg reports, Artern stopped in 2018
+    await expect.poll(() => pixel(centre(50.5063, 11.1283))).toEqual([0x23, 0x58, 0xA8])
+    await expect.poll(async () => (await pixel(centre(51.3745, 11.2915)))?.every(channel => channel! >= 220)).toBe(true)
+
+    // the legend is on the map and takes the click, which is no pick of the place under it
+    await legend.scrollIntoViewIfNeeded()
+    const hit = await legend.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return Boolean(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('.map-legend'))
+    })
+    expect(hit).toBe(true)
+    // and its two dots are told apart by their fill, in forced colours too
+    await page.emulateMedia({ forcedColors: 'active' })
+    expect(await legend.evaluate(element => getComputedStyle(element).forcedColorAdjust)).toBe('none')
+    await page.getByTestId('map-layer-forecast').click()
+    await expect(page.getByTestId('map-legend')).toHaveCount(0)
   })
 
   test('keeps the pick for a click on the yellow disc of the station picked, which is bigger than its dot, and does not take it to the station that reports', async ({ page, baseURL }) => {

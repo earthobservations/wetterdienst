@@ -5,9 +5,10 @@ import { createError, getQuery, setResponseHeader } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp, UInputNumber } from '#components'
-import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
+import { clearNuxtState, useRouter, useServerSettings, useSettings, useToast } from '#imports'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
+import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 
@@ -77,6 +78,8 @@ describe('explorer Page', () => {
   afterEach(() => {
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     endpoints.splice(0).forEach(remove => remove())
+    // the app settings are one store of the whole page: a test that changes them puts them back
+    useSettings().reset()
     // toasts are app-wide, so a failed fetch's would be shown by the next test's page
     useToast().clear()
   })
@@ -216,7 +219,8 @@ describe('explorer Page', () => {
     await vi.waitFor(() => expect(requests).toBe(1))
     expect(vm.canFetch).toBe(false)
 
-    vm.dataSettings.humanize = false
+    // the readable names are the app settings': changed there, the request differs, and Show is offered
+    useSettings().settings.value.friendlyLabels = false
     await wrapper.vm.$nextTick()
     expect(vm.canFetch).toBe(true)
     await showButton().trigger('click')
@@ -676,9 +680,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
 
   // the settings the explorer starts from where the server reports none: wetterdienst's
   const WETTERDIENST_DEFAULTS = {
-    humanize: true,
-    convertUnits: true,
-    unitTargets: {},
     shape: 'long',
     skipEmpty: false,
     skipThreshold: 0.95,
@@ -695,7 +696,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
   // the server's settings, by the explorer's names
   const SERVER_DEFAULTS = {
     ...WETTERDIENST_DEFAULTS,
-    humanize: false,
     shape: 'wide',
     skipEmpty: true,
     skipThreshold: 0.8,
@@ -723,12 +723,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     useToast().clear()
   })
 
-  // the Unit Targets setting's "Default (...)" choices, one per type it lists, read from the items
-  // the selects are given (the selects themselves are read by the GH-2391 tests)
-  function defaultUnitChoices(vm: any): string[] {
-    return vm.unitTypes.map((unitType: { type: string, units: string[] }) => vm.unitTargetItems(unitType)[0].label)
-  }
-
   // the query Show sends to /api/values
   async function showQuery(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper'], sent: Record<string, unknown>[]) {
     await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
@@ -736,7 +730,7 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     return sent[0]!
   }
 
-  it('starts from the server\'s settings, names its units as the defaults, and sends every one', async () => {
+  it('starts from the server\'s settings and sends every one, with the names and units of the app settings', async () => {
     endpoints.push(registerEndpoint('/api/settings', () => {
       settingsAsked += 1
       return serverSettings()
@@ -750,21 +744,12 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     await vi.waitFor(() => expect(vm.dataSettings).toEqual(SERVER_DEFAULTS))
     // the boxes' placeholders, and a new parameter's radius, are the server's radii too
     expect(vm.startingSettings).toEqual(SERVER_DEFAULTS)
-    // a unit the app has no name for is named as the server names it
-    expect(defaultUnitChoices(vm)).toEqual([
-      'Default (Degrees Fahrenheit (°F))',
-      'Default (Knots (kn))',
-      'Default (Hectopascal (hPa))',
-      'Default (Millimetres (mm))',
-      'Default (Millimetres per hour (mm/h))',
-      'Default (Centimetres (cm))',
-      'Default (Metres (m))',
-      'Default (furlong)',
-    ])
 
     const query = await showQuery(wrapper, sent)
+    // the server reports humanize off, Fahrenheit, knots and furlongs: the names and units are the app settings'
+    // (GH-3878), which the request names whatever the server's
     expect(query).toMatchObject({
-      humanize: 'false',
+      humanize: 'true',
       convert_units: 'true',
       shape: 'wide',
       skip_empty: 'true',
@@ -772,16 +757,7 @@ describe('explorer Page settings from the server (GH-2359)', () => {
       skip_criteria: 'max',
       drop_nulls: 'false',
     })
-    expect(JSON.parse(String(query.unit_targets))).toEqual({
-      temperature: 'degree_fahrenheit',
-      speed: 'knots',
-      pressure: 'hectopascal',
-      precipitation: 'millimeter',
-      precipitation_intensity: 'millimeter_per_hour',
-      length_short: 'centimeter',
-      length_medium: 'meter',
-      length_long: 'furlong',
-    })
+    expect(JSON.parse(String(query.unit_targets))).toEqual(useSettings().settings.value.units)
     expect(settingsAsked).toBe(1)
   })
 
@@ -799,7 +775,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     await expect(useServerSettings()).resolves.toBeNull()
     expect(settingsAsked).toBeGreaterThan(0)
     expect(vm.dataSettings).toEqual(WETTERDIENST_DEFAULTS)
-    expect(defaultUnitChoices(vm)[0]).toBe('Default (Degrees Celsius (°C))')
 
     // and the page works on
     const query = await showQuery(wrapper, sent)
@@ -818,7 +793,7 @@ describe('explorer Page settings from the server (GH-2359)', () => {
       await held
       return serverSettings()
     }))
-    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?humanize=true&shape=long' })
+    const wrapper = await mountSuspended(ExplorerPage, { route: '/explorer?shape=long' })
     mounted.push(wrapper)
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(settingsAsked).toBe(1))
@@ -832,7 +807,6 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     expect(vm.dataSettings).toEqual({
       ...SERVER_DEFAULTS,
       // the link's
-      humanize: true,
       shape: 'long',
       // the user's
       skipThreshold: 0.5,
@@ -840,28 +814,29 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     })
   })
 
-  it('names every setting in the link, which reads back the same where the server\'s differ', async () => {
+  it('names every setting of the values in the link, which reads back the same where the server\'s differ', async () => {
     endpoints.push(registerEndpoint('/api/settings', () => serverSettings()))
     const { wrapper, vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
-    await vi.waitFor(() => expect(vm.dataSettings.humanize).toBe(false))
+    await vi.waitFor(() => expect(vm.dataSettings.skipEmpty).toBe(true))
 
     // wetterdienst's own, which a link that left it out would read back as the server's
-    vm.dataSettings.humanize = true
+    vm.dataSettings.skipEmpty = false
     await wrapper.vm.$nextTick()
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toMatchObject({
-      humanize: 'true',
-      convertUnits: 'true',
       shape: 'wide',
-      skipEmpty: 'true',
+      skipEmpty: 'false',
       dropNulls: 'false',
     }))
+    // the names and units are the app settings', and no part of the link (GH-3878)
+    expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize')
+    expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
 
     const link = useRouter().currentRoute.value.fullPath
     const reopened = await mountSuspended(ExplorerPage, { route: link })
     mounted.push(reopened)
     await useServerSettings()
     await reopened.vm.$nextTick()
-    expect((reopened.vm as any).dataSettings).toMatchObject({ humanize: true, shape: 'wide', skipEmpty: true, dropNulls: false })
+    expect((reopened.vm as any).dataSettings).toMatchObject({ shape: 'wide', skipEmpty: false, dropNulls: false })
   })
 
   it('keeps a setting the user changed and changed back while the answer was on its way', async () => {
@@ -879,13 +854,13 @@ describe('explorer Page settings from the server (GH-2359)', () => {
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(settingsAsked).toBe(1))
 
-    vm.dataSettings.humanize = false
-    vm.dataSettings.humanize = true
+    vm.dataSettings.skipCriteria = 'max'
+    vm.dataSettings.skipCriteria = 'min'
     release()
     await useServerSettings()
     await wrapper.vm.$nextTick()
 
-    expect(vm.dataSettings.humanize).toBe(true)
+    expect(vm.dataSettings.skipCriteria).toBe('min')
     // one the user left alone is the server's
     expect(vm.dataSettings.shape).toBe('wide')
   })
@@ -946,98 +921,169 @@ describe('explorer Page settings from the server (GH-2359)', () => {
   })
 })
 
-describe('explorer Page Unit Targets selects (GH-2391)', () => {
-  // the errors Vue reports while a test runs: a select item that refuses its value throws in setup
-  const errors: unknown[] = []
-  let stopCollecting: (() => void) | undefined
-
+describe('explorer Page names and units are the app settings\' (GH-3878)', () => {
   beforeEach(() => {
     clearNuxtState('server-settings')
-    errors.length = 0
-    stopCollecting = useNuxtApp().hook('vue:error', (error) => {
-      errors.push(error)
-    })
+    // the settings line is read from the fold-out, which the test opens
   })
 
   afterEach(() => {
-    stopCollecting?.()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     endpoints.splice(0).forEach(remove => remove())
+    useSettings().reset()
     useToast().clear()
   })
 
-  // the explorer on a server converting temperatures to Fahrenheit and speeds to knots, with
-  // Settings -> Unit Targets open
-  async function mountWithUnitTargets(sent: Record<string, unknown>[]) {
-    endpoints.push(registerEndpoint('/api/settings', () => ({
-      values: { unit_targets: { temperature: 'degree_fahrenheit', speed: 'knots' } },
-    })))
-    const { wrapper, vm } = await mountWithSelection((event) => {
+  async function openSettings(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper']) {
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="app-settings-summary"]').exists()).toBe(true))
+  }
+
+  const show = async (wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper'], sent: Record<string, unknown>[], count: number) => {
+    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(sent).toHaveLength(count))
+    return sent[count - 1]!
+  }
+
+  it('tells the app settings in one line with a link to them, and has no copy of them', async () => {
+    const { wrapper } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+    await openSettings(wrapper)
+
+    expect(wrapper.find('[data-testid="app-settings-summary-text"]').text())
+      .toBe('Readable names · Units: °C, hPa, m/s')
+    const link = wrapper.find('[data-testid="app-settings-summary"] a')
+    expect(link.attributes('href')).toBe('/settings')
+    expect(link.text()).toBe('Change in the app settings')
+    // the card, its two switches and its picker of the unit targets are gone
+    expect(wrapper.find('[data-testid="unit-targets"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Humanize parameters')
+    expect(wrapper.text()).not.toContain('Convert to SI units')
+    expect(wrapper.text()).not.toContain('Unit Targets')
+    // the values options stay: they are options of one query
+    expect(wrapper.text()).toContain('Values Options')
+    // nothing says that a link was involved
+    expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+  })
+
+  it('sends the names, the conversion and the units of the app settings, and the next request what they became', async () => {
+    const sent: Record<string, unknown>[] = []
+    const { wrapper } = await mountWithSelection((event) => {
       sent.push(getQuery(event))
       return { values: [VALUE_ROW] }
     })
-    await vi.waitFor(() => expect(vm.unitTargetDefaults.temperature).toBe('degree_fahrenheit'))
-    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.findAll('button').some(b => b.text() === 'Unit Targets')).toBe(true))
-    await wrapper.findAll('button').find(b => b.text() === 'Unit Targets')!.trigger('click')
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="unit-targets"]').exists()).toBe(true))
-    return { wrapper, vm }
-  }
+    await openSettings(wrapper)
 
-  // the Unit Targets selects' triggers, one per type in the order listed
-  function unitTargetTriggers(wrapper: Awaited<ReturnType<typeof mountWithSelection>>['wrapper']) {
-    const unitTargets = wrapper.find('[data-testid="unit-targets"]')
-    return [...unitTargets.element.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')]
-  }
+    const first = await show(wrapper, sent, 1)
+    expect(first).toMatchObject({ humanize: 'true', convert_units: 'true' })
+    expect(JSON.parse(String(first.unit_targets))).toEqual(SETTINGS_DEFAULTS.units)
 
-  // open a select and pick the item labelled `label`
-  async function choose(trigger: HTMLButtonElement, label: string) {
-    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    let item: HTMLElement | undefined
-    await vi.waitFor(() => {
-      const content = document.getElementById(trigger.getAttribute('aria-controls')!)
-      item = [...(content?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])]
-        .find(option => option.textContent?.trim() === label)
-      expect(item).toBeDefined()
-    })
-    item!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    // the select's own content closes once it has taken the choice
-    await vi.waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('false'))
-  }
+    // changed on the settings page, which is the same store
+    const { settings } = useSettings()
+    settings.value.friendlyLabels = false
+    settings.value.units.temperature = 'degree_fahrenheit'
+    settings.value.units.speed = 'knots'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="app-settings-summary-text"]').text())
+      .toBe('Original names · Units: °F, hPa, kn')
 
-  it('names the server\'s unit on each select left at Default, without an error', async () => {
-    const { wrapper } = await mountWithUnitTargets([])
+    const second = await show(wrapper, sent, 2)
+    expect(second).toMatchObject({ humanize: 'false', convert_units: 'true' })
+    expect(JSON.parse(String(second.unit_targets))).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots', pressure: 'hectopascal' })
 
-    // the hint above them is the catalog's, read from it so the copy can change without this test
-    expect(wrapper.find('[data-testid="unit-targets"] p').text())
-      .toBe(useNuxtApp().$i18n.t('explorer.unitTargetsHint'))
-    expect(unitTargetTriggers(wrapper).map(trigger => trigger.textContent?.trim())).toEqual([
-      'Default (Degrees Fahrenheit (°F))',
-      'Default (Knots (kn))',
-      'Default (Hectopascal (hPa))',
-      'Default (Millimetres (mm))',
-      'Default (Millimetres per hour (mm/h))',
-      'Default (Centimetres (cm))',
-      'Default (Metres (m))',
-      'Default (Kilometres (km))',
-    ])
-    expect(errors).toEqual([])
+    settings.value.convertUnits = false
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="app-settings-summary-text"]').text()).toBe('Original names · Units as published')
+    expect(await show(wrapper, sent, 3)).toMatchObject({ convert_units: 'false' })
   })
 
-  it('puts a type chosen back to Default to the server\'s unit in the request', async () => {
-    const sent: Record<string, unknown>[] = []
-    const { wrapper, vm } = await mountWithUnitTargets(sent)
+  it('writes no names or units to the address, so that what the app settings hold then applies', async () => {
+    const { vm } = await mountWithSelection(() => ({ values: [VALUE_ROW] }))
+    vm.dataSettings.shape = 'wide'
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.shape).toBe('wide'))
+    expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize')
+    expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+    expect(vm.dataSettings).not.toHaveProperty('unitTargets')
+  })
 
-    await choose(unitTargetTriggers(wrapper)[0]!, 'Kelvin (K)')
-    expect(vm.dataSettings.unitTargets).toEqual({ temperature: 'degree_kelvin' })
-    await choose(unitTargetTriggers(wrapper)[0]!, 'Default (Degrees Fahrenheit (°F))')
-    expect(vm.dataSettings.unitTargets).toEqual({})
-    expect(unitTargetTriggers(wrapper)[0]!.textContent?.trim()).toBe('Default (Degrees Fahrenheit (°F))')
+  describe('a link of an earlier version, which names them (GH-3878)', () => {
+    const SELECTION = 'provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m'
+    const LINK = `/explorer?${SELECTION}&humanize=false&convertUnits=false&shape=long`
 
-    await wrapper.findAll('button').find(b => b.text() === 'Show')!.trigger('click')
-    await vi.waitFor(() => expect(sent).toHaveLength(1))
-    expect(JSON.parse(String(sent[0]!.unit_targets))).toMatchObject({ temperature: 'degree_fahrenheit', speed: 'knots' })
-    expect(errors).toEqual([])
+    async function openLink(route: string) {
+      endpoints.push(registerEndpoint('/api/coverage', (event) => {
+        if (getQuery(event).provider)
+          return dailyClimateSummaryCoverage()
+        return { dwd: { observation: {} } }
+      }))
+      endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [] })))
+      const wrapper = await mountSuspended(ExplorerWithApp, { route, attachTo: document.body })
+      mounted.push(wrapper)
+      return { wrapper, vm: wrapper.findComponent(ExplorerPage).vm as any }
+    }
+
+    it('applies to that view over the app settings, which it does not change, and stays in the link', async () => {
+      const { wrapper, vm } = await openLink(LINK)
+      expect(vm.dataSettings).toMatchObject({ humanize: false, convertUnits: false })
+      // the choice is the link's: the app settings are not written by opening it
+      expect(useSettings().settings.value).toMatchObject({ friendlyLabels: true, convertUnits: true })
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toMatchObject({ humanize: 'false', convertUnits: 'false' }))
+
+      await openSettings(wrapper)
+      expect(wrapper.find('[data-testid="app-settings-summary-text"]').text()).toBe('Original names · Units as published')
+      expect(wrapper.find('[data-testid="app-settings-override"]').text()).toContain('This link decides whether names are readable and values converted')
+    })
+
+    it('goes back to the app settings with "Use my app settings", and leaves the link', async () => {
+      const { wrapper, vm } = await openLink(LINK)
+      await openSettings(wrapper)
+
+      await wrapper.find('[data-testid="app-settings-override"] button').trigger('click')
+      expect(vm.dataSettings.humanize).toBeUndefined()
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize'))
+      expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+      expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="app-settings-summary-text"]').text()).toBe('Readable names · Units: °C, hPa, m/s')
+    })
+
+    it('takes no override from a link whose values are the app settings\' own, as every address the old page wrote has', async () => {
+      const { wrapper, vm } = await openLink(`/explorer?${SELECTION}&humanize=true&convertUnits=true&shape=long`)
+      expect(vm.dataSettings.humanize).toBeUndefined()
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+      // the address is rewritten without them
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize'))
+      expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+      expect(useRouter().currentRoute.value.query.shape).toBe('long')
+      await openSettings(wrapper)
+      expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+    })
+
+    it('takes the one that differs from the app settings, and not the one that does not', async () => {
+      useSettings().settings.value.friendlyLabels = false
+      const { vm } = await openLink('/explorer?humanize=true&convertUnits=true')
+      expect(vm.dataSettings.humanize).toBe(true)
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+    })
+
+    it('holds a link against the app settings once the server has answered for them, on a first visit', async () => {
+      // the settings of a first visit whose seeding is under way, the server having made names plain, as the link has
+      const { settings } = useSettings()
+      settings.value.seededFromServer = false
+      settings.value.friendlyLabels = false
+      const { wrapper, vm } = await openLink(`/explorer?${SELECTION}&humanize=false&convertUnits=true&shape=long`)
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('humanize'))
+      expect(useRouter().currentRoute.value.query).not.toHaveProperty('convertUnits')
+      expect(vm.dataSettings.humanize).toBeUndefined()
+      expect(vm.dataSettings.convertUnits).toBeUndefined()
+      await openSettings(wrapper)
+      expect(wrapper.find('[data-testid="app-settings-override"]').exists()).toBe(false)
+    })
+
+    it('reads a link that names only one of them', async () => {
+      const { vm } = await openLink('/explorer?convertUnits=false')
+      expect(vm.dataSettings.convertUnits).toBe(false)
+      expect(vm.dataSettings.humanize).toBeUndefined()
+    })
   })
 })
 
@@ -1131,14 +1177,13 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: false })
   })
 
-  // the page opened from the link it wrote on that server, as a reload does, the link naming
-  // `humanize` off the server's too
+  // the page opened from the link it wrote on that server, as a reload does
   async function mountFromLink(query: string) {
     endpoints.push(registerEndpoint('/api/settings', (event) => {
       asked.push(getQuery(event).shape)
       return { values: { ...wideServer(event).values, humanize: false } }
     }))
-    const wrapper = await mountSuspended(ExplorerPage, { route: `/explorer?humanize=true&shape=wide&${query}` })
+    const wrapper = await mountSuspended(ExplorerPage, { route: `/explorer?shape=wide&${query}` })
     mounted.push(wrapper)
     const vm = wrapper.vm as any
     await expect(useServerSettings()).resolves.not.toBeNull()
@@ -1149,7 +1194,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
   it('takes the link\'s Drop nulls on load, over the server\'s', async () => {
     const vm = await mountFromLink('dropNulls=true')
 
-    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'wide', dropNulls: true })
+    expect(vm.dataSettings).toMatchObject({ shape: 'wide', dropNulls: true })
     expect(asked).toEqual([undefined])
   })
 
@@ -1160,7 +1205,7 @@ describe('explorer Page settings of the shape the user switches to (GH-2398)', (
     await vi.waitFor(() => expect(asked).toEqual([undefined, 'long']))
     await settle()
 
-    expect(vm.dataSettings).toMatchObject({ humanize: true, shape: 'long', dropNulls: true })
+    expect(vm.dataSettings).toMatchObject({ shape: 'long', dropNulls: true })
   })
 
   it('keeps a Drop nulls the link names and the user changed (GH-2400)', async () => {
@@ -1317,7 +1362,7 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
 
   // the link once the page has written it, which the link it was opened at, naming no setting, is not
   async function written() {
-    await vi.waitFor(() => expect(query().humanize).toBeDefined())
+    await vi.waitFor(() => expect(query().shape).toBeDefined())
     return query()
   }
 
@@ -1397,7 +1442,7 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
     const stations = gate()
     endpoints.push(registerEndpoint('/api/settings', async () => {
       await settings.held
-      return { values: { humanize: false } }
+      return { values: { shape: 'wide' } }
     }))
     const { vm } = await open(async () => {
       await stations.held
@@ -1406,7 +1451,7 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
 
     expect((await written()).interpolationStation).toBe('01975')
     settings.release()
-    await vi.waitFor(() => expect(query().humanize).toBe('false'))
+    await vi.waitFor(() => expect(query().shape).toBe('wide'))
     expect(query().interpolationStation).toBe('01975')
 
     stations.release()

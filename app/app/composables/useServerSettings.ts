@@ -38,3 +38,14 @@ export function serverSettingsFor(query: Record<string, string>): Promise<Server
     .then(asServerSettings)
     .catch(() => null)
 }
+
+/**
+ * `useServerSettings`, with whether the server has answered for good: its settings, or a 404 (a backend without the
+ * endpoint, which won't have it later), or an answer that is no object. A failure that is not kept, and is asked again by
+ * the next caller, is not (`answered` is false, `settings` null).
+ */
+export function useServerSettingsAnswer(): Promise<{ settings: ServerSettings | null, answered: boolean }> {
+  // the same state `useServerSettings` keeps its answer in, taken before the wait, where the app is still at hand
+  const kept = useState<Promise<ServerSettings | null> | undefined>('server-settings', () => undefined)
+  return useServerSettings().then(settings => ({ settings, answered: settings !== null || kept.value !== undefined }))
+}
