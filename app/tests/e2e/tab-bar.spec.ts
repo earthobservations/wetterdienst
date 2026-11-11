@@ -60,7 +60,7 @@ async function open(page: Page, baseURL: string, path: string, options: Options 
 /** A settings blob of the current version with the order of the bar given */
 function settingsWith(tabBar: unknown) {
   return {
-    version: 1,
+    version: 2,
     friendlyLabels: true,
     convertUnits: true,
     units: {},

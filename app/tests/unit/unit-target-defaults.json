@@ -1,0 +1,154 @@
+{
+  "temperature": {
+    "default": "degree_celsius",
+    "units": [
+      "degree_celsius",
+      "degree_kelvin",
+      "degree_fahrenheit"
+    ]
+  },
+  "precipitation": {
+    "default": "millimeter",
+    "units": [
+      "millimeter",
+      "liter_per_square_meter"
+    ]
+  },
+  "precipitation_intensity": {
+    "default": "millimeter_per_hour",
+    "units": [
+      "millimeter_per_hour",
+      "liter_per_square_meter_per_hour"
+    ]
+  },
+  "pressure": {
+    "default": "hectopascal",
+    "units": [
+      "pascal",
+      "hectopascal",
+      "kilopascal"
+    ]
+  },
+  "speed": {
+    "default": "meter_per_second",
+    "units": [
+      "meter_per_second",
+      "kilometer_per_hour",
+      "knots",
+      "beaufort"
+    ]
+  },
+  "angle": {
+    "default": "degree",
+    "units": [
+      "degree",
+      "radian",
+      "gradian"
+    ]
+  },
+  "fraction": {
+    "default": "percent",
+    "units": [
+      "decimal",
+      "percent",
+      "one_eighth"
+    ]
+  },
+  "length_short": {
+    "default": "centimeter",
+    "units": [
+      "millimeter",
+      "centimeter",
+      "meter",
+      "kilometer",
+      "mile",
+      "nautical_mile"
+    ]
+  },
+  "length_medium": {
+    "default": "meter",
+    "units": [
+      "millimeter",
+      "centimeter",
+      "meter",
+      "kilometer",
+      "mile",
+      "nautical_mile"
+    ]
+  },
+  "length_long": {
+    "default": "kilometer",
+    "units": [
+      "millimeter",
+      "centimeter",
+      "meter",
+      "kilometer",
+      "mile",
+      "nautical_mile"
+    ]
+  },
+  "energy_per_area": {
+    "default": "megajoule_per_square_meter",
+    "units": [
+      "joule_per_square_centimeter",
+      "joule_per_square_meter",
+      "kilojoule_per_square_meter",
+      "megajoule_per_square_meter"
+    ]
+  },
+  "power_per_area": {
+    "default": "watt_per_square_meter",
+    "units": [
+      "watt_per_square_centimeter",
+      "watt_per_square_meter",
+      "kilowatt_per_square_meter"
+    ]
+  },
+  "time": {
+    "default": "second",
+    "units": [
+      "second",
+      "minute",
+      "hour"
+    ]
+  },
+  "duration": {
+    "default": "hour",
+    "units": [
+      "second",
+      "minute",
+      "hour"
+    ]
+  },
+  "degree_day": {
+    "default": "degree_celsius_day",
+    "units": [
+      "degree_celsius_day",
+      "degree_kelvin_day",
+      "degree_fahrenheit_day"
+    ]
+  },
+  "concentration": {
+    "default": "milligram_per_liter",
+    "units": [
+      "milligram_per_liter",
+      "gram_per_liter"
+    ]
+  },
+  "conductivity": {
+    "default": "microsiemens_per_centimeter",
+    "units": [
+      "microsiemens_per_centimeter",
+      "microsiemens_per_meter",
+      "siemens_per_centimeter",
+      "siemens_per_meter"
+    ]
+  },
+  "volume_per_time": {
+    "default": "cubic_meter_per_second",
+    "units": [
+      "liter_per_second",
+      "cubic_meter_per_second"
+    ]
+  }
+}
