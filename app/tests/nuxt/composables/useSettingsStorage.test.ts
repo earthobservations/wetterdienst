@@ -5,8 +5,8 @@ import { nextTick } from 'vue'
 // storage that refuses `window.localStorage` (blocked), a read or a write that throws (a full storage, a private
 // window that refuses it), and a stored value that is nonsense. In every case the app has the defaults, and the choice
 // can be made and holds for as long as the page does. `useSettings` keeps its store in the module, so each test
-// loads a module of its own. The test environment's `localStorage` is Node's, which has no file to keep it in, so the
-// tests give the page a storage of their own.
+// loads a module of its own. Every test starts with the empty storage of tests/setup/storage.ts; the tests here put a
+// storage of their own over it, one they can make fail, and give the shared one back afterwards.
 
 const DEFAULT_BAR = ['forecast', 'explorer', 'stripes', 'history', 'map']
 

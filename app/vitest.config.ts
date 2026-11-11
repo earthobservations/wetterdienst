@@ -9,6 +9,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/unit/*.{test,spec}.ts'],
           environment: 'node',
+          setupFiles: ['tests/setup/storage.ts'],
         },
       },
       await defineVitestProject({
@@ -16,6 +17,9 @@ export default defineConfig({
           name: 'nuxt',
           include: ['tests/nuxt/**/*.{test,spec}.ts'],
           environment: 'nuxt',
+          // a fresh, empty localStorage and sessionStorage for every test, which CI's Node and a
+          // developer's do not give alike (GH-3990)
+          setupFiles: ['tests/setup/storage.ts'],
           // Vitest's 5 s per test and 10 s per hook. The Nuxt environment boots the app in a
           // `beforeAll` of its own, and the first `mountSuspended` of a file loads the locale and
           // the component's lazy parts: about a second on a quiet machine and several times that

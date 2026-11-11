@@ -6,33 +6,14 @@ import { clearNuxtState, useServerSettings } from '#imports'
 import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 
 // A first visit starts from the server's settings (`GET /api/settings`, GH-3878); from then on the stored settings are
-// the visitor's. `useSettings` keeps its store in the module, so each test loads a module of its own, and gives the
-// page a storage of its own (the test environment's has no file to keep it in).
+// the visitor's. `useSettings` keeps its store in the module, so each test loads a module of its own; the storage it
+// finds is the empty one every test starts with (tests/setup/storage.ts).
 
-function memoryStorage() {
-  const items = new Map<string, string>()
-  return {
-    items,
-    getItem: (key: string) => items.get(key) ?? null,
-    setItem: (key: string, value: string) => void items.set(key, String(value)),
-    removeItem: (key: string) => void items.delete(key),
-    clear: () => items.clear(),
-    key: (index: number) => [...items.keys()][index] ?? null,
-    get length() {
-      return items.size
-    },
-  }
-}
-
-const original = Object.getOwnPropertyDescriptor(window, 'localStorage')
-let storage = memoryStorage()
 let answer: () => unknown | Promise<unknown>
 let asked = 0
 let remove: () => void
 
 beforeEach(() => {
-  storage = memoryStorage()
-  Object.defineProperty(window, 'localStorage', { configurable: true, value: storage })
   clearNuxtState('server-settings')
   asked = 0
   remove = registerEndpoint('/api/settings', () => {
@@ -43,10 +24,6 @@ beforeEach(() => {
 
 afterEach(() => {
   remove()
-  if (original)
-    Object.defineProperty(window, 'localStorage', original)
-  else
-    delete (window as any).localStorage
 })
 
 function FAHRENHEIT() {
@@ -61,7 +38,7 @@ async function visit() {
   return useSettings()
 }
 
-const stored = () => JSON.parse(storage.getItem('wd_settings')!)
+const stored = () => JSON.parse(localStorage.getItem('wd_settings')!)
 
 describe('the settings of a first visit', () => {
   it('start from the server\'s settings, and are stored', async () => {
@@ -133,7 +110,7 @@ describe('the settings of a first visit', () => {
   })
 
   it('are not asked for by a visitor who has settings stored', async () => {
-    storage.setItem('wd_settings', JSON.stringify({ version: 2, friendlyLabels: false, convertUnits: true }))
+    localStorage.setItem('wd_settings', JSON.stringify({ version: 2, friendlyLabels: false, convertUnits: true }))
     answer = FAHRENHEIT
     const { settings } = await visit()
     await nextTick()
@@ -219,7 +196,7 @@ describe('the settings of a first visit', () => {
     })
 
     it('goes back to the app\'s defaults with no answer, and has the next load ask again', async () => {
-      storage.setItem('wd_settings', JSON.stringify({ version: 2, units: { ...SETTINGS_DEFAULTS.units, temperature: 'degree_kelvin' } }))
+      localStorage.setItem('wd_settings', JSON.stringify({ version: 2, units: { ...SETTINGS_DEFAULTS.units, temperature: 'degree_kelvin' } }))
       answer = FAHRENHEIT
       const { settings, reset } = await visit()
       reset()
