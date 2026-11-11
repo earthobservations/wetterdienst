@@ -838,8 +838,12 @@
   color: var(--ui-text-muted);
   hyphens: auto;
 }
+/* The panel of a tool's "About" button: under the header row, at the measure of text and flush with the right
+   edge of the row, where the button is, so that on a wide window the two read as one control (GH-3872). Where the
+   window is narrower than the measure it is the full width of the frame, under the title, as on a phone. */
 .page-about {
   margin-top: 1.5rem;
+  margin-left: auto;
   max-width: var(--measure);
   padding: 1.25rem 1.5rem;
   border-radius: calc(var(--ui-radius) * 3);

@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[Explorer, Forecast, Climate stripes, History, Map]` On a wide window the "About" panel of a tool
+  opens under its button, right-aligned and at the width of text, so that the two read as one
+  control (it opened at the left edge, up to 750 px from the button at 2,450 px). On a phone it is
+  still the full width under the title (GH-3872)
 - `[Forecast, Explorer, Climate stripes, Station history]` Before there is a result, all four tools
   show the same placeholder: a dashed frame with the tool's own mark and one sentence that names
   both ways in, searching for a station or picking one on the map, and no longer says "above".
