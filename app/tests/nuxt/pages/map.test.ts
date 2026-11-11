@@ -3,8 +3,9 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseHeader, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
-import { clearNuxtData, useRouter } from '#imports'
+import { clearNuxtData, clearNuxtState, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
+import { stubMemoryStorage } from '../fixtures/storage'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
 // of it, the answers that are empty or fail, the address, and the order of the map and its panel on a phone. The map
@@ -20,7 +21,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate'],
       emits: ['pick', 'view'],
       setup(props, { emit }) {
         stage.props = props
@@ -1641,5 +1642,126 @@ describe('an end that is no date', () => {
     expect(card).not.toContain('NaN')
     expect(card).not.toContain('since')
     expect(card).not.toContain('2006 to')
+  })
+})
+
+// "Use my location" (GH-3651): the reader's position, rounded, marked on the map and picked as a place, kept out of the address
+describe('the reader\'s own position', () => {
+  function mockBrowser(options: { code?: number, permission?: PermissionState } = {}) {
+    const getCurrentPosition = vi.fn((success: (position: unknown) => void, failure: (error: unknown) => void) => {
+      if (options.code)
+        failure({ code: options.code })
+      else
+        success({ coords: { latitude: 53.5412, longitude: 10.1987 } })
+    })
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: options.permission ?? 'prompt' })) } })
+    return getCurrentPosition
+  }
+  beforeEach(() => {
+    stubMemoryStorage()
+    clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
+  })
+  afterEach(() => {
+    delete (navigator as any).geolocation
+    delete (navigator as any).permissions
+    vi.unstubAllGlobals()
+    clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
+  })
+  const locate = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="use-my-location-button"]')
+
+  it('is asked for by the button alone: a map that is only opened asks the browser nothing', async () => {
+    const getCurrentPosition = mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(stage.props.position ?? null).toBeNull()
+  })
+
+  it('is marked on the map, which is told to centre on it, and the nearest station is picked as a place of its own', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+
+    // rounded to two decimals before the map or the panel sees it
+    expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 })
+    expect(stage.props.locate).toBe(1)
+    expect(stage.props.place).toEqual({ latitude: 53.54, longitude: 10.2 })
+    expect(wrapper.find('[data-testid="map-place"]').text()).toMatch(/^Your position, \d+ km from this station$/)
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('HAMBURG-FUHLSBUETTEL chosen')
+    // found in the list the map holds: no request carries the position
+    expect(asked.stations.filter(query => query.latitude || query.longitude || query.rank)).toEqual([])
+  })
+
+  it('centres again for each press', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.locate).toBe(1))
+    await wrapper.find('[data-testid="map-back"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.locate).toBe(2))
+  })
+
+  it('is kept out of the address, which is copied and shared: the station is in it, the position is not', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    const router = useRouter()
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.query.station).toBe('10147'))
+    expect(router.currentRoute.value.query).toEqual({ station: '10147' })
+  })
+
+  it('is picked again in the other layer, by the position', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
+    await layerButton(wrapper, 'measured').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('Hamburg-Fuhlsbüttel'))
+    expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 })
+    expect(wrapper.find('[data-testid="map-place"]').text()).toMatch(/^Your position, /)
+  })
+
+  it('leaves the list and the search as they were where the reader refuses, and says why in the alert region', async () => {
+    const getCurrentPosition = mockBrowser({ code: 1 })
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-problem"]').text()).toContain('Your browser blocks location for this site'))
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-list"]').exists()).toBe(true)
+    expect(wrapper.find('#map-search').exists()).toBe(true)
+    expect(stage.props.position ?? null).toBeNull()
+  })
+
+  it('is not asked for again where the browser reports the permission as denied', async () => {
+    const getCurrentPosition = mockBrowser({ permission: 'denied' })
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-problem"]').text()).toContain('set Location to Allow'))
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+  })
+
+  it('takes the mark off the map when the reader forgets the position', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 }))
+    // the button is in the list of the panel, which a station picked replaces: back to it
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-back"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="map-back"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-forget"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
   })
 })

@@ -44,8 +44,14 @@ export function placeOf(station: Station): Place | null {
 export function usePlace() {
   const place = useState<Place>('place', () => stored() ?? DEFAULT_PLACE)
 
-  function setPlace(next: Place) {
+  /**
+   * Makes `next` the place. It is kept in the browser unless `keep` is false: the station nearest to the reader's own
+   * position (GH-3651) is a place for this visit only, as the position is, unless the reader ticked "remember".
+   */
+  function setPlace(next: Place, keep = true) {
     place.value = next
+    if (!keep)
+      return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     }

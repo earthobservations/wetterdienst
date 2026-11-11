@@ -792,6 +792,7 @@ onBeforeUnmount(() => {
                 :stations="stations"
                 :selected="pickedStations"
                 :loading="stationsPending"
+                locate="list"
                 @update:selected="onPick"
               />
 

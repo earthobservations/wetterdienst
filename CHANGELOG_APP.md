@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" in the four station
+  pickers, the map's panel and Ask the weather: on a press only, never on load, it takes your
+  position, rounds it to about 1 km and picks the nearest station with its distance (the `stations`
+  request ranked by it; the stripes use the list at hand). The map centres on and marks the
+  position; "here" in the questions becomes that station. The position stays in the page's memory,
+  and in this browser (`wd-location`) only if you tick "Remember my position in this browser". A
+  refusal, also one the browser already holds, says how to allow it in a live region; the search
+  stays the way in. The page's `Permissions-Policy` now allows geolocation for itself (the
+  module's default blocked it) (GH-3651)
+
 ### Changed
 
 - `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle

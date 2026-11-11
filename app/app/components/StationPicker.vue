@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="S extends StationPickerStation">
+import type { Point } from '~/utils/map-tool'
 // The one way to pick stations, for the explorer, the history, the forecast and the stripes (GH-3877): a toggle
 // "List | Map" over the one place where the choice is made, and the stations picked as chips under it, in both
 // modes, so that a switch never hides what was chosen. The list is the search field, the map is the map of the
@@ -10,11 +11,19 @@
 // choice of any number of stations; without it a pick replaces the one before, as the forecast and the stripes
 // have it.
 //
-// An action that belongs beside the toggle, such as one that picks the station nearest to where you are, goes
-// in the `actions` slot.
+// An action that belongs beside the toggle goes in the `actions` slot.
+//
+// "Use my location" (GH-3651): with `locate`, a row under the toggle offers to pick the station nearest to the reader
+// (components/UseMyLocation.vue; the position is rounded to about 1 km, and asked for on the press alone). `locate` is
+// the query of the `stations` request that is ranked by the position (`rank=1`: provider, network and parameters of
+// the stations this picker lists), or `'list'` where the picker holds the whole list already (the stripes' stations
+// have no ranking by position, and the list is at hand: nothing is sent). A station found is picked as a pick from the
+// search would be (added for several, in place of the one before for one), and its distance is told.
 import type { StationPickerStation } from '~/utils/station'
 import type { StationPickerMode, StationPickerTool } from '~/utils/station-picker-mode'
 import SegmentedControl from '~/components/SegmentedControl.vue'
+import UseMyLocation from '~/components/UseMyLocation.vue'
+import { distanceKm, formatDistance } from '~/utils/map-tool'
 import { readStationPickerMode, writeStationPickerMode } from '~/utils/station-picker-mode'
 
 const props = defineProps<{
@@ -33,6 +42,8 @@ const props = defineProps<{
   empty?: boolean
   /** A visible label of the choice (the stripes' "Station"): the search's own where the list is shown */
   label?: string
+  /** The nearest station to the reader's position is offered: the query of the ranked `stations` request, or `'list'` */
+  locate?: Record<string, string | undefined> | 'list'
 }>()
 
 const emit = defineEmits<{
@@ -48,7 +59,7 @@ defineSlots<{
   actions?: () => unknown
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
 const mode = ref<StationPickerMode>(readStationPickerMode(props.tool))
@@ -174,6 +185,60 @@ function onMapSelected(stations: S[]) {
   pick(props.multiple ? stations : stations.slice(-1))
 }
 
+// ---- the station nearest to the reader ---------------------------------------------------------------------
+
+const resolving = ref(false)
+const found = ref('')
+const lookupProblem = ref('')
+let lookup = 0
+
+async function nearestTo(point: Point): Promise<S | null> {
+  if (props.locate === 'list') {
+    let best: { station: S, distance: number } | null = null
+    for (const station of props.stations) {
+      if (station.latitude == null || station.longitude == null)
+        continue
+      const distance = distanceKm(point, { latitude: station.latitude, longitude: station.longitude })
+      if (!best || distance < best.distance)
+        best = { station, distance }
+    }
+    return best?.station ?? null
+  }
+  const answer = await $fetch<{ stations: S[] }>('/api/stations', {
+    query: { ...props.locate, latitude: point.latitude, longitude: point.longitude, rank: 1 },
+    ...API_FETCH,
+  })
+  return answer.stations?.find(station => station.latitude != null && station.longitude != null) ?? null
+}
+
+// The position was handed over by the button: the station nearest to it is picked, and its distance told. An answer
+// that arrives after a later press is not the reader's latest and is dropped.
+async function onPosition(point: Point) {
+  const mine = ++lookup
+  resolving.value = true
+  found.value = ''
+  lookupProblem.value = ''
+  try {
+    const station = await nearestTo(point)
+    if (mine !== lookup)
+      return
+    if (!station) {
+      lookupProblem.value = t('location.noneNear')
+      return
+    }
+    pick(props.multiple && !props.selected.some(picked => picked.station_id === station.station_id) ? [...props.selected, station] : [station])
+    found.value = t('location.nearest', { name: stationShortLabel(station), distance: formatDistance(distanceKm(point, station as Point), locale.value) })
+  }
+  catch {
+    if (mine === lookup)
+      lookupProblem.value = t('location.lookupFailed')
+  }
+  finally {
+    if (mine === lookup)
+      resolving.value = false
+  }
+}
+
 // ---- the chips ---------------------------------------------------------------------------------------------
 
 function focusCheckedMode() {
@@ -218,6 +283,8 @@ async function clearAll() {
       />
       <slot name="actions" />
     </div>
+
+    <UseMyLocation v-if="locate" :resolving="resolving" :status="found" :problem="lookupProblem" @position="onPosition" />
 
     <!-- the one place of the choice, the search or the map, which the toggle controls -->
     <div :id="panelId" ref="panel" class="flex flex-col gap-3">

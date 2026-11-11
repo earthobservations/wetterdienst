@@ -767,6 +767,22 @@
     "removeStation": "Usuń {name} z wyboru",
     "announceList": "Wyszukiwanie stacji"
   },
+  "location": {
+    "button": "Użyj mojej lokalizacji",
+    "locating": "Ustalanie Twojej lokalizacji …",
+    "remember": "Zapamiętaj moją lokalizację w tej przeglądarce",
+    "note": "Zaokrąglona do około 1 km i używana tylko do znalezienia najbliższej stacji. Zostaje w tej przeglądarce tylko wtedy, gdy zaznaczysz pole.",
+    "remembered": "Zapamiętana lokalizacja: {position}",
+    "forget": "Zapomnij moją lokalizację",
+    "denied": "Twoja przeglądarka blokuje lokalizację dla tej witryny. Aby ją zezwolić, otwórz ustawienia witryny w przeglądarce, ustaw Lokalizację na Zezwalaj i naciśnij przycisk jeszcze raz. Wyszukiwanie nadal działa.",
+    "unsupported": "Ta przeglądarka nie potrafi ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",
+    "unavailable": "Nie udało się ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",
+    "timeout": "Ustalanie Twojej lokalizacji trwało zbyt długo. Naciśnij przycisk jeszcze raz lub użyj wyszukiwania.",
+    "nearest": "Najbliższa stacja: {name}, {distance} od Twojej lokalizacji.",
+    "noneNear": "W pobliżu Twojej lokalizacji nie znaleziono żadnej stacji.",
+    "lookupFailed": "Nie udało się wyszukać najbliższej stacji. Spróbuj ponownie lub użyj wyszukiwania.",
+    "here": "Pytanie dotyczy miejsca {name}, stacji oddalonej o {distance} od Twojej lokalizacji."
+  },
   "interpolation": {
     "source": "Źródło",
     "manualCoords": "Współrzędne ręczne",
@@ -833,6 +849,7 @@
     "chosen": "Wybrano: {name}",
     "pickedPlace": "Punkt na mapie, {distance} od tej stacji",
     "pickedCentre": "Miejsce w środku mapy w chwili wyboru, {distance} od tej stacji",
+    "pickedPosition": "Twoja lokalizacja, {distance} od tej stacji",
     "pickedPlaceAddress": "Wybrane miejsce, {distance} od tej stacji",
     "pickedStationPlace": "Położenie stacji {name}, {distance} od tej stacji",
     "elevation": "{value} m n.p.m.",

@@ -767,6 +767,22 @@
     "removeStation": "Retirer {name} de la sélection",
     "announceList": "Recherche de station"
   },
+  "location": {
+    "button": "Utiliser ma position",
+    "locating": "Recherche de ta position …",
+    "remember": "Mémoriser ma position dans ce navigateur",
+    "note": "Arrondie à environ 1 km et utilisée uniquement pour trouver la station la plus proche. Elle ne reste dans ce navigateur que si tu coches la case.",
+    "remembered": "Position mémorisée : {position}",
+    "forget": "Oublier ma position",
+    "denied": "Ton navigateur bloque la localisation pour ce site. Pour l'autoriser, ouvre les paramètres du site dans ton navigateur, règle Localisation sur Autoriser, puis appuie de nouveau sur le bouton. La recherche fonctionne toujours.",
+    "unsupported": "Ce navigateur ne peut pas déterminer ta position. Utilise plutôt la recherche.",
+    "unavailable": "Ta position n'a pas pu être déterminée. Utilise plutôt la recherche.",
+    "timeout": "La recherche de ta position a pris trop de temps. Appuie de nouveau sur le bouton ou utilise la recherche.",
+    "nearest": "Station la plus proche : {name}, à {distance} de ta position.",
+    "noneNear": "Aucune station n'a été trouvée près de ta position.",
+    "lookupFailed": "La station la plus proche n'a pas pu être recherchée. Réessaie ou utilise la recherche.",
+    "here": "La question porte sur {name}, la station à {distance} de ta position."
+  },
   "interpolation": {
     "source": "Source",
     "manualCoords": "Coordonnées manuelles",
@@ -833,6 +849,7 @@
     "chosen": "{name} choisie",
     "pickedPlace": "Un point de la carte, à {distance} de cette station",
     "pickedCentre": "Le lieu au centre de la carte quand il a été choisi, à {distance} de cette station",
+    "pickedPosition": "Ta position, à {distance} de cette station",
     "pickedPlaceAddress": "Le lieu choisi, à {distance} de cette station",
     "pickedStationPlace": "La position de {name}, à {distance} de cette station",
     "elevation": "{value} m d'altitude",

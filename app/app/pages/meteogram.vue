@@ -79,6 +79,9 @@ const stations = ref<Station[]>([])
 const stationsLoading = ref(false)
 const stationsFailed = ref(false)
 
+// "Use my location" asks for the MOSMIX station nearest to the reader, as the list is asked
+const locateNearest = { provider: MOSMIX.provider, network: MOSMIX.network, parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}` }
+
 const selectedStationsArray = computed(() => (selectedStation.value ? [selectedStation.value] : []))
 
 async function loadStations() {
@@ -346,6 +349,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :selected="selectedStationsArray"
               :loading="stationsLoading"
               :error="stationsFailed"
+              :locate="locateNearest"
               @update:selected="onPick"
               @update:open="onPickerWants"
               @update:mode="onPickerWants($event === 'map')"

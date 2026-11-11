@@ -767,6 +767,22 @@
     "removeStation": "Odebrat {name} z výběru",
     "announceList": "Hledání stanic"
   },
+  "location": {
+    "button": "Použít moji polohu",
+    "locating": "Zjišťuje se tvoje poloha …",
+    "remember": "Zapamatovat si moji polohu v tomto prohlížeči",
+    "note": "Zaokrouhlená na zhruba 1 km a použitá jen k nalezení nejbližší stanice. V tomto prohlížeči zůstane, jen když zaškrtneš políčko.",
+    "remembered": "Zapamatovaná poloha: {position}",
+    "forget": "Zapomenout moji polohu",
+    "denied": "Tvůj prohlížeč blokuje polohu pro tento web. Chceš-li ji povolit, otevři nastavení webu v prohlížeči, nastav Polohu na Povolit a tlačítko stiskni znovu. Vyhledávání funguje dál.",
+    "unsupported": "Tento prohlížeč tvoji polohu zjistit neumí. Použij místo toho vyhledávání.",
+    "unavailable": "Tvoji polohu se nepodařilo zjistit. Použij místo toho vyhledávání.",
+    "timeout": "Zjišťování tvé polohy trvalo příliš dlouho. Stiskni tlačítko znovu nebo použij vyhledávání.",
+    "nearest": "Nejbližší stanice: {name}, {distance} od tvé polohy.",
+    "noneNear": "V blízkosti tvé polohy nebyla nalezena žádná stanice.",
+    "lookupFailed": "Nejbližší stanici se nepodařilo vyhledat. Zkus to znovu nebo použij vyhledávání.",
+    "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy."
+  },
   "interpolation": {
     "source": "Zdroj",
     "manualCoords": "Ruční souřadnice",
@@ -833,6 +849,7 @@
     "chosen": "Vybráno: {name}",
     "pickedPlace": "Bod na mapě, {distance} od této stanice",
     "pickedCentre": "Místo ve středu mapy v okamžiku výběru, {distance} od této stanice",
+    "pickedPosition": "Tvoje poloha, {distance} od této stanice",
     "pickedPlaceAddress": "Vybrané místo, {distance} od této stanice",
     "pickedStationPlace": "Poloha stanice {name}, {distance} od této stanice",
     "elevation": "{value} m n. m.",
