@@ -3662,6 +3662,37 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "td"): "Dew Point Temperature 1 Min Mean",
         ("10_minutes", "data", "tg"): "Air Temperature 10 cm Mean",
         ("10_minutes", "data", "vv"): "Horizontal Visibility Mean",
+        ("annual", "data", "DDVEC"): (
+            "Annual vector mean wind direction, representative for 10 meters, in degrees. Wind direction "
+            "has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; "
+            "270=west; 0=calm/variable."
+        ),
+        ("annual", "data", "DR"): ("Annual precipitation duration, in hours."),
+        ("annual", "data", "EEG"): ("Annual mean vapor pressure, in hectopascal."),
+        ("annual", "data", "FG"): ("Annual mean wind speed, representative for 10 meters, in meters per second."),
+        ("annual", "data", "FHN"): (
+            "Annual minimum hourly wind speed, representative for 10 meters, in meters per second."
+        ),
+        ("annual", "data", "FHX"): (
+            "Annual maximum hourly wind speed, representative for 10 meters, in meters per second."
+        ),
+        ("annual", "data", "FXX"): ("Annual maximum wind gust, representative for 10 meters, in meters per second."),
+        ("annual", "data", "NG"): ("Annual mean cloud cover, in okta. 9=sky invisible."),
+        ("annual", "data", "PG"): ("Annual mean sea level pressure, in hectopascal."),
+        ("annual", "data", "PN"): ("Annual minimum mean sea level pressure, in hectopascal."),
+        ("annual", "data", "PX"): ("Annual maximum hourly mean sea level pressure, in hectopascal."),
+        ("annual", "data", "Q"): ("Annual global solar radiation, in joules per square centimeter."),
+        ("annual", "data", "RH"): ("Annual precipitation amount, in millimeters."),
+        ("annual", "data", "RHX"): ("Annual maximum hourly precipitation amount."),
+        ("annual", "data", "SP"): ("Annual percentage of potential sunshine duration."),
+        ("annual", "data", "SQ"): ("Annual sunshine duration in hours, calculated from global solar radiation."),
+        ("annual", "data", "TG"): ("Annual mean air temperature at 1.50 meters, in degrees Celsius."),
+        ("annual", "data", "TN"): ("Annual minimum air temperature at 1.50 meters, in degrees Celsius."),
+        ("annual", "data", "TX"): ("Annual maximum air temperature at 1.50 meters, in degrees Celsius."),
+        ("annual", "data", "TZG"): ("Annual mean sea temperature in degrees Celsius."),
+        ("annual", "data", "UG"): ("Annual mean relative atmospheric humidity."),
+        ("annual", "data", "UN"): ("Annual minimum relative atmospheric humidity."),
+        ("annual", "data", "UX"): ("Annual maximum relative atmospheric humidity."),
         ("daily", "data", "DR"): "Precipitation duration",
         ("daily", "data", "EV24"): "Potential evapotranspiration (Makkink)",
         ("daily", "data", "FG"): "Mean wind speed",
@@ -3690,6 +3721,37 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "T"): "Temperature",
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
+        ("monthly", "data", "DDVEC"): (
+            "Monthly vector mean wind direction, representative for 10 meters, in degrees. Wind direction "
+            "has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; "
+            "270=west; 0=calm/variable."
+        ),
+        ("monthly", "data", "DR"): ("Monthly precipitation duration, in hours."),
+        ("monthly", "data", "EEG"): ("Monthly mean vapor pressure, in hectopascal."),
+        ("monthly", "data", "FG"): ("Monthly mean wind speed, representative for 10 meters, in meters per second."),
+        ("monthly", "data", "FHN"): (
+            "Monthly minimum hourly wind speed, representative for 10 meters, in meters per second."
+        ),
+        ("monthly", "data", "FHX"): (
+            "Monthly maximum hourly wind speed, representative for 10 meters, in meters per second."
+        ),
+        ("monthly", "data", "FXX"): ("Monthly maximum wind gust, representative for 10 meters, in meters per second."),
+        ("monthly", "data", "NG"): ("Monthly mean cloud cover, in okta. 9=sky invisible."),
+        ("monthly", "data", "PG"): ("Monthly mean sea level pressure, in hectopascal."),
+        ("monthly", "data", "PN"): ("Monthly minimum mean sea level pressure, in hectopascal."),
+        ("monthly", "data", "PX"): ("Monthly maximum hourly mean sea level pressure, in hectopascal."),
+        ("monthly", "data", "Q"): ("Monthly global solar radiation, in joules per square centimeter."),
+        ("monthly", "data", "RH"): ("Monthly precipitation amount, in millimeters."),
+        ("monthly", "data", "RHX"): ("Monthly maximum hourly precipitation amount."),
+        ("monthly", "data", "SP"): ("Monthly percentage of potential sunshine duration."),
+        ("monthly", "data", "SQ"): ("Monthly sunshine duration in hours, calculated from global solar radiation."),
+        ("monthly", "data", "TG"): ("Monthly mean of daily mean air temperatures at 1.50 meters, in degrees Celsius."),
+        ("monthly", "data", "TN"): ("Monthly minimum air temperature at 1.50 meters, in degrees Celsius."),
+        ("monthly", "data", "TX"): ("Monthly maximum air temperature at 1.50 meters, in degrees Celsius."),
+        ("monthly", "data", "TZG"): ("Monthly mean sea temperature in degrees Celsius."),
+        ("monthly", "data", "UG"): ("Monthly mean relative atmospheric humidity."),
+        ("monthly", "data", "UN"): ("Monthly minimum relative atmospheric humidity."),
+        ("monthly", "data", "UX"): ("Monthly maximum relative atmospheric humidity."),
     },
     # the observation section of the field list on https://api.meteo.lt/ (Lithuanian, read 2026-10-21), translated
     # sentence by sentence: "airTemperature - oro temperatūra, °C.", "windGust - vėjo gūsis, m/s. Maksimalus gūsis per

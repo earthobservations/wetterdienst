@@ -10,6 +10,43 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
+
+def _validated_period_parameters() -> list[dict]:
+    """Declare the variables of the monthly and the annual validated files, which are the same.
+
+    A file holds every station for one month or one year. The variables, units and descriptions are read from real
+    files (monthly 202609 and annual 2024, GH-4006) and mirror the daily file's names, so the 'Monthly ...' /
+    'Annual ...' descriptions of the files state the statistic: TG is the mean of the daily mean temperatures, TN and
+    TX the extremes of the period, RH, DR, SQ and Q sums. A variable of the files that has no canonical name is left
+    out, which `docs/data/provider/knmi/observation/monthly.md` lists with the reason.
+    """
+    return [
+        {"name": "temperature_air_mean_2m", "name_original": "TG", "unit": "degree_celsius"},
+        {"name": "temperature_air_min_2m", "name_original": "TN", "unit": "degree_celsius"},
+        {"name": "temperature_air_max_2m", "name_original": "TX", "unit": "degree_celsius"},
+        {"name": "temperature_water_mean", "name_original": "TZG", "unit": "degree_celsius"},
+        {"name": "humidity_relative_mean", "name_original": "UG", "unit": "percent"},
+        {"name": "humidity_relative_min", "name_original": "UN", "unit": "percent"},
+        {"name": "humidity_relative_max", "name_original": "UX", "unit": "percent"},
+        {"name": "pressure_vapor_mean", "name_original": "EEG", "unit": "hectopascal"},
+        {"name": "wind_speed_mean", "name_original": "FG", "unit": "meter_per_second"},
+        {"name": "wind_speed_min", "name_original": "FHN", "unit": "meter_per_second"},
+        {"name": "wind_speed_max", "name_original": "FHX", "unit": "meter_per_second"},
+        {"name": "wind_gust_max", "name_original": "FXX", "unit": "meter_per_second"},
+        {"name": "wind_direction_mean", "name_original": "DDVEC", "unit": "degree"},
+        {"name": "precipitation_amount", "name_original": "RH", "unit": "millimeter"},
+        {"name": "precipitation_amount_max", "name_original": "RHX", "unit": "millimeter"},
+        {"name": "precipitation_duration", "name_original": "DR", "unit": "hour"},
+        {"name": "pressure_air_sea_level_mean", "name_original": "PG", "unit": "hectopascal"},
+        {"name": "pressure_air_sea_level_min", "name_original": "PN", "unit": "hectopascal"},
+        {"name": "pressure_air_sea_level_max", "name_original": "PX", "unit": "hectopascal"},
+        {"name": "sunshine_duration", "name_original": "SQ", "unit": "hour"},
+        {"name": "sunshine_duration_relative", "name_original": "SP", "unit": "percent"},
+        {"name": "radiation_global", "name_original": "Q", "unit": "joule_per_square_centimeter"},
+        {"name": "cloud_cover_total_mean", "name_original": "NG", "unit": "one_eighth"},
+    ]
+
+
 _KnmiObservationMetadataSpec = {
     "name_short": "KNMI",
     "name_english": "Royal Netherlands Meteorological Institute",
@@ -307,6 +344,36 @@ _KnmiObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                     ],
+                },
+            ],
+        },
+        {
+            "name": "monthly",
+            "name_original": "monthly",
+            "periods": ["historical"],
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "timestamp_position": "start",
+                    "parameters": _validated_period_parameters(),
+                },
+            ],
+        },
+        {
+            "name": "annual",
+            "name_original": "annual",
+            "periods": ["historical"],
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "timestamp_position": "start",
+                    "parameters": _validated_period_parameters(),
                 },
             ],
         },

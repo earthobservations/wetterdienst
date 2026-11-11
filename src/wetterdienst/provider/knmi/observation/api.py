@@ -63,13 +63,25 @@ _DATASET_BY_RESOLUTION = {
     Resolution.MINUTE_10: ("10-minute-in-situ-meteorological-observations", "1.0"),
     Resolution.HOURLY: ("hourly-in-situ-meteorological-observations-validated", "1.0"),
     Resolution.DAILY: ("daily-in-situ-meteorological-observations-validated", "1.0"),
+    Resolution.MONTHLY: ("monthly-in-situ-meteorological-observations-validated", "1.0"),
+    Resolution.ANNUAL: ("annual-in-situ-meteorological-observations-validated", "1.0"),
 }
+
+#: The datasets whose files are named for a period (a month, a year) and not for the moment they were made: the latest
+#: file is the last period, which is not always the one made last (the annual file of 2023 was made after those of 2024
+#: and 2025, read 2026-11-11)
+_LATEST_BY_FILENAME = frozenset(
+    _DATASET_BY_RESOLUTION[resolution][0] for resolution in (Resolution.MONTHLY, Resolution.ANNUAL)
+)
 
 _STEP_BY_RESOLUTION = {
     Resolution.MINUTE_10: dt.timedelta(minutes=10),
     Resolution.HOURLY: dt.timedelta(hours=1),
     Resolution.DAILY: dt.timedelta(days=1),
 }
+
+#: The periods of a month and of a year, which are no fixed length
+_CALENDAR_RESOLUTIONS = (Resolution.MONTHLY, Resolution.ANNUAL)
 
 #: What a download of KNMI returns when it is not an answer to the request, and must be raised: no connection,
 #: no answer, a refused key.
@@ -90,16 +102,33 @@ def _filename_for(resolution: Resolution, moment: dt.datetime) -> str:
         return f"KMDS__OPER_P___10M_OBS_L2_{moment:%Y%m%d%H%M}.nc"
     if resolution == Resolution.HOURLY:
         return f"hourly-observations-validated-{moment:%Y%m%d}-{moment:%H}.nc"
-    return f"daily-observations-validated-{moment:%Y%m%d}.nc"
+    if resolution == Resolution.DAILY:
+        return f"daily-observations-validated-{moment:%Y%m%d}.nc"
+    if resolution == Resolution.MONTHLY:
+        return f"monthly-observations-validated-{moment:%Y%m}.nc"
+    return f"annual-observations-validated-{moment:%Y}.nc"
 
 
 def _floor(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
-    """Snap a moment down to its resolution's interval boundary (:X0 / :00 / midnight)."""
+    """Snap a moment down to its resolution's interval boundary (:X0 / :00 / midnight / the 1st / 1 January)."""
     if resolution == Resolution.MINUTE_10:
         return moment.replace(minute=moment.minute - moment.minute % 10, second=0, microsecond=0)
     if resolution == Resolution.HOURLY:
         return moment.replace(minute=0, second=0, microsecond=0)
+    if resolution == Resolution.MONTHLY:
+        return moment.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if resolution == Resolution.ANNUAL:
+        return moment.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
     return moment.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _advance(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
+    """Move a moment on its boundary to the next one: the next 10 minutes, hour, day, month or year."""
+    if resolution == Resolution.MONTHLY:
+        return moment.replace(year=moment.year + moment.month // 12, month=moment.month % 12 + 1)
+    if resolution == Resolution.ANNUAL:
+        return moment.replace(year=moment.year + 1)
+    return moment + _STEP_BY_RESOLUTION[resolution]
 
 
 def _resolution_of(parameter_or_dataset: ParameterModel | DatasetModel) -> Resolution:
@@ -111,7 +140,7 @@ def _resolution_of(parameter_or_dataset: ParameterModel | DatasetModel) -> Resol
 def _ceil(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
     """Snap a moment up to its resolution's interval boundary, the moment itself if it is on one."""
     floored = _floor(moment, resolution)
-    return floored if floored == moment else floored + _STEP_BY_RESOLUTION[resolution]
+    return floored if floored == moment else _advance(floored, resolution)
 
 
 def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
@@ -132,16 +161,26 @@ def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
     - daily: the name is the date, the time coordinate is the end of that UTC day (the next 00:00); the value is
       stamped with the date, as for every provider (`TG` 11.5 of `daily-observations-validated-20261014.nc` is the
       value of 20261014 in the legacy export).
+    - monthly and annual: the name is the period, the time coordinate is the end of it (the 1st of the next month,
+      1 January of the next year, 00:00 UTC; long_name 'Time (in UTC) indicating the end of the monthly measurement
+      interval'). Read from real files on 2026-11-11: `monthly-observations-validated-202609.nc` has the time
+      2026-10-01, `-190101.nc` 1901-02-01, `annual-observations-validated-2024.nc` 2025-01-01 and `-1901.nc` 1902-01-01.
+      The value is stamped with the first day of the period, as for the daily file, and as every provider labels a
+      month and a year.
     """
     return moment + dt.timedelta(hours=1) if resolution == Resolution.HOURLY else moment
 
 
 def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> Iterator[dt.datetime]:
     """Yield the moments that name the files whose values are stamped within [start_date, end_date]."""
-    step = _STEP_BY_RESOLUTION[resolution]
     if resolution == Resolution.HOURLY:
         # the hour that ends at the first stamp at or after start_date (its file is named for the start of it)
-        current = _ceil(start_date, resolution) - step
+        current = _ceil(start_date, resolution) - _STEP_BY_RESOLUTION[resolution]
+    elif resolution in _CALENDAR_RESOLUTIONS:
+        # a month or a year is stamped with its first day: the first one at or after start_date (the request has
+        # floored a start that is alone in its resolution, as for a day; a start of a mixed request that is mid-month
+        # leaves that month out, whose stamp is before it, as the framework's filter would)
+        current = _ceil(start_date, resolution)
     elif resolution == Resolution.MINUTE_10:
         # 10-minute filenames encode the minute, so an unaligned start would not resolve -- floor it (the over-fetched
         # pre-start file is trimmed by the framework's [start, end] filter)
@@ -152,7 +191,7 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
         current = start_date
     while _stamp(current, resolution) <= end_date:
         yield current
-        current += step
+        current = _advance(current, resolution)
 
 
 #: How old the end of the interval a file covers must be for its content to be kept long: KNMI may still fill in a
@@ -181,16 +220,20 @@ def _file_expiry(end: dt.datetime | None) -> CacheExpiry:
     return CacheExpiry.TWELVE_HOURS
 
 
-#: The moment a filename is named for, as `_filename_for` writes it: the 10-minute, the hourly and the daily layout
-_FILENAME_MOMENT = re.compile(r"(?:_(\d{12})|-(\d{8}-\d{2})|-(\d{8}))\.nc$")
+#: The moment a filename is named for, as `_filename_for` writes it: the 10-minute, the hourly, the daily, the monthly
+#: and the annual layout
+_FILENAME_MOMENT = re.compile(r"(?:_(\d{12})|-(\d{8}-\d{2})|-(\d{8})|-(\d{6})|-(\d{4}))\.nc$")
 
-#: What a file's name says of the interval it covers, by layout: how the name reads, and how long the interval is
-#: after the moment of the name (`_stamp`: the 10-minute name is the end, the hourly name the start of its hour, the
-#: daily name the date of a day that ends 24 hours later)
+#: What a file's name says of the interval it covers, by layout: how the name reads, and the resolution whose step is
+#: the interval after the moment of the name (`_stamp`: the 10-minute name is the end, the hourly name the start of its
+#: hour, the daily name the date of a day that ends 24 hours later, the monthly and the annual name the first day of
+#: a month and of a year, which end at the next 1st and the next 1 January)
 _INTERVAL_OF_NAME = (
-    ("%Y%m%d%H%M", dt.timedelta(0)),
-    ("%Y%m%d-%H", dt.timedelta(hours=1)),
-    ("%Y%m%d", dt.timedelta(days=1)),
+    ("%Y%m%d%H%M", None),
+    ("%Y%m%d-%H", Resolution.HOURLY),
+    ("%Y%m%d", Resolution.DAILY),
+    ("%Y%m", Resolution.MONTHLY),
+    ("%Y", Resolution.ANNUAL),
 )
 
 
@@ -198,16 +241,18 @@ def _end_of(filename: str) -> dt.datetime | None:
     """Read from its name where the interval a file covers ends, in UTC; None for a name that has no moment.
 
     The end, because KNMI fills a file in until its interval is over: the stamp of an hourly value is the end of
-    its hour (`_stamp`), so a file named for the start of an hour ends an hour after the name, and a daily file
-    ends at the next midnight. This is what the age of a file is taken from, whichever label the reader asked it
+    its hour (`_stamp`), so a file named for the start of an hour ends an hour after the name, a daily file
+    ends at the next midnight, a monthly one at the start of the next month and an annual one at the next 1 January.
+    This is what the age of a file is taken from, whichever label the reader asked it
     by (a mixed request keeps an unaligned daily label), and for a file only known by name (the latest of a listing).
     """
     found = _FILENAME_MOMENT.search(filename)
     if found is None:
         return None
-    for text, (layout, length) in zip(found.groups(), _INTERVAL_OF_NAME, strict=True):
+    for text, (layout, resolution) in zip(found.groups(), _INTERVAL_OF_NAME, strict=True):
         if text is not None:
-            return dt.datetime.strptime(text, layout).replace(tzinfo=dt.UTC) + length
+            start = dt.datetime.strptime(text, layout).replace(tzinfo=dt.UTC)
+            return start if resolution is None else _advance(start, resolution)
     return None
 
 
@@ -312,7 +357,8 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
     "Validated" datasets lag well behind real time (observed: ~1-2 days for hourly),
     so guessing a fixed offset from now() isn't reliable -- ask the API directly.
     """
-    url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files?maxKeys=1&orderBy=created&sorting=desc"
+    order_by = "filename" if dataset_name in _LATEST_BY_FILENAME else "created"
+    url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files?maxKeys=1&orderBy={order_by}&sorting=desc"
     client_kwargs = {
         **settings.fsspec_client_kwargs,
         "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "Authorization": reveal(settings.auth.knmi)},
@@ -456,7 +502,13 @@ class KnmiObservationValues(TimeseriesValues):
                 )
                 continue
             with _forgotten_if_unreadable(dataset_name, version, filename, settings):
-                df = parse_knmi_netcdf(payload, station_id, parameter_names, _stamp(moment, resolution))
+                df = parse_knmi_netcdf(
+                    payload,
+                    station_id,
+                    parameter_names,
+                    _stamp(moment, resolution),
+                    trace_codes=resolution not in _CALENDAR_RESOLUTIONS,
+                )
             if not df.is_empty():
                 frames.append(df)
         # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value, quality_flags) schema
@@ -506,8 +558,10 @@ class KnmiObservationRequest(TimeseriesRequest):
             for parameter_or_dataset in self.parameters
             if isinstance(parameter_or_dataset, (ParameterModel, DatasetModel))
         }
-        if self.start and resolutions == {Resolution.DAILY}:
-            self.start = _floor(cast("dt.datetime", self.start), Resolution.DAILY)
+        # the same for a month and a year, which are stamped with their first day (`_stamp`)
+        for resolution in (Resolution.DAILY, *_CALENDAR_RESOLUTIONS):
+            if self.start and resolutions == {resolution}:
+                self.start = _floor(cast("dt.datetime", self.start), resolution)
 
     def _all(self) -> pl.LazyFrame:
         """Enumerate stations per requested resolution.

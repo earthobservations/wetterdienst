@@ -6,7 +6,7 @@ Instituut)
 ## Overview
 
 KNMI publishes observations from the Dutch weather station network through its Data
-Platform, covering 10-minute, hourly and daily resolution. Access requires a free API key,
+Platform, covering 10-minute, hourly, daily, monthly and annual resolution. Access requires a free API key,
 which you can request at
 [developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) and provide via
 the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"})`).
@@ -14,8 +14,8 @@ the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"
 ## License
 
 KNMI data is published as open data through the
-[KNMI Data Platform](https://dataplatform.knmi.nl/), where each of the three datasets read here
-(10-minute, hourly and daily in-situ observations) lists its licence as
+[KNMI Data Platform](https://dataplatform.knmi.nl/), where each of the five datasets read here
+(10-minute, hourly, daily, monthly and annual in-situ observations) lists its licence as
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 The platform's [fair use policy](https://developer.dataplatform.knmi.nl/fair-use) (read 2026-11-06) asks of a caller:

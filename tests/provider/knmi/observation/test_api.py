@@ -984,6 +984,48 @@ def test_knmi_observation_values_10_minutes() -> None:
     assert value_of("wind_speed_mean") == pytest.approx(3.01)
 
 
+@pytest.mark.remote
+@requires_knmi_credentials
+@pytest.mark.parametrize(
+    ("resolution", "moment", "expected"),
+    [
+        # read from the real files with a key, 2026-11-11 (GH-4006): the file of January 1901 (time coordinate
+        # 1901-02-01) and of 2024 (time coordinate 2025-01-01), stamped with the first day of their period
+        pytest.param(
+            "monthly",
+            dt.datetime(1901, 1, 1, tzinfo=UTC),
+            {"temperature_air_mean_2m": -0.3, "temperature_air_min_2m": -12.2, "temperature_air_max_2m": 9.6},
+            id="monthly",
+        ),
+        pytest.param(
+            "annual",
+            dt.datetime(2024, 1, 1, tzinfo=UTC),
+            {"temperature_air_mean_2m": 11.8, "temperature_air_min_2m": -7.6, "precipitation_amount": 1064.3},
+            id="annual",
+        ),
+    ],
+)
+def test_knmi_observation_values_monthly_and_annual(
+    resolution: str, moment: dt.datetime, expected: dict[str, float]
+) -> None:
+    """De Bilt's monthly and annual values match the real files and are stamped with the first day of the period."""
+    df = (
+        KnmiObservationRequest(
+            parameters=[(resolution, "data")],
+            start=moment + dt.timedelta(days=3),
+            end=moment + dt.timedelta(days=3),
+        )
+        .filter_by_station_id(DE_BILT)
+        .values()
+        .all()
+        .df
+    )
+    assert df["resolution"].unique().to_list() == [resolution]
+    assert df["timestamp"].unique().to_list() == [moment]
+    for parameter, value in expected.items():
+        assert df.filter(pl.col("parameter").eq(parameter)).get_column("value").item() == pytest.approx(value)
+
+
 def test_knmi_download_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """A download that failed for want of a network is returned at once, not retried."""
     calls = []

@@ -100,7 +100,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
 - KNMI (Koninklijk Nederlands Meteorologisch Instituut / Royal Netherlands Meteorological Institute / Netherlands)
     - Observation
         - observations from the Dutch station network
-        - 10-minute, hourly and daily resolution
+        - 10-minute, hourly, daily, monthly and annual resolution
         - requires a free API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI`)
 - LHMT (Lietuvos hidrometeorologijos tarnyba / Lithuanian Hydrometeorological Service / Lithuania)
     - Observation
