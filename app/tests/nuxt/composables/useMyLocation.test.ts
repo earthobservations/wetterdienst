@@ -288,6 +288,18 @@ describe('what was kept for the position', () => {
     expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
     expect(usePlace().place.value).toEqual(chosen)
   })
+
+  it('gives the page back the place the reader chose, where the derived one was kept for the visit only', async () => {
+    const chosen = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
+    storage.set(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+    storage.set('wd-place', JSON.stringify(chosen))
+    const wrapper = await mountSuspended(Harness)
+    mounted.push(wrapper)
+    usePlace().place.value = placeFromPosition
+    wrapper.vm.forget()
+    expect(JSON.parse(storage.get('wd-place')!).id).toBe('00183')
+    expect(usePlace().place.value).toEqual(chosen)
+  })
 })
 
 describe('"remember"', () => {

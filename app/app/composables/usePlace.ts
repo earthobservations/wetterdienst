@@ -63,7 +63,7 @@ export function usePlace() {
   /**
    * What the reader's position made of the place is taken back (GH-3651): the entry in the browser goes where it is the
    * one that came from the position (the reader's own choice of a place is theirs), and with `memory` the place of the
-   * page is Kiel again, as the position it was derived from is forgotten.
+   * page is the one the browser still keeps, or Kiel, as the position it was derived from is forgotten.
    */
   function dropPositionPlace(memory: boolean) {
     try {
@@ -72,7 +72,7 @@ export function usePlace() {
     }
     catch {}
     if (memory && place.value.fromPosition)
-      place.value = DEFAULT_PLACE
+      place.value = stored() ?? DEFAULT_PLACE
   }
 
   return { place, setPlace, dropPositionPlace }
