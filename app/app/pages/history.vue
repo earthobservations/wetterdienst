@@ -243,6 +243,7 @@ function clear() {
                 :parameter-selection="parameterSelection"
                 :initial-station-ids="initialStationIds"
                 :multiple="true"
+                tool="history"
               />
             </div>
             <div v-else class="text-sm text-gray-500 dark:text-gray-400">

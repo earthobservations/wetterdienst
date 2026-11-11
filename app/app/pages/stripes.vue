@@ -77,41 +77,14 @@ const { data: stationsData, pending: stationsPending } = useFetch<StripesStation
 
 const stations = computed(() => stationsData.value?.stations ?? [])
 
-const stationItems = computed(() => stations.value.map(s => ({
-  label: `${s.name} (ID: ${s.station_id})`,
-  value: s.station_id,
-})))
-
-const selectedStationId = computed({
-  get: () => selectedStation.value ? selectedStation.value.station_id : null,
-  set: (id: string | null) => {
-    selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-  },
-})
-
-// USelectMenu (when used with :multiple="false") expects a single item or undefined
-const selectedStationItem = computed<{ label: string, value: string } | undefined>({
-  get: () => selectedStation.value
-    ? {
-        label: `${selectedStation.value.name} (ID: ${selectedStation.value.station_id})`,
-        value: selectedStation.value.station_id,
-      }
-    : undefined,
-  set: (item: { label: string, value: string } | undefined) => {
-    if (!item) {
-      selectedStationId.value = null
-    }
-    else {
-      selectedStationId.value = item.value
-    }
-  },
-})
-
-// The map's selection, one array per chosen station: a new array on every render read to the map
+// The station picker's selection, one array per chosen station: a new array on every render read to the map
 // as a new selection, which turned centring on it back on.
-const mapSelectedStations = computed(() => selectedStation.value ? [selectedStation.value] : [])
+const pickedStations = computed(() => selectedStation.value ? [selectedStation.value] : [])
 
-const showMap = ref(false)
+function onPick(picked: StripesStation[]) {
+  selectedStation.value = picked[0] ?? null
+}
+
 const showSettings = ref(true)
 const plotContainer = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
@@ -661,15 +634,6 @@ if (route.query.start_year)
 if (route.query.end_year)
   endYear.value = Number(route.query.end_year.toString())
 
-function onSelectMenuUpdate(val: any) {
-  // Normalize incoming value from the select/menu or map into a single item or null
-  const item = val ? (Array.isArray(val) ? val[0] : val) : null
-  // selectedStationItem is a single item or undefined
-  selectedStationItem.value = item ?? undefined
-  const id = item ? item.value : null
-  selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-}
-
 // a fetch under way is for the station chosen before: it is stopped, and its answer shows nothing
 watch(() => selectedStation.value?.station_id, () => {
   if (!isLoading.value)
@@ -683,32 +647,26 @@ watch(kind, () => {
   clearStripes()
 })
 
-// Ensure select menu updates selection when stations load or when user selects from list
+// The station list arrived or changed: a station chosen that is not in it is dropped, one named by the link is taken
 watch(stations, () => {
   // If the selectedStation is not in the stations array, clear it
   if (selectedStation.value) {
     const selId = selectedStation.value.station_id
-    if (!stations.value.some(s => s.station_id === selId)) {
+    if (!stations.value.some(s => s.station_id === selId))
       selectedStation.value = null
-      // clear selection
-      selectedStationItem.value = undefined
-    }
   }
   // If an initial station id was provided in the URL, apply it when stations are available
   if (initialStationId.value) {
     const found = stations.value.find(s => s.station_id === initialStationId.value)
-    if (found) {
+    if (found)
       selectedStation.value = found
-      // set the single selected item
-      selectedStationItem.value = { label: `${found.name} (ID: ${found.station_id})`, value: found.station_id }
-    }
     initialStationId.value = null
   }
   // If there is only one station in the list, preselect it
   if (!selectedStation.value && stations.value.length === 1) {
     const only = stations.value[0]
     if (only)
-      selectedStationId.value = only.station_id
+      selectedStation.value = only
   }
 })
 
@@ -739,18 +697,6 @@ watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline
     await plotStripes(lastFetchedData.value)
   }
 })
-
-function onMapSelectedStations(val?: StripesStation[] | null) {
-  if (val && val.length) {
-    const s = val[0]
-    if (s)
-      onSelectMenuUpdate({ label: s.name, value: s.station_id })
-    else onSelectMenuUpdate(null)
-  }
-  else {
-    onSelectMenuUpdate(null)
-  }
-}
 
 // Update URL query when relevant options change
 function stripesToQuery(): Record<string, string> {
@@ -794,13 +740,6 @@ watch([
   // rejected navigation (e.g. superseded by a subsequent replace() before
   // this one resolves) would otherwise be an unhandled promise rejection.
   router.replace({ query: stripesToQuery() }).catch(() => {})
-})
-
-// Update selectedStation when selectedStationItem changes (from the select menu or map)
-watch(selectedStationItem, (item) => {
-  // selectedStationItem is a single item or undefined
-  const id = item ? item.value : null
-  selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
 })
 
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
@@ -847,52 +786,14 @@ onBeforeUnmount(() => {
                 <USelect v-model="kind" :items="kindItems" class="w-full" />
               </UFormField>
 
-              <div>
-                <UFormField :label="t('stripes.station')">
-                  <USelectMenu
-                    v-model="selectedStationItem"
-                    :items="stationItems"
-                    :multiple="false"
-                    searchable
-                    virtualize
-                    color="primary"
-                    class="w-full"
-                    :class="{ 'needs-input': !selectedStation }"
-                    :placeholder="t('common.stationSearch')"
-                    @update:model-value="onSelectMenuUpdate"
-                  />
-                </UFormField>
-
-                <UCollapsible v-model="showMap" class="mt-3">
-                  <UButton
-                    :label="t('stripes.chooseOnMap')"
-                    icon="i-ph-map-pin"
-                    variant="subtle"
-                    color="primary"
-                    trailing-icon="i-ph-caret-down"
-                    block
-                    size="sm"
-                  />
-                  <template #content>
-                    <ClientOnly>
-                      <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                        <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
-                        {{ t('stripes.mapHint') }}
-                      </p>
-                      <MapStations
-                        :stations="stations"
-                        :selected-stations="mapSelectedStations"
-                        :multiple="false"
-                        @update:selected-stations="onMapSelectedStations"
-                      />
-                    </ClientOnly>
-                  </template>
-                </UCollapsible>
-              </div>
-
-              <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
-                {{ t('stripes.loadingStations') }}
-              </div>
+              <StationPicker
+                tool="stripes"
+                :label="t('stripes.station')"
+                :stations="stations"
+                :selected="pickedStations"
+                :loading="stationsPending"
+                @update:selected="onPick"
+              />
 
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>

@@ -283,6 +283,50 @@ for (const language of ['pl', 'cs']) {
   })
 }
 
+// The station picker's toggle and its map at a phone's 320 px, in the languages whose words run long (GH-3877): the toggle
+// "List | Map", the map with its control beside the zoom buttons and the chips of the picked stations, none of which
+// may push the page sideways or reach past its card. The mode is the one the picker remembers, set before the page loads.
+const PICKER_PAGES = [
+  '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011',
+  '/stripes?kind=temperature&station=00011',
+  '/meteogram?station=01001',
+]
+
+LONG_LANGUAGES.forEach((language) => {
+  for (const path of PICKER_PAGES) {
+    test(`the station picker's map and toggle on ${path.split('?')[0]} in ${language} fit at 320px`, async ({ page, context, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.addInitScript(() => localStorage.setItem('wd-station-picker', JSON.stringify({ explorer: 'map', stripes: 'map', forecast: 'map' })))
+      await page.setViewportSize({ width: 320, height: 844 })
+      await page.goto(path)
+      await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30_000 })
+      await expect(page.locator('[data-testid="map-center"]')).toBeVisible()
+      await expect(page.locator('[data-station-chip]').first()).toBeVisible()
+      await settle(page)
+      // The picker itself, not the page around it (the explorer's date range and result table have their own 320 px,
+      // GH-3845): nothing of it overflows its box or reaches past the window. The map's tiles reach past its box by design.
+      const offenders = await page.evaluate(() => {
+        const root = document.querySelector('[data-testid="station-picker"]')!
+        const found: string[] = []
+        const window_ = document.documentElement.clientWidth
+        for (const el of [root, ...root.querySelectorAll('*')]) {
+          if (el.closest('.leaflet-container') || el.clientWidth === 0)
+            continue
+          const box = el.getBoundingClientRect()
+          const name = `<${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)}"`
+          if (box.right > window_ + 1 || box.left < -1)
+            found.push(`${name} reaches past the window (${Math.round(box.left)} to ${Math.round(box.right)}px)`)
+          if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).display !== 'inline')
+            found.push(`${name} is wider than its box (${el.scrollWidth}px of ${el.clientWidth}px)`)
+        }
+        return found
+      })
+      expect(offenders, `${path} in ${language} at 320px`).toEqual([])
+    })
+  }
+})
+
 // The forecast in each of its views, with the view control and, in the table, its header: the control's
 // labels and the table's headers are the longest texts on the page. The backend is the accessibility
 // spec's, answered in the browser.
@@ -300,7 +344,8 @@ LONG_LANGUAGES.forEach((language) => {
       await page.setViewportSize({ width: VIEWPORTS[0]!.width, height: VIEWPORTS[0]!.height })
       await page.goto(`/meteogram?station=01001&view=${view}`)
       await expect(page.locator(ready).first()).toBeVisible({ timeout: 30_000 })
-      await expect(page.getByRole('radiogroup')).toBeVisible()
+      // the toggle of the station picker above the forecast's views, and the views'
+      await expect(page.getByRole('radiogroup')).toHaveCount(2)
 
       for (const viewport of VIEWPORTS) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height })

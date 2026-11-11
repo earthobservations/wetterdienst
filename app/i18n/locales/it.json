@@ -580,9 +580,6 @@
         "clear": "Soleggiato"
       }
     },
-    "orChooseMap": "o",
-    "chooseOnMap": "Scegli una stazione sulla mappa",
-    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
     "runLabel": "Emissione modello",
     "runLatest": "Ultima (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Precipitazioni",
     "station": "Stazione",
     "selectStation": "Seleziona una stazione",
-    "showMap": "Mostra la mappa",
-    "loadingStations": "Caricamento delle stazioni …",
     "region": "Regione",
     "available": "Disponibile",
     "startYear": "Anno di inizio",
@@ -634,8 +629,6 @@
     "plotTitle": "Strisce climatiche ({kind}) per {name}, Germania ({id})",
     "plotDataAvailability": "Disponibilità dei dati",
     "plotSource": "Fonte: Deutscher Wetterdienst",
-    "chooseOnMap": "Scegli sulla mappa",
-    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
     "hoverValue": "Valore",
     "hoverTrend": "Tendenza",
     "summary": "Da {from} a {to}. Valore più basso: {min} nel {minYear}; valore più alto: {max} nel {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Seleziona una stazione",
     "selectedStations": "Stazioni selezionate:",
     "clearAll": "Cancella tutto",
-    "clearStation": "Cancella la stazione selezionata",
-    "showMap": "Mostra la mappa",
-    "chooseOnMap": "Scegli sulla mappa",
     "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
-    "mapHintMultiple": "Tocca i punti sulla mappa per aggiungere o rimuovere stazioni."
+    "mapHintMultiple": "Tocca i punti sulla mappa per aggiungere o rimuovere stazioni.",
+    "modeLabel": "Scegli una stazione da un elenco o su una mappa",
+    "modeList": "Elenco",
+    "modeMap": "Mappa",
+    "selectedStation": "Stazione selezionata:",
+    "removeStation": "Rimuovi {name} dalla selezione",
+    "announceList": "Ricerca di stazioni"
   },
   "interpolation": {
     "source": "Fonte",

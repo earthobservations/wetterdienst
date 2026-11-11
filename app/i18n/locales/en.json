@@ -580,9 +580,6 @@
         "clear": "Sunny"
       }
     },
-    "orChooseMap": "or",
-    "chooseOnMap": "Choose a station on the map",
-    "mapHint": "Tap a marker on the map to pick that station.",
     "runLabel": "Model run",
     "runLatest": "Latest (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Precipitation",
     "station": "Station",
     "selectStation": "Select a station",
-    "showMap": "Show map",
-    "loadingStations": "Loading stations …",
     "region": "Region",
     "available": "Available",
     "startYear": "Start year",
@@ -634,8 +629,6 @@
     "plotTitle": "Climate stripes ({kind}) for {name}, Germany ({id})",
     "plotDataAvailability": "Data availability",
     "plotSource": "Source: Deutscher Wetterdienst",
-    "chooseOnMap": "Choose on the map",
-    "mapHint": "Tap a marker on the map to pick that station.",
     "hoverValue": "Value",
     "hoverTrend": "Trend",
     "summary": "From {from} to {to}. Lowest value {min} in {minYear}, highest value {max} in {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Select a station",
     "selectedStations": "Selected Stations:",
     "clearAll": "Clear all",
-    "clearStation": "Clear the selected station",
-    "showMap": "Show map",
-    "chooseOnMap": "Choose on the map",
     "mapHint": "Tap a marker on the map to pick that station.",
-    "mapHintMultiple": "Tap markers on the map to add or remove stations."
+    "mapHintMultiple": "Tap markers on the map to add or remove stations.",
+    "modeLabel": "Pick a station from a list or on a map",
+    "modeList": "List",
+    "modeMap": "Map",
+    "selectedStation": "Selected station:",
+    "removeStation": "Remove {name} from the selection",
+    "announceList": "Station search"
   },
   "interpolation": {
     "source": "Source",

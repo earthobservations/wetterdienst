@@ -580,9 +580,6 @@
         "clear": "Slunečno"
       }
     },
-    "orChooseMap": "nebo",
-    "chooseOnMap": "Vyber stanici na mapě",
-    "mapHint": "Klepnutím na bod na mapě vyber tuto stanici.",
     "runLabel": "Spuštění modelu",
     "runLatest": "Nejnovější (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Srážky",
     "station": "Stanice",
     "selectStation": "Vyber stanici",
-    "showMap": "Zobrazit mapu",
-    "loadingStations": "Načítání stanic …",
     "region": "Region",
     "available": "Dostupné",
     "startYear": "Počáteční rok",
@@ -634,8 +629,6 @@
     "plotTitle": "Klimatické pruhy ({kind}) pro {name}, Německo ({id})",
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
-    "chooseOnMap": "Vyber na mapě",
-    "mapHint": "Klepnutím na bod na mapě vyber tuto stanici.",
     "hoverValue": "Hodnota",
     "hoverTrend": "Trend",
     "summary": "Od {from} do {to}. Nejnižší hodnota {min} v roce {minYear}, nejvyšší {max} v roce {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Vyber stanici",
     "selectedStations": "Vybrané stanice:",
     "clearAll": "Vymazat vše",
-    "clearStation": "Vymazat vybranou stanici",
-    "showMap": "Zobrazit mapu",
-    "chooseOnMap": "Vyber na mapě",
     "mapHint": "Klepnutím na bod na mapě vyber tuto stanici.",
-    "mapHintMultiple": "Klepnutím na body na mapě přidáš nebo odebereš stanice."
+    "mapHintMultiple": "Klepnutím na body na mapě přidáš nebo odebereš stanice.",
+    "modeLabel": "Vyber stanici ze seznamu nebo na mapě",
+    "modeList": "Seznam",
+    "modeMap": "Mapa",
+    "selectedStation": "Vybraná stanice:",
+    "removeStation": "Odebrat {name} z výběru",
+    "announceList": "Hledání stanic"
   },
   "interpolation": {
     "source": "Zdroj",

@@ -580,9 +580,6 @@
         "clear": "Sonneg"
       }
     },
-    "orChooseMap": "oder",
-    "chooseOnMap": "Wiel eng Statioun op der Kaart",
-    "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
     "runLabel": "Modelllaaf",
     "runLatest": "Neist (auto)"
   },
@@ -611,8 +608,6 @@
     "typePrecipitation": "Néierschlag",
     "station": "Statioun",
     "selectStation": "Wiel eng Statioun",
-    "showMap": "Kaart weisen",
-    "loadingStations": "Statioune ginn gelueden …",
     "region": "Regioun",
     "available": "Verfügbar",
     "startYear": "Ufanksjoer",
@@ -634,8 +629,6 @@
     "plotTitle": "Klimasträifen ({kind}) fir {name}, Däitschland ({id})",
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
-    "chooseOnMap": "Op der Kaart auswielen",
-    "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
     "summary": "Vun {from} bis {to}. Niddregste Wäert {min} am Joer {minYear}, héchste Wäert {max} am Joer {maxYear}.",
@@ -765,11 +758,14 @@
     "selectStation": "Wiel eng Statioun",
     "selectedStations": "Ausgewielte Statiounen:",
     "clearAll": "Alles läschen",
-    "clearStation": "Déi ausgewielte Statioun läschen",
-    "showMap": "Kaart weisen",
-    "chooseOnMap": "Op der Kaart auswielen",
     "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
-    "mapHintMultiple": "Tipp op Punkten op der Kaart, fir Statiounen derbäizesetzen oder ewechzehuelen."
+    "mapHintMultiple": "Tipp op Punkten op der Kaart, fir Statiounen derbäizesetzen oder ewechzehuelen.",
+    "modeLabel": "Wiel eng Statioun aus enger Lëscht oder op enger Kaart",
+    "modeList": "Lëscht",
+    "modeMap": "Kaart",
+    "selectedStation": "Ausgewielte Statioun:",
+    "removeStation": "{name} ewechhuelen",
+    "announceList": "Statiounssich"
   },
   "interpolation": {
     "source": "Quell",

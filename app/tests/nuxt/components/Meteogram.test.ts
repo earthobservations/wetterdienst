@@ -741,24 +741,15 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   })))
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  // Node's own `localStorage` global stands in the test document's way and holds nothing: one that does
   beforeEach(() => {
     // the first of October, which the values start on: the day cards start at today (GH-3840)
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T06:00:00Z') })
-    const store = new Map<string, string>()
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => void store.set(key, String(value)),
-      removeItem: (key: string) => void store.delete(key),
-      clear: () => store.clear(),
-    })
   })
   afterEach(async () => {
     vi.useRealTimers()
     wrapper?.unmount()
     wrapper = undefined
     document.body.innerHTML = ''
-    vi.unstubAllGlobals()
     // the URL back to none, which the next test's chart would read its view from
     await useRouter().replace({ query: {} })
   })
