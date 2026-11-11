@@ -8,6 +8,7 @@ history dumped as the routes send it reads back through the document's model.
 """
 
 import datetime as dt
+import types
 import typing
 
 import pytest
@@ -66,10 +67,29 @@ def test_a_record_of_the_document_has_the_fields_of_its_model(document: type, mo
             continue
         # null in the one is null in the other, a stamp being text in the document
         assert _is_nullable(described[name]) == _is_nullable(field.annotation), name
+        # and the same base type: `int` against `float` passes a read back with `==`, so it is compared here
+        assert _base_type(described[name]) == _base_type(field.annotation), name
 
 
 def _is_nullable(annotation: object) -> bool:
     return type(None) in typing.get_args(annotation)
+
+
+def _base_type(annotation: object) -> object:
+    """Give the type a field holds without its null, as the document spells it.
+
+    A stamp (`datetime`) is text there, and a record is the TypedDict that stands for the model (`PAIRS`).
+    """
+    if typing.get_origin(annotation) is typing.NotRequired:
+        (annotation,) = typing.get_args(annotation)
+    if typing.get_origin(annotation) in {typing.Union, types.UnionType}:
+        (annotation,) = (arg for arg in typing.get_args(annotation) if arg is not type(None))
+    if typing.get_origin(annotation) is list:
+        (item,) = typing.get_args(annotation)
+        return (list, _base_type(item))
+    if annotation is dt.datetime:
+        return str
+    return {model: document for document, model in PAIRS}.get(annotation, annotation)
 
 
 def _full_history() -> History:
@@ -150,7 +170,8 @@ def test_a_dumped_history_reads_back_through_the_document_model(sections: set[st
     histories = [_full_history(), _full_history().model_copy(update={"resolution": None, "dataset": None})]
     data = history_to_dict(_stations(), histories, with_metadata=False, with_stations=True, sections=sections)
 
-    validated = TypeAdapter(_HistoryDict).validate_python(data)
+    # strict, so that no field is read back as another type (`2.0` as an `int`, which `==` does not tell)
+    validated = TypeAdapter(_HistoryDict).validate_python(data, strict=True)
 
     # reading it back changes nothing: not a value, not the order of the keys
     assert validated == data
