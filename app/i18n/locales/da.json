@@ -8,6 +8,7 @@
     "reloadPage": "Genindlæs siden",
     "open": "Åbn",
     "all": "Alle",
+    "colon": ":",
     "settings": "Indstillinger",
     "documentation": "Dokumentation",
     "stationSearch": "Søg efter navn eller stations-id (f.eks. München, 10738)",
@@ -64,7 +65,7 @@
   },
   "ask": {
     "title": "Spørg vejret",
-    "lead": "De spørgsmål, folk har, besvaret ud fra officielle målinger og udsigter, med grafen til at tjekke svaret.",
+    "lead": "De spørgsmål, folk har, besvaret ud fra officielle målinger og udsigter, med diagrammet til at tjekke svaret.",
     "placeLabel": "Spørger om",
     "placeChange": "skift sted",
     "placeNotFound": "Stedet fra linket blev ikke fundet.",
@@ -112,7 +113,7 @@
       "usual": "Egentlig ikke: omtrent som normalt.",
       "detail": "Sommeren {year} (juni til august) havde et gennemsnit på {mean} {unit}; somrene fra {from} til {to} {normal} {unit}.",
       "rank": "Nummer {rank} af {count} somre siden {first}, talt fra den varmeste.",
-      "chart": "Hver sommer i forhold til gennemsnittet {from} til {to}, i {unit}",
+      "chart": "Hver sommer i forhold til gennemsnittet for {from} til {to}, i {unit}",
       "none": "Der er for få hele somre her til en sammenligning.",
       "open": "Åbn månedsmidlerne",
       "stripes": "Se klimastriberne"
@@ -129,25 +130,25 @@
       "chartMean": "Middelvind pr. dag, i {unit}",
       "none": "Der er ingen vindmålinger her for den {day}.",
       "dayLabel": "Dato",
-      "open": "Åbn disse dage i Udforsker"
+      "open": "Åbn disse dage i Udforskeren"
     },
     "download": {
       "answer": "Vejrtjenester, der udgiver lufttemperatur pr. time: {count}.",
-      "detail": "Hver åbner i Udforsker, klar til download som CSV, JSON eller GeoJSON.",
+      "detail": "Hver enkelt åbner i Udforskeren, klar til download som CSV, JSON eller GeoJSON.",
       "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
       "api": "Eller brug REST-API'et"
     }
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
-    "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST API og MCP-server. Open source og gratis.",
+    "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST-API og MCP-server. Open source og gratis.",
     "noscript": "Wetterdienst kræver JavaScript for at vise data.",
     "pages": {
       "explorer": "Vælg en udbyder, parametre og stationer på kortet, læs målingerne, interpolér et punkt og download resultatet som CSV, JSON eller GeoJSON.",
-      "meteogram": "MOSMIX-prognosen for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",
+      "meteogram": "MOSMIX-udsigten for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",
       "stripes": "Klimastriber for temperatur eller nedbør fra en DWD-station.",
       "history": "Hvordan en DWD-station har ændret sig over tid: navn, placering og instrumenter.",
-      "api": "REST API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
+      "api": "REST-API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
       "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
@@ -563,7 +564,7 @@
       "axisTemp": "Temp. {unit}",
       "axisPressure": "Tryk {unit}",
       "tableTime": "Tid ({zone})",
-      "summaryRange": "Prognose fra {from} til {to}.",
+      "summaryRange": "Udsigt fra {from} til {to}.",
       "summaryTemperature": "Temperatur fra {min} til {max} {unit}.",
       "summaryTableHint": "Værdierne står i tabelvisningen, som du vælger over diagrammet.",
       "weather": {
@@ -828,7 +829,7 @@
     "title": "Stationskort",
     "subtitle": "Vælg en station eller et vilkårligt punkt på kortet og se dens udsigt, klimastriber og målinger.",
     "aboutButton": "Om kortet",
-    "about1": "Kortet viser stationerne hos Tysklands vejrtjeneste (DWD): punkterne, den laver udsigt for, eller stationerne, der måler, for den opløsning og det datasæt, du vælger over kortet. Hver er et punkt; panelet finder en station på dens navn og viser stationerne nær kortets midte.",
+    "about1": "Kortet viser stationerne hos Tysklands vejrtjeneste (DWD): punkterne, den laver udsigt for, eller stationerne, der måler, for den opløsning og det datasæt, du vælger over kortet. Hver enkelt er et punkt; panelet finder en station på dens navn og viser stationerne nær kortets midte.",
     "about2": "Vælg en station, eller klik på et vilkårligt punkt på kortet: panelet viser udsigten og klimastriberne fra den nærmeste station, der har dem, og åbner målingerne i Udforskeren og stationens historik med den station allerede valgt. Med tastaturet flytter du kortet med piletasterne, zoomer med plus og minus og vælger så stedet i dets midte.",
     "panelTitle": "Stationer",
     "layers": "Lag",
@@ -858,7 +859,7 @@
     "elevation": "{value} m over havet",
     "at": "{name}, {distance} væk",
     "noneNearby": "Ingen station inden for {distance}.",
-    "noStationNear": "Ingen station inden for {distance} af det punkt.",
+    "noStationNear": "Ingen station inden for {distance} fra det punkt.",
     "openForecast": "Åbn udsigten",
     "openStripes": "Åbn klimastriberne",
     "openExplorer": "Åbn målingerne i Udforskeren",

@@ -75,7 +75,7 @@ export const parameters: Record<string, string> = {
   cloud_cover_total: 'Nubosidad total',
   cloud_cover_total_mean: 'Nubosidad total media',
   cloud_cover_total_measurement_method: 'Nubosidad, forma de medida',
-  cloud_height_layer1: 'Base de las nubes (1.ª capa)',
+  cloud_height_layer1: 'Altura de la base de nubes (1.ª capa)',
   visibility: 'Visibilidad',
   visibility_mean: 'Visibilidad media',
   visibility_mean_last_10min: 'Visibilidad media (últimos 10 min)',

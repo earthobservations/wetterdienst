@@ -8,6 +8,7 @@
     "reloadPage": "Načíst stránku znovu",
     "open": "Otevřít",
     "all": "Vše",
+    "colon": ":",
     "settings": "Nastavení",
     "documentation": "Dokumentace",
     "stationSearch": "Hledat podle názvu nebo ID stanice (např. München, 10738)",
@@ -113,7 +114,7 @@
       "detail": "Léto {year} (červen až srpen) mělo průměr {mean} {unit}; léta {from} až {to} průměr {normal} {unit}.",
       "rank": "Pořadí {rank} z {count} let od roku {first}, od nejteplejšího.",
       "chart": "Každé léto oproti průměru {from} až {to}, v {unit}",
-      "none": "Je tu příliš málo úplných let pro srovnání.",
+      "none": "Je tu příliš málo úplných letních sezón pro srovnání.",
       "open": "Otevřít měsíční průměry",
       "stripes": "Zobrazit klimatické pruhy"
     },

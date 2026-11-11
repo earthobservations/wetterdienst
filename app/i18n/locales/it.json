@@ -8,6 +8,7 @@
     "reloadPage": "Ricarica la pagina",
     "open": "Apri",
     "all": "Tutto",
+    "colon": ":",
     "settings": "Impostazioni",
     "documentation": "Documentazione",
     "stationSearch": "Cerca per nome o ID stazione (es. München, 10738)",
@@ -113,7 +114,7 @@
       "detail": "L'estate {year} (da giugno ad agosto) ha avuto una media di {mean} {unit}; le estati dal {from} al {to}, di {normal} {unit}.",
       "rank": "Posizione {rank} su {count} estati dal {first}, partendo dalla più calda.",
       "chart": "Ogni estate rispetto alla media dal {from} al {to}, in {unit}",
-      "none": "Qui ci sono troppe poche estati complete per un confronto.",
+      "none": "Qui ci sono troppo poche estati complete per un confronto.",
       "open": "Apri le medie mensili",
       "stripes": "Guarda le strisce climatiche"
     },
@@ -639,8 +640,8 @@
       "value": "Valore",
       "class": "Classe",
       "note": {
-        "temperature": "Classe: dove si colloca l'anno tra il più fresco e il più caldo mostrati, in quinti. È il colore della sua banda, dal blu scuro (più fresco) al rosso scuro (più caldo).",
-        "precipitation": "Classe: dove si colloca l'anno tra il più secco e il più piovoso mostrati, in quinti. È il colore della sua banda, dal marrone (più secco) al verde scuro (più piovoso)."
+        "temperature": "Classe: dove si colloca l'anno tra il più fresco e il più caldo mostrati, in quinti. È il colore della sua striscia, dal blu scuro (più fresco) al rosso scuro (più caldo).",
+        "precipitation": "Classe: dove si colloca l'anno tra il più secco e il più piovoso mostrati, in quinti. È il colore della sua striscia, dal marrone (più secco) al verde scuro (più piovoso)."
       },
       "classes": {
         "temperature": {

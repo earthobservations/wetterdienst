@@ -377,7 +377,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -405,7 +405,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
   }
 
@@ -432,7 +432,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
       customdata: trendlineValues,
     }
   }
@@ -835,9 +835,9 @@ onBeforeUnmount(() => {
               />
 
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>
+                <p><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
                 <p>
-                  <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
+                  <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
                   {{ selectedStation.end_timestamp?.slice(0, 4) }}
                 </p>
               </div>

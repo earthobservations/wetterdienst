@@ -159,7 +159,7 @@ const displayCoords = computed(() => {
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-2">
-      <span :id="sourceLabelId" class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}:</span>
+      <span :id="sourceLabelId" class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}{{ t('common.colon') }}</span>
       <UFieldGroup role="group" :aria-labelledby="sourceLabelId">
         <UButton
           v-for="option in sourceOptions"

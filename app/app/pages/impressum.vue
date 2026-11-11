@@ -42,7 +42,7 @@ const hasPlaceholders = computed(() =>
             {{ operator.name }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('impressum.addressLabel') }}:<br>
+            {{ t('impressum.addressLabel') }}{{ t('common.colon') }}<br>
             {{ operator.street }}<br>
             {{ operator.city }}<br>
             {{ operator.country }}
@@ -61,10 +61,10 @@ const hasPlaceholders = computed(() =>
         </template>
         <div class="space-y-2">
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
+            {{ t('impressum.emailLabel') }}{{ t('common.colon') }} <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
           </p>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">@{{ operator.github }}</a>
+            {{ t('impressum.githubLabel') }}{{ t('common.colon') }} <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">@{{ operator.github }}</a>
           </p>
         </div>
       </UCard>

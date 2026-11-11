@@ -271,7 +271,7 @@ const STATES: State[] = [
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       // the station's history itself, not the station picker that names it too
-      await expect(page.getByText(`${message(locale, 'history.stationIdPrefix')}: 00011`)).toBeVisible()
+      await expect(page.getByText(`${message(locale, 'history.stationIdPrefix')}${message(locale, 'common.colon')} 00011`)).toBeVisible()
       // the choosing above scrolled the page to where the toggle of the station picker is half under the sticky header, which
       // axe reads as a target too small to press (target-size: "partially obscured"); the page as it is opened is at its top
       await page.evaluate(() => window.scrollTo(0, 0))

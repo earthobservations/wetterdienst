@@ -1604,7 +1604,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         </span>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
-            <label for="data-viewer-columns" class="text-sm">{{ t('dataViewer.columns') }}:</label>
+            <label for="data-viewer-columns" class="text-sm">{{ t('dataViewer.columns') }}{{ t('common.colon') }}</label>
             <USelectMenu id="data-viewer-columns" v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
           </div>
           <div class="flex items-center gap-1">
@@ -1644,7 +1644,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <!-- Display Options -->
             <div class="flex flex-wrap items-center gap-4">
               <div class="flex items-center gap-2">
-                <label for="data-viewer-param-label" class="text-sm text-gray-600 dark:text-gray-300">{{ t('dataViewer.paramLabel') }}:</label>
+                <label for="data-viewer-param-label" class="text-sm text-gray-600 dark:text-gray-300">{{ t('dataViewer.paramLabel') }}{{ t('common.colon') }}</label>
                 <USelect id="data-viewer-param-label" v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
               </div>
               <UCheckbox v-model="facetByParameter" :label="t('dataViewer.facetByParameter')" />
@@ -1741,7 +1741,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <template v-if="viewMode === 'table'" #footer>
           <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <div class="flex items-center gap-2">
-              <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</label>
+              <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}{{ t('common.colon') }}</label>
               <USelect id="data-viewer-page-size" v-model="pageSize" :items="pageSizeOptions" class="w-20" />
             </div>
             <UPagination

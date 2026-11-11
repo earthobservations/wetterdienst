@@ -614,6 +614,10 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     // and the drop before the rain's amount is a decoration with the word for it beside
     expect(document.body.querySelector('[aria-hidden="true"][class~="i-ph:drop"]')).not.toBeNull()
     expect(wordsOf()).toContain('Precipitation:')
+    // the space after the colon is in the text a screen reader gets ("Precipitation: 3.2 mm"), not trimmed off by the template
+    const precipitation = [...document.body.querySelectorAll('.sr-only')].filter(node => node.textContent?.includes('Precipitation'))
+    expect(precipitation.length).toBeGreaterThan(0)
+    expect(precipitation.map(node => node.textContent!.endsWith(': '))).not.toContain(false)
   })
 
   // three days, each with the weather code of its hours: rain (61), a thunderstorm (95), clear sky (0)
