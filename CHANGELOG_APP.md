@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- `[Explorer, History, Forecast, Climate stripes]` The four tools pick a station the same way: a
+  toggle "List | Map" (the search field, or the map in the same place, with "Center on selected
+  stations" next to its zoom buttons) and the picked stations as chips under it in both modes; a
+  station picked in one shows in the other. Each tool remembers its mode in this browser
+  (`wd-station-picker`), the chips are buttons that remove a station by keyboard too, and a map
+  marker that Tab reaches is scrolled into the window (GH-3877)
 - `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
   the notifications, the number fields' description for a screen reader) are in the language of
   the page in all eleven languages (they were English in all but German; Hamburg German uses the

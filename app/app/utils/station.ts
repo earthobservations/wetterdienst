@@ -1,3 +1,6 @@
+/** What the station picker needs of a station: the forecast's and the explorer's stations and the stripes' all have it */
+export type StationPickerStation = Pick<Station, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude'>
+
 /**
  * Label a station by its name, id and region, as the station picker and the map's markers show it.
  *

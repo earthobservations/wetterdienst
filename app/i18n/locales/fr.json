@@ -570,9 +570,6 @@
         "clear": "Ensoleillé"
       }
     },
-    "orChooseMap": "ou",
-    "chooseOnMap": "Choisir une station sur la carte",
-    "mapHint": "Touche un point sur la carte pour choisir cette station.",
     "runLabel": "Prévision émise",
     "runLatest": "Dernière (auto)"
   },
@@ -601,7 +598,6 @@
     "typePrecipitation": "Précipitations",
     "station": "Station",
     "selectStation": "Sélectionner une station",
-    "showMap": "Afficher la carte",
     "loadingStations": "Chargement des stations …",
     "region": "Région",
     "available": "Disponible",
@@ -625,8 +621,6 @@
     "plotTitle": "Bandes climatiques ({kind}) pour {name}, Allemagne ({id})",
     "plotDataAvailability": "Disponibilité des données",
     "plotSource": "Source : Deutscher Wetterdienst",
-    "chooseOnMap": "Choisir sur la carte",
-    "mapHint": "Touche un point sur la carte pour choisir cette station.",
     "hoverValue": "Valeur",
     "hoverTrend": "Tendance",
     "summary": "Du {from} au {to}. Valeur la plus basse : {min} en {minYear}, la plus haute : {max} en {maxYear}.",
@@ -756,11 +750,13 @@
     "selectStation": "Sélectionner une station",
     "selectedStations": "Stations sélectionnées :",
     "clearAll": "Tout effacer",
-    "clearStation": "Effacer la station sélectionnée",
-    "showMap": "Afficher la carte",
-    "chooseOnMap": "Choisir sur la carte",
     "mapHint": "Touche un point sur la carte pour choisir cette station.",
-    "mapHintMultiple": "Touche des points sur la carte pour ajouter ou retirer des stations."
+    "mapHintMultiple": "Touche des points sur la carte pour ajouter ou retirer des stations.",
+    "modeLabel": "Choisir une station dans une liste ou sur une carte",
+    "modeList": "Liste",
+    "modeMap": "Carte",
+    "selectedStation": "Station sélectionnée :",
+    "removeStation": "Retirer {name} de la sélection"
   },
   "interpolation": {
     "source": "Source",

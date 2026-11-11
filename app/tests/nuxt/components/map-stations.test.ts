@@ -125,6 +125,8 @@ describe('mapStations marker focus', () => {
     const marker = document.createElement('img')
     marker.className = className
     marker.getBoundingClientRect = () => markerBox
+    const scrolled = vi.fn()
+    marker.scrollIntoView = scrolled
     container.append(marker)
     const wrapper = await mountSuspended(MapStations, { props: { stations: [], selectedStations: [] } })
     const vm = wrapper.vm as any
@@ -132,7 +134,8 @@ describe('mapStations marker focus', () => {
     await vm.onMapReady()
     marker.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
     wrapper.unmount()
-    return panBy
+    // what the page is told to scroll to, besides the map's own pan
+    return Object.assign(panBy, { scrolled })
   }
 
   it('pans a marker that is left of and above the view into it, with a margin', async () => {
@@ -154,6 +157,12 @@ describe('mapStations marker focus', () => {
   it('leaves the map where it is for anything else that takes the focus', async () => {
     const panBy = await focusMarkerAt(box(60, 40, 85, 81), 'leaflet-control-zoom-in')
     expect(panBy).not.toHaveBeenCalled()
+    expect(panBy.scrolled).not.toHaveBeenCalled()
+  })
+
+  it('scrolls the page to a marker that takes the focus, as a map reaching past the foot of the window hides it there (WCAG 2.4.11)', async () => {
+    const panBy = await focusMarkerAt(box(250, 250, 275, 291))
+    await vi.waitFor(() => expect(panBy.scrolled).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest' }))
   })
 })
 
@@ -322,7 +331,7 @@ describe('mapStations when its list changes while the markers are built', () => 
     const { clusters, release } = clustersWithFirstHeld()
     const { addLayer, removeLayer, ready } = await mountBuilding([berlin])
 
-    // the "Choose on the map" section is collapsed: LMap removes its map
+    // the picker is switched to the list: LMap removes its map
     wrapper!.unmount()
     wrapper = undefined
     release()
@@ -416,7 +425,7 @@ describe('mapStations centring on selected stations that have no position', () =
     markerCluster.mockClear()
   })
 
-  const button = () => wrapper!.find('button')
+  const button = () => wrapper!.find('[data-testid="map-center"]')
 
   async function mountWith(selectedStations: unknown[]) {
     wrapper = await mountSuspended(MapStations, { props: { stations: [postcode, berlin], selectedStations: [], multiple: true } })
@@ -446,7 +455,7 @@ describe('mapStations centring on selected stations that have no position', () =
 
     vm.toggleCenter()
     await nextTick()
-    expect(button().text()).toBe('Center on selected station')
+    expect(button().attributes('aria-label')).toBe('Center on selected station')
     expect(button().attributes('disabled')).toBeUndefined()
   })
 
@@ -458,7 +467,7 @@ describe('mapStations centring on selected stations that have no position', () =
     await wrapper!.setProps({ selectedStations: [postcode] })
     // the map stays where it is, and the button can still zoom it out to every station
     expect(fitBounds).toHaveBeenCalledTimes(fits)
-    expect(button().text()).toBe('Center on all stations')
+    expect(button().attributes('aria-label')).toBe('Center on all stations')
     expect(button().attributes('disabled')).toBeUndefined()
     vm.toggleCenter()
     const bounds = fitBounds.mock.lastCall![0]
@@ -625,8 +634,8 @@ describe('mapStations bounds of many stations', () => {
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations: [] } })
     // centred on a selected station, from where the button fits the map to all of them
     await wrapper.setProps({ selectedStations: [stations[0]] })
-    const button = wrapper.find('button')
-    expect(button.text()).toBe('Center on all stations')
+    const button = wrapper.find('[data-testid="map-center"]')
+    expect(button.attributes('aria-label')).toBe('Center on all stations')
     // set after the render above, which hands the template ref the mocked LMap
     const fitBounds = vi.fn()
     ;(wrapper.vm as any).map = { leafletObject: { getContainer: () => document.createElement('div'), fitBounds } }

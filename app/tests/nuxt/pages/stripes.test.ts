@@ -6,6 +6,7 @@ import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtData, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
+import StationPicker from '~/components/StationPicker.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
@@ -163,24 +164,50 @@ describe('stripes Page station map', () => {
     leafletMap.fitBounds.mockClear()
   })
 
+  it('picks its station with the shared station picker, for one station, which a pick on the map shows as a chip in the list', async () => {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
+    const picker = wrapper.findComponent(StationPicker)
+    expect((picker.props() as any).tool).toBe('stripes')
+    expect((picker.props() as any).multiple).toBeFalsy()
+
+    await wrapper.findAll('[role="radio"]').find((radio: { text: () => string }) => radio.text() === 'Map')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper!.findComponent(MapStations).exists()).toBe(true))
+    wrapper.findComponent(MapStations).vm.$emit('update:selectedStations', [tempelhof])
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('1048'))
+
+    await wrapper.findAll('[role="radio"]').find((radio: { text: () => string }) => radio.text() === 'List')!.trigger('click')
+    expect(wrapper.findAll('[data-station-chip]').map((chip: { text: () => string }) => chip.text())).toEqual(['Berlin-Tempelhof (1048) ×'])
+    // a pick replaces the one before
+    wrapper.findComponent(StationPicker).vm.$emit('update:selected', [potsdam])
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('3987'))
+    // and the chip clears it
+    await wrapper.find('[data-station-chip]').trigger('click')
+    await vi.waitFor(() => expect(vm.selectedStation).toBeNull())
+  })
+
   it('stays centred on all stations, as the user chose, when the map\'s section renders again', async () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
     // precipitation, as the pages the tests above leave mounted hold the temperature stations' fetch
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
-    await wrapper.findAll('button').find((b: { text: () => string }) => b.text().includes('Choose on the map'))!.trigger('click')
+    await wrapper.findAll('[role="radio"]').find((radio: { text: () => string }) => radio.text() === 'Map')!.trigger('click')
     await vi.waitFor(() => expect(wrapper!.findComponent(MapStations).exists()).toBe(true))
     const map = wrapper.findComponent(MapStations)
     const fitBounds = leafletMap.fitBounds
-    const centreButton = () => map.findAll('button').find((b: { text: () => string }) => b.text().startsWith('Center on'))!
+    // an icon button beside the zoom buttons: its name is its label
+    const centreButton = () => map.find('[data-testid="map-center"]')
+    const centreLabel = () => centreButton().attributes('aria-label')
 
     // a station is chosen on the map, which centres on it
     map.vm.$emit('update:selectedStations', [tempelhof])
-    await vi.waitFor(() => expect(centreButton().text()).toBe('Center on all stations'))
+    await vi.waitFor(() => expect(centreLabel()).toBe('Center on all stations'))
     expect(fitBounds).toHaveBeenCalled()
     await centreButton().trigger('click')
-    expect(centreButton().text()).toBe('Center on selected station')
+    expect(centreLabel()).toBe('Center on selected station')
     const fits = fitBounds.mock.calls.length
 
     // the map's section renders again, with the same station chosen: the component around the map
@@ -189,7 +216,7 @@ describe('stripes Page station map', () => {
     await nextTick()
     await nextTick()
 
-    expect(centreButton().text()).toBe('Center on selected station')
+    expect(centreLabel()).toBe('Center on selected station')
     expect(fitBounds).toHaveBeenCalledTimes(fits)
   })
 })

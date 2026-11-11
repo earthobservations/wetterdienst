@@ -8,6 +8,7 @@ import { UApp, UInputNumber } from '#components'
 import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
+import StationPicker from '~/components/StationPicker.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 
@@ -278,6 +279,25 @@ describe('explorer Page', () => {
     vm.dataSettings.skipThreshold = Number.NaN
     await wrapper.vm.$nextTick()
     expect(vm.canFetch).toBe(true)
+  })
+})
+
+describe('explorer Page station picker', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+  })
+
+  it('picks stations with the shared station picker, for several stations, with a mode of its own', async () => {
+    const { wrapper } = await mountWithSelection(() => ({ values: [] }))
+    const picker = wrapper.findComponent(StationPicker)
+    expect(picker.exists()).toBe(true)
+    expect((picker.props() as any).tool).toBe('explorer')
+    expect((picker.props() as any).multiple).toBe(true)
+    // the station chosen is a chip, and the toggle offers the list and the map
+    expect(picker.findAll('[data-station-chip]').map(chip => chip.text())).toEqual(['Test Station (00001) ×'])
+    expect(picker.findAll('[role="radio"]').map(radio => radio.text())).toEqual(['List', 'Map'])
   })
 })
 

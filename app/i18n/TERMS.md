@@ -191,6 +191,12 @@ meant to be understood, not to be the last word, and **a review by a native spea
   Least certain: `de-hh` `Deeldag`, then `lb` `deelweis` and `cs` `částečně`; `de` `unvollständig` is plain German for
   "incomplete".
 
+- **Machine-made**: the strings of the station picker's toggle and chips (`stationSelection.modeLabel`, `modeList`,
+  `modeMap`, `selectedStation`, `removeStation`, GH-3877), written by a language model (Claude) in **all ten locales
+  besides `en`**, `de` included, and read by no person. Least certain: `de-hh` `Lieste` for "list" and `wegmaken`;
+  `lb` `Lëscht` and `ewechhuelen`; `cs` `Seznam` and `Odebrat {name} z výběru`; `pl` `Usuń {name} z wyboru`; `it`
+  `Elenco` against `Lista`.
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

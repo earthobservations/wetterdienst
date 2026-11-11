@@ -150,7 +150,7 @@ const STATES: State[] = [
     state: 'station-map',
     path: EXPLORER,
     reach: async (page, locale) => {
-      await page.getByRole('button', { name: message(locale, 'stationSelection.chooseOnMap') }).click()
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
       await mapWithStations(page)
     },
   },
@@ -272,6 +272,9 @@ const STATES: State[] = [
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       // the station's history itself, not the station picker that names it too
       await expect(page.getByText(`${message(locale, 'history.stationIdPrefix')}: 00011`)).toBeVisible()
+      // the choosing above scrolled the page to where the toggle of the station picker is half under the sticky header, which
+      // axe reads as a target too small to press (target-size: "partially obscured"); the page as it is opened is at its top
+      await page.evaluate(() => window.scrollTo(0, 0))
     },
   },
   {
@@ -303,7 +306,7 @@ const STATES: State[] = [
     state: 'station-map',
     path: '/stripes',
     reach: async (page, locale) => {
-      await page.getByRole('button', { name: message(locale, 'stripes.chooseOnMap') }).click()
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
       await mapWithStations(page)
     },
   },
@@ -402,6 +405,15 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByText(message(locale, 'common.stationSearch')).click()
       await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
+    state: 'station-map',
+    path: '/meteogram',
+    reach: async (page, locale) => {
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
+      await mapWithStations(page)
     },
   },
   {
@@ -759,9 +771,69 @@ test.describe('keyboard operation', () => {
     await page.keyboard.press('Escape')
     await expect(listbox).toBeHidden()
     // what was chosen is the picker's name now, and the focus is back on it, not lost to the page
-    const chosen = page.getByRole('button', { name: /Donaueschingen/ })
+    // (its chip, a button to remove it, is named "Remove ...")
+    const chosen = page.getByRole('button', { name: /^Donaueschingen/ })
     await expect(chosen).toBeVisible()
     await expect(chosen).toBeFocused()
+  })
+
+  test('the station picker\'s toggle is a radio group moved by the arrow keys, and a click moves the focus into the search or the map (GH-3877)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, EXPLORER, variant)
+    const list = page.getByRole('radio', { name: message('en', 'stationSelection.modeList'), exact: true })
+    const map = page.getByRole('radio', { name: message('en', 'stationSelection.modeMap'), exact: true })
+    const group = page.getByRole('radiogroup', { name: message('en', 'stationSelection.modeLabel') })
+    await expect(group).toBeVisible()
+    await expect(list).toBeChecked()
+
+    // the arrow keys select and keep the focus on the toggle, to walk along it
+    await list.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(map).toBeChecked()
+    await expect(map).toBeFocused()
+    // what the toggle controls is there, and the map is in it
+    const controlled = (await map.getAttribute('aria-controls'))!
+    await expect(page.locator(`[id="${controlled}"] .leaflet-container`)).toBeVisible()
+    await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
+    await page.keyboard.press('ArrowLeft')
+    await expect(list).toBeChecked()
+    await expect(page.locator('.leaflet-container')).toHaveCount(0)
+
+    // a click is a decision to use the mode: the focus goes into it
+    await map.click()
+    await expect(page.locator('.leaflet-container')).toBeFocused()
+    await list.click()
+    await expect(page.getByRole('button', { name: message('en', 'common.stationSearch') })).toBeFocused()
+
+    // the map stands where the toggle left it, and a pick on it is a chip that stays in the list
+    await map.press('Enter')
+    await expect(page.locator('.leaflet-container')).toBeFocused()
+    await page.locator('img.leaflet-marker-icon').first().dispatchEvent('click')
+    const chip = page.locator('[data-station-chip]')
+    await expect(chip).toHaveCount(1)
+    await list.click()
+    await expect(page.locator('[data-station-chip]')).toHaveCount(1)
+    // a chip is a button: Enter takes the station out, and the focus does not fall to the page
+    await page.locator('[data-station-chip]').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('[data-station-chip]')).toHaveCount(0)
+    await expect(list).toBeFocused()
+  })
+
+  test('the station picker\'s mode is remembered for the tool, and the other tools keep their own (GH-3877)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes', variant)
+    const map = page.getByRole('radio', { name: message('en', 'stationSelection.modeMap'), exact: true })
+    await map.click()
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+
+    await page.reload()
+    await expect(map).toBeChecked()
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+
+    // the explorer's picker has been left on the list
+    await open(page, EXPLORER, variant)
+    await expect(page.getByRole('radio', { name: message('en', 'stationSelection.modeList'), exact: true })).toBeChecked()
   })
 
   test('a collapsible opens and closes by Enter and Space, and says so', async ({ page, baseURL }) => {

@@ -570,9 +570,6 @@
         "clear": "Zonnig"
       }
     },
-    "orChooseMap": "of",
-    "chooseOnMap": "Kies een station op de kaart",
-    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
     "runLabel": "Modelrun",
     "runLatest": "Nieuwste (auto)"
   },
@@ -601,7 +598,6 @@
     "typePrecipitation": "Neerslag",
     "station": "Station",
     "selectStation": "Selecteer een station",
-    "showMap": "Kaart tonen",
     "loadingStations": "Stations laden …",
     "region": "Regio",
     "available": "Beschikbaar",
@@ -625,8 +621,6 @@
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
-    "chooseOnMap": "Kies op de kaart",
-    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
     "summary": "Van {from} tot {to}. Laagste waarde {min} in {minYear}, hoogste waarde {max} in {maxYear}.",
@@ -756,11 +750,13 @@
     "selectStation": "Selecteer een station",
     "selectedStations": "Geselecteerde stations:",
     "clearAll": "Alles wissen",
-    "clearStation": "Geselecteerd station wissen",
-    "showMap": "Kaart tonen",
-    "chooseOnMap": "Kies op de kaart",
     "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
-    "mapHintMultiple": "Tik op punten op de kaart om stations toe te voegen of te verwijderen."
+    "mapHintMultiple": "Tik op punten op de kaart om stations toe te voegen of te verwijderen.",
+    "modeLabel": "Kies een station uit een lijst of op een kaart",
+    "modeList": "Lijst",
+    "modeMap": "Kaart",
+    "selectedStation": "Geselecteerd station:",
+    "removeStation": "{name} uit de selectie verwijderen"
   },
   "interpolation": {
     "source": "Bron",

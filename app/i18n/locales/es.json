@@ -570,9 +570,6 @@
         "clear": "Soleado"
       }
     },
-    "orChooseMap": "o",
-    "chooseOnMap": "Elegir una estación en el mapa",
-    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
     "runLabel": "Pasada del modelo",
     "runLatest": "Última (auto)"
   },
@@ -601,7 +598,6 @@
     "typePrecipitation": "Precipitación",
     "station": "Estación",
     "selectStation": "Seleccionar una estación",
-    "showMap": "Mostrar el mapa",
     "loadingStations": "Cargando estaciones …",
     "region": "Región",
     "available": "Disponible",
@@ -625,8 +621,6 @@
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
     "plotSource": "Fuente: Deutscher Wetterdienst",
-    "chooseOnMap": "Elegir en el mapa",
-    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
     "hoverValue": "Valor",
     "hoverTrend": "Tendencia",
     "summary": "De {from} a {to}. Valor más bajo: {min} en {minYear}; valor más alto: {max} en {maxYear}.",
@@ -756,11 +750,13 @@
     "selectStation": "Seleccionar una estación",
     "selectedStations": "Estaciones seleccionadas:",
     "clearAll": "Borrar todo",
-    "clearStation": "Borrar la estación seleccionada",
-    "showMap": "Mostrar el mapa",
-    "chooseOnMap": "Elegir en el mapa",
     "mapHint": "Toca un punto en el mapa para elegir esa estación.",
-    "mapHintMultiple": "Toca puntos en el mapa para añadir o quitar estaciones."
+    "mapHintMultiple": "Toca puntos en el mapa para añadir o quitar estaciones.",
+    "modeLabel": "Elegir una estación en una lista o en un mapa",
+    "modeList": "Lista",
+    "modeMap": "Mapa",
+    "selectedStation": "Estación seleccionada:",
+    "removeStation": "Quitar {name} de la selección"
   },
   "interpolation": {
     "source": "Fuente",

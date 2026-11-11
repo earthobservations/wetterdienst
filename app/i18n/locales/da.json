@@ -570,9 +570,6 @@
         "clear": "Solrigt"
       }
     },
-    "orChooseMap": "eller",
-    "chooseOnMap": "Vælg en station på kortet",
-    "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
     "runLabel": "Modelkørsel",
     "runLatest": "Seneste (auto)"
   },
@@ -601,7 +598,6 @@
     "typePrecipitation": "Nedbør",
     "station": "Station",
     "selectStation": "Vælg en station",
-    "showMap": "Vis kort",
     "loadingStations": "Indlæser stationer …",
     "region": "Region",
     "available": "Tilgængelig",
@@ -625,8 +621,6 @@
     "plotTitle": "Klimastriber ({kind}) for {name}, Tyskland ({id})",
     "plotDataAvailability": "Datatilgængelighed",
     "plotSource": "Kilde: Deutscher Wetterdienst",
-    "chooseOnMap": "Vælg på kortet",
-    "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
     "hoverValue": "Værdi",
     "hoverTrend": "Tendens",
     "summary": "Fra {from} til {to}. Laveste værdi {min} i {minYear}, højeste værdi {max} i {maxYear}.",
@@ -756,11 +750,13 @@
     "selectStation": "Vælg en station",
     "selectedStations": "Valgte stationer:",
     "clearAll": "Ryd alle",
-    "clearStation": "Ryd den valgte station",
-    "showMap": "Vis kort",
-    "chooseOnMap": "Vælg på kortet",
     "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
-    "mapHintMultiple": "Tryk på punkter på kortet for at tilføje eller fjerne stationer."
+    "mapHintMultiple": "Tryk på punkter på kortet for at tilføje eller fjerne stationer.",
+    "modeLabel": "Vælg en station fra en liste eller på et kort",
+    "modeList": "Liste",
+    "modeMap": "Kort",
+    "selectedStation": "Valgt station:",
+    "removeStation": "Fjern {name} fra valget"
   },
   "interpolation": {
     "source": "Kilde",

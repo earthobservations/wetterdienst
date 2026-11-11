@@ -8,15 +8,35 @@ const props = defineProps<{
   options: { value: T, label: string, icon?: string }[]
   /** The group's name, which a screen reader announces with the option */
   label: string
+  /** The id of what the group controls (`aria-controls` of each option): one element, which shows the chosen option */
+  controls?: string
+  /**
+   * Whether the chosen option takes the focus after a click or Enter/Space (the default: Safari does not focus a
+   * button on click). Off, the one that listens to `activate` moves the focus itself, as the picker of the stations
+   * moves it into the search or the map. The arrow keys keep it on the group either way, to walk along it.
+   */
+  focusOnClick?: boolean
 }>()
 
-const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: T]
+  /** An option chosen by a click or by Enter/Space on it, not by the arrow keys: after `update:modelValue` */
+  'activate': [value: T]
+}>()
 
 const buttons: (HTMLButtonElement | null)[] = []
 
 function choose(index: number) {
   emit('update:modelValue', props.options[index]!.value)
   void nextTick(() => buttons[index]?.focus())
+}
+
+function activate(index: number) {
+  const value = props.options[index]!.value
+  emit('update:modelValue', value)
+  emit('activate', value)
+  if (props.focusOnClick !== false)
+    void nextTick(() => buttons[index]?.focus())
 }
 
 function onKeydown(event: KeyboardEvent, index: number) {
@@ -50,12 +70,13 @@ function onKeydown(event: KeyboardEvent, index: number) {
       type="button"
       role="radio"
       :aria-checked="option.value === modelValue"
+      :aria-controls="controls"
       :tabindex="option.value === modelValue ? 0 : -1"
       class="inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-all duration-150"
       :class="option.value === modelValue
         ? 'bg-white font-semibold text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
         : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300'"
-      @click="choose(index)"
+      @click="activate(index)"
       @keydown="onKeydown($event, index)"
     >
       <UIcon v-if="option.icon" :name="option.icon" class="hidden h-3.5 w-3.5 shrink-0 sm:block" aria-hidden="true" />

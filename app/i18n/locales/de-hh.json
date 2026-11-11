@@ -570,9 +570,6 @@
         "clear": "Sünnig"
       }
     },
-    "orChooseMap": "oder",
-    "chooseOnMap": "Station op de Kaart utsöken",
-    "mapHint": "Tipp op een Punkt op de Kaart, denn nimmst du de Station.",
     "runLabel": "Modelloop",
     "runLatest": "Aktuellste (auto)"
   },
@@ -601,7 +598,6 @@
     "typePrecipitation": "Nedderslag",
     "station": "Station",
     "selectStation": "Station utsöken",
-    "showMap": "Kaart wiesen",
     "loadingStations": "Stationen warrt laadt …",
     "region": "Region",
     "available": "Verfögbar",
@@ -625,8 +621,6 @@
     "plotTitle": "Klimastrepen ({kind}) för {name}, Düütschland ({id})",
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
-    "chooseOnMap": "Op de Kaart utsöken",
-    "mapHint": "Tipp op een Punkt op de Kaart, denn nimmst du de Station.",
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
     "summary": "Vun {from} bit {to}. Leegste Weert {min} in {minYear}, hööchste Weert {max} in {maxYear}.",
@@ -756,11 +750,13 @@
     "selectStation": "Station utsöken",
     "selectedStations": "Utsöchte Stationen:",
     "clearAll": "All wegmaken",
-    "clearStation": "Utsöchte Station wegmaken",
-    "showMap": "Kaart wiesen",
-    "chooseOnMap": "Op de Kaart utsöken",
     "mapHint": "Tipp op een Punkt op de Kaart, denn nimmst du de Station.",
-    "mapHintMultiple": "Tipp op Punkte op de Kaart, denn kannst du Stationen dorto nehmen oder rutsmieten."
+    "mapHintMultiple": "Tipp op Punkte op de Kaart, denn kannst du Stationen dorto nehmen oder rutsmieten.",
+    "modeLabel": "Station ut de Lieste oder op de Kaart utsöken",
+    "modeList": "Lieste",
+    "modeMap": "Kaart",
+    "selectedStation": "Utsöchte Station:",
+    "removeStation": "{name} wegmaken"
   },
   "interpolation": {
     "source": "Quell",

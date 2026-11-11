@@ -323,6 +323,7 @@ interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
+  'stationSelection.modeList': { de: ['da', 'fr'], why: COGNATE },
   'mapTool.panelTitle': { en: ['fr', 'nl'], why: COGNATE },
   'stripes.table.class': { de: ['da', 'nl'], why: COGNATE },
   'stripes.table.classes.temperature.high': { en: ['nl'], why: COGNATE },

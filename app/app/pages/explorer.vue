@@ -1173,6 +1173,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 :parameter-selection="parameterSelectionState.selection"
                 :initial-station-ids="initialStationIds"
                 :multiple="true"
+                tool="explorer"
               />
               <InterpolationSummarySelection
                 v-else
