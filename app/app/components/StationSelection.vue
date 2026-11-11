@@ -156,8 +156,8 @@ watch(() => props.parameterSelection, (ps) => {
 // A pick, from the search, the map or the chips
 function onPick(val: Station[]) {
   selectedStations.value = val
+  // the parent is told by the watcher of the selection, once
   emit('update:selectedStations', val)
-  emit('update:modelValue', { stations: val })
 }
 </script>
 

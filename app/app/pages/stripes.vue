@@ -788,15 +788,12 @@ onBeforeUnmount(() => {
 
               <StationPicker
                 tool="stripes"
+                :label="t('stripes.station')"
                 :stations="stations"
                 :selected="pickedStations"
                 :loading="stationsPending"
                 @update:selected="onPick"
               />
-
-              <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
-                {{ t('stripes.loadingStations') }}
-              </div>
 
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>

@@ -608,7 +608,6 @@
     "typePrecipitation": "Precipitación",
     "station": "Estación",
     "selectStation": "Seleccionar una estación",
-    "loadingStations": "Cargando estaciones …",
     "region": "Región",
     "available": "Disponible",
     "startYear": "Año de inicio",
@@ -765,7 +764,8 @@
     "modeList": "Lista",
     "modeMap": "Mapa",
     "selectedStation": "Estación seleccionada:",
-    "removeStation": "Quitar {name} de la selección"
+    "removeStation": "Quitar {name} de la selección",
+    "announceList": "Búsqueda de estaciones"
   },
   "interpolation": {
     "source": "Fuente",

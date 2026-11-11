@@ -608,7 +608,6 @@
     "typePrecipitation": "Niederschlag",
     "station": "Station",
     "selectStation": "Station auswählen",
-    "loadingStations": "Stationen werden geladen …",
     "region": "Region",
     "available": "Verfügbar",
     "startYear": "Startjahr",
@@ -765,7 +764,8 @@
     "modeList": "Liste",
     "modeMap": "Karte",
     "selectedStation": "Ausgewählte Station:",
-    "removeStation": "{name} aus der Auswahl entfernen"
+    "removeStation": "{name} aus der Auswahl entfernen",
+    "announceList": "Stationssuche"
   },
   "interpolation": {
     "source": "Quelle",

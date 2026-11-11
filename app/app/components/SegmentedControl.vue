@@ -20,8 +20,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: T]
-  /** An option chosen by a click or by Enter/Space on it, not by the arrow keys: after `update:modelValue` */
-  'activate': [value: T]
+  /** An option chosen by a click or by Enter/Space on it (`event.detail` is 0 for a key), not by the arrow keys: after `update:modelValue` */
+  'activate': [value: T, event: MouseEvent]
 }>()
 
 const buttons: (HTMLButtonElement | null)[] = []
@@ -31,10 +31,10 @@ function choose(index: number) {
   void nextTick(() => buttons[index]?.focus())
 }
 
-function activate(index: number) {
+function activate(index: number, event: MouseEvent) {
   const value = props.options[index]!.value
   emit('update:modelValue', value)
-  emit('activate', value)
+  emit('activate', value, event)
   if (props.focusOnClick !== false)
     void nextTick(() => buttons[index]?.focus())
 }
@@ -76,7 +76,7 @@ function onKeydown(event: KeyboardEvent, index: number) {
       :class="option.value === modelValue
         ? 'bg-white font-semibold text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
         : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300'"
-      @click="activate(index)"
+      @click="activate(index, $event)"
       @keydown="onKeydown($event, index)"
     >
       <UIcon v-if="option.icon" :name="option.icon" class="hidden h-3.5 w-3.5 shrink-0 sm:block" aria-hidden="true" />

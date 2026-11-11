@@ -203,7 +203,11 @@ function keepFocusedMarkerInView(event: FocusEvent) {
   // and into the window: a map that reaches past the foot of the window (the picker has it high in a card, at its full
   // height) shows a marker the page has not scrolled to, which the browser did not know to do while the marker was
   // clipped by the map (WCAG 2.4.11). After the browser's own scroll to the focus, which would undo it where it comes later
-  requestAnimationFrame(() => marker.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }))
+  // (not for a click of the pointer, which focuses the marker as well: it is looking at what it clicked)
+  requestAnimationFrame(() => {
+    if (marker.matches(':focus-visible'))
+      marker.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  })
 }
 
 let focusContainer: HTMLElement | null = null

@@ -178,6 +178,52 @@ describe('the station picker\'s keys', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('.leaflet-container').element))
   })
 
+  it('does not take the focus into a map that arrives after the reader has gone on to something else', async () => {
+    const wrapper = await mountPicker({ stations: [], loading: true })
+    const elsewhere = document.createElement('button')
+    document.body.append(elsewhere)
+    onTestFinished(() => elsewhere.remove())
+    await radio(wrapper, 'Map').trigger('click')
+    // the focus left the picker for the page while the map was on its way
+    elsewhere.focus()
+    await nextTick()
+
+    await wrapper.setProps({ stations, loading: false })
+    await vi.waitFor(() => expect(wrapper.find('.leaflet-container').exists()).toBe(true))
+    await nextTick()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('drops the ask for the map\'s focus where the focus leaves the picker, so that a later map does not take it', async () => {
+    const wrapper = await mountPicker({ stations: [], loading: true })
+    await radio(wrapper, 'Map').trigger('click')
+    const elsewhere = document.createElement('button')
+    document.body.append(elsewhere)
+    onTestFinished(() => elsewhere.remove())
+    // out of the picker, and back into it by the toggle, which is not a switch
+    await wrapper.find('[data-testid="station-picker"]').trigger('focusout', { relatedTarget: elsewhere })
+    ;(radio(wrapper, 'Map').element as HTMLElement).focus()
+
+    await wrapper.setProps({ stations, loading: false })
+    await vi.waitFor(() => expect(wrapper.find('.leaflet-container').exists()).toBe(true))
+    await nextTick()
+    expect(document.activeElement).toBe(radio(wrapper, 'Map').element)
+  })
+
+  it('does not scroll the page to what a click of the pointer focuses, as a key does', async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    onTestFinished(() => focus.mockRestore())
+    const wrapper = await mountPicker()
+    await radio(wrapper, 'Map').trigger('click', { detail: 1 })
+    await vi.waitFor(() => expect(focus.mock.contexts.some(el => (el as HTMLElement).classList?.contains('leaflet-container'))).toBe(true))
+    const mapCall = focus.mock.calls[focus.mock.contexts.findIndex(el => (el as HTMLElement).classList?.contains('leaflet-container'))]!
+    expect(mapCall[0]).toEqual({ preventScroll: true })
+
+    focus.mockClear()
+    await radio(wrapper, 'List').trigger('click', { detail: 0 })
+    await vi.waitFor(() => expect(focus.mock.calls.some(call => call[0] && (call[0] as FocusOptions).preventScroll === false)).toBe(true))
+  })
+
   it('tells a screen reader what the mode it was changed to does, and nothing before it is changed', async () => {
     const wrapper = await mountPicker({ multiple: true })
     const status = () => wrapper.find('[role="status"]').text()
@@ -187,7 +233,7 @@ describe('the station picker\'s keys', () => {
     expect(status()).toBe('Tap markers on the map to add or remove stations.')
 
     await radio(wrapper, 'List').trigger('click')
-    expect(status()).toBe('Search by name or station ID (e.g. München, 10738)')
+    expect(status()).toBe('Station search')
   })
 })
 
@@ -348,6 +394,28 @@ describe('the station picker\'s chips', () => {
     const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null }
     const wrapper = await mountPicker({ selected: [postcode] as any })
     expect(chips(wrapper)).toEqual(['01067 ×'])
+  })
+})
+
+describe('the station picker\'s label', () => {
+  it('is visible, and the search\'s own label where the list is shown', async () => {
+    const wrapper = await mountPicker({ label: 'Station' })
+    const label = wrapper.find('label')
+    expect(label.text()).toBe('Station')
+    // tied to the search's button, not to nothing
+    const target = document.getElementById(label.attributes('for')!)
+    expect(target).not.toBeNull()
+    expect(wrapper.find(`[id="${label.attributes('for')}"]`).exists()).toBe(true)
+
+    // the search is not there on the map: the label stays, as text
+    await radio(wrapper, 'Map').trigger('click')
+    expect(wrapper.find('label').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Station')
+  })
+
+  it('is not there where none is given', async () => {
+    const wrapper = await mountPicker()
+    expect(wrapper.find('label').exists()).toBe(false)
   })
 })
 

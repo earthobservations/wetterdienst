@@ -608,7 +608,6 @@
     "typePrecipitation": "Nedbør",
     "station": "Station",
     "selectStation": "Vælg en station",
-    "loadingStations": "Indlæser stationer …",
     "region": "Region",
     "available": "Tilgængelig",
     "startYear": "Startår",
@@ -765,7 +764,8 @@
     "modeList": "Liste",
     "modeMap": "Kort",
     "selectedStation": "Valgt station:",
-    "removeStation": "Fjern {name} fra valget"
+    "removeStation": "Fjern {name} fra valget",
+    "announceList": "Stationssøgning"
   },
   "interpolation": {
     "source": "Kilde",

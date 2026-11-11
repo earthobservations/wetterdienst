@@ -608,7 +608,6 @@
     "typePrecipitation": "Neerslag",
     "station": "Station",
     "selectStation": "Selecteer een station",
-    "loadingStations": "Stations laden …",
     "region": "Regio",
     "available": "Beschikbaar",
     "startYear": "Beginjaar",
@@ -765,7 +764,8 @@
     "modeList": "Lijst",
     "modeMap": "Kaart",
     "selectedStation": "Geselecteerd station:",
-    "removeStation": "{name} uit de selectie verwijderen"
+    "removeStation": "{name} uit de selectie verwijderen",
+    "announceList": "Stations zoeken"
   },
   "interpolation": {
     "source": "Bron",

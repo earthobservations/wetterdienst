@@ -608,7 +608,6 @@
     "typePrecipitation": "Néierschlag",
     "station": "Statioun",
     "selectStation": "Wiel eng Statioun",
-    "loadingStations": "Statioune ginn gelueden …",
     "region": "Regioun",
     "available": "Verfügbar",
     "startYear": "Ufanksjoer",
@@ -765,7 +764,8 @@
     "modeList": "Lëscht",
     "modeMap": "Kaart",
     "selectedStation": "Ausgewielte Statioun:",
-    "removeStation": "{name} ewechhuelen"
+    "removeStation": "{name} ewechhuelen",
+    "announceList": "Statiounssich"
   },
   "interpolation": {
     "source": "Quell",

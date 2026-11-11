@@ -31,6 +31,8 @@ const props = defineProps<{
   error?: boolean
   /** The list was fetched and has no station */
   empty?: boolean
+  /** A visible label of the choice (the stripes' "Station"): the search's own where the list is shown */
+  label?: string
 }>()
 
 const emit = defineEmits<{
@@ -58,6 +60,7 @@ watch(open, value => emit('update:open', value))
 const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const panelId = useId()
+const selectId = useId()
 
 const modeOptions = computed(() => [
   { value: 'list' as const, label: t('stationSelection.modeList'), icon: 'i-ph-list-magnifying-glass' },
@@ -74,30 +77,30 @@ const announcement = computed(() => {
   if (!changedByReader.value)
     return ''
   if (mode.value === 'list')
-    return t('common.stationSearch')
+    return t('stationSelection.announceList')
   return mapNotLoaded.value ? '' : mapHint.value
 })
 
 // A map asked for by a switch that is not there yet (its code, and the list of the stations, are on their way) takes
 // the focus as soon as it is
-let focusMapWhenReady = false
+let focusMapWhenReady: FocusOptions | null = null
 
-function focusMap() {
+function focusMap(options?: FocusOptions) {
   const container = panel.value?.querySelector<HTMLElement>('.leaflet-container')
   if (container) {
-    focusMapWhenReady = false
-    container.focus()
+    focusMapWhenReady = null
+    container.focus(options)
   }
   else {
-    focusMapWhenReady = true
+    focusMapWhenReady = options ?? {}
   }
 }
 
-function focusContent() {
+function focusContent(options?: FocusOptions) {
   if (mode.value === 'map')
-    focusMap()
+    focusMap(options)
   else
-    panel.value?.querySelector<HTMLElement>('button')?.focus()
+    panel.value?.querySelector<HTMLElement>('button')?.focus(options)
 }
 
 // The reader's own choice: remembered, announced, and (`onActivate`) the focus goes into what it shows
@@ -105,22 +108,36 @@ function setMode(value: StationPickerMode) {
   if (value === mode.value)
     return
   mode.value = value
-  focusMapWhenReady = false
+  focusMapWhenReady = null
   open.value = false
   writeStationPickerMode(props.tool, value)
   changedByReader.value = true
 }
 
 // A click, or Enter or Space, on the toggle is a decision to use the mode: the focus goes into the search or the
-// map. The arrow keys keep it on the toggle (`SegmentedControl`), to walk along it
-async function onActivate() {
+// map. The arrow keys keep it on the toggle (`SegmentedControl`), to walk along it. A pointer's click does not scroll
+// the page to what it focuses (`event.detail` is the number of clicks, 0 for a key): the reader is looking at it
+async function onActivate(_value: StationPickerMode, event: MouseEvent) {
   await nextTick()
-  focusContent()
+  focusContent({ preventScroll: event.detail > 0 })
 }
 
+// The map is there: it takes the focus a switch asked for, unless the reader has gone on since (the focus is in the
+// picker or nowhere); the ask is dropped where it is not taken, and where the focus leaves the picker
 function onMapReady() {
-  if (focusMapWhenReady)
-    focusMap()
+  if (!focusMapWhenReady)
+    return
+  const active = document.activeElement
+  if (root.value?.contains(active) || active === document.body || active === null)
+    focusMap(focusMapWhenReady)
+  else
+    focusMapWhenReady = null
+}
+
+function onFocusOut(event: FocusEvent) {
+  const next = event.relatedTarget
+  if (focusMapWhenReady && next instanceof Node && !root.value?.contains(next))
+    focusMapWhenReady = null
 }
 
 // ---- what the search shows, and what it hands over ---------------------------------------------------------
@@ -184,7 +201,10 @@ async function clearAll() {
 </script>
 
 <template>
-  <div ref="root" class="flex flex-col gap-3" data-testid="station-picker">
+  <div ref="root" class="flex flex-col gap-3" data-testid="station-picker" @focusout="onFocusOut">
+    <component :is="mode === 'list' ? 'label' : 'span'" v-if="label" :for="mode === 'list' ? selectId : undefined" class="text-sm font-medium">
+      {{ label }}
+    </component>
     <div class="flex flex-wrap items-center justify-between gap-2" data-print="hide">
       <SegmentedControl
         :model-value="mode"
@@ -203,6 +223,7 @@ async function clearAll() {
     <div :id="panelId" ref="panel" class="flex flex-col gap-3">
       <USelectMenu
         v-if="mode === 'list'"
+        :id="selectId"
         v-model="selectedItems"
         v-model:open="open"
         :items="items"

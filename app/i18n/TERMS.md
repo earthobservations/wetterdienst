@@ -200,10 +200,10 @@ meant to be understood, not to be the last word, and **a review by a native spea
   "incomplete".
 
 - **Machine-made**: the strings of the station picker's toggle and chips (`stationSelection.modeLabel`, `modeList`,
-  `modeMap`, `selectedStation`, `removeStation`, GH-3877), written by a language model (Claude) in **all ten locales
+  `modeMap`, `selectedStation`, `removeStation`, `announceList`, GH-3877), written by a language model (Claude) in **all ten locales
   besides `en`**, `de` included, and read by no person. Least certain: `de-hh` `Lieste` for "list" and `wegmaken`;
   `lb` `Lëscht` and `ewechhuelen`; `cs` `Seznam` and `Odebrat {name} z výběru`; `pl` `Usuń {name} z wyboru`; `it`
-  `Elenco` against `Lista`.
+  `Elenco` against `Lista`; `de-hh` `Stationssöök` and `lb` `Statiounssich` for "Station search".
 - **Machine-made**: the sentences every tool shows where its result will be (`toolPlaceholder.*`, `history.noneFound`) and the
   titles of the setup cards (`cardTitle.*`, `parameterSelection.title`, GH-3850) were written by a language model (Claude)
   in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh` `Oort un Tietruum`

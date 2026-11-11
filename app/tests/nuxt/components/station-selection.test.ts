@@ -451,3 +451,15 @@ describe('stationSelection station list answered with a 503 once', () => {
     expect(wrapper.text()).not.toContain('Failed to load stations')
   })
 })
+
+describe('stationSelection pick', () => {
+  it('tells the parent of a pick once', async () => {
+    registerEndpoint('/api/stations', () => stationsResponse)
+    const wrapper = await mountSuspended(StationSelection, { props: { tool: 'explorer', parameterSelection: { ...parameterSelection, dataset: 'once' }, multiple: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    wrapper.findComponent(StationPicker).vm.$emit('update:selected', [stationsResponse.stations[0]])
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.emitted('update:modelValue')).toHaveLength(1)
+    expect(wrapper.emitted('update:selectedStations')).toHaveLength(1)
+  })
+})

@@ -608,7 +608,6 @@
     "typePrecipitation": "Nedderslag",
     "station": "Station",
     "selectStation": "Station utsöken",
-    "loadingStations": "Stationen warrt laadt …",
     "region": "Region",
     "available": "Verfögbar",
     "startYear": "Anfangsjohr",
@@ -765,7 +764,8 @@
     "modeList": "Lieste",
     "modeMap": "Kaart",
     "selectedStation": "Utsöchte Station:",
-    "removeStation": "{name} wegmaken"
+    "removeStation": "{name} wegmaken",
+    "announceList": "Stationssöök"
   },
   "interpolation": {
     "source": "Quell",

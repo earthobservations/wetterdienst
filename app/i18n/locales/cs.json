@@ -608,7 +608,6 @@
     "typePrecipitation": "Srážky",
     "station": "Stanice",
     "selectStation": "Vyber stanici",
-    "loadingStations": "Načítání stanic …",
     "region": "Region",
     "available": "Dostupné",
     "startYear": "Počáteční rok",
@@ -765,7 +764,8 @@
     "modeList": "Seznam",
     "modeMap": "Mapa",
     "selectedStation": "Vybraná stanice:",
-    "removeStation": "Odebrat {name} z výběru"
+    "removeStation": "Odebrat {name} z výběru",
+    "announceList": "Hledání stanic"
   },
   "interpolation": {
     "source": "Zdroj",

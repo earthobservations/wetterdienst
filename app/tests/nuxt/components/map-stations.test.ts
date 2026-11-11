@@ -118,7 +118,7 @@ describe('mapStations marker focus', () => {
   // that is hidden (WCAG 2.4.11). The boxes are the view and the marker, as the browser would measure them.
   const box = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom, width: right - left, height: bottom - top }) as DOMRect
 
-  async function focusMarkerAt(markerBox: DOMRect, className = 'leaflet-marker-icon') {
+  async function focusMarkerAt(markerBox: DOMRect, className = 'leaflet-marker-icon', focusVisible = true) {
     const panBy = vi.fn()
     const container = document.createElement('div')
     container.getBoundingClientRect = () => box(100, 100, 500, 500)
@@ -127,6 +127,8 @@ describe('mapStations marker focus', () => {
     marker.getBoundingClientRect = () => markerBox
     const scrolled = vi.fn()
     marker.scrollIntoView = scrolled
+    // happy-dom does not know :focus-visible: a key focuses the marker visibly, a click of the pointer does not
+    marker.matches = (selector: string) => selector === ':focus-visible' && focusVisible
     container.append(marker)
     const wrapper = await mountSuspended(MapStations, { props: { stations: [], selectedStations: [] } })
     const vm = wrapper.vm as any
@@ -157,6 +159,13 @@ describe('mapStations marker focus', () => {
   it('leaves the map where it is for anything else that takes the focus', async () => {
     const panBy = await focusMarkerAt(box(60, 40, 85, 81), 'leaflet-control-zoom-in')
     expect(panBy).not.toHaveBeenCalled()
+    expect(panBy.scrolled).not.toHaveBeenCalled()
+  })
+
+  it('does not scroll the page to a marker that a click of the pointer focuses', async () => {
+    const panBy = await focusMarkerAt(box(250, 250, 275, 291), 'leaflet-marker-icon', false)
+    // give the frame its time: it was asked for after the focus, and decided there
+    await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
     expect(panBy.scrolled).not.toHaveBeenCalled()
   })
 
