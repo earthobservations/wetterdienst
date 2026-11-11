@@ -60,8 +60,10 @@ by field and only for a setting still at the app's default, until the server has
 from then on the settings are the visitor's own, whatever the server says. A link of an earlier version is compared
 with the settings once the server has answered for them. **Reset** on the Settings page goes back to the server's
 settings where it has answered in that load, and else to the defaults of the app, and the next load asks the server
-again. The forecast, its widget and the
-map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
+again. The climate stripes, on their page and in the map's panel, ask for the unit the Settings page chooses for
+their kind (`unit_targets` of `/api/stripes/values`) and write the unit the answer names in the sentence, the table
+and the hover texts; the colours are relative and do not change with it. The forecast, its widget, the
+forecast in the map's panel, and the home page's questions, ask in the fixed units their charts and sentences are written in, which
 the Settings page does not change.
 
 The app does not have the weather warnings of DWD (see [Alerts](../data/provider/dwd/alerts/index.md)
