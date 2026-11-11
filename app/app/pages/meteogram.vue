@@ -3,11 +3,9 @@ import type { Station } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
-import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
+import StationPicker from '~/components/StationPicker.vue'
 import { meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
-
-const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
 // Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
 const MOSMIX = MOSMIX_METEOGRAM
@@ -75,18 +73,19 @@ async function loadAvailableIssues(stationId: string) {
   }
 }
 
-// Optional map picker. The full MOSMIX station list is large, so it is only
-// fetched the first time the user opens the map — search stays the default.
-const showMap = ref(false)
-const mapStations = ref<Station[]>([])
-const mapLoading = ref(false)
+// The station picker's list. The full MOSMIX station list is large, so it is only fetched the first time the
+// reader opens the search or shows the map; a failed request is asked for again by the next of either.
+const stations = ref<Station[]>([])
+const stationsLoading = ref(false)
+const stationsFailed = ref(false)
 
 const selectedStationsArray = computed(() => (selectedStation.value ? [selectedStation.value] : []))
 
-async function loadMapStations() {
-  if (mapStations.value.length || mapLoading.value)
+async function loadStations() {
+  if (stations.value.length || stationsLoading.value)
     return
-  mapLoading.value = true
+  stationsLoading.value = true
+  stationsFailed.value = false
   try {
     const res = await $fetch<{ stations: Station[] }>('/api/stations', {
       query: {
@@ -97,24 +96,25 @@ async function loadMapStations() {
       },
       ...API_FETCH,
     })
-    mapStations.value = res.stations ?? []
+    stations.value = res.stations ?? []
   }
   catch {
-    // ignore – user can fall back to search
+    stationsFailed.value = true
   }
   finally {
-    mapLoading.value = false
+    stationsLoading.value = false
   }
 }
 
-watch(showMap, (open) => {
-  if (open)
-    void loadMapStations()
-})
+// the search opened, or the map shown (by the reader, or remembered from the last visit)
+function onPickerWants(wanted: boolean) {
+  if (wanted)
+    void loadStations()
+}
 
-// Single-station picker: keep only the most recently clicked station.
-function onMapSelectedStations(val: Station[]) {
-  selectedStation.value = val.length ? val[val.length - 1]! : null
+// Single-station picker: the picker hands over the one station picked, or none where its chip is removed
+function onPick(picked: Station[]) {
+  selectedStation.value = picked[0] ?? null
 }
 
 async function fetchMeteogram(station: Station) {
@@ -340,47 +340,16 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
                 </div>
               </div>
             </template>
-            <MeteogramStationSearch v-model="selectedStation" />
-
-            <!-- "or" divider, signalling the map is an equal alternative to search. -->
-            <div class="flex items-center gap-3 my-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
-              <span>{{ t('meteogram.orChooseMap') }}</span>
-              <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
-            </div>
-
-            <!-- Pick a station from the map instead of searching. -->
-            <UCollapsible v-model="showMap">
-              <UButton
-                :label="t('meteogram.chooseOnMap')"
-                icon="i-ph-map-pin"
-                variant="subtle"
-                color="primary"
-                trailing-icon="i-ph-caret-down"
-                block
-                @click="showMap = !showMap"
-              />
-              <template #content>
-                <ClientOnly>
-                  <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
-                    <UIcon name="i-ph-circle-notch" class="w-5 h-5 animate-spin text-primary-600 dark:text-primary-500" />
-                    <span>{{ t('stationSelection.loading') }}</span>
-                  </div>
-                  <template v-else-if="mapStations.length">
-                    <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                      <UIcon name="i-ph-hand-pointing" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
-                      {{ t('meteogram.mapHint') }}
-                    </p>
-                    <MapStations
-                      :stations="mapStations"
-                      :selected-stations="selectedStationsArray"
-                      :multiple="false"
-                      @update:selected-stations="onMapSelectedStations"
-                    />
-                  </template>
-                </ClientOnly>
-              </template>
-            </UCollapsible>
+            <StationPicker
+              tool="forecast"
+              :stations="stations"
+              :selected="selectedStationsArray"
+              :loading="stationsLoading"
+              :error="stationsFailed"
+              @update:selected="onPick"
+              @update:open="onPickerWants"
+              @update:mode="onPickerWants($event === 'map')"
+            />
           </UCard>
         </template>
         <template #result>

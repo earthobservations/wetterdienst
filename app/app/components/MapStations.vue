@@ -11,7 +11,9 @@ const props = defineProps<{
   selectedStations: any[]
   multiple?: boolean
 }>()
-const emit = defineEmits(['update:selectedStations'])
+// `ready` once the map is there with its markers: the picker, which moves the focus into the map that a switch
+// to it asked for, waits for it
+const emit = defineEmits(['update:selectedStations', 'ready'])
 
 // <LMap use-global-leaflet> and useLMarkerCluster() (from @nuxtjs/leaflet) both
 // read `window.L` directly rather than importing leaflet themselves. Setting it
@@ -182,7 +184,7 @@ function updateMarkerIcons() {
 
 // Leaflet draws the markers a little beyond what the map shows, and lets any of them take the focus by Tab:
 // the focus then sits on a marker the map has clipped, out of sight (WCAG 2.4.7, 2.4.11). A marker that
-// takes the focus is brought into the view, by the part of it that is hidden and a margin.
+// takes the focus is brought into the view, by the part of it that is hidden and a margin, and the page scrolls to it.
 const FOCUS_MARGIN = 24
 let focusMap: L.Map | null = null
 function keepFocusedMarkerInView(event: FocusEvent) {
@@ -198,6 +200,14 @@ function keepFocusedMarkerInView(event: FocusEvent) {
   const dy = hidden(box.top, box.bottom, view.top, view.bottom)
   if (dx || dy)
     leafletMap.panBy([dx, dy], { animate: false })
+  // and into the window: a map that reaches past the foot of the window (the picker has it high in a card, at its full
+  // height) shows a marker the page has not scrolled to, which the browser did not know to do while the marker was
+  // clipped by the map (WCAG 2.4.11). After the browser's own scroll to the focus, which would undo it where it comes later
+  // (not for a click of the pointer, which focuses the marker as well: it is looking at what it clicked)
+  requestAnimationFrame(() => {
+    if (marker.matches(':focus-visible'))
+      marker.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  })
 }
 
 let focusContainer: HTMLElement | null = null
@@ -214,7 +224,14 @@ async function onMapReady(readyMap?: L.Map) {
   focusContainer?.addEventListener('focusin', keepFocusedMarkerInView)
   await createMarkers()
   updateMarkerIcons()
+  emit('ready')
 }
+
+// What the control next to the zoom buttons does, as its name: it fits the map to the picked stations, and where
+// it already does, back to all of them
+const centerLabel = computed(() => centerOnSelectedStations.value
+  ? t('map.centerAll')
+  : (mappedSelectedStations.value.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural')))
 
 function toggleCenter() {
   centerOnSelectedStations.value = !centerOnSelectedStations.value
@@ -254,27 +271,31 @@ watch([
 
 <template>
   <div>
-    <div class="p-4 space-y-4">
-      <UButton
-        :label="centerOnSelectedStations ? t('map.centerAll') : (mappedSelectedStations.length === 1 ? t('map.centerSelected') : t('map.centerSelectedPlural'))"
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        block
+    <!-- mounted anew for each failure, so a newer list that fails too is announced again -->
+    <p v-if="markersFailure !== null" :key="markersFailure" role="alert" class="mb-2 text-sm font-medium text-center text-red-600 dark:text-red-400">
+      {{ t('map.markersNotShown') }}
+    </p>
+    <div class="relative">
+      <!-- a control of the map, beside Leaflet's zoom buttons, which it is drawn like; Tab reaches it before the map -->
+      <button
+        type="button"
+        :aria-label="centerLabel"
+        :title="centerLabel"
         :disabled="!mappedSelectedStations.length && !centerOnSelectedStations"
+        data-testid="map-center"
+        data-print="hide"
+        class="wd-map-center"
         @click="toggleCenter"
-      />
-      <!-- mounted anew for each failure, so a newer list that fails too is announced again -->
-      <p v-if="markersFailure !== null" :key="markersFailure" role="alert" class="text-sm font-medium text-center text-red-600 dark:text-red-400">
-        {{ t('map.markersNotShown') }}
-      </p>
+      >
+        <UIcon :name="centerOnSelectedStations ? 'i-ph-arrows-out' : 'i-ph-crosshair'" class="size-5" aria-hidden="true" />
+      </button>
       <LMap
         ref="map"
         :zoom="6"
         :max-zoom="18"
         :center="mapCenter"
         :use-global-leaflet="true"
-        style="height: 400px; width: 100%;"
+        style="height: clamp(260px, 55vh, 400px); width: 100%;"
         @ready="onMapReady"
       >
         <LTileLayer
@@ -291,6 +312,36 @@ watch([
 <style>
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+/* The control beside Leaflet's zoom buttons (a 34 px bar at 10 px from the corner, which this is drawn like). The map is a
+   light surface in both colour schemes, so the control is too: its colours are not the page's */
+.wd-map-center {
+  position: absolute;
+  top: 10px;
+  left: 50px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+}
+.wd-map-center:hover:not(:disabled) {
+  background: #f4f4f4;
+}
+.wd-map-center:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+.wd-map-center:disabled {
+  color: #6b7280;
+  cursor: not-allowed;
+}
 
 /* The selected marker: Leaflet's blue marker (hue 208) turned to green (hue about 130), and outlined in dark.
    Leaflet puts the icon's class on its shadow image too, which stays as it is */

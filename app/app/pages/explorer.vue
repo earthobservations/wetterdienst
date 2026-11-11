@@ -1166,6 +1166,7 @@ function removeParameterDistance(id: string, paramName: string) {
                 :parameter-selection="parameterSelectionState.selection"
                 :initial-station-ids="initialStationIds"
                 :multiple="true"
+                tool="explorer"
               />
               <InterpolationSummarySelection
                 v-else

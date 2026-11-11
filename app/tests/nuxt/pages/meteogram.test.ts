@@ -4,9 +4,23 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
-import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
+import { stubMemoryStorage } from '../fixtures/storage'
+
+// The browser's storage is the page's too, and a test that chose the map for the station picker would start the next
+// one on it (the picker remembers its mode): each test has a storage of its own
+beforeEach(() => {
+  stubMemoryStorage()
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+/** Shows the map of the station picker: the reader's click on "Map" of its toggle */
+async function showMap(wrapper: VueWrapper) {
+  await wrapper.findAll('[role="radio"]').find(radio => radio.text() === 'Map')!.trigger('click')
+}
 
 describe('meteogram Page', () => {
   beforeEach(() => {
@@ -35,9 +49,11 @@ describe('meteogram Page', () => {
     expect(wrapper.find('.text-lg.font-bold').text()).toBe('Station')
   })
 
-  it('has a station search and map picker', async () => {
+  it('has a station picker with a toggle between the search and the map', async () => {
     const wrapper = await mountSuspended(MeteogramPage)
-    expect(wrapper.text()).toContain('Choose a station on the map')
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios.map(radio => radio.text())).toEqual(['List', 'Map'])
+    expect(radios.map(radio => radio.attributes('aria-checked'))).toEqual(['true', 'false'])
   })
 
   it('fetches the meteogram when a station is selected', async () => {
@@ -138,7 +154,7 @@ describe('meteogram Page', () => {
     expect(wrapper.text()).toContain('multi-day weather forecast from DWD MOSMIX')
   })
 
-  it('clicking "Choose a station on the map" loads and reveals the map picker', async () => {
+  it('showing the map loads the stations and reveals the map picker', async () => {
     registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }],
     }))
@@ -149,16 +165,16 @@ describe('meteogram Page', () => {
     // is covered by e2e (real browser) tests instead.
     const wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    expect(vm.mapStations).toEqual([])
+    // the list is large: not asked for before the search is opened or the map shown
+    expect(vm.stations).toEqual([])
 
-    const mapToggle = wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))
-    await mapToggle!.trigger('click')
+    await showMap(wrapper)
     await wrapper.vm.$nextTick()
     await new Promise(resolve => setTimeout(resolve, 0))
     await wrapper.vm.$nextTick()
 
-    expect(vm.showMap).toBe(true)
-    expect(vm.mapStations).toEqual([
+    expect(wrapper.find('[role="radio"][aria-checked="true"]').text()).toBe('Map')
+    expect(vm.stations).toEqual([
       { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 },
     ])
   })
@@ -196,7 +212,7 @@ describe('the meteogram page\'s station map whose code could not be loaded', () 
     })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    await showMap(wrapper!)
     await vi.waitFor(() => expect(wrapper!.text()).toContain('Tap a marker on the map to pick that station.'))
     fail()
     const alert = await vi.waitFor(() => {
@@ -254,24 +270,25 @@ describe('the meteogram page\'s requests answered with a 500', () => {
     expect(asked.count).toBe(1)
   })
 
-  it('asks /api/stations once for the map\'s stations', async () => {
+  it('asks /api/stations once for the picker\'s stations', async () => {
     wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    // the station search's own list, asked for the same stations, answered before the map's fails
-    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
     const { asked, handler } = failing()
     endpoints.push(registerEndpoint('/api/stations', handler))
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    await showMap(wrapper)
     // a request asked again is under way until its second answer
     await vi.waitFor(() => {
       expect(asked.count).toBeGreaterThan(0)
-      expect(vm.mapLoading).toBe(false)
+      expect(vm.stationsLoading).toBe(false)
     })
     expect(asked.count).toBe(1)
+    // told, and asked again where the reader shows the map or opens the search once more
+    expect(vm.stationsFailed).toBe(true)
+    expect(wrapper.text()).toContain('Failed to load stations')
   })
 
   it('asks /api/stations once for the station a shared link names', async () => {
-    // the station search's list is asked for all stations, the link's station by its id
+    // the picker's list is asked for all stations, the link's station by its id
     const { asked, handler } = failing(query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
@@ -331,20 +348,18 @@ describe('the meteogram page\'s requests answered with a 503 once', () => {
     expect(asked.count).toBe(2)
   })
 
-  it('asks /api/stations once more for the map\'s stations, and shows what that answer brings', async () => {
+  it('asks /api/stations once more for the picker\'s stations, and shows what that answer brings', async () => {
     wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    // the station search's own list, asked for the same stations, answered before the map's is asked
-    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
     const { asked, handler } = flaky({ stations: [janMayen] })
     endpoints.push(registerEndpoint('/api/stations', handler))
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
-    await vi.waitFor(() => expect(vm.mapStations).toHaveLength(1))
+    await showMap(wrapper)
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     expect(asked.count).toBe(2)
   })
 
   it('asks /api/stations once more for the station a shared link names, and selects it', async () => {
-    // the station search's list is asked for all stations, the link's station by its id
+    // the picker's list is asked for all stations, the link's station by its id
     const { asked, handler } = flaky({ stations: [janMayen] }, query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })

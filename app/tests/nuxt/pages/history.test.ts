@@ -2,6 +2,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ParameterSelection from '~/components/ParameterSelection.vue'
+import StationPicker from '~/components/StationPicker.vue'
 import HistoryPage from '~/pages/history.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 
@@ -85,6 +86,20 @@ describe('history Page', () => {
   it('prompts to select resolution/dataset before station selection', async () => {
     const wrapper = await mountHistory()
     expect(wrapper.text()).toContain('Please select resolution and dataset first')
+  })
+
+  it('picks its stations with the shared station picker, a toggle of the list and the map that is its own', async () => {
+    const wrapper = await mountHistory()
+    expect(wrapper.findComponent(StationPicker).exists()).toBe(false)
+
+    const vm = wrapper.vm as any
+    vm.paramSel.resolution = 'daily'
+    vm.paramSel.dataset = 'climate_summary'
+    await vi.waitFor(() => expect(wrapper.findComponent(StationPicker).exists()).toBe(true))
+    const picker = wrapper.findComponent(StationPicker)
+    expect((picker.props() as any).tool).toBe('history')
+    expect((picker.props() as any).multiple).toBe(true)
+    expect(picker.findAll('[role="radio"]').map(radio => radio.text())).toEqual(['List', 'Map'])
   })
 
   it('shows the history sections selector', async () => {
