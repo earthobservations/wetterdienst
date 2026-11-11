@@ -279,7 +279,7 @@ def test_a_failed_download_names_the_file_and_not_the_link_and_keeps_no_copy(
 def test_the_age_of_the_end_says_how_long_a_file_is_kept(end: dt.datetime | None, expected: CacheExpiry) -> None:
     """Ended less than six hours ago is five minutes, earlier is twelve hours, however much earlier (GH-4008).
 
-    No age makes a file final: KNMI replaces the hourly and daily files two to four weeks after their period, and
+    No age makes a file final: KNMI replaces the hourly and daily files one to four weeks after their period, and
     corrects a daily or monthly file a year on (`_file_expiry`), so twelve hours is the longest a copy is held. A time
     without a zone is UTC.
     """

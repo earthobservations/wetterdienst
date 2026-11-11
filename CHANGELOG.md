@@ -30,13 +30,16 @@ Types of changes:
   the same `WD_AUTH__KNMI` key and kept a week) and not those of the latest file of each resolution.
   Valkenburg `06210` and Soesterberg `06265`, whose values are in the files, are listed, and the
   list no longer varies with the latest file (57 stations at 10 minutes where 76 have data). Fog
-  stations are listed at 10 minutes only; a moved station is listed where it is now (GH-4008)
+  stations are listed at 10 minutes only, and the Caribbean stations (block 78) not at annual, which
+  no annual file holds; a moved station is listed where it is now. A closed station has an
+  `end_timestamp` (its stop date and 62 days), so a listing for a later window leaves it out
+  (GH-4008)
 - `knmi/observation` `wigos_id` at 10 minutes is the WSI (`0-20000-0-06260`), as at every other
   resolution, and no longer the bare number (`06260`). `station_id` is unchanged (GH-4008)
-- `knmi/observation` asks for no file of a 10 minutes, hour, day, month or year that has not ended,
-  where a range into the present got a 404 reported as a skipped file and a partial answer. The
-  running period is left out without a request or a warning; ended ones, down to the last 10
-  minutes or hour, are read as before (GH-4008)
+- `knmi/observation` asks for no file of a period that has not ended (the running 10-minute
+  interval, hour, day, month or year), where a range into the present got a 404 reported as a
+  skipped file. Periods that have ended are read as before, and the validated hourly and daily
+  files of the last 5.5 to 78 hours do not exist yet and still warn (GH-4008)
 
 ## [0.186.0] - 2026-11-11
 

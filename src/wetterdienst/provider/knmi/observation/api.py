@@ -86,13 +86,23 @@ _DATASET_BY_RESOLUTION = {
 #: and with the same key as the observations (read 2026-11-11), so the list of the stations needs no second key.
 _STATIONS_DATASET = ("waarneemstations_csv", "1.0")
 
-#: How long the catalogue of the stations, its listing and its file, is kept. A file is made only when a station is
-#: opened, closed or moved (four in the 20 months to 2026-07: made 2024-11-22, 2025-11-28, 2026-03-09 and 2026-07-07,
-#: the last for 15 June), and weeks after the date in its name, so a station that is not listed for a week more is no
-#: news. The one list serves every resolution, so a week costs two requests of the quota (the listing and the link of
-#: the file; the download costs none) where the list of the latest file of each resolution cost two for each, every
-#: 12 hours.
+#: How long the file of the catalogue of the stations is kept. A file is made only when a station is opened, closed or
+#: moved (four in the 20 months to 2026-07: made 2024-11-22, 2025-11-28, 2026-03-09 and 2026-07-07, the last for 15
+#: June), and KNMI replaces one in place now and then (the file of 2024-10-31 was made on 2024-11-12 and replaced on
+#: 2024-11-22), so the copy of a name is kept a week, which costs nothing: the download is free and the one list
+#: serves every resolution.
 _CATALOGUE_EXPIRY = CacheExpiry.ONE_WEEK
+
+#: How long the listing that names the newest file of the catalogue is kept: a request of the quota each time. KNMI
+#: publishes the catalogue weeks after the date in its name (the file of 2026-06-15 was made on 2026-07-07), so a
+#: station it has just added must not stay out of the list for a week more: half a day, as the other listings of the
+#: provider that name a file that may be there since.
+_CATALOGUE_LISTING_EXPIRY = CacheExpiry.TWELVE_HOURS
+
+#: How long after the stop date of a closed station of the catalogue its record may run, which is added to it to give
+#: `end_timestamp`: Soesterberg's data is in the monthly file of 2008-12 and not in that of 2009-01, 46 days after its
+#: stop date of 2008-11-15, and the listings cut a window with a buffer of their own (`limit_to_window`) on top of it.
+_CLOSED_MARGIN = dt.timedelta(days=62)
 
 #: The first day of the data of each dataset (the name of its oldest file, read 2026-11-11): a station that was
 #: closed before it has none in it. The 10-minute files start in 2012, the stations before the 1990s are in the others.
@@ -104,11 +114,17 @@ _DATASET_START = {
     Resolution.ANNUAL: dt.date(1901, 1, 1),
 }
 
-#: The types of station of the catalogue that only the 10-minute files hold: the four fog stations (Assendelft 06233,
-#: Muiden 06236, Nieuw-Vennep 06237 and Nieuwkoop 06238) are in the 10-minute files of 2014 to 2024 and in none of the
-#: 37 hourly, daily, monthly and annual files of 1901 to 2026 that were read (2026-11-11). "Fog station/Meteo site"
-#: (Voorschoten 06215) is in them all and is not this type.
-_TEN_MINUTE_ONLY_TYPES = frozenset({"Fog station"})
+#: The types of station of the catalogue (compared stripped and in lower case) that only the 10-minute files hold: the
+#: four fog stations (Assendelft 06233, Muiden 06236, Nieuw-Vennep 06237 and Nieuwkoop 06238) are in the 10-minute
+#: files of 2014 to 2024 and in none of the 37 hourly, daily, monthly and annual files of 1901 to 2026 that were read
+#: (2026-11-11). "Fog station/Meteo site" (Voorschoten 06215) is in them all and is not this type.
+_TEN_MINUTE_ONLY_TYPES = frozenset({"fog station"})
+
+#: The WMO blocks of the stations a dataset does not hold although the catalogue lists them: block 78, the Caribbean
+#: Netherlands (Saba 78871, Sint Eustatius 78873, Bonaire 78990), is in the hourly, daily and monthly files of 2026 and
+#: in none of the annual files of 2010, 2015, 2017, 2020, 2022, 2024 and 2025 (read 2026-11-11), which a listing near
+#: Bonaire then answered with three stations that have no data.
+_BLOCKS_NOT_IN_DATASET = {Resolution.ANNUAL: ("78",)}
 
 #: The datasets whose files are named for a period (a month, a year) or a date and not for the moment they were made:
 #: the latest file is the last period, which is not always the one made last (the annual file of 2023 was made after
@@ -251,9 +267,10 @@ def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolut
         current = _advance(current, resolution)
 
 
-#: How old the end of the interval a file covers must be for its content to be kept long: for the first hours KNMI
-#: still fills a file in (the hourly files are made 5.5 to 78 hours after their hour, at a median of 25, read
-#: 2026-11-11)
+#: How old the end of the interval a file covers must be for its content to be kept long. Before it a file is kept for
+#: five minutes, as it always was (GH-3927): the line was drawn at six hours, and it is no measured moment of settling.
+#: What was measured (2026-11-11) is that the hourly files are made 5.5 to 78 hours after their hour, at a median of
+#: 25, so most do not exist yet at six hours
 _SETTLED_AFTER = dt.timedelta(hours=6)
 
 
@@ -270,7 +287,7 @@ def _file_expiry(end: dt.datetime | None) -> CacheExpiry:
     no claim that it is final, for no age makes a file so (GH-4008, read 2026-11-11 from the `lastModified` of the
     newest 1,000 hourly and daily files, all monthly and all annual ones):
 
-    - KNMI validates the hourly and the daily files two to four weeks after their period and replaces them then, in
+    - KNMI validates the hourly and the daily files one to four weeks after their period and replaces them then, in
       batches: 408 hourly files of 15 to 31 October on 10 and 11 November, 21 daily files of 15 October to 4 November
       on 10 November, 15 of 1 to 15 September on 24 September, 15 of 11 to 26 August on 31 August.
     - It corrects older files now and then: 349 daily files were replaced more than a week after their day, 251 of
@@ -417,6 +434,10 @@ def _download_with_retry(
     return last_file
 
 
+class _UnusableError(Exception):
+    """An answer of KNMI that is no answer to the request: a listing that lists no file or is no listing at all."""
+
+
 def _key_rejected(status: int) -> CredentialRejectedError:
     """Say that KNMI refuses the API key, which is sent to the request that asks for a file or a listing (GH-3018)."""
     return credential_rejected("KNMI", "KNMI", "API key", status)
@@ -441,10 +462,26 @@ def _latest_filename(
         if file.status in CREDENTIAL_REJECTED_STATUSES:
             return _key_rejected(file.status)
         return as_outage(file.content, file.url)
-    files = json.load(file.content).get("files", [])
-    if not files:
-        return Exception("no files found")
-    return files[0]["filename"]
+    # a 200 that is no listing (an HTML page, a changed API) is kept as the listing for the whole `ttl`, and would be
+    # read back as often as it is asked for: it is dropped, and answered as what it is
+    try:
+        files = json.load(file.content).get("files", [])
+        filename = files[0]["filename"] if files else None
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        drop_cached_file(
+            url,
+            settings.cache_dir,
+            ttl,
+            client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        return _UnusableError(f"the listing of {dataset_name} is no list of files ({type(error).__name__})")
+    if filename is None:
+        return _UnusableError("no files found")
+    if not isinstance(filename, str):
+        return _UnusableError(f"the listing of {dataset_name} names a file that is no name")
+    return filename
 
 
 def _fetch_netcdf(
@@ -510,7 +547,7 @@ def _fetch_netcdf(
     # the per-moment loop and abort the whole query -- surface it as a skippable failure.
     download_url = json.load(resolve_file.content).get("temporaryDownloadUrl")
     if not download_url:
-        return Exception(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
+        return _UnusableError(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
     try:
         # the link is the resolve answer's to name: fetched at the hosts of KNMI, its API and the store that signs
         # the link (`PROVIDER_HOSTS`, GH-3339)
@@ -605,12 +642,16 @@ def _read_station_catalogue(payload: bytes) -> pl.DataFrame:
     `STN` is the number without its zeros (260), the WSI at its tail has them (06260): `station_id` is the tail of the
     WSI, as it is in the files. `POS_NB` and `POS_OL` are the latitude and the longitude (`POS_X` and `POS_Y` the
     Dutch grid), `HOOGTE` the height in metres, `STOPT` the day the station was closed (9999-12-31 for one that is
-    open). `STARTT` is not read: it is the start of the station as it is now, not of the data of its predecessors
-    (Schiphol's data begins in 1951 and its `STARTT` is 1990-07-01, De Kooy's before 1955-12-25 and Eelde's before
-    1948-08-01: 15 of the 77 in the 37 files read),
-    and `STOPT` is no exact end either (Soesterberg's data runs six weeks past its 2008-11-15, F16-A's ends before its
-    2020-09-01), so neither is handed on as the start or the end of a station, which would hide the data a window that
-    is later or earlier asks for. `STOPT` only tells which datasets a station closed long ago is no station of.
+    open).
+
+    `STARTT` is not read: it is the start of the station as it is now, not of the data of its predecessors (Schiphol's
+    data begins in 1951 and its `STARTT` is 1990-07-01, De Kooy's before 1955-12-25 and Eelde's before 1948-08-01: 15
+    of the 77 in the 37 files read), so a `start_timestamp` made of it would hide data from a window before it.
+
+    `STOPT` is no exact end either (Soesterberg's data runs to the end of 2008 past its 2008-11-15, F16-A's ends before
+    its 2020-09-01), so a closed station's `end_timestamp` is its `STOPT` and `_CLOSED_MARGIN` more, and an open one has
+    none. A listing for a window (`limit_to_window`) then leaves out a station closed long before it (Soesterberg
+    from a window in 2026), which with no end it kept, and no window the data is in is cut.
 
     Raises:
         UpstreamError: the file lacks a column, or a row.
@@ -629,7 +670,15 @@ def _read_station_catalogue(payload: bytes) -> pl.DataFrame:
         pl.col("POS_OL").cast(pl.Float64, strict=False).alias("longitude"),
         pl.col("HOOGTE").cast(pl.Float64, strict=False).alias("elevation"),
         pl.col("TYPE").alias("type"),
-        pl.col("STOPT").str.to_date("%Y-%m-%d", strict=False).alias("closed"),
+        # 9999-12-31 is "not closed"
+        pl.col("STOPT")
+        .str.to_date("%Y-%m-%d", strict=False)
+        .pipe(lambda day: pl.when(day.dt.year() < 9999).then(day))
+        .alias("closed"),
+    ).with_columns(
+        (pl.col("closed").cast(pl.Datetime("us")) + pl.lit(_CLOSED_MARGIN))
+        .dt.replace_time_zone("UTC")
+        .alias("end_timestamp"),
     )
 
 
@@ -646,23 +695,23 @@ def _station_catalogue(settings: Settings) -> pl.DataFrame | None:
     Deelen 06275 from 52.0547, 5.8722 to 52.0589, 5.8731, which the files carry as it was until June 2026 and the
     newest of 10 November carries as it is). It costs the same two requests whatever the resolutions asked for.
 
-    A KNMI that does not answer, no network or a key it refuses is raised as everywhere else. A catalogue that is not
-    there or is no file this reads is None, and the stations are read from the latest files as they were
-    (`KnmiObservationRequest._station_frame`).
+    A KNMI that does not answer, no network or a key it refuses is raised as everywhere else. A catalogue that is gone
+    (a 404, no file listed) or is no file this reads (a listing or a CSV that is none) is None, and the stations are
+    read from the latest files as they were (`KnmiObservationRequest._station_frame`). One that KNMI refuses to serve
+    (a 429, another 4xx) is the empty frame, warned about once, as it was for the latest file: the files would be asked
+    of an API that has just refused, two requests of the quota for each resolution.
     """
     dataset_name, version = _STATIONS_DATASET
-    filename = _latest_filename(dataset_name, version, settings, _CATALOGUE_EXPIRY)
+    filename = _latest_filename(dataset_name, version, settings, _CATALOGUE_LISTING_EXPIRY)
     if isinstance(filename, _UNANSWERED):
         raise filename
     if isinstance(filename, Exception):
-        log.warning(f"Failed to look up the latest KNMI catalogue of the stations: {filename}")
-        return None
+        return _without_catalogue(filename, "Failed to look up the latest KNMI catalogue of the stations")
     payload = _fetch_netcdf(dataset_name, version, filename, settings, _CATALOGUE_EXPIRY)
     if isinstance(payload, _UNANSWERED):
         raise payload
     if isinstance(payload, Exception):
-        log.warning(f"Failed to fetch the KNMI catalogue of the stations: {_without_url_secrets_in(str(payload))}")
-        return None
+        return _without_catalogue(payload, "Failed to fetch the KNMI catalogue of the stations")
     try:
         return _read_station_catalogue(payload)
     except (pl.exceptions.PolarsError, UpstreamError) as error:
@@ -671,11 +720,21 @@ def _station_catalogue(settings: Settings) -> pl.DataFrame | None:
         return None
 
 
+def _without_catalogue(failure: Exception, message: str) -> pl.DataFrame | None:
+    """Warn that there is no catalogue to read, and say what the stations are then (`_station_catalogue`)."""
+    log.warning(f"{message}: {_without_url_secrets_in(str(failure))}")
+    gone = isinstance(failure, (FileNotFoundError, _UnusableError)) or getattr(failure, "status", None) == 404
+    return None if gone else pl.DataFrame()
+
+
 def _catalogue_stations(catalogue: pl.DataFrame, resolution: Resolution) -> pl.DataFrame:
     """Give the stations of the catalogue that have data at a resolution: without those that cannot."""
     df = catalogue.filter(pl.col("closed").is_null() | (pl.col("closed") >= _DATASET_START[resolution]))
     if resolution != Resolution.MINUTE_10:
-        df = df.filter(~pl.col("type").is_in(_TEN_MINUTE_ONLY_TYPES))
+        kind = pl.col("type").str.strip_chars().str.to_lowercase()
+        df = df.filter(~kind.is_in(_TEN_MINUTE_ONLY_TYPES))
+    for block in _BLOCKS_NOT_IN_DATASET.get(resolution, ()):
+        df = df.filter(~pl.col("station_id").str.starts_with(block))
     return df.drop("type", "closed")
 
 
@@ -745,6 +804,9 @@ class KnmiObservationRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel)
         )
         catalogue = _station_catalogue(settings) if requested else None
+        if catalogue is not None and catalogue.is_empty():
+            # KNMI refused the catalogue: no stations, as for any other answer of it that is no list
+            return pl.LazyFrame()
         station_frames: dict[Resolution, pl.DataFrame | None] = {}
         data = []
         for resolution, resolution_name, dataset in requested:
