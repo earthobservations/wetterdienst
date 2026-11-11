@@ -1870,7 +1870,10 @@ def test_dwd_observation_solar_hourly(options_convert_units_false: Options) -> N
         options=options_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
     values_df = next(request.values().query()).df
-    assert values_df.get_column("value").sum() == 417914.0
+    # 417914.0 until GH-3938: at Bremen (00691) the source hours 2022-08-11 16:30 (138 J/cm²) and 17:29 (83 J/cm²) both
+    # round to 17:00, and the one nearer the hour is kept, 17:29, where the other was before (138 - 83 = 55). The
+    # collision of 2022-03-27 23:30 and 2022-03-28 00:29 is 0.0 against 0.0.
+    assert values_df.get_column("value").sum() == 417859.0
 
 
 @pytest.mark.remote
