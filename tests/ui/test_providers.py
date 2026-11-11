@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""What each provider is: `/api/providers`, `wetterdienst about providers` and the MCP tool `providers` (GH-2565).
+"""What each provider is: `/api/providers`, `wetterdienst providers` and the MCP tool `providers` (GH-2565).
 
 Offline: the answer is read out of the metadata models, so nothing is stood in for.
 """
@@ -271,7 +271,7 @@ def test_the_command_line_gives_the_answer_of_rest(client: TestClient) -> None:
     """The same request gives the same answer on both surfaces, but for the time it was made at."""
     rest = client.get("/api/providers", params={"provider": "wsv"}).json()
 
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=wsv"])
 
     assert result.exit_code == 0, result.output
     assert _untimed(json.loads(result.stdout)) == _untimed(rest)
@@ -279,10 +279,10 @@ def test_the_command_line_gives_the_answer_of_rest(client: TestClient) -> None:
 
 def test_the_command_line_refuses_an_unknown_provider() -> None:
     """A provider that is not there is a usage error that says how to list them."""
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=nowhere"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=nowhere"])
 
     assert result.exit_code == 2
-    assert "wetterdienst about providers" in result.output
+    assert "wetterdienst providers" in result.output
 
 
 def test_the_mcp_tool_is_the_endpoint() -> None:
@@ -390,14 +390,14 @@ def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: T
 
 
 def test_the_command_line_says_where_the_stations_are(client: TestClient) -> None:
-    """`wetterdienst about providers` and `wetterdienst about coverage` have the extent the REST API has."""
+    """`wetterdienst providers` and `wetterdienst coverage` have the extent the REST API has."""
     rest = client.get("/api/providers", params={"provider": "dwd"}).json()
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=dwd"])
     assert result.exit_code == 0, result.output
     extents = {n["network"]: n["extent"] for n in json.loads(result.stdout)["providers"][0]["networks"]}
     assert extents == {n["network"]: n["extent"] for n in rest["providers"][0]["networks"]}
 
-    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=dmo"])
+    result = CliRunner().invoke(cli, ["coverage", "--provider=dwd", "--network=dmo"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
 
@@ -490,7 +490,7 @@ def test_the_python_function_takes_no_datasets() -> None:
 
 def test_the_command_line_and_the_mcp_tool_take_no_datasets() -> None:
     """`--datasets` and the argument `datasets` of `providers` are gone, and the surfaces refuse them."""
-    refused = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv", "--datasets"])
+    refused = CliRunner().invoke(cli, ["providers", "--provider=wsv", "--datasets"])
     assert refused.exit_code == 2
     assert "No such option '--datasets'" in refused.output
 
@@ -512,7 +512,7 @@ def test_the_command_line_and_the_mcp_tool_take_no_datasets() -> None:
 
 def test_the_command_line_answers_as_rest_does(client: TestClient) -> None:
     """The command line's answer is REST's, `configured` of each network included."""
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=aemet"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=aemet"])
     assert result.exit_code == 0, result.output
     rest = client.get("/api/providers", params={"provider": "aemet"}).json()
     assert _untimed(json.loads(result.stdout)) == _untimed(rest)
@@ -529,6 +529,6 @@ def test_the_fields_say_which_one_is_the_credit_line(client: TestClient) -> None
         "`attribution` is the credit line to cite"
         in schemas["ResponseMetadata"]["properties"]["provider"]["description"]
     )
-    help_text = CliRunner().invoke(cli, ["about", "providers", "--help"]).output
+    help_text = CliRunner().invoke(cli, ["providers", "--help"]).output
     assert "credit line to cite" in help_text
     assert "--datasets" not in help_text

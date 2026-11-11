@@ -289,7 +289,7 @@ class Wetterdienst:
         credentials unreadable. That is told as the provider not being configured, and logged once,
         rather than raised: one malformed credential would otherwise take down a listing of all
         providers (GH-2580). The REST API refuses to start with such settings, and the CLI's
-        `about providers` builds them before listing, so it tells them and exits 1.
+        `providers` builds them before listing, so it tells them and exits 1.
 
         Args:
             api: Request class of the provider and network
@@ -351,7 +351,7 @@ class Wetterdienst:
         Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether
         a provider accepts the credentials it is configured with takes a request to the provider, which
         a listing of every provider must not wait for, so it is not told here: `Wetterdienst.is_valid(api)`
-        checks one network, as `/api/auth` and `wetterdienst about auth` do (GH-2641).
+        checks one network, as `/api/auth` and `wetterdienst auth` do (GH-2641).
 
         Per network: `name_short`, the provider's short name; `country`, the operator's; `url`, where the
         provider publishes the data; `kind`; `scope`, how far the network reaches (`global`, `national` or

@@ -39,19 +39,30 @@ BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
 ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst about coverage: --provider: became required": (
-        "GH-3996, before 1.0.0: `about coverage` describes one network, so --provider and --network are required; "
-        "the list of every provider and network is `about providers`, which has `configured` for each network, and "
-        "a call without them is a usage error that names it"
+    "wetterdienst about was removed": (
+        "GH-4000, before 1.0.0: the group `about` is gone; `auth`, `coverage`, `fields`, `glossary` and `providers` "
+        "are commands of `wetterdienst` itself, and a call of `wetterdienst about` is a usage error (exit 2) that "
+        "names them"
     ),
-    "wetterdienst about coverage: --network: became required": (
-        "GH-3996, before 1.0.0: `about coverage` describes one network, so --provider and --network are required; "
-        "the list of every provider and network is `about providers`, which has `configured` for each network, and "
-        "a call without them is a usage error that names it"
+    "wetterdienst about auth was removed": (
+        "GH-4000, before 1.0.0: `wetterdienst about auth` is `wetterdienst auth`, with the options it had; "
+        "the old path is a usage error (exit 2) that names the new one"
     ),
-    "wetterdienst about providers: --datasets was removed": (
-        "GH-3996, before 1.0.0: `about providers` lists the providers and their networks only; the resolutions, "
-        "datasets and parameters of a network are `about coverage --provider=... --network=...`"
+    "wetterdienst about coverage was removed": (
+        "GH-4000, before 1.0.0: `wetterdienst about coverage` is `wetterdienst coverage`, with the options it had; "
+        "the old path is a usage error (exit 2) that names the new one"
+    ),
+    "wetterdienst about fields was removed": (
+        "GH-4000, before 1.0.0: `wetterdienst about fields` is `wetterdienst fields`, with the options it had; "
+        "the old path is a usage error (exit 2) that names the new one"
+    ),
+    "wetterdienst about glossary was removed": (
+        "GH-4000, before 1.0.0: `wetterdienst about glossary` is `wetterdienst glossary`, with the options it had; "
+        "the old path is a usage error (exit 2) that names the new one"
+    ),
+    "wetterdienst about providers was removed": (
+        "GH-4000, before 1.0.0: `wetterdienst about providers` is `wetterdienst providers`, with the options it had; "
+        "the old path is a usage error (exit 2) that names the new one"
     ),
 }
 

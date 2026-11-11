@@ -70,7 +70,7 @@ _DUMP_PROVIDERS = textwrap.dedent(
 _FORCE_COLOR = {"FORCE_COLOR": "1", "CLICOLOR_FORCE": "1", "TERM": "xterm-256color"}
 _ESC = "\x1b"
 _WARNING = "No parameter matches the given filters."
-_NOTHING = ["about", "glossary", "--parameter", "zzzz-matches-nothing"]
+_NOTHING = ["glossary", "--parameter", "zzzz-matches-nothing"]
 
 
 def _environment(**extra: str) -> dict[str, str]:
@@ -136,8 +136,8 @@ def test_a_real_completion_offers_the_commands_and_the_options_and_is_quick() ->
 def test_a_provider_is_completed_from_the_registry() -> None:
     """`--provider` offers the keys of the registry, as typed so far, on every command that takes it."""
     assert _offered("wetterdienst values --provider d") == ["dmi", "dwd"]
-    assert _offered("wetterdienst about coverage --provider eau") == ["eaufrance"]
-    assert _offered("wetterdienst about providers --provider zz") == []
+    assert _offered("wetterdienst coverage --provider eau") == ["eaufrance"]
+    assert _offered("wetterdienst providers --provider zz") == []
     assert sorted(_offered("wetterdienst stations --provider ")) == sorted(Wetterdienst.get_provider_names())
 
 
@@ -147,7 +147,7 @@ def test_a_network_is_completed_from_the_provider_on_the_line() -> None:
     assert _offered("wetterdienst values --network mosmix --provider dwd --network m") == ["mosmix"]
     assert _offered("wetterdienst values --provider noaa --network ") == ["ghcn"]
     everything = {network for networks in Wetterdienst.registry.values() for network in networks}
-    assert set(_offered("wetterdienst about coverage --network ")) == everything
+    assert set(_offered("wetterdienst coverage --network ")) == everything
     # a provider that does not exist offers no network of its own: the whole list, as without one
     assert set(_offered("wetterdienst values --provider nowhere --network ")) == everything
     # bash hands `--provider=dwd` over as `--provider`, `=` and `dwd`: the provider is the one after the `=`
@@ -305,7 +305,7 @@ def test_a_response_warning_is_marked_in_its_log_record(caplog: pytest.LogCaptur
 
 def test_quiet_leaves_a_usage_error_to_click() -> None:
     """A request that cannot be served is still said, and is still exit 2."""
-    result = CliRunner().invoke(cli, ["about", "glossary", "--unit-type", "nonsense", "--quiet"])
+    result = CliRunner().invoke(cli, ["glossary", "--unit-type", "nonsense", "--quiet"])
 
     assert result.exit_code == 2
     assert "Invalid value for '--unit-type'" in result.stderr
@@ -397,7 +397,7 @@ def test_no_command_writes_an_escape_code_even_where_colour_is_forced() -> None:
         ["--help"],
         ["values", "--help"],
         _NOTHING,
-        ["about", "glossary", "--unit-type", "nonsense"],
+        ["glossary", "--unit-type", "nonsense"],
         ["values", "--unknown-option"],
         ["values", "--provider", "nowhere", "--network", "observation", "--parameters", "daily/kl", "--all"],
     ]

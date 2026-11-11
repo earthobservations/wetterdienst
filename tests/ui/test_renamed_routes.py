@@ -50,14 +50,14 @@ def _rest_routes() -> dict[str, tuple[str, set[str]]]:
 
 
 def _commands(group: click.Group, prefix: tuple[str, ...] = ()) -> dict[str, tuple[tuple[str, ...], click.Command]]:
-    """Give each command by its route: the name of its tool, `coverage` for `about coverage`."""
+    """Give each command by its route: the name of its tool, `coverage`."""
     found = {}
     for name, command in group.commands.items():
         if isinstance(command, click.Group):
             found.update(_commands(command, (*prefix, name)))
         else:
             path = (*prefix, name)
-            found["_".join(part for part in path if part != "about")] = (path, command)
+            found["_".join(path)] = (path, command)
     return found
 
 

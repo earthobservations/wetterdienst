@@ -11,7 +11,7 @@ the parameters of the datasets):
 - over REST, the query parameters of each path (and the MCP tools take those, by the same name, as their arguments);
 - on the command line, the options of each command.
 
-A route is named as its MCP tool is: `stations`, `stripes_values`; the command `about coverage` is `coverage`.
+A route is named as its MCP tool is: `stations`, `stripes_values`; the command `coverage` is `coverage`.
 
 The file is generated, not written. It reads the code of the tag out of git (`git archive`, into a temporary directory,
 imported in a subprocess so that it cannot mix with the checkout's own modules). Regenerate it, and read the diff, with

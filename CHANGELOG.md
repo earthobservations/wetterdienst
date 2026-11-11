@@ -62,12 +62,18 @@ Types of changes:
   hours, and of a newer one for 5 minutes as before, under the file's own name and not its
   pre-signed link. Within that time a file already read is not requested from KNMI again, where it
   was downloaded again after 5 minutes. `cache_disable` still turns it off (GH-3927)
-- **Breaking**: `providers` (REST `/api/providers`, `wetterdienst about providers`, the MCP tool,
+- **Breaking**: the group `about` is gone, and `auth`, `coverage`, `fields`, `glossary` and
+  `providers` are commands of `wetterdienst` itself, with the options and the output they had, as
+  their REST routes and MCP tools are named. `wetterdienst about providers` is
+  `wetterdienst providers`, and so on for each of the five; `wetterdienst about` and
+  `wetterdienst about <command>` are usage errors (exit 2) that name the new command, and there is
+  no alias. `info` stays (GH-4000)
+- **Breaking**: `providers` (REST `/api/providers`, `wetterdienst providers`, the MCP tool,
   `get_providers`) lists the providers and their networks only: `resolutions` of each network and
   the parameter `datasets` (`--datasets`) are gone, and each network has `configured`. Where you
   read `resolutions`, read `coverage` of the network, which has its resolutions, datasets and
   parameters (GH-3536, GH-3996)
-- **Breaking**: `coverage` (REST `/api/coverage`, `wetterdienst about coverage`, the MCP tool)
+- **Breaking**: `coverage` (REST `/api/coverage`, `wetterdienst coverage`, the MCP tool)
   needs `provider` and `network`, and no longer lists every provider and network: a call without
   them (or with them empty) is a 400 problem, a usage error or a tool error that names `providers`,
   which lists them

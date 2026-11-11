@@ -731,7 +731,7 @@ http localhost:7890/api/providers
 http localhost:7890/api/providers provider==dwd
 ```
 
-The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`. They are the one
+The command line is `wetterdienst providers [--provider dwd]` and the MCP tool is `providers`. They are the one
 overview: `coverage` without a provider and network, which listed every provider and network until 1.0.0, is refused
 with an error that names `providers` (a 400 problem, a usage error, a tool error), and `datasets` of `providers`, which
 listed the resolutions and datasets of each network, is gone: those are `coverage` of one network, below.
@@ -757,7 +757,7 @@ not as rejected):
 http localhost:7890/api/auth provider==aemet network==observation
 ```
 
-The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
+The MCP tool `auth` and the command `wetterdienst auth --provider=aemet --network=observation`
 ask the same question and give the same answer.
 
 ### Coverage

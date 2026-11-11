@@ -161,9 +161,9 @@ baseline has the names.
 The command line is a client of the same functions as the REST API: it renders a result through the same code, so the
 same request gives the same output, and the options are the parameters of the REST API.
 
-- **Commands and options**: `about` (`auth`, `coverage`, `fields`, `glossary`, `providers`), `alerts`, `cache`,
-  `history`, `info`, `interpolate`, `issues`, `radar`, `restapi`, `stations`, `stripes` (`image`, `stations`),
-  `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+- **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `stripes`
+  (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
