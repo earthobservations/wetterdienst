@@ -72,6 +72,16 @@ describe('privacy policy texts', () => {
     // consent as the legal basis (Art. 6(1)(a) GDPR), and its withdrawal (Art. 7(3) GDPR), in the way each text cites it
     expect(text).toMatch(code === 'de' ? /Art\. 6 Abs\. 1 lit\. a DSGVO/ : /Art\. 6\(1\)\(a\) GDPR/)
     expect(text).toMatch(code === 'de' ? /Art\. 7 Abs\. 3 DSGVO/ : /Art\. 7\(3\) GDPR/)
+    // the position is sent with each press, not once; the map's tiles tell OpenStreetMap roughly where the reader is; the
+    // browser may use its vendor's service
+    expect(text).toMatch(code === 'de' ? /bei jedem Druck/ : /with each press/)
+    expect(text).not.toMatch(code === 'de' ? /\beinmal\b/ : /\bonce\b/)
+    expect(text).toContain('tile.openstreetmap.org')
+    expect(text).toMatch(code === 'de' ? /Standortdienst seines Herstellers/ : /its vendor's location service/)
+    // the storage that is set with consent is excepted where the section says the rest is set without it
+    const browser = texts[code as keyof typeof texts].sections.find(s => s.id === 'browser')!
+    expect(browser.paragraphs[1]).toContain('wd-location')
+    expect(browser.paragraphs[1]).toMatch(code === 'de' ? /§ 25 Abs\. 1 TDDDG/ : /Section 25\(1\) TDDDG/)
   })
 
   it.each(Object.keys(texts))('state no retention period in days in %s: none is configured, only the cookie has a lifetime', (code) => {
