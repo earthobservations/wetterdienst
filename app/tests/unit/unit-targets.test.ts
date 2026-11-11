@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SETTINGS_DEFAULTS, unitSettingsSchema } from '../../app/composables/useSettings'
-import { requestUnitTargets, UNIT_TARGET_TYPES } from '../../app/utils/unit-targets'
+import { requestUnitTargets, stripesUnitTargets, UNIT_TARGET_TYPES } from '../../app/utils/unit-targets'
 import backend from './unit-target-defaults.json'
 
 // The list the settings page offers its rows from and the requests of the Explorer send their `unit_targets` from
@@ -54,6 +54,17 @@ describe('unit targets', () => {
       const targets = requestUnitTargets({ temperature: '', speed: 'furlong', pressure: undefined })
       expect(targets).toMatchObject({ temperature: 'degree_celsius', speed: 'meter_per_second', pressure: 'hectopascal' })
       expect(Object.keys(targets)).toHaveLength(UNIT_TARGET_TYPES.length)
+    })
+  })
+  describe('as the climate stripes name them (GH-3980)', () => {
+    it('are the one type of the kind, the settings\' choice', () => {
+      expect(stripesUnitTargets('temperature', { temperature: 'degree_fahrenheit', precipitation: 'liter_per_square_meter' })).toEqual({ temperature: 'degree_fahrenheit' })
+      expect(stripesUnitTargets('precipitation', { temperature: 'degree_fahrenheit', precipitation: 'liter_per_square_meter' })).toEqual({ precipitation: 'liter_per_square_meter' })
+    })
+
+    it('are the defaults, degree Celsius and millimeter, where the settings name none that is listed', () => {
+      expect(stripesUnitTargets('temperature', {})).toEqual({ temperature: 'degree_celsius' })
+      expect(stripesUnitTargets('precipitation', { precipitation: 'furlong' })).toEqual({ precipitation: 'millimeter' })
     })
   })
 })

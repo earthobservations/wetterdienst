@@ -5,7 +5,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
 import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
 import { COLOR_MAPS, stripesSummaryParams, stripeYears, wrapChartTitle } from '~/utils/stripes'
-import { unitSymbol } from '~/utils/unit-targets'
+import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale, localeProperties } = useI18n()
 
@@ -160,6 +160,9 @@ async function fetchAndPlotStripes() {
       kind: kind.value,
       station: selectedStation.value.station_id,
       format: 'json',
+      // the unit the app settings choose, read at each request (GH-3980): the numbers come back in it, and the
+      // colours, which are relative, do not change with it
+      unit_targets: JSON.stringify(stripesUnitTargets(kind.value, settings.value.units)),
     }
 
     if (startYear.value)
@@ -339,6 +342,9 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     })
   }
 
+  // the hover texts name the unit the answer says its values are in, as the sentence and the table do
+  const unitSuffix = data.series.unit ? ` ${unitSymbol(data.series.unit)}` : ''
+
   // Create bar trace
   const trace = {
     x: years,
@@ -353,7 +359,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -381,7 +387,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
   }
 
@@ -408,7 +414,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}<extra></extra>`,
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
       customdata: trendlineValues,
     }
   }
@@ -645,6 +651,13 @@ watch(() => selectedStation.value?.station_id, () => {
 watch(kind, () => {
   selectedStation.value = null
   clearStripes()
+})
+
+// The unit the settings choose for the kind changed while stripes are shown (the settings changed in another tab): the
+// values are fetched again in it, as the table and the sentence say the unit of the answer (GH-3980)
+watch(() => stripesUnitTargets(kind.value, settings.value.units), (now, before) => {
+  if (JSON.stringify(now) !== JSON.stringify(before) && hasPlot.value && selectedStation.value && !isLoading.value)
+    fetchAndPlotStripes()
 })
 
 // The station list arrived or changed: a station chosen that is not in it is dropped, one named by the link is taken

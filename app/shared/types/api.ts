@@ -265,6 +265,8 @@ export interface StripesValuesQuery {
   start_year?: number
   end_year?: number
   name_threshold?: number
+  /** The JSON text of a map of unit type to unit, as `/api/values` takes it */
+  unit_targets?: string
 }
 
 // ============================================================================

@@ -396,6 +396,13 @@ def test_mcp_tool_object_argument_sets_the_option(
     assert _is_set(options, case)
 
 
+#: the object arguments of a tool whose options are not taken through a getter of the REST API, which these cases stand
+#: in for: the stripes build theirs in `ui/core` for one parameter, and their own tests hold the argument (GH-3980)
+_OBJECT_ARGUMENTS_HELD_ELSEWHERE = {
+    ("stripes_values", "unit_targets"): "tests/ui/test_restapi.py::test_mcp_stripes_values_take_unit_targets",
+}
+
+
 def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: object) -> None:
     """Test no argument a tool advertises as an object is left out of the object cases of the tools."""
     from fastmcp import Client  # noqa: PLC0415
@@ -408,7 +415,7 @@ def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: o
 
     advertised = {(tool, name) for tool, names in asyncio.run(tools()).items() for name in names}
     held = {(param.values[1], name) for param in _object_cases() for name in param.values[2]}
-    assert advertised == held
+    assert advertised - _OBJECT_ARGUMENTS_HELD_ELSEWHERE.keys() == held
 
 
 def test_an_object_is_found_behind_a_reference_and_a_nested_option() -> None:

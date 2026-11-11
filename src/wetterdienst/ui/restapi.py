@@ -145,6 +145,7 @@ from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
+    StripesSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -2159,7 +2160,7 @@ def values(
 
 
 def _request_options(
-    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings]
+    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings | StripesSettings]
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -2562,18 +2563,23 @@ def stripes_stations(
 @router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Get climate stripes data values with timestamps, and the series they are of.
 
     The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
-    "degree_celsius"; `metadata` is the block every answer has. The server's
-    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
-    for: the target of the quantity where the values are converted, the source's unit where not.
+    "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
+    `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
+    quantity where the values are converted, the source's unit where not. The colours of the stripes
+    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
     """
     begin_response()
 
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
+    # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
+    _request_options(request, http_request.query_params.keys(), StripesSettings)
     try:
         stripes_data = _get_stripes_data(request)
     except AssertionError:

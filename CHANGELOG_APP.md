@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `[Climate stripes, Map]` The numbers of the stripes follow the unit settings: the page and the map's
+  panel ask for the unit the Settings page chooses for temperature or precipitation, and the sentence,
+  the table and now the hover texts say the unit the answer names (`°F`, `K`, `l/m²`); the colours
+  are relative and do not change with it. Needs a backend that takes `unit_targets` on
+  `/api/stripes/values`; an older one refuses it with a 422 (GH-3980)
 - `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
   "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
   next to its zoom buttons) and the picked stations as chips under it in both modes; a station
