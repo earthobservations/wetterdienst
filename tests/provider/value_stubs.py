@@ -2260,6 +2260,56 @@ def _knmi_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
     return stations_result(request, "10_minutes", "data", "06260").values().all().df
 
 
+def _knmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the monthly files (GH-4006), one per month for the whole network (here one station), named for their month. The
+    # description of the variables of monthly-observations-validated-202609.nc says "0=calm/variable" for the vector
+    # mean wind direction DDVEC and "9=sky invisible" for the mean cloud cover NG; a missing value is the NaN _FillValue
+    # (read 2026-11-11). A -1 is no trace here (the sums of the monthly file describe none), so it is not stubbed
+    _knmi_serve(
+        monkeypatch,
+        {
+            "202401": _knmi_netcdf({"TG": 3.2, "DDVEC": 231.0, "NG": 7.0}),
+            "202402": _knmi_netcdf({"TG": float("nan"), "DDVEC": 0.0, "NG": 9.0}),
+        },
+    )
+    request = KnmiObservationRequest(
+        parameters=[
+            ("monthly", "data", "temperature_air_mean_2m"),
+            ("monthly", "data", "wind_direction_mean"),
+            ("monthly", "data", "cloud_cover_total_mean"),
+        ],
+        # a month is stamped with its first day
+        start=_day(2024, 1, 1),
+        end=_day(2024, 2, 1),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "monthly", "data", "06260").values().all().df
+
+
+def _knmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the annual files, one per year, named for it; the same variables and fill value as the monthly ones (read from
+    # annual-observations-validated-2024.nc, 2026-11-11)
+    _knmi_serve(
+        monkeypatch,
+        {
+            "2023": _knmi_netcdf({"TG": 10.9, "DDVEC": 214.0}),
+            "2024": _knmi_netcdf({"TG": float("nan"), "DDVEC": 0.0}),
+        },
+    )
+    request = KnmiObservationRequest(
+        parameters=[
+            ("annual", "data", "temperature_air_mean_2m"),
+            ("annual", "data", "wind_direction_mean"),
+        ],
+        start=_day(2023, 1, 1),
+        end=_day(2024, 1, 1),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "annual", "data", "06260").values().all().df
+
+
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the WFS answers a flat list of Time / ParameterName / ParameterValue triples: `NaN` for a reading it does not have
     # and, for the precipitation and the snow depth, `-1.0` for none (the fixture of tests/provider/fmi)
@@ -3204,6 +3254,25 @@ STUBS = [
             ("precipitation_amount", "-1", 0.0),
             ("sunshine_duration", "-1", 0.0),
         ),
+    ),
+    ValueStub(
+        "knmi/observation monthly/data",
+        _knmi_monthly,
+        reading=("wind_direction_mean", 231.0),
+        # the octants are converted to percent on their way
+        sentinels=(("wind_direction_mean", 0.0), ("cloud_cover_total_mean", 112.5)),
+        tokens=(
+            ("temperature_air_mean_2m", "NaN", None),
+            ("wind_direction_mean", "0", None),
+            ("cloud_cover_total_mean", "9", None),
+        ),
+    ),
+    ValueStub(
+        "knmi/observation annual/data",
+        _knmi_annual,
+        reading=("temperature_air_mean_2m", 10.9),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("temperature_air_mean_2m", "NaN", None), ("wind_direction_mean", "0", None)),
     ),
     ValueStub(
         "fmi/observation hourly/data",

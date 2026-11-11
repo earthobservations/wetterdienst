@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
+  observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
+  precipitation, sunshine and radiation, one file per month or year. A value is stamped with the first
+  day of its period (the files' own time is the end of it). `EV24`, `FHVEC`, `T10N`, `VVN`, `VVX` and
+  `W1` to `W6` are not served, as no canonical parameter names them. A station that has left the
+  network is not listed, though its old values are in the files (GH-4006)
+
 ## [0.186.0] - 2026-11-11
 
 ### Added

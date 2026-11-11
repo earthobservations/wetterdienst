@@ -3,7 +3,7 @@
 ## Overview
 
 KNMI's [Data Platform](https://dataplatform.knmi.nl/) provides access to 10-minute,
-hourly and daily in-situ meteorological observations from KNMI's station network across
+hourly, daily, monthly and annual in-situ meteorological observations from KNMI's station network across
 the Netherlands. A free API key is required; request one at
 [developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/).
 
@@ -16,11 +16,35 @@ there is no OPeNDAP/THREDDS/Zarr access. The only way to build a station time se
 to download one file per timestamp and extract that station's row. As a result a wide
 date range translates into many individual file downloads — a 30-day hourly query is 720
 downloads, and a single day at 10-minute resolution is 144 — so large sub-daily ranges
-are impractical. This is a documented characteristic of KNMI's API, not a limitation of
+are impractical. The monthly and annual files make long ranges cheap: a file is about 80 KB and holds every
+station for one month or one year, so 30 years of monthly values are 360 downloads and 30 years of annual values 30. This is a documented characteristic of KNMI's API, not a limitation of
 wetterdienst.
 
-The "validated" datasets lag real time (observed: ~1–2 days for hourly), so only
-historical data is available; there is no real-time/`now` period.
+The "validated" datasets lag real time (observed: ~1–2 days for hourly, and a month's file appears in the
+first days of the next month), so only historical data is available; there is no real-time/`now` period.
+
+The monthly and annual files are the `monthly-in-situ-meteorological-observations-validated` and
+`annual-in-situ-meteorological-observations-validated` datasets (version 1.0, read with a key on 2026-11-11):
+`monthly-observations-validated-YYYYMM.nc` from 190101 to 202610 (1510 files, none missing) and
+`annual-observations-validated-YYYY.nc` from 1901 to 2025 (125 files, none missing). The file is named for its
+period and its time coordinate is the end of it (the 1st of the next month, 1 January of the next year, 00:00 UTC,
+"Time (in UTC) indicating the end of the monthly measurement interval"), so a value is stamped with the first day of
+its period, as the daily values are with their date: the file of September 2026 gives the stamp 2026-09-01. A start
+inside a month or a year includes it. The variables are those of the daily file, with `TG` the mean of the daily
+means, `TN` and `TX` the extremes of the period, and `RH`, `DR`, `SQ` and `Q` the sums. The files of the early years
+hold few of them (January 1901: the temperatures, the humidity and the sunshine of one station), and a variable a
+station does not measure is missing. A file that is not published (the current month) is skipped with a warning.
+
+Not served from the monthly and annual files, because the canonical parameters have no name for them yet:
+`EV24` (the potential evapotranspiration of the period, where `evapotranspiration_potential_last_24h` is a day's),
+`FHVEC` (the vector mean wind speed), `T10N` (the minimum air temperature at 10 cm), `VVN` and `VVX` (the minimum and
+maximum visibility, a code from 0 to 89 and no distance), and `W1`, `W2`, `W3`, `W5` and `W6` (the number of "daily
+intervals" with fog, rain, snow, thunderstorm and ice formation: they hold 0 or 1 for a whole year, so they are no count
+of days, which the description does not explain).
+
+The station list of a monthly or annual request is that of the latest file (October 2026, and 2025), so a station that
+is no longer in the network (Soesterberg `06265`, Valkenburg `06210`), whose
+values are in the old files, is not listed.
 
 KNMI's NetCDF `time` coordinate marks the *end* of the measuring interval, and the three datasets
 name their files differently (read from real files, GH-2824): a 10-minute file is named for that end
@@ -50,4 +74,6 @@ information and usage conditions.
 10_minutes.md
 hourly.md
 daily.md
+monthly.md
+annual.md
 ```

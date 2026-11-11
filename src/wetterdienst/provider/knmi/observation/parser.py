@@ -58,6 +58,12 @@ _WIND_DIRECTION_CODE_PARAMETERS = ("DD",)
 _CALM = "0"
 _VARIABLE = "990"
 
+# the vector mean wind direction DDVEC of the monthly and the annual files is the same bearing and has the one code of
+# the description of the files: "360=north; 90=east; 180=south; 270=west; 0=calm/variable" (read 2026-11-11 from
+# monthly-observations-validated-202609.nc and annual-observations-validated-2024.nc, whose 62 to 67 stations hold
+# bearings from 88 to 257 and no 0)
+_VECTOR_WIND_DIRECTION_PARAMETERS = ("DDVEC",)
+
 
 @contextlib.contextmanager
 def open_netcdf(payload: bytes) -> Iterator[Any]:
@@ -101,8 +107,19 @@ def public_station_id(wsi: object) -> str:
     return decode_str(wsi).rsplit("-", 1)[-1]
 
 
-def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str], moment: dt.datetime) -> pl.DataFrame:
+def parse_knmi_netcdf(
+    payload: bytes,
+    station_id: str,
+    parameters: Sequence[str],
+    moment: dt.datetime,
+    *,
+    trace_codes: bool = True,
+) -> pl.DataFrame:
     """Extract one station's values for the given parameters from a KNMI NetCDF file.
+
+    `trace_codes` is whether the file writes a trace of precipitation or of sunshine as `-1` (the hourly and the daily
+    files do). The monthly and the annual files are sums of them and describe no such code, so a `-1` there is no trace
+    and is left as it is.
 
     Each file covers a single timestamp for every station at once (the whole point of
     downloading it), so this returns at most one row per parameter. The file's own
@@ -134,8 +151,13 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_FILL_VALUE),
-        Sentinel(_TRACE, where=pl.col("parameter").is_in(_TRACE_PRECIPITATION_PARAMETERS), to=0.0),
+        *(
+            [Sentinel(_TRACE, where=pl.col("parameter").is_in(_TRACE_PRECIPITATION_PARAMETERS), to=0.0)]
+            if trace_codes
+            else []
+        ),
         Sentinel(_CALM, _VARIABLE, where=pl.col("parameter").is_in(_WIND_DIRECTION_CODE_PARAMETERS)),
+        Sentinel(_CALM, where=pl.col("parameter").is_in(_VECTOR_WIND_DIRECTION_PARAMETERS)),
         Sentinel(_SKY_INVISIBLE, where=pl.col("parameter").is_in(_CLOUD_COVER_CODE_PARAMETERS)),
         text=False,
     )
