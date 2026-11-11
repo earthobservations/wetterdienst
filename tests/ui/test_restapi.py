@@ -4696,6 +4696,55 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
     assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5"
 
 
+def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_it_as_a_station(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test `series.station` is the station row as it was, though the document types it as a station (GH-3908).
+
+    The document says `_Station` (its columns, and any other a provider adds), so a client generator knows the fields
+    of the station; the answer is the row as the listing gave it, with its keys in its order and no key added or
+    dropped, which a model that read the row back would change.
+    """
+    station = {
+        "elevation": 4.0,
+        "station_id": "01048",
+        "gauge_zero": 1.5,  # a column beyond the core ones, which the schema admits
+        "name": "Dresden-Klotzsche",
+        "resolution": "annual",
+        "dataset": "climate_summary",
+        "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
+        "end_timestamp": None,
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "region": "Sachsen",
+    }
+    df = pl.DataFrame(
+        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC)], "value": [9.5]},
+        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
+    )
+    stripes = StripesSeries(
+        station=station,  # ty: ignore[invalid-argument-type]
+        resolution="annual",
+        dataset="climate_summary",
+        parameter="temperature_air_mean_2m",
+        unit="degree_celsius",
+    )
+    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 200
+    sent = response.json()["series"]["station"]
+    assert sent == station
+    assert list(sent) == list(station)
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    described = schemas["StripesSeries"]["properties"]["station"]
+    assert described["properties"] == schemas["_Station"]["properties"]
+    assert described["required"] == schemas["_Station"]["required"]
+    assert described["additionalProperties"] is True
+
+
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
     """A unit target for a quantity the converter does not know is the caller's 400 (GH-2272).
 
@@ -6886,7 +6935,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                 "longitude": 13.7543,
                 "elevation": 228.0,
                 "name": "Dresden-Klotzsche",
-                "state": "Sachsen",
+                "region": "Sachsen",
             },
         ],
     )

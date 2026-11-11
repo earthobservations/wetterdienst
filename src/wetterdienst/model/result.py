@@ -1237,13 +1237,126 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         return img
 
 
+# One history as the `History` model of `model/history.py` dumps it, with its timestamps written as text
+# (`_written_timestamps`). The records are the models' fields one for one, with `valid_from` and `valid_to` as `str`;
+# `tests/model/test_history_dict.py` holds each to its model, so a field added there fails until it is added here.
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryStationName(TypedDict):
+    """One name of a station, for the period it held."""
+
+    station_id: str
+    station_name: str
+    valid_from: str
+    valid_to: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryOperatorName(TypedDict):
+    """One name of a station's operator, for the period it held."""
+
+    station_id: str
+    operator_name: str
+    valid_from: str
+    valid_to: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryNames(TypedDict):
+    """The names of a station and of its operator."""
+
+    station: list[_HistoryStationName]
+    operator: list[_HistoryOperatorName]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryParameter(TypedDict):
+    """How a parameter was measured at a station, for a period."""
+
+    station_id: str
+    valid_from: str
+    valid_to: str
+    station_name: str
+    parameter: str
+    description: str | None
+    unit: str | None
+    data_source: str | None
+    extra_info: str | None
+    special: str | None
+    literature: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryDevice(TypedDict):
+    """A device of a station, for the period it was in use."""
+
+    device_type: str | None
+    station_id: str
+    station_name: str | None
+    longitude: float | None
+    latitude: float | None
+    station_elevation: float | None
+    device_height: float | None
+    valid_from: str
+    valid_to: str
+    method: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryGeography(TypedDict):
+    """Where a station was, for a period."""
+
+    station_id: str
+    station_elevation: float | None
+    latitude: float | None
+    longitude: float | None
+    valid_from: str
+    valid_to: str | None
+    station_name: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryMissing(TypedDict):
+    """A summary of the missing data of a parameter, or one period of it: the two have the same fields."""
+
+    station_id: str
+    station_name: str | None
+    parameter: str
+    valid_from: str
+    valid_to: str
+    missing_count: int | None
+    description: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryMissingData(TypedDict):
+    """The summaries of a station's missing data, and the periods it is missing for."""
+
+    summary: list[_HistoryMissing]
+    periods: list[_HistoryMissing]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryEntry(TypedDict):
+    """The history of one station and dataset: who it is of, and the sections asked for (all where none were)."""
+
+    station_id: str
+    # null for a provider whose history covers the station as a whole
+    resolution: str | None
+    dataset: str | None
+    name: NotRequired[_HistoryNames]
+    parameter: NotRequired[list[_HistoryParameter]]
+    device: NotRequired[list[_HistoryDevice]]
+    geography: NotRequired[list[_HistoryGeography]]
+    missing_data: NotRequired[_HistoryMissingData]
+
+
 class _HistoryDict(TypedDict):
     """Type definition for the dictionary of station histories."""
 
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
-    histories: list[dict[str, typing.Any]]
+    histories: list[_HistoryEntry]
 
 
 # `station_id`, `resolution` and `dataset` say which station and dataset a history belongs to; they are

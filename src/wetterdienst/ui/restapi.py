@@ -53,6 +53,7 @@ from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Exte
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     ValuesResult,
+    _HistoryEntry,
     _InterpolatedValuesDictBody,
     _InterpolatedValuesOgcFeatureCollectionBody,
     _Station,
@@ -746,7 +747,7 @@ class _HistoryWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     stations: NotRequired[list[_Station]]
     # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
-    histories: list[dict[str, Any]]
+    histories: list[_HistoryEntry]
 
 
 class _IssuesWithMetadataDict(TypedDict):

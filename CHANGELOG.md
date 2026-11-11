@@ -42,6 +42,13 @@ Types of changes:
 
 ### Changed
 
+- The OpenAPI document says more of three answers: `/api/history` lists every record of a history
+  (`name`, `parameter`, `device`, `geography`, `missing_data`, `resolution`, `dataset`) instead of
+  `object[]`, `series.station` of `/api/stripes/values` is a station of the stations listing, and the
+  `name` of a resolution in `/api/providers` is one of the library's resolutions. The output
+  schemas of the MCP tools `history`, `stripes_values` and `providers` say the same. The answers
+  themselves are unchanged. `HistoryDict["histories"]` is `list[_HistoryEntry]`, no longer
+  `list[dict[str, Any]]`: a type checker may flag code typed against the old one (GH-3908)
 - `imgw/hydrology` and `imgw/meteorology` fetch an archive of a month or year that has ended again
   at most every 12 hours, not every 5 minutes (the one under way stays at 5 minutes), the
   fetch-ahead of `imgw/meteorology` included. A long all-station query no longer downloads each

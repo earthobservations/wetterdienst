@@ -1,11 +1,10 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { h, nextTick } from 'vue'
 import StationPicker from '~/components/StationPicker.vue'
 import StationSelection from '~/components/StationSelection.vue'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 const parameterSelection = {
   provider: 'dwd',
@@ -18,14 +17,6 @@ const parameterSelection = {
 const stationsResponse = {
   stations: [{ station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }],
 }
-
-// the mode the picker remembers is the browser's, and a test that chose the map would start the next one on it
-beforeEach(() => {
-  stubMemoryStorage()
-})
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 /** The option of the picker's toggle with this name: "List" or "Map" */
 function modeRadio(wrapper: VueWrapper, name: 'List' | 'Map') {

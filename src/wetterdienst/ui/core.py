@@ -15,7 +15,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, LiteralString, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, SkipValidation, ValidationError, field_validator, model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
@@ -54,6 +54,7 @@ from wetterdienst.model.request import (
     limit_to_window,
     require_window,
 )
+from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
@@ -2414,7 +2415,9 @@ class StripesSeries(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    station: Mapping[str, Any]
+    # the station as the stations listing has it, which is what the OpenAPI document says of it; the row is
+    # sent as it is and not read back through the model (`SkipValidation`), so the answer is what it always was
+    station: Annotated[_Station, SkipValidation]
     resolution: str
     dataset: str
     parameter: str

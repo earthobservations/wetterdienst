@@ -1,9 +1,9 @@
 // The types of the backend's answers are derived from its OpenAPI document (GH-3908): `pnpm gen:api-types` writes the
 // document's types to `.generated/api-schema.d.ts` (git-ignored, never committed; `pnpm typecheck` runs it first) from
 // `tests/ui/openapi.snapshot.json`, so a change to the REST contract that the app does not follow fails its typecheck.
-// What the document does not describe -- the query objects the app builds, rows whose fields it leaves open (a
-// station's history, a stripes station), the row of the data viewer -- is still hand-written, marked as such below.
-import type { components } from '../../.generated/api-schema'
+// The one answer the document types loosely, `/api/coverage` (one union for its two answers), is spelt here by the two
+// types of its members, held to the document by a check of the type system (`Holds`), marked as such below.
+import type { components, operations } from '../../.generated/api-schema'
 
 type Schemas = components['schemas']
 
@@ -14,20 +14,30 @@ type Schemas = components['schemas']
  */
 type Reads<T, K extends keyof T> = Pick<T, K> & Partial<Omit<T, K>>
 
-// Hand-written: the document types a resolution as a plain string.
-// Resolution values from backend wetterdienst/metadata/resolution.py
-export type Resolution
-  = '1_minute'
-    | '5_minutes'
-    | '6_minutes'
-    | '10_minutes'
-    | '15_minutes'
-    | 'hourly'
-    | '6_hours'
-    | 'subdaily'
-    | 'daily'
-    | 'monthly'
-    | 'annual'
+/**
+ * The resolutions of the backend's `Resolution` (wetterdienst/metadata/resolution.py), as the document lists them for a
+ * network of `GET /api/providers`: the other fields of an answer that name a resolution are plain text in it
+ */
+export type Resolution = Schemas['ProviderResolution']['name']
+
+/**
+ * The query of an operation as the app sends it: what the document lists for it, with a list parameter (`parameters`,
+ * `stations`) as one comma-separated text, which the API reads as it does the repeated parameter, and a mapping
+ * (`unit_targets`) as its JSON text, which the API reads as the mapping
+ */
+type Query<Operation extends keyof operations>
+  = CommaSeparated<NonNullable<operations[Operation]['parameters']['query']>>
+
+type CommaSeparated<Q> = {
+  [K in keyof Q]: NonNullable<Q[K]> extends unknown[]
+    ? Exclude<Q[K], unknown[]> | string
+    : NonNullable<Q[K]> extends Record<string, unknown> ? Q[K] | string : Q[K]
+}
+
+/** The check that a type is what the document says: it fails the typecheck, naming it, where the document differs */
+type Holds<T extends true> = T
+
+type Is<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
  * What a value is relative to its interval, as the backend's `Aggregation` in
@@ -72,22 +82,31 @@ export type NetworkKind = Schemas['CoverageNetwork']['kind']
  */
 export type CoverageNetworkInfo = Reads<Schemas['CoverageNetwork'], 'name_short' | 'country' | 'kind' | 'url' | 'auth' | 'configured' | 'date_required'>
 
+/**
+ * What `GET /api/coverage` answers is one object for either of its two answers, which the document types as a union of
+ * the two: the networks of every provider (no query), or the resolutions of one network (`provider` and `network`)
+ */
+type CoverageAnswer = operations['coverage_api_coverage_get']['responses'][200]['content']['application/json']
+
+// Spelt here, not derived: the document's one union for `/api/coverage` is not one of the two (`CoverageAnswerIsTheTwo`)
 /** Provider to networks mapping with per-network metadata */
 export type CoverageResponse = Record<string, Record<string, CoverageNetworkInfo>>
 
 /** Response from GET /api/auth; `valid` is `null` when the credentials could not be checked: not a rejection, so unknown */
 export type AuthResponse = Schemas['AuthAnswer']
 
+// Spelt here, not derived: see `CoverageResponse`
 /**
  * Detailed coverage for a provider-network pair: `discover()` sends only the resolutions the
  * network has, and leaves out one whose datasets are all filtered away, so any may be missing
  */
 export type ProviderNetworkCoverageResponse = Partial<Record<Resolution, CoverageResolution>>
 
-export interface CoverageQuery {
-  provider?: string
-  network?: string
-}
+// Held to the document: what it has for a value of `/api/coverage` is the networks of a provider or the resolutions of
+// a network and nothing else, so a third kind of member, or a change of either, fails the typecheck
+export type CoverageAnswerIsTheTwo = Holds<Is<CoverageAnswer[string], Record<string, Schemas['CoverageNetwork']> | Schemas['CoverageResolution']>>
+
+export type CoverageQuery = Query<'coverage_api_coverage_get'>
 
 // ============================================================================
 // Stations API
@@ -100,88 +119,52 @@ export interface StationsResponse {
   stations: Station[]
 }
 
-// Hand-written, like every `...Query` below: what the app sends, which the document spells as parameters of an operation
-export interface StationsQuery {
-  provider: string
-  network: string
-  parameters: string // format: "resolution/dataset"
-  all?: 'true' | 'false'
-}
+export type StationsQuery = Query<'stations_api_stations_get'>
 
 // ============================================================================
 // Values API
 // ============================================================================
-// Hand-written: one row for every mode of the data viewer. The document types a row of `/api/values` (`_ValuesItemDict`, or
-// the wide shape), of `/api/interpolate` and of `/api/summarize` apart, and the viewer reads the union of their fields
-export interface Value {
-  station_id: string
-  resolution: string
-  dataset: string
-  parameter: string
-  timestamp: string
-  value: number | null
-  // every flag the source publishes for the reading, comma-separated: the plain quality flag first, then
-  // `kind:code` tokens (`G,measurement:T,source:7`); null where the provider publishes none
-  quality_flags?: string | null
-  taken_station_id?: string
-  taken_station_ids?: string
-}
+/**
+ * One row for every mode of the data viewer, as the document types them: a row of `/api/values`, of
+ * `/api/interpolate` and of `/api/summarize` are three types in it, and the viewer reads the union of their fields.
+ * The fields every row has are required with their types, the others (a reading's `quality_flags`, an interpolation's
+ * `taken_station_ids` and `distance_mean`, a summary's `taken_station_id` and `distance`) optional. The wide shape of
+ * `/api/values` (one column per parameter) is not a row of it: the app asks for the long one.
+ */
+type LongRow = Schemas['_ValuesItemDict'] | Schemas['_InterpolatedValuesItemDict'] | Schemas['_SummarizedValuesItemDict']
+type FieldsOfLongRows = { [K in KeysOf<LongRow>]: FieldOf<LongRow, K> }
+type KeysOf<R> = R extends unknown ? keyof R : never
+type FieldOf<R, K extends PropertyKey> = R extends unknown ? (K extends keyof R ? R[K] : never) : never
 
-export interface ValuesResponse {
-  values: Value[]
-}
+type CommonKeys = 'station_id' | 'resolution' | 'dataset' | 'parameter' | 'timestamp' | 'value'
 
-export interface ValuesQuery {
-  provider: string
-  network: string
-  parameters: string // format: "resolution/dataset/parameter,..."
-  station: string // comma-separated station IDs
-  timestamp?: string // format: "start" or "start/end"
-  humanize?: boolean
-  convert_units?: boolean
-}
+export type Value = Reads<FieldsOfLongRows, CommonKeys>
+
+// Held to the document: the fields required above are those every one of the three rows has
+export type ValueKeysAreThoseOfEveryRow = Holds<Is<keyof Schemas['_ValuesItemDict'] & keyof Schemas['_InterpolatedValuesItemDict'] & keyof Schemas['_SummarizedValuesItemDict'], CommonKeys>>
+
+/** The answer of `GET /api/values` as far as the app reads it: its rows are `Value`s, its `metadata` and `settings` are not read */
+export type ValuesResponse = Reads<Omit<Schemas['_ValuesWithSettingsDict'], 'values'> & { values: Value[] }, 'values'>
+
+export type ValuesQuery = Query<'values_api_values_get'>
 
 // ============================================================================
 // Interpolate API
 // ============================================================================
 
-export interface InterpolateResponse {
-  values: Value[]
-}
+/** The answer as far as the app reads it: its rows are `Value`s, its `metadata` and `settings` are not read */
+export type InterpolateResponse = Reads<Omit<Schemas['_InterpolatedValuesWithSettingsDict'], 'values'> & { values: Value[] }, 'values'>
 
-export interface InterpolateQuery {
-  provider: string
-  network: string
-  parameters: string
-  latitude: number
-  longitude: number
-  /** Metres above sea level; the readings are brought to it before being used. */
-  elevation?: number
-  timestamp?: string
-  humanize?: boolean
-  convert_units?: boolean
-}
+export type InterpolateQuery = Query<'interpolate_api_interpolate_get'>
 
 // ============================================================================
 // Summarize API
 // ============================================================================
 
-export interface SummarizeResponse {
-  values: Value[]
-}
+/** The answer as far as the app reads it: its rows are `Value`s, its `metadata` and `settings` are not read */
+export type SummarizeResponse = Reads<Omit<Schemas['_SummarizedValuesWithSettingsDict'], 'values'> & { values: Value[] }, 'values'>
 
-export interface SummarizeQuery {
-  provider: string
-  network: string
-  parameters: string
-  latitude: number
-  longitude: number
-  /** Metres above sea level; the readings are brought to it before being used. */
-  elevation?: number
-  timestamp?: string
-  humanize?: boolean
-  convert_units?: boolean
-}
+export type SummarizeQuery = Query<'summarize_api_summarize_get'>
 
 // ============================================================================
 // Settings API
@@ -213,169 +196,66 @@ export interface ServerSettings {
 // Stripes API
 // ============================================================================
 
-export type StripesKind = 'temperature' | 'precipitation'
+export type StripesKind = operations['stripes_stations_api_stripes_stations_get']['parameters']['query']['kind']
 
-// Hand-written: the document leaves a stripes station's fields open (`series.station` is an object of any fields)
-export interface StripesStation {
-  station_id: string
-  name: string
-  region: string
-  latitude: number
-  longitude: number
-  /** Null or left out where the station has none */
-  elevation?: number | null
-  start_timestamp: string | null
-  end_timestamp: string | null
-}
+/** A station of the stripes' listing, which is the one of `/api/stations`, as is the `series.station` of its values */
+export type StripesStation = Station
 
-export interface StripesStationsResponse {
-  stations: StripesStation[]
-}
+/** The answer of `GET /api/stripes/stations` as far as the app reads it */
+export type StripesStationsResponse = StationsResponse
 
-export interface StripesStationsQuery {
-  kind: StripesKind
-}
+export type StripesStationsQuery = Query<'stripes_stations_api_stripes_stations_get'>
 
-export interface StripesValueItem {
-  timestamp: string | null
-  value: number | null
-}
+export type StripesValueItem = Schemas['_StripesValue']
 
 /** What the values of the stripes are of: the station, the parameter and the unit of `value` */
-export interface StripesSeries {
-  station: StripesStation
-  resolution: string
-  dataset: string
-  parameter: string
-  unit: string
-}
+export type StripesSeries = Reads<Omit<Schemas['StripesSeries'], 'station'> & { station: StripesStation }, 'station' | 'resolution' | 'dataset' | 'parameter' | 'unit'>
 
-export interface StripesValuesResponse {
-  /** The block every answer has (licence, resolved request, warnings, ...); the app reads nothing from it */
-  metadata: Record<string, unknown>
-  series: StripesSeries
-  values: StripesValueItem[]
-}
+/** The answer of `GET /api/stripes/values`, the `metadata` block every answer has (licence, resolved request, warnings, ...) not read */
+export type StripesValuesResponse = Reads<Omit<Schemas['_StripesValuesWithMetadataDict'], 'series' | 'values'> & { series: StripesSeries, values: StripesValueItem[] }, 'series' | 'values'>
 
-export interface StripesValuesQuery {
-  kind: StripesKind
-  station?: string
-  name?: string
-  format?: 'json' | 'csv'
-  start_year?: number
-  end_year?: number
-  name_threshold?: number
-  /** The JSON text of a map of unit type to unit, as `/api/values` takes it */
-  unit_targets?: string
-}
+export type StripesValuesQuery = Query<'stripes_values_api_stripes_values_get'>
 
 // ============================================================================
 // History API
 // ============================================================================
 
-// Hand-written: the document leaves a history's records open (`histories` is a list of objects of any fields).
-// As `History` in the backend's model/history.py has them, every field of each record: the backend sends
-// null for a field it has no value for, rather than leaving it out. A station's position, name and devices
-// are records of the periods they held for, never fields of the history itself.
+// As `History` in the backend's model/history.py has them, every field of each record: the backend sends null for a
+// field it has no value for, rather than leaving it out. A station's position, name and devices are records of the
+// periods they held for, never fields of the history itself.
 
-export interface HistoryStationName {
-  station_id: string
-  station_name: string
-  valid_from: string
-  valid_to: string | null
-}
+export type HistoryStationName = Schemas['_HistoryStationName']
 
-export interface HistoryOperatorName {
-  station_id: string
-  operator_name: string
-  valid_from: string
-  valid_to: string | null
-}
+export type HistoryOperatorName = Schemas['_HistoryOperatorName']
 
-export interface HistoryParameter {
-  station_id: string
-  valid_from: string
-  valid_to: string
-  station_name: string
-  parameter: string
-  description: string | null
-  unit: string | null
-  data_source: string | null
-  extra_info: string | null
-  special: string | null
-  literature: string | null
-}
+export type HistoryParameter = Schemas['_HistoryParameter']
 
-export interface HistoryDevice {
-  device_type: string | null
-  station_id: string
-  station_name: string | null
-  longitude: number | null
-  latitude: number | null
-  station_elevation: number | null
-  device_height: number | null
-  valid_from: string
-  valid_to: string
-  method: string | null
-}
+export type HistoryDevice = Schemas['_HistoryDevice']
 
-export interface HistoryGeography {
-  station_id: string
-  station_elevation: number | null
-  latitude: number | null
-  longitude: number | null
-  valid_from: string
-  valid_to: string | null
-  station_name: string | null
-}
+export type HistoryGeography = Schemas['_HistoryGeography']
 
 /** A summary or a period of missing data: the backend's two records have the same fields. */
-export interface HistoryMissingData {
-  station_id: string
-  station_name: string | null
-  parameter: string
-  valid_from: string
-  valid_to: string
-  missing_count: number | null
-  description: string | null
-}
+export type HistoryMissingData = Schemas['_HistoryMissing']
 
-/** One station's history: the sections asked for, all of them where none were. */
-export interface StationHistory {
-  /** The station's id, spelt as in the stations listing: sent whatever sections were asked for. */
-  station_id: string
-  name?: { station: HistoryStationName[], operator: HistoryOperatorName[] }
-  parameter?: HistoryParameter[]
-  device?: HistoryDevice[]
-  geography?: HistoryGeography[]
-  missing_data?: { summary: HistoryMissingData[], periods: HistoryMissingData[] }
-}
+/**
+ * One station's history: the sections asked for, all of them where none were. `station_id` is the station's id, spelt
+ * as in the stations listing, and sent whatever sections were asked for, as are `resolution` and `dataset`.
+ */
+export type StationHistory = Reads<Schemas['_HistoryEntry'], 'station_id'>
 
-export interface HistoryResponse {
-  histories: StationHistory[]
-}
+export type HistoryResponse = Reads<Omit<Schemas['_HistoryWithMetadataDict'], 'histories'> & { histories: StationHistory[] }, 'histories'>
 
 // ============================================================================
 // Error Response
 // ============================================================================
 
 /**
- * An error, as the backend answers it: an RFC 9457 problem (`application/problem+json`).
- * `detail` is always text; `errors` lists the invalid parameters of a request that fails validation (422).
+ * An error, as the backend answers it: an RFC 9457 problem (`application/problem+json`), the document's `Problem`.
+ * `detail` is always text; `errors` lists the invalid parameters of a request that fails validation (422). The
+ * app's own server routes answer it too, with the members of a problem they have: of the document's, the ones the
+ * backend always sends (`instance`, `request_id`) are optional here.
  */
-// Hand-written: the app also builds this answer itself (its server routes), where the document's `Problem` requires
-// `instance` and `request_id`
-export interface ApiErrorResponse {
-  type: string
-  title: string
-  status: number
-  detail: string
-  /** `urn:wetterdienst:request:<request_id>` */
-  instance?: string
-  /** The id of the request, also its `X-Request-ID` header: quote it when reporting a failure */
-  request_id?: string
-  errors?: { loc?: (string | number)[], msg?: string, type?: string }[]
-}
+export type ApiErrorResponse = Reads<Schemas['Problem'], 'type' | 'title' | 'status' | 'detail'>
 
 // ============================================================================
 // Providers API

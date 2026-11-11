@@ -1,10 +1,9 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import StationPicker from '~/components/StationPicker.vue'
 import { STATION_PICKER_STORAGE_KEY } from '~/utils/station-picker-mode'
-import { stubMemoryStorage } from '../fixtures/storage'
 
 // The one station picker of the explorer, the history, the forecast and the stripes (GH-3877): the toggle, its keys,
 // the chips in both modes, a pick that shows in the other mode, the mode kept for each tool, and the storage that is
@@ -40,10 +39,6 @@ const stations = [berlin, potsdam, hamburg]
 // a generic component's props are not typed here: the stations are of the test's own kind
 type Props = Record<string, any>
 
-let storage: Map<string, string>
-beforeEach(() => {
-  storage = stubMemoryStorage()
-})
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -439,7 +434,7 @@ describe('the station picker\'s remembered mode', () => {
     expect(checked(wrapper)).toBe('List')
 
     await radio(wrapper, 'Map').trigger('click')
-    expect(JSON.parse(storage.get(STATION_PICKER_STORAGE_KEY)!)).toEqual({ stripes: 'map' })
+    expect(JSON.parse(localStorage.getItem(STATION_PICKER_STORAGE_KEY)!)).toEqual({ stripes: 'map' })
     wrapper.unmount()
 
     const again = await mountPicker({ tool: 'stripes', multiple: false })
@@ -451,13 +446,13 @@ describe('the station picker\'s remembered mode', () => {
     const other = await mountPicker({ tool: 'forecast', multiple: false })
     expect(checked(other)).toBe('List')
     await radio(other, 'Map').trigger('click')
-    expect(JSON.parse(storage.get(STATION_PICKER_STORAGE_KEY)!)).toEqual({ stripes: 'map', forecast: 'map' })
+    expect(JSON.parse(localStorage.getItem(STATION_PICKER_STORAGE_KEY)!)).toEqual({ stripes: 'map', forecast: 'map' })
   })
 
   it('is not written for the mode the picker starts in, only for the reader\'s change', async () => {
-    storage.set(STATION_PICKER_STORAGE_KEY, JSON.stringify({ explorer: 'map' }))
+    localStorage.setItem(STATION_PICKER_STORAGE_KEY, JSON.stringify({ explorer: 'map' }))
     await mountPicker({ tool: 'explorer' })
-    expect(storage.get(STATION_PICKER_STORAGE_KEY)).toBe(JSON.stringify({ explorer: 'map' }))
+    expect(localStorage.getItem(STATION_PICKER_STORAGE_KEY)).toBe(JSON.stringify({ explorer: 'map' }))
   })
 
   it.each([
@@ -466,7 +461,7 @@ describe('the station picker\'s remembered mode', () => {
     ['an unknown mode', '{"explorer":"satellite"}'],
     ['a mode of another type', '{"explorer":true}'],
   ])('starts on the list where what is stored is %s', async (_what, stored) => {
-    storage.set(STATION_PICKER_STORAGE_KEY, stored)
+    localStorage.setItem(STATION_PICKER_STORAGE_KEY, stored)
     const wrapper = await mountPicker({ tool: 'explorer' })
     expect(checked(wrapper)).toBe('List')
   })
