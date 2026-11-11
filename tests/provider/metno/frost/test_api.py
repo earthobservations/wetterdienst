@@ -336,38 +336,58 @@ def test_metno_frost_values_window_over_the_limit_is_a_time_interval_error() -> 
         request.filter_by_station_id("SN99710").values().all()
 
 
+def _recent_days(days: int) -> tuple[dt.datetime, dt.datetime]:
+    """Give the window of the last `days` full UTC days, today left out (it is not complete)."""
+    today = dt.datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    return today - dt.timedelta(days=days), today - dt.timedelta(hours=1)
+
+
+def _recent_wmo_station_ids(request: MetnoFrostRequest, known: tuple[str, ...], limit: int = 8) -> list[str]:
+    """Give the ids of Frost's foreign WMO stations that `request` can ask for: `known` first, then the others.
+
+    Frost lists the stations of other countries since 2026-11-03 with a seven-digit id (`SN1178200`, `SN1193400`), where
+    a Norwegian one has up to six. Their series were started again on 2026-11-05 and what was stamped before is gone
+    (and 2026-11-07 was gone by 2026-11-10), so a test of what they serve picks them from the list of the day.
+    """
+    listed = set(request.all().df.filter(pl.col("station_id").str.contains(r"^SN\d{7}$"))["station_id"].to_list())
+    return [*[station for station in known if station in listed], *sorted(listed - set(known))][:limit]
+
+
 @pytest.mark.remote
 def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None:
     """The wind direction in weak winds is Frost's -3 and comes back null, the code in the flags (GH-3137).
 
-    SN1178200 (Ostrava/Mosnov, one 10 m series, so the choice of a height changes nothing) has -3 on 2026-11-07 at
-    03:00, 04:00, 06:00 and 07:00 (beside a speed of 1 m/s) and 180 degrees at 05:00: "No unique wind direction is given
-    when winds are weak" in Frost's data clarifications. The range check used to turn it into a null as
-    `rejected:range`, which says the reading is out of range.
+    "No unique wind direction is given when winds are weak" in Frost's data clarifications. The range check used to turn
+    it into a null as `rejected:range`, which says the reading is out of range.
 
-    The pin is as old as Frost's series of the foreign WMO stations, which were all started again on 2026-11-05: what
-    was stamped before is gone (SN1165900 at 2026-11-04 13:00, this test's earlier pin, answers 412, GH-3887), and no
-    older -3 is left to pin: there is none in 204,039 hourly readings at 282 Norwegian stations in January 2023, nor in
-    37,851 at the 34 Svalbard and Antarctic ones in January and February 2023. If this pin goes the same way, take a
-    station of `availableTimeSeries` of `wind_from_direction` that has a -3 inside a run of them.
+    The only -3 left is in the series of the foreign WMO stations (there is none in 204,039 hourly readings at 282
+    Norwegian stations in January 2023, nor in 37,851 at the 34 Svalbard and Antarctic ones in January and February
+    2023), and those were started again on 2026-11-05, which dropped what was stamped before: SN1165900 at 2026-11-04
+    13:00 (this test's first pin) answered 412 on 2026-11-08 (GH-3887) and SN1178200 (Ostrava/Mosnov) on 2026-11-07
+    (the second pin) answered nothing on 2026-11-10, with a -3 in four of five hours on the day. So the test looks for
+    a -3 in the last 7 days at the foreign WMO stations Frost lists today, and skips when there is none: the rule is
+    held on its own, with Frost's answers served, by `test_values_failures.py` and `test_standard_height.py`.
     """
-    df = (
-        MetnoFrostRequest(
-            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
-            start=dt.datetime(2026, 11, 7, 3, tzinfo=UTC),
-            end=dt.datetime(2026, 11, 7, 6, tzinfo=UTC),
-            options={"drop_nulls": False},
-        )
-        .filter_by_station_id("SN1178200")
-        .values()
-        .all()
-        .df
+    first, last = _recent_days(7)
+    request = MetnoFrostRequest(
+        parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+        start=first,
+        end=last,
+        options={"drop_nulls": False},
     )
-    assert df["timestamp"].to_list() == [dt.datetime(2026, 11, 7, h, tzinfo=UTC) for h in (3, 4, 5, 6)]
-    assert df["value"].to_list() == [None, None, 180.0, None]
-    flags = df["quality_flags"].to_list()
-    assert [f is not None and f.endswith("raw:-3") for f in flags] == [True, True, False, True]
-    assert flags[0] == "2,raw:-3"
+    stations = _recent_wmo_station_ids(request, known=("SN1178200", "SN1165900"))
+    if not stations:
+        pytest.skip(f"Frost lists no foreign WMO station for {first:%Y-%m-%d} to {last:%Y-%m-%d}")
+    df = request.filter_by_station_id(stations).values().all().df
+    no_unique = df.filter(pl.col("quality_flags").str.ends_with("raw:-3"))
+    if no_unique.is_empty():
+        pytest.skip(f"Frost has no -3 wind direction at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
+    # a -3 is null with the code behind the quality code, and no `rejected:range`
+    assert no_unique["value"].null_count() == no_unique.height
+    assert no_unique["quality_flags"].str.contains(r"^\d+,raw:-3$").all()
+    # a reading beside it is a bearing
+    readings = df.filter(pl.col("value").is_not_null())
+    assert readings.is_empty() or readings["value"].is_between(0, 360).all()
 
 
 @pytest.mark.remote
@@ -687,15 +707,29 @@ def test_metno_frost_values_daily_precipitation_minus_one_of_storstilla_is_unrea
 
 @pytest.mark.remote
 def test_metno_frost_values_daily_precipitation_minus_one_of_a_wmo_station_of_2026_is_a_dry_day() -> None:
-    """The daily `-1` of SN1193400, a WMO station Frost lists since 2026-11-03, is 0.0 with the code (GH-3820).
+    """The daily `-1` of a foreign WMO station, which Frost lists since 2026-11-03, is 0.0 with the code (GH-3820).
 
-    These series are new (quality 2, not yet controlled) and their values may be revised, so the test pins the property
-    and no neighbouring value: the `-1` days of 2026-11-04 to 07 (there were three) are `0.0` with `raw:-1` as the last
-    flag, a dry day (both 12-hourly halves are `-1` in 472 of 472 days of such stations), and a reading is no `-1`.
+    These series are new (quality 2, not yet controlled), their values may be revised, and what was stamped before they
+    were started again on 2026-11-05 is gone (SN1193400, this test's pin, answered nothing for 2026-11-04 to 07 on
+    2026-11-10, where it had three `-1` days). So the test pins the property and no value, and looks for it in the last
+    10 days at the foreign WMO stations of the day, skipping when Frost has no `-1` there: the `-1` days are `0.0` with
+    `raw:-1` as the last flag, a dry day (both 12-hourly halves are `-1` in 472 of 472 days of such stations), and a
+    reading is no `-1`.
     """
-    df = _daily("SN1193400", dt.datetime(2026, 11, 4, tzinfo=UTC), dt.datetime(2026, 11, 7, tzinfo=UTC))
+    first, last = _recent_days(10)
+    request = MetnoFrostRequest(
+        parameters=[("daily", "data", "precipitation_amount")],
+        start=first,
+        end=last,
+        options={"drop_nulls": False},
+    )
+    stations = _recent_wmo_station_ids(request, known=("SN1193400",))
+    if not stations:
+        pytest.skip(f"Frost lists no foreign WMO station for {first:%Y-%m-%d} to {last:%Y-%m-%d}")
+    df = request.filter_by_station_id(stations).values().all().df
     minus_one = df.filter(pl.col("quality_flags").str.ends_with("raw:-1"))
-    assert minus_one.height >= 1
+    if minus_one.is_empty():
+        pytest.skip(f"Frost has no daily -1 at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
     assert minus_one["value"].to_list() == [0.0] * minus_one.height
     assert (df.filter(~pl.col("quality_flags").str.ends_with("raw:-1"))["value"] >= 0).all()
 
