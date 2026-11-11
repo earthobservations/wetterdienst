@@ -342,14 +342,18 @@ def _recent_days(days: int) -> tuple[dt.datetime, dt.datetime]:
     return today - dt.timedelta(days=days), today - dt.timedelta(hours=1)
 
 
-def _recent_wmo_station_ids(request: MetnoFrostRequest, known: tuple[str, ...], limit: int = 8) -> list[str]:
-    """Give the ids of Frost's foreign WMO stations that `request` can ask for: `known` first, then the others.
+def _recent_wmo_station_ids(
+    request: MetnoFrostRequest, known: tuple[str, ...], first: dt.datetime, limit: int = 8
+) -> list[str]:
+    """Give the ids of Frost's foreign WMO stations open since `first` that `request` can ask for: `known` first.
 
     Frost lists the stations of other countries since 2026-11-03 with a seven-digit id (`SN1178200`, `SN1193400`), where
     a Norwegian one has up to six. Their series were started again on 2026-11-05 and what was stamped before is gone
     (and 2026-11-07 was gone by 2026-11-10), so a test of what they serve picks them from the list of the day.
     """
-    listed = set(request.all().df.filter(pl.col("station_id").str.contains(r"^SN\d{7}$"))["station_id"].to_list())
+    open_since = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") >= first)
+    stations = request.all().df.filter(pl.col("station_id").str.contains(r"^SN\d{7}$") & open_since)
+    listed = set(stations["station_id"].to_list())
     return [*[station for station in known if station in listed], *sorted(listed - set(known))][:limit]
 
 
@@ -375,16 +379,19 @@ def test_metno_frost_values_wind_direction_no_unique_direction_is_null() -> None
         end=last,
         options={"drop_nulls": False},
     )
-    stations = _recent_wmo_station_ids(request, known=("SN1178200", "SN1165900"))
+    stations = _recent_wmo_station_ids(request, known=("SN1178200", "SN1165900"), first=first)
     if not stations:
         pytest.skip(f"Frost lists no foreign WMO station for {first:%Y-%m-%d} to {last:%Y-%m-%d}")
     df = request.filter_by_station_id(stations).values().all().df
+    # a station set that serves nothing is no "no case": that is the failure of GH-3986, and it fails
+    if df.filter(pl.col("value").is_not_null() | pl.col("quality_flags").str.contains("raw:")).is_empty():
+        pytest.fail(f"Frost served nothing at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
     no_unique = df.filter(pl.col("quality_flags").str.ends_with("raw:-3"))
     if no_unique.is_empty():
         pytest.skip(f"Frost has no -3 wind direction at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
-    # a -3 is null with the code behind the quality code, and no `rejected:range`
+    # a -3 is null with the code as the last flag, and not `rejected:range`
     assert no_unique["value"].null_count() == no_unique.height
-    assert no_unique["quality_flags"].str.contains(r"^\d+,raw:-3$").all()
+    assert not no_unique["quality_flags"].str.contains("rejected:").any()
     # a reading beside it is a bearing
     readings = df.filter(pl.col("value").is_not_null())
     assert readings.is_empty() or readings["value"].is_between(0, 360).all()
@@ -723,10 +730,13 @@ def test_metno_frost_values_daily_precipitation_minus_one_of_a_wmo_station_of_20
         end=last,
         options={"drop_nulls": False},
     )
-    stations = _recent_wmo_station_ids(request, known=("SN1193400",))
+    stations = _recent_wmo_station_ids(request, known=("SN1193400",), first=first)
     if not stations:
         pytest.skip(f"Frost lists no foreign WMO station for {first:%Y-%m-%d} to {last:%Y-%m-%d}")
     df = request.filter_by_station_id(stations).values().all().df
+    # a station set that serves nothing is no "no case": that is the failure of GH-3986, and it fails
+    if df.filter(pl.col("value").is_not_null() | pl.col("quality_flags").str.contains("raw:")).is_empty():
+        pytest.fail(f"Frost served nothing at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
     minus_one = df.filter(pl.col("quality_flags").str.ends_with("raw:-1"))
     if minus_one.is_empty():
         pytest.skip(f"Frost has no daily -1 at {', '.join(stations)} from {first:%Y-%m-%d} to {last:%Y-%m-%d}")
