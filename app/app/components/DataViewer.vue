@@ -1592,13 +1592,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       </div>
 
       <!-- Options bar -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <span class="text-sm text-gray-500 dark:text-gray-400">
           <template v-if="valuesPending">{{ t('dataViewer.loadingValues') }}</template>
           <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }) }}</template>
           <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }) }}</template>
         </span>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
             <label for="data-viewer-columns" class="text-sm">{{ t('dataViewer.columns') }}:</label>
             <USelectMenu id="data-viewer-columns" v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
@@ -1735,7 +1735,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           </div>
         </template>
         <template v-if="viewMode === 'table'" #footer>
-          <div class="flex items-center justify-center gap-4">
+          <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <div class="flex items-center gap-2">
               <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</label>
               <USelect id="data-viewer-page-size" v-model="pageSize" :items="pageSizeOptions" class="w-20" />

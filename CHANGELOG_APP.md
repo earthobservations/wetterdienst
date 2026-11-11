@@ -80,6 +80,9 @@ Types of changes:
   and the unit selects of the settings fill the card, in every language, with the full unit name
   shown in the field and in its list. The theme buttons share the row and show no icon below 384 px
   (GH-3845, GH-3858)
+- `[Explorer]` At 320 px the page no longer scrolls sideways once parameters and a station are
+  chosen: the start and end dates stack, the columns, copy and download controls and the pager
+  wrap, and the lead time and mode buttons stack below 640 px, in every language (GH-3985)
 - `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
   the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
   under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one

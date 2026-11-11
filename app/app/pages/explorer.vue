@@ -160,6 +160,11 @@ const rangeCleared = ref(route.query.range === 'all' && !rangeEdited.value)
 const defaultWindow = ref<FittingWindow | null>(null)
 const serverLimits = useServerLimits()
 
+// The buttons of the lead time and the mode share one joined row, which a window of 320 px cannot hold in the languages
+// whose names run long ("Station", "Interpolation", "Zusammenfassung"): below `sm` they are stacked (GH-3985)
+const buttonRowFits = useMediaQuery('(min-width: 40rem)')
+const buttonGroupOrientation = computed(() => buttonRowFits.value ? 'horizontal' : 'vertical')
+
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 // The station the link names as the point (GH-2392). It has to be fetched before it can be
 // selected, which the picker does with its list, as `initialStationIds` is restored in station
@@ -803,7 +808,7 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <UFieldGroup>
+              <UFieldGroup :orientation="buttonGroupOrientation">
                 <UButton
                   v-for="option in leadTimeOptions"
                   :key="option.value"
@@ -831,7 +836,7 @@ function removeParameterDistance(id: string, paramName: string) {
               </div>
             </template>
             <div class="space-y-3">
-              <UFieldGroup>
+              <UFieldGroup :orientation="buttonGroupOrientation">
                 <UButton
                   v-for="option in modeOptions"
                   :key="option.value"

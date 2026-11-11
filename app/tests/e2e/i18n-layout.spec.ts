@@ -1,4 +1,6 @@
 import type { Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
@@ -158,6 +160,38 @@ for (const language of OTHER_LANGUAGES) {
       expect(await reflowOffendersOf(page, path), `${path} in ${language} at 320px`).toEqual([])
     })
   }
+}
+
+// The explorer with a parameter and a station chosen (GH-3985), before and after the values are fetched: its first state,
+// which the loops above measure, has no station, no date range, no columns and no table, and these ran past the
+// window at 320 px. The backend is the accessibility spec's, answered in the browser.
+const EXPLORER_WITH_SELECTION = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
+
+/** The name of the Fetch button in `language`, as the app words it */
+function fetchLabel(language: string): string {
+  const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+  return catalog.common.fetch
+}
+
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  test(`/explorer with a station chosen in ${language} does not scroll or clip sideways at 320px`, async ({ page, context, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto(EXPLORER_WITH_SELECTION)
+    await expect(page.getByText('Donaueschingen').first()).toBeVisible({ timeout: 30_000 })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+    await settle(page)
+    expect(await offendersOf(page), `/explorer with a station in ${language} at 320px`).toEqual([])
+    expect(await reflowOffendersOf(page, '/explorer'), `/explorer with a station in ${language} at 320px`).toEqual([])
+
+    // and with the values: the options bar (columns, copy, download), the table and its pager
+    await page.getByRole('button', { name: fetchLabel(language), exact: true }).click()
+    await expect(page.getByRole('table').first()).toBeVisible({ timeout: 30_000 })
+    await settle(page)
+    expect(await offendersOf(page), `/explorer with values in ${language} at 320px`).toEqual([])
+    expect(await reflowOffendersOf(page, '/explorer'), `/explorer with values in ${language} at 320px`).toEqual([])
+  })
 }
 
 // A phone of 390 px: the theme buttons of the settings share a row, and Polish and Czech names ("Systemowy",

@@ -174,7 +174,7 @@ defineExpose({ isValid, validationError })
       </UBadge>
     </div>
 
-    <div ref="fieldsBox" role="group" tabindex="-1" :aria-labelledby="labelId" class="flex gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--app-focus-ring)">
+    <div ref="fieldsBox" role="group" tabindex="-1" :aria-labelledby="labelId" class="flex flex-wrap gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--app-focus-ring)">
       <UFormField :label="t('dateRange.startDate')" class="flex-1" :error="!modelValue.startDate && requiresDateRange ? t('dateRange.required') : undefined">
         <UInput
           :model-value="modelValue.startDate"
