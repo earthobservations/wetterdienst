@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Beskrivelse",
     "endpoints": {
-      "coverage": "Find tilgængelige udbydere, netværk, opløsninger og parametre",
+      "providers": "List udbydere og deres netværk",
+      "coverage": "Find opløsninger, datasæt og parametre for et netværk",
       "stations": "Forespørg vejrstationer via forskellige filtre",
       "history": "Hent stationshistorik (navn, operatør, enheder, geografi, manglende data)",
       "values": "Hent observationsværdier for udvalgte stationer og parametre",
@@ -477,6 +478,7 @@
     "copied": "Kopieret",
     "networksTitle": "Netværk",
     "source": "Kilde",
+    "showDatasets": "Vis opløsninger og datasæt",
     "noResolutions": "Ikke en tidsserie: her er intet at vise.",
     "openExplorer": "Åbn i udforskeren"
   },

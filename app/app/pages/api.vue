@@ -26,7 +26,8 @@ const mcpClientConfig = computed(() => JSON.stringify(
 ))
 
 const endpoints = [
-  { name: 'coverage', path: '/api/coverage', descKey: 'api.endpoints.coverage' },
+  { name: 'providers', path: '/api/providers', descKey: 'api.endpoints.providers' },
+  { name: 'coverage', path: '/api/coverage?provider=dwd&network=observation', descKey: 'api.endpoints.coverage' },
   { name: 'stations', path: '/api/stations', descKey: 'api.endpoints.stations' },
   { name: 'history', path: '/api/history', descKey: 'api.endpoints.history' },
   { name: 'values', path: '/api/values', descKey: 'api.endpoints.values' },

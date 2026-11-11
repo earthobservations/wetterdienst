@@ -361,20 +361,19 @@ correction). Every provider's terms are listed on
 [licences and credit lines](../data/provider/licenses.md).
 
 `GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
-see [Extent](restapi.md#extent)) and, with `datasets=true`, each dataset narrower than its network one of its own;
-`GET /api/coverage` gives
-the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
-0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
-territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
-network, and `extent` from a dataset of `providers` that has its network's.
+see [Extent](restapi.md#extent)); `GET /api/coverage` gives, of one network, the extent of each dataset. They are
+additive members (added after 0.175.0). Their values are what the station lists show: they change when a list does (a
+network that reaches a new territory), which is a fix and not a break. `country_codes` is absent from an answer for a
+national or a country-less network.
 
 Of the members above, `attribution` is the credit line to cite, and `copyright` is the rights holder's notice, shown
 for information (DWD's `attribution` is "Source: Deutscher Wetterdienst", its `copyright` "© Deutscher Wetterdienst
 (DWD), Climate Data Center (CDC)"); the descriptions in the OpenAPI document, the MCP tools and `--help` say so, and
-the values are unchanged. `GET /api/providers` takes `datasets` (`--datasets`, `datasets` of `get_providers`), false
-by default: the answer is compact, `resolutions` of each network is null and everything else stays. `datasets=true`
-lists each network's `resolutions` with the number of parameters of each dataset (see
-[Migrating](migrating.md#rest-api)); the default stays from 1.0.
+the values are unchanged. `GET /api/providers` is the overview (who has which network, and whether each is `configured`)
+and `GET /api/coverage` the detail of one network (its resolutions, datasets and parameters, with `provider` and
+`network` required): the resolutions and datasets are not in `providers`, and `coverage` without a provider and network
+is refused with an error that names `providers`, both made before 1.0.0 so that 1.0.0 has this shape (see
+[Migrating](migrating.md#rest-api)).
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with

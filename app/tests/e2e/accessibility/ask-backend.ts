@@ -82,17 +82,6 @@ export function askHandlers(asked: Asked[] = []): Handlers {
         return { values: summerValues(station) }
       return { values: windValues(station, url.searchParams.get('timestamp')) }
     },
-    providers: (url, route) => {
-      const list = structuredClone(base.providers!(url, route)) as { providers: Array<{ networks: Array<{ network: string, resolutions: Array<{ name: string, datasets: unknown[] }> }> }> }
-      // an hourly resolution for the two measuring networks
-      for (const provider of list.providers) {
-        for (const network of provider.networks) {
-          if (network.network === 'observation')
-            network.resolutions = [{ name: 'hourly', datasets: [{ name: 'temperature_air', parameters: 2 }] }, ...network.resolutions]
-        }
-      }
-      return list
-    },
   }
 }
 

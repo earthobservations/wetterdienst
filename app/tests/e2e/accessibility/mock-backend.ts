@@ -1,6 +1,5 @@
 import type { Page, Route } from '@playwright/test'
 import type {
-  CoverageResponse,
   GlossaryEntry,
   HistoryResponse,
   ProviderNetworkCoverageResponse,
@@ -33,26 +32,6 @@ export type Handlers = Record<string, Handler>
 /** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
   constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
-}
-
-const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
-
-const PROVIDERS: CoverageResponse = {
-  dwd: {
-    observation: { ...DWD, kind: 'observation', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
-    mosmix: { ...DWD, kind: 'forecast', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
-  },
-  noaa: {
-    ghcn: {
-      name_short: 'NOAA',
-      country: 'United States Of America',
-      kind: 'observation',
-      url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
-      auth: false,
-      configured: false,
-      date_required: false,
-    },
-  },
 }
 
 function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
@@ -140,13 +119,16 @@ const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => (
   end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00`,
 }))
 
-/** `GET /api/providers`: DWD with a licence, a credit line, a network with resolutions and a standalone one, and AEMET with a key and no terms */
+/**
+ * `GET /api/providers`: DWD with a licence, a credit line, two networks with stations and a standalone one, and AEMET with a
+ * key (which this server has not) and no terms. The Explorer's selects read it: it offers what is configured
+ */
 const PROVIDER_LIST: ProvidersResponse = {
   metadata: {
     api_version: '1',
     schema_version: '1',
     retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-    counts: { providers: 2, networks: 3, parameters: 18 },
+    counts: { providers: 2, networks: 4, parameters: 24 },
     warnings: [],
   },
   providers: [
@@ -166,9 +148,19 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.dwd.de/climate_environment/CDC/',
           copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 12,
-          resolutions: [{ name: 'daily', datasets: [{ name: 'climate_summary', parameters: 8 }] }],
+        },
+        {
+          network: 'mosmix',
+          kind: 'forecast',
+          url: 'https://opendata.dwd.de/weather/local_forecasts/mos/',
+          copyright: '© Deutscher Wetterdienst (DWD), MOSMIX',
+          auth: false,
+          configured: true,
+          date_required: false,
+          parameters: 6,
         },
         {
           network: 'radar',
@@ -176,9 +168,9 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.dwd.de/weather/radar/',
           copyright: '© Deutscher Wetterdienst (DWD), radar products',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 0,
-          resolutions: [],
         },
       ],
     },
@@ -198,9 +190,9 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.aemet.es/',
           copyright: '© AEMET',
           auth: true,
+          configured: false,
           date_required: true,
           parameters: 6,
-          resolutions: [{ name: 'daily', datasets: [{ name: 'data', parameters: 6 }] }],
         },
       ],
     },
@@ -332,11 +324,7 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
       mcp_enabled: false,
       limits: { max_stations: 100, max_rows: 500_000, max_stream_rows: 10_000_000, timeout: 60, max_concurrent: 32 },
     }),
-    'coverage': (url) => {
-      if (!url.searchParams.get('provider'))
-        return PROVIDERS
-      return OBSERVATION_COVERAGE
-    },
+    'coverage': () => OBSERVATION_COVERAGE,
     'auth': url => ({ provider: url.searchParams.get('provider'), network: url.searchParams.get('network'), auth: false, configured: false, valid: true }),
     // a server that does not report its settings: the app takes wetterdienst's own
     'settings': () => new ApiFailure(404, 'Not Found'),

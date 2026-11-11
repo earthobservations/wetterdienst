@@ -120,7 +120,7 @@ AEMET, KNMI, MET Norway Frost and the Met Office (CEDA) need a key or an account
 `CredentialMissingError` says the setting to change. `CredentialRejectedError` says the provider answered 401 or 403
 to the one you gave: it has expired (the Met Office token lives three days), was mistyped, or was revoked. Whether a
 network accepts the credentials the process holds is one call: `wetterdienst about auth --provider=aemet
---network=observation`, `GET /api/auth`, the MCP tool `auth`, or `Wetterdienst.is_valid(...)`; `coverage` says only
+--network=observation`, `GET /api/auth`, the MCP tool `auth`, or `Wetterdienst.is_valid(...)`; `providers` says only
 whether they are `configured`. `valid` is `null` where the provider could not be asked in time: treat it as unknown.
 
 Against the REST API or the MCP server the credentials are the server's, not yours: a 501 `credential-missing` or

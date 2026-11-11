@@ -700,40 +700,81 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 
 ## Examples
 
-### Coverage
+### Providers
 
-```bash
-http localhost:7890/api/coverage
-```
-
-The list downloads nothing, so it answers at once. Each network of each provider has
+The overview: which provider has which network, and what each provider is, for a page that lists them or a client
+that has to credit the data. The names it goes by (`name_short` for a chip beside a flag, `name_english`,
+`name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a
+provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network
+says where its stations are), the terms it publishes its data under (`license`, as in the `metadata` of a data answer),
+the credit line (`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice,
+shown for information), and its networks. The list downloads nothing and reads no credential, so it answers at once.
+Each network has
 
 | Field | |
 | --- | --- |
-| `name_short` | the provider's short name, `DWD` |
-| `country` | the country of the provider, `Germany` |
-| `url` | where the provider publishes the data |
+| `network` | its name, `observation` |
 | `kind` | what the network is, see below |
-| `scope` | how far the network reaches: `global`, `national` or `regional`, which `country` does not say. The list is kept short, so it has the scope only; the full [extent](#providers) is in `providers`, and in the coverage of one network, for each of its datasets |
+| `extent` | where its stations are, see [Extent](#extent) |
+| `url` | where the provider publishes the data |
+| `copyright` | the rights holder's notice |
 | `auth` | whether the network needs credentials |
-| `configured` | whether the server has them |
+| `configured` | whether the server has them (true for a network that needs none); whether the provider accepts them is not checked here |
 | `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
+| `parameters` | how many parameters the network has in all of its datasets |
+
+```bash
+# Every provider, sorted by name.
+http localhost:7890/api/providers
+
+# One provider.
+http localhost:7890/api/providers provider==dwd
+```
+
+The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`. They are the one
+overview: `coverage` without a provider and network, which listed every provider and network until 1.0.0, is refused
+with an error that names `providers` (a 400 problem, a usage error, a tool error), and `datasets` of `providers`, which
+listed the resolutions and datasets of each network, is gone: those are `coverage` of one network, below.
 
 `kind` says which endpoints take the network. A **timeseries network** has stations and values, is
 `observation`, `forecast` or `derived`, and is what `stations`, `values`, `history`, `interpolate`,
-and `summarize` take, and what `coverage` with a provider and network lists the resolutions,
-datasets and parameters of. Every network is one but two. The **standalone networks** are
-`dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request classes and results in
-Python, no stations or parameters, and every endpoint above answers a request for them with a 404. A
-new standalone network gets a `kind` of its own.
+and `summarize` take, and what `coverage` lists the resolutions, datasets and parameters of. Every network is one
+but two. The **standalone networks** are `dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request
+classes and results in Python, no stations or parameters, and every endpoint above answers a request for them with a
+404. A new standalone network gets a `kind` of its own.
 
 A network that cannot be imported on the server, such as one whose package is broken, is not in the
-list, nor is a provider none of whose networks can be; the server logs why. Asking for that network
+list, nor is a provider none of whose networks can be; the answer says why in its `warnings`. Asking for that network
 by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
 optional package is missing, never a 404 as for a network that does not exist.
 
-With a provider and network, each parameter of a dataset has a `unit` and, where it differs, a `unit_source`, and
-always an `aggregation` and a `timestamp_position`:
+The list leaves out whether the provider accepts the credentials of a network that has them, because
+that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
+and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,
+not as rejected):
+
+```bash
+http localhost:7890/api/auth provider==aemet network==observation
+```
+
+The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
+ask the same question and give the same answer.
+
+### Coverage
+
+The detail of one network: its resolutions, their datasets and the parameters of each. `provider` and `network` are
+required (a request without them is a 400 that names [`providers`](#providers)); narrow the answer with `resolutions`
+and `datasets`. Nothing is downloaded, so it answers at once. The answer is keyed by resolution, then `datasets`, then
+each dataset's `parameters`, and every one of those three levels carries a `description` saying what the source
+means by it. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
+
+```bash
+http localhost:7890/api/coverage provider==dwd network==observation
+http localhost:7890/api/coverage provider==dwd network==observation resolutions==daily datasets==climate_summary
+```
+
+Each dataset has its [extent](#extent), and each parameter of a dataset a `unit` and, where it differs, a
+`unit_source`, and always an `aggregation` and a `timestamp_position`:
 
 | Field | |
 | --- | --- |
@@ -748,50 +789,14 @@ request that gives none gets, and `unit` follows them, as `values` does. Only th
 `get_glossary(options=...)` takes `unit_targets`: the `glossary` endpoint, tool and command do not. Up to 0.178.0
 `unit` was the unit the provider publishes, which is now `unit_source`.
 
-The list leaves out whether the provider accepts the credentials of a network that has them, because
-that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
-and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,
-not as rejected):
-
-```bash
-http localhost:7890/api/auth provider==aemet network==observation
-```
-
-The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
-ask the same question and give the same answer.
-
-### Providers
-
-What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
-by (`name_short` for a chip beside a flag, `name_english`, `name_local`), the country of the agency that runs it (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries; it is the operator's country, not the extent of its data: the `extent` of each network says where its stations are), the
-terms it publishes its data under (`license`, as in the `metadata` of a data answer), the credit line
-(`attribution`, the credit line to cite; the `copyright` of a network is the rights holder's notice, shown for
-information), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
-how many parameters they have (`parameters`). The answer is compact: `resolutions` of each network is null, which is all
-that a question about a licence or about which providers reach a place needs, and an answer about 40 % shorter: 20 kB
-for every provider where the full one is 34 kB. `datasets=true` lists the resolutions and datasets each network offers,
-with how many parameters each has (`dwd/radar` and `dwd/alerts` have an empty list); pass it where you read
-`resolutions` (it was the default up to 0.185.0). `coverage` lists the parameters of a network. Nothing is downloaded and no credential is read, so it
-answers at once, and `auth` checks whether credentials are accepted.
-
-```bash
-# Every provider, sorted by name, without the resolutions of their networks.
-http localhost:7890/api/providers
-
-# One provider.
-http localhost:7890/api/providers provider==dwd
-
-# With the resolutions and datasets of each network.
-http localhost:7890/api/providers provider==dwd datasets==true
-```
-
-The command line is `wetterdienst about providers [--provider dwd] [--datasets]` and the MCP tool is `providers`.
+The OpenAPI document describes the answer as one object keyed by resolution, so a client generated from it has one
+type for it.
 
 ### Extent
 
 The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
 stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
-`extent` of each network says where its stations are, in the answer of `providers`, and `coverage` of one network gives the extent of each of its datasets (the list of every network has the `scope` only):
+`extent` of each network says where its stations are, in the answer of `providers`, and `coverage` of one network gives the extent of each of its datasets:
 
 | Member | |
 | --- | --- |
@@ -809,9 +814,8 @@ credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their b
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
-stations of Europe and the edges of Africa and Asia. `providers` (with `datasets=true`) shows the
-`extent` of a dataset only where it has one, **a dataset without its own extent has its network's**, and the member is absent from
-it; `coverage` of a network gives every dataset its extent, its own or its network's. A dataset of a national network
+stations of Europe and the edges of Africa and Asia. `coverage` of a network gives every dataset its extent, its own
+or, **for a dataset without one of its own, its network's**. A dataset of a national network
 is national. The extent does not change what a request answers: `stations` still
 lists what the network has.
 
@@ -1135,14 +1139,14 @@ from a 304 keeps the `X-Wetterdienst-Retrieved-At` that matches the body it hold
 
 **`Last-Modified`** of the catalogue is when the server last changed: the start of its process, or the change of its
 `.env` where that is later (the settings of a request are read from it each time). It only moves forward: an `.env` that
-is edited, replaced by an older file or removed moves it on by at least a second, as each changes what `coverage` says
+is edited, replaced by an older file or removed moves it on by at least a second, as each changes what `providers` says
 (`configured`), so a client holding the earlier answer is not told it is current. The catalogue is a function of the
 code and of those settings, so it cannot be older than that. Behind several instances each has its own, and a date
 from one is never taken as proof by another that is newer; the worst case is a 200 in full.
 
 **What a 304 saves** is the transfer of the body, not the work of making it: the answer is built to be tagged. Measured
 against a server on the loopback interface, a request that sends the tag is answered with 309 bytes where the 200 is
-73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 33,806 for `providers` with `datasets=true`
+73,835 bytes for `coverage` of `dwd/observation` (8.5 kB gzipped), 135,285 with `pretty=true`, 19,850 for `providers`
 and 129,018 for the whole `glossary`, in the same 4 to 6 milliseconds: on a network it is the bytes that count, and
 `max-age` saves the request itself. A `history` is read again to be tagged, so for it too the saving is the body.
 
@@ -1212,7 +1216,7 @@ and what follows is for an instance that others can reach (the
 [threat model](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md) has the rest):
 
 - **Who may use it.** Anyone who reaches it can use the provider credentials it holds (`WD_AUTH__*`) and spend their
-  quotas. `/api/auth` and `/api/coverage` say whether a key is configured, never the key. Put a gateway in front that
+  quotas. `/api/auth` and `/api/providers` say whether a key is configured, never the key. Put a gateway in front that
   authenticates, terminates TLS and limits the requests of each client: the server has a [timeout](#timeout), a
   [cap on requests served at once](#concurrency) and [limits](#limits), no limit per client.
 - **CORS.** A page of another origin cannot read the answers. Serve it from the origin of the API, or let the reverse
@@ -1271,7 +1275,7 @@ as well (see [Allowed hosts](#allowed-hosts)).
   "type": "urn:wetterdienst:problem:request-refused",
   "title": "Bad Request",
   "status": 400,
-  "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so 'provider' and 'network' must be given with them.",
+  "detail": "coverage describes one network, so both provider and network are required. To list the providers and their networks, use /api/providers.",
   "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
   "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11"
 }

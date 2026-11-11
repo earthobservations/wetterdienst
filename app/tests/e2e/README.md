@@ -136,7 +136,7 @@ tests/e2e/
 ### API Tests (`api.spec.ts`)
 - Tests backend API endpoints directly
 - Verifies data structure and response codes
-- Tests: coverage, stations, values, stripes endpoints
+- Tests: providers, coverage, stations, values, stripes endpoints
 
 ### Page Tests (`pages.spec.ts`)
 - Tests page rendering and navigation
@@ -192,7 +192,7 @@ docker compose --profile backend down
 
 1. **Check backend is running:**
    ```bash
-   curl http://localhost:7890/api/coverage
+   curl http://localhost:7890/api/providers
    ```
 
 2. **Run test with UI:**

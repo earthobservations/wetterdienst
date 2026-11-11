@@ -39,9 +39,19 @@ BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
 ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst about providers: --datasets: default changed from True to False": (
-        "GH-3536, step 2 of 2, announced in 0.185.0: `providers` answers compact by default, `resolutions` of "
-        "each network is null; pass `datasets=true` where you read them"
+    "wetterdienst about coverage: --provider: became required": (
+        "GH-3996, before 1.0.0: `about coverage` describes one network, so --provider and --network are required; "
+        "the list of every provider and network is `about providers`, which has `configured` for each network, and "
+        "a call without them is a usage error that names it"
+    ),
+    "wetterdienst about coverage: --network: became required": (
+        "GH-3996, before 1.0.0: `about coverage` describes one network, so --provider and --network are required; "
+        "the list of every provider and network is `about providers`, which has `configured` for each network, and "
+        "a call without them is a usage error that names it"
+    ),
+    "wetterdienst about providers: --datasets was removed": (
+        "GH-3996, before 1.0.0: `about providers` lists the providers and their networks only; the resolutions, "
+        "datasets and parameters of a network are `about coverage --provider=... --network=...`"
     ),
 }
 

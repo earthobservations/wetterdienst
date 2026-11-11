@@ -289,7 +289,7 @@ class Wetterdienst:
         credentials unreadable. That is told as the provider not being configured, and logged once,
         rather than raised: one malformed credential would otherwise take down a listing of all
         providers (GH-2580). The REST API refuses to start with such settings, and the CLI's
-        `coverage` of all providers builds them before listing, so it tells them and exits 1.
+        `about providers` builds them before listing, so it tells them and exits 1.
 
         Args:
             api: Request class of the provider and network

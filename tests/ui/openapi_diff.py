@@ -57,10 +57,27 @@ from typing import Any
 CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
+_COVERAGE_NEEDS_A_NETWORK = (
+    "GH-3996, before 1.0.0: `coverage` describes one network, so `provider` and `network` are required; the list of "
+    "every provider and its networks is `providers`, which has `configured` for each network, and a request without "
+    "them is a 400 problem that names it"
+)
+_PROVIDERS_LISTS_NETWORKS_ONLY = (
+    "GH-3996, before 1.0.0: `providers` lists the providers and their networks only; the resolutions, datasets and "
+    "parameters of a network are `coverage` of that network"
+)
 ACCEPTED_BREAKS: dict[str, str] = {
-    "GET /api/v1/providers: parameter datasets (query): default changed from true to false": (
-        "GH-3536, step 2 of 2, announced in 0.185.0: `providers` answers compact by default, `resolutions` of each "
-        "network is null; a client that reads them passes `datasets=true`"
+    "GET /api/v1/coverage: parameter provider (query) became required": _COVERAGE_NEEDS_A_NETWORK,
+    "GET /api/v1/coverage: parameter provider (query): null is no longer one of the alternatives": (
+        _COVERAGE_NEEDS_A_NETWORK
+    ),
+    "GET /api/v1/coverage: parameter network (query) became required": _COVERAGE_NEEDS_A_NETWORK,
+    "GET /api/v1/coverage: parameter network (query): null is no longer one of the alternatives": (
+        _COVERAGE_NEEDS_A_NETWORK
+    ),
+    "GET /api/v1/providers: parameter datasets (query) was removed": _PROVIDERS_LISTS_NETWORKS_ONLY,
+    "GET /api/v1/providers 200 application/json.providers[].networks[]: member resolutions was removed": (
+        _PROVIDERS_LISTS_NETWORKS_ONLY
     ),
 }
 

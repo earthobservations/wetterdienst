@@ -2,26 +2,22 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """What each provider is: its name, country, terms of use, source and what its networks offer (GH-2565).
 
-`/api/coverage` lists the networks and, for one, its parameters; nothing said what a provider *is*. Every network's
-metadata model already holds it (`name_english`, `country`, the licence and the credit line of #3058), and this
-module reads it out. By default (`datasets=False`) the answer is compact: everything but the resolutions and datasets
-each network offers (GH-3536), which are most of the answer, and a question about a licence or about which providers
-reach a place needs none of them (`/api/coverage` is the place for the lists); `datasets=True` lists them. Nothing is
-downloaded, no credential is
-read or probed, so the answer is as fast on a cold cache as on a warm one: whether a key is accepted is
-`/api/auth`'s question, for one network. This module imports no web framework, so the command line and MCP use it
-without the `restapi` extra.
+This is the overview of who has which network: what a provider *is*, and each network it offers (its kind, extent,
+source, whether it needs credentials and has them, how many parameters it has). Every network's metadata model already
+holds it (`name_english`, `country`, the licence and the credit line of #3058), and this module reads it out. The
+resolutions, datasets and parameters of a network are `/api/coverage`'s, for one network (GH-3996). Nothing is
+downloaded and no credential is probed, so the answer is as fast on a cold cache as on a warm one: whether a key is
+accepted is `/api/auth`'s question, for one network. This module imports no web framework, so the command line and
+MCP use it without the `restapi` extra.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
-from pydantic.json_schema import SkipJsonSchema  # noqa: TC002, needed at runtime by pydantic
+from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.api import Wetterdienst
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (  # noqa: TC001, needed at runtime by pydantic
     Extent,
     LicenseModel,
@@ -37,46 +33,8 @@ if TYPE_CHECKING:
 log = get_one_line_logger(__name__)
 
 
-class ProviderDataset(BaseModel):
-    """A dataset of a resolution."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    parameters: int = Field(description="How many parameters the dataset has, which `/api/coverage` lists.")
-    extent: Extent | SkipJsonSchema[None] = Field(
-        default=None,
-        description="Where the stations of the dataset are, where that is less than its network's (`extent` of the "
-        "network). Left out of the answer for a dataset that has the extent of its network.",
-    )
-
-    # no return annotation, on purpose: pydantic makes the schema of the answer from it, and any type but the
-    # model's own would take the members of a dataset out of the OpenAPI document
-    @model_serializer(mode="wrap")
-    def _leave_out_the_extent_of_the_network(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202
-        """Leave `extent` out of a dataset that has none of its own, which the answer says by its absence."""
-        serialized = handler(self)
-        if serialized.get("extent") is None:
-            serialized.pop("extent", None)
-        return serialized
-
-
-class ProviderResolution(BaseModel):
-    """A resolution of a network."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # a `str` for a caller of the library, and a closed set in the OpenAPI document: `ResolutionModel` holds every
-    # network's resolution to `Resolution`, so the enum lists exactly the names an answer can carry
-    name: str = Field(
-        description="The resolution, one of those of `Resolution` of the library.",
-        json_schema_extra={"enum": [resolution.value for resolution in Resolution]},
-    )
-    datasets: list[ProviderDataset]
-
-
 class ProviderNetwork(BaseModel):
-    """A network of a provider, with what it offers."""
+    """A network of a provider: what it is and where, not what it offers (`/api/coverage` lists that)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,14 +54,14 @@ class ProviderNetwork(BaseModel):
     auth: bool = Field(
         description="Whether the network needs credentials; `/api/auth` tells whether they are accepted.",
     )
+    configured: bool = Field(
+        description="Whether the credentials the network needs are present on this server, true for a network that "
+        "needs none. Whether the provider accepts them is not checked here: `/api/auth` does, for one network.",
+    )
     date_required: bool = Field(description="Whether a request for a dataset of the network has to give a date.")
-    parameters: int = Field(description="How many parameters the network has in all of its datasets.")
-    # required and nullable, not optional: a member that was always there stays one for a client written against the
-    # schema, and the MCP tool validates what it returns against the schema, which a missing required member fails.
-    # `null` says the list was not asked for (`datasets=true` does), an empty list that the network has none
-    resolutions: list[ProviderResolution] | None = Field(
-        description="The resolutions of the network, each with its datasets and their numbers of parameters; empty "
-        "for a network that has none (`dwd/radar`, `dwd/alerts`), null unless `datasets=true` asks for them.",
+    parameters: int = Field(
+        description="How many parameters the network has in all of its datasets, which `/api/coverage` lists for "
+        "one network, with its resolutions and datasets."
     )
 
 
@@ -144,13 +102,8 @@ class ProvidersAnswer(BaseModel):
     providers: list[Provider]
 
 
-def _network(
-    provider: str, network: str, *, datasets: bool = False
-) -> tuple[ProviderNetwork, MetadataModel | None] | None:
-    """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning.
-
-    The resolutions and datasets are listed with `datasets` only; the number of parameters is always counted.
-    """
+def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataModel | None] | None:
+    """Describe a network, or None where it cannot be imported on this server: it is left out, and told as a warning."""
     try:
         if Wetterdienst.is_standalone(provider, network):
             standalone = Wetterdienst.resolve_standalone(provider, network)
@@ -163,13 +116,14 @@ def _network(
                     url=terms.url,
                     copyright=terms.copyright,
                     auth=False,
+                    configured=True,
                     date_required=False,
                     parameters=0,
-                    resolutions=[] if datasets else None,
                 ),
                 None,
             )
-        metadata = Wetterdienst.resolve(provider, network).metadata
+        api = Wetterdienst.resolve(provider, network)
+        metadata = api.metadata
     except ImportError as e:
         # the text of an `ImportError` is the library's: `cannot import name 'x' from 'y' (/path/to/y/__init__.py)`
         # names a path of the server, which a caller of the API has no use for (GH-3086). The log has all of it, the
@@ -182,20 +136,6 @@ def _network(
             f"{provider}/{network} is left out of the providers, it cannot be imported on this server{missing}",
         )
         return None
-    resolutions = (
-        [
-            ProviderResolution(
-                name=resolution.name,
-                datasets=[
-                    ProviderDataset(name=dataset.name, parameters=len(list(dataset)), extent=dataset.extent)
-                    for dataset in resolution
-                ],
-            )
-            for resolution in metadata
-        ]
-        if datasets
-        else None
-    )
     return (
         ProviderNetwork(
             network=network,
@@ -204,20 +144,20 @@ def _network(
             url=metadata.url,
             copyright=metadata.copyright,
             auth=metadata.auth,
+            # not probed whether they are accepted: that is a request to the provider (`/api/auth`)
+            configured=Wetterdienst.is_configured(api) if metadata.auth else True,
             date_required=any(dataset.date_required for resolution in metadata for dataset in resolution.datasets),
             parameters=sum(len(list(dataset)) for resolution in metadata for dataset in resolution),
-            resolutions=resolutions,
         ),
         metadata,
     )
 
 
-def get_providers(provider: str | None = None, *, datasets: bool = False) -> ProvidersAnswer:
+def get_providers(provider: str | None = None) -> ProvidersAnswer:
     """Describe every provider of the registry, sorted by name, or the one named.
 
-    By default (`datasets=False`) the resolutions and datasets of each network are left out, `resolutions` is None,
-    and everything else stays, the number of parameters of the network among it. With `datasets=True` each network
-    lists its resolutions and datasets, with the number of parameters of each (GH-3536).
+    The resolutions, datasets and parameters of a network are not in it: `coverage` of the network lists them
+    (GH-3996).
 
     A provider is what its networks say of it; they agree (`tests/ui/test_providers.py` holds the registry to it), so
     the first network's declaration speaks for the provider. The standalone networks of `dwd` say the same by their
@@ -236,11 +176,7 @@ def get_providers(provider: str | None = None, *, datasets: bool = False) -> Pro
     providers: list[Provider] = []
     parameters: set[str] = set()
     for name in names:
-        networks = [
-            described
-            for network in Wetterdienst.registry[name]
-            if (described := _network(name, network, datasets=datasets))
-        ]
+        networks = [described for network in Wetterdienst.registry[name] if (described := _network(name, network))]
         declared = [metadata for _, metadata in networks if metadata is not None]
         if not declared:
             continue

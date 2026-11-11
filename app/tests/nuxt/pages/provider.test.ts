@@ -4,18 +4,27 @@ import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProviderPage from '~/pages/providers/[provider].vue'
-import { providersAnswer, providersResponse } from '../fixtures/providers'
+import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { providersAnswer } from '../fixtures/providers'
 
 const mounted: Array<{ unmount: () => void }> = []
 let served: (event: H3Event) => unknown = providersAnswer
 // registered once: re-registering the same path in a later test does not replace the handler
 registerEndpoint('/api/providers', event => served(event))
+// the coverage of a network, asked for where its list is opened
+let coverageServed: (event: H3Event) => unknown = () => dailyClimateSummaryCoverage()
+registerEndpoint('/api/coverage', event => coverageServed(event))
 
 async function mountProvider(provider: string) {
   const wrapper = await mountSuspended(ProviderPage, { route: `/providers/${provider}` })
   mounted.push(wrapper)
   await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
   return wrapper
+}
+
+async function openDatasets(wrapper: Awaited<ReturnType<typeof mountProvider>>, network: string) {
+  const item = wrapper.findAll('li').find(li => li.find('h3').exists() && li.find('h3').text() === network)!
+  await item.findAll('button').find(button => button.text() === 'Show resolutions and datasets')!.trigger('click')
 }
 
 function hrefs(wrapper: { findAll: (selector: string) => Array<{ attributes: (name: string) => string | undefined }> }) {
@@ -26,21 +35,34 @@ afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
   served = providersAnswer
+  coverageServed = () => dailyClimateSummaryCoverage()
   Reflect.deleteProperty(navigator, 'clipboard')
 })
 
 describe('provider Page', () => {
-  it('asks the backend for the datasets of each network, which its compact answer leaves out', async () => {
-    const queries: Array<Record<string, unknown>> = []
+  it('asks for the providers alone, and for the coverage of no network until its list is opened', async () => {
+    const asked: Array<{ path: string, query: Record<string, unknown> }> = []
     served = (event) => {
-      queries.push(getQuery(event))
-      return providersAnswer(event)
+      asked.push({ path: 'providers', query: getQuery(event) })
+      return providersAnswer()
+    }
+    coverageServed = (event) => {
+      asked.push({ path: 'coverage', query: getQuery(event) })
+      return dailyClimateSummaryCoverage()
     }
     const wrapper = await mountProvider('dwd')
 
-    expect(queries).toEqual([{ datasets: 'true' }])
-    // and shows them: the resolutions of the network come from that answer
-    expect(wrapper.text()).toContain('Climate summary')
+    expect(asked).toEqual([{ path: 'providers', query: {} }])
+    expect(wrapper.text()).not.toContain('Climate summary')
+
+    await openDatasets(wrapper, 'observation')
+
+    // and then for the one network, which shows its resolutions and datasets by the names the app gives them
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Climate summary'))
+    expect(asked).toEqual([
+      { path: 'providers', query: {} },
+      { path: 'coverage', query: { provider: 'dwd', network: 'observation' } },
+    ])
   })
 
   it('names the provider, in English and in its own words, with its country', async () => {
@@ -95,26 +117,41 @@ describe('provider Page', () => {
     expect(text).toContain('Measurements')
     expect(text).toContain('© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)')
     expect(text).toContain('Parameters: 12')
-    // resolutions and datasets by the names the app gives them, with the parameters of each
-    expect(text).toContain('Daily')
-    expect(text).toContain('Climate summary')
-    expect(text).toContain('(8)')
     const source = observation.findAll('a').find(a => a.text() === 'Source')
     expect(source?.attributes('href')).toBe('https://opendata.dwd.de/climate_environment/CDC/')
   })
 
-  it('shows the provider and says there is nothing to list for a network whose list of resolutions did not come', async () => {
-    served = () => {
-      const response = providersResponse()
-      for (const network of response.providers.flatMap(provider => provider.networks))
-        network.resolutions = null
-      return response
+  it('lists the resolutions and datasets of a network, with the number of parameters of each', async () => {
+    const wrapper = await mountProvider('dwd')
+    await openDatasets(wrapper, 'observation')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Climate summary'))
+    const observation = wrapper.findAll('li').find(li => li.find('h3').exists() && li.find('h3').text() === 'observation')!
+    expect(observation.text()).toContain('Daily')
+    expect(observation.text()).toContain('Climate summary')
+    expect(observation.text()).toContain('(1)')
+  })
+
+  it('tells why the datasets of a network are missing, with a way to ask again, and the rest of the page stays', async () => {
+    let asked = 0
+    coverageServed = (event) => {
+      asked++
+      // a 404 is not asked again by itself, as a 502 is
+      if (asked === 1) {
+        setResponseStatus(event, 404)
+        return { type: 'urn:wetterdienst:problem:unknown-network', title: 'Not Found', status: 404, detail: 'Coverage is not available for this network.' }
+      }
+      return dailyClimateSummaryCoverage()
     }
     const wrapper = await mountProvider('dwd')
+    await openDatasets(wrapper, 'observation')
 
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Coverage is not available for this network.'))
     expect(wrapper.find('h1').text()).toBe('German Weather Service')
-    expect(wrapper.text()).toContain('Not a time series: nothing to list here.')
-    expect(wrapper.text()).not.toContain('Climate summary')
+    await wrapper.findAll('button').find(button => button.text() === 'Retry')!.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Climate summary'))
+    expect(asked).toBe(2)
   })
 
   it('says a network without resolutions is no time series, and does not offer to explore it', async () => {

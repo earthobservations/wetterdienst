@@ -37,7 +37,7 @@ Each network says what it is: `name_short`, `country`, `url` and `kind`, where `
 (`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
 `Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. The fields are
-described with the [REST API](restapi.md#coverage), which lists the same.
+described with the [REST API](restapi.md#providers), which lists the same, as `/api/providers`.
 
 To load the request class of a timeseries network pass the provider and the network of data to
 `Wetterdienst.resolve`:

@@ -289,14 +289,11 @@ def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeyp
     assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5, "max_concurrent": 32}
 
 
-@pytest.mark.remote
-def test_coverage(client: TestClient) -> None:
-    """Test coverage."""
-    response = client.get(
-        "/api/coverage",
-    )
+def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> None:
+    """`/api/providers` is the overview: every provider, its networks, and whether each needs credentials."""
+    response = client.get("/api/providers")
     assert response.status_code == 200
-    data = response.json()
+    data = {provider["provider"]: provider for provider in response.json()["providers"]}
     assert data.keys() == {
         "aemet",
         "chmi",
@@ -321,8 +318,8 @@ def test_coverage(client: TestClient) -> None:
         "smhi",
         "wsv",
     }
-    dwd = data["dwd"]
-    assert list(dwd.keys()) == [
+    dwd = {network["network"]: network for network in data["dwd"]["networks"]}
+    assert list(dwd) == [
         "observation",
         "mosmix",
         "dmo",
@@ -337,8 +334,10 @@ def test_coverage(client: TestClient) -> None:
     for network_info in dwd.values():
         assert network_info["auth"] is False
         assert network_info["configured"] is True
-        # whether the credentials are accepted is `/api/auth`'s to tell: `/api/coverage` has no `valid` (GH-2641)
+        # whether the credentials are accepted is `/api/auth`'s to tell: `/api/providers` has no `valid` (GH-2641)
         assert "valid" not in network_info
+        # the resolutions and datasets of a network are `/api/coverage`'s, for one network (GH-3996)
+        assert "resolutions" not in network_info
     # `road` requires a date range for value queries, other DWD networks don't
     assert dwd["observation"]["date_required"] is False
     assert dwd["road"]["date_required"] is True
@@ -533,19 +532,26 @@ def test_coverage_unit_is_the_unit_of_the_values_and_unit_source_the_providers(c
     assert glossary["temperature_air_2m"] == temperature["unit"]
 
 
-@pytest.mark.remote
-def test_coverage_wrong_only_provider_given(client: TestClient) -> None:
-    """Test wrong request."""
-    response = client.get(
-        "/api/coverage",
-        params={
-            "provider": "dwd",
-        },
-    )
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param({}, id="neither"),
+        pytest.param({"provider": "dwd"}, id="provider-only"),
+        pytest.param({"network": "observation"}, id="network-only"),
+        pytest.param({"resolutions": "daily"}, id="a-filter-only"),
+        pytest.param({"pretty": "true"}, id="pretty-only"),
+    ],
+)
+def test_coverage_without_provider_and_network_is_a_400_that_names_providers(
+    client: TestClient, params: dict[str, str]
+) -> None:
+    """`coverage` listed every provider until 1.0.0: it is `providers` now, which the 400 says (GH-3996)."""
+    response = client.get("/api/coverage", params=params)
     assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["detail"] == (
-        "Either both or none of 'provider' and 'network' must be given. If none are given, all providers and "
-        "networks are returned."
+        "coverage describes one network, so both provider and network are required. "
+        "To list the providers and their networks, use /api/providers."
     )
 
 
@@ -564,7 +570,7 @@ def test_stations_no_provider(client: TestClient) -> None:
     assert response.status_code == 404
     assert (
         "No API available for provider abc and network abc. "
-        "Use /api/coverage to discover available providers and networks." in response.text
+        "Use /api/providers to discover available providers and networks." in response.text
     )
 
 
@@ -583,7 +589,7 @@ def test_stations_no_network(client: TestClient) -> None:
     assert response.status_code == 404
     assert (
         "No API available for provider dwd and network abc. "
-        "Use /api/coverage to discover available providers and networks."
+        "Use /api/providers to discover available providers and networks."
     ) in response.text
 
 
@@ -7724,7 +7730,7 @@ def test_values_a_timed_out_download_is_a_504_logged_with_the_file(
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
 # and what of it a refused request must not reach (GH-2479)
 _LOOSE_ENDPOINTS = [
-    pytest.param("/api/coverage", {}, "Wetterdienst", id="coverage"),
+    pytest.param("/api/coverage", {"provider": "dwd", "network": "observation"}, "Wetterdienst", id="coverage"),
     pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
     pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
     pytest.param("/api/alerts", {}, None, id="alerts"),
@@ -8048,10 +8054,10 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     ],
 )
 def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, params: dict[str, str]) -> None:
-    """An unknown provider or network is a 404 pointing at the coverage listing, as in /api/auth (GH-2496)."""
+    """An unknown provider or network is a 404 pointing at the providers listing, as in /api/auth (GH-2496)."""
     response = client.get("/api/coverage", params=params)
     assert response.status_code == 404
-    assert response.json()["detail"] == "Choose provider and network from /api/coverage"
+    assert response.json()["detail"] == "Choose provider and network from /api/providers"
 
 
 @pytest.mark.parametrize(
@@ -8066,8 +8072,8 @@ def test_a_listed_network_whose_module_fails_to_import_is_a_500_on_auth_and_cove
 ) -> None:
     """A listed network whose module fails to import is the data routes' 500, not an unknown network's 404 (GH-2800).
 
-    The 404 (GH-2496) said "Choose provider and network from /api/coverage" for a network that
-    coverage lists, and for a submodule of a package that is installed (`lxml.etree`) or a module of
+    The 404 (GH-2496) said "Choose provider and network from /api/providers" for a network that
+    providers lists, and for a submodule of a package that is installed (`lxml.etree`) or a module of
     ours that is gone: a defect or a broken install, which the data routes answer with a 500.
     """
 
@@ -8082,12 +8088,12 @@ def test_a_listed_network_whose_module_fails_to_import_is_a_500_on_auth_and_cove
 
 
 def test_the_list_of_every_provider_leaves_out_a_network_that_fails_to_import(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The unfiltered coverage does not list a network it cannot import, as one that needs no credentials (GH-2801).
+    """The list of every provider does not list a network it cannot import, and says so as a warning (GH-2801).
 
-    The list answers 200 for the others and says why in the log, and the network itself is still the
-    500 of the test above, not a 404 for a network that does not exist (GH-2800).
+    The list answers 200 for the others, and the network itself is still the 500 of the test above, not a 404
+    for a network that does not exist (GH-2800).
     """
     resolve = restapi.Wetterdienst.resolve
 
@@ -8098,14 +8104,14 @@ def test_the_list_of_every_provider_leaves_out_a_network_that_fails_to_import(
         return resolve(provider, network)
 
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", failing_dmo)
-    with caplog.at_level(logging.WARNING):
-        response = client.get("/api/coverage")
+    response = client.get("/api/providers", params={"provider": "dwd"})
 
     assert response.status_code == 200, response.text
-    listed = response.json()
-    assert "dmo" not in listed["dwd"]
-    assert "observation" in listed["dwd"]
-    assert "Left dwd/dmo out of the listing" in caplog.text
+    answer = response.json()
+    networks = [network["network"] for network in answer["providers"][0]["networks"]]
+    assert "dmo" not in networks
+    assert "observation" in networks
+    assert "network-not-importable" in {warning["code"] for warning in answer["metadata"]["warnings"]}
 
     asked = TestClient(restapi.app, raise_server_exceptions=False).get(
         "/api/coverage", params={"provider": "dwd", "network": "dmo"}
@@ -8148,26 +8154,14 @@ def test_mcp_tool_for_a_network_whose_module_fails_to_import_raises_the_import_e
     assert "HTTP error 404" not in str(error.value)
 
 
-def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
-    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
-    compact = client.get("/api/coverage")
-    pretty = client.get("/api/coverage", params={"pretty": "true"})
+def test_providers_honours_pretty(client: TestClient) -> None:
+    """The list of every provider is compact unless pretty is set, like the coverage of a network (GH-2496)."""
+    compact = client.get("/api/providers", params={"provider": "dwd"})
+    pretty = client.get("/api/providers", params={"provider": "dwd", "pretty": "true"})
     assert compact.status_code == pretty.status_code == 200
     assert "\n" not in compact.text
     assert pretty.text.startswith('{\n    "')
-    assert compact.json() == pretty.json()
-
-
-@pytest.mark.parametrize("params", [{"resolutions": "daily"}, {"datasets": "climate_summary"}])
-def test_coverage_filter_without_provider_and_network_is_a_400(client: TestClient, params: dict[str, str]) -> None:
-    """A resolutions or datasets filter has nothing to narrow without a provider and network (GH-2496)."""
-    response = client.get("/api/coverage", params=params)
-    assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
-        "'provider' and 'network' must be given with them."
-    )
+    assert compact.json()["providers"] == pretty.json()["providers"]
 
 
 @pytest.mark.parametrize("limit", [0, -5])
@@ -8405,7 +8399,7 @@ def test_timeseries_endpoint_refuses_a_standalone_network(
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == (
         f"Provider 'dwd' and network '{network}' have no stations or values to request. "
-        "Use /api/coverage to discover available providers and networks."
+        "Use /api/providers to discover available providers and networks."
     )
 
 
@@ -8496,15 +8490,21 @@ def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
     assert records[0].exc_info is None
 
 
+def _listed(client: TestClient, provider: str, network: str) -> dict[str, Any]:
+    """Give the network as `/api/providers` lists it."""
+    answer = client.get("/api/providers", params={"provider": provider}).json()
+    return next(entry for entry in answer["providers"][0]["networks"] if entry["network"] == network)
+
+
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_providers_and_auth_survive_a_malformed_credential(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """One invalid `WD_AUTH__*` leaves the credentialed providers unconfigured, not the answers 500 (GH-2580)."""
     monkeypatch.setenv("WD_AUTH__CEDA", "secret-ish")
     monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
-    coverage = client.get("/api/coverage")
-    assert coverage.status_code == 200
-    assert coverage.json()["knmi"]["observation"]["configured"] is False
-    assert coverage.json()["dwd"]["observation"]["configured"] is True
+    providers = client.get("/api/providers")
+    assert providers.status_code == 200
+    assert _listed(client, "knmi", "observation")["configured"] is False
+    assert _listed(client, "dwd", "observation")["configured"] is True
     auth = client.get("/api/auth", params={"provider": "knmi", "network": "observation"})
     assert auth.status_code == 200
     assert auth.json() == {
@@ -8517,12 +8517,12 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
+def test_providers_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550).
 
-    Only `/api/auth` probes. `/api/coverage` has no `valid` for a configured network, whatever the
+    Only `/api/auth` probes. `/api/providers` has no `valid` for a configured network, whatever the
     provider would say, and never asks it (GH-2564, GH-2641).
     """
     from wetterdienst.util.network import File  # noqa: PLC0415
@@ -8540,7 +8540,7 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     params = {"provider": "metno", "network": "frost"}
     assert client.get("/api/auth", params=params).json() == expected
     assert len(asked) == 1
-    frost = client.get("/api/coverage").json()["metno"]["frost"]
+    frost = _listed(client, "metno", "frost")
     assert (frost["auth"], frost["configured"], "valid" in frost) == (True, True, False)
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
     # the answer that could not be told is kept for a few seconds only; the cache is cleared in place of waiting
@@ -8548,7 +8548,7 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
     assert len(asked) == 2
     # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
-    assert "valid" not in client.get("/api/coverage").json()["metno"]["frost"]
+    assert "valid" not in _listed(client, "metno", "frost")
     assert len(asked) == 2
 
 
@@ -8615,11 +8615,11 @@ def test_mcp_auth_tool_without_a_credential_is_not_valid() -> None:
 
 
 def test_mcp_auth_tool_refuses_an_unknown_network_as_the_route_does() -> None:
-    """An unknown provider or network is the route's 404, pointing at `coverage` (GH-2773)."""
+    """An unknown provider or network is the route's 404, pointing at `providers` (GH-2773)."""
     pytest.importorskip("fastmcp")
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
 
-    with pytest.raises(ToolError, match=r"/api/coverage"):
+    with pytest.raises(ToolError, match=r"/api/providers"):
         _call_mcp_auth({"provider": "nonexistent", "network": "fake"})
 
 
@@ -8655,7 +8655,7 @@ def test_a_network_whose_extra_is_missing_is_a_501_on_auth_and_coverage(
     """A listed network whose extra is not installed is the data routes' 501, not an unknown network's 404 (GH-2788).
 
     `MissingDependencyError` is an `ImportError`, which both routes answered with "Choose provider and
-    network from /api/coverage" -- for a network that coverage lists. The install line goes to the
+    network from /api/providers" -- for a network that providers lists. The install line goes to the
     log, as for the data routes, and the body does not carry it.
     """
     _stub_a_network_whose_extra_is_missing(monkeypatch)
@@ -8708,7 +8708,7 @@ def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> N
         "configured": False,
         "valid": False,
     }
-    assert client.get("/api/coverage").json()["metoffice"]["observation"]["configured"] is False
+    assert _listed(client, "metoffice", "observation")["configured"] is False
 
 
 _COVERAGE_NETWORKS = [
@@ -8717,18 +8717,18 @@ _COVERAGE_NETWORKS = [
 
 
 def test_coverage_schema_in_openapi(client: TestClient) -> None:
-    """`/openapi.json` describes both answers of `/api/coverage`, down to the parameter (GH-2090)."""
+    """`/openapi.json` describes the one answer of `/api/coverage`, down to the parameter (GH-2090, GH-3996)."""
     schema = client.get("/openapi.json").json()
     answer = schema["paths"]["/api/v1/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
-    # one object, not an `anyOf` of the two: that would wrap the MCP tool's result in `result`
+    # one object, keyed by resolution, whose values are the one `CoverageResolution`: not a union of two answers
+    # (one top-level `anyOf` would wrap the MCP tool's result in `result`)
     assert answer["type"] == "object"
-    assert answer["additionalProperties"]["anyOf"] == [
-        {
-            "type": "object",
-            "additionalProperties": {"$ref": "#/components/schemas/CoverageNetwork"},
-        },
-        {"$ref": "#/components/schemas/CoverageResolution"},
-    ]
+    assert answer["additionalProperties"] == {"$ref": "#/components/schemas/CoverageResolution"}
+    assert answer["propertyNames"] == {"$ref": "#/components/schemas/Resolution"}
+    assert "CoverageNetwork" not in schema["components"]["schemas"]
+    # a network and its provider are asked for, both required
+    parameters = schema["paths"]["/api/v1/coverage"]["get"]["parameters"]
+    assert {parameter["name"] for parameter in parameters if parameter["required"]} == {"provider", "network"}
     components = schema["components"]["schemas"]
 
     def shape(name: str) -> tuple[set[str], set[str]]:
@@ -8736,15 +8736,10 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
         assert components[name]["additionalProperties"] is False
         return set(components[name]["properties"]), set(components[name].get("required", []))
 
-    # no `valid`: whether the credentials are accepted is `/api/auth`'s to tell, one network at a time (GH-2641)
-    network = {"name_short", "country", "kind", "scope", "url", "auth", "configured", "date_required"}
-    assert shape("CoverageNetwork") == (network, network)
-    properties = components["CoverageNetwork"]["properties"]
-    # never null: a network that cannot be imported on the server is not listed (GH-2801)
-    assert properties["name_short"] == {"type": "string", "title": "Name Short"}
-    assert properties["kind"]["enum"] == list(get_args(NetworkKind))
-    # how far the network reaches, not where its provider is (GH-3456): the scope only, the extent is `/api/providers`
-    assert properties["scope"]["enum"] == ["global", "national", "regional"]
+    # `/api/providers` lists the networks: `configured` beside `auth`, and no `valid` (GH-2641, GH-3996)
+    network = {"network", "kind", "extent", "url", "copyright", "auth", "configured", "date_required", "parameters"}
+    assert shape("ProviderNetwork") == (network, network)
+    assert components["ProviderNetwork"]["properties"]["kind"]["enum"] == list(get_args(NetworkKind))
     # one `Extent` schema for `/api/providers` and the datasets of `/api/coverage`, so a generator sees one type
     extent = {"scope", "continents", "country_codes", "bbox"}
     assert shape("Extent") == (extent, {"scope", "continents", "bbox"})
@@ -8868,24 +8863,11 @@ def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
-    """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
-
-    The listing probes no provider, so nothing reaches upstream whatever credentials are set.
-    """
-    response = client.get("/api/coverage")
-    assert response.status_code == 200
-    assert response.text == json.dumps(Wetterdienst.discover())
-    validated = TypeAdapter(restapi.CoverageProviders).validate_python(response.json())
-    assert validated.keys() == Wetterdienst.registry.keys()
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
 def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
     """The MCP coverage tool answers what the REST route does, not that inside a `result` key (GH-2090).
 
     The tool's output schema comes from the route's response model, and one whose top level is not
-    an object, such as an `anyOf` of the two answers, has the result wrapped.
+    an object, such as an `anyOf`, has the result wrapped.
     """
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
@@ -8896,17 +8878,15 @@ def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
 
     mcp = build_mcp_server(restapi.app)
 
-    async def _call() -> tuple[dict, dict]:
+    async def _call() -> dict:
         async with Client(mcp) as client:
-            every = await client.call_tool("coverage", {})
             one = await client.call_tool(
                 "coverage",
                 {"provider": "dwd", "network": "observation", "resolutions": "daily"},
             )
-            return every.structured_content, one.structured_content
+            return one.structured_content
 
-    every, one = asyncio.run(_call())
-    assert every == json.loads(json.dumps(Wetterdienst.discover()))
+    one = asyncio.run(_call())
     assert one == json.loads(json.dumps(Wetterdienst.resolve("dwd", "observation").discover(resolutions="daily")))
 
 
@@ -9118,7 +9098,7 @@ def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
     assert f"for {provider}/{network}" in detail
     assert "WD_AUTH" not in detail
     assert "Settings(" not in detail
-    assert "/api/coverage" in detail
+    assert "/api/providers" in detail
     assert setting in caplog.text
 
 
@@ -9503,11 +9483,11 @@ def test_an_error_the_endpoint_raises_is_a_problem(client: TestClient) -> None:
     """A 400 and a 404 an endpoint raises carry the problem's fields, the text still in `detail`."""
     bad = client.get("/api/coverage", params={"resolutions": "daily"})
     body = _is_a_problem(bad, 400)
-    assert "narrow the coverage of one provider and network" in body["detail"]
+    assert "To list the providers and their networks, use /api/providers" in body["detail"]
     assert "errors" not in body
 
     missing = client.get("/api/coverage", params={"provider": "nope", "network": "nope"})
-    _is_a_problem(missing, 404, "Choose provider and network from /api/coverage")
+    _is_a_problem(missing, 404, "Choose provider and network from /api/providers")
 
 
 def test_an_unknown_path_and_a_method_not_allowed_are_problems_too(client: TestClient) -> None:
@@ -9669,8 +9649,7 @@ def test_an_mcp_tool_error_is_prose_without_a_python_repr() -> None:
 
     with pytest.raises(ToolError) as refusal:
         asyncio.run(_call("coverage", {"resolutions": "daily"}))
-    assert "HTTP error 400" in str(refusal.value)
-    assert "narrow the coverage of one provider and network" in str(refusal.value)
+    assert "use the tool `providers`" in str(refusal.value)
     assert not any(token in str(refusal.value) for token in ("{'", "'detail'", "'title'"))
 
 

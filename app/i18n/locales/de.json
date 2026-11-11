@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Beschreibung",
     "endpoints": {
-      "coverage": "Verfügbare Anbieter, Netzwerke, Auflösungen und Parameter entdecken",
+      "providers": "Anbieter und ihre Netzwerke auflisten",
+      "coverage": "Auflösungen, Datensätze und Parameter eines Netzwerks entdecken",
       "stations": "Wetterstationen nach verschiedenen Filtern abfragen",
       "history": "Stationsverlauf abrufen (Name, Betreiber, Geräte, Geografie, fehlende Daten)",
       "values": "Messwerte für ausgewählte Stationen und Parameter abrufen",
@@ -477,6 +478,7 @@
     "copied": "Kopiert",
     "networksTitle": "Netzwerke",
     "source": "Quelle",
+    "showDatasets": "Auflösungen und Datensätze anzeigen",
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
   },

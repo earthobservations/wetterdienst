@@ -4,7 +4,6 @@ import type { NetworkKind, ProviderNetwork } from '#shared/types/api'
 const { t } = useI18n()
 const route = useRoute()
 const { networkKindLabel } = useNetworkKindLabel()
-const { resolutionLabel, datasetLabel } = useParameterLabel()
 
 const { data, pending, error, refresh } = useProviders()
 
@@ -193,29 +192,11 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
                 </NuxtLink>
               </p>
 
-              <template v-if="network.resolutions?.length">
+              <template v-if="TIMESERIES.includes(network.kind)">
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                   {{ t('providers.parametersCount', { count: network.parameters }) }}
                 </p>
-                <dl class="grid grid-cols-1 sm:grid-cols-[minmax(8rem,12rem)_1fr] gap-x-4 gap-y-2 text-sm">
-                  <template v-for="resolution in network.resolutions ?? []" :key="resolution.name">
-                    <dt class="font-medium">
-                      {{ resolutionLabel(resolution.name) }}
-                    </dt>
-                    <dd class="text-gray-600 dark:text-gray-400">
-                      <ul class="flex flex-wrap gap-x-3 gap-y-1">
-                        <li
-                          v-for="dataset in resolution.datasets"
-                          :key="dataset.name"
-                          :title="t('providers.parametersCount', { count: dataset.parameters })"
-                        >
-                          {{ datasetLabel(dataset.name) }}
-                          <span class="text-xs text-gray-500 dark:text-gray-400">({{ dataset.parameters }})</span>
-                        </li>
-                      </ul>
-                    </dd>
-                  </template>
-                </dl>
+                <NetworkCoverage :provider="id" :network="network.network" />
               </template>
               <p v-else class="text-sm text-gray-500 dark:text-gray-400">
                 {{ t('providers.noResolutions') }}

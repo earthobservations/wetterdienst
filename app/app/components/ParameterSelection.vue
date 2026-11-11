@@ -36,19 +36,26 @@ const parameters = ref<string[]>([])
 // Track if we're in initialization phase to skip reset watchers
 const isInitializing = ref(true)
 
-// fetch coverage data
+// fetch the providers and their networks (`GET /api/providers`, the answer the providers pages share by its key)
 //
 // Deliberately not awaited. A top-level `await` makes this component's setup async, and with
 // `ssr: false` the nearest Suspense boundary is the page itself -- so the Explorer rendered
 // nothing at all, not even its own headings, until the backend had answered this request. The
 // selects render empty-and-loading instead, and `initializeFromProps()` waits for the answer.
-const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/api/coverage', API_ANSWER)
+const { data: providerList, status: coverageStatus } = useProviders()
+// The networks as the selects read them, by provider and then network. What a network has (its
+// resolutions, datasets and parameters) is the coverage of that network, asked for when one is chosen.
+const coverage = computed<Record<string, Record<string, ProviderNetwork>> | null>(() => {
+  if (!providerList.value)
+    return null
+  return Object.fromEntries(providerList.value.providers.map(p => [p.provider, Object.fromEntries(p.networks.map(n => [n.network, n]))]))
+})
 // Nothing derived from `coverage` means anything until the request has settled: an empty answer
 // and an answer that has not arrived yet are indistinguishable in the data, but not to a reader.
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
 const coveragePending = computed(() => !coverageSettled.value)
 
-// Whether the backend accepts the credentials of a network is not part of the coverage answer: it
+// Whether the backend accepts the credentials of a network is not part of the list of networks: it
 // is a request to the provider, which a list of every provider must not wait for (GH-2564). It is
 // asked per network, after the list is on screen, and only a network whose answer is "rejected"
 // leaves the selects. Until it answers, and where it cannot (`null`, an error), the network is
@@ -62,7 +69,7 @@ const networkKey = (providerName: string, networkName: string) => `${providerNam
 // coverage is a 404. Only a check that says the credentials are rejected hides a network that has
 // them (GH-2641).
 const TIMESERIES_KINDS: ReadonlyArray<NetworkKind | undefined> = ['observation', 'forecast', 'derived']
-function isAvailable(providerName: string, networkName: string, n: Pick<CoverageNetworkInfo, 'auth' | 'configured'> & { kind?: NetworkKind }) {
+function isAvailable(providerName: string, networkName: string, n: Pick<ProviderNetwork, 'auth' | 'configured'> & { kind?: NetworkKind }) {
   // a missing `kind` is an answer that does not carry it, as the mocks of the tests do
   if (n.kind !== undefined && !TIMESERIES_KINDS.includes(n.kind))
     return false

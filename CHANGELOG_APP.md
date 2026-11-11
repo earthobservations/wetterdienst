@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `[Providers, Explorer, History, API]` The page of a provider lists the resolutions and datasets
+  of a network when its "Show resolutions and datasets" button is opened, asking the backend for
+  that network alone (its list of providers no longer carries them). The Explorer and History read
+  the providers and networks from that list, and the API page names `providers` beside `coverage`.
+  Needs the backend of the same release (GH-3996)
 - `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
   "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
   next to its zoom buttons) and the picked stations as chips under it in both modes; a station

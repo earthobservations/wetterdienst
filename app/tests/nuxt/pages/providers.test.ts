@@ -27,15 +27,15 @@ afterEach(() => {
 })
 
 describe('providers Page', () => {
-  it('asks the backend for the datasets of each network, which its compact answer leaves out', async () => {
+  it('asks the backend for the providers alone, which carry no datasets to ask for', async () => {
     const queries: Array<Record<string, unknown>> = []
     served = (event) => {
       queries.push(getQuery(event))
-      return providersAnswer(event)
+      return providersAnswer()
     }
     await mountProviders()
 
-    expect(queries).toEqual([{ datasets: 'true' }])
+    expect(queries).toEqual([{}])
   })
 
   it('lists each provider by name, with its country and a link to its page', async () => {

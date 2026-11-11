@@ -109,7 +109,7 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             parameters="daily/climate_summary/temperature_air_mean_2m",
             stations="01975", periods="recent")
 
-The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `coverage`). Without \
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `providers`). Without \
 a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
      stations(provider=<provider>, network=<network>, parameters=<parameters>, latitude=<lat>, longitude=<lon>, rank=3)
 A provider's `country` is its operator's, NOT the extent of its data: never conclude from it that a network \
@@ -131,21 +131,20 @@ plain-language "summary". `history` is different again: it returns a station's *
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
-knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
-does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
+knows nothing about providers or stations, so `coverage` (one network) remains the tool for "which \
+parameters does it have". `providers` answers what a provider *is* -- the country of its operator (not \
 where its stations are), the licence of its data and the credit line to cite \
 (`attribution`, not `copyright`), and its networks with the `extent` of each -- and is the tool for \
-"may I reuse this data" and "which providers' networks reach a place". `datasets=true` adds each \
-network's resolutions and datasets.
+"may I reuse this data" and "which providers' networks reach a place".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
 them or none are configured, and null when that could not be told (treat it as unknown, not as \
-rejected). `coverage` does not check them and has no `valid`: it says whether they are `configured`.
+rejected). `providers` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
-`coverage` with no arguments to list every provider/network.
+`providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
 measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
@@ -336,6 +335,32 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             return await call_next(context)
 
     return RefuseUnknownArguments()
+
+
+def _require_a_network_for_coverage() -> Middleware:
+    """Build the middleware that tells a `coverage` call without `provider` or `network` what to call instead.
+
+    `coverage` listed every provider and its networks until 1.0.0; that is the tool `providers` now (GH-3996), and
+    the schema of the tool, which has both arguments required, would only say that one is missing.
+    """
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+
+    from wetterdienst.ui.core import coverage_needs_a_network  # noqa: PLC0415
+
+    class RequireANetworkForCoverage(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            if context.message.name == "coverage":
+                arguments = context.message.arguments or {}
+                if not arguments.get("provider") or not arguments.get("network"):
+                    raise ToolError(coverage_needs_a_network("the tool `providers`"))
+            return await call_next(context)
+
+    return RequireANetworkForCoverage()
 
 
 def _is_object(schema: dict[str, Any], definitions: dict[str, Any], seen: frozenset[str] = frozenset()) -> bool:
@@ -625,6 +650,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         lifespan=lifespan,
         middleware=[
             _refuse_unknown_arguments(provider),
+            _require_a_network_for_coverage(),
             _send_objects_as_json(provider),
             _return_bodies_as_content(provider),
         ],

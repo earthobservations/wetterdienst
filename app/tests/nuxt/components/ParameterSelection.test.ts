@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { networksAnswer } from '../fixtures/providers'
 
-// The component starts its /api/coverage request without awaiting it in setup -- awaiting would
+// The component starts its /api/providers request without awaiting it in setup -- awaiting would
 // suspend the whole page behind it -- so mountSuspended() now returns before the answer lands.
-// Anything that reads what coverage feeds has to wait for initialization to finish first.
+// Anything that reads what the list of networks feeds has to wait for initialization to finish first.
 //
-// Every wrapper is unmounted after its test: a component left mounted shares the `/api/coverage`
-// entry of the next test's, and its credential checks answer the next test's coverage too
+// Every wrapper is unmounted after its test: a component left mounted shares the `/api/providers`
+// entry of the next test's, and its credential checks answer the next test's list too
 const mountedWrappers: Array<{ unmount: () => void }> = []
 afterEach(() => {
   for (const wrapper of mountedWrappers.splice(0))
@@ -29,12 +30,12 @@ describe('parameterSelection Component', () => {
     globalThis.fetch = vi.fn()
     // The Nuxt app (and its useFetch payload cache) is shared across mounts
     // within this file -- without this, a later test's registerEndpoint()
-    // can be shadowed by an earlier test's cached /api/coverage response.
+    // can be shadowed by an earlier test's cached /api/providers response.
     clearNuxtData()
   })
 
-  it('renders itself while /api/coverage is still out', async () => {
-    // The regression this guards: the coverage request used to be awaited at the top level of
+  it('renders itself while /api/providers is still out', async () => {
+    // The regression this guards: the request for the networks used to be awaited at the top level of
     // setup, which with `ssr: false` suspended the whole page -- the Explorer showed nothing at
     // all, not even its own headings, until the backend answered. A request that never settles
     // makes that visible.
@@ -170,7 +171,7 @@ describe('parameterSelection Component', () => {
   })
 
   it('restricts the provider select to restrictProvider', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {},
@@ -186,7 +187,7 @@ describe('parameterSelection Component', () => {
   })
 
   it('restricts the network select to restrictNetwork', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {}, mosmix: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {}, mosmix: {} } }))
 
     const wrapper = await mountReady({
       modelValue: { provider: 'dwd' },
@@ -203,7 +204,7 @@ describe('parameterSelection Component', () => {
     // the list says whether the credentials are configured and nothing of whether they are accepted:
     // that is a check of its own (GH-2641), which the tests of the credential checks below cover
     const network = (configured: boolean) => ({ auth: true, configured, date_required: false })
-    registerEndpoint('/api/coverage', () => ({
+    registerEndpoint('/api/providers', () => networksAnswer({
       aemet: { configured: network(true), missing: network(false) },
       knmi: { missing: network(false) },
     }))
@@ -219,7 +220,7 @@ describe('parameterSelection Component', () => {
     // `dwd/radar` and `dwd/alerts` answer a 404 to the coverage the selects read next (GH-2641)
     const network = (kind: string) => ({ auth: false, configured: true, kind, date_required: false })
     // a kind that is no timeseries kind is not offered, a later standalone network
-    registerEndpoint('/api/coverage', () => ({
+    registerEndpoint('/api/providers', () => networksAnswer({
       dwd: {
         observation: network('observation'),
         mosmix: network('forecast'),
@@ -239,7 +240,7 @@ describe('parameterSelection Component', () => {
   })
 
   it('does not fall back to the unrestricted provider list when restrictProvider does not exist', async () => {
-    registerEndpoint('/api/coverage', () => ({ noaa: { ghcn: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ noaa: { ghcn: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {},
@@ -255,7 +256,7 @@ describe('parameterSelection Component', () => {
   })
 
   it('does not fall back to the unrestricted network list when restrictNetwork does not exist', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { mosmix: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { mosmix: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {},
@@ -272,7 +273,7 @@ describe('parameterSelection Component', () => {
   })
 
   it('overrides a mismatched initial provider/network with the restricted values', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} }, noaa: { ghcn: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {
@@ -322,11 +323,8 @@ describe('parameterSelection Component', () => {
 
   it('emits the kind of the network from the coverage: a forecast\'s readings lie ahead of today (GH-3740)', async () => {
     const kinds = { mosmix: 'forecast', observation: 'observation' } as const
-    registerEndpoint('/api/coverage', (event) => {
-      if (getQuery(event).provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: Object.fromEntries(Object.entries(kinds).map(([name, kind]) => [name, { auth: false, configured: false, date_required: false, kind }])) }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: Object.fromEntries(Object.entries(kinds).map(([name, kind]) => [name, { auth: false, configured: false, kind }])) }))
     const kindOf = async (network: string) => {
       const wrapper = await mountReady({
         modelValue: { provider: 'dwd', network, resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] },
@@ -369,7 +367,7 @@ describe('parameterSelection credential checks', () => {
   it('renders and lists a credentialed network before its credentials have been checked', async () => {
     const hold = gate()
     const asked: unknown[] = []
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: open }, aemet: { observation: credentialed() } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: open }, aemet: { observation: credentialed() } }))
     registerEndpoint('/api/auth', async (event) => {
       asked.push(getQuery(event))
       await hold.released
@@ -396,7 +394,7 @@ describe('parameterSelection credential checks', () => {
   })
 
   it('hides a network only when its check says the credentials are rejected', async () => {
-    registerEndpoint('/api/coverage', () => ({
+    registerEndpoint('/api/providers', () => networksAnswer({
       aemet: { observation: credentialed() },
       knmi: { observation: credentialed() },
       metno: { frost: credentialed() },
@@ -422,7 +420,7 @@ describe('parameterSelection credential checks', () => {
   })
 
   it('keeps a network whose check failed', async () => {
-    registerEndpoint('/api/coverage', () => ({ aemet: { observation: credentialed() } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ aemet: { observation: credentialed() } }))
     let asked = 0
     registerEndpoint('/api/auth', (event) => {
       asked++
@@ -442,7 +440,7 @@ describe('parameterSelection credential checks', () => {
   })
 
   it('asks only about networks that have credentials configured', async () => {
-    registerEndpoint('/api/coverage', () => ({
+    registerEndpoint('/api/providers', () => networksAnswer({
       aemet: { observation: credentialed() },
       knmi: { observation: credentialed(false) },
       noaa: { ghcn: open },
@@ -464,7 +462,7 @@ describe('parameterSelection credential checks', () => {
   it('aborts the checks it no longer needs when the page is left', async () => {
     const hold = gate()
     let asked = false
-    registerEndpoint('/api/coverage', () => ({ aemet: { observation: credentialed() } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ aemet: { observation: credentialed() } }))
     registerEndpoint('/api/auth', async () => {
       asked = true
       await hold.released
@@ -486,11 +484,8 @@ describe('parameterSelection credential checks', () => {
     // initialization is waiting for the network's coverage when the rejection comes in, so the
     // watcher that clears the selection has to run again once initialization is over
     const hold = gate()
-    registerEndpoint('/api/coverage', (event) => {
-      if (getQuery(event).provider)
-        return hold.released.then(() => dailyClimateSummaryCoverage())
-      return { dwd: { observation: open }, aemet: { observation: credentialed() } }
-    })
+    registerEndpoint('/api/coverage', () => hold.released.then(() => dailyClimateSummaryCoverage()))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: open }, aemet: { observation: credentialed() } }))
     registerEndpoint('/api/auth', () => ({ valid: false }))
 
     const wrapper = await mountSuspended(ParameterSelection, {

@@ -5,12 +5,13 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import HistoryPage from '~/pages/history.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { networksAnswer } from '../fixtures/providers'
 
 // pages mounted by a test, unmounted after it: a page left mounted can share its fetch with the next
 // test's, useFetch keying a fetch by where it is called and what it asks for
 const mounted: Array<{ unmount: () => void }> = []
 
-// ParameterSelection fires its /api/coverage request without awaiting it in setup, so mounting no
+// ParameterSelection fires its /api/providers request without awaiting it in setup, so mounting no
 // longer implies it has restored provider/network. Driving `paramSel` before that has settled
 // would be clobbered by the component's own initial emit. The page's own `paramSel.provider` is
 // no signal here -- it starts out as 'dwd' -- so this waits on the child's initialization flag.
@@ -50,14 +51,10 @@ async function mountWithSelection(history: Parameters<typeof registerEndpoint>[1
 
 describe('history Page', () => {
   beforeEach(() => {
-    // Same path serves two shapes: the plain provider/network listing, and --
-    // once a provider+network is picked -- the resolution/dataset/parameter tree.
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    // Two answers: the providers and their networks, and -- once a provider+network is picked -- the
+    // coverage of that network, its resolution/dataset/parameter tree.
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -436,12 +433,8 @@ describe('history Page', () => {
 
 describe('history Page results', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -621,12 +614,8 @@ describe('history Page results', () => {
 
 describe('history Page station card id', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => ({ daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -668,12 +657,8 @@ describe('history Page station card id', () => {
 
 describe('history Page request answered with a 500', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -698,12 +683,8 @@ describe('history Page request answered with a 500', () => {
 
 describe('history Page request answered with a 503 once', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {

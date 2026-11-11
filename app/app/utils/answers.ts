@@ -306,10 +306,13 @@ export interface TemperatureSource {
   parameter: string
 }
 
-/** The measurement networks of `providers` that publish an hourly resolution: the ones whose coverage to ask */
+/**
+ * The measurement networks of `providers`: the ones whose coverage to ask for an hourly resolution. The list of
+ * providers does not say which have one (that is the coverage of each), so a network without it is told by its 404.
+ */
 export function hourlyNetworks(providers: Provider[]): Array<{ provider: Provider, network: string }> {
   return providers.flatMap(provider => provider.networks
-    .filter(network => network.kind === 'observation' && (network.resolutions ?? []).some(resolution => resolution.name === 'hourly'))
+    .filter(network => network.kind === 'observation')
     .map(network => ({ provider, network: network.network })))
 }
 

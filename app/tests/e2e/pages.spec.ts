@@ -27,7 +27,6 @@ test.describe('Home Page', () => {
       const held = new Promise<void>((resolve) => {
         release = resolve
       })
-      // with its query: the app asks for `datasets=true`
       await page.route(/\/api\/providers(\?|$)/, async (route) => {
         await held
         await route.continue()
@@ -69,7 +68,7 @@ test.describe('API Documentation Page', () => {
     await page.goto('/api')
     await page.waitForLoadState('networkidle')
 
-    const endpoints = ['coverage', 'stations', 'values', 'interpolate', 'summarize']
+    const endpoints = ['providers', 'coverage', 'stations', 'values', 'interpolate', 'summarize']
 
     for (const endpoint of endpoints) {
       await expect(page.getByText(endpoint, { exact: false }).first()).toBeVisible()

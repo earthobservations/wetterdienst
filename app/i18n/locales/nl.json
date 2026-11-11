@@ -406,7 +406,8 @@
     "paramHeader": "Parameter",
     "descHeader": "Beschrijving",
     "endpoints": {
-      "coverage": "Ontdek beschikbare aanbieders, netwerken, resoluties en parameters",
+      "providers": "Toon de aanbieders en hun netwerken",
+      "coverage": "Ontdek de resoluties, datasets en parameters van een netwerk",
       "stations": "Zoek weerstations op via diverse filters",
       "history": "Haal de stationsgeschiedenis op (naam, beheerder, apparaten, geografie, ontbrekende gegevens)",
       "values": "Haal observatiewaarden op voor geselecteerde stations en parameters",
@@ -477,6 +478,7 @@
     "copied": "Gekopieerd",
     "networksTitle": "Netwerken",
     "source": "Bron",
+    "showDatasets": "Resoluties en datasets tonen",
     "noResolutions": "Geen tijdreeks: hier valt niets op te sommen.",
     "openExplorer": "Openen in de verkenner"
   },

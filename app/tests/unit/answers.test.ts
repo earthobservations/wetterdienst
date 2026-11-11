@@ -146,31 +146,23 @@ describe('how windy was it on a day', () => {
 })
 
 describe('where can I download hourly temperatures', () => {
-  const network = (name: string, kind: Provider['networks'][number]['kind'], resolutions: string[]) => ({
+  const network = (name: string, kind: Provider['networks'][number]['kind']) => ({
     network: name,
     kind,
     url: '',
     copyright: '',
     auth: false,
+    configured: true,
     date_required: false,
     parameters: 1,
-    resolutions: resolutions.map(resolution => ({ name: resolution, datasets: [] })),
   })
 
-  it('asks only the measurement networks with an hourly resolution', () => {
+  it('asks only the measurement networks: the list of providers does not say which have an hourly resolution', () => {
     const providers = [
-      { provider: 'dwd', networks: [network('observation', 'observation', ['hourly', 'daily']), network('mosmix', 'forecast', ['hourly']), network('radar', 'radar', [])] },
-      { provider: 'aemet', networks: [network('observation', 'observation', ['daily'])] },
+      { provider: 'dwd', networks: [network('observation', 'observation'), network('mosmix', 'forecast'), network('radar', 'radar')] },
+      { provider: 'aemet', networks: [network('observation', 'observation')] },
     ] as unknown as Provider[]
-    expect(hourlyNetworks(providers).map(({ provider, network }) => `${provider.provider}/${network}`)).toEqual(['dwd/observation'])
-  })
-
-  it('finds no hourly network in an answer without the lists of resolutions, and does not fail on it', () => {
-    // the compact answer of the backend has `resolutions: null`
-    const providers = [
-      { provider: 'dwd', networks: [{ network: 'observation', kind: 'observation', resolutions: null }, { network: 'mosmix', kind: 'observation', resolutions: null }] },
-    ] as unknown as Provider[]
-    expect(hourlyNetworks(providers)).toEqual([])
+    expect(hourlyNetworks(providers).map(({ provider, network }) => `${provider.provider}/${network}`)).toEqual(['dwd/observation', 'aemet/observation'])
   })
 
   it('finds the hourly air temperature, the dataset named for it first', () => {

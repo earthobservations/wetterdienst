@@ -12,7 +12,7 @@ import { providersAnswer } from '../fixtures/providers'
 const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn() }))
 mockNuxtImport('navigateTo', () => navigateTo)
 
-registerEndpoint('/api/providers', event => providersAnswer(event))
+registerEndpoint('/api/providers', () => providersAnswer())
 const stationQueries: string[] = []
 const stationNetworks: string[] = []
 let failStations = false

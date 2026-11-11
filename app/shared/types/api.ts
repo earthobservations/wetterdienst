@@ -1,8 +1,6 @@
 // The types of the backend's answers are derived from its OpenAPI document (GH-3908): `pnpm gen:api-types` writes the
 // document's types to `.generated/api-schema.d.ts` (git-ignored, never committed; `pnpm typecheck` runs it first) from
 // `tests/ui/openapi.snapshot.json`, so a change to the REST contract that the app does not follow fails its typecheck.
-// The one answer the document types loosely, `/api/coverage` (one union for its two answers), is spelt here by the two
-// types of its members, held to the document by a check of the type system (`Holds`), marked as such below.
 import type { components, operations } from '../../.generated/api-schema'
 
 type Schemas = components['schemas']
@@ -15,10 +13,10 @@ type Schemas = components['schemas']
 type Reads<T, K extends keyof T> = Pick<T, K> & Partial<Omit<T, K>>
 
 /**
- * The resolutions of the backend's `Resolution` (wetterdienst/metadata/resolution.py), as the document lists them for a
- * network of `GET /api/providers`: the other fields of an answer that name a resolution are plain text in it
+ * The resolutions of the backend's `Resolution` (wetterdienst/metadata/resolution.py), as the document lists them: the
+ * keys of the coverage of a network. The other fields of an answer that name a resolution are plain text in it
  */
-export type Resolution = Schemas['ProviderResolution']['name']
+export type Resolution = Schemas['Resolution']
 
 /**
  * The query of an operation as the app sends it: what the document lists for it, with a list parameter (`parameters`,
@@ -51,55 +49,46 @@ export type TimestampPosition = NonNullable<Schemas['CoverageParameter']['timest
 export type UnitType = Schemas['CoverageParameter']['unit_type']
 
 /**
+ * What `GET /api/coverage` answers for one network: an object keyed by resolution, which the document types as
+ * text keys (`Resolution` is the closed set of them), each holding that resolution's datasets
+ */
+type CoverageAnswer = operations['coverage_api_coverage_get']['responses'][200]['content']['application/json']
+type CoverageResolutionSchema = CoverageAnswer[string]
+type CoverageDatasetSchema = CoverageResolutionSchema['datasets'][string]
+type CoverageParameterSchema = CoverageDatasetSchema['parameters'][number]
+
+/**
  * Parameter info returned in coverage response, as the backend's `discover()` builds it. The app does not
  * read `unit`, `unit_source`, `aggregation` or `timestamp_position`
  */
-export type CoverageParameter = Reads<Schemas['CoverageParameter'], 'name' | 'name_original' | 'unit_type' | 'description'>
+export type CoverageParameter = Reads<CoverageParameterSchema, 'name' | 'name_original' | 'unit_type' | 'description'>
 
-/** A dataset in the coverage response, as `discover()` builds it */
-export type CoverageDataset = Reads<Omit<Schemas['CoverageDataset'], 'parameters'> & { parameters: CoverageParameter[] }, 'description' | 'parameters'>
+/** The schema `T` with the type of its member `K` as the app reads it: a `K` the document has not is a type error */
+type With<T, K extends keyof T, V> = { [P in keyof T]: P extends K ? V : T[P] }
 
-/** A resolution in the coverage response, as `discover()` builds it */
-export type CoverageResolution = Reads<Omit<Schemas['CoverageResolution'], 'datasets'> & { datasets: Record<string, CoverageDataset> }, 'description' | 'datasets'>
+/** A dataset in the coverage response, its parameters as the app reads them */
+export type CoverageDataset = Reads<With<CoverageDatasetSchema, 'parameters', CoverageParameter[]>, 'description' | 'parameters'>
+
+/** A resolution in the coverage response, its datasets as the app reads them */
+export type CoverageResolution = Reads<With<CoverageResolutionSchema, 'datasets', Record<string, CoverageDataset>>, 'description' | 'datasets'>
 
 /** One canonical parameter as `GET /api/glossary` returns it */
 export type GlossaryEntry = Reads<Schemas['GlossaryEntry'], 'name' | 'unit_type' | 'unit' | 'unit_symbol' | 'description'>
 
 /**
- * What a network is, as `GET /api/coverage` lists it: `observation`, `forecast` and `derived` are the
+ * What a network is, as `GET /api/providers` lists it: `observation`, `forecast` and `derived` are the
  * timeseries networks, which have stations and values, `radar` and `alerts` are standalone
  */
-export type NetworkKind = Schemas['CoverageNetwork']['kind']
-
-/**
- * Per-network metadata in the coverage response. Whether the credentials are accepted is not part of
- * it (that is a request to the provider): `GET /api/auth` answers it for one network
- */
-export type CoverageNetworkInfo = Reads<Schemas['CoverageNetwork'], 'name_short' | 'country' | 'kind' | 'url' | 'auth' | 'configured' | 'date_required'>
-
-/**
- * What `GET /api/coverage` answers is one object for either of its two answers, which the document types as a union of
- * the two: the networks of every provider (no query), or the resolutions of one network (`provider` and `network`)
- */
-type CoverageAnswer = operations['coverage_api_coverage_get']['responses'][200]['content']['application/json']
-
-// Spelt here, not derived: the document's one union for `/api/coverage` is not one of the two (`CoverageAnswerIsTheTwo`)
-/** Provider to networks mapping with per-network metadata */
-export type CoverageResponse = Record<string, Record<string, CoverageNetworkInfo>>
+export type NetworkKind = Schemas['ProviderNetwork']['kind']
 
 /** Response from GET /api/auth; `valid` is `null` when the credentials could not be checked: not a rejection, so unknown */
 export type AuthResponse = Schemas['AuthAnswer']
 
-// Spelt here, not derived: see `CoverageResponse`
 /**
- * Detailed coverage for a provider-network pair: `discover()` sends only the resolutions the
- * network has, and leaves out one whose datasets are all filtered away, so any may be missing
+ * Coverage of one provider-network pair (`GET /api/coverage`, which needs both): the resolutions the network has, and
+ * `discover()` leaves out one whose datasets are all filtered away, so any may be missing
  */
 export type ProviderNetworkCoverageResponse = Partial<Record<Resolution, CoverageResolution>>
-
-// Held to the document: what it has for a value of `/api/coverage` is the networks of a provider or the resolutions of
-// a network and nothing else, so a third kind of member, or a change of either, fails the typecheck
-export type CoverageAnswerIsTheTwo = Holds<Is<CoverageAnswer[string], Record<string, Schemas['CoverageNetwork']> | Schemas['CoverageResolution']>>
 
 export type CoverageQuery = Query<'coverage_api_coverage_get'>
 
@@ -259,21 +248,14 @@ export type ApiErrorResponse = Reads<Schemas['Problem'], 'type' | 'title' | 'sta
 /** The terms a provider publishes its data under, as `GET /api/providers` lists them */
 export type ProviderLicense = Reads<Schemas['LicenseModel'], 'spdx_id' | 'name' | 'url'>
 
-/** A dataset of a resolution, with how many parameters it has */
-export type ProviderDataset = Reads<Omit<Schemas['ProviderDataset'], 'extent'> & { extent?: NetworkExtent }, 'name' | 'parameters'>
-
-/** A resolution of a network, with its datasets: the app reads `name` as the `Resolution` it is */
-export type ProviderResolution = Reads<Omit<Schemas['ProviderResolution'], 'name' | 'datasets'> & { name: Resolution, datasets: ProviderDataset[] }, 'name' | 'datasets'>
-
 /** Where the stations of a network are, which the country of its provider does not say */
 export type NetworkExtent = Reads<Schemas['Extent'], 'scope' | 'continents' | 'bbox'>
 
 /**
- * A network of a provider, as `GET /api/providers?datasets=true` lists it: standalone ones (`radar`, `alerts`) have an
- * empty list. The backend's compact answer (`datasets=false`, which is to become its default) has `null`, so the app
- * asks with `datasets=true` and reads a missing list as an empty one.
+ * A network of a provider, as `GET /api/providers` lists it: what it is and where, not what it offers (its resolutions,
+ * datasets and parameters are the coverage of that network). Standalone ones (`radar`, `alerts`) are listed too.
  */
-export type ProviderNetwork = Reads<Omit<Schemas['ProviderNetwork'], 'resolutions' | 'extent'> & { extent: NetworkExtent, resolutions: ProviderResolution[] | null }, 'network' | 'kind' | 'url' | 'copyright' | 'auth' | 'date_required' | 'parameters' | 'resolutions'>
+export type ProviderNetwork = Reads<Omit<Schemas['ProviderNetwork'], 'extent'> & { extent: NetworkExtent }, 'network' | 'kind' | 'url' | 'copyright' | 'auth' | 'configured' | 'date_required' | 'parameters'>
 
 /** A provider of data, as `GET /api/providers` lists it */
 export type Provider = Reads<Omit<Schemas['Provider'], 'license' | 'networks'> & { license: ProviderLicense | null, networks: ProviderNetwork[] }, 'provider' | 'name_short' | 'name_local' | 'name_english' | 'country' | 'country_code' | 'license' | 'attribution' | 'networks'>
