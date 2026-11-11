@@ -5,7 +5,7 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
 import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
 import { COLOR_MAPS, stripesSummaryParams, stripeYears, wrapChartTitle } from '~/utils/stripes'
-import { unitSymbol } from '~/utils/unit-targets'
+import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale, localeProperties } = useI18n()
 
@@ -141,31 +141,47 @@ useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotCont
 let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
 
-async function fetchAndPlotStripes() {
-  if (!selectedStation.value)
+// What the stripes shown are of, as it was asked: the station and the years of the fetch, not what the form says now
+// (GH-3980). A unit changed in the settings fetches this again, so that no selection the user has not confirmed is drawn
+interface ShownStripes { station: string, startYear: number | null, endYear: number | null }
+let shown: ShownStripes | null = null
+// the unit changed while a fetch was under way: fetched again once it ends
+let refetchShownAfter = false
+
+/** `target`: the stripes shown, fetched again; without it the form's selection, as Show asks for it */
+async function fetchAndPlotStripes(target?: ShownStripes) {
+  const asked: ShownStripes | null = target ?? (selectedStation.value
+    ? { station: selectedStation.value.station_id, startYear: startYear.value, endYear: endYear.value }
+    : null)
+  if (!asked)
     return
 
   // Cleared as the fetch starts: another station's stripes, so they do not stand under this one,
   // and stripes that could not be drawn, with their Retry of the earlier values. This station's
   // drawn stripes stay while they are fetched anew, as for other years; a drawing of them under way,
   // as of a display option changed, still draws, and tells its own failure
-  if (plotFailed.value || lastFetchedData.value?.series.station.station_id !== selectedStation.value.station_id)
+  if (plotFailed.value || lastFetchedData.value?.series.station.station_id !== asked.station)
     clearStripes()
   const started = ++fetchesStarted
   isLoading.value = true
   fetchError.value = null
+  // this fetch reads the unit as it is now
+  refetchShownAfter = false
 
   try {
     const params: StripesValuesQuery = {
       kind: kind.value,
-      station: selectedStation.value.station_id,
+      station: asked.station,
       format: 'json',
+      // the unit the app settings choose, read at each request (GH-3980): the numbers come back in it, and the
+      // colours, which are relative, do not change with it
+      unit_targets: JSON.stringify(stripesUnitTargets(kind.value, settings.value.units)),
     }
 
-    if (startYear.value)
-      params.start_year = startYear.value
-    if (endYear.value)
-      params.end_year = endYear.value
+    if (asked.startYear)
+      params.start_year = asked.startYear
+    if (asked.endYear)
+      params.end_year = asked.endYear
 
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
@@ -184,6 +200,7 @@ async function fetchAndPlotStripes() {
     await nextTick()
 
     lastFetchedData.value = response
+    shown = asked
     await plotStripes(response)
   }
   catch (error) {
@@ -194,8 +211,12 @@ async function fetchAndPlotStripes() {
     fetchError.value = describeFetchError(error)
   }
   finally {
-    if (started === fetchesStarted)
+    if (started === fetchesStarted) {
       isLoading.value = false
+      // the unit changed under way: what was shown is fetched in the new one
+      if (refetchShownAfter && shown && hasPlot.value)
+        void fetchAndPlotStripes(shown)
+    }
   }
 }
 
@@ -339,6 +360,9 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     })
   }
 
+  // the hover texts name the unit the answer says its values are in, as the sentence and the table do
+  const unitSuffix = data.series.unit ? ` ${unitSymbol(data.series.unit)}` : ''
+
   // Create bar trace
   const trace = {
     x: years,
@@ -353,7 +377,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -381,7 +405,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
   }
 
@@ -408,7 +432,7 @@ function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: nu
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}<extra></extra>`,
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}${unitSuffix}<extra></extra>`,
       customdata: trendlineValues,
     }
   }
@@ -602,6 +626,8 @@ function clearStripes() {
   plotsStarted++
   plotFailed.value = false
   lastFetchedData.value = null
+  shown = null
+  refetchShownAfter = false
   // a fetch still under way shows nothing, and its failure is not told
   fetchesStarted++
   isLoading.value = false
@@ -645,6 +671,18 @@ watch(() => selectedStation.value?.station_id, () => {
 watch(kind, () => {
   selectedStation.value = null
   clearStripes()
+})
+
+// The unit the settings choose for the kind changed while stripes are shown (the settings changed in another tab): what
+// is shown is fetched again in it, as the table and the sentence say the unit of the answer (GH-3980). A fetch under way
+// is followed by one
+watch(() => stripesUnitTargets(kind.value, settings.value.units), (now, before) => {
+  if (JSON.stringify(now) === JSON.stringify(before))
+    return
+  if (isLoading.value)
+    refetchShownAfter = true
+  else if (shown && hasPlot.value)
+    void fetchAndPlotStripes(shown)
 })
 
 // The station list arrived or changed: a station chosen that is not in it is dropped, one named by the link is taken
@@ -820,7 +858,7 @@ onBeforeUnmount(() => {
               <div class="flex flex-col sm:flex-row gap-2">
                 <UButton
                   :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!selectedStation || isLoading"
-                  :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
+                  :loading="isLoading" class="w-full" @click="fetchAndPlotStripes()"
                 />
                 <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
               </div>

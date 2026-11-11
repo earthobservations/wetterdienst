@@ -87,6 +87,20 @@ export function requestUnitTargets(chosen: Record<string, string | undefined>): 
   }))
 }
 
+/** The unit type the numbers of each kind of climate stripes are of: the annual mean temperature, the annual precipitation sum */
+const STRIPES_UNIT_TYPE = { temperature: 'temperature', precipitation: 'precipitation' } as const
+
+/**
+ * The `unit_targets` a request for the values of climate stripes sends (GH-3980): the unit the app settings choose for
+ * the type of the kind, `degree_celsius` or `millimeter` where the settings name none that is listed. Only that type,
+ * as the stripes read one parameter: another one would change nothing of the answer and only the address of the request.
+ * The stripes' colours are relative, so the unit changes the numbers and not the stripes.
+ */
+export function stripesUnitTargets(kind: keyof typeof STRIPES_UNIT_TYPE, chosen: Record<string, string | undefined>): Record<string, string> {
+  const type = STRIPES_UNIT_TYPE[kind]
+  return { [type]: requestUnitTargets(chosen)[type]! }
+}
+
 const UNIT_SYMBOLS: Record<string, string> = {
   degree_celsius: '°C',
   degree_kelvin: 'K',

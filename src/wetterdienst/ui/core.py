@@ -2422,7 +2422,8 @@ class StripesSeries(BaseModel):
     dataset: str
     parameter: str
     # the unit `value` comes in, named as `/api/values` names one in its settings' `unit_targets`;
-    # the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it (GH-2372)
+    # the request's `unit_targets` (GH-3980) and the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it,
+    # the latter two since GH-2372
     unit: str
 
 
@@ -2514,6 +2515,25 @@ class StripesValuesRequest(StripesRequest):
 
     format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
     pretty: _PrettyField = False
+    unit_targets: Annotated[
+        dict[str, str] | None,
+        Field(
+            description="The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, "
+            "e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is "
+            "reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if "
+            "set. The colours of the stripes image are relative and are the same in any unit."
+        ),
+    ] = None
+
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
+        """Validate unit targets: a mapping, or the JSON text of one."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return _load_json(v)
 
 
 class StripesImageRequest(StripesRequest):
@@ -2542,7 +2562,7 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
-def _get_stripes_options() -> Options:
+def _get_stripes_options(unit_targets: Mapping[str, str] | None = None) -> Options:
     """Give the options the stripes read a station's values with.
 
     `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
@@ -2550,25 +2570,33 @@ def _get_stripes_options() -> Options:
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
     with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
     outrank the environment's variables, a malformed one included.
+
+    `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
+    winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
     """
-    return Options(shape="long", skip_empty=False)
+    options = Options(shape="long", skip_empty=False)
+    return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
 
 
-def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
+def _get_stripes_temperature_request(
+    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
+) -> DwdObservationRequest:
     """Give the request the temperature stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
-        options=_get_stripes_options(),
+        options=_get_stripes_options(unit_targets),
     )
 
 
-def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
+def _get_stripes_precipitation_request(
+    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
+) -> DwdObservationRequest:
     """Give the request the precipitation stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
-        options=_get_stripes_options(),
+        options=_get_stripes_options(unit_targets),
     )
 
 
@@ -2597,10 +2625,14 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
 def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     """Get stripes data for station in Germany, for a request its model has checked.
 
+    The `unit_targets` of a request for the values name the unit they are returned in, as for `/api/values`
+    (GH-3980); the colour of a year, scaled over the years, is the same in any unit. The image has none.
+
     Returns StripesData with metadata and dataframe.
     """
     kind, start_year, end_year = stripes.kind, stripes.start_year, stripes.end_year
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL)
+    unit_targets = stripes.unit_targets if isinstance(stripes, StripesValuesRequest) else None
+    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL, unit_targets=unit_targets)
 
     if stripes.station:
         stations = request.filter_by_station_id(stripes.station)

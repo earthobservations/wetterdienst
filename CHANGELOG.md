@@ -34,6 +34,11 @@ Types of changes:
   `instant` (DWD's sheet and the 10-minute series: the reading 10 min before the stamp).
   `urban_temperature_soil` stays `null`: its sheet says the same, but the one station's values equal
   the 10-minute value of 50 min after the stamp, and the descriptions now say so (GH-3939)
+- `/api/stripes/values` and the MCP tool `stripes_values` take `unit_targets`, as `/api/values` does
+  (e.g. `{"temperature": "degree_fahrenheit"}`), and `series.unit` names the unit the values come
+  back in. Without it nothing changes: degree Celsius and millimetre. The colours of the stripes
+  image are relative and are the same in any unit; the image takes no `unit_targets`, and the
+  command line has no command for the values (GH-3980)
 
 ### Changed
 

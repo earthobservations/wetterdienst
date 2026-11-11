@@ -1,10 +1,10 @@
 import type { H3Event } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { createError, setResponseStatus } from 'h3'
+import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
-import { clearNuxtData, useToast } from '#imports'
+import { clearNuxtData, useSettings, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import StripesPage from '~/pages/stripes.vue'
@@ -685,6 +685,147 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
     await vi.waitFor(() => expect(toasts()).toContain('The chart image could not be saved'))
     expect(logged).toHaveBeenCalledWith('The chart image could not be saved', failed)
+  })
+})
+
+// The numbers follow the unit settings (GH-3980): the request carries the unit, the page says the unit the answer names,
+// and the colours, which are relative, are the same
+describe('stripes Page units', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+
+  // the query of each request of values, and the backend's answer: in the unit asked for, from degree Celsius
+  const asked: Array<Record<string, string>> = []
+  const other = { ...station, station_id: '3987', name: 'Potsdam' }
+  // an answer of the values held until the test lets it go
+  let gate: Promise<void> | null = null
+  function serveValues() {
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', async (event) => {
+      const query = getQuery(event) as Record<string, string>
+      asked.push(query)
+      await gate
+      const targets = JSON.parse(query.unit_targets ?? '{}') as { temperature?: string, precipitation?: string }
+      const fahrenheit = targets.temperature === 'degree_fahrenheit'
+      return {
+        series: { station, unit: targets.precipitation ?? targets.temperature ?? 'degree_celsius' },
+        values: [
+          { timestamp: '2019-01-01T00:00:00+00:00', value: fahrenheit ? 9 * 1.8 + 32 : 9 },
+          { timestamp: '2020-01-01T00:00:00+00:00', value: fahrenheit ? 11 * 1.8 + 32 : 11 },
+        ],
+      }
+    })
+  }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    asked.length = 0
+    gate = null
+    const { units } = useSettings().settings.value
+    units.temperature = 'degree_celsius'
+    units.precipitation = 'millimeter'
+  })
+
+  const showButton = () => wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!
+  async function show(route: string, years?: { startYear: number, endYear: number }) {
+    serveValues()
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations.length).toBeGreaterThan(0))
+    vm.selectedStation = station
+    if (years)
+      Object.assign(vm, years)
+    await nextTick()
+    plotly.newPlot.mockClear()
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    return vm
+  }
+  const hovers = () => (plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ hovertemplate?: string }>])[1].map(trace => trace.hovertemplate).filter(Boolean)
+  const colours = () => (plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ marker?: { color?: number[] } }>])[1][0]!.marker!.color
+  // the sentence the figure is described by, and the head of the table of the years, behind its button
+  const sentence = () => document.getElementById(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby') ?? '')?.textContent?.trim() ?? ''
+  async function tableHead() {
+    await vi.waitFor(() => expect(sentence()).not.toBe(''))
+    if (!document.body.querySelector('table'))
+      [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Show as table')!.click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    return [...document.body.querySelectorAll('table thead th')].map(th => th.textContent?.trim())
+  }
+
+  it('asks for degree Celsius by default, and says it in the sentence, the table and the hover text', async () => {
+    await show('/stripes?kind=temperature&show_timeseries=true')
+    expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_celsius' }])
+    await vi.waitFor(() => expect(sentence()).toContain('Lowest value 9.00 °C in 2019, highest value 11.00 °C in 2020.'))
+    expect(await tableHead()).toContain('Value (°C)')
+    expect(hovers()).toContain('<b>%{x}</b><br>Value: %{customdata:.2f} °C<extra></extra>')
+    expect(colours()).toEqual([0, 1])
+  })
+
+  it('asks for degree Fahrenheit where the settings choose it, and says it everywhere it writes a number', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await show('/stripes?kind=temperature&show_timeseries=true')
+    expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_fahrenheit' }])
+    await vi.waitFor(() => expect(sentence()).toContain('Lowest value 48.20 °F in 2019, highest value 51.80 °F in 2020.'))
+    expect(await tableHead()).toContain('Value (°F)')
+    expect(hovers()).toContain('<b>%{x}</b><br>Value: %{customdata:.2f} °F<extra></extra>')
+    // the colours are relative, the same as in degree Celsius
+    expect(colours()).toEqual([0, 1])
+  })
+
+  it('asks the precipitation stripes for the unit of precipitation', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    useSettings().settings.value.units.precipitation = 'liter_per_square_meter'
+    await show('/stripes?kind=precipitation')
+    expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ precipitation: 'liter_per_square_meter' }])
+    expect(await tableHead()).toContain('Value (l/m²)')
+  })
+
+  it('fetches the values shown again, not the selection the form holds now, where the unit changes (GH-3980)', async () => {
+    const vm = await show('/stripes?kind=temperature', { startYear: 2005, endYear: 2015 })
+    expect(asked).toHaveLength(1)
+    // a station and years chosen, and not confirmed with Show
+    vm.selectedStation = other
+    vm.startYear = 1990
+    vm.endYear = 2000
+    await nextTick()
+
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(asked).toHaveLength(2))
+
+    expect(asked[1]).toMatchObject({ station: '1048', start_year: '2005', end_year: '2015' })
+    expect(JSON.parse(asked[1]!.unit_targets!)).toEqual({ temperature: 'degree_fahrenheit' })
+  })
+
+  it('fetches again, in the new unit, once a fetch under way ends, where the unit changes during it', async () => {
+    await show('/stripes?kind=temperature')
+    let release!: () => void
+    gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(asked).toHaveLength(2))
+
+    // the fetch under way asked for degree Celsius
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await nextTick()
+    expect(asked).toHaveLength(2)
+    gate = null
+    release()
+
+    await vi.waitFor(() => expect(asked).toHaveLength(3))
+    expect(JSON.parse(asked[2]!.unit_targets!)).toEqual({ temperature: 'degree_fahrenheit' })
+    await vi.waitFor(() => expect(sentence()).toContain('°F'))
+  })
+
+  it('fetches the values again, in the new unit, where the settings change while the stripes are shown', async () => {
+    await show('/stripes?kind=temperature')
+    useSettings().settings.value.units.temperature = 'degree_kelvin'
+    await vi.waitFor(() => expect(asked).toHaveLength(2))
+    expect(JSON.parse(asked[1]!.unit_targets!)).toEqual({ temperature: 'degree_kelvin' })
+    await vi.waitFor(() => expect(sentence()).toContain('K in 2019'))
+    expect(await tableHead()).toContain('Value (K)')
   })
 })
 

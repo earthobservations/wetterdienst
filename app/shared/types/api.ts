@@ -22,12 +22,17 @@ export type Resolution = Schemas['ProviderResolution']['name']
 
 /**
  * The query of an operation as the app sends it: what the document lists for it, with a list parameter (`parameters`,
- * `stations`) as one comma-separated text, which the API reads as it does the repeated parameter
+ * `stations`) as one comma-separated text, which the API reads as it does the repeated parameter, and a mapping
+ * (`unit_targets`) as its JSON text, which the API reads as the mapping
  */
 type Query<Operation extends keyof operations>
   = CommaSeparated<NonNullable<operations[Operation]['parameters']['query']>>
 
-type CommaSeparated<Q> = { [K in keyof Q]: NonNullable<Q[K]> extends unknown[] ? Exclude<Q[K], unknown[]> | string : Q[K] }
+type CommaSeparated<Q> = {
+  [K in keyof Q]: NonNullable<Q[K]> extends unknown[]
+    ? Exclude<Q[K], unknown[]> | string
+    : NonNullable<Q[K]> extends Record<string, unknown> ? Q[K] | string : Q[K]
+}
 
 /** The check that a type is what the document says: it fails the typecheck, naming it, where the document differs */
 type Holds<T extends true> = T
