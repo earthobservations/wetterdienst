@@ -122,22 +122,33 @@ context of the assistant.
 
 ## A forecast starts at now
 
-A forecast is the rows of a model run, and the latest run begins a few hours before the request: at 14:28 UTC the
-first row of a MOSMIX answer is at 10:00. An assistant that reads the first rows reports an hour that has passed as the
-forecast. So `values` for a network whose `kind` is `forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`; `coverage` and
-`providers` give the kind) leaves out the rows stamped before the current hour, in UTC, when the request has no
-`timestamp`, and the row stamped at the current hour stays. A `forecast-from-now` warning in `metadata.warnings` says
-that the answer starts at now and names the `timestamp` window that asks for the earlier hours of the run; for `csv`
-and `ndjson`, which have no block, it is the `X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool.
-No row is left out, and no note is attached, where the run begins at or after the current hour. The cut is made before
-the size budget below, so that the characters of the budget go to hours that are still to come.
+A forecast is the rows of a model run, and the latest MOSMIX-L or DMO run begins hours before the request: at 14:28 UTC
+its first row can be at 10:00 (MOSMIX-S and SWSMOS begin at the current or the next hour). An assistant that reads the
+first rows reports an hour that has passed as the forecast. So `values` for a network whose `kind` is `forecast`
+(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`; `coverage` and `providers` give the kind) leaves out the rows stamped before
+the current hour, in UTC, and the row stamped at the current hour stays. A `forecast-from-now` warning in
+`metadata.warnings` says that the answer starts at now and names the `timestamp` window that asks for the earlier
+hours of the run; for `csv` and `ndjson`, which have no block, it is the `X-Wetterdienst-Forecast-From-Now` header and
+the sentence of the tool. No row is left out, and no note is attached, where the run begins at or after the current
+hour. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
+come.
+
+Which requests are cut:
+
+- **No `timestamp`:** every row before now.
+- **A `timestamp` of whole days that contains now**, as a day or a span (`2026-11-12`, `2026-11-12/2026-11-14`): the
+  rows of today before the current hour, as the instructions tell an assistant to give a day. The days of the window
+  before today are what the caller named, and stay. Whether a window is of whole days is read from its text: a time
+  part (`2026-11-12T00:00`) on either half makes it an exact window, served as asked, as is a month or a year.
+- **Left as they are:** a day window wholly in the past or in the future, a run asked for by its `issue` (an older run
+  is past by nature), a network that is not a forecast, and `interpolate` and `summarize`, whose `timestamp` is
+  required. To read the past hours of today, ask with a time (`2026-11-12T10:00/2026-11-12T14:00`).
 
 The start of now follows the resolution of a row: the current hour for an hourly forecast (the only one a network has
-today) and for anything finer or subdaily, the current 6-hour period, the current day of a daily forecast, the month
-of a monthly one and the year of an annual one. A request with a `timestamp` is left as it is, as is a run asked for by
-its `issue` (an older run is past by nature), a network that is not a forecast and `interpolate` and `summarize`, whose
-`timestamp` is required. A run that is over, with every hour before now, answers no row and says so. The REST API, the
-command line and Python answer the whole run.
+today) and for anything finer or subdaily, the current 6-hour period of a `6_hours` forecast, the current day of a daily
+one, the month of a monthly one and the year of an annual one. A frame of several resolutions gets one window for each
+in the note, since the window of one can span rows of another that were kept. A run that is over, with every hour
+before now, answers no row and says so. The REST API, the command line and Python answer the whole run.
 
 ## The size of an answer
 
@@ -153,8 +164,8 @@ and applies to the tools alone: the REST API, the command line and Python answer
 An answer over the budget is cut, not refused, and says so:
 
 - **`values`** keeps whole timestamps, at least one. Without a `timestamp` it keeps the end nearest to now: the start of
-  a forecast (which [starts at now](#a-forecast-starts-at-now)), the latest part of a `recent` or `historical` record. With a `timestamp` it keeps the start of the window,
-  so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
+  a forecast (which [starts at now](#a-forecast-starts-at-now)), the latest part of a `recent` or `historical` record.
+  With a `timestamp` it keeps the start of the window, so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
   window can split a timestamp: ask for fewer parameters or stations.
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no

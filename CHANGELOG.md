@@ -54,12 +54,14 @@ Types of changes:
   the parameters' `description` as null, then whole datasets in order; its note, at the start of
   the first resolution's `description`, names the datasets left out and how to ask for them.
   REST, command line and Python are unchanged (GH-4024)
-- **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`)
-  without a `timestamp` starts at the current hour (UTC): the hours of the model run before it are
-  left out, and a `forecast-from-now` warning (for CSV also the `X-Wetterdienst-Forecast-From-Now`
-  header) names the `timestamp` window to ask for them. The size cut then keeps future hours. To
-  read the past hours of the run, pass a `timestamp` window. REST, command line and Python return
-  the whole run as before (GH-4025)
+- **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`,
+  `dwd/swsmos`) starts at the current hour (UTC) without a `timestamp`, and with one of whole days
+  that contains now (`2026-11-12`, `2026-11-12/2026-11-14`): today's hours of the model run before
+  it are left out. A `forecast-from-now` warning (for CSV also the
+  `X-Wetterdienst-Forecast-From-Now` header) names the `timestamp` to ask for them; the size cut
+  then keeps future hours. To read the past hours, pass a window with a time part
+  (`2026-11-12T10:00/2026-11-12T14:00`). REST, command line and Python return the whole run as
+  before (GH-4025)
 
 ### Fixed
 

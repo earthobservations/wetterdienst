@@ -331,7 +331,8 @@ what the answer is missing:
   of an [MCP tool](mcp.md#the-size-of-an-answer) was cut to 40,000 characters; its message says how many rows are
   returned, the range kept, and the `timestamp` to ask for next. Only a tool's `values` and `stations` raise it: the
   REST API, the command line and Python answer all of it) and `forecast-from-now` (an MCP tool's `values` answer for a
-  forecast network without a `timestamp` starts at the current hour; its message names the `timestamp` window of the
+  forecast network without a `timestamp`, or with one of whole days around now, starts at the current
+  hour; its message names the `timestamp` window of the
   hours left out, see [A forecast starts at now](mcp.md#a-forecast-starts-at-now). The REST API, the command line and
   Python answer the whole run). Codes are added as more are told; a client reads the ones it
   knows.

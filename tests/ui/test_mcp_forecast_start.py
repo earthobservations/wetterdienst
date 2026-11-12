@@ -186,13 +186,122 @@ def test_a_run_that_begins_now_or_later_is_left_as_it_is(monkeypatch: pytest.Mon
     assert "x-wetterdienst-warnings" not in response.headers
 
 
-def test_a_caller_timestamp_is_left_as_the_caller_chose_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With a `timestamp` the past hours of the run are what the caller asked for: no cut, no note."""
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        # an hour window, a time part on either half, or a month or a year: served exactly as asked
+        "2026-11-12T10:00/2026-11-12T20:00",
+        "2026-11-12T14",
+        "2026-11-12/2026-11-13T00:00",
+        "2026-11-12T00:00/2026-11-14",
+        "2026-11",
+        "2026",
+        # whole days wholly in the past or in the future
+        "2026-11-10",
+        "2026-11-13",
+        "2026-11-10/2026-11-11",
+        "2026-11-13/2026-11-14",
+    ],
+)
+def test_a_window_that_is_no_day_around_now_is_left_as_the_caller_chose_it(
+    monkeypatch: pytest.MonkeyPatch, timestamp: str
+) -> None:
+    """With a time part, or days that do not contain now, the past hours of the run are what was asked for."""
     _stub_values(monkeypatch, _forecast(_HOUR - dt.timedelta(hours=4), 20))
 
-    answer = _tool_client().get("/api/values", params={**_MOSMIX, "timestamp": "2026-11-12"}).json()
+    answer = _tool_client().get("/api/values", params={**_MOSMIX, "timestamp": timestamp}).json()
 
     assert _stamps(answer)[0] == _HOUR - dt.timedelta(hours=4)
+    assert len(answer["values"]) == 40
+    assert answer["metadata"]["warnings"] == []
+
+
+@pytest.mark.parametrize("timestamp", ["2026-11-12", "2026-11-12/2026-11-14", "2026-11-11/2026-11-12", "20261112"])
+def test_a_window_of_days_that_contains_now_starts_at_the_current_hour(
+    monkeypatch: pytest.MonkeyPatch, timestamp: str
+) -> None:
+    """The instructions tell a model to give a day: today's hours before the current one are left out, with the note."""
+    _stub_values(monkeypatch, _forecast(_HOUR - dt.timedelta(hours=4), 20))
+
+    response = _tool_client().get("/api/values", params={**_MOSMIX, "timestamp": timestamp})
+
+    answer = response.json()
+    assert _stamps(answer)[0] == _HOUR
+    assert len(answer["values"]) == 32
+    note = _note_of(answer)
+    assert "4 earlier timestamps (8 rows)" in note
+    first, last = _window_of(note)
+    assert parse_date_window(first)[0] == _HOUR - dt.timedelta(hours=4)
+    assert parse_date_window(last)[0] == _HOUR - dt.timedelta(hours=1)
+    assert response.headers["x-wetterdienst-warnings"] == "forecast-from-now"
+
+
+def test_the_days_of_a_window_before_today_are_what_the_caller_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A span from yesterday keeps yesterday's rows of the run and loses only today's hours before now."""
+    midnight = dt.datetime(2026, 11, 12, tzinfo=dt.UTC)
+    _stub_values(monkeypatch, _forecast(midnight - dt.timedelta(hours=6), 30))
+
+    answer = _tool_client().get("/api/values", params={**_MOSMIX, "timestamp": "2026-11-11/2026-11-12"}).json()
+
+    stamps = _stamps(answer)
+    # yesterday 18:00 to 23:00 stay, today's 00:00 to 13:00 go, 14:00 on stays
+    assert stamps[:6] == [midnight - dt.timedelta(hours=6 - hour) for hour in range(6)]
+    assert stamps[6] == _HOUR
+    assert len(stamps) == 6 + 30 - 6 - 14
+    first, last = _window_of(_note_of(answer))
+    assert parse_date_window(first)[0] == midnight
+    assert parse_date_window(last)[0] == _HOUR - dt.timedelta(hours=1)
+
+
+def test_a_day_window_is_decided_from_the_text_not_from_what_it_parses_to() -> None:
+    """`2026-11-12T00:00` parses to the same instant as the day `2026-11-12`, and is a time: left as asked."""
+    here = forecast_start._is_day_window_around  # noqa: SLF001
+    assert here("2026-11-12", _CLOCK)
+    assert here("2026-11-12/2026-11-12", _CLOCK)
+    assert here("2026-11-12/2026-11-14", _CLOCK)
+    assert not here("2026-11-12T00:00", _CLOCK)
+    assert not here("2026-11-12T00:00/2026-11-14", _CLOCK)
+    assert not here("2026-11-12/2026-11-14T00:00", _CLOCK)
+    assert not here("2026-11-12t12", _CLOCK)
+    assert not here("2026-11-12+02:00", _CLOCK)
+    assert not here("2026-11", _CLOCK)
+    assert not here("2026-11-10", _CLOCK)
+    assert not here("2026-11-13", _CLOCK)
+    assert not here("2026-11-14/2026-11-12/2026-11-15", _CLOCK)
+    assert not here("9999-12-31/9999-12-31", _CLOCK)
+
+
+def test_a_day_window_around_now_is_not_cut_for_an_explicit_issue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run asked for by its issue is left whole, with a day window as without one."""
+    _stub_values(monkeypatch, _forecast(_HOUR - dt.timedelta(hours=30), 24))
+
+    answer = (
+        _tool_client()
+        .get("/api/values", params={**_MOSMIX, "issue": "2026-11-11T09:00:00Z", "timestamp": "2026-11-12"})
+        .json()
+    )
+
+    assert len(answer["values"]) == 48
+    assert answer["metadata"]["warnings"] == []
+
+
+def test_a_day_window_around_now_is_not_cut_for_another_kind_of_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observation values of today before the current hour are what an observation window is for."""
+    start = _HOUR - dt.timedelta(hours=4)
+    _stub_values(monkeypatch, _values_of(start, 20))
+
+    answer = _tool_client().get("/api/values", params={**_OBSERVATION, "timestamp": "2026-11-12"}).json()
+
+    assert _stamps(answer)[0] == start
+    assert answer["metadata"]["warnings"] == []
+
+
+def test_the_rest_api_answers_a_day_window_whole(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Not a tool's request: the day window around now returns every hour of the run."""
+    _stub_values(monkeypatch, _forecast(_HOUR - dt.timedelta(hours=4), 20))
+
+    answer = _rest_client().get("/api/values", params={**_MOSMIX, "timestamp": "2026-11-12"}).json()
+
     assert len(answer["values"]) == 40
     assert answer["metadata"]["warnings"] == []
 
@@ -284,6 +393,38 @@ def test_every_forecast_network_has_an_hourly_resolution_today() -> None:
         provider, _, network = name.partition("/")
         metadata = Wetterdienst.resolve(provider, network).metadata
         assert {resolution.name for resolution in metadata.resolutions} == {"hourly"}
+
+
+def test_a_single_timestamp_left_out_is_told_in_the_singular(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One earlier timestamp is `the earlier timestamp`, not `the 1 earlier timestamps`, and one row is `1 row`."""
+    _stub_values(monkeypatch, _forecast(_HOUR - dt.timedelta(hours=1), 20))
+
+    note = _note_of(_tool_client().get("/api/values", params=_MOSMIX).json())
+
+    assert "the earlier timestamp (2 rows) of the model run is left out" in note
+    assert "For it, ask again" in note
+    assert "1 earlier" not in note
+    one = forecast_start._amount  # noqa: SLF001
+    assert one(1, 1) == "the earlier timestamp (1 row)"
+    assert one(3, 6) == "the 3 earlier timestamps (6 rows)"
+
+
+def test_a_mixed_frame_gets_one_window_for_each_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A window of the hourly rows would span the daily rows that were kept: each resolution has its own."""
+    hourly = _forecast(_HOUR - dt.timedelta(hours=3), 5)
+    daily = _forecast(dt.datetime(2026, 11, 10, tzinfo=dt.UTC), 3, resolution="daily", step=dt.timedelta(days=1))
+    result = replace(hourly, df=pl.concat([hourly.df, daily.df]))
+    _stub_values(monkeypatch, result)
+
+    answer = _tool_client().get("/api/values", params=_MOSMIX).json()
+
+    note = _note_of(answer)
+    assert (
+        "the current period of each resolution (daily 2026-11-12T00:00:00+00:00, hourly 2026-11-12T14:00:00+00:00)"
+        in note
+    )
+    assert "ask again by resolution, daily: `timestamp=2026-11-10T00:00:00+00:00/2026-11-11T00:00:00+00:00`" in note
+    assert "hourly: `timestamp=2026-11-12T11:00:00+00:00/2026-11-12T13:00:00+00:00`" in note
 
 
 # --- the budget ---------------------------------------------------------------------------------------------------
