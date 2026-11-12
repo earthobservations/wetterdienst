@@ -1,16 +1,18 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""A stand-in for KNMI's EDR API and for the Open Data files, which hold the same data (GH-3928).
+"""A stand-in for KNMI's EDR API (GH-3928).
 
 A `World` is the data: the value of each station, parameter and stamp, stamped as the EDR API stamps it (with the end of
-the interval, as the time coordinate of a file is). The EDR API is served from it by a local HTTP server, answering as
-the real one does (CoverageJSON, a parameter that a station has no sensor for left out, a null for a NaN, a 404 for a
-range without data, a 413 beyond 300,000 points, gzip if it is asked for), and the files from it as NetCDF, so that
-the two routes can be compared on data that is the same by construction.
+the interval). The EDR API is served from it by a local HTTP server, answering as the real one does (CoverageJSON, a
+parameter that a station has no sensor for left out, a null for a NaN, a 404 for a range without data, a 413 beyond
+300,000 points, a 400 for a station it does not know, gzip if it is asked for, a 401 or a 403 for a key it does not
+take), with the list of the stations (`catalogue`) and the list of those that were open at a time.
 
-`edr_*.json` in `files/` are real answers of the API, read on 2026-11-11 for De Bilt (06260) and Schiphol (06240) at the
+`files/edr_*.json` are real answers of the API, read on 2026-11-11 for De Bilt (06260) and Schiphol (06240) at the
 10-minute, hourly and daily resolutions and on 2026-11-12 for De Bilt at the monthly and the annual one, cut down to the
 variables the provider maps (the `parameters` and `referencing` blocks, which are not read, are left out).
+`files/frozen_*.csv` are the rows that the Open Data files route returned for the same data (with the codes of the files
+laid in, `real_world`) before GH-3928 removed it: what an answer of the EDR API must still be made into.
 """
 
 from __future__ import annotations
@@ -24,15 +26,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
-import pytest
-
+from tests.provider.knmi.observation import catalogue
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.knmi.observation import api, edr
+from wetterdienst.provider.knmi.observation import edr
 from wetterdienst.provider.knmi.observation.grid import advance
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
-
-h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
-h5py = pytest.importorskip("h5py", reason="h5py not installed")
 
 UTC = ZoneInfo("UTC")
 FILES = Path(__file__).parent / "files"
@@ -49,15 +47,21 @@ PARAMETERS = {
     for name, resolution in RESOLUTION_OF_NAME.items()
 }
 EDR_STAMP = "%Y-%m-%dT%H:%M:%SZ"
+DE_BILT = "06260"
+SCHIPHOL = "06240"
 
 
 def wsi(station_id: str) -> str:
-    """Give the WIGOS identifier of a station of the Netherlands (the file of the catalogue writes the same)."""
-    return f"0-20000-0-{station_id}"
+    """Give the WIGOS identifier of a station (of the list where it is there, else of the Netherlands)."""
+    return catalogue.LOCATIONS[station_id][0] if station_id in catalogue.LOCATIONS else f"0-20000-0-{station_id}"
+
+
+def _at(*args: int) -> dt.datetime:
+    return dt.datetime(*args, tzinfo=UTC)
 
 
 class World:
-    """The data of some stations: `cells[station][parameter][edr_stamp]`, a number or None (a NaN of the file)."""
+    """The data of some stations: `cells[station][parameter][edr_stamp]`, a number or None (a NaN)."""
 
     def __init__(self, resolution: Resolution, cells: dict[str, dict[str, dict[dt.datetime, float | None]]]) -> None:
         """Hold the data of a resolution."""
@@ -114,6 +118,46 @@ class World:
         return sorted({stamp for series in self.cells[station].values() for stamp in series})
 
 
+# the real answers, over the stamps (of the provider) that they hold: a day, a month and a year are stamped with their
+# first moment, so one earlier than the stamps of the API in the answers
+REAL = {
+    "10_minutes": (_at(2026, 11, 9, 6, 10), _at(2026, 11, 9, 9, 0)),
+    "hourly": (_at(2026, 11, 5, 1), _at(2026, 11, 6, 0)),
+    "daily": (_at(2019, 12, 29), _at(2020, 1, 4)),
+    "monthly": (_at(2019, 12, 1), _at(2020, 3, 1)),
+    "annual": (_at(2017, 1, 1), _at(2020, 1, 1)),
+}
+
+
+def real_world(name: str) -> World:
+    """Give the real answer saved for a resolution, with codes of the files laid in that no cell of it holds.
+
+    The codes are those the Open Data files held and the API passes through: a trace of rain and of sunshine, a calm and
+    a variable wind, an invisible sky, a NaN. `files/frozen_*.csv` are what the file route made of these.
+    """
+    world = World.real(name)
+    first = world.stamps(next(iter(world.cells)))
+    last = first[-1]
+    if name == "daily":
+        world.set(DE_BILT, "RH", first[1], -1.0)  # a trace of precipitation
+        world.set(DE_BILT, "SQ", first[2], -1.0)  # and of sunshine
+        world.set(DE_BILT, "NG", first[3], 9.0)  # a sky that is invisible
+        world.set(DE_BILT, "TG", last, None)  # a NaN
+    if name == "hourly":
+        world.set(DE_BILT, "DD", first[1], 0.0)  # a calm
+        world.set(DE_BILT, "DD", first[2], 990.0)  # a variable wind
+        world.set(DE_BILT, "N", first[3], 9.0)
+        world.set(DE_BILT, "RH", first[4], -1.0)
+        world.set(DE_BILT, "T", last, None)
+    if name == "10_minutes":
+        world.set(DE_BILT, "n", first[3], 9.0)
+        world.set(DE_BILT, "rh", last, None)
+    if name == "monthly":
+        world.set(DE_BILT, "DDVEC", first[1], 0.0)
+        world.set(DE_BILT, "RH", first[2], -1.0)  # no trace in a sum of days: left as it is
+    return world
+
+
 class EdrStub(ThreadingHTTPServer):
     """The EDR API: what it was asked, and what it answers, from the worlds it is given (by collection)."""
 
@@ -125,13 +169,26 @@ class EdrStub(ThreadingHTTPServer):
         #: the statuses to answer the next requests with (None: as the data says), taken in turn
         self.statuses: deque[int | None] = deque()
         self.max_points = edr.MAX_POINTS
-        #: a body to answer every request with (200), instead of the data
+        #: a body to answer every request of data with (200), instead of the data
         self.raw: bytes | None = None
-        self.known = {station for world in worlds for station in world.cells}
+        #: the stations the API knows, and so does not answer 400 for
+        self.known = set(catalogue.LOCATIONS) | {station for world in worlds for station in world.cells}
+        #: the stations of the list, and those that have closed with the time they closed (none, unless a test says so:
+        #: `catalogue.ENDS` are the real ones), which `/locations?datetime=` leaves out of a window after it
+        self.listed = list(catalogue.LOCATIONS)
+        self.closed: dict[str, dt.datetime] = {}
+        #: bodies to answer the next requests for a list of stations with (200), instead of the list
+        self.locations_bodies: deque[bytes] = deque()
+        #: the key it takes, any if None: a missing one is a 401, another a 403
+        self.key: str | None = None
 
     def asked(self) -> list[str]:
         """Give the paths of the requests, with their query."""
         return [request["path"] for request in self.requests]
+
+    def data_requests(self) -> list[str]:
+        """Give the paths of the requests for data, which name stations (`/locations/<ids>`)."""
+        return [path for path in self.asked() if "/locations/" in urlsplit(path).path]
 
 
 class _EdrHandler(BaseHTTPRequestHandler):
@@ -139,23 +196,50 @@ class _EdrHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         server = self.server
-        server.requests.append({"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()}})
-        forced = server.statuses.popleft() if server.statuses else None
-        if server.raw is not None:
-            self._send(200, server.raw, "text/html")
+        headers = {k.lower(): v for k, v in self.headers.items()}
+        server.requests.append({"path": self.path, "headers": headers})
+        if server.key is not None and headers.get("authorization") != server.key:
+            status = 401 if "authorization" not in headers else 403
+            self._send(status, json.dumps({"error": "refused"}).encode(), "application/json")
             return
+        forced = server.statuses.popleft() if server.statuses else None
         if forced not in (None, 200):
             self._send(forced, json.dumps({"detail": "stub"}).encode(), "application/json")
             return
         parts = urlsplit(self.path)
         pieces = parts.path.split("/")
         query = parse_qs(parts.query)
-        world = server.worlds.get(pieces[4]) if len(pieces) > 6 else None
+        if parts.path.rstrip("/") == "/edr/v1":
+            self._send(200, b'{"title":"KNMI Data Platform - EDR API"}', "application/json")
+        elif len(pieces) == 6 and pieces[3] == "collections" and pieces[5] == "locations":
+            self._locations(query)
+        elif len(pieces) > 6 and pieces[5] == "locations":
+            self._data(pieces, query)
+        else:
+            self._send(404, b'{"detail":"no such route"}', "application/json")
+
+    def _locations(self, query: dict) -> None:
+        """Answer the list of the stations, those that were open in a window where one is asked for."""
+        server = self.server
+        ids = server.listed
+        if server.locations_bodies:
+            self._send(200, server.locations_bodies.popleft(), "text/html")
+            return
+        if "datetime" in query:
+            start, end = (
+                dt.datetime.strptime(text, EDR_STAMP).replace(tzinfo=UTC) for text in query["datetime"][0].split("/")
+            )
+            ids = [station for station in ids if station not in server.closed or server.closed[station] >= start]
+            del end
+        self._send(200, catalogue.locations_json(ids), "application/geo+json")
+
+    def _data(self, pieces: list[str], query: dict) -> None:
+        server = self.server
+        world = server.worlds.get(pieces[4])
         if world is None:
             self._send(404, b'{"detail":"no collection"}', "application/json")
             return
-        wanted = pieces[6].split(",")
-        stations = [identifier.rsplit("-", 1)[-1] for identifier in wanted]
+        stations = [identifier.rsplit("-", 1)[-1] for identifier in pieces[6].split(",")]
         unknown = [identifier for identifier in stations if identifier not in server.known]
         if unknown:
             self._send(400, json.dumps({"detail": f"the stations {unknown} do not exist"}).encode(), "application/json")
@@ -172,6 +256,9 @@ class _EdrHandler(BaseHTTPRequestHandler):
         times = {stamp for stamps in in_range.values() for stamp in stamps}
         if len(times) * len(names) * len(stations) > server.max_points:
             self._send(413, b'{"detail":"Maximum number of requested data points exceeded"}', "application/json")
+            return
+        if server.raw is not None:
+            self._send(200, server.raw, "text/html")
             return
         coverages = []
         for station, stamps in in_range.items():
@@ -220,55 +307,3 @@ class _EdrHandler(BaseHTTPRequestHandler):
 
     def log_message(self, *_args: object) -> None:
         """Keep the test output free of the access log."""
-
-
-def netcdf_of(worlds: dict[Resolution, World], resolution: Resolution, stamp: dt.datetime, path: Path) -> bytes:
-    """Write the file of the Open Data API for the interval that ends at `stamp`, with every station that has it.
-
-    As the real files: every variable the provider maps is there, a NaN for the station that has no value of it.
-    """
-    world = worlds[resolution]
-    stations = [station for station in world.cells if stamp in world.stamps(station)]
-    string = h5py.string_dtype()
-    with h5netcdf.File(path, "w") as file:
-        file.dimensions = {"station": len(stations), "time": 1}
-        keys = file.create_variable("station", ("station",), dtype=string)
-        keys[:] = [wsi(station) for station in stations]
-        for name in PARAMETERS[resolution]:
-            variable = file.create_variable(name, ("station", "time"), dtype="f8")
-            variable[:] = [[_cell(world, station, name, stamp)] for station in stations]
-    return path.read_bytes()
-
-
-def _cell(world: World, station: str, name: str, stamp: dt.datetime) -> float:
-    value = world.cells[station].get(name, {}).get(stamp)
-    return float("nan") if value is None else value
-
-
-_PREFIXES = {
-    "KMDS": Resolution.MINUTE_10,
-    "hourly": Resolution.HOURLY,
-    "daily": Resolution.DAILY,
-    "monthly": Resolution.MONTHLY,
-    "annual": Resolution.ANNUAL,
-}
-
-
-def serve_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, worlds: list[World]) -> list[str]:
-    """Have the provider read the files of the worlds, and give the names of the files it is asked for."""
-    by_resolution = {world.resolution: world for world in worlds}
-    asked: list[str] = []
-
-    def fetch(
-        _dataset: str, _version: str, filename: str, _settings: object, _expiry: object = None
-    ) -> bytes | Exception:
-        asked.append(filename)
-        resolution = _PREFIXES[filename.split("-", 1)[0].split("_", 1)[0]]
-        stamp = api._end_of(filename)  # noqa: SLF001
-        world = by_resolution[resolution]
-        if not any(stamp in world.stamps(station) for station in world.cells):
-            return FileNotFoundError(filename)
-        return netcdf_of(by_resolution, resolution, stamp, tmp_path / "file.nc")
-
-    monkeypatch.setattr(api, "_fetch_netcdf", fetch)
-    return asked

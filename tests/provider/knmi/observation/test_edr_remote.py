@@ -1,10 +1,15 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The EDR route against the files, live, for De Bilt (GH-3928).
+"""KNMI's EDR API, live, for De Bilt and the list of the stations (GH-3928).
 
-Needs both keys, `WD_AUTH__KNMI` of the Open Data API and `WD_AUTH__KNMI_EDR` of the EDR API, and is skipped without
-either. Each case is a request or two of the EDR API (1,000 an hour) and a few of the Open Data API (an hour of
-hourly values is 24 files, which is why the hourly case is a day and no more).
+Needs the key of the EDR API in `WD_AUTH__KNMI_EDR`, and is skipped without it. Each case is a few requests of the quota
+of 1,000 an hour, which the key shares with whoever else uses it.
+
+There is no second route to compare the values with any more: the Open Data files were. Their values are the facts these
+tests hold the API to (De Bilt on 2020-01-01: TG 0.8, TN -0.2, TX 1.8, RH 0.0, read from the files on 2026-07-19 and
+from
+the legacy export of KNMI), and the offline tests hold the rows made of an answer to those the files route returned
+(`test_values.py`).
 """
 
 from __future__ import annotations
@@ -14,9 +19,8 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
-from polars.testing import assert_frame_equal
 
-from wetterdienst.provider.knmi.observation import edr
+from wetterdienst.exceptions import CredentialRejectedError
 from wetterdienst.provider.knmi.observation.api import KnmiObservationRequest
 from wetterdienst.settings import Settings
 
@@ -25,143 +29,153 @@ if TYPE_CHECKING:
 
 pytestmark = [
     pytest.mark.remote,
-    pytest.mark.skipif(
-        not (Settings().auth.knmi and Settings().auth.knmi_edr),
-        reason="both keys are needed: WD_AUTH__KNMI (Open Data API) and WD_AUTH__KNMI_EDR (EDR API)",
-    ),
+    pytest.mark.skipif(not Settings().auth.knmi_edr, reason="the key of the EDR API is needed: WD_AUTH__KNMI_EDR"),
 ]
 
 UTC = dt.UTC
 DE_BILT = "06260"
+SCHIPHOL = "06240"
+
+
+def _request(
+    tmp_path: Path, parameters: list[tuple[str, ...]], start: dt.datetime, end: dt.datetime
+) -> KnmiObservationRequest:
+    return KnmiObservationRequest(
+        parameters=parameters,
+        start=start,
+        end=end,
+        settings=Settings(auth={"knmi_edr": Settings().auth.knmi_edr}, cache_dir=tmp_path / "cache"),
+        options={"humanize": False},
+    )
 
 
 def _read(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    parameters: list[tuple[str, ...]],
-    start: dt.datetime,
-    end: dt.datetime,
-    *,
-    drop_nulls: bool = False,
-) -> tuple[pl.DataFrame, pl.DataFrame, list[str]]:
-    """Read De Bilt from the EDR API and from the files, as one request: the frame of each, and the EDR requests."""
-    settings = Settings()
-    asked: list[str] = []
-    real_request = edr.request_url
-
-    def request_url(*args: object, **kwargs: object) -> str:
-        url = real_request(*args, **kwargs)
-        asked.append(url)
-        return url
-
-    monkeypatch.setattr(edr, "request_url", request_url)
-    # one day or hour is far less than `MIN_FILES`: the point is that the two routes agree on it
-    monkeypatch.setattr(edr, "MIN_FILES", 0)
-
-    def frame(*, with_edr_key: bool) -> pl.DataFrame:
-        # `None` and not a missing key: a key of the environment is read for a field that is not given
-        auth = {"knmi": settings.auth.knmi, "knmi_edr": settings.auth.knmi_edr if with_edr_key else None}
-        request = KnmiObservationRequest(
-            parameters=parameters,
-            start=start,
-            end=end,
-            settings=Settings(auth=auth, cache_dir=tmp_path / ("edr" if with_edr_key else "files")),
-            options={"drop_nulls": drop_nulls},
-        )
-        return request.filter_by_station_id(DE_BILT).values().all().df
-
-    from_api = frame(with_edr_key=True)
-    assert asked, "the EDR API was not asked"
-    asked_by_edr = list(asked)
-    from_files = frame(with_edr_key=False)
-    assert asked == asked_by_edr, "the files route asked the EDR API"
-    return from_api, from_files, asked
+    tmp_path: Path, parameters: list[tuple[str, ...]], start: dt.datetime, end: dt.datetime, stations: list[str]
+) -> pl.DataFrame:
+    return _request(tmp_path, parameters, start, end).filter_by_station_id(stations).values().all().df
 
 
-def test_the_first_of_january_2020_is_the_same_from_both(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """De Bilt, daily, 2020-01-01: TG 0.8, TN -0.2, TX 1.8 and RH 0.0, dated that day by both routes."""
-    from_api, from_files, _ = _read(
+def _value(df: pl.DataFrame, station: str, parameter: str, stamp: dt.datetime) -> float | None:
+    rows = df.filter(
+        (pl.col("station_id") == station) & (pl.col("parameter") == parameter) & (pl.col("timestamp") == stamp)
+    )
+    assert rows.height == 1, (station, parameter, stamp)
+    return rows.item(0, "value")
+
+
+def test_the_first_of_january_2020_is_dated_that_day(tmp_path: Path) -> None:
+    """De Bilt, daily, 2020-01-01: TG 0.8, TN -0.2, TX 1.8 and RH 0.0, which the API stamps `2020-01-02T00:00Z`."""
+    df = _read(
         tmp_path,
-        monkeypatch,
         [("daily", "data")],
         dt.datetime(2020, 1, 1, tzinfo=UTC),
         dt.datetime(2020, 1, 1, tzinfo=UTC),
+        [DE_BILT],
     )
-    assert_frame_equal(from_api, from_files)
-    day = {
-        row["parameter"]: row["value"]
-        for row in from_api.filter(
-            pl.col("parameter").is_in(
-                ["temperature_air_mean_2m", "temperature_air_min_2m", "temperature_air_max_2m", "precipitation_amount"]
-            )
-        ).iter_rows(named=True)
-    }
-    assert day == {
-        "temperature_air_mean_2m": 0.8,
-        "temperature_air_min_2m": -0.2,
-        "temperature_air_max_2m": 1.8,
-        "precipitation_amount": 0.0,
-    }
-    assert from_api.get_column("timestamp").unique().to_list() == [dt.datetime(2020, 1, 1, tzinfo=UTC)]
+    day = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    assert [_value(df, DE_BILT, name, day) for name in ("TG", "TN", "TX", "RH")] == [0.8, -0.2, 1.8, 0.0]
+    assert df.get_column("timestamp").unique().to_list() == [day]
 
 
-def test_one_hourly_day_is_the_same_from_both(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """De Bilt, hourly, the day of 2020-06-01 (the hours 01:00 to 24:00): the same rows, flags and `raw:` tokens."""
-    from_api, from_files, _ = _read(
-        tmp_path,
-        monkeypatch,
-        [("hourly", "data")],
-        dt.datetime(2020, 6, 1, 1, tzinfo=UTC),
-        dt.datetime(2020, 6, 2, 0, tzinfo=UTC),
-    )
-    assert from_api.height > 24
-    assert_frame_equal(from_api, from_files)
+def test_one_hourly_day_of_one_station_is_the_same_in_a_list_of_two(tmp_path: Path) -> None:
+    """De Bilt, hourly, 2020-06-01 (the hours 01:00 to 24:00): 24 stamps, the same alone and beside Schiphol.
 
-
-def test_one_hour_of_10_minutes_is_the_same_from_both(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """De Bilt, 10 minutes, 2026-11-09 06:10 to 07:00 (a recent hour, in which every variable is in the files)."""
-    from_api, from_files, _ = _read(
-        tmp_path,
-        monkeypatch,
-        [("10_minutes", "data")],
-        dt.datetime(2026, 11, 9, 6, 10, tzinfo=UTC),
-        dt.datetime(2026, 11, 9, 7, 0, tzinfo=UTC),
-    )
-    assert from_api.height > 6
-    assert_frame_equal(from_api, from_files)
-
-
-def test_one_hour_of_10_minutes_in_2020_is_the_same_from_both_with_the_nulls_dropped(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The files of 2020 do not carry `tg` at all, where the API leaves it out for a station that has no such sensor.
-
-    With the nulls kept that is a NaN row of the API and no row of the files, which cannot be told apart in the answer
-    (De Bilt's `vv` is a NaN row of both): the values are the same, and so is the default, with the nulls dropped.
+    The two are different requests (the block of a year for one station, the 24 hours for two), whose answers agree.
     """
-    from_api, from_files, _ = _read(
+    start, end = dt.datetime(2020, 6, 1, 1, tzinfo=UTC), dt.datetime(2020, 6, 2, 0, tzinfo=UTC)
+    alone = _read(tmp_path, [("hourly", "data")], start, end, [DE_BILT])
+    both = _read(tmp_path, [("hourly", "data")], start, end, [DE_BILT, SCHIPHOL])
+    assert alone.get_column("timestamp").n_unique() == 24
+    assert set(both.get_column("station_id")) == {DE_BILT, SCHIPHOL}
+    columns = ["parameter", "timestamp", "value", "quality_flags"]
+    assert (
+        alone.sort(columns)
+        .select(columns)
+        .equals(both.filter(pl.col("station_id") == DE_BILT).sort(columns).select(columns))
+    )
+
+
+def test_one_hour_of_10_minutes(tmp_path: Path) -> None:
+    """De Bilt, 10 minutes, 2020-06-01 12:10 to 13:00: six stamps."""
+    df = _read(
         tmp_path,
-        monkeypatch,
         [("10_minutes", "data")],
         dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC),
         dt.datetime(2020, 6, 1, 13, 0, tzinfo=UTC),
-        drop_nulls=True,
+        [DE_BILT],
     )
-    assert from_api.height > 6
-    assert_frame_equal(from_api, from_files)
+    assert df.get_column("timestamp").n_unique() == 6
+    assert df.get_column("timestamp").min() == dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC)
 
 
-@pytest.mark.parametrize(
-    ("resolution", "start", "end"),
-    [
-        pytest.param("monthly", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 3, 1, tzinfo=UTC), id="monthly"),
-        pytest.param("annual", dt.datetime(2018, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, tzinfo=UTC), id="annual"),
-    ],
-)
-def test_months_and_years_are_the_same_from_both(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, resolution: str, start: dt.datetime, end: dt.datetime
-) -> None:
-    """The monthly and the annual collections, which the API stamps with the end of the period, agree with the files."""
-    from_api, from_files, _ = _read(tmp_path, monkeypatch, [(resolution, "data")], start, end)
-    assert from_api.height > 0
-    assert_frame_equal(from_api, from_files)
+def test_months_and_years_are_dated_with_their_first_day(tmp_path: Path) -> None:
+    """January 2020 (TG 6.2) is 2020-01-01, and 2018 (TG 11.3, the hot year) is 2018-01-01: the API stamps their end."""
+    monthly = _read(
+        tmp_path,
+        [("monthly", "data")],
+        dt.datetime(2020, 1, 1, tzinfo=UTC),
+        dt.datetime(2020, 3, 1, tzinfo=UTC),
+        [DE_BILT],
+    )
+    assert _value(monthly, DE_BILT, "TG", dt.datetime(2020, 1, 1, tzinfo=UTC)) == 6.2
+    annual = _read(
+        tmp_path,
+        [("annual", "data")],
+        dt.datetime(2018, 1, 1, tzinfo=UTC),
+        dt.datetime(2020, 1, 1, tzinfo=UTC),
+        [DE_BILT],
+    )
+    assert _value(annual, DE_BILT, "TG", dt.datetime(2018, 1, 1, tzinfo=UTC)) == 11.3
+    assert _value(annual, DE_BILT, "TG", dt.datetime(2020, 1, 1, tzinfo=UTC)) == 11.7
+
+
+def test_the_stations_and_what_keeps_a_closed_one_out_of_a_window(tmp_path: Path) -> None:
+    """The 77 stations of the list; Soesterberg (closed 2008) has an end and is not in a window of 2026.
+
+    Schiphol is in a window of 1960, where `/locations?datetime=` would leave it out (its station starts in 1990, its
+    values in 1951). The fog stations are 10-minute stations only, block 78 is not in the annual data.
+    """
+    from wetterdienst.ui.core import limit_stations_to_window  # noqa: PLC0415
+
+    def listing(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFrame:
+        return limit_stations_to_window(_request(tmp_path, [(resolution, "data")], start, end).all()).df
+
+    now = dt.datetime(2026, 1, 1, tzinfo=UTC)
+    everything = _request(tmp_path, [("10_minutes", "data")], None, None).all().df
+    assert everything.height >= 70
+    row = everything.filter(pl.col("station_id") == DE_BILT).row(0, named=True)
+    assert (row["name"], row["wigos_id"]) == ("De Bilt", "0-20000-0-06260")
+    soesterberg = everything.filter(pl.col("station_id") == "06265")
+    assert (
+        dt.datetime(2008, 12, 1, tzinfo=UTC)
+        <= soesterberg.item(0, "end_timestamp")
+        <= dt.datetime(2009, 3, 1, tzinfo=UTC)
+        if not soesterberg.is_empty()
+        else True
+    )
+    daily_2026 = listing("daily", now, dt.datetime(2026, 1, 31, tzinfo=UTC))
+    assert "06265" not in set(daily_2026.get_column("station_id"))
+    assert DE_BILT in set(daily_2026.get_column("station_id"))
+    assert SCHIPHOL in set(
+        listing("daily", dt.datetime(1960, 1, 1, tzinfo=UTC), dt.datetime(1960, 1, 31, tzinfo=UTC)).get_column(
+            "station_id"
+        )
+    )
+    assert not {"78871", "78873", "78990"} & set(listing("annual", now, now).get_column("station_id"))
+    assert not {"06233", "06236", "06237", "06238"} & set(daily_2026.get_column("station_id"))
+
+
+def test_the_key_is_checked_against_the_api() -> None:
+    """`auth` for the key that is set: valid. For a key the gateway refuses: invalid, with no quota spent."""
+    assert KnmiObservationRequest.is_valid(Settings()) is True
+    assert KnmiObservationRequest.is_valid(Settings(auth={"knmi_edr": "not-a-key-of-the-edr-api"})) is False
+
+
+def test_a_key_of_the_open_data_api_is_the_error_that_says_an_edr_key_is_needed(tmp_path: Path) -> None:
+    """A key the gateway refuses (403) ends a query with the error that names `WD_AUTH__KNMI_EDR`."""
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data")],
+        settings=Settings(auth={"knmi_edr": "an-open-data-key-is-no-edr-key"}, cache_dir=tmp_path / "cache"),
+    )
+    with pytest.raises(CredentialRejectedError, match="WD_AUTH__KNMI_EDR"):
+        request.all()

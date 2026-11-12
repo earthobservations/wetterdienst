@@ -413,7 +413,7 @@ what the answer is missing:
   query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
   Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
   This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
-  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
+  `fmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
   `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter

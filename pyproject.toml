@@ -188,10 +188,6 @@ influxdb = [
     # influxdb 5.3.0 pinned 0.6.1 and 5.3.1 leaves it unbounded, so an installed 0.6.1 would stay (GHSA-6v7p-g79w-8964)
     "msgpack>=1.2.1,<2",
 ]
-knmi = [
-    "h5netcdf>=1.7.3,<2",
-    "h5py>=3.11,<4",
-]
 interpolation = [
     "scipy>=1.14.1,<2",
     # 2.0.6 is the first release that works with numpy 2, which everything else here resolves to.

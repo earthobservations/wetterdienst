@@ -6,11 +6,12 @@ Instituut)
 ## Overview
 
 KNMI publishes observations from the Dutch weather station network through its Data
-Platform, covering 10-minute, hourly, daily, monthly and annual resolution. Access requires a free API key,
+Platform, covering 10-minute, hourly, daily, monthly and annual resolution. Access requires a free EDR API key,
 which you can request at
-[developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) and provide via
-the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"})`). A second, optional key for KNMI's EDR API, `WD_AUTH__KNMI_EDR`, makes
-long ranges of a station quick, see [the observation page](observation/index.md#long-ranges-the-edr-api-optional).
+[developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) (a key of the platform's EDR API, which the
+library reads) and provide via the `WD_AUTH__KNMI_EDR` environment variable (or
+`Settings(auth={"knmi_edr": "<api_key>"})`); see [the observation page](observation/index.md#the-key). A key of the Open
+Data API, which the former `auth.knmi` setting held until 0.186.0, is refused.
 
 ## License
 
@@ -41,12 +42,12 @@ carries no contact. It also names "Distributed downloading of the same data from
 keys, or IP addresses" as abuse. The `attribution` of an answer is "© KNMI".
 
 What this means for wetterdienst (our reading, not KNMI's): the library sends your key from your machine and keeps what
-it downloads for five minutes, so a repeated query is not a repeated download. A server that holds a key and answers
+it downloads for 12 hours (5 minutes for the last 6), so a repeated query is not a repeated download. A server that holds a key and answers
 other people's queries is the proxy with a cache that KNMI describes for "your own users"; whether an open server that
-anyone can reach, with no account of its own, is within "your own applications" the policy does not say. Reading a long
-window of the 10-minute data takes one file per time step, which is no bulk download of a dataset and counts against
-the hourly quota (the EDR route, where its key is set, asks for a range in a few requests of its own quota of 1000 an
-hour). Whether a shared instance is within the policy was put to KNMI in November 2026 and no
+anyone can reach, with no account of its own, is within "your own applications" the policy does not say. A long
+window of one station is a few requests of the EDR API, whose quota is 1,000 an hour (a year of hourly values is one
+request, ten years of 10-minute values 120), where the files it replaced took one for each time step. Nothing is read
+from a bulk dataset. Whether a shared instance is within the policy was put to KNMI in November 2026 and no
 answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials).
 
 ```{toctree}

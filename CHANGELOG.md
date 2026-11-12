@@ -18,33 +18,41 @@ Types of changes:
 
 ### Added
 
-- `knmi/observation` reads a long range of one station or a list of stations from KNMI's EDR API,
-  in a few requests instead of one file per time step, where the new second key `WD_AUTH__KNMI_EDR`
-  (`Settings(auth={"knmi_edr": ...})`) is set and the range would take more than 48 files. The rows
-  are those of the files. A refused key, a used-up quota or an API that does not answer fall back to
-  the files with one warning. Without the key nothing changes (GH-3928)
 - `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
   observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
-  precipitation, sunshine and radiation, one file per month or year. A value is stamped with the first
-  day of its period (the files' own time is the end of it). `EV24`, `FHVEC`, `T10N`, `VVN`, `VVX` and
-  `W1` to `W6` are not served, as no canonical parameter names them (GH-4006)
+  precipitation, sunshine and radiation. A value is stamped with the first day of its period (the
+  API's own stamp is the end of it). `EV24`, `FHVEC`, `T10N`, `VVN`, `VVX` and `W1` to `W6` are not
+  served, as no canonical parameter names them (GH-4006)
+
+### Changed
+
+- **Breaking**: `knmi/observation` reads KNMI's EDR API only, which answers a range of several
+  stations in one request, where the Open Data files took one request for each time step (a year of
+  hourly values was 8,760). The file reader and the `knmi` extra are removed (`pip install
+  wetterdienst[knmi]` is no extra any more; nothing else is needed). The EDR API needs a key of its
+  own: register at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set it as
+  `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`). `WD_AUTH__KNMI` (`auth.knmi`), the key of
+  the Open Data API, is refused with an error that names `WD_AUTH__KNMI_EDR`, and an Open Data key
+  is refused by the API (`CredentialRejectedError`, with where to get the right key). The rows,
+  stamps, codes and flags are those of the files; a 10-minute `tg` is still no row before 2020-07-23.
+  The quota is 1,000 requests an hour: a year of hourly values of one station is 1, ten years of
+  10-minute values 120, a day of every station 1. A 429 or a failure is a `DownloadError`, and an
+  unknown station is left out with a warning (GH-3928)
 
 ### Fixed
 
-- `knmi/observation` lists the stations of KNMI's own station catalogue (one small file, read with
-  the same `WD_AUTH__KNMI` key and kept a week) and not those of the latest file of each resolution.
-  Valkenburg `06210` and Soesterberg `06265`, whose values are in the files, are listed, and the
-  list no longer varies with the latest file (57 stations at 10 minutes where 76 have data). Fog
-  stations are listed at 10 minutes only, and the Caribbean stations (block 78) not at annual, which
-  no annual file holds; a moved station is listed where it is now. A closed station has an
-  `end_timestamp` (its stop date and 62 days), so a listing for a later window leaves it out
-  (GH-4008)
+- `knmi/observation` lists the stations of the list of the EDR API (`/locations`) and not those of
+  the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are in
+  the API, are listed, and the list no longer varies with the latest file. Fog stations are listed at
+  10 minutes only, and the Caribbean stations (block 78) not at annual, which has no value of them.
+  A closed station has an `end_timestamp` (the end of its last monthly value, read from the API), so
+  a listing for a later window leaves it out, as does the rank listing that had Soesterberg second
+  nearest to De Bilt in 2026 (GH-4008)
 - `knmi/observation` `wigos_id` at 10 minutes is the WSI (`0-20000-0-06260`), as at every other
   resolution, and no longer the bare number (`06260`). `station_id` is unchanged (GH-4008)
-- `knmi/observation` asks for no file of a period that has not ended (the running 10-minute
+- `knmi/observation` asks for nothing of a period that has not ended (the running 10-minute
   interval, hour, day, month or year), where a range into the present got a 404 reported as a
-  skipped file. Periods that have ended are read as before, and the validated hourly and daily
-  files of the last 5.5 to 78 hours do not exist yet and still warn (GH-4008)
+  skipped file (GH-4008)
 
 ## [0.186.0] - 2026-11-11
 

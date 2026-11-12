@@ -1,28 +1,20 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Parser for KNMI's per-timestamp, all-stations NetCDF files.
+"""The codes of KNMI's observations, mapped to nulls: the one step every reading of KNMI goes through.
 
-Read directly with h5netcdf rather than xarray: the files are plain NetCDF4/HDF5 with
-unpacked float variables (no scale_factor/add_offset, _FillValue is NaN) and vlen-string
-station keys, so all we need is a couple of indexed reads -- xarray's labeled-array
-machinery would be dead weight here.
+The readings come from KNMI's EDR API (`edr`). Until GH-3928 they came from the NetCDF files of the Open Data API, which
+write the same codes in the same variables, and the rows that came out of them are the ones that `knmi_readings` still
+makes of the API's (`tests/provider/knmi/observation/files/frozen_*.csv` hold them).
 """
 
 from __future__ import annotations
 
-import contextlib
-import io
-from typing import TYPE_CHECKING, Any
+import datetime as dt
 
 import polars as pl
 
-from wetterdienst.exceptions import UpstreamError
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
-from wetterdienst.util.extras import import_optional
-
-if TYPE_CHECKING:
-    import datetime as dt
-    from collections.abc import Iterator, Mapping, Sequence
 
 ROW_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -30,7 +22,7 @@ ROW_SCHEMA = {
     "value": pl.Float64,
 }
 
-# the _FillValue of a missing observation
+# KNMI's missing observation is a NaN (a null of the EDR API, which is turned back into the NaN)
 _FILL_VALUE = "NaN"
 
 # KNMI encodes "trace precipitation" (measured but below the 0.05mm resolution) as a
@@ -45,135 +37,66 @@ _TRACE = "-1"
 
 # the hourly cloud cover N and the daily mean NG are octants, "9=sky invisible" (the same headers: "9=bovenlucht
 # onzichtbaar"), which is no cover and was 1.125 once converted: 941 of the 87,696 hours of the stations 260, 240 and
-# 344 from 2015 to 2024. The 10-minute `n` (lowercase) is a different variable that the text export does not carry, but
-# the files do: 128 of the 11,293 readings of the 336 files of 05:00 to 08:50 UTC from 2026-10-05 to 2026-10-18 are a
+# 344 from 2015 to 2024. The 10-minute `n` (lowercase) is a different variable that the text export does not carry,
+# in which 128 of the 11,293 readings of the 336 files of 05:00 to 08:50 UTC from 2026-10-05 to 2026-10-18 are a
 # 9, at a mean horizontal visibility `vv` of 130 m (median) to 998 m (maximum), the fog of the code (GH-3135)
 _CLOUD_COVER_CODE_PARAMETERS = ("N", "NG", "n")
 _SKY_INVISIBLE = "9"
 
 # the hourly wind direction DD is a bearing "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (KNMI's
 # description of the variable): the two codes are no direction. The 10-minute `dd` (lowercase) is a different variable,
-# in which a file read showed no code (GH-2850)
+# in which a read showed no code (GH-2850)
 _WIND_DIRECTION_CODE_PARAMETERS = ("DD",)
 _CALM = "0"
 _VARIABLE = "990"
 
-# the vector mean wind direction DDVEC of the monthly and the annual files is the same bearing and has the one code of
-# the description of the files: "360=north; 90=east; 180=south; 270=west; 0=calm/variable" (read 2026-11-11 from
-# monthly-observations-validated-202609.nc and annual-observations-validated-2024.nc, whose 62 to 67 stations hold
-# bearings from 88 to 257 and no 0)
+# the vector mean wind direction DDVEC of the monthly and the annual datasets is the same bearing and has the one code
+# of the description: "360=north; 90=east; 180=south; 270=west; 0=calm/variable" (read 2026-11-11 from the monthly
+# file of
+# 2026-09 and the annual one of 2024, whose 62 to 67 stations hold bearings from 88 to 257 and no 0)
 _VECTOR_WIND_DIRECTION_PARAMETERS = ("DDVEC",)
 
 
-@contextlib.contextmanager
-def open_netcdf(payload: bytes) -> Iterator[Any]:
-    """Open a KNMI NetCDF file held in memory, refusing a file whose variables are not stored in it.
-
-    HDF5 lets a dataset keep its data in another file, named by a path (external storage), or take it from
-    other files (a virtual dataset), and h5py follows both although the container itself is in memory. KNMI's files
-    keep every variable in the file, so a variable that does not is no file KNMI wrote: it is refused before any
-    value is read from it (GH-3337).
-
-    Raises:
-        UpstreamError: a variable keeps its data outside the file.
-
-    """
-    h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
-
-    with h5netcdf.File(io.BytesIO(payload), "r") as file:
-        for variable in file.variables.values():
-            dataset = variable._h5ds  # noqa: SLF001
-            if dataset.external is not None or dataset.is_virtual:
-                msg = "The KNMI file keeps the data of a variable outside the file, which is not read."
-                raise UpstreamError(msg)
-        yield file
+#: The first stamp of a variable that the files did not carry from the start: the 10-minute `tg` (the temperature at
+#: 10 cm) is in no file before the one named 2020-07-23 07:40 (the file of 07:30 has none, the next 10 minutes have it;
+#: found by bisection on 2026-11-12, `GET` of the 10-minute files of 2020-06-01 to 2026-11-01). The files route returned
+#: no row of it before, where the EDR API leaves it out of the answer as it does for a station with no sensor, which
+#: `parse_coverage_json` makes a NaN row: `without_rows_before_the_variable` takes those out, so that the rows are the
+#: same. (A station without the sensor is a NaN row in both: the variable was in the file.)
+_VARIABLE_SINCE = {Resolution.MINUTE_10: {"tg": dt.datetime(2020, 7, 23, 7, 40, tzinfo=dt.UTC)}}
 
 
-def decode_str(value: object) -> str:
-    """Decode an HDF5 string cell to str (h5netcdf returns vlen strings as bytes)."""
-    return value.decode() if isinstance(value, (bytes, bytearray)) else str(value)
+def without_rows_before_the_variable(df: pl.DataFrame, resolution: Resolution) -> pl.DataFrame:
+    """Leave out the rows of a variable from before the files carried it (`_VARIABLE_SINCE`)."""
+    for name, since in _VARIABLE_SINCE.get(resolution, {}).items():
+        df = df.filter((pl.col("parameter") != name) | (pl.col("timestamp") >= since))
+    return df
 
 
 def public_station_id(wsi: object) -> str:
     """Turn KNMI's full WSI station key into the friendlier trailing WMO station number.
 
-    In the NetCDF files stations are keyed by their WSI (WIGOS Station Identifier), e.g.
-    ``0-20000-0-06260`` for De Bilt. Only the last segment (``06260``, the WMO station
-    number) varies between stations and it is unique across the whole network, so that is
-    what's exposed as ``station_id`` -- much friendlier than the full WSI while staying an
-    exact, stable identifier (unlike stripping the WMO block prefix, which would break the
-    Caribbean Netherlands stations in block 78).
+    Stations are keyed by their WSI (WIGOS Station Identifier), e.g. ``0-20000-0-06260`` for De Bilt. Only the last
+    segment (``06260``, the WMO station number) varies between stations and it is unique across the whole network, so
+    that is what's exposed as ``station_id`` -- much friendlier than the full WSI while staying an exact, stable
+    identifier (unlike stripping the WMO block prefix, which would break the Caribbean Netherlands stations in block
+    78).
     """
-    return decode_str(wsi).rsplit("-", 1)[-1]
-
-
-def station_wsis(variables: Mapping[str, Any]) -> list[str]:
-    """Give the WIGOS station identifier (`0-20000-0-06260`) of every station of a file, in the order of the file.
-
-    The files carry it in their `wsi` variable. The hourly, daily, monthly and annual files also key their stations
-    by it, but the 10-minute files key them by the bare WMO number (`06260`, read 2026-11-11 from the files of 2012,
-    2014, 2018, 2020, 2022, 2024 and 2026), so the key is no WSI there and was published as one (GH-4008). A file
-    without the variable is read by its key, which is the WSI wherever the files that do have one agree with it.
-    """
-    keys = variables["wsi"] if "wsi" in variables else variables["station"]
-    return [decode_str(wsi) for wsi in keys[:]]
-
-
-def parse_knmi_netcdf(
-    payload: bytes,
-    station_id: str,
-    parameters: Sequence[str],
-    moment: dt.datetime,
-    *,
-    trace_codes: bool = True,
-) -> pl.DataFrame:
-    """Extract one station's values for the given parameters from a KNMI NetCDF file.
-
-    `trace_codes` is whether the file writes a trace of precipitation or of sunshine as `-1` (the hourly and the daily
-    files do). The monthly and the annual files are sums of them and describe no such code, so a `-1` there is no trace
-    and is left as it is.
-
-    Each file covers a single timestamp for every station at once (the whole point of
-    downloading it), so this returns at most one row per parameter. The file's own
-    internal "time" coordinate is not read: `moment`, the `timestamp` the caller attaches, is
-    computed from the file's name (``api._stamp``, which says what the real files hold). The
-    coordinate is the end of the interval in all three datasets (10 minutes: the file's name; hourly:
-    the name plus one hour; daily: the next 00:00, which is why the date is attached).
-    """
-    with open_netcdf(payload) as file:
-        variables = file.variables
-        # the file is keyed by full WSI; map the public station_id (trailing WMO number)
-        # back to that station's row index.
-        row_by_public = {public_station_id(wsi): row for row, wsi in enumerate(variables["station"][:])}
-        row = row_by_public.get(station_id)
-        if row is None:
-            return pl.DataFrame()
-        rows = []
-        for parameter in parameters:
-            if parameter not in variables:
-                continue
-            # data variables are (station, time) with a single time step per file
-            cell = variables[parameter][row]
-            value = float(cell[0]) if getattr(cell, "shape", ()) else float(cell)
-            rows.append({"timestamp": moment, "parameter": parameter, "value": value})
-    return knmi_readings(pl.DataFrame(rows, schema=ROW_SCHEMA, orient="row"), trace_codes=trace_codes)
+    return (wsi.decode() if isinstance(wsi, (bytes, bytearray)) else str(wsi)).rsplit("-", 1)[-1]
 
 
 def knmi_readings(df: pl.DataFrame, *, trace_codes: bool = True) -> pl.DataFrame:
     """Turn the readings as KNMI wrote them (`timestamp`, `parameter`, `value`) into the frame the provider hands over.
 
-    The one step that every route to KNMI's values ends in, whether the readings came from a NetCDF file or from the EDR
-    API (GH-3928), so that the two give the same rows, the same `quality_flags` and the same `raw:` tokens. `value` is
-    what KNMI wrote, a NaN where it has no reading (the EDR API writes null there, which the caller turns back into
-    the NaN).
-
-    `trace_codes` is whether the readings come from the hourly or the daily dataset, whose `-1` is a trace
-    (`parse_knmi_netcdf`).
+    `value` is what KNMI wrote, a NaN where it has no reading. `trace_codes` is whether the readings come from the
+    10-minute, the hourly or the daily dataset, whose `-1` is a trace of precipitation or of sunshine. The monthly
+    and the
+    annual datasets are sums of them and describe no such code, so a `-1` there is no trace and is left as it is.
     """
-    # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
+    # KNMI's missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
     # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0, and the 0 (calm)
     # and 990 (variable) of the hourly wind direction are no bearing, so null (GH-2850), as is the 9 of the cloud cover
-    # (GH-3123). All keep what the file held as the `raw` token of `quality_flags` (GH-2759)
+    # (GH-3123). All keep what KNMI wrote as the `raw` token of `quality_flags` (GH-2759)
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_FILL_VALUE),

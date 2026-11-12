@@ -113,8 +113,7 @@ AEMET, KNMI, MET Norway Frost and the Met Office (CEDA) need a key or an account
 | Provider and network | Variable | Python |
 | --- | --- | --- |
 | `aemet/observation` | `WD_AUTH__AEMET=<api_key>` | `Settings(auth={"aemet": "<api_key>"})` |
-| `knmi/observation` | `WD_AUTH__KNMI=<api_key>` | `Settings(auth={"knmi": "<api_key>"})` |
-| `knmi/observation`, long ranges (optional, EDR API) | `WD_AUTH__KNMI_EDR=<api_key>` | `Settings(auth={"knmi_edr": "<api_key>"})` |
+| `knmi/observation` (an EDR API key) | `WD_AUTH__KNMI_EDR=<api_key>` | `Settings(auth={"knmi_edr": "<api_key>"})` |
 | `metno/frost` | `WD_AUTH__METNO_FROST=<client_id>` | `Settings(auth={"metno_frost": "<client_id>"})` |
 | `metoffice/observation` | `WD_AUTH__CEDA=<username>:<password>` | `Settings(auth={"ceda": "<username>:<password>"})` |
 

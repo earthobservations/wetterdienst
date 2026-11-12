@@ -130,7 +130,7 @@ class Auth(BaseModel):
     `reveal()` takes a value back out, and is the only thing that should.
     """
 
-    # a credential assigned after construction (`settings.auth.knmi = ...`) is wrapped, split and
+    # a credential assigned after construction (`settings.auth.aemet = ...`) is wrapped, split and
     # checked as one given to the constructor is; without it a plain `str` was kept, which `reveal()`
     # could not read and which printed as it was (GH-2387)
     # a credential refused is not repeated in the error, which pydantic otherwise echoes as its
@@ -138,14 +138,38 @@ class Auth(BaseModel):
     model_config = ConfigDict(validate_assignment=True, hide_input_in_errors=True)
 
     aemet: SecretStr | None = Field(default=None)
-    knmi: SecretStr | None = Field(default=None)
-    # the key of KNMI's EDR API, a second API with its own key and quota (GH-3928): with it, a long range of KNMI values
-    # is read from there in a few requests, and without it from the Open Data files as always
+    # the key of KNMI's EDR API, which is the only source of `knmi/observation` since GH-3928; the key of the Open Data
+    # API that `WD_AUTH__KNMI` held is refused (`refuse_the_open_data_key`)
     knmi_edr: SecretStr | None = Field(default=None)
     metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
     ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
 
-    @field_validator("aemet", "knmi", "knmi_edr", "metno_frost", "ceda", mode="before")
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_the_open_data_key(cls, data: object) -> object:
+        """Refuse a `knmi` key, the key of KNMI's Open Data API, and say which key is needed now (GH-3928).
+
+        `WD_AUTH__KNMI` held the key of the Open Data API, which `knmi/observation` read its NetCDF files with. KNMI
+        is read
+        from its EDR API only now, which refuses that key, so a key that is still set is refused where it is set, by
+        name,
+        and not left to fail at KNMI with a 403 (or taken for a key of the other API, which it is not). Only the name is
+        said, never the value. A blank value is no key and is left alone, as it always was.
+        """
+        if isinstance(data, Mapping):
+            for name, value in data.items():
+                text = value.get_secret_value() if isinstance(value, SecretStr) else value
+                if str(name).lower() == "knmi" and not (text is None or (isinstance(text, str) and not text.strip())):
+                    msg = (
+                        "knmi (WD_AUTH__KNMI) is no setting any more: KNMI is read from its EDR API now, which needs a "
+                        "key of that API (an Open Data API key, which this held, is refused). Request one in the API "
+                        "Catalog at https://developer.dataplatform.knmi.nl/edr-api and set WD_AUTH__KNMI_EDR "
+                        "(or Settings(auth={'knmi_edr': ...})) instead"
+                    )
+                    raise ValueError(msg)
+        return data
+
+    @field_validator("aemet", "knmi_edr", "metno_frost", "ceda", mode="before")
     @classmethod
     def reject_a_masked_credential(cls, value: object) -> object:
         """Refuse the mask that a dumped credential leaves behind.
@@ -162,7 +186,7 @@ class Auth(BaseModel):
                 raise ValueError(msg)
         return value
 
-    @field_validator("aemet", "knmi", "knmi_edr", mode="before")
+    @field_validator("aemet", "knmi_edr", mode="before")
     @classmethod
     def strip_a_key(cls, value: object) -> object:
         """Keep a key without the whitespace around it, text of nothing but whitespace reading as unset.

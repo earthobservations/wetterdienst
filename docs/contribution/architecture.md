@@ -243,7 +243,7 @@ Two pydantic-settings classes, kept apart on purpose ([the user's view](../usage
 | | `Settings` (`wetterdienst/settings.py`) | `Options` (`wetterdienst/options.py`) |
 | --- | --- | --- |
 | Belongs to | the host: one per process | one request |
-| Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI`) | `WD_TS_*` |
+| Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI_EDR`) | `WD_TS_*` |
 | Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, `fetch_ahead`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
 | Read by | the providers (through `request.settings`), the network layer, `ui/` | the values, the interpolation and the summary; never a provider |
 | Passed as | `settings=` on the request (a `Settings` or a dict) | `options=` on the request (an `Options`, a dict, or none to take the environment) |

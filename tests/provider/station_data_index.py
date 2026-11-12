@@ -242,8 +242,8 @@ NOT_HELD: dict[str, str] = {
     "imgw/hydrology": "the archives are one for each month or year and hold every station, named inside the zip",
     "imgw/meteorology": "the archives are one for each month or year and hold every station, named inside the zip",
     "knmi/observation": (
-        "needs a credential, and a NetCDF file for each timestamp holds the stations that reported in it: the stations "
-        "are those of the catalogue of KNMI, one CSV file, and no listing says which have data (GH-4008)"
+        "needs a credential, and the stations are those of the list of KNMI's EDR API, which names no data: it has no "
+        "dates, and what says which have data is a request of the values (GH-3928)"
     ),
     "lhmt/observation": "the data is read for one station and day at a time from an API with no listing of data files",
     "meteofrance/observation": "one file for each department and period holds its stations, named inside it",

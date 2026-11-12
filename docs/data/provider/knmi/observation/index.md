@@ -2,153 +2,130 @@
 
 ## Overview
 
-KNMI's [Data Platform](https://dataplatform.knmi.nl/) provides access to 10-minute,
-hourly, daily, monthly and annual in-situ meteorological observations from KNMI's station network across
-the Netherlands. A free API key is required; request one at
-[developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/).
+KNMI's [Data Platform](https://dataplatform.knmi.nl/) provides 10-minute, hourly, daily, monthly and annual in-situ
+meteorological observations from KNMI's station network across the Netherlands (the North Sea platforms and the
+Caribbean Netherlands included). The values and the stations are read from the platform's
+[EDR API](https://developer.dataplatform.knmi.nl/edr-api), which answers a range of several stations in one request.
 
-Set the API key via the `WD_AUTH__KNMI=<api_key>` environment variable or the
-`Settings(auth={"knmi": "<api_key>"})` argument.
+## The key
 
-Unlike most providers, KNMI's Data Platform has no per-station history endpoint: each
-dataset file covers a single timestamp for every station in the network at once, and
-there is no OPeNDAP/THREDDS/Zarr access. The only way to build a station time series is
-to download one file per timestamp and extract that station's row. As a result a wide
-date range translates into many individual file downloads — a 30-day hourly query is 720
-downloads, and a single day at 10-minute resolution is 144 — so large sub-daily ranges
-are impractical. This is a documented characteristic of KNMI's API, not a limitation of
-wetterdienst, whose [EDR fast path](#long-ranges-the-edr-api-optional) reads long ranges in a few requests where its key
-is set. The monthly and annual files make long ranges cheap: a file is about 80 KB and holds every station
-for one month or one year, so 30 years of monthly values are 360 downloads and 30 years of annual values 30.
-
-The "validated" datasets lag real time (observed: ~1–2 days for hourly, and a month's file appears in the
-first days of the next month), so only historical data is available; there is no real-time/`now` period.
-
-The monthly and annual files are the `monthly-in-situ-meteorological-observations-validated` and
-`annual-in-situ-meteorological-observations-validated` datasets (version 1.0, read with a key on 2026-11-11):
-`monthly-observations-validated-YYYYMM.nc` from 190101 to 202610 (1510 files, none missing) and
-`annual-observations-validated-YYYY.nc` from 1901 to 2025 (125 files, none missing). The file is named for its period
-and its time coordinate is the end of it (the 1st of the next month, 1 January of the next year, 00:00 UTC, "Time (in
-UTC) indicating the end of the monthly measurement interval"), so a value is stamped with the first day of its period,
-as the daily values are with their date: the file of September 2026 gives the stamp 2026-09-01. A start inside a month
-or a year includes it when the request asks for that resolution alone. The variables are those of the daily file, with
-`TG` the mean of the daily means, `TN` and `TX` the extremes of the period, and `RH`, `DR`, `SQ` and `Q` the sums. The
-dataset pages say that "daily observations have been aggregated to monthly intervals" and that "monthly observations
-have been aggregated to annual intervals", which is why `PG`, whose description reads "mean sea level pressure" and no
-more, is named a mean (the daily one is "calculated as a mean of the 24 pressure values of that day"). The files of
-the early years hold few of them (January 1901: the temperatures, the humidity and the sunshine of one station), and a
-variable a station does not measure is missing. A period that has not ended (the running 10 minutes, hour, day, month or
-year) has no file and is not asked for, with no warning. A period that has ended may still have none: the validated
-hourly files are made 5.5 to 78 hours after their hour (median 25, read 2026-11-11) and the daily ones at least 4.3
-hours after their day, so the latest of them are skipped with a warning, as is any file KNMI has not published.
-
-Not served from the monthly and annual files, because the canonical parameters have no name for them yet:
-`EV24` (the potential evapotranspiration of the period, where `evapotranspiration_potential_last_24h` is a day's),
-`FHVEC` (the vector mean wind speed), `T10N` (the minimum air temperature at 10 cm), `VVN` and `VVX` (the minimum and
-maximum visibility, a code from 0 to 89 and no distance), and `W1`, `W2`, `W3`, `W5` and `W6` (the number of "daily
-intervals" with fog, rain, snow, thunderstorm and ice formation: they hold 0 or 1 for a whole year, so they are no count
-of days, which the description does not explain).
-
-## Long ranges: the EDR API (optional)
-
-KNMI's [EDR API](https://developer.dataplatform.knmi.nl/edr-api) answers the range of a station in one request, where the
-files take one for each time step: a year of hourly values is 8,760 files (about 527 MB) from the Open Data API and one
-request (about 240 KB, compressed) from the EDR API. wetterdienst reads long ranges from it where you give it a key, and
-from the files as before everywhere else.
-
-**The key.** The EDR API is a separate API with its own key and its own quota (1,000 requests an hour, whatever their
-size): the key of the Open Data API is refused by it (403), and the other way round. Request it in the API Catalog of the
-[developer portal](https://developer.dataplatform.knmi.nl/edr-api) and set it beside the other one:
+The EDR API needs a key of its own, which is not the key of KNMI's Open Data API. Register at
+[developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) and request an EDR key in the API Catalog
+(`/apis` of the portal; the key is shown once, note it down), then set it:
 
 ```bash
-export WD_AUTH__KNMI=<open_data_key>          # still needed: the list of the stations is read from the files
 export WD_AUTH__KNMI_EDR=<edr_key>
 ```
 
-or `Settings(auth={"knmi": "<open_data_key>", "knmi_edr": "<edr_key>"})`. Without `knmi_edr` nothing changes.
+or `Settings(auth={"knmi_edr": "<edr_key>"})`. A key of the Open Data API is refused by the EDR API with a 403, and the
+other way round. Until 0.186.0 the library read KNMI's Open Data files with the key of the former `auth.knmi` setting; it no longer
+does, and that setting, where it is still set, is refused with an error that names `WD_AUTH__KNMI_EDR` (the value is
+never printed).
+A request without the key, or with one the API refuses, is an error that says where to get one. `wetterdienst auth
+--provider=knmi --network=observation`, `GET /api/auth` and the MCP tool `auth` ask the API whether it takes the key
+(`GET /`, one request of the quota; a refusal costs none), and `coverage` says whether it is `configured`.
 
-**When it is used.** For `values` of one station or a list of stations (by id, name, rank, distance or bounding box) over a
-range that would take more than 48 files, which is two days of hourly values, 48 days of daily ones or 49 months or years.
-Shorter ranges are read from the files, which take no second key and cost a few requests. Not used: the list of the
-stations, a query of every station of the network (`all()`), and the stations of an `interpolate` or `summarize` beyond
-the one they are at (they read one station at a time). All five resolutions are served: the 10-minute, the hourly and the
-daily collections, and the monthly and the annual ones, which exist and agree with the files (De Bilt, 2026-11-12).
+The quota of a registered key is 1,000 requests an hour and 200 a second, whatever the size of a request (the API's
+`X-Ratelimit-*` headers say how much is left). A 429 ends the query with an error that says so; nothing is read from
+anywhere else.
 
-**What you get.** The same rows as from the files: the columns, the dtypes, the timestamps, the `quality_flags` and the
-`raw:` tokens. KNMI's API stamps a value with the end of its interval, as the files' time coordinate does; the daily,
-monthly and annual values are shifted back to the start of their day, month or year, as the files' are, and the 10-minute
-and hourly stamps stay. The codes of the files (`-1` for a trace of rain or sunshine, 0 and 990 of the wind direction, 9
-of the cloud cover) are passed through by the API and handled in the same way. It was compared with the files for De
-Bilt, Schiphol and Maastricht (6,864 cells, no difference), and `tests/provider/knmi/observation/test_edr_remote.py` does
-it for De Bilt again where both keys are set. One difference: a parameter that the files of an old period do not carry at
-all (the 10-minute `tg` in 2020) is a null row of the EDR route and no row of the files route, visible only with
-`drop_nulls=False`, where a parameter a station has no sensor for is a null row in both. A period that has no file (a
-station before its first value) is not a `file-skipped` warning from the EDR route, which has no files to skip.
+## How the values are read
 
-**How it asks.** One request for a chunk of the calendar, aligned to a month (10 minutes), a year (hourly, daily) or a
-decade (monthly, annual), for the stations of the query that follow the one in hand (up to 20), as many in a request as
-fit under the 300,000 points (times, parameters, stations) that the API allows. Every parameter of the dataset is asked
-for, as the files are read, since the checks of the values compare a parameter with its neighbours. A chunk is kept like a
-file: 12 hours, or 5 minutes where it ends less than 6 hours ago, and a query that overlaps an earlier one is served from
-the same chunks. The key goes in a header and is in no URL, log line or cached file. A period that has not ended is not
-asked for.
+The EDR API answers `GET /collections/{collection}/locations/{wsi,wsi}?datetime=start/end&parameter-name=A,B` with
+CoverageJSON (asked for compressed: a year of hourly values is about 25 KB). One request holds at most 300,000 points,
+that is times times parameters times stations; beyond it the API answers 413.
 
-**When it fails.** A 404 is no data in the chunk. A 413 (too big) is asked again in two parts. A 429 (the quota is used
-up), a 401 or a 403 (the key is refused; the warning names `WD_AUTH__KNMI_EDR` and never the key), an answer that is no
-CoverageJSON or no answer at all make the rest of the query come from the files, with one warning. A connection that
-cannot be made is a `NoInternetError`, as everywhere.
+- **Parameters.** Every parameter of the dataset is asked for (16, 12, 13, 23 and 23), whichever were requested: the
+  core judges a parameter against its neighbours in the dataset (the maximum of a day against its mean and its minimum),
+  and one request per dataset is one cached chunk for every parameter.
+- **One station.** A request is a block of the calendar: a month at 10 minutes, a year at hourly and daily, a decade at
+  monthly and annual, so that a query that overlaps an earlier one is served from the cache (below). A year of hourly
+  values of one station is one request, ten years of 10-minute values 120.
+- **Several stations.** The stations of the query that follow the one in hand are read with it: as many in a request as
+  fit under the limit. For the stations that were asked for the cheaper of the blocks and the exact range is taken, the
+  blocks where they cost the same: a day of 77 stations of hourly values is one request of the 24 hours (the blocks of a
+  year would be 39), and 10 years of daily values of 70 stations are 12. `/locations/{ids}` and
+  `/cube?bbox=` answer the same stations with the same values for the same request and count the same points
+  (measured 2026-11-12), so a query of many stations costs no fewer requests that way.
+- **Memory.** The readings of the stations that are read ahead are held until the walk comes to them, so no more than
+  about 3 million points are read ahead: a long range is read one station at a time, a day of every station at once.
+  `interpolate` and `summarize`, which stop where the data says, read the one station in hand.
+- **Cost.** One station: a day of hourly values, 1 request; a year, 1; ten years, 10; ten years of 10-minute values,
+  120. 77 stations: a day of hourly or of 10-minute values, 1; a year of daily values, 2; ten years of hourly values,
+  about 270. Each distinct range of the cache is a request the first time and none for 12 hours (settled) or 5
+  minutes (the last 6 hours).
+- **Not asked for.** A period that has not ended (the running 10 minutes, hour, day, month or year) and anything before
+  the start of the collection (2012 at 10 minutes, 1951 hourly, 1901 for the other three).
+- **Cache.** A chunk is kept under its URL, which holds the collection, the stations, the parameters and the stamps: a
+  chunk whose last stamp is less than 6 hours old is kept for 5 minutes, any other for 12 hours (KNMI validates the
+  hourly and the daily values one to four weeks after their period and replaces them then, so the twelve hours are a
+  cap on how stale a copy is, and no claim that it is final). The stations of a request are part of the URL: `[A, B]`
+  and then `[A]` are two requests, and `[A]` twice is one. The key is sent in a header and is in no URL, log line,
+  repr or cached file; two keys do not share a copy.
+- **Failures.** A 404 is no data in the chunk (not an error; asked once, as every request is a unit of the quota). A
+  413 is asked again in two parts. A 400 or 422 means the API refused a station it does not know: the stations of the
+  request are cut in two until the refused one is alone, which is then left out for the rest of the query with a warning
+  (each distinct reason once), never asked for again. A 5xx or a dropped connection is retried twice, then it is a
+  `DownloadError` (a 502); a 429 or an answer that is no CoverageJSON is a `DownloadError`; no connection a
+  `NoInternetError`; a refused key a `CredentialRejectedError`. A range read in part is never an answer.
+
+The "validated" collections lag real time (hourly: the values of an hour come 5.5 to 78 hours after it, median 25), so
+only historical data is available; a period that is not yet published simply has no data in the answer.
+
+## Timestamps and codes
+
+The API stamps a value with the END of its interval, as the time coordinate of KNMI's NetCDF files does. The 10-minute
+and the hourly values keep that stamp (the air temperature of 09:00 UTC, the past minute before it, is at 09:00, an hourly
+sum at the end of its hour). A day, a month and a year are dated with their first moment, as every provider dates them:
+the day of 2020-01-01 (De Bilt: TG 0.8, TN -0.2, TX 1.8, RH 0.0) is stamped `2020-01-02T00:00Z` by the API and is
+2020-01-01 here. A request for the daily, the monthly or the annual resolution alone floors its `start` to the day, the
+month or the year, so that one that begins inside it includes it.
+
+The codes of the source are passed through by the API and handled as they always were: a NaN (a null of the API) is null,
+`-1` for a trace of precipitation or of sunshine is 0.0 (not in the monthly and the annual values, whose sums describe no
+such code), 0 (calm) and 990 (variable) of the hourly wind direction and 9 of the cloud cover (octants, "9=sky
+invisible") are null, each with the source's number as the `raw:` token of `quality_flags`. A parameter that a station has
+no sensor for is left out of its coverage by the API and is a null row, as the NaN of the files was (the 10-minute `tg` is
+no row before 2020-07-23 07:40, the first file of the platform that carried it). The rows an answer is made into are
+those the files returned until GH-3928 (`tests/provider/knmi/observation/files/frozen_*.csv`).
+
+The monthly and the annual datasets (GH-4006) have the variables of the daily one, with `TG` the mean of the daily means,
+`TN` and `TX` the extremes of the period and `RH`, `DR`, `SQ` and `Q` the sums; a variable a station does not measure is
+missing. Not served, because the canonical parameters have no name for them yet: `EV24` (the potential evapotranspiration
+of the period, where `evapotranspiration_potential_last_24h` is a day's), `FHVEC` (the vector mean wind speed), `T10N` (the
+minimum air temperature at 10 cm), `VVN` and `VVX` (the minimum and maximum visibility, a code from 0 to 89 and no
+distance) and `W1`, `W2`, `W3`, `W5` and `W6` (the number of "daily intervals" with fog, rain, snow, thunderstorm and ice
+formation, which hold 0 or 1 for a whole year and so are no count of days).
 
 ## Stations
 
-The stations are those of KNMI's own catalogue of its observation network, the dataset `waarneemstations_csv`
-(version 1.0, one small CSV file for each date a station was opened, closed or moved, 77 stations in the file of
-2026-06-15). The Open Data API serves it with the same key as the observations, so the list needs no second key and
-costs two requests of the quota (the listing and the link of the file) whatever the resolutions asked for. The file is
-kept for a week, the listing that names the newest file for 12 hours, since KNMI publishes the file weeks after the date
-in its name. It replaced the station axis of the latest file of each resolution (GH-4008), which holds the stations that
-reported in its interval: the latest 10-minute file held 57 stations, where those of 2024 held 69 and the files since
-2012 76 of the 77, and a station that had closed was in none (Soesterberg `06265`, closed in 2008, and Valkenburg
-`06210`, closed in 2016, whose values are in the files, were not listed).
+`GET /collections/{collection}/locations` lists the stations: 77, the same for every collection, with the name, the
+position, the height above sea level, the `type` and the WMO number (`wmoId`, the `station_id`) and the WIGOS station
+identifier as the `id` (`0-20000-0-06260` for De Bilt, the station's `wigos_id`). It has no dates, so two more requests
+tell which stations are closed and when, three requests of the quota in all for every resolution, kept for 12 hours (the
+lists) and a week (the dates):
 
-- The list of a resolution is the catalogue without the stations its dataset cannot hold. The four fog stations
-  (Assendelft `06233`, Muiden `06236`, Nieuw-Vennep `06237`, Nieuwkoop `06238`) are in the 10-minute files only and are
-  not listed at the other resolutions (the type is compared stripped and in lower case), no annual file holds the
-  Caribbean stations (WMO block 78: Saba `78871`, Sint Eustatius `78873`, Bonaire `78990`, which the hourly, daily and
-  monthly files of 2026 do), and a station that closed before a dataset began (the 10-minute files start in 2012) is
-  not listed for it.
-- The name, the position and the height are those of the newest catalogue. A station that was moved is listed where
-  it is now: Eindhoven `06370` was at 51.4497, 5.3769 and Deelen `06275` at 52.0547, 5.8722 in the files until
-  June 2026, and De Bilt was "DE BILT AWS" in the files until late 2024.
-- `start_timestamp` is empty. The catalogue's start date is not that of the data: Schiphol's data begins in 1951 and its
-  start is 1990-07-01 (15 of the 77 stations have data before it).
-- `end_timestamp` is the stop date of a station that has closed and 62 days more, and empty for one that is open. The
-  stop date is no exact end of the data (Soesterberg's is in the monthly file of 2008-12, its stop date is 2008-11-15,
-  and F16-A's ends before its own), hence the margin. A stations listing for a window leaves out a station closed
-  before it (Soesterberg from a window in 2026), as it does for the providers that publish the end of a record. `values`
-  asked for a station by its id is not cut by it.
-- Where the catalogue cannot be read (it is gone, or its columns changed), the stations are read from the latest file
-  of each resolution as before, with their WSI from the file's `wsi` variable.
+- `/locations?datetime=<today>/<today>` lists the stations that are open: those the full list has and this one has not are
+  closed (five on 2026-11-12: F16-A `06206`, Valkenburg `06210`, Hoorn-A `06212`, Soesterberg `06265`, Hoofdplaat
+  `06311`). That list filters by the dates of the station in KNMI's catalogue and not by those of its data (Schiphol, whose
+  station starts in 1990 and whose daily values in 1951, is not in it for 1960), so it is used to tell closed from open
+  and never to cut a window by the start of a station.
+- `end_timestamp` of a closed station is the end of its last monthly value (one request for the closed stations, the 23
+  monthly parameters: Soesterberg 2008-07-01, Valkenburg 2016-05-01, F16-A 2020-08-01), and empty for a station that is
+  open, which is still reporting, and for a closed one without a value. A listing for a window leaves a station closed
+  before it out (`limit_to_window`; Soesterberg was the second nearest station to De Bilt in a listing for 2026,
+  GH-4008). `start_timestamp` is empty.
+- The list of a resolution is the list without the stations its dataset cannot hold: the four fog stations
+  (Assendelft `06233`, Muiden `06236`, Nieuw-Vennep `06237` and Nieuwkoop `06238`, compared by `type` stripped and in lower
+  case) are 10-minute stations only, block 78 (Saba `78871`, Sint Eustatius `78873`, Bonaire `78990`) has daily and monthly
+  values and no annual ones (the annual collection answers 404, read 2026-11-12), and a station that closed
+  before a collection began (the 10-minute data starts in 2012) is not listed for it.
 
-KNMI's NetCDF `time` coordinate marks the *end* of the measuring interval, and the three datasets
-name their files differently (read from real files, GH-2824): a 10-minute file is named for that end
-(`..._202610140900.nc` has the time 09:00 and covers 08:50 to 09:00), an hourly file for the start
-of its hour (`...-20261014-08.nc` has the time 09:00), a daily file for its date (the time is
-the next 00:00). wetterdienst stamps the 10-minute values with the file's name and the hourly values
-with the name plus one hour, which is the time coordinate in both, so the air temperature of 09:00 UTC
-(the "past minute" before it) is at 09:00 in both and an hourly sum is at the end of its hour; the
-daily values get the date of their UTC day, matching KNMI's legacy CSV service. Before GH-2824 the
-hourly values were stamped with the start of the hour.
-
-Requests hitting a transient failure (rate limiting, dropped connections) are retried
-automatically with a short backoff — a couple of retries, a few seconds each. This is
-deliberately modest, not an attempt to wait out a sustained outage.
-
-Each station's `station_id` is the WMO station number at the end of its WIGOS station identifier
-(`06260` for De Bilt); the full identifier (`0-20000-0-06260`) is the station's `wigos_id`.
+Each station's `station_id` is the WMO station number (`06260`) and its `wigos_id` the full identifier.
 
 ## License
 
-Data is © KNMI. See the [KNMI Data Platform](https://dataplatform.knmi.nl/) for further
+Data is © KNMI, CC BY 4.0. See the [KNMI Data Platform](https://dataplatform.knmi.nl/) for further
 information and usage conditions.
 
 ```{toctree}

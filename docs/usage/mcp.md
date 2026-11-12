@@ -51,7 +51,7 @@ http://localhost:7890/mcp/v1
 `GET /api/version` says whether an instance serves it (`mcp_enabled`) and where (`mcp_path`, `mcp_alias_path`; both
 `null` without the extra). The [Docker image](docker.md) and the [app](app.md)'s `/mcp/v1` have it.
 
-The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`,
+The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`,
 `WD_AUTH__CEDA`, see [Settings](settings.md)), not the client: a tool for a network that needs one answers a
 [problem](troubleshooting.md#credentials) when the server has none, and the tool `auth` says whether the provider
 accepts them. The `sql` and `sql_values` arguments are refused unless the server runs with `WD_RESTAPI_SQL=true`.

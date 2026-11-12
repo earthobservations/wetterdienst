@@ -16,11 +16,9 @@ import pytest
 
 from tests.provider.knmi.observation.edr_stub import FILES, PARAMETERS, RESOLUTION_OF_NAME
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.provider.knmi.observation import api, edr
+from wetterdienst.provider.knmi.observation import edr
 from wetterdienst.provider.knmi.observation.edr import Chunk, UnusableAnswerError, parse_coverage_json
 from wetterdienst.provider.knmi.observation.grid import advance
-
-h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
 
 UTC = dt.UTC
 NOW = dt.datetime(2026, 11, 12, 12, 30, tzinfo=UTC)
@@ -158,38 +156,130 @@ def test_the_stamp_of_the_api_and_the_stamp_of_the_provider_are_each_others_inve
 
 
 @pytest.mark.parametrize(
-    ("resolution", "start", "end"),
+    ("resolution", "start", "end", "first", "last", "count"),
     [
         pytest.param(
-            Resolution.MINUTE_10, _at(2026, 11, 9, 6, 5), _at(2026, 11, 9, 9, 0), id="10 minutes, an unaligned start"
+            Resolution.MINUTE_10,
+            _at(2026, 11, 9, 6, 5),
+            _at(2026, 11, 9, 9, 0),
+            _at(2026, 11, 9, 6, 0),
+            _at(2026, 11, 9, 9, 0),
+            19,
+            id="10 minutes, an unaligned start: the 10 minutes that hold it",
         ),
         pytest.param(
-            Resolution.MINUTE_10, _at(2026, 11, 12, 11, 0), _at(2026, 11, 13), id="10 minutes, into the future"
+            Resolution.MINUTE_10,
+            _at(2026, 11, 12, 11, 0),
+            _at(2026, 11, 13),
+            _at(2026, 11, 12, 11, 0),
+            _at(2026, 11, 12, 12, 30),
+            10,
+            id="10 minutes, into the future: up to the 10 minutes that have ended",
         ),
-        pytest.param(Resolution.HOURLY, _at(2020, 1, 1, 0, 30), _at(2020, 1, 4, 12, 45), id="hourly, unaligned"),
-        pytest.param(Resolution.HOURLY, _at(2026, 11, 10), _at(2026, 11, 20), id="hourly, into the future"),
-        pytest.param(Resolution.DAILY, _at(2019, 12, 1), _at(2020, 2, 29, 17), id="daily, an unaligned end"),
-        pytest.param(Resolution.DAILY, _at(2026, 10, 1), _at(2026, 12, 31), id="daily, into the future"),
-        pytest.param(Resolution.MONTHLY, _at(2018, 5, 1), _at(2022, 12, 15), id="monthly"),
         pytest.param(
-            Resolution.MONTHLY, _at(2025, 11, 20), _at(2027, 3, 1), id="monthly, an unaligned start, the future"
+            Resolution.HOURLY,
+            _at(2020, 1, 1, 0, 30),
+            _at(2020, 1, 4, 12, 45),
+            _at(2020, 1, 1, 1),
+            _at(2020, 1, 4, 12),
+            84,
+            id="hourly, unaligned: from the first stamp at or after the start",
         ),
-        pytest.param(Resolution.ANNUAL, _at(1960, 1, 1), _at(2030, 1, 1), id="annual, into the future"),
-        pytest.param(Resolution.ANNUAL, _at(1960, 3, 1), _at(1999, 6, 1), id="annual, unaligned"),
+        pytest.param(
+            Resolution.HOURLY,
+            _at(2026, 11, 10),
+            _at(2026, 11, 20),
+            _at(2026, 11, 10),
+            _at(2026, 11, 12, 12),
+            61,
+            id="hourly, into the future: the hour that is running is left out",
+        ),
+        pytest.param(
+            Resolution.DAILY,
+            _at(2019, 12, 1),
+            _at(2020, 2, 29, 17),
+            _at(2019, 12, 1),
+            _at(2020, 2, 29),
+            91,
+            id="daily, an unaligned end",
+        ),
+        pytest.param(
+            Resolution.DAILY,
+            _at(2026, 10, 1),
+            _at(2026, 12, 31),
+            _at(2026, 10, 1),
+            _at(2026, 11, 11),
+            42,
+            id="daily, into the future: today is running",
+        ),
+        pytest.param(
+            Resolution.DAILY,
+            _at(2020, 1, 1, 6),
+            _at(2020, 1, 3),
+            _at(2020, 1, 1),
+            _at(2020, 1, 3),
+            3,
+            id="daily, an unaligned start: the day that holds it, for the window to cut",
+        ),
+        pytest.param(
+            Resolution.MONTHLY, _at(2018, 5, 1), _at(2022, 12, 15), _at(2018, 5, 1), _at(2022, 12, 1), 56, id="monthly"
+        ),
+        pytest.param(
+            Resolution.MONTHLY,
+            _at(2025, 11, 20),
+            _at(2027, 3, 1),
+            _at(2025, 12, 1),
+            _at(2026, 10, 1),
+            11,
+            id="monthly, an unaligned start, into the future: November 2026 is running",
+        ),
+        pytest.param(
+            Resolution.ANNUAL,
+            _at(1960, 1, 1),
+            _at(2030, 1, 1),
+            _at(1960, 1, 1),
+            _at(2025, 1, 1),
+            66,
+            id="annual, into the future: 2026 is running",
+        ),
+        pytest.param(
+            Resolution.ANNUAL,
+            _at(1960, 3, 1),
+            _at(1999, 6, 1),
+            _at(1961, 1, 1),
+            _at(1999, 1, 1),
+            39,
+            id="annual, unaligned",
+        ),
+        pytest.param(
+            Resolution.DAILY,
+            _at(1850, 1, 1),
+            _at(1901, 1, 3),
+            _at(1901, 1, 1),
+            _at(1901, 1, 3),
+            3,
+            id="before the data",
+        ),
     ],
 )
-def test_the_stamps_of_a_range_are_those_of_the_files_that_the_file_route_reads(
-    monkeypatch: pytest.MonkeyPatch, resolution: Resolution, start: dt.datetime, end: dt.datetime
+def test_the_first_and_the_last_stamp_of_a_range(
+    resolution: Resolution,
+    start: dt.datetime,
+    end: dt.datetime,
+    first: dt.datetime,
+    last: dt.datetime,
+    count: int,
 ) -> None:
-    """`stamp_bounds` and `count_stamps` agree with `_moments`, the files' route, on the stamps that are read."""
-    monkeypatch.setattr(api, "_now", lambda: NOW)
-    stamps = [api._stamp(moment, resolution) for moment in api._moments(start, end, resolution)]  # noqa: SLF001
+    """The stamps of a range: the first at the start of the data or of the range, the last that has ended by now."""
     bounds = edr.stamp_bounds(start, end, resolution, NOW)
-    if not stamps:
-        assert bounds is None
-        return
-    assert bounds == (stamps[0], stamps[-1])
-    assert edr.count_stamps(*bounds, resolution) == len(stamps)
+    assert bounds == (first, last)
+    assert edr.count_stamps(first, last, resolution) == count
+
+
+def test_a_range_wholly_in_the_future_has_no_stamps() -> None:
+    """No hour of December 2026 and no year 2027 has ended."""
+    assert edr.stamp_bounds(_at(2026, 12, 1), _at(2026, 12, 31), Resolution.DAILY, NOW) is None
+    assert edr.stamp_bounds(_at(2027, 1, 1), _at(2027, 12, 31), Resolution.ANNUAL, NOW) is None
 
 
 def test_a_chunk_is_cut_in_two_at_the_middle_of_its_stamps() -> None:

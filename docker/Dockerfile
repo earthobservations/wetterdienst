@@ -27,7 +27,7 @@ COPY uv.lock pyproject.toml ./
 # layer cache of the CI, the layer itself does.
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active --no-install-project \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
 
 # Copy source code
 COPY src ./src
@@ -36,7 +36,7 @@ COPY README.md LICENSE.md ./
 # Install wetterdienst itself with all extras using uv
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
 
 # Dev stage: editable install so uvicorn --reload picks up source changes.
 # Installs the same extras and OS packages as the final stage for feature parity.
@@ -66,14 +66,14 @@ COPY uv.lock pyproject.toml ./
 # Dependencies before the source, as in the build stage (GH-2952)
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active --no-install-project \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
 
 COPY src ./src
 COPY README.md LICENSE.md ./
 
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
-    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
 
 EXPOSE 7890
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890", "--reload"]
