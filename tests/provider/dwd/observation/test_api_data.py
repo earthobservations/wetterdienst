@@ -133,6 +133,30 @@ def test_request_period_historical_recent_now(default_settings: Settings) -> Non
     }
 
 
+@pytest.mark.parametrize("hour", [0, 23])
+def test_a_window_from_1_january_reads_the_same_periods_at_any_hour(hour: int, default_settings: Settings) -> None:
+    """`historical` ends at midnight of 1 January, not at the time of day of now (GH-3914).
+
+    It ended at 1 January with the hour of the request, so between 00:00 and 01:00 Berlin a window starting on
+    1 January UTC did not reach it, and at every other hour it did.
+    """
+    with freeze_time(dt.datetime(2026, 11, 9, hour, 30, tzinfo=ZoneInfo("Europe/Berlin"))):
+        this_year = DwdObservationRequest(
+            parameters=[("monthly", "climate_summary")],
+            start="2026-01-01",
+            end="2026-03-01",
+            settings=default_settings,
+        )
+        from_last_year = DwdObservationRequest(
+            parameters=[("monthly", "climate_summary")],
+            start="2025-12-01",
+            end="2026-03-01",
+            settings=default_settings,
+        )
+        assert this_year.periods == {Period.RECENT}
+        assert from_last_year.periods == {Period.HISTORICAL, Period.RECENT}
+
+
 @freeze_time(dt.datetime(2022, 1, 29, 1, 30, tzinfo=ZoneInfo("Europe/Berlin")))
 def test_request_period_recent_now(default_settings: Settings) -> None:
     """Test for recent and now period."""
@@ -449,7 +473,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
-            "nm": [1.0],
+            "nm": [100.0],
             "nm_quality_flags": ["1"],
             "vpm": [6.400],
             "vpm_quality_flags": ["1"],
@@ -457,7 +481,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "pm_quality_flags": ["1"],
             "tmk": [0.5],
             "tmk_quality_flags": ["1"],
-            "upm": [0.9700],
+            "upm": [97.0],
             "upm_quality_flags": ["1"],
             "txk": [0.7],
             "txk_quality_flags": ["1"],
@@ -671,7 +695,7 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
                 "dataset": "climate_summary",
                 "parameter": "nm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 1.0,
+                "value": 100.0,
                 "quality_flags": "1",
             },
             {
@@ -761,7 +785,7 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
                 "dataset": "climate_summary",
                 "parameter": "upm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.9700,
+                "value": 97.0,
                 "quality_flags": "1",
             },
             {
@@ -807,7 +831,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
                 "dataset": "urban_temperature_air",
                 "parameter": "humidity_relative",
                 "timestamp": dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.83,
+                "value": 83.0,
                 "quality_flags": "3",
             },
             {
@@ -906,7 +930,7 @@ def test_period_precedence_on_overlapping_timestamps(
     monkeypatch.setattr(
         dwd_observation_api,
         "parse_climate_observations_data",
-        lambda _files, _dataset, period: frames[period],
+        lambda _files, _dataset, period, _window=None: frames[period],
     )
     request = DwdObservationRequest(
         parameters=[("hourly", "temperature_air")],
@@ -1333,8 +1357,8 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
 def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_settings: Settings) -> None:
     """The urban 10 minute sunshine duration is in hours: a 10 minute interval holds at most 600 s (GH-2698).
 
-    DWD's parameter sheet says "Minute", the values of station 00399 are 0.00 to 0.17 (10/60 rounded), which
-    in seconds are 0 to 612. Read as minutes they would be at most 10.2 s.
+    DWD's parameter sheet says "Minute", the values of station 00399 are 0.00 to 0.17 (10/60 rounded) hours, the
+    unit it is returned in. Read as minutes they would be at most 0.17 min.
     """
     request = DwdObservationRequest(
         parameters=[("10_minutes", "urban_solar", "sunshine_duration")],
@@ -1342,7 +1366,7 @@ def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_se
         settings=default_settings,
     ).filter_by_station_id("00399")
     values = request.values().all().df.get_column("value")
-    assert 300 < values.max() <= 612.0
+    assert 0.1 < values.max() <= 0.17
 
 
 @pytest.mark.remote
@@ -1605,7 +1629,9 @@ def test_create_humanized_column_names_mapping() -> None:
     )
     hcnm = DwdObservationValues.from_stations(stations_result)._create_humanized_parameters_mapping()  # noqa: SLF001
 
-    assert set(kl_daily_hcnm.items()).issubset(set(hcnm.items()))
+    # per resolution and dataset (GH-3605): the rows of daily/climate_summary hold the names above
+    daily = hcnm.filter(pl.col("resolution").eq("daily"), pl.col("dataset").eq("climate_summary"))
+    assert set(kl_daily_hcnm.items()).issubset(set(zip(daily["parameter"], daily["humanized"], strict=True)))
 
 
 @pytest.mark.remote
@@ -1844,7 +1870,10 @@ def test_dwd_observation_solar_hourly(options_convert_units_false: Options) -> N
         options=options_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
     values_df = next(request.values().query()).df
-    assert values_df.get_column("value").sum() == 417914.0
+    # 417914.0 until GH-3938: at Bremen (00691) the source hours 2022-08-11 16:30 (138 J/cm²) and 17:29 (83 J/cm²) both
+    # round to 17:00, and the one nearer the hour is kept, 17:29, where the other was before (138 - 83 = 55). The
+    # collision of 2022-03-27 23:30 and 2022-03-28 00:29 is 0.0 against 0.0.
+    assert values_df.get_column("value").sum() == 417859.0
 
 
 @pytest.mark.remote
@@ -1863,7 +1892,8 @@ def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings)
     ).filter_by_station_id(station_id="03987")
     values_df = next(request.values().query()).df
     assert len(values_df) == 24
-    assert values_df.get_column("value").sum() == 46.0
+    # 46 J/cm² of the day, in MJ/m² (1 MJ/m² = 100 J/cm²)
+    assert values_df.get_column("value").sum() == pytest.approx(0.46)
 
 
 @pytest.mark.remote
@@ -2306,3 +2336,74 @@ def test_dwd_observation_tidy_up_writes_the_qn_code_as_a_flag_string() -> None:
     given_df = DwdObservationValues._tidy_up_df(df)  # noqa: SLF001
     assert given_df.get_column("quality_flags").to_list() == ["3", None]
     assert given_df.schema["quality_flags"] == pl.String
+
+
+def _p0(df: pl.DataFrame) -> list[tuple[float | None, str | None]]:
+    """Give the value and the flags of the station pressure, by stamp."""
+    rows = df.filter(pl.col("parameter").eq("pressure_air_site")).sort("timestamp")
+    return list(zip(rows.get_column("value").to_list(), rows.get_column("quality_flags").to_list(), strict=True))
+
+
+@pytest.mark.parametrize(
+    ("elevation", "expected"),
+    [
+        # Berlin-Tempelhof, 48 m: 1007.5 hPa are expected, so 865 to 1082.5 are allowed: 909.5 is a slip that is 98 hPa
+        # below, as far as Hurricane Irma's eye was (917.4 hPa at 3 m), and stays for the check `step`, which flags it:
+        # a spike of 129 hPa down and 100 up (GH-3681)
+        (48.0, [(1038.9, "1"), (909.5, "1,suspect:step"), (1009.6, "1")]),
+        # a station list without an elevation leaves the reading to the bounds of the world, which it is inside of
+        (None, [(1038.9, "1"), (909.5, "1,suspect:step"), (1009.6, "1")]),
+        # the same readings at 500 m (954.6 hPa expected, 820 to 1030 allowed): 1038.9 is out, 909.5 is in, and has no
+        # neighbour before it, so the 100 hPa up to 1009.6 is a step of the reading that comes after it
+        (500.0, [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (1009.6, "1,suspect:step")]),
+        # and at 1,500 m (845.6 expected, 726 to 921 allowed): the two above 921 are out
+        (
+            1500.0,
+            [(None, "1,rejected:elevation,raw:1038.9"), (909.5, "1"), (None, "1,rejected:elevation,raw:1009.6")],
+        ),
+    ],
+)
+def test_dwd_observation_data_station_pressure_is_held_to_the_elevation_of_the_station(
+    monkeypatch: pytest.MonkeyPatch,
+    elevation: float | None,
+    expected: list[tuple[float | None, str | None]],
+) -> None:
+    """Test that the elevation of the station list decides which P0 is a reading, the rows of 00433 (GH-3627)."""
+    from tests.provider.value_stubs import _dwd_observation  # noqa: PLC0415
+
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;   P;  P0;eor\n"
+        "        433;1994082920;    1; 1014.7; 1038.9;eor\n"
+        "        433;1994082921;    1; 1015.4;  909.5;eor\n"
+        "        433;1994082922;    1; 1015.5; 1009.6;eor\n"
+    )
+    df = _dwd_observation(
+        monkeypatch, "hourly", "pressure", product, "00433", year=1994, drop_nulls=False, elevation=elevation
+    )
+    assert _p0(df) == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        # hard (the default): the dropout is null and the number DWD wrote is the last token
+        ("hard", [(32.0, "3"), (None, "3,rejected:range,raw:0.00"), (33.1, "3")]),
+        # soft: the value stays and is told suspect
+        ("soft", [(32.0, "3"), (0.0, "3,suspect:range"), (33.1, "3")]),
+    ],
+)
+def test_dwd_observation_data_urban_humidity_of_zero_is_outside_the_range(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    expected: list[tuple[float | None, str]],
+) -> None:
+    """Test that the 0.00 % of Berlin-Alexanderplatz (2023-03-16 17:40) between 32 and 33.1 % is no reading (GH-3773).
+
+    The rows are those of the file of DWD, read on 2026-11-03; the range of a relative humidity is 1 to 100 %.
+    """
+    from tests.provider.value_stubs import _dwd_10_minutes_urban_humidity_dropout  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_TS_PLAUSIBILITY__RANGE", mode)
+    df = _dwd_10_minutes_urban_humidity_dropout(monkeypatch, drop_nulls=False)
+    rows = df.filter(pl.col("parameter").eq("humidity_relative")).sort("timestamp")
+    assert rows.select("value", "quality_flags").rows() == expected

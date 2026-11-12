@@ -1,10 +1,10 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { getQuery } from 'h3'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 import GlossaryPage from '~/pages/glossary.vue'
+import { networksAnswer } from '../fixtures/providers'
 
 // Where the app names a parameter, a resolution or a dataset outside the data viewer, drawn in
 // locales other than English with an id that has no short word for it. The label the app showed
@@ -68,22 +68,18 @@ describe('parameterSelection names ids in the active locale', () => {
   })
 
   async function mountSelection() {
-    const open = { name_short: 'DWD', country: 'Germany', kind: 'observation', url: 'https://opendata.dwd.de/', auth: false, configured: true, date_required: false }
-    registerEndpoint('/api/coverage', (event) => {
-      if (!getQuery(event).provider)
-        return { dwd: { observation: open } }
-      return {
-        [ids.resolution]: {
-          description: null,
-          datasets: {
-            [ids.dataset]: {
-              description: null,
-              parameters: [{ name: ids.parameter, name_original: 'dd', unit_type: 'angle', unit: 'degree', description: null }],
-            },
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: { url: 'https://opendata.dwd.de/' } } }))
+    registerEndpoint('/api/coverage', () => ({
+      [ids.resolution]: {
+        description: null,
+        datasets: {
+          [ids.dataset]: {
+            description: null,
+            parameters: [{ name: ids.parameter, name_original: 'dd', unit_type: 'angle', unit: 'degree', description: null }],
           },
         },
-      }
-    })
+      },
+    }))
     const wrapper = await mountSuspended(ParameterSelection, {
       props: { modelValue: { provider: 'dwd', network: 'observation', resolution: ids.resolution, dataset: ids.dataset, parameters: [ids.parameter] } },
     })

@@ -4,6 +4,7 @@
 
 import atexit
 import contextlib
+import datetime as dt
 import json
 import logging
 import os
@@ -65,6 +66,7 @@ from wetterdienst.util.network import (
     _is_superseded_layout,
     _legacy_cleanup_done,
     _LockedWholeFileCacheFileSystem,
+    _OneWriteCacheMetadata,
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
@@ -73,6 +75,7 @@ from wetterdienst.util.network import (
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
+    read_refusal,
 )
 
 
@@ -897,6 +900,14 @@ def _every_carrier_of(error: BaseException) -> str:
 #: what the stand-in token endpoint answers with, and what each of its paths is for
 _TOKEN_BODY = json.dumps({"access_token": "t"}).encode()
 _STATUS_BY_PATH = {"/denied": 401, "/rate-limited": 429, "/boom": 500}
+_REFUSAL_BODY = json.dumps(
+    {
+        "error": {
+            "code": 403,
+            "reason": "The estimated number of observations (103586) exceeds the maximum number allowed (100000)",
+        }
+    }
+).encode()
 
 
 def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str, str]]:
@@ -906,6 +917,9 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
     if path == "/flaky":
         # a blip: the first caller gets a 502, everyone after it gets an answer
         return (200, _TOKEN_BODY, {}) if asked_before else (502, b"", {})
+    if path == "/too-many":
+        # a refusal that says why in its body, as Frost's 403 for a window of too many observations does
+        return 403, _REFUSAL_BODY, {}
     if path in _STATUS_BY_PATH:
         return _STATUS_BY_PATH[path], b"", {}
     return 200, _TOKEN_BODY, {}
@@ -933,6 +947,31 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
     def _record(self, method: str) -> None:
         self.server.requests.append({"method": method, "path": self.path, "headers": dict(self.headers)})
 
+    def _refuse_at_length(self) -> None:
+        """Answer with a 403 whose body is too slow (`/drip`), says it is too long (`/huge`) or is, unannounced.
+
+        The last is `/huge-stream`: the cases the limits of `read_refusal` are held to.
+        """
+        self.send_response(403)
+        if self.path == "/drip":
+            self.send_header("Content-Length", "1000")
+        elif self.path == "/huge":
+            self.send_header("Content-Length", str(8 * 1024**2))
+        self.end_headers()
+        try:
+            if self.path == "/drip":
+                for _ in range(150):
+                    self.wfile.write(b"x")
+                    self.wfile.flush()
+                    time.sleep(0.2)
+            else:
+                for _ in range(128):
+                    self.wfile.write(b"x" * 65536)
+                    self.wfile.flush()
+        except OSError:
+            # the client has hung up, which is the point
+            return
+
     def _answer(self) -> None:
         if self.path == "/drop":
             # answer nothing and hang up, which aiohttp reports as ServerDisconnectedError
@@ -946,6 +985,9 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"access_')
             self.connection.close()
+            return
+        if self.path in {"/drip", "/huge", "/huge-stream"}:
+            self._refuse_at_length()
             return
         asked_before = len([r for r in self.server.requests if r["path"] == self.path]) > 1
         status, body, headers = _answer_for(self.path, asked_before=asked_before)
@@ -979,6 +1021,91 @@ def http_server() -> Iterator[tuple[str, list]]:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_read_refusal_gives_the_body_of_a_4xx_and_sends_the_headers(http_server: tuple[str, list]) -> None:
+    """A refusal is asked for again and its body is the reason; the headers go with that request alone (GH-3748)."""
+    base_url, requests = http_server
+
+    body = read_refusal(f"{base_url}/too-many", headers={"Authorization": "Basic Zm9v"})
+
+    assert body is not None
+    assert "exceeds the maximum number allowed (100000)" in body
+    assert requests[-1]["method"] == "GET"
+    assert requests[-1]["headers"]["Authorization"] == "Basic Zm9v"
+
+
+def test_read_refusal_cuts_the_body_at_max_chars(http_server: tuple[str, list]) -> None:
+    """Only the first characters of the body are given, whatever the server sends."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}/too-many", max_chars=10) == _REFUSAL_BODY.decode()[:10]
+
+
+@pytest.mark.parametrize("path", ["/token", "/boom"])
+def test_read_refusal_gives_nothing_for_an_answer_that_is_no_4xx(path: str, http_server: tuple[str, list]) -> None:
+    """A 200 is not a refusal, and a 5xx is a failure of the server: neither has a reason to read."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}{path}") is None
+
+
+def test_read_refusal_stops_waiting_for_a_body_that_drips(http_server: tuple[str, list]) -> None:
+    """A body that arrives a byte at a time is given up on after ``max_seconds`` in all, not after each silence.
+
+    The client timeout bounds a silence only (GH-2258): with one of a second, this body, a byte every 0.2 s, ran for the
+    30 seconds it takes the server to finish it.
+    """
+    base_url, _ = http_server
+
+    started = time.monotonic()
+    body = read_refusal(f"{base_url}/drip", max_seconds=1.0, client_kwargs={"timeout": 1.0})
+
+    assert body is None
+    assert time.monotonic() - started < 10
+
+
+@pytest.mark.parametrize("path", ["/huge", "/huge-stream"])
+def test_read_refusal_does_not_read_a_body_past_max_bytes(path: str, http_server: tuple[str, list]) -> None:
+    """A body past ``max_bytes`` is no reason: refused at once if it says it is long, as it arrives if it does not."""
+    base_url, _ = http_server
+
+    assert read_refusal(f"{base_url}{path}", max_bytes=100_000) is None
+    # the same body within the limit is read, so it is the limit that refuses it
+    assert read_refusal(f"{base_url}{path}", max_bytes=16 * 1024**2, max_chars=5) == "xxxxx"
+
+
+def test_read_refusal_does_not_follow_a_redirect(http_server: tuple[str, list]) -> None:
+    """A redirect is the answer, and no 4xx: the one it points to (a 401 here) is not asked for."""
+    base_url, requests = http_server
+
+    assert read_refusal(f"{base_url}/login-redirect") is None
+    assert [request["path"] for request in requests] == ["/login-redirect"]
+
+
+def test_read_refusal_has_the_timeout_and_the_certificates_it_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The client has a timeout of its own where the caller gave none, and verifies against certifi where asked."""
+    made: list[dict] = []
+
+    class Spy(HTTPFileSystem):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            made.append(kwargs)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(network, "HTTPFileSystem", Spy)
+
+    read_refusal("http://127.0.0.1:1/unreachable")
+    read_refusal("http://127.0.0.1:1/unreachable", use_certifi=True, client_kwargs={"timeout": 3.0})
+
+    assert made[0]["use_certifi"] is False
+    assert made[0]["client_kwargs"]["timeout"] == network._POST_TIMEOUT_SECONDS  # noqa: SLF001
+    assert made[1]["use_certifi"] is True
+    assert made[1]["client_kwargs"]["timeout"] == 3.0
+
+
+def test_read_refusal_gives_nothing_where_the_connection_cannot_be_made() -> None:
+    """Nothing is raised for a refusal that cannot be asked for again: the caller falls back on the status."""
+    assert read_refusal("http://127.0.0.1:1/unreachable") is None
 
 
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
@@ -1289,6 +1416,8 @@ def test_a_directory_that_is_not_there_is_an_answer(monkeypatch: pytest.MonkeyPa
         raise FileNotFoundError(msg)
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
+    # the page of the directory, read to tell an empty one from one that is not there, is a 404 as well
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", find)
 
     assert list_remote_files_fsspec("https://example.com/none/", Settings(cache_dir=tmp_path)) == []
 
@@ -1402,6 +1531,8 @@ def test_a_listing_of_a_directory_that_is_not_there_is_still_empty(
         raise FileNotFoundError
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
+    # the page of the directory, read to tell an empty one from one that is not there, is a 404 as well
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", find)
 
     assert list_remote_files_fsspec("https://example.com/gone/", Settings(cache_dir=tmp_path)) == []
 
@@ -1513,6 +1644,10 @@ def _age_metadata(storage: Path, seconds: float) -> None:
     metadata = json.loads(metadata_path.read_text())
     for detail in metadata.values():
         detail["time"] -= seconds
+        # the blob as well: a blob written within the expiry is kept whatever its row says (GH-3485)
+        blob = storage / detail["fn"]
+        when = blob.stat().st_mtime - seconds
+        os.utime(blob, (when, when))
     metadata_path.write_text(json.dumps(metadata))
 
 
@@ -2407,7 +2542,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
     bookkeeping = threading.Lock()
     saves: list[str] = []
     original_load = CacheMetadata._load  # noqa: SLF001
-    original_save = CacheMetadata._save  # noqa: SLF001
+    original_save = _OneWriteCacheMetadata._save  # noqa: SLF001
 
     def enter(fn: str, operation: str) -> None:
         with bookkeeping:
@@ -2438,7 +2573,7 @@ def test_a_fan_out_never_reads_the_metadata_file_while_another_thread_replaces_i
             leave(fn, "write")
 
     monkeypatch.setattr(CacheMetadata, "_load", load)
-    monkeypatch.setattr(CacheMetadata, "_save", save)
+    monkeypatch.setattr(_OneWriteCacheMetadata, "_save", save)
 
     try:
         files = download_files(urls=urls, cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
@@ -3183,6 +3318,238 @@ def test_a_blob_another_handle_holds_open_is_left_alone(monkeypatch: pytest.Monk
     assert blob.read_bytes() == b"old-body"
     assert _stray_files(tmp_path) == [blob.name]
     assert not filesystem._check_file("/f.txt")  # noqa: SLF001
+
+
+def _refuse_opening(monkeypatch: pytest.MonkeyPatch, blob: Path, *, times: int) -> list[int]:
+    """Make the open of `blob` raise `PermissionError` the first `times` times, as Windows does while it is replaced."""
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
+    original = Path.open
+    refused = [0]
+
+    def open_(self: Path, *args: object, **kwargs: object) -> object:
+        if self == blob and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "open", open_)
+    return refused
+
+
+@pytest.mark.parametrize("cached", [False, True], ids=["fetched", "already-cached"])
+def test_an_open_of_the_blob_that_meets_a_replace_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, cached: bool
+) -> None:
+    """Windows does not open a file another process is replacing onto for a moment: the read waits, it does not raise.
+
+    The open of the blob after the fetch, and the open of a blob the cache already held, both met the rename of a
+    second process fetching the same url (GH-3630).
+    """
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    if cached:
+        assert filesystem.cat_file("/f.txt") == b"new-body"
+    refused = _refuse_opening(monkeypatch, blob, times=2)
+
+    assert filesystem.cat_file("/f.txt") == b"new-body"
+
+    assert refused == [2]
+
+
+@pytest.mark.parametrize("cached", [False, True], ids=["fetched", "already-cached"])
+def test_an_open_of_the_blob_that_stays_refused_is_raised_after_a_few_tries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, cached: bool
+) -> None:
+    """A blob that cannot be read at all is not waited on for ever: the open's own error is raised (GH-3630)."""
+    filesystem, blob = _caching_over_slow_remote(tmp_path)
+    if cached:
+        assert filesystem.cat_file("/f.txt") == b"new-body"
+    refused = _refuse_opening(monkeypatch, blob, times=1000)
+
+    with pytest.raises(PermissionError, match="Access is denied"):
+        filesystem.cat_file("/f.txt")
+
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
+
+
+def _blob_with_sidecar_inputs(tmp_path: Path) -> tuple[Path, os.stat_result]:
+    """Write a cached blob and give the stat of it as the fetch that wrote it saw it."""
+    blob = tmp_path / "blob"
+    blob.write_bytes(b"body")
+    return blob, blob.stat()
+
+
+_LAST_MODIFIED = dt.datetime(2026, 10, 1, 12, 0, tzinfo=dt.UTC)
+
+
+def _refuse_replacing_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
+    """Make the replace onto `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
+    replace = os.replace
+    refused = [0]
+
+    def refuse(source: str, destination: str) -> None:
+        if Path(destination) == sidecar and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        replace(source, destination)
+
+    monkeypatch.setattr(network.os, "replace", refuse)
+    return refused
+
+
+def _refuse_reading_sidecar(monkeypatch: pytest.MonkeyPatch, sidecar: Path, *, times: int) -> list[int]:
+    """Make the read of `sidecar` raise `PermissionError` the first `times` times, as Windows does."""
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
+    original = Path.read_text
+    refused = [0]
+
+    def read_text(self: Path, *args: object, **kwargs: object) -> str:
+        if self == sidecar and refused[0] < times:
+            refused[0] += 1
+            msg = "[WinError 5] Access is denied"
+            raise PermissionError(msg)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    return refused
+
+
+def test_a_replace_of_the_sidecar_that_meets_another_handle_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Windows refuses the replace onto a sidecar another handle holds open for a moment: the date is kept (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    refused = _refuse_replacing_sidecar(monkeypatch, network._sidecar_of(blob), times=2)  # noqa: SLF001
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert refused == [2]
+    assert network._read_sidecar(blob) == _LAST_MODIFIED  # noqa: SLF001
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_replace_of_the_sidecar_that_stays_refused_loses_the_date_and_raises_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The write stays best-effort: after the pauses the date is lost, the temporary file is gone (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    refused = _refuse_replacing_sidecar(monkeypatch, network._sidecar_of(blob), times=1000)  # noqa: SLF001
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
+    assert network._read_sidecar(blob) is None  # noqa: SLF001
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_read_of_the_sidecar_that_meets_a_replace_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Windows refuses the read of a sidecar being replaced for a moment: the copy still has its record (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+    refused = _refuse_reading_sidecar(monkeypatch, network._sidecar_of(blob), times=2)  # noqa: SLF001
+
+    assert network._has_sidecar_record(blob)  # noqa: SLF001
+    assert refused == [2]
+    assert network._read_sidecar(blob) == _LAST_MODIFIED  # noqa: SLF001
+
+
+def test_a_read_of_the_sidecar_that_stays_refused_is_no_record(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """After the pauses a sidecar that cannot be read is answered `None`, as it was before (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+    refused = _refuse_reading_sidecar(monkeypatch, network._sidecar_of(blob), times=1000)  # noqa: SLF001
+
+    assert network._sidecar_record(blob) is None  # noqa: SLF001
+    assert refused == [len(network._REFUSED_PAUSES) + 1]  # noqa: SLF001
+
+
+def _fail_if_asked_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a pause fail the test: only a `PermissionError` is asked again, after one (GH-3632)."""
+
+    def sleep(_seconds: float) -> None:
+        msg = "asked again"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(network.time, "sleep", sleep)
+
+
+def test_a_replace_of_the_sidecar_is_not_made_for_a_blob_another_process_has_replaced_since(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The retry checks the blob again: a late replace would overwrite the record of the blob there (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    monkeypatch.setattr(network, "_REFUSED_PAUSES", (0.0,) * 3)
+    replace = os.replace
+    attempts = [0]
+
+    def refuse_then_let_the_blob_change(source: str, destination: str) -> None:
+        if Path(destination) != sidecar:
+            replace(source, destination)
+            return
+        attempts[0] += 1
+        blob.write_bytes(b"the body of another fetch")  # what another process does between two tries
+        msg = "[WinError 5] Access is denied"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(network.os, "replace", refuse_then_let_the_blob_change)
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert attempts == [1]
+    assert not sidecar.exists()
+    assert _stray_files(tmp_path) == [blob.name]
+
+
+def test_a_sidecar_that_is_not_there_is_read_once_and_is_no_record(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Only a refusal is asked again: a blob with no sidecar is answered at once, with no pause (GH-3632)."""
+    blob, _ = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    _fail_if_asked_again(monkeypatch)
+    original = Path.read_text
+    reads = [0]
+
+    def read_text(self: Path, *args: object, **kwargs: object) -> str:
+        reads[0] += int(self == sidecar)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert network._sidecar_record(blob) is None  # noqa: SLF001
+    assert reads == [1]
+
+
+def test_a_replace_of_the_sidecar_that_fails_otherwise_is_not_asked_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Only a `PermissionError` is a sharing violation: any other error of the replace is given up at once (GH-3632)."""
+    blob, written = _blob_with_sidecar_inputs(tmp_path)
+    sidecar = network._sidecar_of(blob)  # noqa: SLF001
+    _fail_if_asked_again(monkeypatch)
+    replace = os.replace
+    attempts = [0]
+
+    def fail(source: str, destination: str) -> None:
+        if Path(destination) != sidecar:
+            replace(source, destination)
+            return
+        attempts[0] += 1
+        msg = "No space left on device"
+        raise OSError(msg)
+
+    monkeypatch.setattr(network.os, "replace", fail)
+
+    network._write_sidecar(blob, _LAST_MODIFIED, written)  # noqa: SLF001
+
+    assert attempts == [1]
+    assert not sidecar.exists()
+    assert _stray_files(tmp_path) == [blob.name]
 
 
 def test_a_body_cut_short_leaves_no_file_in_the_cache(status_server: ThreadingHTTPServer, tmp_path: Path) -> None:
@@ -4467,8 +4834,13 @@ def test_a_listing_asks_again_for_a_handshake_the_server_fumbled(
             raise failure
         return []
 
+    def not_found(_self: object, _url: str, **_kwargs: object) -> bytes:
+        raise FileNotFoundError
+
     monkeypatch.setattr(HTTPFileSystem, "find", flaky)
     monkeypatch.setattr(HTTPFileSystem, "ls", flaky)
+    # a listing with no file reads the page of the directory, a 404 here
+    monkeypatch.setattr(HTTPFileSystem, "cat_file", not_found)
 
     with stamina.set_testing(True, attempts=3):
         assert function("https://example.com/tls/", Settings(cache_dir=tmp_path)) == []

@@ -6,7 +6,7 @@ This directory contains end-to-end (E2E) tests using Playwright that test the ap
 
 **Playwright comes with its own browsers** - no system browser installation needed!
 
-Currently configured to use **Firefox**. You can easily switch or test multiple browsers:
+Currently configured to use **Firefox**, and **Chromium** for `chart-print.spec.ts` and `print-backgrounds.spec.ts` alone (they print pages to a PDF with `page.pdf`, which only Chromium has; `npx playwright install firefox chromium`). You can easily switch or test multiple browsers:
 
 ```typescript
 // playwright.config.ts
@@ -20,8 +20,9 @@ projects: [
 ### Installing Browsers
 
 ```bash
-# Install Firefox (current default)
-npx playwright install firefox
+# Install Firefox (current default) and Chromium, which two specs run in: chart-print.spec.ts (the `chromium`
+# project) and dialog-touch-scroll.spec.ts (the `chromium-touch` project, a Pixel 7 with touch)
+npx playwright install firefox chromium
 
 # Or install all browsers
 npx playwright install
@@ -135,7 +136,7 @@ tests/e2e/
 ### API Tests (`api.spec.ts`)
 - Tests backend API endpoints directly
 - Verifies data structure and response codes
-- Tests: coverage, stations, values, stripes endpoints
+- Tests: providers, coverage, stations, values, stripes endpoints
 
 ### Page Tests (`pages.spec.ts`)
 - Tests page rendering and navigation
@@ -191,7 +192,7 @@ docker compose --profile backend down
 
 1. **Check backend is running:**
    ```bash
-   curl http://localhost:7890/api/coverage
+   curl http://localhost:7890/api/providers
    ```
 
 2. **Run test with UI:**

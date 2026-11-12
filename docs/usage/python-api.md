@@ -32,12 +32,16 @@ coverage = Wetterdienst.discover()
 coverage
 ```
 
-Each network says what it is: `name_short`, `country`, `url` and `kind`, where `observation`, `forecast` and
+Each network says what it is: `name_short`, `country`, `url`, `kind` and `scope` (how far it reaches: `global`,
+`national` or `regional`), `auth`, `configured` and `date_required`, where `observation`, `forecast` and
 `derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
 (`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
-`Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. The fields are
-described with the [REST API](restapi.md#coverage), which lists the same.
+`Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. `discover()` is the
+Python counterpart of the REST route [`/api/providers`](restapi.md#providers), which lists the same networks
+in another shape: `name_short` and `country` once for each provider (not for each network), `scope` as
+`extent.scope` beside the `continents` and the `bbox`, and the terms of the provider besides. The resolutions,
+datasets and parameters of one network are `/api/coverage`, which is the `discover()` of the request class of a network.
 
 To load the request class of a timeseries network pass the provider and the network of data to
 `Wetterdienst.resolve`:
@@ -80,6 +84,11 @@ A request is typically defined by three arguments:
 - ``parameters``
 - ``start``
 - ``end``
+
+A dataset the provider serves by a window (`date_required` in the coverage, as for MET Norway Frost, FMI, DMI
+or the WSV gauges) needs both: `stations.values()` raises `DateRequiredError`, a `ValueError`, naming the dataset
+when the request has none, as the REST API, the command line and MCP refuse it. Listing the stations needs no
+window.
 
 Parameters can be requested in different ways e.g.
 
@@ -519,12 +528,14 @@ columns of its own that its station list has, null for a station the source give
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
 | `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
 | `geosphere/observation` | `wmo_id` | the WMO station number, five digits |
+| `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
+| `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
 | `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |
 | `knmi/observation` | `wigos_id` | the WIGOS station identifier (`0-20000-0-06260`), of which `station_id` is the WMO number at the end |
 | `noaa/ghcn` | `wmo_id` | the WMO station number, five digits, null for a station without one |
-| `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres |
+| `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres, the waterway kilometre, which grows downstream |
 | `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
-| `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge |
+| `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in metres, converted from the unit Pegelonline lists them in, as `stage` is by default |
 
 A test holds this table to the columns the providers declare, so a column added to a provider is added here.
 
@@ -666,6 +677,56 @@ flags its source publishes for it, null where the source gives none. What a code
 provider, so a code from one says nothing about one from another. The tokens, the codes of each provider and the
 sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quality-flags.md) page.
 
+#### Plausibility checks
+
+A number no sensor can have produced (4021 °C for a daily maximum, 1093.3 hPa at a station at sea level, a barometer
+that held one value for a month) is judged by a **check**, and the option `plausibility` chooses what happens to it,
+per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
+`"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`,
+`floor`, `limits`, `source`, `step` and `relations`; all are hard but `stuck` and `step`, which are soft because they judge a series and not a value (what `stuck` finds depends on what was read, and `step` is a jump between consecutive readings, which a front also makes; see the
+[plausibility page](../data/plausibility.md)), `relations`, which is soft because it flags both readings of two that contradict each other and cannot tell which is wrong (it is not `consistency`, the hard check of a provider's own rules), and `source`, which is soft because its verdict is the source's own: a value the provider's quality flag marks as erroneous or doubtful (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an Environment Agency `Suspect`, DMI `validity:false`, ...) is flagged `suspect:source`, or null with `rejected:source` in `"hard"` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) every check but `floor` and `limits` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
+(`-999`, a calm, a trace) are no check and have no mode.
+
+```python
+import polars as pl
+from wetterdienst import Options
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+request = DwdObservationRequest(
+    parameters=[("daily", "climate_summary", "pressure_air_site_mean")],
+    start="2023-01-01",
+    end="2023-01-31",
+    options=Options(plausibility={"range": "soft"}),  # or options={"plausibility": {"range": "soft"}}
+)
+values = request.filter_by_station_id("01048").values().all()
+# the values a soft check kept, flagged `suspect:range`
+suspect = values.df.filter(pl.col("quality_flags").str.contains(r"(^|,)suspect:"))
+```
+
+`Options(plausibility="soft")` sets every check at once (everything a source wrote, flagged), and a check named beside
+it, as in the environment (`WD_TS_PLAUSIBILITY=soft` with `WD_TS_PLAUSIBILITY__RANGE=hard`), wins.
+
+The check `limits` judges bounds of your own, per parameter, in the unit the values come back in (`unit_targets`, or the
+source's unit with `convert_units=False`), beside the physical `range`:
+
+```python
+options = Options(
+    limits={
+        "temperature_air_mean_2m": (-30, 45),  # every dataset that serves the parameter
+        "precipitation_amount": (None, 200),  # an end may be None, not both
+        "daily/climate_summary/temperature_air_max_2m": (-25, 45),  # that dataset only, which wins where both name it
+    },
+    plausibility={"limits": "soft"},  # hard (null, `rejected:limits,raw:<number>`) is the default
+)
+```
+
+A name that is no parameter, a `low` above `high`, both ends `None` and a bound that is NaN or infinite are errors
+(`WD_TS_LIMITS` is the JSON of the mapping, with pairs as lists). A forecast network follows the mode of `limits` too (hard nulls, soft flags).
+
+Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
+values alone. [Plausibility checks](../data/plausibility.md)
+describes each check, the networks and datasets it covers, the tokens with filters for them, and the caveats.
+
 ### Results
 
 What a request answers is a result, and the results are what a caller reads:
@@ -689,14 +750,21 @@ What a request answers is a result, and the results are what a caller reads:
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
-  `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict` and `to_json`
-  only. They are documented below.
+  `to_csv`, `to_ndjson`, `to_format`, `to_target`, `to_plot` and `to_image`; the history one has `to_dict`, `to_json`
+  and `to_format`, which has JSON and no other format. They are documented below.
+- **`FormattableResult` is what all of them can do**: a `typing.Protocol` of `to_dict`, `to_json` and `to_format`,
+  importable from `wetterdienst.model.result`. The five results satisfy it, and so does the alerts result of
+  `dwd/alerts`, without inheriting from it, so a function that writes whatever a request answered annotates its
+  argument with it (`def save(result: FormattableResult) -> str | bytes`). `isinstance(result, FormattableResult)`
+  tells whether an object has the three methods. A format a result does not have, such as CSV for a history, is an
+  `UnknownFormatError` from its `to_format`.
 - **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
   `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
   keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale` and
   `max_side`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
-  it takes (CSV none), which is what the command line, the REST API and MCP rely on.
+  it takes (CSV none), which is what the command line, the REST API and MCP rely on. A name that no format takes
+  is a `TypeError` listing the ones that are, and a format it does not know an `UnknownFormatError`.
 - **A result is built by the library, and by keyword.** The constructors take keyword arguments only
   (`ValuesResult(stations=..., df=...)`); a positional call raises a `TypeError`.
 
@@ -723,7 +791,8 @@ full explanation, supported parameters, settings, CLI and REST usage.
 
 A result renders itself in the formats below. The arguments are keyword-only and the ones in the table: a keyword a
 method does not take is a `TypeError`. `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives
-each format those it takes, which is what the command line, the REST API and the MCP tools do.
+each format those it takes, which is what the command line, the REST API and the MCP tools do. A keyword that no
+format takes is a `TypeError` too, and the formats by surface are in the table of [Export](export.md#formats-by-surface).
 
 | Method | `StationsResult` | `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult` | `HistoryResult` |
 | --- | --- | --- | --- |
@@ -732,14 +801,17 @@ each format those it takes, which is what the command line, the REST API and the
 | `to_geojson` | `with_metadata`, `indent` | `with_metadata`, `indent` | none |
 | `to_ogc_feature_collection` | `with_metadata` | `with_metadata` | none |
 | `to_csv` | `**kwargs` of polars' `write_csv` | the same | none |
+| `to_ndjson` | none | none | none |
 | `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
 | `to_plot` | none | none | none |
+| `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
 `indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
+`with_stations` adds a `stations` block to the values results: `df_stations`, the stations that have a row in the result, one for each resolution, dataset and station that has rows (a row of nulls is a row). A station of the request that returned no rows is not in it, nor is one whose rows `filtered_by_date` or `filtered_by_sql` cut away, and the block is an empty list where no row is left; the stations of the request are `result.stations.df`. Where the wide shape merged several datasets of a resolution into one row, which names no dataset, it has an entry for each of the datasets. In `HistoryResult` it lists the stations of the request.
 `to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
 `InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which
 are importable from `wetterdienst.model.result` to annotate a function that takes or returns one. The block that
-`with_metadata` adds is a `ResultMetadata`: the `provider`, the `producer` and `data_updated_at`, the date the source
+`with_metadata` adds is a `ResultMetadata`: the `provider`, the `producer`, the `processing_note` and `data_updated_at`, the date the source
 states for the data (UTC, `null` where it states none, for a list of stations and for a history; a result cut down by
 `filtered_by_date` or `filtered_by_sql` keeps it, and has none where no row is left). `to_target` writes to a file or a
 database, see [Export](#export).
@@ -893,16 +965,17 @@ record or many stations, `stations.values().query()` and `to_target` hold one st
 
 Every class of `wetterdienst.exceptions` derives from `WetterdienstError`
 (`from wetterdienst import WetterdienstError`), so one `except` catches them all. A bad argument
-the library refuses with a plain `ValueError` or `KeyError` is not one of them yet. Five classes
+the library refuses with a plain `ValueError` or `KeyError` is not one of them yet. Six classes
 below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point | `ValueError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, or an output format nothing renders (`UnknownFormatError`, also a `KeyError`) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
-| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
+| `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 
 ```python
 from wetterdienst import RequestError, UpstreamError, WetterdienstError
@@ -925,7 +998,7 @@ a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an
 credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
 and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
 (exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, any other
-`UpstreamError` a 502 (a 504 where a timeout was its cause), and anything else, an unclassified
+`UpstreamError` a 502 (a 504 where a timeout was its cause), an `ImageTimeoutError` a 504 (exit 1), and anything else, an unclassified
 `WetterdienstError` included, the server's error, a 500. See [REST API](restapi.md#errors) for the body.
 
 ### Offline

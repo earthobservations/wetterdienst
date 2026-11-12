@@ -4,9 +4,15 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
-import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
+import { useSettings } from '#imports'
+import Meteogram from '~/components/Meteogram.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
+
+/** Shows the map of the station picker: the reader's click on "Map" of its toggle */
+async function showMap(wrapper: VueWrapper) {
+  await wrapper.findAll('[role="radio"]').find(radio => radio.text() === 'Map')!.trigger('click')
+}
 
 describe('meteogram Page', () => {
   beforeEach(() => {
@@ -26,12 +32,20 @@ describe('meteogram Page', () => {
 
   it('shows the empty-state hint before a station is selected', async () => {
     const wrapper = await mountSuspended(MeteogramPage)
-    expect(wrapper.text()).toContain('Search for a station above to generate a forecast')
+    expect(wrapper.text()).toContain('Search for a station or pick one on the map to see its forecast')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('forecast')
   })
 
-  it('has a station search and map picker', async () => {
+  it('titles the first card by what it holds, a station', async () => {
     const wrapper = await mountSuspended(MeteogramPage)
-    expect(wrapper.text()).toContain('Choose a station on the map')
+    expect(wrapper.find('.text-lg.font-bold').text()).toBe('Station')
+  })
+
+  it('has a station picker with a toggle between the search and the map', async () => {
+    const wrapper = await mountSuspended(MeteogramPage)
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios.map(radio => radio.text())).toEqual(['List', 'Map'])
+    expect(radios.map(radio => radio.attributes('aria-checked'))).toEqual(['true', 'false'])
   })
 
   it('fetches the meteogram when a station is selected', async () => {
@@ -62,6 +76,30 @@ describe('meteogram Page', () => {
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
     await vi.waitFor(() => expect(vm.error).toBe('Backend error 500 Internal Server Error'))
+  })
+
+  it('tells a 200 page of HTML as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
+  })
+
+  it('tells JSON without the list of values as a failure, not as a forecast with no values (GH-3841)', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ message: 'something else answered' }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    )
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+
+    vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: .*no list of `values`/))
   })
 
   it('tells a refused request by the backend\'s detail', async () => {
@@ -108,7 +146,7 @@ describe('meteogram Page', () => {
     expect(wrapper.text()).toContain('multi-day weather forecast from DWD MOSMIX')
   })
 
-  it('clicking "Choose a station on the map" loads and reveals the map picker', async () => {
+  it('showing the map loads the stations and reveals the map picker', async () => {
     registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }],
     }))
@@ -119,16 +157,16 @@ describe('meteogram Page', () => {
     // is covered by e2e (real browser) tests instead.
     const wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    expect(vm.mapStations).toEqual([])
+    // the list is large: not asked for before the search is opened or the map shown
+    expect(vm.stations).toEqual([])
 
-    const mapToggle = wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))
-    await mapToggle!.trigger('click')
+    await showMap(wrapper)
     await wrapper.vm.$nextTick()
     await new Promise(resolve => setTimeout(resolve, 0))
     await wrapper.vm.$nextTick()
 
-    expect(vm.showMap).toBe(true)
-    expect(vm.mapStations).toEqual([
+    expect(wrapper.find('[role="radio"][aria-checked="true"]').text()).toBe('Map')
+    expect(vm.stations).toEqual([
       { station_id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 },
     ])
   })
@@ -166,7 +204,7 @@ describe('the meteogram page\'s station map whose code could not be loaded', () 
     })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    await showMap(wrapper!)
     await vi.waitFor(() => expect(wrapper!.text()).toContain('Tap a marker on the map to pick that station.'))
     fail()
     const alert = await vi.waitFor(() => {
@@ -224,24 +262,25 @@ describe('the meteogram page\'s requests answered with a 500', () => {
     expect(asked.count).toBe(1)
   })
 
-  it('asks /api/stations once for the map\'s stations', async () => {
+  it('asks /api/stations once for the picker\'s stations', async () => {
     wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    // the station search's own list, asked for the same stations, answered before the map's fails
-    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
     const { asked, handler } = failing()
     endpoints.push(registerEndpoint('/api/stations', handler))
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
+    await showMap(wrapper)
     // a request asked again is under way until its second answer
     await vi.waitFor(() => {
       expect(asked.count).toBeGreaterThan(0)
-      expect(vm.mapLoading).toBe(false)
+      expect(vm.stationsLoading).toBe(false)
     })
     expect(asked.count).toBe(1)
+    // told, and asked again where the reader shows the map or opens the search once more
+    expect(vm.stationsFailed).toBe(true)
+    expect(wrapper.text()).toContain('Failed to load stations')
   })
 
   it('asks /api/stations once for the station a shared link names', async () => {
-    // the station search's list is asked for all stations, the link's station by its id
+    // the picker's list is asked for all stations, the link's station by its id
     const { asked, handler } = failing(query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
@@ -301,20 +340,18 @@ describe('the meteogram page\'s requests answered with a 503 once', () => {
     expect(asked.count).toBe(2)
   })
 
-  it('asks /api/stations once more for the map\'s stations, and shows what that answer brings', async () => {
+  it('asks /api/stations once more for the picker\'s stations, and shows what that answer brings', async () => {
     wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
-    // the station search's own list, asked for the same stations, answered before the map's is asked
-    await vi.waitFor(() => expect((wrapper!.findComponent(MeteogramStationSearch).vm as any).pending).toBe(false))
     const { asked, handler } = flaky({ stations: [janMayen] })
     endpoints.push(registerEndpoint('/api/stations', handler))
-    await wrapper.findAll('button').find(b => b.text().includes('Choose a station on the map'))!.trigger('click')
-    await vi.waitFor(() => expect(vm.mapStations).toHaveLength(1))
+    await showMap(wrapper)
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     expect(asked.count).toBe(2)
   })
 
   it('asks /api/stations once more for the station a shared link names, and selects it', async () => {
-    // the station search's list is asked for all stations, the link's station by its id
+    // the picker's list is asked for all stations, the link's station by its id
     const { asked, handler } = flaky({ stations: [janMayen] }, query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
@@ -342,15 +379,114 @@ describe('meteogram Page values request', () => {
     expect(query.get('humanize')).toBe('true')
     expect(query.get('convert_units')).toBe('true')
     expect(query.get('skip_empty')).toBe('false')
-    // each quantity the charts give a unit for, as the server's own targets are merged into the request's
-    expect(JSON.parse(query.get('unit_targets')!)).toEqual({
+    // the answer says the unit of each parameter, which the charts are labelled by
+    expect(query.get('with_metadata')).toBe('true')
+    // each quantity the charts give a unit for, in the unit the app settings choose (the app's defaults here), and every
+    // other type the settings page lists, as the server's own targets are merged into the request's
+    expect(JSON.parse(query.get('unit_targets')!)).toMatchObject({
       angle: 'degree',
-      fraction: 'decimal',
+      fraction: 'percent',
       precipitation: 'millimeter',
       pressure: 'hectopascal',
       speed: 'meter_per_second',
       temperature: 'degree_celsius',
     })
+  })
+})
+
+// The forecast follows the unit settings (GH-3980): the request carries them, the chart is told the unit the answer reports
+// for each parameter, and a change of them while a forecast is shown fetches it again
+describe('meteogram Page units', () => {
+  const station = { station_id: '70001', name: 'Test Island', latitude: 70.9, longitude: -8.7 }
+  const row = (parameter: string, value: number) => ({ station_id: '70001', resolution: 'hourly', dataset: 'large', parameter, timestamp: '2026-10-01T00:00:00+00:00', value, quality_flags: null })
+  // the answer to a request, in the temperature unit it asked for
+  const answer = (query: URLSearchParams) => {
+    const fahrenheit = JSON.parse(query.get('unit_targets')!).temperature === 'degree_fahrenheit'
+    return {
+      values: [row('temperature_air_2m', fahrenheit ? 50 : 10)],
+      metadata: { parameters: [{ name: 'temperature_air_2m', quantity: 'temperature', unit: fahrenheit ? '°F' : '°C' }] },
+    }
+  }
+  const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.map(([input]) => new URL(String(input), 'http://localhost')).filter(url => url.pathname === '/api/values' && url.searchParams.get('stations') === '70001')
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let gate: Promise<void> | null = null
+
+  beforeEach(() => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
+    onTestFinished(registerEndpoint('/api/issues', () => ({ issues: [] })))
+    globalThis.fetch = vi.fn(async (input) => {
+      const url = new URL(String(input), 'http://localhost')
+      await gate
+      return new Response(JSON.stringify(answer(url.searchParams)), { status: 200 })
+    })
+  })
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    gate = null
+    useSettings().settings.value.units.temperature = 'degree_celsius'
+    useSettings().settings.value.convertUnits = true
+  })
+
+  async function showForecast() {
+    wrapper = await mountSuspended(MeteogramPage)
+    ;(wrapper.vm as any).selectedStation = station
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    return wrapper
+  }
+  const chartUnits = () => wrapper!.findComponent(Meteogram).props('units')
+
+  it('asks in the unit the settings choose, and tells the chart the unit the answer reports', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await showForecast()
+    expect(JSON.parse(valuesRequests()[0]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+  })
+
+  it('asks for the values unconverted where the settings say so', async () => {
+    useSettings().settings.value.convertUnits = false
+    await showForecast()
+    expect(valuesRequests()[0]!.searchParams.get('convert_units')).toBe('false')
+  })
+
+  it('fetches the forecast again, once, in the new unit where the settings change while it is shown', async () => {
+    await showForecast()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    expect(JSON.parse(valuesRequests()[1]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    // no third request follows
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(valuesRequests()).toHaveLength(2)
+  })
+
+  it('leaves the forecast as it is where a unit it does not draw changes', async () => {
+    await showForecast()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.conductivity = 'siemens_per_meter'
+    useSettings().settings.value.units.length_long = 'mile'
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(valuesRequests()).toHaveLength(1)
+    useSettings().settings.value.units.conductivity = 'microsiemens_per_centimeter'
+    useSettings().settings.value.units.length_long = 'kilometer'
+  })
+
+  it('shows the answer of the newest request where the settings change while one is under way, which is followed by one more', async () => {
+    let release!: () => void
+    gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(MeteogramPage)
+    ;(wrapper.vm as any).selectedStation = station
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    // the first answer is held: the unit changes meanwhile
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    release()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    expect(valuesRequests()).toHaveLength(2)
+    expect((wrapper.vm as any).values[0].value).toBe(50)
   })
 })
 
@@ -400,6 +536,23 @@ describe('meteogram Page failures in the active language', () => {
     const vm = wrapper.vm as any
     vm.selectedStation = station
     await vi.waitFor(() => expect(vm.error).toBe(expected))
+  })
+
+  it.each([
+    ['en', 'Backend error 502: '],
+    ['de', 'Backend-Fehler 502: '],
+    ['fr', 'Erreur du backend 502\u00A0: '],
+    ['pl', 'Błąd backendu 502: '],
+  ])('tells an answer that is a page as the backend\'s own failure in %s, as the proxy\'s problem reads (GH-3841)', async (language, start) => {
+    await inLanguage(language)
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+    const wrapper = await mountSuspended(MeteogramPage)
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    vm.selectedStation = station
+    await vi.waitFor(() => expect(vm.error).toBe(`${start}The API answered with a web page, not data. The address of the API may be wrong, or a proxy in front of it answered with its own page.`))
   })
 
   it.each([

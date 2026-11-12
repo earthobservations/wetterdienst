@@ -2,20 +2,45 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Geo utilities for the wetterdienst package."""
 
+from __future__ import annotations
+
 import math
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import polars as pl
-import pyarrow as pa
-import pyarrow.compute as _pc
 
-# pyarrow.compute lacks complete type stubs for compute functions
-pc: Any = _pc
+from wetterdienst.exceptions import LocationOutOfRangeError
+
+if TYPE_CHECKING:
+    import pyarrow as pa
 
 EARTH_RADIUS_IN_KM = 6371
 
+#: the range of a point on the globe, in degrees; the poles and the antimeridian are in it. The fields of the REST
+#: API, the command line and MCP, and `summarize`, `filter_by_rank` and `filter_by_distance` of the Python API,
+#: all hold a latitude and a longitude to it
+LATITUDE_MIN = -90
+LATITUDE_MAX = 90
+LONGITUDE_MIN = -180
+LONGITUDE_MAX = 180
+
 # the conversions are plain arithmetic, so a column expression and a series run through the same body
 _SeriesOrExpr = TypeVar("_SeriesOrExpr", pl.Series, pl.Expr)
+
+
+def require_location_in_range(latitude: float, longitude: float) -> None:
+    """Refuse a latitude outside -90..90 or a longitude outside -180..180, which names no point on the globe.
+
+    Raises:
+        LocationOutOfRangeError: where either is beyond or is NaN, naming the range allowed
+
+    """
+    if not LATITUDE_MIN <= latitude <= LATITUDE_MAX:
+        msg = f"latitude {latitude} is outside the range {LATITUDE_MIN} to {LATITUDE_MAX} degrees"
+        raise LocationOutOfRangeError(msg)
+    if not LONGITUDE_MIN <= longitude <= LONGITUDE_MAX:
+        msg = f"longitude {longitude} is outside the range {LONGITUDE_MIN} to {LONGITUDE_MAX} degrees"
+        raise LocationOutOfRangeError(msg)
 
 
 def derive_nearest_neighbours(
@@ -36,6 +61,13 @@ def derive_nearest_neighbours(
         Tuple of distances and ranks of nearest to most distant station
 
     """
+    # imported here: pyarrow is 0.07 s of the start-up of a `values` command, and only a request by distance or rank
+    # reads it (GH-3809)
+    import pyarrow.compute as _pc  # noqa: PLC0415
+
+    # pyarrow.compute lacks complete type stubs for compute functions
+    pc: Any = _pc
+
     lat_radians = pc.multiply(latitudes, math.pi / 180)
     lon_radians = pc.multiply(longitudes, math.pi / 180)
     q_lat_radians = q_lat * math.pi / 180

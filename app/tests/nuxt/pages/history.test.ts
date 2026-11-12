@@ -2,14 +2,16 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ParameterSelection from '~/components/ParameterSelection.vue'
+import StationPicker from '~/components/StationPicker.vue'
 import HistoryPage from '~/pages/history.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
+import { networksAnswer } from '../fixtures/providers'
 
 // pages mounted by a test, unmounted after it: a page left mounted can share its fetch with the next
 // test's, useFetch keying a fetch by where it is called and what it asks for
 const mounted: Array<{ unmount: () => void }> = []
 
-// ParameterSelection fires its /api/coverage request without awaiting it in setup, so mounting no
+// ParameterSelection fires its /api/providers request without awaiting it in setup, so mounting no
 // longer implies it has restored provider/network. Driving `paramSel` before that has settled
 // would be clobbered by the component's own initial emit. The page's own `paramSel.provider` is
 // no signal here -- it starts out as 'dwd' -- so this waits on the child's initialization flag.
@@ -49,14 +51,10 @@ async function mountWithSelection(history: Parameters<typeof registerEndpoint>[1
 
 describe('history Page', () => {
   beforeEach(() => {
-    // Same path serves two shapes: the plain provider/network listing, and --
-    // once a provider+network is picked -- the resolution/dataset/parameter tree.
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    // Two answers: the providers and their networks, and -- once a provider+network is picked -- the
+    // coverage of that network, its resolution/dataset/parameter tree.
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -87,6 +85,20 @@ describe('history Page', () => {
     expect(wrapper.text()).toContain('Please select resolution and dataset first')
   })
 
+  it('picks its stations with the shared station picker, a toggle of the list and the map that is its own', async () => {
+    const wrapper = await mountHistory()
+    expect(wrapper.findComponent(StationPicker).exists()).toBe(false)
+
+    const vm = wrapper.vm as any
+    vm.paramSel.resolution = 'daily'
+    vm.paramSel.dataset = 'climate_summary'
+    await vi.waitFor(() => expect(wrapper.findComponent(StationPicker).exists()).toBe(true))
+    const picker = wrapper.findComponent(StationPicker)
+    expect((picker.props() as any).tool).toBe('history')
+    expect((picker.props() as any).multiple).toBe(true)
+    expect(picker.findAll('[role="radio"]').map(radio => radio.text())).toEqual(['List', 'Map'])
+  })
+
   it('shows the history sections selector', async () => {
     const wrapper = await mountHistory()
     expect(wrapper.text()).toContain('History sections')
@@ -108,9 +120,73 @@ describe('history Page', () => {
     expect(vm.canFetch).toBe(true)
   })
 
-  it('shows an empty-results hint before any query has run', async () => {
+  it('shows the placeholder of the tools, and no result card, before any query has run', async () => {
     const wrapper = await mountHistory()
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('history')
+    expect(wrapper.text()).toContain('Search for stations or pick them on the map, then click “Show” to load their histories')
+    expect(wrapper.text()).not.toContain('backend')
+    expect(wrapper.text()).not.toContain('Results')
+  })
+
+  it('titles the cards by what they hold: the data, and the station', async () => {
+    const wrapper = await mountHistory()
+    expect(wrapper.findAll('h2').map(h => h.text()).slice(0, 2)).toEqual(['Data', 'Station'])
+  })
+
+  it('says that nothing was found, and not that nothing was asked, where a query came back with no histories', async () => {
+    const { wrapper, showButton } = await mountWithSelection(() => ({ histories: [] }))
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+  })
+
+  it('keeps the card of an answer that found nothing as the next Show goes out, and shows it for the first Show under way', async () => {
+    let calls = 0
+    let release!: () => void
+    const held = new Promise<void>(resolve => (release = resolve))
+    const { wrapper, vm, showButton } = await mountWithSelection(async () => {
+      calls++
+      if (calls === 1)
+        return { histories: [] }
+      await held
+      return { histories: [] }
+    })
+    const card = () => wrapper.findAll('h2').map(h => h.text()).includes('Results')
+
+    // the first Show, until it answers: the card, with the spinner in it, not the placeholder
+    expect(card()).toBe(false)
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+
+    // another station, and Show again: the answer found nothing, and the card stays while the next is fetched
+    vm.stationSelectionState.selection.stations = [{ station_id: '00001', name: 'Test' }, { station_id: '00002', name: 'Test 2' }]
+    await wrapper.vm.$nextTick()
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(calls).toBe(2), { timeout: 5000 })
+    expect(card()).toBe(true)
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No history was found')
+
+    release()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No history was found for the selected stations.'), { timeout: 5000 })
+
+    // Reset ends the answer: the placeholder again
+    await wrapper.findAll('button').find(b => b.text() === 'Reset')!.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
+  })
+
+  it('shows the card with a spinner while the first Show is under way', async () => {
+    const held = new Promise<void>(() => {})
+    const { wrapper, showButton } = await mountWithSelection(async () => {
+      await held
+      return { histories: [] }
+    })
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.findAll('h2').map(h => h.text())).toContain('Results'), { timeout: 5000 })
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(false)
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('No history was found')
   })
 
   it('clear() resets fetched history data', async () => {
@@ -180,7 +256,7 @@ describe('history Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('Foo Station')
-    expect(wrapper.text()).toContain('No histories loaded')
+    expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
     expect(vm.canFetch).toBe(true)
   })
 
@@ -357,12 +433,8 @@ describe('history Page', () => {
 
 describe('history Page results', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -542,12 +614,8 @@ describe('history Page results', () => {
 
 describe('history Page station card id', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return { daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => ({ daily: { description: null, datasets: { climate_summary: { description: null, parameters: [{ name: 'temperature_air_max_200' }] } } } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -589,12 +657,8 @@ describe('history Page station card id', () => {
 
 describe('history Page request answered with a 500', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {
@@ -619,12 +683,8 @@ describe('history Page request answered with a 500', () => {
 
 describe('history Page request answered with a 503 once', () => {
   beforeEach(() => {
-    registerEndpoint('/api/coverage', (event) => {
-      const q = getQuery(event)
-      if (q.provider)
-        return dailyClimateSummaryCoverage()
-      return { dwd: { observation: {} } }
-    })
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
   })
 
   afterEach(() => {

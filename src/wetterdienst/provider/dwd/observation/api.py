@@ -8,7 +8,7 @@ import datetime as dt
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
 from zoneinfo import ZoneInfo
 
@@ -30,21 +30,32 @@ from wetterdienst.model.history import (
     _NameHistory,
     _ParameterHistory,
 )
+from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.coverage import warn_files_without_description
+from wetterdienst.provider.dwd.expiry import expiries_of
 from wetterdienst.provider.dwd.observation.download import (
+    MEZ_BY_COMPARISON,
     download_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.fileindex import (
+    EMPTY_LISTING,
+    NO_DESCRIPTION,
+    EmptyListingError,
     _build_url_from_dataset_and_period,
     _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata,
     _create_file_index_for_dwd_server,
+    _meta_data_url,
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
+    directory_of,
+    remembering_empty_directories,
+    warn_skipped_listings,
 )
+from wetterdienst.provider.dwd.observation.local_mean_time_blocks import ZONE_LOCAL_MEAN_TIME
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
     DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
@@ -54,9 +65,14 @@ from wetterdienst.provider.dwd.observation.metadata import (
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
+from wetterdienst.provider.dwd.observation.mez_blocks import ZONE_MEZ, ZONE_MEZ_BATCH
 from wetterdienst.provider.dwd.observation.parser import (
+    LOCAL_MEAN_TIME_PREFIX,
+    MEZ_BATCH_PREFIX,
     MEZ_MD_PREFIX,
     WOZ_COLUMN,
+    local_mean_time_column,
+    mez_batch_column,
     mez_md_column,
     parse_climate_observations_data,
 )
@@ -65,13 +81,14 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
+from wetterdienst.util.response_warnings import FILE_SKIPPED, SkipCause, note_skipped_download, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from fsspec.implementations.zip import ZipFileSystem
 
-    from wetterdienst.model.result import StationsResult
+    from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
 log = logging.getLogger(__name__)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
@@ -79,8 +96,9 @@ log = logging.getLogger(__name__)
 # are read oldest first, so their read order is that precedence; it rides through the concatenation
 # as a column under this name and is dropped again straight after.
 _PERIOD_RANK = "period_rank"
-# marks the rows of a parameter whose stamp was shifted to UTC, in the frame of `_tidy_up_df` only
-_SHIFTED = "shifted_to_utc"
+# the order in which a row is kept where two rows of a parameter have the same stamp once the shifted ones are moved to
+# UTC (smallest first), in the frame of `_tidy_up_df` only: see there
+_SHIFTED = "shift_order"
 # whether a row holds a value in any parameter, which settles a stamp that is listed twice, in the frame of the
 # collection only (GH-2996)
 _HAS_VALUE = "has_value"
@@ -91,12 +109,46 @@ def _is_value_column(column: str) -> bool:
     return not (
         column.endswith(RAW_SUFFIX)
         or column in (WOZ_COLUMN, _PERIOD_RANK)
-        or column.startswith((MEZ_MD_PREFIX, "qn", "qualitaet"))
+        or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, LOCAL_MEAN_TIME_PREFIX, "qn", "qualitaet"))
     )
+
+
+def _in_spans(
+    df: pl.DataFrame, spans_by_station: Iterable[tuple[str, tuple[tuple[dt.datetime, dt.datetime], ...]]]
+) -> list[pl.Expr]:
+    """Say, per span of the stations of the frame, which stamps (as written) lie in it, both ends included.
+
+    Only the stations the frame holds: the table of the blocks that are MEZ in the values has 26 of them, and a frame
+    is one station's.
+    """
+    stations = set(df.get_column("station_id").cast(pl.Int64, strict=False).drop_nulls().unique().to_list())
+    return [
+        (pl.col("station_id").cast(pl.Int64, strict=False) == int(station))
+        & pl.col("timestamp").is_between(first, last, closed="both")
+        for station, spans in spans_by_station
+        if int(station) in stations
+        for first, last in spans
+    ]
 
 
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
+
+    @remembering_empty_directories
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the values of all stations, listing a directory that is found empty once for the walk (GH-3819)."""
+        yield from super().query()
+
+    def _zero_direction_is_no_bearing(self) -> pl.Expr:
+        """Have the hourly directions of 0 that are no calm alone stay with `missing-value-marker` (GH-3696).
+
+        The synoptic wind's `DD=00` is the code of a variable ("umlaufend") or calm wind, which the file does not tell
+        apart, and the 0 of the hourly urban wind is neither a calm nor north (`NO_DIRECTION_CODE_PARAMETERS`).
+        """
+        return self._rows_of(
+            DwdObservationMetadata.hourly.wind_synoptic.wind_direction,
+            DwdObservationMetadata.hourly.urban_wind.wind_direction_mean,
+        )
 
     def _periods_and_date_ranges(
         self, station_id: str, dataset: DatasetModel, settings: Settings
@@ -110,11 +162,18 @@ class DwdObservationValues(TimeseriesValues):
         periods_and_date_ranges: list[tuple[Period, list[str] | None]] = []
         for period in sorted(cast("set[Period]", stations.periods)):
             if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
-                date_ranges = self._get_historical_date_ranges(
-                    station_id,
-                    dataset,
-                    settings,
-                )
+                try:
+                    date_ranges = self._get_historical_date_ranges(
+                        station_id,
+                        dataset,
+                        settings,
+                    )
+                except EmptyListingError as e:
+                    # the directory came back empty or missing: the period has no file to read. The lookup of the
+                    # stations tells the directory (`file-skipped`), and this tells the station
+                    log.info(f"No files listed at {e.url} for {dataset.name}/{station_id}. Period will be skipped.")
+                    note_skipped_download(SkipCause.EMPTY_DIRECTORY)
+                    continue
                 periods_and_date_ranges.append((period, date_ranges))
             else:
                 periods_and_date_ranges.append((period, None))
@@ -124,13 +183,21 @@ class DwdObservationValues(TimeseriesValues):
         """Name the archives of the station, which `download_climate_observations_data` downloads (GH-3454)."""
         settings = cast("Settings", self.sr.request.settings)
         urls: list[str] = []
+        ttls: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             for period, date_ranges in self._periods_and_date_ranges(station_id, dataset, settings):
                 if period in dataset.periods:
-                    urls += create_file_list_for_climate_observations(
-                        station_id, dataset, period, settings, date_ranges
-                    ).to_list()
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                    try:
+                        of_period = create_file_list_for_climate_observations(
+                            station_id, dataset, period, settings, date_ranges
+                        ).to_list()
+                    except EmptyListingError:
+                        # as the collection skips the period; the files ahead are only a head start
+                        continue
+                    urls += of_period
+                    # the expiry of the period, as `download_climate_observations_data` downloads them with (GH-3929)
+                    ttls |= expiries_of(of_period, period)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -160,21 +227,30 @@ class DwdObservationValues(TimeseriesValues):
                 continue
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
             log.info(f"Acquiring observation data for {dataset_identifier}.")
-            remote_files = create_file_list_for_climate_observations(
-                station_id,
-                dataset,
-                period,
-                settings,
-                date_ranges,
-            )
+            try:
+                remote_files = create_file_list_for_climate_observations(
+                    station_id,
+                    dataset,
+                    period,
+                    settings,
+                    date_ranges,
+                )
+            except EmptyListingError as e:
+                # as above: the directory has no file to read, and the station is named by `file-skipped`
+                log.info(f"No files listed at {e.url} for {dataset_identifier}. Period will be skipped.")
+                note_skipped_download(SkipCause.EMPTY_DIRECTORY)
+                continue
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_observations_data(remote_files, settings, dataset)
+            filenames_and_files = download_climate_observations_data(remote_files, settings, dataset, period)
             if not filenames_and_files:
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
-            period_df = parse_climate_observations_data(filenames_and_files, dataset, period)
+            interval = stations.interval
+            period_df = parse_climate_observations_data(
+                filenames_and_files, dataset, period, (interval.lower, interval.upper) if interval else None
+            )
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(
                 period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)),
@@ -228,14 +304,21 @@ class DwdObservationValues(TimeseriesValues):
         data = []
         series_quality = pl.Series()
         for column in df.columns[2:]:
-            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN or column.startswith(MEZ_MD_PREFIX):
+            if (
+                column.endswith(RAW_SUFFIX)
+                or column == WOZ_COLUMN
+                or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, LOCAL_MEAN_TIME_PREFIX))
+            ):
                 continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
             else:
                 # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816), those of a
                 # period the archive calls MEZ (MD), the soil periods of the eMD archive and the air temperature
-                # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029)
+                # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029), those of
+                # the 1973-01 to 1975-12 batch of the table of GH-3776 `zone:mez-1973-75`, and those of the months of
+                # the table of GH-3910 whose stamps are mean local time `zone:mez-local-mean-time` (shifted all the
+                # same)
                 shifted = (
                     pl.col(mez_md_column(column)).fill_null(value=False)
                     if mez_md_column(column) in df.columns
@@ -244,7 +327,34 @@ class DwdObservationValues(TimeseriesValues):
                 zone = pl.lit(None, pl.String)
                 if WOZ_COLUMN in df.columns:
                     zone = pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")).otherwise(zone)
-                zone = pl.when(shifted).then(pl.lit("mez")).otherwise(zone).alias("zone")
+                zone = pl.when(shifted).then(pl.lit(ZONE_MEZ)).otherwise(zone)
+                if mez_batch_column(column) in df.columns:
+                    zone = (
+                        pl.when(shifted & pl.col(mez_batch_column(column)).fill_null(value=False))
+                        .then(pl.lit(ZONE_MEZ_BATCH))
+                        .otherwise(zone)
+                    )
+                if local_mean_time_column(column) in df.columns:
+                    zone = (
+                        pl.when(shifted & pl.col(local_mean_time_column(column)).fill_null(value=False))
+                        .then(pl.lit(ZONE_LOCAL_MEAN_TIME))
+                        .otherwise(zone)
+                    )
+                zone = zone.alias("zone")
+                # a shifted row of a block `MEZ_BY_COMPARISON` names is kept before the row that was not moved, the
+                # row of every other shifted period after it
+                compared = _in_spans(
+                    df, ((station, parameters.get(column, ())) for station, parameters in MEZ_BY_COMPARISON.items())
+                )
+                shift_order = (
+                    pl.when(shifted & pl.any_horizontal(compared))
+                    .then(pl.lit(0))
+                    .when(~shifted)
+                    .then(pl.lit(1))
+                    .otherwise(pl.lit(2))
+                    if compared
+                    else pl.when(shifted).then(pl.lit(2)).otherwise(pl.lit(1))
+                )
                 df_parameter = df.select(
                     "station_id",
                     pl.when(shifted)
@@ -259,12 +369,14 @@ class DwdObservationValues(TimeseriesValues):
                     (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
                         "raw"
                     ),
-                    shifted.alias(_SHIFTED),
+                    shift_order.alias(_SHIFTED),
                 )
                 if mez_md_column(column) in df.columns:
                     # a stamp the shift moves onto one that is there already (at the start of a MEZ span: 30 stamps at
-                    # 26 of the 80 MD stations, 28 hold the same value on both; Diepholz 1995-02-01 00) goes: the row
-                    # that was not moved is kept
+                    # 26 of the 80 MD stations, 28 hold the same value on both) goes: the row that was not moved is
+                    # kept. In a block of `MEZ_BY_COMPARISON` it is the row that was moved (Nürnberg 1986-01-01 01,
+                    # -6.6, the report of 00 UTC in ISD, against the stamp 00, -7.0, which equals none; Diepholz
+                    # 1995-02-01 00, the humidity 72 against 68)
                     df_parameter = (
                         df_parameter.sort(_SHIFTED, maintain_order=True)
                         .unique(subset=["station_id", "timestamp"], keep="first", maintain_order=True)
@@ -317,8 +429,64 @@ class DwdObservationValues(TimeseriesValues):
         return result.get_column("date_range").to_list()
 
 
+#: how many stations the `file-skipped` warning of a history lists, as the one of the values does
+_MAX_STATIONS_LISTED = 10
+
+
+@dataclass
 class DwdObservationHistory(TimeseriesHistory):
-    """History class for DWD observation data."""
+    """History class for DWD observation data.
+
+    A station that has no historical file in a dataset (DWD lists only the stations that have one, and a station that
+    began lately has only `recent`) has no history of it, and says so with nothing but a log line: that is the source's
+    answer. A directory that DWD's server lists as empty or not there is not: every station of it would be missing, so
+    the answer is partial, and `query` ends with a `file-skipped` warning that names the directory, once for each.
+    Which directory is read depends on the dataset, and the warning names the one that was listed (the path below
+    `observations_germany/`): the `meta_data` directory of a 1, 5 or 10 minute dataset that is not urban, the
+    `historical` directory of most others, the directory of the dataset itself for the solar datasets, which have no
+    period directories, and the `recent` directory of an urban dataset without one. Where the history read the directory
+    the warning names the stations that asked for the dataset.
+
+    The lookup of the stations lists directories first: the `historical` one of the dataset (and its `recent` and `now`
+    ones), and the `meta_data` directory of the 1 minute precipitation. A directory of those that comes back empty is
+    skipped there, for every request (`DwdObservationRequest._all`, #3819): the stations of the other periods are
+    answered, and a `file-skipped` warning names the directory, the dataset and the periods skipped, with no station,
+    since the lookup does not know one. So a history of a station found in `recent` whose `historical` directory is
+    empty is told twice, by the lookup and here with the stations whose history was not read. A history reads
+    `historical` (a low resolution) or `meta_data` (1, 5 and 10 minutes) only, so an empty `recent` directory loses the
+    stations that only it lists and no history of the others. Everything else is raised: a connection that cannot be
+    made (`NoInternetError`), a reset, a timeout or a 5xx (`DownloadError`).
+    """
+
+    #: the stations whose history was not read for want of a listing, by the directory that came back empty
+    _unlisted: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
+
+    @remembering_empty_directories
+    def query(self) -> Iterator[HistoryResult]:
+        """Query the history of the stations, and tell the stations whose dataset has no listing once all are read."""
+        self._unlisted = {}
+        try:
+            yield from super().query()
+        finally:
+            self._warn_unlisted()
+
+    def _warn_unlisted(self) -> None:
+        """Warn that a listing came back empty or missing, once for each directory it was for."""
+        for directory, stations in self._unlisted.items():
+            many = len(stations) > 1
+            listed = ", ".join(stations[:_MAX_STATIONS_LISTED])
+            if len(stations) > _MAX_STATIONS_LISTED:
+                where = f"{len(stations)} stations, the first {_MAX_STATIONS_LISTED} of them {listed}"
+            else:
+                where = f"{'stations' if many else 'station'} {listed}"
+            warn_response(
+                log,
+                FILE_SKIPPED,
+                f"The listing of the directory {directory} came back empty or missing, so the history of {where} was "
+                "not read and is not in the answer, which is partial. Try again later.",
+                stations=stations[:_MAX_STATIONS_LISTED],
+            )
+        self._unlisted = {}
 
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
         from typing import cast  # noqa: PLC0415
@@ -344,9 +512,18 @@ class DwdObservationHistory(TimeseriesHistory):
                         settings=settings,
                     )
             except FileNotFoundError:
+                # the listing of the directory is empty or the directory is not there (a 404, or a page with no
+                # links), which is not "this station has no file in it": DWD lists a directory for every station
+                # that has files in it. Not the source's answer, so the answer is partial
                 log.info(
                     f"No files found for {dataset_identifier} and period {Period.HISTORICAL}. Station will be skipped."
                 )
+                url = (
+                    _meta_data_url(dataset.resolution.value.value, dataset.name_original)
+                    if dataset.resolution.value in HIGH_RESOLUTIONS and dataset not in DWD_URBAN_DATASETS
+                    else _build_url_from_dataset_and_period(dataset, Period.HISTORICAL)
+                )
+                self._unlisted.setdefault(directory_of(url), []).append(station_id)
                 continue
             result = file_index.filter(pl.col("station_id").eq(station_id)).collect(background=False)
             if not isinstance(result, pl.DataFrame):
@@ -748,7 +925,9 @@ class DwdObservationRequest(TimeseriesRequest):
         Historical data is typically release once in a year somewhere in the first few months with updated quality
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
-        historical_end = now_local.replace(month=1, day=1)
+        # midnight of 1 January, not the time of day of now: else the overlap with a window that starts on 1 January
+        # depends on the hour the request is made (GH-3914)
+        historical_end = now_local.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         # a year that is way before any data is collected
         historical_begin = dt.datetime(year=1678, month=1, day=1, tzinfo=historical_end.tzinfo)
         return portion.closed(historical_begin, historical_end)
@@ -760,7 +939,7 @@ class DwdObservationRequest(TimeseriesRequest):
         Recent data is released every day somewhere after midnight with data reaching back 500 days.
         """
         now_local = dt.datetime.now(ZoneInfo(self.metadata.timezone))
-        recent_end = now_local.replace(hour=0, minute=0, second=0)
+        recent_end = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         recent_begin = recent_end - dt.timedelta(days=500)
         return portion.closed(recent_begin, recent_end)
 
@@ -860,6 +1039,7 @@ class DwdObservationRequest(TimeseriesRequest):
         log.info(f"Acquiring field information from {description_file_url}")
         return read_description(description_file_url, language=language)
 
+    @remembering_empty_directories
     def _all(self) -> pl.LazyFrame:
         """:return:"""
         from typing import cast  # noqa: PLC0415
@@ -870,6 +1050,9 @@ class DwdObservationRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel) and parameter.dataset not in datasets:
                 datasets.append(parameter.dataset)
         stations = []
+        # the directories this lookup went without, for a station that is not found (`_lookup_gaps`)
+        gaps: dict[str, ListingGap] = {}
+        self._gaps_of_lookup = gaps
         for dataset in datasets:
             file_ids: set[str] = set()
             listed_ids: set[str] = set()
@@ -880,24 +1063,44 @@ class DwdObservationRequest(TimeseriesRequest):
             # newest period first, so the `keep="first"` below settles a station on the most current
             # of its descriptions. Period is orderable; iterating the set directly left the winner
             # to the set's own iteration order, which varies from one interpreter run to the next
+            skipped: dict[str, list[Period]] = {}
+            undescribed: dict[str, list[Period]] = {}
             for period in sorted(periods, reverse=True):
                 try:
-                    df = create_meta_index_for_climate_observations(dataset, period, settings)
-                except MetaFileNotFoundError:
-                    log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
+                    try:
+                        df = create_meta_index_for_climate_observations(dataset, period, settings)
+                    except MetaFileNotFoundError as e:
+                        # files and no description of their stations: the period has no stations to look up, which the
+                        # warning below says, as it does for an empty directory (GH-3834)
+                        url = getattr(e, "url", None) or _build_url_from_dataset_and_period(dataset, period)
+                        log.info("No meta file found at %s for %s/%s, skipping.", url, dataset.name, period.name)
+                        undescribed.setdefault(directory := directory_of(url), []).append(period)
+                        # the files name the stations the directory would have listed, if the error says them
+                        gaps[directory] = ListingGap(NO_DESCRIPTION, getattr(e, "station_ids", None) or None)
+                        continue
+                    file_index = create_file_index_for_climate_observations(dataset, period, settings)
+                except EmptyListingError as e:
+                    # a directory that came back empty or missing costs the stations that only it lists, which the
+                    # warning below says: the answer is partial, not an error. A connection that cannot be made or a
+                    # failing server is raised by the listing, and is not this
+                    log.info("No files listed at %s for %s/%s, skipping.", e.url, dataset.name, period.name)
+                    skipped.setdefault(directory := directory_of(e.url), []).append(period)
+                    gaps[directory] = ListingGap(EMPTY_LISTING)
                     continue
-                file_index = create_file_index_for_climate_observations(dataset, period, settings)
                 file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
                     other=file_index_ids.lazy(),
                     on=["station_id"],
                     how="inner",
+                    maintain_order="left",
                 ).collect(background=False)
                 # a station with files and no line in the description of its period is dropped by the join, which is
                 # told below for the periods together: the description of another period may have the line (GH-3258)
                 file_ids.update(file_index_ids.get_column("station_id"))
                 listed_ids.update(df.get_column("station_id"))
                 stations.append(df.lazy())
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", skipped)
+            warn_skipped_listings(f"{dataset.resolution.name}/{dataset.name}", undescribed, NO_DESCRIPTION)
             # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
             if set(periods) == set(dataset.periods):
                 warn_files_without_description(
@@ -907,5 +1110,10 @@ class DwdObservationRequest(TimeseriesRequest):
             stations_df = pl.concat(stations)
         except ValueError:
             return pl.LazyFrame()
-        stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")
-        return stations_df.sort(by=[pl.col("station_id").cast(int)])
+        # both steps keep the order the rows came in, which is the order the request names its datasets in: a station
+        # of two datasets has two rows, and neither `unique` nor a sort on the id alone says which comes first, so the
+        # rows came in a different order from one request to the next (GH-3551)
+        stations_df = stations_df.unique(
+            subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
+        )
+        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)

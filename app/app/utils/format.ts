@@ -99,6 +99,26 @@ export function plotlyDateLocale(language: string): { format: Record<'days' | 's
 }
 
 /**
+ * The moment a forecast run was made, as the language writes a date and a time, in UTC with the zone's name:
+ * "15.10.2026, 04:00 UTC" in German, "15/10/2026, 04:00 UTC" in British English. The language is the region-bearing
+ * tag of the locale (`en-GB`), as {@link formatDayMonth} takes it. A run is hourly at most, so no seconds.
+ * @example
+ * formatRunTime('2026-10-15T04:00:00+00:00', 'de-DE') // '15.10.2026, 04:00 UTC'
+ */
+export function formatRunTime(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(withData(language, Intl.DateTimeFormat.supportedLocalesOf), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  }).format(new Date(iso))
+}
+
+/**
  * The format of the Meteogram's hover heading (Plotly's `hoverformat`, d3's time format): the short
  * weekday, the day and month in the order and with the separators the language writes them, and the
  * time. The weekday's name comes from {@link plotlyDateLocale}.

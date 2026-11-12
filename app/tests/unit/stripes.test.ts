@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripeClass, stripeYears } from '../../app/utils/stripes'
+import { COLOR_MAPS, stripeClass, stripeColour, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
 
 describe('stripe classes', () => {
@@ -51,5 +51,81 @@ describe('unit symbols', () => {
 
   it('names any other unit by its words', () => {
     expect(unitSymbol('meter_per_second')).toBe('meter per second')
+  })
+})
+
+describe('the colour of a stripe', () => {
+  it('is the colour of the scale\'s stop where the position is one, as Plotly draws it', () => {
+    expect(stripeColour(COLOR_MAPS.temperature, 0)).toBe('rgb(5, 48, 97)')
+    expect(stripeColour(COLOR_MAPS.temperature, 0.5)).toBe('rgb(247, 247, 247)')
+    expect(stripeColour(COLOR_MAPS.temperature, 1)).toBe('rgb(178, 24, 43)')
+  })
+
+  it('is mixed between the two stops around the position', () => {
+    // half way between the stops 0.4 (146,197,222) and 0.5 (247,247,247)
+    expect(stripeColour(COLOR_MAPS.temperature, 0.45)).toBe('rgb(197, 222, 235)')
+  })
+
+  it('is the end of the scale for a position beyond it', () => {
+    expect(stripeColour(COLOR_MAPS.temperature, -3)).toBe('rgb(5, 48, 97)')
+    expect(stripeColour(COLOR_MAPS.temperature, 7)).toBe('rgb(178, 24, 43)')
+  })
+
+  it('is blue for the coldest and red for the warmest year of the temperature, brown to green for the precipitation', () => {
+    const channelsOf = (css: string) => css.match(/\d+/g)!.map(Number) as [number, number, number]
+    const [coldR, , coldB] = channelsOf(stripeColour(COLOR_MAPS.temperature, 0))
+    const [warmR, , warmB] = channelsOf(stripeColour(COLOR_MAPS.temperature, 1))
+    expect(coldB).toBeGreaterThan(coldR)
+    expect(warmR).toBeGreaterThan(warmB)
+    expect(stripeColour(COLOR_MAPS.precipitation, 0)).not.toBe(stripeColour(COLOR_MAPS.precipitation, 1))
+  })
+})
+
+describe('the sentence that says what stripes show', () => {
+  it('names the years it spans and the lowest and the highest year with its value', () => {
+    const years = stripeYears([
+      { timestamp: '2018-01-01T00:00:00+00:00', value: 8 },
+      { timestamp: '2019-01-01T00:00:00+00:00', value: 12 },
+      { timestamp: '2020-01-01T00:00:00+00:00', value: 9 },
+    ])
+    expect(stripesSummaryParams(years, value => `${value} °C`)).toEqual({ from: 2018, to: 2020, min: '8 °C', minYear: 2018, max: '12 °C', maxYear: 2019 })
+  })
+})
+
+describe('wrapChartTitle', () => {
+  const title = 'Climate stripes (Temperature) for Donaueschingen (Landeplatz), Germany (00011)'
+  const font = '16px Arial, sans-serif'
+  // a fake measure: 8 px a character, as the estimate's 0.5 em of 16 px
+  const measure = (text: string) => text.length * 8
+
+  it('leaves a title that fits the width in one line', () => {
+    expect(wrapChartTitle(title, 645, font, measure)).toEqual({ text: title, lines: 1 })
+  })
+
+  it('breaks a title at spaces into lines that fit the width', () => {
+    const { text, lines } = wrapChartTitle(title, 236, font, measure)
+    expect(lines).toBe(3)
+    expect(text.split('<br>')).toEqual(['Climate stripes (Temperature)', 'for Donaueschingen', '(Landeplatz), Germany (00011)'])
+    expect(text.split('<br>').every(line => measure(line) <= 236)).toBe(true)
+    // nothing is lost or added but the breaks
+    expect(text.replaceAll('<br>', ' ')).toBe(title)
+  })
+
+  it('keeps a word wider than the width, with no hyphen or slash, whole on a line of its own', () => {
+    expect(wrapChartTitle('a Donaueschingen b', 40, font, measure)).toEqual({ text: 'a<br>Donaueschingen<br>b', lines: 3 })
+  })
+
+  it('breaks a word wider than the width after its hyphens and slashes, which stay at the end of the line', () => {
+    const name = 'Mallersdorf-Pfaffenberg-Oberlindhart'
+    const { text } = wrapChartTitle(`Climate stripes for ${name} (00011)`, 236, font, measure)
+    const lines = text.split('<br>')
+    expect(lines).toEqual(['Climate stripes for', 'Mallersdorf-Pfaffenberg-', 'Oberlindhart (00011)'])
+    expect(lines.every(line => measure(line) <= 236)).toBe(true)
+    expect(wrapChartTitle('Fichtelberg/Oberfranken-Hüttstadl', 150, font, measure).text).toBe('Fichtelberg/<br>Oberfranken-<br>Hüttstadl')
+  })
+
+  it('estimates 0.5 em a character where there is no canvas to measure with', () => {
+    // the unit tests run without one
+    expect(wrapChartTitle('aaaa bbbb', 40, font, () => null)).toEqual({ text: 'aaaa<br>bbbb', lines: 2 })
   })
 })

@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
+from wetterdienst.exceptions import MetaFileFormatError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation.fileindex import (
+    DescriptionFileMissingError,
     _build_url_from_dataset_and_period,
     _create_file_index_for_dwd_server,
+    forget_description_missing,
+    station_ids_of_files,
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
 from wetterdienst.util.archive import open_zip
@@ -65,17 +68,23 @@ def create_meta_index_for_climate_observations(
     # If no region column available, take the region from daily historical
     # precipitation
     if cond1:
-        mdp = _create_meta_index_for_climate_observations(
-            DwdObservationMetadata["daily"]["precipitation_more"],
-            Period.HISTORICAL,
-            settings=settings,
-        )
+        try:
+            mdp = _create_meta_index_for_climate_observations(
+                DwdObservationMetadata["daily"]["precipitation_more"],
+                Period.HISTORICAL,
+                settings=settings,
+            )
+        except DescriptionFileMissingError as e:
+            # the ids its files carry are those of the daily stations, not of the 1 minute ones the skip hides: the
+            # period is skipped for the daily directory, and any id may be one of its stations (GH-3834)
+            raise DescriptionFileMissingError(e.url, e.what) from e
         meta_index = meta_index.join(
             other=mdp.select(["station_id", "region"]),
             on=["station_id"],
             how="left",
+            maintain_order="left",
         )
-    meta_index = meta_index.sort(by=["station_id"])
+    meta_index = meta_index.sort(by=["station_id"], maintain_order=True)
     # The climate_urban lists frequently leave von_datum/bis_datum blank; parse those leniently so
     # blanks become null instead of raising. The well-formed non-urban lists keep strict parsing so a
     # malformed date still fails loudly.
@@ -102,14 +111,15 @@ def _create_meta_index_for_climate_observations(
     if dataset == DwdObservationMetadata.minute_5.precipitation and period == Period.HISTORICAL:
         df_files = df_files.filter(pl.col("url").str.split("/").list.get(-2) != "2022")
     # Find the one meta file from the files listed on the server
+    names = df_files.select("filename").collect(background=False).get_column("filename").to_list()
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
     df_files = df_files.collect(background=False)
     if not isinstance(df_files, pl.DataFrame):
         msg = "Expected a DataFrame after collect()"
         raise TypeError(msg)
     if df_files.is_empty():
-        msg = f"No meta file was found amongst the files at {url}."
-        raise MetaFileNotFoundError(msg)
+        forget_description_missing(url, settings, CacheExpiry.METAINDEX)
+        raise DescriptionFileMissingError(url, station_ids=station_ids_of_files(names))
     meta_file = df_files.get_column("url").to_list()[0]
     file = download_file(
         url=meta_file,
@@ -222,22 +232,23 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
     dataset = DwdObservationMetadata.subdaily.wind_extreme
     url = _build_url_from_dataset_and_period(dataset, period)
     df_files = _create_file_index_for_dwd_server(url, settings, CacheExpiry.TWELVE_HOURS)
+    names = df_files.select("filename").collect(background=False).get_column("filename").to_list()
     df_files = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(r".*beschreibung.*\.txt"))
-    # Find the one meta file from the files listed on the server
-    df_fx3 = df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx3", literal=True)).collect(
-        background=False
-    )
-    if not isinstance(df_fx3, pl.DataFrame):
-        msg = "Expected a DataFrame after collect()"
-        raise TypeError(msg)
-    meta_file_fx3 = df_fx3.get_column("url").to_list()[0]
-    df_fx6 = df_files.filter(pl.col("filename").str.to_lowercase().str.contains("fx6", literal=True)).collect(
-        background=False
-    )
-    if not isinstance(df_fx6, pl.DataFrame):
-        msg = "Expected a DataFrame after collect()"
-        raise TypeError(msg)
-    meta_file_fx6 = df_fx6.get_column("url").to_list()[0]
+    # Find the one meta file of each of the two series from the files listed on the server. A directory that lists
+    # files and no description of one of them is a period the lookup goes without (GH-3834), as for any other dataset
+    meta_files: dict[str, str] = {}
+    for series in ("fx3", "fx6"):
+        df_series = df_files.filter(pl.col("filename").str.to_lowercase().str.contains(series, literal=True)).collect(
+            background=False
+        )
+        if not isinstance(df_series, pl.DataFrame):
+            msg = "Expected a DataFrame after collect()"
+            raise TypeError(msg)
+        if df_series.is_empty():
+            forget_description_missing(url, settings, CacheExpiry.TWELVE_HOURS)
+            raise DescriptionFileMissingError(url, f"{series.upper()} meta file", station_ids_of_files(names))
+        meta_files[series] = df_series.get_column("url").to_list()[0]
+    meta_file_fx3, meta_file_fx6 = meta_files["fx3"], meta_files["fx6"]
     file_fx3 = download_file(
         url=meta_file_fx3,
         cache_dir=settings.cache_dir,

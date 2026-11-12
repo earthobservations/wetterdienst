@@ -42,6 +42,7 @@ _MeteoFranceObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "RR",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -109,11 +110,14 @@ _MeteoFranceObservationMetadataSpec = {
                         {
                             "name": "snow_depth",
                             "name_original": "NEIGETOT06",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "snow_depth_new",
                             "name_original": "HNEIGEF",
+                            "timestamp_position": "start",
                             "unit": "centimeter",
                         },
                     ],
@@ -173,7 +177,9 @@ _MeteoFranceObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "T",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean_last_10min",
@@ -202,31 +208,37 @@ _MeteoFranceObservationMetadataSpec = {
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "TD",
+                            "timestamp_position": "instant",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "U",
+                            "timestamp_position": "instant",
                             "unit": "percent",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "PMER",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "PSTAT",
+                            "timestamp_position": "instant",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "N",
+                            "timestamp_position": "instant",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "visibility",
                             "name_original": "VV",
+                            "timestamp_position": "instant",
                             "unit": "meter",
                         },
                         {
@@ -255,6 +267,7 @@ _MeteoFranceObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": "MENSQ",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",

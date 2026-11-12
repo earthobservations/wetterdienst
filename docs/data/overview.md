@@ -2,9 +2,13 @@
 
 This chapter provides an informative overview of the data accessible via the `wetterdienst` service and the associated
 usage conditions. `wetterdienst` facilitates user access to data from various agencies, including the German Weather
-Service (DWD). While this data is available as open data, users are kindly requested to acknowledge the data source by
-providing appropriate attribution. We have included links to the respective agencies and their licensing policies for
-your convenience. Please take a moment to review these resources to ensure that you provide accurate references.
+Service (DWD). The data is published by the agencies under licences that differ, and not all of them are open: some ask
+for the source to be named, one is reported under a non-commercial licence without derivatives (IMGW). The page on
+[licences and credit lines](provider/licenses.md) lists the licence and the credit line of every provider in one table,
+and each provider's page links its terms.
+Please take a moment to review them and to give the credit line the provider asks for. `wetterdienst` changes the
+data it hands over (it is reshaped into one table and its units are converted), which every answer says in its
+`metadata`; the page on licences says how.
 
 Here's a quick overview of the data sources currently supported by `wetterdienst`:
 
@@ -24,7 +28,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - `icon`: more than 5000 stations worldwide, 23 parameters
         - `icon_eu`: the stations it is published for, about 3700, 19 parameters
     - Road
-        - Historical weather observations of German highway stations
+        - Historical weather observations of the road weather stations on German roads
     - SWSMOS
         - road weather forecast (Straßenwetter-MOS) for ~1800 German road weather stations
         - hourly, out to +167 hours; air/dew/road-surface temperature, precipitation, road condition
@@ -62,7 +66,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - ~1060 stations; open data, no authentication required
 - EA (Environment Agency)
     - Hydrology
-        - data of river network of UK
+        - data of the river network of England
         - parameters flow, river water level (stage) and groundwater level
 - Eaufrance
     - Hubeau
@@ -96,7 +100,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
 - KNMI (Koninklijk Nederlands Meteorologisch Instituut / Royal Netherlands Meteorological Institute / Netherlands)
     - Observation
         - observations from the Dutch station network
-        - 10-minute, hourly and daily resolution
+        - 10-minute, hourly, daily, monthly and annual resolution
         - requires a free API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI`)
 - LHMT (Lietuvos hidrometeorologijos tarnyba / Lithuanian Hydrometeorological Service / Lithuania)
     - Observation
@@ -119,7 +123,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Frost
         - Historical and recent observations from Norwegian station network
         - 10-minute, hourly, 6-hourly (historical only), daily, monthly and annual resolution
-        - ~2200 stations; requires free API key from frost.met.no
+        - ~4,200 stations (closed ones included); requires free API key from frost.met.no
 - Met Office (UK Met Office / United Kingdom)
     - Observation
         - historical UK land surface observations from the MIDAS Open archive on CEDA

@@ -1,0 +1,343 @@
+{
+ "hourly": [
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2024-06-03T11:00:00+00:00",
+   "to": "2024-06-03T12:00:00+00:00",
+   "value": 5.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2024-06-03T12:00:00+00:00",
+   "to": "2024-06-03T13:00:00+00:00",
+   "value": 23.4,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "mean_radiation",
+   "from": "2024-06-03T11:00:00+00:00",
+   "to": "2024-06-03T12:00:00+00:00",
+   "value": 632.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "mean_radiation",
+   "from": "2024-06-03T12:00:00+00:00",
+   "to": "2024-06-03T13:00:00+00:00",
+   "value": 808.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2024-06-03T11:00:00+00:00",
+   "to": "2024-06-03T12:00:00+00:00",
+   "value": 10.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2024-06-03T12:00:00+00:00",
+   "to": "2024-06-03T13:00:00+00:00",
+   "value": 40.0,
+   "qcStatus": "manual",
+   "validity": true
+  }
+ ],
+ "daily": [
+  {
+   "stationId": "04250",
+   "parameterId": "max_relative_hum",
+   "from": "2024-01-10T06:00:00+00:00",
+   "to": "2024-01-11T06:00:00+00:00",
+   "value": 99.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "max_relative_hum",
+   "from": "2024-01-11T06:00:00+00:00",
+   "to": "2024-01-12T06:00:00+00:00",
+   "value": 87.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "max_relative_hum",
+   "from": "2024-01-12T06:00:00+00:00",
+   "to": "2024-01-13T06:00:00+00:00",
+   "value": 86.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2024-01-10T06:00:00+00:00",
+   "to": "2024-01-11T06:00:00+00:00",
+   "value": 95.0,
+   "qcStatus": "manual",
+   "validity": false
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2024-01-11T06:00:00+00:00",
+   "to": "2024-01-12T06:00:00+00:00",
+   "value": 94.0,
+   "qcStatus": "manual",
+   "validity": false
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2024-01-12T06:00:00+00:00",
+   "to": "2024-01-13T06:00:00+00:00",
+   "value": 85.0,
+   "qcStatus": "manual",
+   "validity": false
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "min_relative_hum",
+   "from": "2024-01-10T06:00:00+00:00",
+   "to": "2024-01-11T06:00:00+00:00",
+   "value": 84.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "min_relative_hum",
+   "from": "2024-01-11T06:00:00+00:00",
+   "to": "2024-01-12T06:00:00+00:00",
+   "value": 70.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "min_relative_hum",
+   "from": "2024-01-12T06:00:00+00:00",
+   "to": "2024-01-13T06:00:00+00:00",
+   "value": 66.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2024-06-03T00:00:00.001000+02:00",
+   "to": "2024-06-04T00:00:00+02:00",
+   "value": 7.8,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2024-06-04T00:00:00.001000+02:00",
+   "to": "2024-06-05T00:00:00+02:00",
+   "value": 10.2,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "28240",
+   "parameterId": "snow_depth",
+   "from": "2021-02-12T06:00:00+00:00",
+   "to": "2021-02-13T06:00:00+00:00",
+   "value": 4.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "28240",
+   "parameterId": "snow_depth",
+   "from": "2021-02-13T06:00:00+00:00",
+   "to": "2021-02-14T06:00:00+00:00",
+   "value": 3.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "28240",
+   "parameterId": "snow_depth",
+   "from": "2021-02-14T06:00:00+00:00",
+   "to": "2021-02-15T06:00:00+00:00",
+   "value": 3.0,
+   "qcStatus": "manual",
+   "validity": true
+  }
+ ],
+ "monthly": [
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 207.9,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_01",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 23.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_1",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 19.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_10",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 1.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_frost_days",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 0.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_ice_days",
+   "from": "2023-07-01T00:00:00.001000+02:00",
+   "to": "2023-08-01T00:00:00+02:00",
+   "value": 0.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2023-06-01T06:00:00+00:00",
+   "to": "2023-07-01T06:00:00+00:00",
+   "value": 82.0,
+   "qcStatus": "manual",
+   "validity": false
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2023-07-01T06:00:00+00:00",
+   "to": "2023-08-01T06:00:00+00:00",
+   "value": 79.0,
+   "qcStatus": "manual",
+   "validity": true
+  }
+ ],
+ "annual": [
+  {
+   "stationId": "06041",
+   "parameterId": "bright_sunshine",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 1853.1,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "max_relative_hum",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 99.8,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "min_relative_hum",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 52.7,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_01",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 194.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_1",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 124.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_days_acc_precip_10",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 23.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_frost_days",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 36.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "06041",
+   "parameterId": "no_ice_days",
+   "from": "2023-01-01T00:00:00.001000+01:00",
+   "to": "2024-01-01T00:00:00+01:00",
+   "value": 6.0,
+   "qcStatus": "manual",
+   "validity": true
+  },
+  {
+   "stationId": "04250",
+   "parameterId": "mean_cloud_cover",
+   "from": "2023-01-01T06:00:00+00:00",
+   "to": "2024-01-01T06:00:00+00:00",
+   "value": 80.0,
+   "qcStatus": "manual",
+   "validity": true
+  }
+ ]
+}

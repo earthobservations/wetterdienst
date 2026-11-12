@@ -3,6 +3,7 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { setResponseStatus } from 'h3'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { h, nextTick } from 'vue'
+import StationPicker from '~/components/StationPicker.vue'
 import StationSelection from '~/components/StationSelection.vue'
 
 const parameterSelection = {
@@ -17,13 +18,18 @@ const stationsResponse = {
   stations: [{ station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }],
 }
 
+/** The option of the picker's toggle with this name: "List" or "Map" */
+function modeRadio(wrapper: VueWrapper, name: 'List' | 'Map') {
+  return wrapper.findAll('[role="radio"]').find(radio => radio.text() === name)!
+}
+
 describe('stationSelection', () => {
   // The first mount of a file loads the component's lazy parts, which takes about a second on a
   // quiet machine and several times that under load, inside the first test's 5 s. Pay it here,
   // where it is no part of what a test measures.
   beforeAll(async () => {
     registerEndpoint('/api/stations', () => stationsResponse)
-    const wrapper = await mountSuspended(StationSelection, { props: { parameterSelection, multiple: true } })
+    const wrapper = await mountSuspended(StationSelection, { props: { tool: 'explorer', parameterSelection, multiple: true } })
     wrapper.unmount()
   }, 30_000)
 
@@ -45,7 +51,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection, multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
@@ -71,14 +77,13 @@ describe('stationSelection', () => {
     // leaflet.markercluster (CJS/PNG asset code that isn't happy-dom/Node-ESM
     // friendly and isn't what this test is about). The map's own rendering
     // is covered by e2e (real browser) tests instead.
-    const wrapper = await mountSelection({ parameterSelection, multiple: true }, { global: { stubs: { ClientOnly: true } } })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, multiple: true }, { global: { stubs: { ClientOnly: true } } })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
     expect(calls).toBe(0)
 
-    const mapToggle = wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))
-    await mapToggle!.trigger('click')
+    await modeRadio(wrapper, 'Map').trigger('click')
     await wrapper.vm.$nextTick()
 
     await vi.waitFor(() => expect(calls).toBeGreaterThan(0))
@@ -93,7 +98,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection, initialStationIds: ['00001'], multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, initialStationIds: ['00001'], multiple: true })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })]))
     await settle()
@@ -111,7 +116,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection, multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
@@ -147,7 +152,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection, multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, multiple: true })
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
@@ -167,7 +172,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection, multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, multiple: true })
     const vm = wrapper.vm as any
     vm.selectOpen = true
     await wrapper.vm.$nextTick()
@@ -197,7 +202,7 @@ describe('stationSelection', () => {
         return stationsResponse
       })
       const wrapper = await mountSuspended(StationSelection, {
-        props: { parameterSelection, initialStationIds: ['00001'], multiple: true },
+        props: { tool: 'explorer', parameterSelection, initialStationIds: ['00001'], multiple: true },
         attachTo: document.body,
       })
       onTestFinished(() => wrapper.unmount())
@@ -250,18 +255,21 @@ describe('stationSelection', () => {
     }))
 
     const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection, initialStationIds: ['01001'], multiple },
+      props: { tool: 'explorer', parameterSelection, initialStationIds: ['01001'], multiple },
       attachTo: document.body,
     })
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(1))
 
-    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual([
+    const picker = wrapper.findComponent(StationPicker).vm as any
+    expect(picker.items.map((i: { label: string }) => i.label)).toEqual([
       'JAN MAYEN (ID: 01001)',
       'Test Station (ID: 00001, Berlin)',
     ])
-    expect(vm.selectedItems).toEqual([{ label: 'JAN MAYEN (ID: 01001)', value: '01001' }])
+    // an array for several stations, the one item for one
+    const item = { label: 'JAN MAYEN (ID: 01001)', value: '01001' }
+    expect(picker.selectedItems).toEqual(multiple ? [item] : item)
   })
 
   it('does not fetch anything while parameters are unselected', async () => {
@@ -271,7 +279,7 @@ describe('stationSelection', () => {
       return stationsResponse
     })
 
-    const wrapper = await mountSelection({ parameterSelection: { ...parameterSelection, parameters: [] }, multiple: true })
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection: { ...parameterSelection, parameters: [] }, multiple: true })
     await new Promise(resolve => setTimeout(resolve, 50))
     await wrapper.vm.$nextTick()
 
@@ -300,15 +308,17 @@ describe('stationSelection with postcode stations', () => {
     registerEndpoint('/api/stations', () => ({ stations: [postcode, { ...postcode, station_id: '01069' }] }))
 
     const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection: derivedSelection, initialStationIds: ['01067'], multiple },
+      props: { tool: 'explorer', parameterSelection: derivedSelection, initialStationIds: ['01067'], multiple },
       attachTo: document.body,
     })
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(1))
 
-    expect(vm.stationItems.map((i: { label: string }) => i.label)).toEqual(['ID: 01067', 'ID: 01069'])
-    expect(vm.selectedItems).toEqual([{ label: 'ID: 01067', value: '01067' }])
+    const picker = wrapper.findComponent(StationPicker).vm as any
+    expect(picker.items.map((i: { label: string }) => i.label)).toEqual(['ID: 01067', 'ID: 01069'])
+    const item = { label: 'ID: 01067', value: '01067' }
+    expect(picker.selectedItems).toEqual(multiple ? [item] : item)
     // the chip of a chosen station, which a named station shows as "name (id)"
     const chip = wrapper.findAll('.cursor-pointer').find(c => c.text().includes('01067'))
     expect(chip!.text()).toBe('01067 ×')
@@ -335,7 +345,7 @@ describe('the station selection\'s station map whose code could not be loaded', 
     registerEndpoint('/api/stations', () => ({
       stations: [{ station_id: '01001', name: 'JAN MAYEN', region: 'Norway', latitude: 70.93, longitude: -8.67 }],
     }))
-    wrapper = await mountSuspended(StationSelection, { props: { parameterSelection, multiple: true }, attachTo: document.body })
+    wrapper = await mountSuspended(StationSelection, { props: { tool: 'explorer', parameterSelection, multiple: true }, attachTo: document.body })
     // the map's chunk fails as it does where a redeploy has replaced it under an open tab, once the
     // hint was seen while it loaded
     let fail!: () => void
@@ -348,7 +358,7 @@ describe('the station selection\'s station map whose code could not be loaded', 
     })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    await wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))!.trigger('click')
+    await modeRadio(wrapper, 'Map').trigger('click')
     await vi.waitFor(() => expect(wrapper!.text()).toContain('Tap markers on the map to add or remove stations.'))
     fail()
     const alert = await vi.waitFor(() => {
@@ -374,9 +384,8 @@ describe('the station selection\'s station map whose code could not be loaded', 
       await gate
       return { __esModule: true, default: { render: () => h('div', 'Leaflet stand-in') } }
     })
-    const toggle = wrapper.findAll('button').find(b => b.text().includes('Choose on the map'))!
-    await toggle.trigger('click')
-    await toggle.trigger('click')
+    await modeRadio(wrapper, 'List').trigger('click')
+    await modeRadio(wrapper, 'Map').trigger('click')
     await vi.waitFor(() => expect(asked).toBe(true))
     await nextTick()
     expect(wrapper.text()).not.toContain('Tap markers on the map to add or remove stations.')
@@ -398,7 +407,7 @@ describe('stationSelection station list that could not be fetched', () => {
     }))
     // a dataset of its own, so the list is not one the tests above leave mounted
     const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection: { ...parameterSelection, dataset: 'kl' }, multiple: true },
+      props: { tool: 'explorer', parameterSelection: { ...parameterSelection, dataset: 'kl' }, multiple: true },
       attachTo: document.body,
     })
     onTestFinished(() => wrapper.unmount())
@@ -422,7 +431,7 @@ describe('stationSelection station list answered with a 503 once', () => {
     }))
     // a dataset of its own, so the list is not one the tests above leave mounted
     const wrapper = await mountSuspended(StationSelection, {
-      props: { parameterSelection: { ...parameterSelection, dataset: 'more_precip' }, multiple: true },
+      props: { tool: 'explorer', parameterSelection: { ...parameterSelection, dataset: 'more_precip' }, multiple: true },
       attachTo: document.body,
     })
     onTestFinished(() => wrapper.unmount())
@@ -431,5 +440,17 @@ describe('stationSelection station list answered with a 503 once', () => {
     await vi.waitFor(() => expect(vm.allStations).toEqual(stationsResponse.stations))
     expect(asked).toBe(2)
     expect(wrapper.text()).not.toContain('Failed to load stations')
+  })
+})
+
+describe('stationSelection pick', () => {
+  it('tells the parent of a pick once', async () => {
+    registerEndpoint('/api/stations', () => stationsResponse)
+    const wrapper = await mountSuspended(StationSelection, { props: { tool: 'explorer', parameterSelection: { ...parameterSelection, dataset: 'once' }, multiple: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    wrapper.findComponent(StationPicker).vm.$emit('update:selected', [stationsResponse.stations[0]])
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.emitted('update:modelValue')).toHaveLength(1)
+    expect(wrapper.emitted('update:selectedStations')).toHaveLength(1)
   })
 })

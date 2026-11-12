@@ -1,5 +1,11 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 """The frames the core hands out for IMGW hydrology's monthly values and its empty answer (GH-2627).
 
 The daily values are held by the stub of `test_value_stubs.py`; the monthly files, which carry the extremity of the
@@ -19,6 +25,7 @@ import polars as pl
 
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.util.network import File
@@ -37,7 +44,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, name: str, member: str, csv: str) ->
     url = f"https://example.invalid/{name}"
     monkeypatch.setattr(imgw_hydrology_api, "list_files_for_interval", lambda *args, **kwargs: [url])  # noqa: ARG005
     monkeypatch.setattr(
-        imgw_hydrology_api,
+        imgw_fileindex,
         "download_files",
         lambda *args, **kwargs: [File(url=url, content=BytesIO(archive.getvalue()), status=200)],  # noqa: ARG005
     )
@@ -70,7 +77,7 @@ def test_imgw_hydrology_monthly_values_come_out_as_the_long_form(monkeypatch: py
     assert df["station_id"].unique().to_list() == [STATION]
     assert df["timestamp"].unique().to_list() == [dt.datetime(2023, 1, 1, tzinfo=UTC)]
     by_parameter = dict(zip(df["parameter"], df["value"], strict=True))
-    assert by_parameter["stage_min"] == 120.0
+    assert by_parameter["stage_min"] == 1.2
     assert by_parameter["discharge_mean"] == 12.5
     assert by_parameter["temperature_water_max"] == 12.3
     assert "stage_max" not in by_parameter
@@ -102,5 +109,5 @@ def test_imgw_hydrology_a_value_that_is_no_number_is_null_and_does_not_raise(mon
     _serve(monkeypatch, "codz_2023_03.zip", "codz_2023_03.csv", csv)
     df = _values("daily", _day(2023, 1, 1), _day(2023, 1, 31), drop_nulls=False)
     stage = df.filter(pl.col("parameter").eq("stage")).sort("timestamp")
-    assert stage["value"].to_list() == [141.0, None]
+    assert stage["value"].to_list() == [1.41, None]
     assert df.filter(pl.col("parameter").eq("discharge")).sort("timestamp")["value"].to_list() == [12.5, 13.5]

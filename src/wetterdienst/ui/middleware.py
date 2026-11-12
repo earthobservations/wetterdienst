@@ -58,13 +58,13 @@ if TYPE_CHECKING:
 
 log = get_one_line_logger(__name__)
 
-#: the routes the timeout and the cap hold for: the API, not the index, the health check or the MCP transport
+#: the routes the timeout and the cap hold for: the API, not the index, the probes or the MCP transport
 #: (`/mcp/v1` and its alias `/mcp`); the tools call the API in process, so their requests are held to them
 _TIMED_PREFIX = "/api/"
 #: the MCP endpoint, `/mcp/v1` and its alias `/mcp`, whose `Origin` is checked as well
 _MCP_PATH = "/mcp"
-#: the liveness probe, which the host check and the cap leave alone
-_HEALTH_PATH = "/health"
+#: the liveness probe and the readiness probe, which the host check and the cap leave alone
+_PROBE_PATHS = ("/health", "/ready")
 
 
 def request_timeout() -> float | None:
@@ -80,12 +80,31 @@ def request_timeout() -> float | None:
     return seconds or None
 
 
-def timeout_detail(seconds: float) -> str:
-    """Word the 504 of a request that took longer than the timeout."""
+#: the routes of a point request, which name no stations and have no ndjson (GH-3590)
+_POINT_ROUTES = ("interpolate", "summarize")
+
+
+def is_point_route(path: str) -> bool:
+    """Tell whether a request path is that of `interpolate` or `summarize`, under `/api` or `/api/v1`."""
+    return path.rstrip("/").rsplit("/", 1)[-1] in _POINT_ROUTES
+
+
+def timeout_detail(seconds: float, *, tool: bool = False, point: bool = False) -> str:
+    """Word the 504 of a request that took longer than the timeout.
+
+    An MCP tool's answer is one body whatever its format, so it is not told to stream (GH-3464). `interpolate` and
+    `summarize` (`point`) name no stations and have no ndjson, and their csv is not streamed: they are told a shorter
+    window or fewer parameters, over REST and through a tool (GH-3590).
+    """
+    if point:
+        advice = "a shorter `timestamp` window or fewer `parameters`"
+    elif tool:
+        advice = "a shorter `timestamp` window, fewer stations or parameters"
+    else:
+        advice = "a shorter `timestamp` window, fewer stations or parameters, or format=ndjson or csv for a long answer"
     return (
-        f"The server did not answer within its request timeout of {seconds:g} seconds. Narrow the request: a shorter "
-        "`timestamp` window, fewer stations or parameters, or format=ndjson or csv for a long answer. What the "
-        "server had already fetched is cached, so the same request may succeed when it is made again."
+        f"The server did not answer within its request timeout of {seconds:g} seconds. Narrow the request: {advice}. "
+        "What the server had already fetched is cached, so the same request may succeed when it is made again."
     )
 
 
@@ -193,9 +212,9 @@ class RequestContextMiddleware:
         request_id = request_id_from(headers.get(REQUEST_ID_HEADER))
         scope.setdefault("state", {})["request_id"] = request_id
         set_request_id(request_id)
-        # a probe of the health check addresses the server by an address or a service name of its own, and the route
-        # answers a fixed text: it reads no settings and is let through
-        serving = _Serving() if scope["path"] != _HEALTH_PATH else _Serving.unrestricted()
+        # a probe addresses the server by an address or a service name of its own, and its route reads no setting the
+        # request is held to: it is let through
+        serving = _Serving() if scope["path"] not in _PROBE_PATHS else _Serving.unrestricted()
         if refusal := self._refuse_host(scope, headers, serving.allowed_hosts):
             await refusal(scope, receive, send)
             return
@@ -226,6 +245,8 @@ class RequestContextMiddleware:
         The app runs as a task of its own, so that the timeout can answer without cancelling it: a handler in a thread
         cannot be cancelled, and the place of the request is its to give back when it is done.
         """
+        from wetterdienst.ui.mcp import is_tool_request  # noqa: PLC0415
+
         scope = exchange.scope
         task = asyncio.ensure_future(self.app(scope, exchange.receive, exchange.send))
         waiter = asyncio.ensure_future(exchange.started.wait())
@@ -237,7 +258,8 @@ class RequestContextMiddleware:
                 exchange.dropped = True
                 self._abandoned.add(task)
                 log.warning(f"Request {exchange.request_id} to {scope['path']} timed out after {seconds:g} seconds.")
-                response = problem_response(scope, 504, timeout_detail(seconds), ProblemKind.REQUEST_TIMEOUT)
+                detail = timeout_detail(seconds, tool=is_tool_request(scope), point=is_point_route(scope["path"]))
+                response = problem_response(scope, 504, detail, ProblemKind.REQUEST_TIMEOUT)
                 await response(scope, exchange.client_receive, exchange.client_send)
                 return
             # the response has begun: what is left is a stream's, which times its own chunks

@@ -29,6 +29,12 @@ function backend(request: IncomingMessage, response: ServerResponse): void {
     response.end(JSON.stringify({ type: 'urn:wetterdienst:problem:request-timeout', title: 'Gateway Timeout', status: 504, detail: 'Too slow.', request_id: 'backend-own-id' }))
     return
   }
+  if (request.url?.startsWith('/api/page')) {
+    // a page of HTML with a status of 200: what a misconfigured NUXT_API_BASE or a proxy's error page answers
+    response.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8' })
+    response.end('<!doctype html><html><body>Service is starting</body></html>')
+    return
+  }
   if (!request.url?.startsWith('/api')) {
     // beside the API, as the backend's own `/health` and `/docs` are
     response.writeHead(200, { ...headers, 'content-type': 'application/json' })
@@ -127,6 +133,52 @@ describe('the /api proxy and the answer of the backend', () => {
     const response = await fetch(`${app}/api/anything`)
 
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f]{32}$/)
+  })
+})
+
+describe('the /api proxy and an answer that is a page (GH-3841)', () => {
+  it('answers a 200 page of HTML with a 502 problem of its own kind, not as the empty answer it reads as', async () => {
+    config.apiBase = backendBase
+    const response = await fetch(`${app}/api/page/stations`, { headers: { 'x-request-id': 'page-1' } })
+
+    expect(response.status).toBe(502)
+    expect(response.headers.get('content-type')).toBe('application/problem+json')
+    expect(response.headers.get('retry-after')).toBe('30')
+    expect(response.headers.get('x-request-id')).toBe('page-1')
+    expect(await response.json()).toMatchObject({
+      type: 'urn:wetterdienst:problem:unexpected-answer',
+      status: 502,
+      detail: expect.stringContaining('a web page, not data'),
+      request_id: 'page-1',
+    })
+  })
+
+  it('names the content type in the server log, not in the answer', async () => {
+    config.apiBase = backendBase
+    const logged = vi.mocked(console.error)
+    logged.mockClear()
+    const response = await fetch(`${app}/api/page/stations`, { headers: { 'x-request-id': 'page-2' } })
+
+    expect(await response.text()).not.toContain('text/html')
+    expect(String(logged.mock.calls[0]![0])).toContain('page-2')
+    expect(String(logged.mock.calls[0]![0])).toContain('text/html')
+  })
+
+  it('passes a page on where the output format html was asked for', async () => {
+    config.apiBase = backendBase
+    const response = await fetch(`${app}/api/page/values?format=html`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(await response.text()).toContain('Service is starting')
+  })
+
+  it('leaves an answer that is JSON as it is', async () => {
+    config.apiBase = backendBase
+    const response = await fetch(`${app}/api/anything`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('application/json')
   })
 })
 

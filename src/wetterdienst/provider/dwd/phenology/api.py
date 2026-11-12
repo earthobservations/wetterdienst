@@ -239,11 +239,11 @@ class DwdPhenologyValues(TimeseriesValues):
             file = download_file(
                 url=url,
                 cache_dir=settings.cache_dir,
-                # the longest bounded expiry `CacheExpiry` offers. The historical files are
-                # re-released about once a year and run to 160 MB, so they would earn a far longer
-                # one, but the only thing above twelve hours is `INFINITE`, and a release corrected
-                # in place under the same name would then never be picked up again
-                ttl=CacheExpiry.TWELVE_HOURS,
+                # the historical files are re-released about once a year and run to 160 MB, so they are kept a week
+                # (`ONE_WEEK`, the longest bounded expiry `CacheExpiry` offers); a longer one would be `INFINITE`, and
+                # a release corrected in place under the same name would then never be picked up again. `recent` is
+                # written to as the observations come in and stays at twelve hours (GH-3929)
+                ttl=CacheExpiry.ONE_WEEK if period is Period.HISTORICAL else CacheExpiry.TWELVE_HOURS,
                 client_kwargs=settings.fsspec_client_kwargs,
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,

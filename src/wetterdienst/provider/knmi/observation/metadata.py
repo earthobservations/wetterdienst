@@ -10,6 +10,43 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
+
+def _validated_period_parameters() -> list[dict]:
+    """Declare the variables of the monthly and the annual validated files, which are the same.
+
+    A file holds every station for one month or one year. The variables, units and descriptions are read from real
+    files (monthly 202609 and annual 2024, GH-4006) and mirror the daily file's names, so the 'Monthly ...' /
+    'Annual ...' descriptions of the files state the statistic: TG is the mean of the daily mean temperatures, TN and
+    TX the extremes of the period, RH, DR, SQ and Q sums. A variable of the files that has no canonical name is left
+    out, which `docs/data/provider/knmi/observation/monthly.md` lists with the reason.
+    """
+    return [
+        {"name": "temperature_air_mean_2m", "name_original": "TG", "unit": "degree_celsius"},
+        {"name": "temperature_air_min_2m", "name_original": "TN", "unit": "degree_celsius"},
+        {"name": "temperature_air_max_2m", "name_original": "TX", "unit": "degree_celsius"},
+        {"name": "temperature_water_mean", "name_original": "TZG", "unit": "degree_celsius"},
+        {"name": "humidity_relative_mean", "name_original": "UG", "unit": "percent"},
+        {"name": "humidity_relative_min", "name_original": "UN", "unit": "percent"},
+        {"name": "humidity_relative_max", "name_original": "UX", "unit": "percent"},
+        {"name": "pressure_vapor_mean", "name_original": "EEG", "unit": "hectopascal"},
+        {"name": "wind_speed_mean", "name_original": "FG", "unit": "meter_per_second"},
+        {"name": "wind_speed_min", "name_original": "FHN", "unit": "meter_per_second"},
+        {"name": "wind_speed_max", "name_original": "FHX", "unit": "meter_per_second"},
+        {"name": "wind_gust_max", "name_original": "FXX", "unit": "meter_per_second"},
+        {"name": "wind_direction_mean", "name_original": "DDVEC", "unit": "degree"},
+        {"name": "precipitation_amount", "name_original": "RH", "unit": "millimeter"},
+        {"name": "precipitation_amount_max", "name_original": "RHX", "unit": "millimeter"},
+        {"name": "precipitation_duration", "name_original": "DR", "unit": "hour"},
+        {"name": "pressure_air_sea_level_mean", "name_original": "PG", "unit": "hectopascal"},
+        {"name": "pressure_air_sea_level_min", "name_original": "PN", "unit": "hectopascal"},
+        {"name": "pressure_air_sea_level_max", "name_original": "PX", "unit": "hectopascal"},
+        {"name": "sunshine_duration", "name_original": "SQ", "unit": "hour"},
+        {"name": "sunshine_duration_relative", "name_original": "SP", "unit": "percent"},
+        {"name": "radiation_global", "name_original": "Q", "unit": "joule_per_square_centimeter"},
+        {"name": "cloud_cover_total_mean", "name_original": "NG", "unit": "one_eighth"},
+    ]
+
+
 _KnmiObservationMetadataSpec = {
     "name_short": "KNMI",
     "name_english": "Royal Netherlands Meteorological Institute",
@@ -25,11 +62,10 @@ _KnmiObservationMetadataSpec = {
         "scope": "national",
         "continents": ["europe", "north_america"],
         "country_codes": ["NL"],
-        # declared from the documentation of KNMI, no list was read (a key is needed): the 10-minute stations include
-        # the Caribbean Netherlands (WMO block 78) and the platforms of the North Sea, north to F3-FB-1 (54.85 N) and
-        # A12 (55.4 N), so the box reaches 56, and west to 70.5 so that Aruba (70.0 W) is in it whether or not the
-        # dataset lists it: the parser (`public_station_id`) names the Caribbean stations of block 78, and the list was
-        # not read
+        # the stations of KNMI's catalogue (77 in the file of 2026-06-15, read 2026-11-11) are in the Netherlands, on
+        # the platforms of the North Sea, north to A12-CPP (55.40 N), and on the Caribbean Netherlands (WMO block 78:
+        # Bonaire 12.13 N, 68.28 W; Saba and Sint Eustatius at 17.5 N, 63 W). The box is wider than the list, west to
+        # 70.5 so that Aruba (70.0 W) is in it if KNMI ever lists it
         "bbox": [-70.5, 12.0, 8.0, 56.0],
     },
     "timezone": "Europe/Amsterdam",
@@ -49,27 +85,35 @@ _KnmiObservationMetadataSpec = {
                         {
                             "name": "temperature_air_2m",
                             "name_original": "ta",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_air_mean_0_1m",
                             "name_original": "tg",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "td",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_wet_mean_2m",
                             "name_original": "tb",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "rh",
+                            "timestamp_position": "end",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -84,46 +128,57 @@ _KnmiObservationMetadataSpec = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "fx",
+                            "timestamp_position": "end",
                             "unit": "meter_per_second",
                         },
                         {
                             "name": "pressure_air_site",
                             "name_original": "p0",
+                            "timestamp_position": "end",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "pressure_air_sea_level",
                             "name_original": "pp",
+                            "timestamp_position": "end",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "radiation_global_intensity_mean",
                             "name_original": "qg",
+                            "timestamp_position": "end",
                             "unit": "watt_per_square_meter",
                         },
                         {
                             "name": "sunshine_duration",
                             "name_original": "ss",
+                            "timestamp_position": "end",
                             "unit": "minute",
                         },
                         {
                             "name": "cloud_cover_total",
                             "name_original": "n",
+                            "timestamp_position": "end",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "visibility_mean",
                             "name_original": "vv",
+                            "timestamp_position": "end",
                             "unit": "meter",
                         },
                         {
                             "name": "precipitation_intensity_mean",
                             "name_original": "rg",
+                            "timestamp_position": "end",
                             "unit": "millimeter_per_hour",
                         },
                         {
                             "name": "precipitation_duration",
                             "name_original": "dr",
+                            "timestamp_position": "end",
                             "unit": "second",
                         },
                     ],
@@ -140,21 +195,25 @@ _KnmiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "end",
                     "parameters": [
                         {
                             "name": "temperature_air_2m",
                             "name_original": "T",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "temperature_dew_point_2m",
                             "name_original": "TD",
                             "unit": "degree_celsius",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "humidity_relative",
                             "name_original": "U",
                             "unit": "percent",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "wind_speed_mean",
@@ -185,6 +244,7 @@ _KnmiObservationMetadataSpec = {
                             "name": "pressure_air_sea_level",
                             "name_original": "P",
                             "unit": "hectopascal",
+                            "aggregation": "instant",
                         },
                         {
                             "name": "sunshine_duration",
@@ -215,6 +275,7 @@ _KnmiObservationMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "temperature_air_mean_2m",
@@ -257,7 +318,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "hour",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "PG",
                             "unit": "hectopascal",
                         },
@@ -282,6 +343,36 @@ _KnmiObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                     ],
+                },
+            ],
+        },
+        {
+            "name": "monthly",
+            "name_original": "monthly",
+            "periods": ["historical"],
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "timestamp_position": "start",
+                    "parameters": _validated_period_parameters(),
+                },
+            ],
+        },
+        {
+            "name": "annual",
+            "name_original": "annual",
+            "periods": ["historical"],
+            "date_required": True,
+            "datasets": [
+                {
+                    "name": DATASET_NAME_DEFAULT,
+                    "name_original": DATASET_NAME_DEFAULT,
+                    "grouped": True,
+                    "timestamp_position": "start",
+                    "parameters": _validated_period_parameters(),
                 },
             ],
         },

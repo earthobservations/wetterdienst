@@ -1,49 +1,62 @@
-import type { CoverageNetworkInfo } from '../../shared/types/api'
+import type { ProviderNetwork, ProviderNetworkCoverageResponse, ProvidersResponse } from '../../shared/types/api'
 import { expect, test } from '@playwright/test'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
 
-test.describe('API Coverage Endpoint', () => {
-  test('should fetch coverage data', async ({ request }) => {
-    const response = await request.get(`${BACKEND_URL}/api/coverage`)
+test.describe('API Providers Endpoint', () => {
+  test('should fetch the providers and their networks', async ({ request }) => {
+    const response = await request.get(`${BACKEND_URL}/api/providers`)
     expect(response.ok()).toBeTruthy()
 
-    const data = await response.json()
-    expect(data).toBeDefined()
-    expect(typeof data).toBe('object')
+    const data = await response.json() as ProvidersResponse
+    expect(Array.isArray(data.providers)).toBeTruthy()
+    expect(data.providers.length).toBeGreaterThan(0)
   })
 
   test('should include DWD provider', async ({ request }) => {
-    const response = await request.get(`${BACKEND_URL}/api/coverage`)
-    const data = await response.json()
+    const response = await request.get(`${BACKEND_URL}/api/providers?provider=dwd`)
+    const data = await response.json() as ProvidersResponse
 
-    expect(data).toHaveProperty('dwd')
-    expect(typeof data.dwd).toBe('object')
-    expect(Array.isArray(data.dwd)).toBeFalsy()
-    const networks = Object.keys(data.dwd)
-    expect(networks).toContain('observation')
-    for (const info of Object.values(data.dwd) as CoverageNetworkInfo[]) {
+    expect(data.providers).toHaveLength(1)
+    const dwd = data.providers[0]!
+    expect(dwd.provider).toBe('dwd')
+    expect(dwd.name_short).toBe('DWD')
+    expect(dwd.country).toBe('Germany')
+    const networks = Object.fromEntries(dwd.networks.map(network => [network.network, network]))
+    expect(Object.keys(networks)).toContain('observation')
+    for (const info of Object.values(networks) as ProviderNetwork[]) {
       expect(typeof info.auth).toBe('boolean')
       expect(typeof info.configured).toBe('boolean')
       // whether a provider accepts the credentials is `/api/auth`'s to tell, not the list's (GH-2641)
       expect(info).not.toHaveProperty('valid')
-      expect(info.name_short).toBe('DWD')
-      expect(info.country).toBe('Germany')
+      // what a network offers is the coverage of that network, not the list's (GH-3996)
+      expect(info).not.toHaveProperty('resolutions')
       expect(info.url).toMatch(/^https:\/\//)
     }
     // `radar` and `alerts` are standalone networks, every other one has stations and values
-    expect(data.dwd.radar.kind).toBe('radar')
-    expect(data.dwd.alerts.kind).toBe('alerts')
-    expect(data.dwd.observation.kind).toBe('observation')
+    expect(networks.radar!.kind).toBe('radar')
+    expect(networks.alerts!.kind).toBe('alerts')
+    expect(networks.observation!.kind).toBe('observation')
   })
+})
 
+test.describe('API Coverage Endpoint', () => {
   test('should fetch provider-network coverage', async ({ request }) => {
     const response = await request.get(`${BACKEND_URL}/api/coverage?provider=dwd&network=observation`)
     expect(response.ok()).toBeTruthy()
 
-    const data = await response.json()
+    const data = await response.json() as ProviderNetworkCoverageResponse
     expect(data).toBeDefined()
     expect(typeof data).toBe('object')
+    expect(Object.keys(data)).toContain('daily')
+  })
+
+  test('should say what to call instead where the network is not given', async ({ request }) => {
+    const response = await request.get(`${BACKEND_URL}/api/coverage`)
+    expect(response.status()).toBe(400)
+
+    const problem = await response.json() as { detail: string }
+    expect(problem.detail).toContain('/api/providers')
   })
 })
 

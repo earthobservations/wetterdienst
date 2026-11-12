@@ -8,11 +8,7 @@ import importlib
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, cast, overload
 
-from pydantic import ValidationError
-from pydantic_settings import SettingsError
-
 from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
-from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
 
 if TYPE_CHECKING:
@@ -124,6 +120,25 @@ class Wetterdienst:
     @staticmethod
     def _normalize(provider: str, network: str) -> tuple[str, str]:
         return provider.strip().lower(), network.strip().lower()
+
+    @classmethod
+    def _network_of(cls, request_class: type) -> str:
+        """Name the network a request class serves as `provider/network`, empty for a class the registry lacks.
+
+        The class itself or the first of its bases (`class My(DwdObservationRequest)`) that the registry names: the
+        registry names a class by the module of its package and its name (`wetterdienst.provider.dwd.observation.
+        DwdObservationRequest`), and the class lives in a module of that package (`...observation.api`) under the same
+        qualified name.
+        """
+        for base in request_class.__mro__:
+            for provider, networks in cls.registry.items():
+                for network, path in networks.items():
+                    package, name = path.rsplit(".", 1)
+                    if base.__qualname__ == name and (
+                        base.__module__ == package or base.__module__.startswith(f"{package}.")
+                    ):
+                        return f"{provider}/{network}"
+        return ""
 
     @classmethod
     def is_standalone(cls, provider: str, network: str) -> bool:
@@ -274,7 +289,7 @@ class Wetterdienst:
         credentials unreadable. That is told as the provider not being configured, and logged once,
         rather than raised: one malformed credential would otherwise take down a listing of all
         providers (GH-2580). The REST API refuses to start with such settings, and the CLI's
-        `coverage` of all providers builds them before listing, so it tells them and exits 1.
+        `providers` builds them before listing, so it tells them and exits 1.
 
         Args:
             api: Request class of the provider and network
@@ -286,8 +301,17 @@ class Wetterdienst:
         is_configured = getattr(api, "is_configured", lambda: True)
         try:
             return is_configured()
-        except (ValidationError, SettingsError) as e:
+        except Exception as e:
+            # imported here: this module is what the command line's shell completion reads the registry from, and
+            # pydantic and the settings are not (GH-3809)
+            from pydantic import ValidationError  # noqa: PLC0415
+            from pydantic_settings import SettingsError  # noqa: PLC0415
+
+            from wetterdienst.settings import Settings, check_settings  # noqa: PLC0415
+
             # another model's error is not the settings'
+            if not isinstance(e, (ValidationError, SettingsError)):
+                raise
             if isinstance(e, ValidationError) and e.title != Settings.__name__:
                 raise
             problems = tuple(check_settings())
@@ -327,7 +351,7 @@ class Wetterdienst:
         Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether
         a provider accepts the credentials it is configured with takes a request to the provider, which
         a listing of every provider must not wait for, so it is not told here: `Wetterdienst.is_valid(api)`
-        checks one network, as `/api/auth` and `wetterdienst about auth` do (GH-2641).
+        checks one network, as `/api/auth` and `wetterdienst auth` do (GH-2641).
 
         Per network: `name_short`, the provider's short name; `country`, the operator's; `url`, where the
         provider publishes the data; `kind`; `scope`, how far the network reaches (`global`, `national` or

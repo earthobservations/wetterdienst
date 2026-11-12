@@ -5,7 +5,9 @@ None of these is accepted in place of its replacement, but for a name that is al
 error that says what it is called now, instead of the not-found a name that never existed gets.
 """
 
+import inspect
 from collections.abc import Collection, Mapping
+from typing import TYPE_CHECKING, Self
 
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, PARAMETER_ALIASES_IN_DATASET, ParameterAlias, all_aliases
 from wetterdienst.metadata.parameter_table import PARAMETERS
@@ -167,7 +169,14 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
     # GH-3263: DWD POI's direct radiation is the irradiance on a plane perpendicular to the sun's rays, no component on
     # a horizontal surface (07280 at 09 UTC on 2026-10-22: 603 W/m2 direct against 297 global); no other provider has it
-    "radiation_sky_short_wave_direct_intensity": "radiation_sky_short_wave_direct_perpendicular_intensity",
+    "radiation_sky_short_wave_direct_intensity": "radiation_sky_short_wave_direct_perpendicular_intensity_mean",
+    # GH-3134: DWD POI's irradiances are "the energy of that hour divided by 3600 s", the mean of the hour, so they
+    # carry `_mean` as every stated mean does (GH-3151). Only POI had the name below, so it is no table entry any more;
+    # the global and the diffuse one, left the table the same way, keep their renames of the other providers and POI's
+    # in the dataset (`_MEAN_POI_IN_DATASET`)
+    "radiation_sky_short_wave_direct_perpendicular_intensity": (
+        "radiation_sky_short_wave_direct_perpendicular_intensity_mean"
+    ),
     # GH-3316: the MIDAS table RO defines `direct_irad` as measured by a pyrheliometer "at normal incidence"; only Met
     # Office had the name (a horizontal direct component has no provider), so the table's own entry is renamed
     "radiation_sky_short_wave_direct": "radiation_sky_short_wave_direct_perpendicular",
@@ -263,6 +272,8 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     # hourly direction, now `wind_direction_mean_last_2min`, is not listed: `wind_direction` is also the source's own
     # field
     # name there, so a request for it still selects the row
+    # GH-3134: NWS's visibility, now `visibility_mean_last_10min` ("the ASOS's harmonic mean over 10 minutes"), is not
+    # listed either: `visibility` is the source's own field name, so a request for it still selects the row
     # GH-2838: the wind of the hourly weather table is the SYNOP's and the METAR's mean of the last 10 minutes. Only the
     # gust is listed: `wind_speed` and `wind_direction` are also the source's own field names there, so a request for
     # them still selects the row (answered as `wind_speed_mean_last_10min` and `wind_direction_mean_last_10min`)
@@ -546,6 +557,7 @@ _MEAN_HUMIDITY_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
         ("daily", "data"): {
             "cloud_cover_total": "cloud_cover_total_mean",
             "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
         },
     },
     "MeteoFranceObservationMetadata": {
@@ -782,7 +794,23 @@ _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
     },
 }
 
-_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET, _MEAN_REST_IN_DATASET, _WHAT_IT_IS_IN_DATASET)
+# GH-3134: DWD POI's global and diffuse irradiance of the preceding hour, the energy of that hour over 3600 s
+_MEAN_POI_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    "DwdPoiMetadata": {
+        ("hourly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+        },
+    },
+}
+
+_merge_in_dataset(
+    _MEAN_WIND_IN_DATASET,
+    _MEAN_HUMIDITY_IN_DATASET,
+    _MEAN_REST_IN_DATASET,
+    _WHAT_IT_IS_IN_DATASET,
+    _MEAN_POI_IN_DATASET,
+)
 
 
 def _merge_aliases() -> None:
@@ -850,6 +878,34 @@ def renamed_result_member(owner: type, name: str) -> str | None:
         if (what := RENAMED_RESULT_MEMBERS.get(cls.__name__, {}).get(name)) is not None:
             return f"{owner.__name__}.{name} {what}"
     return None
+
+
+class RefusesRenamedMembers:
+    """The base of the results: a member that was renamed or lost, asked for or built with, says what became of it."""
+
+    # Out of the checker's view, so that it reads a result by its fields and methods: a `__getattr__`
+    # in view makes every name a result has not got an `object` instead of an error, and a `__new__`
+    # that takes anything stands in for the constructor the dataclass writes.
+    if not TYPE_CHECKING:
+
+        def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
+            """Refuse an argument that a result class was renamed or lost, saying what to write instead."""
+            for name in kwargs:
+                if (renamed := renamed_result_member(cls, name)) is not None:
+                    raise TypeError(renamed)
+            return super().__new__(cls)
+
+        def __getattr__(self, name: str) -> object:
+            """Refuse a member that a result class was renamed or lost, saying what to write instead."""
+            # only reached for a name the instance does not have; a property of the class that raised an
+            # `AttributeError` of its own lands here too, and is read again so that its error is the one raised
+            if (renamed := renamed_result_member(type(self), name)) is not None:
+                raise AttributeError(renamed)
+            attribute = inspect.getattr_static(type(self), name, None)
+            if hasattr(attribute, "__get__"):
+                return attribute.__get__(self, type(self))
+            msg = f"'{type(self).__name__}' object has no attribute '{name}'"
+            raise AttributeError(msg)
 
 
 def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:

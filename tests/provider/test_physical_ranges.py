@@ -1,6 +1,9 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The physical ranges catch a missing-value sentinel, leave a record alone, and cover every parameter (GH-2615)."""
+"""The physical ranges catch a missing-value sentinel, leave a record alone, and cover every parameter (GH-2615).
+
+The ranges are the one table of the library (GH-3681); the tests here hold the check of the provider tests to it.
+"""
 
 import datetime as dt
 from io import BytesIO
@@ -9,26 +12,13 @@ from typing import get_args
 import polars as pl
 import pytest
 
-from tests.provider.physical_ranges import (
-    PARAMETER_RANGES,
-    PREFIX_RANGES,
-    RESOLUTION_RANGES,
-    UNIT_TYPE_RANGES,
-    bounds_for,
-    out_of_range,
-)
+from tests.provider.physical_ranges import bounds_for, out_of_range
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.unit import UnitConverter
-from wetterdienst.provider.dmi.observation import DmiObservationRequest
-from wetterdienst.provider.dmi.observation import api as dmi_api
-from wetterdienst.provider.dwd.road import api as dwd_road_api
-from wetterdienst.provider.dwd.road.api import DwdRoadRequest
+from wetterdienst.model.plausibility_ranges import PARAMETER_RANGES, PREFIX_RANGES, SPAN_HOURS, UNIT_TYPE_RANGES
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
-from wetterdienst.provider.rmi.observation import RmiObservationRequest
-from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.util.network import File
 
 
@@ -47,14 +37,15 @@ def _frame(parameter: str, *values: float | None) -> pl.DataFrame:
     ("parameter", "sentinels"),
     [
         ("temperature_air_mean_2m", [-9999.0, -999.0, -99.0, 99.9, 999.0, 9999.0]),
-        ("temperature_dew_point_2m", [-9999.0, -999.0, -99.0, 99.9, 999.0, 9999.0]),
+        # -99 is inside the bound of the dew point: ISD holds -98.2 and HadISD -100.0 (GH-3681)
+        ("temperature_dew_point_2m", [-9999.0, -999.0, 99.9, 999.0, 9999.0]),
         ("pressure_air_site", [-9999.0, -999.0, -99.0, 9999.0]),
         ("wind_speed", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
         ("wind_direction", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
         ("snow_depth", [-9999.0, -999.0, -99.0, 9999.0]),
         ("sunshine_duration", [-9999.0, -999.0, -99.0, -1.0]),
         ("humidity_relative", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
-        ("precipitation_amount", [-9999.0, -999.0, -99.0, -1.0, 9999.0]),
+        ("precipitation_amount", [-9999.0, -999.0, -99.0, -1.0, 99999.0]),
         ("phenology_flowering_beginning", [-9999.0, -999.0, 999.0, 9999.0]),
     ],
 )
@@ -81,7 +72,6 @@ def test_a_sentinel_is_outside_the_range_of_the_common_parameters(parameter: str
         ("wind_direction", 360.0),
         ("wind_direction", 0.0),
         ("humidity_relative", 1.0),
-        ("humidity_relative", 1.02),  # a hygrometer reads past 100 %
         ("precipitation_amount", 0.0),
         ("precipitation_amount", 1825.0),  # the most rain in one day
         ("snow_depth", 1182.0),  # the deepest snow pack
@@ -128,13 +118,25 @@ def test_a_parameter_without_a_range_is_left_alone() -> None:
     assert out_of_range(_frame("quality_general", -999.0)).is_empty()
 
 
+def test_a_misspelled_parameter_is_an_error_not_the_bound_of_a_family() -> None:
+    """The helper reads the library's table, so a name that is no canonical parameter raises (GH-3709)."""
+    assert "temperature_air_mean_2n" not in PARAMETERS
+    with pytest.raises(KeyError):
+        bounds_for("temperature_air_mean_2n")
+    with pytest.raises(KeyError):
+        out_of_range(_frame("temperature_air_mean_2n", -999.0))
+    # a name of the source that `names` does not map is the same defect as a misspelled one
+    with pytest.raises(KeyError):
+        out_of_range(_frame("tmk", -999.0))
+
+
 def test_every_unit_type_has_a_range_or_says_it_has_none() -> None:
     """A unit type added to the converter is checked by name, or this test fails and says which."""
     assert set(UNIT_TYPE_RANGES) == set(get_args(UnitType))
 
 
 def test_a_dissolved_oxygen_reading_passes_and_a_sentinel_does_not() -> None:
-    """`concentration` is held to what dissolved oxygen can be, and the parameter has no range of its own (GH-3246)."""
+    """`concentration` is held to its definition, at least 0, and the parameter has no range of its own (GH-3246)."""
     assert [name for name, parameter in PARAMETERS.items() if parameter.unit_type == "concentration"] == [
         "oxygen_level"
     ]
@@ -142,16 +144,18 @@ def test_a_dissolved_oxygen_reading_passes_and_a_sentinel_does_not() -> None:
     assert bounds_for("oxygen_level") == UNIT_TYPE_RANGES["concentration"]
     # saturation at 0 °C, a summer reading and the supersaturation of an algal bloom
     assert out_of_range(_frame("oxygen_level", 0.0, 8.7, 14.6, 21.0)).is_empty()
-    sentinels = [-9999.0, -999.0, -99.0, -1.0, 99.9, 999.0, 9999.0]
-    assert out_of_range(_frame("oxygen_level", *sentinels)).get_column("value").to_list() == sentinels
+    # a quantity with no record is held to its definition alone (GH-3681): a negative number is a sentinel
+    sentinels = [-9999.0, -999.0, -99.0, -1.0]
+    assert out_of_range(_frame("oxygen_level", *sentinels, 99.9)).get_column("value").to_list() == sentinels
 
 
 def test_every_canonical_parameter_resolves_to_a_range_or_none() -> None:
-    """A parameter is never left unlooked at by a name that falls between the tables."""
+    """A parameter is never left unlooked at by a name that falls between the tables, at any resolution."""
     for name in PARAMETERS:
-        bounds = bounds_for(name)
-        if bounds is not None:
-            assert bounds.low < bounds.high, name
+        for resolution in (None, *SPAN_HOURS):
+            bounds = bounds_for(name, resolution)
+            if bounds is not None:
+                assert bounds.low < bounds.high, (name, resolution)
 
 
 def test_every_special_range_is_used() -> None:
@@ -159,8 +163,10 @@ def test_every_special_range_is_used() -> None:
     assert set(PARAMETER_RANGES) <= set(PARAMETERS)
     for prefix, _ in PREFIX_RANGES:
         assert any(name.startswith(prefix) for name in PARAMETERS), prefix
-    assert {name for ranges in RESOLUTION_RANGES.values() for name in ranges} <= set(PARAMETERS)
-    assert set(RESOLUTION_RANGES) <= {resolution.value for resolution in Resolution}
+    resolutions = {resolution.value for resolution in Resolution} | {"*"}
+    for range_ in [*PARAMETER_RANGES.values(), *(range_ for _, range_ in PREFIX_RANGES), *UNIT_TYPE_RANGES.values()]:
+        if isinstance(range_, dict):
+            assert set(range_) <= resolutions, range_
 
 
 def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
@@ -169,10 +175,18 @@ def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
     `cloud_cover_total_measurement_method` is a dimensionless code, and the `cloud_cover_` fraction range of 0 to 1
     called every hour that an instrument measured (the code 2) a sentinel.
     """
-    for prefix, _ in PREFIX_RANGES:
-        matched = {name: PARAMETERS[name].unit_type for name in PARAMETERS if name.startswith(prefix)}
+    for prefix, range_ in PREFIX_RANGES:
+        if range_ is None:
+            continue
+        matched = {
+            name: PARAMETERS[name].unit_type
+            for name in PARAMETERS
+            if name.startswith(prefix) and name not in PARAMETER_RANGES
+        }
+        if not matched:
+            continue
         family = max(sorted(set(matched.values())), key=list(matched.values()).count)
-        odd = {name for name, unit_type in matched.items() if unit_type != family and name not in PARAMETER_RANGES}
+        odd = {name for name, unit_type in matched.items() if unit_type != family}
         assert odd == set(), f"{prefix} holds {sorted(odd)} to the range of {family}: add them to PARAMETER_RANGES"
 
 
@@ -203,13 +217,13 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
         # the most rain in a minute, 15 minutes, an hour and a day on record, and the sentinel of the next span up
         ("precipitation_amount", "1_minute", 31.2, 99.9),
         ("precipitation_amount", "10_minutes", 70.0, 999.0),
-        ("precipitation_amount", "hourly", 401.0, 999.0),
+        ("precipitation_amount", "hourly", 305.0, 999.0),  # Holt 1947; Shangdi 1975 (401 mm) is not in the WMO table
         ("precipitation_amount", "daily", 1825.0, 2500.0),
-        ("precipitation_amount", "monthly", 3000.0, 9999.0),
-        # a span of sunshine in seconds
-        ("sunshine_duration", "10_minutes", 600.0, 3600.0),
-        ("sunshine_duration", "hourly", 3600.0, 86400.0),
-        ("sunshine_duration", "daily", 86400.0, 13_850.0 * 60 + 86400.0),
+        ("precipitation_amount", "monthly", 9300.0, 12_000.0),  # Cherrapunji, July 1861
+        # a span of sunshine in hours, the unit of `duration`
+        ("sunshine_duration", "10_minutes", 10 / 60, 1.0),
+        ("sunshine_duration", "hourly", 1.0, 24.0),
+        ("sunshine_duration", "daily", 24.0, 13_850.0 / 60 + 24.0),
     ],
 )
 def test_a_reading_of_one_span_is_no_reading_of_a_shorter_one(
@@ -233,7 +247,13 @@ def test_the_rain_and_the_sunshine_of_a_span_grow_with_it() -> None:
 def _lhmt_values(
     monkeypatch: pytest.MonkeyPatch, temperature: float, options: Options, pressure: float = 1007.4
 ) -> pl.DataFrame:
-    """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them."""
+    """Give the values of one LHMT station for a day with one reading, as its reader and the framework make them.
+
+    The core would reject a -999 before the hook of the provider tests sees it, so the test holds it to no bounds:
+    the hook is what is under test, not the core.
+    """
+    monkeypatch.setattr("wetterdienst.model.judge.bounds_for", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("wetterdienst.model.judge._PLANS", {})
     stations = (
         b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
         b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]'
@@ -308,74 +328,3 @@ def test_a_frame_that_is_not_converted_is_left_alone(
 
     assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert physical_range_findings == []
-
-
-# where a reader holds a parameter to a range narrower than the one of the world, because its source's own validated
-# records stay far below the world's, or its precision needs no slack (the argument is in the comment of the reader's
-# table): the provider, the resolution and the attribute
-_NARROWER = {
-    ("dmi", "daily", "acc_precip"),
-    ("dmi", "monthly", "acc_precip"),
-    ("dmi", "annual", "acc_precip"),
-    ("rmi", "10_minutes", "wind_gusts_speed"),
-    ("rmi", "hourly", "wind_gusts_speed"),
-    ("rmi", "daily", "wind_gusts_speed"),
-    ("dmi", "monthly", "max_precip_24h"),
-    ("dmi", "annual", "max_precip_24h"),
-    ("dmi", "daily", "max_precip_30m"),
-    ("rmi", "10_minutes", "sun_duration"),
-    ("rmi", "hourly", "sun_duration"),
-    ("rmi", "daily", "sun_duration"),
-    # a German road station reports no -60 °C, at the cold end only (`_IMPOSSIBLE_BELOW`)
-    ("dwd/road", "15_minutes", "airTemperature"),
-    ("dwd/road", "15_minutes", "dewpointTemperature"),
-    ("dwd/road", "15_minutes", "roadSurfaceTemperature"),
-}
-
-
-@pytest.mark.parametrize(
-    ("provider", "request_class", "ranges"),
-    [
-        ("rmi", RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
-        ("dmi", DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
-        ("dwd/road", DwdRoadRequest, dwd_road_api._RANGES),  # noqa: SLF001
-    ],
-    ids=["rmi/observation", "dmi/observation", "dwd/road"],
-)
-def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_parameter(
-    provider: str, request_class: type, ranges: dict[str, dict[str, tuple[float, float]]]
-) -> None:
-    """The bounds of a reader are these ranges in the unit of its source, so the two cannot drift apart (GH-2797).
-
-    A reader nulls a value before the unit conversion, so its bounds are in the source's unit, and converted to the
-    returned unit they have to be the range of the parameter at the resolution, or inside it where the reader knows
-    its source better (`_NARROWER`), never outside. A parameter the range holds to something has its entry at each
-    resolution it is published at, and an entry belongs to a parameter of the provider at that resolution.
-    """
-    converter = UnitConverter()
-    assert set(ranges) == {resolution.name for resolution in request_class.metadata}
-    for resolution in request_class.metadata:
-        held: dict[str, tuple] = {}
-        for dataset in resolution:
-            for parameter in dataset.parameters:
-                bounds = bounds_for(parameter.name, resolution.name)
-                if bounds is not None:
-                    held[parameter.name_original] = (parameter, bounds)
-        reader = ranges[resolution.name]
-        assert set(reader) == set(held), (
-            f"{resolution.name}: a parameter of the provider has no range, or a range no parameter"
-        )
-        for name, (low, high) in reader.items():
-            parameter, bounds = held[name]
-            to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
-            got = (to_target(low), to_target(high))
-            if (provider, resolution.name, name) in _NARROWER:
-                # inside, at one end or both, and not the range itself (a bound converted is not exact)
-                inside = bounds.low - 1e-9 <= got[0] < got[1] <= bounds.high + 1e-9
-                assert inside, f"{resolution.name} {name}: not inside"
-                assert got != pytest.approx(tuple(bounds)), f"{resolution.name} {name}: not narrower"
-            else:
-                assert got == pytest.approx(tuple(bounds)), f"{resolution.name} {name}"
-    # a narrower range names a parameter of the provider
-    narrower = {name for who, _, name in _NARROWER if who == provider}
-    assert narrower <= {name for per_resolution in ranges.values() for name in per_resolution}

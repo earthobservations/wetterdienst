@@ -145,6 +145,14 @@ def extract_exception_text(content: bytes) -> str | None:
     return "; ".join(texts) or "unknown FMI exception"
 
 
+def extract_exception_codes(content: bytes) -> list[str]:
+    """Return the `exceptionCode` of each exception of an OWS ``ExceptionReport`` in ``content``; none if it is none."""
+    root = parse_xml(content)
+    if _local_name(root.tag) != "ExceptionReport":
+        return []
+    return [el.get("exceptionCode", "") for el in root.iter() if _local_name(el.tag) == "Exception"]
+
+
 def parse_fmi_observations(content: bytes) -> pl.DataFrame:
     """Parse an FMI ``...::simple`` WFS response into a (timestamp, parameter, value) DataFrame.
 

@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import type { ChartTheme } from '~/utils/chart-theme'
+import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, plotlySeparators } from '~/utils/format'
-import { stripeYears } from '~/utils/stripes'
-import { unitSymbol } from '~/utils/unit-targets'
+import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
+import { COLOR_MAPS, stripesSummaryParams, stripeYears, wrapChartTitle } from '~/utils/stripes'
+import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('stripes.title') })
@@ -55,6 +58,8 @@ const endYear = ref<number | null>(null)
 // Display toggles default to the user's saved stripes preferences; an explicit
 // URL query (e.g. from a shared link) still overrides these below.
 const { settings } = useSettings()
+// the chart's chrome, read from the app's CSS tokens for the colour scheme in force
+const { theme } = useChartTheme()
 const showTitle = ref(settings.value.stripes.showTitle)
 const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
@@ -66,49 +71,21 @@ const { data: stationsData, pending: stationsPending } = useFetch<StripesStation
   '/api/stripes/stations',
   {
     query: { kind },
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
   },
 )
 
 const stations = computed(() => stationsData.value?.stations ?? [])
 
-const stationItems = computed(() => stations.value.map(s => ({
-  label: `${s.name} (ID: ${s.station_id})`,
-  value: s.station_id,
-})))
-
-const selectedStationId = computed({
-  get: () => selectedStation.value ? selectedStation.value.station_id : null,
-  set: (id: string | null) => {
-    selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-  },
-})
-
-// USelectMenu (when used with :multiple="false") expects a single item or undefined
-const selectedStationItem = computed<{ label: string, value: string } | undefined>({
-  get: () => selectedStation.value
-    ? {
-        label: `${selectedStation.value.name} (ID: ${selectedStation.value.station_id})`,
-        value: selectedStation.value.station_id,
-      }
-    : undefined,
-  set: (item: { label: string, value: string } | undefined) => {
-    if (!item) {
-      selectedStationId.value = null
-    }
-    else {
-      selectedStationId.value = item.value
-    }
-  },
-})
-
-// The map's selection, one array per chosen station: a new array on every render read to the map
+// The station picker's selection, one array per chosen station: a new array on every render read to the map
 // as a new selection, which turned centring on it back on.
-const mapSelectedStations = computed(() => selectedStation.value ? [selectedStation.value] : [])
+const pickedStations = computed(() => selectedStation.value ? [selectedStation.value] : [])
 
-const showMap = ref(false)
+function onPick(picked: StripesStation[]) {
+  selectedStation.value = picked[0] ?? null
+}
+
 const showSettings = ref(true)
-const showAbout = ref(false)
 const plotContainer = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
 const hasPlot = ref(false)
@@ -139,16 +116,7 @@ const plotSummary = computed(() => {
   const years = stripeRows.value
   if (!years.length)
     return undefined
-  const lowest = years.reduce((low, year) => year.value < low.value ? year : low)
-  const highest = years.reduce((high, year) => year.value > high.value ? year : high)
-  return `${t('stripes.summary', {
-    from: Math.min(...years.map(year => year.year)),
-    to: Math.max(...years.map(year => year.year)),
-    min: formatValue(lowest.value),
-    minYear: lowest.year,
-    max: formatValue(highest.value),
-    maxYear: highest.year,
-  })} ${t('common.chartTableHint')}`
+  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${t('common.chartTableHint')}`
 })
 const tableColumns = computed(() => [
   t('stripes.table.year'),
@@ -173,57 +141,51 @@ useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotCont
 let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
 
-// Color maps
-const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
-  temperature: [
-    [0, 'rgb(5,48,97)'],
-    [0.2, 'rgb(33,102,172)'],
-    [0.4, 'rgb(146,197,222)'],
-    [0.5, 'rgb(247,247,247)'],
-    [0.6, 'rgb(253,219,199)'],
-    [0.8, 'rgb(239,138,98)'],
-    [1, 'rgb(178,24,43)'],
-  ],
-  precipitation: [
-    [0, 'rgb(84,48,5)'],
-    [0.2, 'rgb(140,81,10)'],
-    [0.4, 'rgb(191,129,45)'],
-    [0.5, 'rgb(246,232,195)'],
-    [0.6, 'rgb(199,234,229)'],
-    [0.8, 'rgb(90,180,172)'],
-    [1, 'rgb(1,102,94)'],
-  ],
-}
+// What the stripes shown are of, as it was asked: the station and the years of the fetch, not what the form says now
+// (GH-3980). A unit changed in the settings fetches this again, so that no selection the user has not confirmed is drawn
+interface ShownStripes { station: string, startYear: number | null, endYear: number | null }
+let shown: ShownStripes | null = null
+// the unit changed while a fetch was under way: fetched again once it ends
+let refetchShownAfter = false
 
-async function fetchAndPlotStripes() {
-  if (!selectedStation.value)
+/** `target`: the stripes shown, fetched again; without it the form's selection, as Show asks for it */
+async function fetchAndPlotStripes(target?: ShownStripes) {
+  const asked: ShownStripes | null = target ?? (selectedStation.value
+    ? { station: selectedStation.value.station_id, startYear: startYear.value, endYear: endYear.value }
+    : null)
+  if (!asked)
     return
 
   // Cleared as the fetch starts: another station's stripes, so they do not stand under this one,
   // and stripes that could not be drawn, with their Retry of the earlier values. This station's
   // drawn stripes stay while they are fetched anew, as for other years; a drawing of them under way,
   // as of a display option changed, still draws, and tells its own failure
-  if (plotFailed.value || lastFetchedData.value?.series.station.station_id !== selectedStation.value.station_id)
+  if (plotFailed.value || lastFetchedData.value?.series.station.station_id !== asked.station)
     clearStripes()
   const started = ++fetchesStarted
   isLoading.value = true
   fetchError.value = null
+  // this fetch reads the unit as it is now
+  refetchShownAfter = false
 
   try {
     const params: StripesValuesQuery = {
       kind: kind.value,
-      station: selectedStation.value.station_id,
+      station: asked.station,
       format: 'json',
+      // the unit the app settings choose, read at each request (GH-3980): the numbers come back in it, and the
+      // colours, which are relative, do not change with it
+      unit_targets: JSON.stringify(stripesUnitTargets(kind.value, settings.value.units)),
     }
 
-    if (startYear.value)
-      params.start_year = startYear.value
-    if (endYear.value)
-      params.end_year = endYear.value
+    if (asked.startYear)
+      params.start_year = asked.startYear
+    if (asked.endYear)
+      params.end_year = asked.endYear
 
     const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
       query: params,
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
     // nothing
@@ -238,6 +200,7 @@ async function fetchAndPlotStripes() {
     await nextTick()
 
     lastFetchedData.value = response
+    shown = asked
     await plotStripes(response)
   }
   catch (error) {
@@ -248,19 +211,24 @@ async function fetchAndPlotStripes() {
     fetchError.value = describeFetchError(error)
   }
   finally {
-    if (started === fetchesStarted)
+    if (started === fetchesStarted) {
       isLoading.value = false
+      // the unit changed under way: what was shown is fetched in the new one
+      if (refetchShownAfter && shown && hasPlot.value)
+        void fetchAndPlotStripes(shown)
+    }
   }
 }
 
-async function plotStripes(data: StripesValuesResponse) {
+// `keepZoom`: drawn again in other colours (the scheme switched, a print), so the range the stripes are shown in stays
+async function plotStripes(data: StripesValuesResponse, keepZoom = false) {
   const plot = ++plotsStarted
   try {
     await ensurePlotly()
     // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
     if (plot !== plotsStarted)
       return
-    await drawStripes(data)
+    await drawStripes(data, keepZoom, () => plot === plotsStarted)
     if (plot === plotsStarted)
       plotFailed.value = false
   }
@@ -273,19 +241,36 @@ async function plotStripes(data: StripesValuesResponse) {
   }
 }
 
-async function drawStripes(data: StripesValuesResponse) {
-  if (!plotContainer.value || !Plotly)
-    return
+interface StripesFigure {
+  traces: Plotly.Data[]
+  layout: Partial<Plotly.Layout>
+  config: Partial<Plotly.Config>
+  /** Plotly v3 draws it from a relayout after the plot, not from the layout it is plotted with */
+  title: object | null
+}
 
-  // Purge any existing plot first to ensure clean render
-  Plotly.purge(plotContainer.value)
+// The page's language as Plotly takes it: the buttons' names and the dates (utils/plotly-locale.ts)
+function plotLocaleOfPage() {
+  return plotlyLocaleConfig(locale.value, localeProperties.value.language ?? locale.value)
+}
 
+// the stripes' title: its type size, the line it takes and the room it leaves at either side, in px
+const TITLE_SIZE = 16
+const TITLE_LINE = 20
+const TITLE_PADDING = 10
+const TITLE_DROP = 18
+const STRIPES_HEIGHT = 600
+const FONT_FAMILY = 'Arial, sans-serif'
+
+// What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
+// theme the page is in, and for a saved image in the light one (see saveStripes)
+function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number, plotLocale: PlotlyLocaleConfig): StripesFigure | null {
   // Filter out null values and prepare data
   const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
 
   if (validData.length === 0) {
     console.warn('No valid data to plot')
-    return
+    return null
   }
 
   // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
@@ -303,6 +288,12 @@ async function drawStripes(data: StripesValuesResponse) {
   const minYear = Math.min(...years)
   const maxYear = Math.max(...years)
 
+  // below the plot, in px from its bottom edge, so that they keep their distances in an image of another height:
+  // the years (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
+  const yearsOffset = 20
+  const sourceOffset = showYears.value ? 48 : 28
+  const marginBottom = showSource.value ? Math.max(60, sourceOffset + 32) : 60
+
   // Create annotations array BEFORE creating layout
   const annotations: Partial<Plotly.Annotations>[] = []
 
@@ -311,25 +302,27 @@ async function drawStripes(data: StripesValuesResponse) {
     annotations.push(
       {
         x: minYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(minYear),
         showarrow: false,
         xanchor: 'left',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.text },
       },
       {
         x: maxYear,
-        y: -0.04,
+        y: 0,
+        yshift: -yearsOffset,
         xref: 'x',
         yref: 'paper',
         text: String(maxYear),
         showarrow: false,
         xanchor: 'right',
         yanchor: 'top',
-        font: { size: 18, color: 'black' },
+        font: { size: 18, color: theme.text },
       },
     )
   }
@@ -338,31 +331,37 @@ async function drawStripes(data: StripesValuesResponse) {
   if (showDataAvailability.value) {
     annotations.push({
       x: minYear,
-      y: -0.03,
+      y: 0,
+      yshift: -14,
       xref: 'x',
       yref: 'paper',
       text: t('stripes.plotDataAvailability'),
       showarrow: false,
       xanchor: 'left',
       yanchor: 'bottom',
-      font: { color: 'goldenrod', size: 11 },
+      font: { color: seriesLabelColor('gold', theme.dark), size: 12 },
     })
   }
 
-  // Add source annotation
+  // Add source annotation: on a row of its own below the years (GH-3961), which are on the plot's bottom edge
+  // and 18 px high, as it is on a chart too narrow to hold the two side by side
   if (showSource.value) {
     annotations.push({
       x: 0.5,
-      y: -0.05,
+      y: 0,
+      yshift: -sourceOffset,
       text: t('stripes.plotSource'),
       showarrow: false,
       xref: 'paper',
       yref: 'paper',
       xanchor: 'center',
       yanchor: 'top',
-      font: { size: 14, color: '#666' },
+      font: { size: 14, color: theme.textMuted },
     })
   }
+
+  // the hover texts name the unit the answer says its values are in, as the sentence and the table do
+  const unitSuffix = data.series.unit ? ` ${unitSymbol(data.series.unit)}` : ''
 
   // Create bar trace
   const trace = {
@@ -378,7 +377,7 @@ async function drawStripes(data: StripesValuesResponse) {
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -406,7 +405,7 @@ async function drawStripes(data: StripesValuesResponse) {
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
     customdata: values,
   }
 
@@ -433,7 +432,7 @@ async function drawStripes(data: StripesValuesResponse) {
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}<extra></extra>`,
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
       customdata: trendlineValues,
     }
   }
@@ -447,16 +446,20 @@ async function drawStripes(data: StripesValuesResponse) {
     traces.push(trendlineTrace as Plotly.Data)
 
   // Layout configuration
-  const titleText = plotTitle(data)
-  const containerWidth = plotContainer.value.clientWidth
+  // a title that does not fit the chart's width is broken into lines (GH-3961), and the top margin holds them
+  const wrapped = wrapChartTitle(plotTitle(data), width - 2 * TITLE_PADDING, `${TITLE_SIZE}px ${FONT_FAMILY}`)
+  const titleText = wrapped.text
+  // Plotly puts the first line of a title of several lines 10 px above where a single line is (10-27 px), under the
+  // modebar (22 px high, y 2-24, seven buttons over 184 px, so as wide as a narrow chart): a wrapped title's first
+  // line is at one place whatever else is drawn, lowered by what clears the modebar
+  const titleDrop = wrapped.lines > 1 ? TITLE_DROP : 0
 
   const layout: Partial<Plotly.Layout> = {
     // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
     separators: plotlySeparators(locale.value),
     font: {
-      family: 'Arial, sans-serif',
+      family: FONT_FAMILY,
       size: 14,
-      color: 'black',
     },
     xaxis: {
       showgrid: false,
@@ -477,46 +480,114 @@ async function drawStripes(data: StripesValuesResponse) {
     margin: {
       l: 20,
       r: 20,
-      t: showTitle.value ? 30 : 20,
-      b: 60,
+      t: showTitle.value ? 30 + (wrapped.lines - 1) * TITLE_LINE + titleDrop : 20,
+      b: marginBottom,
     },
-    paper_bgcolor: 'white',
-    plot_bgcolor: 'white',
     showlegend: false,
     autosize: false,
-    width: containerWidth,
-    height: showTitle.value ? 600 : 550,
+    width,
+    height: showTitle.value ? STRIPES_HEIGHT : 550,
     annotations,
   }
 
   const config: Partial<Plotly.Config> = {
+    // the buttons' names and the dates in the page's language
+    ...plotLocale,
     responsive: true,
     displayModeBar: true,
     displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    toImageButtonOptions: {
-      format: 'png',
-      filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
-      height: showTitle.value ? 700 : 600,
-      width: 1400,
-      scale: 2,
-    },
+    // the camera is Plotly's with one difference: what it saves is the light chart, as everything saved is
+    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
+    modeBarButtonsToAdd: [{
+      name: 'toImage',
+      // Plotly translates the names of its own buttons, not of one that is added to it
+      title: plotlyText(plotLocale, 'Download plot as a PNG'),
+      icon: Plotly!.Icons.camera as Plotly.Icon,
+      click: () => void saveStripes({
+        format: 'png',
+        filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
+        height: showTitle.value ? 700 : 600,
+        width: 1400,
+        scale: 2,
+      }).catch((error: unknown) => {
+        console.error('The chart image could not be saved', error)
+        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
+      }),
+    }],
   }
 
-  await Plotly.newPlot(plotContainer.value, traces as any, layout as any, config)
+  return {
+    traces,
+    layout: themedLayout(layout, theme),
+    config,
+    title: showTitle.value
+      ? {
+          text: titleText,
+          font: { size: TITLE_SIZE, color: theme.text },
+          y: wrapped.lines > 1 ? 0.96 - titleDrop / STRIPES_HEIGHT : (showDataAvailability.value ? 0.96 : 0.99),
+          x: 0.5,
+          xanchor: 'center',
+          yanchor: 'top',
+        }
+      : null,
+  }
+}
 
-  // Plotly v3 requires relayout to render the title after newPlot
-  if (showTitle.value) {
-    await Plotly.relayout(plotContainer.value, {
-      title: {
-        text: titleText,
-        font: { size: 16, color: 'black' },
-        y: showDataAvailability.value ? 0.96 : 0.99,
-        x: 0.5,
-        xanchor: 'center',
-        yanchor: 'top',
-      },
-    })
+async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest: () => boolean = () => true) {
+  if (!plotContainer.value || !Plotly)
+    return
+
+  // The language's buttons come first, which can take a chunk's load: a newer drawing, or a Reset, came
+  // meanwhile and this one draws nothing (an older drawing must not put its language over the newer chart's),
+  // and the chart stays as it is while the chunk loads instead of being blank
+  const plotLocale = await plotLocaleOfPage()
+  if (!newest() || !plotContainer.value)
+    return
+  // the range shown now, which a purge forgets
+  const zoom = keepZoom ? drawnRanges(plotContainer.value) : {}
+  // Purge any existing plot first to ensure clean render
+  Plotly.purge(plotContainer.value)
+
+  // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
+  const drawnIn = theme.value
+  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, plotLocale)
+  if (!figure)
+    return
+  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
+  // a newer drawing, or a Reset, came meanwhile: it purges, draws and marks the chart itself, and this one neither
+  // marks nor moves anything
+  if (!newest())
+    return
+  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
+  markChartScheme(plotContainer.value, drawnIn)
+  // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
+  const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
+  if (Object.keys(moves).length > 0)
+    await Plotly.relayout(plotContainer.value, moves)
+}
+
+// A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,
+// in the light theme (utils/chart-export.ts), and that copy is exported
+async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
+  if (!Plotly || !lastFetchedData.value || !plotContainer.value)
+    return
+  const { format, filename, width, height, scale } = options
+  // laid out for the width of the image: its title is broken into lines where the image is narrow, not where the page is
+  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), width, await plotLocaleOfPage())
+  if (!figure)
+    return
+  // as the page shows them: the range the stripes are zoomed to is the image's
+  const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
+  // in the language of the page, as the chart is
+  const { locale: copyLocale, locales } = figure.config
+  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
+  try {
+    if (figure.title)
+      await Plotly.relayout(copy.element, { title: figure.title })
+    await Plotly.downloadImage(copy.element, { format, filename, width, height, scale })
+  }
+  finally {
+    copy.dispose()
   }
 }
 
@@ -532,7 +603,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   // This preserves aspect ratio AND scales text/annotations proportionally
   const station = lastFetchedData.value.series.station
   try {
-    await Plotly.downloadImage(plotContainer.value, {
+    await saveStripes({
       format,
       filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
       height: containerHeight,
@@ -555,6 +626,8 @@ function clearStripes() {
   plotsStarted++
   plotFailed.value = false
   lastFetchedData.value = null
+  shown = null
+  refetchShownAfter = false
   // a fetch still under way shows nothing, and its failure is not told
   fetchesStarted++
   isLoading.value = false
@@ -587,15 +660,6 @@ if (route.query.start_year)
 if (route.query.end_year)
   endYear.value = Number(route.query.end_year.toString())
 
-function onSelectMenuUpdate(val: any) {
-  // Normalize incoming value from the select/menu or map into a single item or null
-  const item = val ? (Array.isArray(val) ? val[0] : val) : null
-  // selectedStationItem is a single item or undefined
-  selectedStationItem.value = item ?? undefined
-  const id = item ? item.value : null
-  selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-}
-
 // a fetch under way is for the station chosen before: it is stopped, and its answer shows nothing
 watch(() => selectedStation.value?.station_id, () => {
   if (!isLoading.value)
@@ -609,32 +673,46 @@ watch(kind, () => {
   clearStripes()
 })
 
-// Ensure select menu updates selection when stations load or when user selects from list
+// The unit the settings choose for the kind changed while stripes are shown (the settings changed in another tab): what
+// is shown is fetched again in it, as the table and the sentence say the unit of the answer (GH-3980). A fetch under way
+// is followed by one
+watch(() => stripesUnitTargets(kind.value, settings.value.units), (now, before) => {
+  if (JSON.stringify(now) === JSON.stringify(before))
+    return
+  if (isLoading.value)
+    refetchShownAfter = true
+  else if (shown && hasPlot.value)
+    void fetchAndPlotStripes(shown)
+})
+
+// The station list arrived or changed: a station chosen that is not in it is dropped, one named by the link is taken
 watch(stations, () => {
   // If the selectedStation is not in the stations array, clear it
   if (selectedStation.value) {
     const selId = selectedStation.value.station_id
-    if (!stations.value.some(s => s.station_id === selId)) {
+    if (!stations.value.some(s => s.station_id === selId))
       selectedStation.value = null
-      // clear selection
-      selectedStationItem.value = undefined
-    }
   }
   // If an initial station id was provided in the URL, apply it when stations are available
   if (initialStationId.value) {
     const found = stations.value.find(s => s.station_id === initialStationId.value)
-    if (found) {
+    if (found)
       selectedStation.value = found
-      // set the single selected item
-      selectedStationItem.value = { label: `${found.name} (ID: ${found.station_id})`, value: found.station_id }
-    }
     initialStationId.value = null
   }
   // If there is only one station in the list, preselect it
   if (!selectedStation.value && stations.value.length === 1) {
     const only = stations.value[0]
     if (only)
-      selectedStationId.value = only.station_id
+      selectedStation.value = only
+  }
+})
+
+// Re-plot where the colour scheme changes: the paper, the years and the title are the chart's chrome
+// and follow it (utils/chart-theme.ts); the stripes' own colours are the data and do not
+watch(theme, async () => {
+  if (lastFetchedData.value && hasPlot.value) {
+    await plotStripes(lastFetchedData.value, true)
   }
 })
 
@@ -657,18 +735,6 @@ watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline
     await plotStripes(lastFetchedData.value)
   }
 })
-
-function onMapSelectedStations(val?: StripesStation[] | null) {
-  if (val && val.length) {
-    const s = val[0]
-    if (s)
-      onSelectMenuUpdate({ label: s.name, value: s.station_id })
-    else onSelectMenuUpdate(null)
-  }
-  else {
-    onSelectMenuUpdate(null)
-  }
-}
 
 // Update URL query when relevant options change
 function stripesToQuery(): Record<string, string> {
@@ -714,252 +780,201 @@ watch([
   router.replace({ query: stripesToQuery() }).catch(() => {})
 })
 
-// Update selectedStation when selectedStationItem changes (from the select menu or map)
-watch(selectedStationItem, (item) => {
-  // selectedStationItem is a single item or undefined
-  const id = item ? item.value : null
-  selectedStation.value = id ? stations.value.find(s => s.station_id === id) ?? null : null
-})
-
 // Load Plotly dynamically on mount; a failure is told where the stripes are drawn
 onMounted(() => {
   ensurePlotly().catch(() => {})
 })
+
+// Plotly keeps a `resize` listener of the window for a chart drawn with `responsive`, which holds the
+// chart until it is purged (GH-3619). Before the unmount, as the template ref is cleared by then
+onBeforeUnmount(() => {
+  if (plotContainer.value && Plotly)
+    Plotly.purge(plotContainer.value)
+})
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('stripes.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('stripes.subtitle') }}
-      </p>
-    </div>
-
-    <UCollapsible v-model="showAbout">
-      <UButton
-        :label="t('stripes.aboutButton')"
-        icon="i-lucide-info"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <UCard>
+  <div class="frame">
+    <PageHeader :title="t('stripes.title')" :lede="t('stripes.subtitle')" :about-label="t('stripes.aboutButton')">
+      <template #about>
+        <div class="space-y-3 text-muted">
           <p class="text-gray-600 dark:text-gray-400 mb-4">
             {{ t('stripes.aboutText1') }}
           </p>
           <p class="text-gray-600 dark:text-gray-400">
             {{ t('stripes.aboutText2') }}
           </p>
-        </UCard>
-      </template>
-    </UCollapsible>
-
-    <UCard class="mb-6">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.dataSource') }}
-          </h2>
         </div>
       </template>
-      <div class="space-y-4">
-        <UFormField :label="t('stripes.type')">
-          <USelect v-model="kind" :items="kindItems" class="w-full" />
-        </UFormField>
+    </PageHeader>
+    <div class="page-body">
+      <ToolWorkbench>
+        <template #setup>
+          <UCard>
+            <template #header>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
+                <h2 class="text-lg font-bold">
+                  {{ t('cardTitle.stationAndPeriod') }}
+                </h2>
+              </div>
+            </template>
+            <div class="space-y-4">
+              <UFormField :label="t('stripes.type')">
+                <USelect v-model="kind" :items="kindItems" class="w-full" />
+              </UFormField>
 
-        <div>
-          <UFormField :label="t('stripes.station')">
-            <USelectMenu
-              v-model="selectedStationItem"
-              :items="stationItems"
-              :multiple="false"
-              searchable
-              virtualize
-              color="primary"
-              class="w-full"
-              :class="{ 'needs-input': !selectedStation }"
-              :placeholder="t('common.stationSearch')"
-              @update:model-value="onSelectMenuUpdate"
-            />
-          </UFormField>
+              <StationPicker
+                tool="stripes"
+                :label="t('stripes.station')"
+                :stations="stations"
+                :selected="pickedStations"
+                :loading="stationsPending"
+                locate="list"
+                @update:selected="onPick"
+              />
 
-          <UCollapsible v-model="showMap" class="mt-3">
+              <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                <p><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
+                <p>
+                  <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
+                  {{ selectedStation.end_timestamp?.slice(0, 4) }}
+                </p>
+              </div>
+
+              <USeparator />
+
+              <div class="grid grid-cols-2 gap-4">
+                <UFormField :label="t('stripes.startYear')">
+                  <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+                </UFormField>
+                <UFormField :label="t('stripes.endYear')">
+                  <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
+                </UFormField>
+              </div>
+
+              <USeparator />
+
+              <div class="flex flex-col sm:flex-row gap-2">
+                <UButton
+                  :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!selectedStation || isLoading"
+                  :loading="isLoading" class="w-full" @click="fetchAndPlotStripes()"
+                />
+                <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
+              </div>
+            </div>
+          </UCard>
+
+          <UCollapsible v-model="showSettings">
             <UButton
-              :label="t('stripes.chooseOnMap')"
-              icon="i-lucide-map-pin"
+              :label="t('stripes.settingsTitle')"
+              icon="i-ph-gear-six"
               variant="subtle"
-              color="primary"
-              trailing-icon="i-lucide-chevron-down"
+              color="neutral"
+              trailing-icon="i-ph-caret-down"
               block
               size="sm"
             />
             <template #content>
-              <ClientOnly>
-                <p class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
-                  {{ t('stripes.mapHint') }}
-                </p>
-                <MapStations
-                  :stations="stations"
-                  :selected-stations="mapSelectedStations"
-                  :multiple="false"
-                  @update:selected-stations="onMapSelectedStations"
-                />
-              </ClientOnly>
+              <div
+                class="flex flex-col gap-3 p-4 mt-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+              >
+                <UCheckbox v-model="showTitle" :label="t('stripes.showTitleOption')" />
+                <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
+                <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
+                <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
+                <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
+                <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
+              </div>
             </template>
           </UCollapsible>
-        </div>
-
-        <div v-if="stationsPending" class="text-sm text-gray-600 dark:text-gray-400">
-          {{ t('stripes.loadingStations') }}
-        </div>
-
-        <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-          <p><strong>{{ t('stripes.region') }}:</strong> {{ selectedStation.region }}</p>
-          <p>
-            <strong>{{ t('stripes.available') }}:</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
-            {{ selectedStation.end_timestamp?.slice(0, 4) }}
-          </p>
-        </div>
-
-        <USeparator />
-
-        <div class="grid grid-cols-2 gap-4">
-          <UFormField :label="t('stripes.startYear')">
-            <UInput v-model.number="startYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('stripes.endYear')">
-            <UInput v-model.number="endYear" type="number" :placeholder="t('stripes.auto')" class="w-full" />
-          </UFormField>
-        </div>
-
-        <USeparator />
-
-        <div class="flex flex-col sm:flex-row gap-2">
-          <UButton
-            :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!selectedStation || isLoading"
-            :loading="isLoading" class="w-full" @click="fetchAndPlotStripes"
-          />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" :disabled="!hasPlot && !isLoading && !fetchError" @click="clearStripes" />
-        </div>
-      </div>
-    </UCard>
-
-    <UCollapsible v-model="showSettings">
-      <UButton
-        :label="t('stripes.settingsTitle')"
-        icon="i-lucide-settings-2"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <div
-          class="flex flex-col gap-3 p-4 mt-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-        >
-          <UCheckbox v-model="showTitle" :label="t('stripes.showTitleOption')" />
-          <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
-          <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
-          <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
-          <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
-          <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
-        </div>
-      </template>
-    </UCollapsible>
-
-    <UCard class="mb-6">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-bar-chart-big" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('stripes.visualizationTitle') }}
-          </h2>
-        </div>
-      </template>
-
-      <div>
-        <div v-if="isLoading" class="flex items-center justify-center h-64">
-          <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-loader-circle" class="animate-spin" />
-            {{ t('stripes.loadingViz') }}
-          </div>
-        </div>
-        <div
-          v-else-if="fetchError" role="alert"
-          class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
-          :class="hasPlot ? 'pb-4' : 'h-64'"
-        >
-          <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
-          <span class="text-sm">{{ fetchError }}</span>
-        </div>
-        <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
-          <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
-          <p class="text-sm">
-            {{ t('stripes.emptyHint') }}
-          </p>
-        </div>
-        <div
-          v-if="hasPlot && plotFailed"
-          ref="plotNotice"
-          class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
-        >
-          <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
-               button stays, and keeps its focus -->
-          <span :key="plotFailures" role="alert" class="text-center">
-            <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-            <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
-                 a screen reader reads it, otherwise runs the two together -->
-            <template v-if="plotlyNotLoaded">
-              <span class="sr-only">{{ '. ' }}</span>
-              <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+        </template>
+        <template #result>
+          <!-- the card is for what there is to put in it: the loading, the error and the stripes; before that, the
+               placeholder every tool shows (GH-3850). The chart's container is in the card, and is there before
+               anything is drawn, since the card is shown while the fetch is under way -->
+          <ToolPlaceholder v-if="!isLoading && !fetchError && !hasPlot" tool="stripes" />
+          <UCard v-else>
+            <template #header>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-ph-chart-bar" class="text-primary-600 dark:text-primary-500 shrink-0" />
+                <h2 class="text-lg font-bold">
+                  {{ t('stripes.visualizationTitle') }}
+                </h2>
+              </div>
             </template>
-          </span>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
-          <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
-        </div>
-        <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
-        <div
-          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
-          :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
-          class="w-full overflow-hidden" style="min-height: 400px;"
-        />
-        <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
-          {{ plotSummary }}
-        </p>
-        <ChartTable
-          v-if="hasPlot && !plotFailed && tableRows.length"
-          :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
-          :note="t(`stripes.table.note.${kind}`)"
-        />
-        <div v-if="hasPlot && !plotFailed" class="mt-4">
-          <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
+
+            <div>
+              <div v-if="isLoading" class="flex items-center justify-center h-64">
+                <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                  <UIcon name="i-ph-circle-notch" class="animate-spin" />
+                  {{ t('stripes.loadingViz') }}
+                </div>
+              </div>
+              <div
+                v-else-if="fetchError" role="alert"
+                class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
+                :class="hasPlot ? 'pb-4' : 'h-64'"
+              >
+                <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+                <span class="text-sm">{{ fetchError }}</span>
+              </div>
+              <div
+                v-if="hasPlot && plotFailed"
+                ref="plotNotice"
+                class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
+              >
+                <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+               button stays, and keeps its focus -->
+                <span :key="plotFailures" role="alert" class="text-center">
+                  <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+                  <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                 a screen reader reads it, otherwise runs the two together -->
+                  <template v-if="plotlyNotLoaded">
+                    <span class="sr-only">{{ '. ' }}</span>
+                    <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+                  </template>
+                </span>
+                <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
+                <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+              </div>
+              <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
+              <div
+                ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
+                :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
+                class="app-chart overflow-hidden" style="min-height: 400px;"
+              />
+              <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
+                {{ plotSummary }}
+              </p>
+              <ChartTable
+                v-if="hasPlot && !plotFailed && tableRows.length"
+                :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
+                :note="t(`stripes.table.note.${kind}`)"
+              />
+              <div v-if="hasPlot && !plotFailed" class="mt-4">
+                <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
                own trigger is still focusable in it -->
-          <UDropdownMenu
-            :modal="false"
-            :items="[
-              [
-                { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
-                { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
-                { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
-              ],
-            ]"
-          >
-            <UButton
-              :label="t('stripes.downloadImage')" color="primary" variant="outline"
-              icon="i-lucide-download" class="w-full justify-center"
-            />
-          </UDropdownMenu>
-        </div>
-      </div>
-    </UCard>
-  </UContainer>
+                <UDropdownMenu
+                  :modal="false"
+                  :items="[
+                    [
+                      { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
+                      { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
+                      { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
+                    ],
+                  ]"
+                >
+                  <UButton
+                    :label="t('stripes.downloadImage')" color="primary" variant="outline"
+                    icon="i-ph-download-simple" class="w-full justify-center"
+                  />
+                </UDropdownMenu>
+              </div>
+            </div>
+          </UCard>
+        </template>
+      </ToolWorkbench>
+    </div>
+  </div>
 </template>

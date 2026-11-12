@@ -38,6 +38,16 @@ describe('security headers', () => {
     expect(referrerPolicy).toBe('strict-origin-when-cross-origin')
   })
 
+  it('lets the page itself, and no other origin, use the Geolocation API (GH-3651), and leaves the other features off', async () => {
+    const config = await loadConfig()
+    const permissions = config.security?.headers?.permissionsPolicy
+
+    // nuxt-security's default is `geolocation=()`, which blocks "Use my location" in every browser
+    expect(permissions.geolocation).toEqual(['self'])
+    // only geolocation is set here: camera, microphone, screen capture and fullscreen are the module's defaults
+    expect(Object.keys(permissions)).toEqual(['geolocation'])
+  })
+
   it('allows OpenStreetMap tile images in the CSP', async () => {
     const config = await loadConfig()
     const imgSrc = config.security?.headers?.contentSecurityPolicy?.['img-src'] ?? []

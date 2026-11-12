@@ -1,6 +1,7 @@
 """Tests for resolution metadata."""
 
 import datetime as dt
+import json
 import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -12,6 +13,7 @@ from wetterdienst.metadata.resolution import Frequency, Resolution, count_readin
 UTC = ZoneInfo("UTC")
 ROOT = Path(__file__).parent.parent.parent
 API_TYPES = ROOT / "app" / "shared" / "types" / "api.ts"
+OPENAPI_SNAPSHOT = ROOT / "tests" / "ui" / "openapi.snapshot.json"
 
 
 @pytest.mark.parametrize(
@@ -102,17 +104,22 @@ def test_frequency_answers_for_every_resolution() -> None:
 
 
 def test_the_app_names_the_same_resolutions() -> None:
-    """Test that the app's `Resolution` union restates this enum and nothing else.
+    """Test that the app's `Resolution` is the document's list of this enum and nothing else (GH-3908).
 
-    The app is TypeScript and cannot import the enum, so it declares the same vocabulary a second
-    time -- and it drifted both ways: it carried `undefined` and `dynamic` long after the
-    providers resolving to them started reporting a real interval, and never gained `6_minutes`,
-    which Meteo-France has been served under all along. A missing member is a type error at every
-    call site handling that resolution; a surplus one is a value the app offers and the backend
-    rejects.
+    The app is TypeScript and cannot import the enum, so it takes the vocabulary from the OpenAPI document, where
+    the keys of the coverage of a network list it (`Resolution`); it once declared the same words
+    a second time and drifted both ways. A missing member is a type error at every call site handling that
+    resolution; a surplus one is a value the app offers and the backend rejects. The document is held to the
+    enum here, and the app to the document by its typecheck, which only holds where it declares no list of its own.
     """
+    document = json.loads(OPENAPI_SNAPSHOT.read_text(encoding="utf-8"))
+    listed = document["components"]["schemas"]["Resolution"]["enum"]
+    assert listed == [resolution.value for resolution in Resolution]
+    # the coverage of a network is keyed by it
+    answer = document["paths"]["/api/v1/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert answer["propertyNames"] == {"$ref": "#/components/schemas/Resolution"}
+
     source = API_TYPES.read_text(encoding="utf-8")
-    union = re.search(r"export type Resolution\n(.*?)\n\n", source, re.DOTALL)
-    assert union, f"no `Resolution` union found in {API_TYPES}"
-    declared = set(re.findall(r"'([^']+)'", union.group(1)))
-    assert declared == {resolution.value for resolution in Resolution}
+    assert re.search(r"^export type Resolution = Schemas\['Resolution'\]$", source, re.MULTILINE), (
+        f"`Resolution` of {API_TYPES} is not the document's"
+    )

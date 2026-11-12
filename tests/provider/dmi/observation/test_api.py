@@ -14,15 +14,20 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
+from tests.provider.judging import applying, judged
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.plausibility import Plausibility
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
 # Copenhagen (Zealand) — the reference station used across the remote tests.
 COPENHAGEN_LANDBOHOJSKOLEN = "06180"
 UTC = ZoneInfo("UTC")
+# the stations the collection tests read, as the station list gives them: Copenhagen, Nuuk and Torshavn
+_STATIONS = pl.DataFrame({"station_id": ["06180", "04250", "06011"], "country": ["DNK", "GRL", "FRO"]})
 
 
 def _dates_for(from_value: str, resolution: Resolution, to_value: str | None = None) -> dt.datetime:
@@ -365,6 +370,7 @@ def _collect_hourly(
     monkeypatch.setattr(dmi_api, "download_file", download_file or server)
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=start,
         end=end,
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -389,8 +395,9 @@ def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.M
 @pytest.mark.parametrize(
     ("resolution", "window"),
     [
-        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends as it is
-        ("hourly", "2023-06-01T00:00:00Z/2023-06-01T04:00:00Z"),
+        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends with an hour
+        # more at the start: the 12 and 24 hour values are stamped by their `to`, an hour after their `from`
+        ("hourly", "2023-05-31T23:00:00Z/2023-06-01T04:00:00Z"),
         # a daily request is widened by a day on each side, in UTC
         ("daily", "2023-05-31T00:00:00Z/2023-06-02T04:00:00Z"),
     ],
@@ -414,7 +421,7 @@ def test_collect_sends_the_bounds_of_a_request_in_local_time_as_utc(
         settings=Settings(cache_disable=True),
     )
     values = dmi_api.DmiObservationValues(
-        sr=stations_result(request, resolution, "data", COPENHAGEN_LANDBOHOJSKOLEN),
+        sr=stations_result(request, resolution, "data", COPENHAGEN_LANDBOHOJSKOLEN, country="DNK"),
     )
 
     values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, request.parameters[0])  # noqa: SLF001
@@ -517,6 +524,7 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2025, 3, 28, tzinfo=UTC),
         end=dt.datetime(2025, 4, 1, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -572,6 +580,7 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2020, 2, 14, tzinfo=UTC),
         end=dt.datetime(2020, 5, 2, 6, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -591,6 +600,229 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     speed = df.filter(pl.col("parameter") == "mean_wind_speed").sort("timestamp")
     assert speed.get_column("value").to_list() == [0.3, 0.0, 0.3, 4.1, 1.2, 5.0]
     assert speed.get_column("quality_flags").is_null().all()
+
+
+def test_collect_serves_the_wind_direction_of_minute_0_as_given_even_where_the_hour_is_calm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `mean_wind_dir_min0` of 0 is served as DMI writes it: no speed comes with minute 0, so 0 is calm or north.
+
+    Rows as DMI serves them for 04220 (Aasiaat, read key-less 2026-11-02): the record of 2025-11-21 01:00 to 02:00 has
+    a direction of 0 beside a mean wind speed of 0.3 m/s, and those of 02:00 to 03:00 (0) and 03:00 to 04:00 (133)
+    are calm hours (a speed of 0.0), where `mean_wind_dir` of both is 0 and the calm rule (GH-2794) nulls it. The rule
+    is written for `mean_wind_dir` alone (GH-3762): the 0 of minute 0 stays 0.0 with no `raw:` token, as the 133 does.
+    It is stamped by the end of its record, the minute it is the mean up to.
+    """
+    rows = [
+        # (parameterId, from, value, validity)
+        ("mean_wind_dir_min0", "2025-11-21T01:00:00+00:00", 0.0, True),
+        ("mean_wind_dir", "2025-11-21T01:00:00+00:00", 202.0, True),
+        ("mean_wind_speed", "2025-11-21T01:00:00+00:00", 0.3, True),
+        ("mean_wind_dir_min0", "2025-11-21T02:00:00+00:00", 0.0, True),
+        ("mean_wind_dir", "2025-11-21T02:00:00+00:00", 0.0, False),
+        ("mean_wind_speed", "2025-11-21T02:00:00+00:00", 0.0, True),
+        ("mean_wind_dir_min0", "2025-11-21T03:00:00+00:00", 133.0, True),
+        ("mean_wind_dir", "2025-11-21T03:00:00+00:00", 0.0, False),
+        ("mean_wind_speed", "2025-11-21T03:00:00+00:00", 0.0, True),
+        # the real 360 of 04220 (2025-12-11 21:00, beside 5.8 m/s) stays 360, as no 0 and no 360 is folded into the
+        # other; DMI had no record without a value in 1006, so the last one is synthetic (null stays null)
+        ("mean_wind_dir_min0", "2025-12-11T21:00:00+00:00", 360.0, True),
+        ("mean_wind_dir_min0", "2025-12-11T22:00:00+00:00", None, True),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": validity,
+            }
+        }
+        for parameter, start, value, validity in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
+        start=dt.datetime(2025, 11, 21, tzinfo=UTC),
+        end=dt.datetime(2025, 12, 12, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04220", dataset)  # noqa: SLF001
+    minute_0 = df.filter(pl.col("parameter") == "mean_wind_dir_min0").sort("timestamp")
+    assert minute_0.get_column("timestamp").to_list() == [
+        dt.datetime(2025, 11, 21, 2, tzinfo=UTC),
+        dt.datetime(2025, 11, 21, 3, tzinfo=UTC),
+        dt.datetime(2025, 11, 21, 4, tzinfo=UTC),
+        dt.datetime(2025, 12, 11, 22, tzinfo=UTC),
+        dt.datetime(2025, 12, 11, 23, tzinfo=UTC),
+    ]
+    assert minute_0.get_column("value").to_list() == [0.0, 0.0, 133.0, 360.0, None]
+    assert minute_0.get_column("quality_flags").to_list() == ["manual,validity:true"] * 5
+    hour = df.filter(pl.col("parameter") == "mean_wind_dir").sort("timestamp")
+    assert hour.get_column("value").to_list() == [202.0, None, None]
+    assert hour.get_column("quality_flags").to_list() == [
+        "manual,validity:true",
+        "manual,validity:false,raw:0",
+        "manual,validity:false,raw:0",
+    ]
+
+
+def test_collect_stamps_the_hourly_cloud_cover_by_the_end_of_its_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The cloud cover "at minute 0" of the record `from` 11:00, `to` 12:00 is the reading of 12:00, not of 11:00.
+
+    Rows as DMI serves them for 04250 (Nuuk, read key-less 2026-11-02) beside the metObs `cloud_cover` of the same
+    station: 60 at 11:00, 10 at 12:00, 40 at 13:00 and 40 at 14:00 UTC on 2024-06-03 (the 10-minute readings at those
+    minutes), which is the value of the record that *ends* there (GH-3766). The mean temperature, a mean of the hour,
+    stays stamped by its `from`.
+    """
+    rows = [
+        # (parameterId, from, value)
+        ("mean_cloud_cover", "2024-06-03T10:00:00+00:00", 60.0),
+        ("mean_cloud_cover", "2024-06-03T11:00:00+00:00", 10.0),
+        ("mean_cloud_cover", "2024-06-03T12:00:00+00:00", 40.0),
+        ("mean_cloud_cover", "2024-06-03T13:00:00+00:00", 40.0),
+        ("mean_temp", "2024-06-03T11:00:00+00:00", 5.1),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": True,
+            }
+        }
+        for parameter, start, value in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
+        start=dt.datetime(2024, 6, 3, 11, tzinfo=UTC),
+        end=dt.datetime(2024, 6, 3, 14, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04250", dataset)  # noqa: SLF001
+    cloud = df.filter(pl.col("parameter") == "mean_cloud_cover").sort("timestamp")
+    assert cloud.get_column("timestamp").to_list() == [
+        dt.datetime(2024, 6, 3, hour, tzinfo=UTC) for hour in (11, 12, 13, 14)
+    ]
+    assert cloud.get_column("value").to_list() == [60.0, 10.0, 40.0, 40.0]
+    temperature = df.filter(pl.col("parameter") == "mean_temp")
+    assert temperature.get_column("timestamp").to_list() == [dt.datetime(2024, 6, 3, 11, tzinfo=UTC)]
+
+
+def _collect_hourly_pressure(
+    monkeypatch: pytest.MonkeyPatch,
+    station_id: str,
+    country: str | None,
+    rows: list[tuple[str, float]],
+) -> list[tuple[dt.datetime, float]]:
+    """Serve hourly `mean_pressure` records `(from, value)` of a station of a country through the reader."""
+    features = [
+        {
+            "properties": {
+                "parameterId": "mean_pressure",
+                "from": start,
+                "to": (dt.datetime.fromisoformat(start) + dt.timedelta(hours=1)).isoformat(),
+                "value": value,
+                "qcStatus": "manual",
+                "validity": True,
+            }
+        }
+        for start, value in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=pl.DataFrame({"station_id": [station_id, "99999"], "country": [country, "DNK"]}, schema=_STATIONS.schema),
+        start=dt.datetime(2025, 11, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2025, 11, 1, 4, tzinfo=UTC),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
+    return sorted(zip(df.get_column("timestamp").to_list(), df.get_column("value").to_list(), strict=True))
+
+
+@pytest.mark.parametrize(
+    ("station_id", "country", "rows", "stamps"),
+    [
+        # Nuuk (GRL), key-less climateData 2025-11-01 beside the metObs `pressure_at_sea` of the station: 1005.2 at
+        # 01:00, 1004.9 at 02:00, 1004.5 at 03:00 and 1004.0 at 04:00 UTC. The record of `from` 01:00 holds the reading
+        # of 02:00, not that of 01:00 ("GRL: derived directly ... pressure_at_sea at minute 0")
+        (
+            "04250",
+            "GRL",
+            [
+                ("2025-11-01T01:00:00+00:00", 1004.9),
+                ("2025-11-01T02:00:00+00:00", 1004.5),
+                ("2025-11-01T03:00:00+00:00", 1004.0),
+            ],
+            [(2, 1004.9), (3, 1004.5), (4, 1004.0)],
+        ),
+        # Torshavn (FRO): metObs 981.8 at 01:00, 981.3 at 02:00, 980.9 at 03:00 UTC
+        (
+            "06011",
+            "FRO",
+            [("2025-11-01T01:00:00+00:00", 981.3), ("2025-11-01T02:00:00+00:00", 980.9)],
+            [(2, 981.3), (3, 980.9)],
+        ),
+        # Copenhagen airport (DNK): "average of the 6 underlying values within the hour". The metObs readings of 02:10
+        # to 03:00 UTC (1013.0 four times, 1012.9, 1012.7) average 1012.93, which is the record of `from` 02:00, so it
+        # stays dated by its `from`, the start of the hour
+        (
+            "06180",
+            "DNK",
+            [("2025-11-01T02:00:00+00:00", 1012.9), ("2025-11-01T03:00:00+00:00", 1012.3)],
+            [(2, 1012.9), (3, 1012.3)],
+        ),
+    ],
+)
+def test_collect_stamps_the_hourly_pressure_of_greenland_and_the_faroe_islands_by_the_end_of_its_record(
+    monkeypatch: pytest.MonkeyPatch,
+    station_id: str,
+    country: str,
+    rows: list[tuple[str, float]],
+    stamps: list[tuple[int, float]],
+) -> None:
+    """The reading at minute 0 of GRL and FRO is dated by the `to` of its record, the Danish mean by its `from`.
+
+    The station's country in DMI's station list decides (GH-3768): the records are real ones, read key-less on
+    2025-11-01, and their stamps are the hour of the metObs reading (GRL, FRO) or of the start of the hour (DNK).
+    """
+    result = _collect_hourly_pressure(monkeypatch, station_id, country, rows)
+    assert result == [(dt.datetime(2025, 11, 1, hour, tzinfo=UTC), value) for hour, value in stamps]
+
+
+def test_collect_dates_the_pressure_of_a_station_by_its_from_where_the_list_gives_no_country(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station the list gives no country for keeps the stamp of the mean of the hour, the one of Denmark."""
+    result = _collect_hourly_pressure(monkeypatch, "04250", None, [("2025-11-01T01:00:00+00:00", 1004.9)])
+    assert result == [(dt.datetime(2025, 11, 1, 1, tzinfo=UTC), 1004.9)]
+
+
+def test_the_wind_direction_of_minute_0_is_the_mean_of_ten_minutes_in_degrees() -> None:
+    """`mean_wind_dir_min0` is `wind_direction_mean_last_10min` in degrees, at the hour only (GH-3762)."""
+    for resolution in ("daily", "monthly", "annual"):
+        names = {p.name_original for p in dmi_api.DmiObservationMetadata[resolution].datasets[0].parameters}
+        assert "mean_wind_dir_min0" not in names
+    parameters = {p.name_original: p for p in dmi_api.DmiObservationMetadata["hourly"].datasets[0].parameters}
+    assert (parameters["mean_wind_dir_min0"].name, parameters["mean_wind_dir_min0"].unit) == (
+        "wind_direction_mean_last_10min",
+        "degree",
+    )
 
 
 def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -620,20 +852,26 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2011, 7, 27, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
     df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    df = judged(
+        shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues"),
+        network="dmi/observation",
+        dataset=dataset,
+    )
     assert df.schema["quality_flags"] == pl.String
     flags = {(row["parameter"], row["value"]): row["quality_flags"] for row in df.iter_rows(named=True)}
     assert flags == {
-        ("acc_precip", None): "manual,validity:false,raw:1978",
+        ("acc_precip", None): "manual,validity:false,rejected:range,raw:1978",
         ("acc_precip", 3.4): "manual,validity:true",
         ("mean_temp", 5.1): "none,validity:true",
         ("mean_temp", 5.3): None,
-        ("mean_temp", 5.5): "validity:false",
+        ("mean_temp", 5.5): "validity:false,suspect:source",
     }
 
 
@@ -655,6 +893,7 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     content = json.dumps({"features": features}).encode()
     values = object.__new__(dmi_api.DmiObservationValues)
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        df=_STATIONS,
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2015, 1, 1, tzinfo=UTC),
         request=SimpleNamespace(settings=Settings(cache_disable=True)),
@@ -662,17 +901,25 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     dataset = dmi_api.DmiObservationMetadata[resolution].datasets[0]
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
-        return values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+        df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    # the range of a parameter is judged by the core, in canonical units
+    shaped = shape_provider_frame(df, station_id="04339", dataset=dataset, provider="DmiObservationValues")
+    return judged(shaped, network="dmi/observation", dataset=dataset).select(
+        "parameter", "timestamp", "value", "quality_flags"
+    )
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what_it_was() -> None:
-    """A month of 17,802 mm and one of 3,229.9 mm of 04339 are null with `raw:`; the 1,200 mm beside them is only odd.
+    """A month of 17,802 mm of 04339 is null with `raw:`; the 1,200 mm and the 3,229.9 mm beside it are only odd.
 
     Rows as DMI serves them for 04339 (checked 2026-10-16): the monthly `acc_precip` of 2011-10 is 17802.0 and that of
-    2012-10 is 3229.9, both with `qcStatus: manual` and `validity: false`. The 1,200 mm of the month before and the
-    4021 degrees of `max_temp_w_date` are made up: the first is within the 1,500 mm bound of a month's precipitation
-    (the most DMI validated is 641.8), the second is outside the range of an air temperature, each parameter having
-    its own.
+    2012-10 is 3229.9, both with `qcStatus: manual` and `validity: false`. The 17,802 mm are above the 10,000 mm of a
+    month (the most that fell in a month on record is 9,300, the most DMI validated 641.8); the 3,229.9 mm are inside
+    it, as the table of ranges is the same for every provider (GH-3681), and only `validity:false` tells them, which the
+    check `source` reads (GH-3677): kept and flagged `suspect:source`. The 17,802 mm are `validity:false` too, but a
+    value that the hard `range` nulls carries that verdict alone. The 1,200 mm of the month before and the 4021
+    degrees of `max_temp_w_date` are
+    made up: the second is outside the range of an air temperature, each parameter having its own.
     """
     rows = [
         # (parameterId, from, value, qcStatus, validity)
@@ -686,25 +933,57 @@ def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what
     found = {(row["parameter"], row["timestamp"].year, row["timestamp"].month): row for row in df.iter_rows(named=True)}
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("acc_precip", 2011, 9): (1200.0, "manual,validity:true"),
-        ("acc_precip", 2011, 10): (None, "manual,validity:false,raw:17802"),
-        ("acc_precip", 2012, 10): (None, "manual,validity:false,raw:3229.9"),
-        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,raw:4021"),
+        ("acc_precip", 2011, 10): (None, "manual,validity:false,rejected:range,raw:17802"),
+        ("acc_precip", 2012, 10): (3229.9, "manual,validity:false,suspect:source"),
+        ("max_temp_w_date", 2011, 9): (None, "manual,validity:true,rejected:range,raw:4021"),
         ("max_temp_w_date", 2011, 10): (8.5, "manual,validity:true"),
     }
 
 
 @pytest.mark.parametrize(
+    ("resolution", "parameter"),
+    [("daily", "acc_precip"), ("daily", "max_precip_30m"), ("monthly", "max_precip_24h"), ("hourly", "acc_precip")],
+)
+def test_collect_reads_the_trace_of_precipitation_as_zero_and_keeps_its_text(resolution: str, parameter: str) -> None:
+    """DMI's -0.1 is a trace of precipitation: 0.0 with `raw:-0.1`, as the other providers write one (GH-3621).
+
+    The lower bound of 0 of the range of the parameter read it as out of range and made it null.
+    """
+    rows = [
+        (parameter, "2012-01-01T06:00:00+00:00", -0.1, "manual", True),
+        (parameter, "2012-02-01T06:00:00+00:00", 0.0, "manual", True),
+        (parameter, "2012-03-01T06:00:00+00:00", 1.2, "manual", True),
+        # a negative amount that is no trace stays out of range
+        (parameter, "2012-04-01T06:00:00+00:00", -0.5, "manual", True),
+    ]
+    df = _collect_station_values(resolution, rows).sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [
+        (0.0, "manual,validity:true,raw:-0.1"),
+        (0.0, "manual,validity:true"),
+        (1.2, "manual,validity:true"),
+        (None, "manual,validity:true,rejected:range,raw:-0.5"),
+    ]
+
+
+def test_collect_reads_minus_0_1_of_no_precipitation_amount_as_a_trace() -> None:
+    """The -0.1 is a trace of precipitation only: the same number of a temperature is a reading."""
+    rows = [("mean_temp", "2012-01-01T06:00:00+00:00", -0.1, "manual", True)]
+    df = _collect_station_values("monthly", rows)
+    assert df.select("value", "quality_flags").rows() == [(-0.1, "manual,validity:true")]
+
+
+@pytest.mark.parametrize(
     ("resolution", "reading", "no_reading"),
     [
-        # `acc_precip` of 04339 (read 2026-10-16): 989 and 1978 mm in a day of 2011; 3,229.9 mm in the month 2012-10;
-        # 9,574.3 mm in the year 2014. The readings are what DMI validated at most (183.5, 641.8 and 3,291.3 mm, 04390)
-        ("daily", 183.5, 989.0),
+        # `acc_precip` of 04339 (read 2026-10-16): 1978 mm in a day of 2011; 17,802 mm in the month 2011-10. The
+        # readings are what DMI validated at most (183.5, 641.8 and 3,291.3 mm, 04390). The bounds are the records of
+        # the WMO rounded outward: 1,850 mm in a day, 10,000 in a month, 30,000 in a year (GH-3681)
         ("daily", 183.5, 1978.0),
-        ("monthly", 641.8, 3229.9),
-        ("annual", 3291.3, 9574.3),
-        # the same number is a reading of a longer span: 989 mm is no day, but a month of rain
+        ("monthly", 641.8, 17802.0),
+        ("annual", 3291.3, 30001.0),
+        # the same numbers are readings of longer spans: 989 mm is a month of rain, 9,574.3 mm a year of it
         ("monthly", 989.0, 17802.0),
-        ("annual", 3229.9, 4178.9),
+        ("annual", 9574.3, 31000.0),
     ],
 )
 def test_collect_holds_the_rain_to_the_span_of_the_resolution(
@@ -718,18 +997,17 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 
 @pytest.mark.parametrize(
     ("resolution", "parameter", "reading", "no_reading"),
     [
-        # the largest amount of a day of a month (04339 2011-10: 1978; 04320 2013-09: 999) and of a year (04320: 999)
+        # the largest amount of a day of a month (04339 2011-10: 1978) and of a year: no more than 1,850 mm, a day
         ("monthly", "max_precip_24h", 183.5, 1978.0),
-        ("monthly", "max_precip_24h", 183.5, 999.0),
-        ("annual", "max_precip_24h", 183.5, 999.0),
-        # the largest of 30 minutes of the day can be no more than the day
+        ("annual", "max_precip_24h", 183.5, 1978.0),
+        # the largest of 30 minutes of the day can be no more than the bound of 60 minutes, 350 mm
         ("daily", "max_precip_30m", 40.0, 989.0),
     ],
 )
@@ -744,24 +1022,38 @@ def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     df = _collect_station_values(resolution, rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
         (reading, "manual,validity:true"),
-        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+        (None, f"manual,validity:false,rejected:range,raw:{no_reading:.15g}"),
     ]
 
 
-def test_collect_leaves_a_year_of_rain_that_a_validated_year_equals() -> None:
-    """The 3,253.4 mm of 04339 in 2012 (a sum of the month of 3,229.9 mm) stays: 04390 has 3,291.3 mm, validated.
+def test_collect_flags_the_rain_that_no_world_range_separates_from_a_validated_one() -> None:
+    """The totals of 04339 that DMI marks `validity:false` and that lie inside the ranges are flagged (GH-3677).
 
-    No range tells the two years apart; `quality_flags` says `validity:false` for the one and `true` for the other.
+    The 3,253.4 mm of 2012 (a sum of the month of 3,229.9 mm) stays inside the range: 04390 has 3,291.3 mm, validated.
+    The 989 mm of a day and the 9,574.3 mm of a year are inside the 1,850 and 30,000 mm of the records (GH-3681). No
+    range tells them apart from a wet day or a wet year; `quality_flags` says `validity:false` for the one and `true`
+    for the other, which the check `source` reads: they are kept and flagged `suspect:source` (the default), and null
+    with `rejected:source` where the check is hard. The validated 3,291.3 mm are neither.
     """
     rows = [
         ("acc_precip", "2012-01-01T06:00:00+00:00", 3253.4, "none", False),
         ("acc_precip", "2013-01-01T06:00:00+00:00", 3291.3, "manual", True),
+        ("acc_precip", "2014-01-01T06:00:00+00:00", 9574.3, "manual", False),
     ]
     df = _collect_station_values("annual", rows).sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [
-        (3253.4, "none,validity:false"),
+        (3253.4, "none,validity:false,suspect:source"),
         (3291.3, "manual,validity:true"),
+        (9574.3, "manual,validity:false,suspect:source"),
     ]
+    rows = [("acc_precip", "2011-07-25T06:00:00+00:00", 989.0, "none", False)]
+    assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
+        (989.0, "none,validity:false,suspect:source")
+    ]
+    with applying(Plausibility(source="hard")):
+        assert _collect_station_values("daily", rows).select("value", "quality_flags").rows() == [
+            (None, "none,validity:false,rejected:source,raw:989")
+        ]
 
 
 def _dmi_record(

@@ -18,7 +18,10 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import _options, _settings, stations_result
+from wetterdienst.exceptions import DateRequiredError
+from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.options import Options
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.util.network import File
@@ -231,12 +234,11 @@ def test_chmi_without_a_reading_comes_out_as_the_empty_long_form(
     assert df.is_empty()
 
 
-def test_chmi_subdaily_without_a_date_range_comes_out_as_the_empty_long_form(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The month files of the sub-daily resolutions are addressed by the range: with none, there is nothing to read."""
+def test_chmi_subdaily_without_a_date_range_is_refused_and_asks_for_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The month files of the sub-daily resolutions are addressed by the range: with none, the request is refused."""
     asked = _serve(monkeypatch, {f"10m-{CHEB}-T-202001.csv": _TEN_MINUTES_T_JANUARY})
-    df = _values("10_minutes")
-    assert df.schema == pl.Schema(LONG_SCHEMA)
-    assert df.is_empty()
+    with pytest.raises(DateRequiredError, match="The dataset 10_minutes/data needs a window"):
+        _values("10_minutes")
     assert asked == []
 
 
@@ -321,7 +323,10 @@ def test_chmi_hourly_window_after_2024_is_the_empty_frame_with_the_reason_for_th
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
     assert not any("-P-2025" in url for url in asked)
-    assert [warning["code"] for warning in recorded_warnings()] == ["parameter-ended"]
+    # told by `parameter-ended` alone, which names the parameter: `parameter-without-rows` would say it a second time
+    (warning,) = recorded_warnings()
+    assert warning["code"] == "parameter-ended"
+    assert warning["parameter"] == "hourly/data/pressure_air_site"
 
 
 def test_chmi_hourly_window_after_2024_of_another_parameter_has_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -357,3 +362,38 @@ def test_chmi_hourly_downloads_the_elements_asked_for_and_the_whole_dataset_asks
     whole = _values("hourly", start=dt.datetime(2024, 1, 1, tzinfo=UTC), end=dt.datetime(2024, 2, 1, tzinfo=UTC))
     assert whole["parameter"].unique().to_list() == ["pressure_air_site"]
     assert {url.rsplit("-", 2)[-2] for url in asked} == {"Td", "SRA1H", "P", "P_hm"}
+
+
+@pytest.mark.parametrize("shape", ["long", "wide"])
+def test_chmi_element_of_two_resolutions_is_named_for_the_resolution_it_was_read_at(
+    monkeypatch: pytest.MonkeyPatch, shape: str
+) -> None:
+    """The element `T` is `temperature_air_2m` at 10 minutes and `temperature_air_mean_2m` daily (GH-3605).
+
+    The mapping from the name CHMI writes to the canonical one was one dict over the whole request, so asking for both
+    resolutions named the 10 minute readings for the daily parameter, the last to be put in the dict.
+    """
+    _serve(monkeypatch, {f"dly-{CHEB}-T.csv": _DAILY_T, f"10m-{CHEB}-T-202001.csv": _TEN_MINUTES_T_JANUARY})
+    request = ChmiObservationRequest(
+        parameters=[("10_minutes", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_2m")],
+        start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2020, 1, 31, 23, 50, tzinfo=UTC),
+        settings=_settings(),
+        options=Options(shape=shape, drop_nulls=True),
+    )
+    stations = pl.concat(
+        [stations_result(request, resolution, "data", CHEB).df for resolution in ("10_minutes", "daily")]
+    )
+    sr = StationsResult(request=request, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_STATION_ID)
+    df = sr.values().all().df
+    if shape == "long":
+        named = df.group_by("resolution").agg(pl.col("parameter").unique().sort())
+        assert dict(named.iter_rows()) == {"10_minutes": ["temperature_air_2m"], "daily": ["temperature_air_mean_2m"]}
+        assert df.filter(pl.col("resolution").eq("10_minutes"))["value"].sort().to_list() == [-2.8]
+        assert df.filter(pl.col("resolution").eq("daily"))["value"].sort().to_list() == [-3.0, -2.5]
+    else:
+        ten, daily = (df.filter(pl.col("resolution").eq(resolution)) for resolution in ("10_minutes", "daily"))
+        assert ten["temperature_air_2m"].drop_nulls().to_list() == [-2.8]
+        assert sorted(daily["temperature_air_mean_2m"].drop_nulls().to_list()) == [-3.0, -2.5]
+        assert ten["temperature_air_mean_2m"].drop_nulls().is_empty()
+        assert daily["temperature_air_2m"].drop_nulls().is_empty()

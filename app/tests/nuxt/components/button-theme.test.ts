@@ -8,19 +8,25 @@ async function classesOf(props: Record<string, unknown>) {
   return wrapper.classes()
 }
 
-describe('the label of a solid primary button', () => {
-  it('is the dark app colour, where Nuxt UI would make it white', async () => {
+// The solid primary button of the app (GH-3518, app.config.ts): the logo's blue with Nuxt UI's own label (white by
+// day, navy at night), and a hover that darkens by day and lightens at night instead of Nuxt UI's fill at 75 %, which
+// takes the label under 4.5:1. The ratios are tests/unit/button-contrast.test.ts.
+describe('the solid primary button', () => {
+  it('keeps Nuxt UI\'s label and fill, and darkens or lightens when hovered and pressed', async () => {
     const classes = await classesOf({ color: 'primary', variant: 'solid' })
-    expect(classes).toContain('text-(color:--app-text-on-primary)')
-    expect(classes).not.toContain('text-inverted')
-    // the fill, its hover and the disabled state are the theme's
+    expect(classes).toContain('text-inverted')
     expect(classes).toContain('bg-primary')
-    expect(classes).toContain('hover:bg-primary/75')
+    expect(classes).toContain('hover:bg-primary-700')
+    expect(classes).toContain('active:bg-primary-800')
+    expect(classes).toContain('dark:hover:bg-primary-300')
+    expect(classes).toContain('dark:active:bg-primary-200')
+    // the faded hover is gone, not beside the new one
+    expect(classes).not.toContain('hover:bg-primary/75')
     expect(classes).toContain('disabled:bg-primary')
   })
 
   it('is the default, as a button given neither colour nor variant is solid primary', async () => {
-    expect(await classesOf({})).toContain('text-(color:--app-text-on-primary)')
+    expect(await classesOf({})).toContain('hover:bg-primary-700')
   })
 })
 
@@ -33,9 +39,9 @@ describe('the other buttons', () => {
     ['primary', 'link'],
     ['neutral', 'solid'],
     ['error', 'solid'],
-  ])('keep the label colour of the %s %s button', async (color, variant) => {
+  ])('keep the hover of the %s %s button', async (color, variant) => {
     const classes = await classesOf({ color, variant })
-    expect(classes.join(' ')).not.toContain('--app-text-on-primary')
+    expect(classes.join(' ')).not.toContain('hover:bg-primary-700')
   })
 
   it('keep the text-inverted label of the neutral and error solid buttons', async () => {

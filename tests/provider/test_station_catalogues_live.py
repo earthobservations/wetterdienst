@@ -12,8 +12,9 @@ This pass holds one catalogue per resolution of a provider and network, the firs
 the networks whose catalogue differs from one to the next. The one-time run of GH-2616 held all 62 datasets of
 `dwd/observation` and found them sound. `eaufrance/hubeau` is not held here: its catalogue is made by reading a
 station list for each of the resolutions it could be, which takes about 7 minutes, in every leg of the matrix; the
-one-time run found it sound. The providers that need a credential (`aemet`, `knmi`, `metno`, `metoffice`) are held
-when the credential is set.
+one-time run found it sound. Its referential, the one request that answers in seconds and that the catalogue is made
+from, is held to the same rules at the end of this file (GH-3468). The providers that need a credential (`aemet`,
+`knmi`, `metno`, `metoffice`) are held when the credential is set.
 
 The coverage rules (GH-3248), that a listed station has data and that every data file has a station, are held below for
 the networks of `station_data_index.INDEXES` whose index is a directory listing or one file the catalogue pass reads
@@ -31,6 +32,7 @@ from tests.provider.station_catalogue import (
     COUNTRY_BBOX,
     FROST_ANTARCTIC,
     FROST_FOREIGN_WMO,
+    FROST_OFF_THE_BOX,
     Accepted,
     assert_covered,
     assert_in_extent,
@@ -42,8 +44,11 @@ from tests.provider.station_catalogue_stubs import (
     DWD_NAMES,
     EA_NO_POSITION,
     FMI_ANTARCTICA,
+    FROST_NO_POSITION,
     GHCN_NAMES,
     GHCN_NO_POSITION,
+    HUBEAU_BLAVET,
+    HUBEAU_NOT_OPENED,
     WSV_NO_POSITION,
     WSV_TIEL,
 )
@@ -56,11 +61,16 @@ from tests.provider.station_data_index import (
 )
 from wetterdienst import Wetterdienst
 from wetterdienst.ui.core import resolve_network
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
-# the networks whose station list is not the same for every dataset of a resolution
-_EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix"}
+# the networks whose station list is not the same for every dataset of a resolution (`imgw/meteorology`: the synop
+# stations are a part of it, GH-3944)
+_EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix", "imgw/meteorology"}
 # the networks that are not held, with the reason
-_NOT_HELD = {"eaufrance/hubeau": "building its catalogue takes minutes"}
+_NOT_HELD = {
+    "eaufrance/hubeau": "building its catalogue takes minutes; its referential is held by "
+    "`test_the_hubeau_referential_breaks_no_catalogue_rule_once_corrected`",
+}
 
 
 ACCEPTED: dict[str, tuple[Accepted, ...]] = {
@@ -88,21 +98,16 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
             where=lambda row: row["station_id"] == "151",
         ),
     ),
-    "metno/frost": (
-        Accepted(
-            "coordinates_missing",
-            "24 of the 2235 SensorSystem sources have no geometry and no position in any other field: ships, "
-            "rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), 20 with "
-            "shipCodes, which move; they stay in the list and no search picks them (GH-2655)",
-        ),
-    ),
+    "metno/frost": (FROST_NO_POSITION,),
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
     "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }
 
 # the stations a live list has outside the extent of its network, with the reason (GH-3456): the box is where the
 # network is, so a station elsewhere is the source's, and the box is not widened to it
-EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {"metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC)}
+EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {
+    "metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC, FROST_OFF_THE_BOX)
+}
 
 # the live catalogues that have no position for any station, by the source's design, and so no extent to hold them to
 # (the rule `coordinates_missing` of `ACCEPTED` says the same of them). Held only while that is so: a position that
@@ -162,7 +167,11 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
     request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    # a lookup that goes on without a directory that came back empty (GH-3819) answers fewer stations and a
+    # `file-skipped` warning, which is no live list of the stations: the test fails on it, as it did when that raised
+    begin_response()
     stations = request.all().df
+    assert [warning["message"] for warning in recorded_warnings() if warning["code"] == "file-skipped"] == []
     catalogue = f"{key} {resolution}/{dataset}"
     assert_sound(
         stations,
@@ -285,12 +294,16 @@ def test_the_hubeau_referential_is_in_the_extent_of_its_network() -> None:
 
 
 @pytest.mark.remote
-def test_the_hubeau_referential_has_every_station_in_an_area_once_swapped() -> None:
-    """Hold the stations of the referential of `eaufrance/hubeau` to the areas of France once swapped (GH-3468).
+def test_the_hubeau_referential_breaks_no_catalogue_rule_once_corrected() -> None:
+    """Hold the stations of the referential of `eaufrance/hubeau`, as the reader gives them, to the catalogue rules.
 
-    One request, as `_NOT_HELD` leaves the catalogue out: after `_swap_misplaced_positions` every station is in
-    metropolitan France or an overseas department but the Blavet, which the referential lists in Algeria
-    (`HUBEAU_BLAVET`). A source that fixes it is no failure of ours, so a station fewer than that is not one either.
+    The catalogue of the reader is the referential and a request for each station's step, which takes minutes, so
+    `_NOT_HELD` leaves the whole catalogue out of the pass above (GH-3468). The referential is one request that
+    answers in seconds, and `_referential_stations` is the step of the reader that holds what the rules are about
+    (the positions, the names, the dates), so the rules are applied to its frame: every station in one of the areas
+    of France (`COUNTRY_BBOX`, which are the areas the reader swaps by) but the Blavet, which the referential lists in
+    Algeria and the reader gives no position (`HUBEAU_BLAVET`). A source that fixes the Blavet is no failure of ours,
+    so an exception that matches nothing is none either.
     """
     from wetterdienst import Settings  # noqa: PLC0415
     from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
@@ -302,21 +315,23 @@ def test_the_hubeau_referential_has_every_station_in_an_area_once_swapped() -> N
         ttl=CacheExpiry.FIVE_MINUTES,
         timeout=120,
     )
-    stations = pl.DataFrame(
-        {
-            "station_id": [row["code_station"] for row in rows],
-            "latitude": [row.get("latitude_station") for row in rows],
-            "longitude": [row.get("longitude_station") for row in rows],
-        },
-        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+    corrected, _ = api._referential_stations(rows)  # noqa: SLF001
+    stations = corrected.with_columns(
+        pl.lit("5_minutes").alias("resolution"),
+        pl.lit("data").alias("dataset"),
+        # the elevation of a station is its site's, which the sites referential gives
+        pl.lit(None, pl.Float64).alias("elevation"),
+        pl.col("start_timestamp").str.to_datetime(time_zone="UTC"),
+        pl.col("end_timestamp").str.to_datetime(time_zone="UTC"),
     )
 
-    swapped = api._swap_misplaced_positions(stations)  # noqa: SLF001
-
-    assert swapped.height > 1000
-    # a station without a position is in no area either, which a filter on the area alone would drop, not report: a
-    # referential that renames or empties its position fields must fail here
-    assert swapped.select(pl.col("latitude", "longitude").is_null().sum()).row(0) == (0, 0)
-    in_an_area = api._in_an_area(pl.col("latitude"), pl.col("longitude")).fill_null(value=False)  # noqa: SLF001
-    outside = swapped.filter(~in_an_area)
-    assert set(outside["station_id"]) <= {"J543211003"}, outside
+    assert stations.height > 1000
+    # a station without a position is reported by the rule `coordinates_missing`, which only the Blavet is excused
+    # from: a referential that renames or empties its position fields fails here
+    assert_sound(
+        stations,
+        "eaufrance/hubeau referential",
+        bbox=COUNTRY_BBOX["eaufrance/hubeau"],
+        accepted=(HUBEAU_BLAVET, HUBEAU_NOT_OPENED),
+        fail_on_stale=False,
+    )

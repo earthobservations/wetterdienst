@@ -1,7 +1,9 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { setResponseStatus } from 'h3'
+import { setResponseHeader, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { useSettings } from '#imports'
+import Meteogram from '~/components/Meteogram.vue'
 import WidgetPage from '~/pages/widget.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
 
@@ -81,14 +83,68 @@ describe('widget Page', () => {
     expect(wrapper.text()).not.toContain('proxy page')
   })
 
-  it('applies the theme query param to color mode', async () => {
-    registerEndpoint('/api/stations', () => ({ stations: [] }))
+  describe('?theme=', () => {
+    // The colour-mode module saves a `preference` to localStorage, which every page of the origin reads: a
+    // widget embedded with ?theme=dark must not change what the app shows the next time it is opened (GH-3619)
+    function colorModeState() {
+      return useNuxtApp().$colorMode as { preference: string, value: string, forced: boolean }
+    }
 
-    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
-    const vm = wrapper.vm as any
-    await wrapper.vm.$nextTick()
+    // the visitor's saved choice, the one the widget must leave as it is: the system's
+    beforeEach(async () => {
+      colorModeState().preference = 'system'
+      await navigateTo('/')
+    })
 
-    expect(vm.colorMode.preference).toBe('dark')
+    afterEach(async () => {
+      // leaves the widget, as a navigation does, for the scheme of the preference
+      await navigateTo('/')
+    })
+
+    it('shows the widget in the scheme of the query param', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      expect(colorModeState().value).toBe('dark')
+    })
+
+    it('leaves the saved preference of the app as it is', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      expect(colorModeState().value).toBe('dark')
+      // the module saves a preference to localStorage when it changes (tests/e2e/chart-theme.spec.ts reads
+      // it there), and so would a widget that changed it
+      expect(colorModeState().preference).toBe('system')
+    })
+
+    it('puts the app\'s scheme back where the widget is left', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+      expect(colorModeState().value).toBe('dark')
+
+      await navigateTo('/')
+
+      expect(colorModeState().forced).toBe(false)
+      expect(colorModeState().value).toBe('light')
+    })
+
+    it('keeps the scheme through a change of another param of the query', async () => {
+      registerEndpoint('/api/stations', () => ({ stations: [] }))
+      const wrapper = await mountSuspended(WidgetPage, { route: '/widget?theme=dark' })
+      onTestFinished(() => wrapper.unmount())
+      await wrapper.vm.$nextTick()
+
+      await navigateTo('/widget?theme=dark&station=00001')
+      await vi.waitFor(() => expect(colorModeState().value).toBe('dark'))
+    })
   })
 
   it('links back to the full meteogram page', async () => {
@@ -182,6 +238,34 @@ describe('widget Page station lookup', () => {
     expect(wrapper.text()).not.toContain('Station not found')
   })
 
+  it('tells a 200 page of HTML as a failure, not as a station not found (GH-3841)', async () => {
+    onTestFinished(registerEndpoint('/api/stations', (event) => {
+      setResponseHeader(event, 'content-type', 'text/html')
+      return '<!doctype html><html><body>Bad gateway</body></html>'
+    }))
+    globalThis.fetch = vi.fn()
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
+    expect(wrapper.text()).not.toContain('Station not found')
+  })
+
+  it('tells a 200 page of HTML for the forecast as a failure, not as a forecast with no values (GH-3841)', async () => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '01001', name: 'Jan Mayen', latitude: 70.9, longitude: -8.7 }],
+    })))
+    globalThis.fetch = vi.fn().mockImplementation(async () =>
+      new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    )
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+
+    await vi.waitFor(() => expect(vm.error).toMatch(/^Backend error 502: The API answered with a web page, not data/))
+  })
+
   it('says the station is not found when the answer holds no station', async () => {
     onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [] })))
     globalThis.fetch = vi.fn()
@@ -249,15 +333,88 @@ describe('widget Page values request', () => {
     expect(query.get('humanize')).toBe('true')
     expect(query.get('convert_units')).toBe('true')
     expect(query.get('skip_empty')).toBe('false')
-    // each quantity the charts give a unit for, as the server's own targets are merged into the request's
-    expect(JSON.parse(query.get('unit_targets')!)).toEqual({
+    expect(query.get('with_metadata')).toBe('true')
+    // each quantity the charts give a unit for, in the unit the app settings choose (the app's defaults here), and every
+    // other type the settings page lists, as the server's own targets are merged into the request's
+    expect(JSON.parse(query.get('unit_targets')!)).toMatchObject({
       angle: 'degree',
-      fraction: 'decimal',
+      fraction: 'percent',
       precipitation: 'millimeter',
       pressure: 'hectopascal',
       speed: 'meter_per_second',
       temperature: 'degree_celsius',
     })
+  })
+})
+
+// The widget follows the app settings' units (GH-3980), as the forecast page does: it has no unit parameter of its own
+describe('widget Page units', () => {
+  const row = (parameter: string, value: number) => ({ station_id: '70001', resolution: 'hourly', dataset: 'large', parameter, timestamp: '2026-10-01T00:00:00+00:00', value, quality_flags: null })
+  const answer = (query: URLSearchParams) => {
+    const fahrenheit = JSON.parse(query.get('unit_targets')!).temperature === 'degree_fahrenheit'
+    return {
+      values: [row('temperature_air_2m', fahrenheit ? 50 : 10)],
+      metadata: { parameters: [{ name: 'temperature_air_2m', quantity: 'temperature', unit: fahrenheit ? '°F' : '°C' }] },
+    }
+  }
+  const valuesRequests = () => vi.mocked(globalThis.fetch).mock.calls.map(([input]) => new URL(String(input), 'http://localhost')).filter(url => url.pathname === '/api/values' && url.searchParams.get('stations') === '70001')
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let gate: Promise<void> | null = null
+
+  beforeEach(() => {
+    onTestFinished(registerEndpoint('/api/stations', () => ({ stations: [{ station_id: '70001', name: 'Test Island', latitude: 70.9, longitude: -8.7 }] })))
+    globalThis.fetch = vi.fn(async (input) => {
+      const url = new URL(String(input), 'http://localhost')
+      await gate
+      return new Response(JSON.stringify(answer(url.searchParams)), { status: 200 })
+    })
+  })
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    gate = null
+    useSettings().settings.value.units.temperature = 'degree_celsius'
+  })
+
+  const chartUnits = () => wrapper!.findComponent(Meteogram).props('units')
+
+  it('asks in the unit the settings choose, and tells the chart the unit the answer reports', async () => {
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=70001' })
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    expect(JSON.parse(valuesRequests()[0]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+  })
+
+  it('takes no unit from its address: a parameter of the address that names one is not read', async () => {
+    wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=70001&unit_targets=%7B%22temperature%22%3A%22degree_kelvin%22%7D&units=imperial' })
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    expect(JSON.parse(valuesRequests()[0]!.searchParams.get('unit_targets')!).temperature).toBe('degree_celsius')
+  })
+
+  it('fetches the forecast again, once, in the new unit where the settings change while it is shown', async () => {
+    wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=70001' })
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°C' }))
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(valuesRequests()).toHaveLength(2)
+  })
+
+  it('shows the answer of the newest request where the settings change while one is under way, which is followed by one more', async () => {
+    let release!: () => void
+    gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=70001' })
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
+    useSettings().settings.value.units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(valuesRequests()).toHaveLength(2))
+    release()
+    await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+    expect(valuesRequests()).toHaveLength(2)
+    expect((wrapper.vm as any).values[0].value).toBe(50)
   })
 })
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import type { Station } from '#shared/types/api'
+import type { Station, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
+import { UnexpectedAnswerError } from '~/utils/api-answer'
 import { describeFetchError } from '~/utils/api-error'
-import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
-import { backendFailure, describeRequestError } from '~/utils/request-error'
+import { meteogramUnitsKey, meteogramValuesSettings } from '~/utils/meteogram'
+import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
+import { unitsOfAnswer } from '~/utils/units'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -23,15 +25,36 @@ const stationId = computed(() => route.query.station as string | undefined)
 const themeParam = computed(() => route.query.theme as string | undefined)
 
 const colorMode = useColorMode()
-// Apply theme from query param if provided
+// The scheme of the widget's `?theme=` is the widget's alone (GH-3619). The colour-mode module saves a
+// `preference` to localStorage, which the whole origin shares, so a widget embedded with `?theme=dark` would
+// have switched the app's scheme for whoever opened it. A forced mode is its page's, as `colorMode` of
+// `definePageMeta` is: the module puts the class on <html> and saves nothing, and puts the saved preference
+// back with the next navigation. That navigation also covers a change of the query, so the scheme is set
+// again after each (the route's path is read for that).
 watchEffect(() => {
-  if (themeParam.value === 'dark' || themeParam.value === 'light')
-    colorMode.preference = themeParam.value
+  void route.fullPath
+  if (themeParam.value === 'dark' || themeParam.value === 'light') {
+    colorMode.forced = true
+    // typed read-only, as the module's own watcher is what sets it for a preference
+    ;(colorMode as { value: string }).value = themeParam.value
+  }
 })
 
 const station = ref<Station | null>(null)
 const values = ref<any[]>([])
+// the unit of each parameter of the values, as the answer says (GH-3980)
+const units = ref<Record<string, string>>({})
 const pending = ref(false)
+
+// The widget follows the app settings' units (GH-3980), as the forecast page does: it has no unit parameter of its own,
+// and an embedding page that wants another unit than the app's settings has none to ask for. Embedded in an iframe of
+// another site the browser may keep no settings for it, and the app's defaults (or the server's, `GET /api/settings`)
+// are what it shows. The settings are read at each request, and a change of them while a forecast is shown fetches it again.
+const { settings: appSettings } = useSettings()
+const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
+// the request that is the latest: the answer of an earlier one, which a change of the units has left behind, is not shown
+let valuesTicket = 0
 // why the request failed, as data: the message is written at render, in the language of the moment
 const failure = ref<RequestError | null>(null)
 const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)
@@ -45,7 +68,7 @@ async function loadStation(id: string) {
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
         stations: id,
       },
-      ...RETRY_TRANSIENT,
+      ...API_FETCH,
     })
     station.value = (res.stations ?? [])[0] ?? null
     // the backend answers a station id it does not know with no station, not with a failure
@@ -58,11 +81,14 @@ async function loadStation(id: string) {
     const response: Response | undefined = e?.response
     failure.value = response
       ? backendFailure(response.status, response.statusText, e.data)
-      : { kind: 'text', text: describeFetchError(e) }
+      : e instanceof UnexpectedAnswerError
+        ? failureOfError(e)
+        : { kind: 'text', text: describeFetchError(e) }
   }
 }
 
 async function fetchValues(s: Station) {
+  const ticket = ++valuesTicket
   pending.value = true
   failure.value = null
   values.value = []
@@ -71,26 +97,36 @@ async function fetchValues(s: Station) {
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
     stations: s.station_id,
-    ...METEOGRAM_VALUES_SETTINGS,
+    ...meteogramValuesSettings(unitSettings.value),
   })
   try {
     const res = await fetch(`/api/values?${params}`)
+    if (ticket !== valuesTicket)
+      return
     if (!res.ok) {
-      failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
+      const failed = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
+      if (ticket === valuesTicket)
+        failure.value = failed
       return
     }
-    const json = await res.json()
-    values.value = json.values ?? []
+    const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
+    if (ticket === valuesTicket) {
+      units.value = unitsOfAnswer(json)
+      values.value = json.values ?? []
+    }
   }
   catch (e: any) {
-    failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
+    if (ticket === valuesTicket)
+      failure.value = failureOfError(e)
   }
   finally {
-    pending.value = false
+    if (ticket === valuesTicket)
+      pending.value = false
   }
 }
 
-watch(station, (s) => {
+// the station, or the units: one request for either, or both together
+watch([station, unitsAsked], ([s]) => {
   if (s)
     void fetchValues(s)
 })
@@ -120,12 +156,12 @@ onMounted(async () => {
         :title="t('widget.openFull')"
       >
         {{ t('common.open') }}
-        <UIcon name="i-lucide-external-link" class="w-3 h-3" />
+        <UIcon name="i-ph-arrow-square-out" class="w-3 h-3" />
       </a>
     </div>
 
-    <!-- Content -->
-    <div class="flex-1 overflow-hidden">
+    <!-- Content: the page's main landmark; the one of app.vue's shell is not around the widget (Lighthouse, landmark-one-main) -->
+    <main class="flex-1 overflow-hidden">
       <i18n-t v-if="!stationId" keypath="widget.noStation" tag="div" class="flex items-center justify-center h-full py-16 text-gray-600 dark:text-gray-400 text-sm" scope="global">
         <template #param>
           <code class="mx-1 px-1 bg-gray-100 dark:bg-gray-800 rounded">?station=XXXXX</code>
@@ -133,7 +169,7 @@ onMounted(async () => {
       </i18n-t>
 
       <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-500 dark:text-gray-400 text-sm">
-        <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary-500" />
+        <UIcon name="i-ph-circle-notch" class="w-4 h-4 animate-spin text-primary-600 dark:text-primary-500" />
         {{ t('widget.loading') }}
       </div>
 
@@ -147,16 +183,17 @@ onMounted(async () => {
           :station-name="station.name"
           :station-coords="{ latitude: station.latitude, longitude: station.longitude }"
           :widget="true"
+          :units="units"
         />
       </div>
 
       <UEmpty
         v-else-if="station && !pending"
         size="sm"
-        icon="i-lucide-cloud-off"
+        icon="i-ph-cloud-slash"
         :title="t('widget.noData')"
       />
-    </div>
+    </main>
 
     <!-- Attribution footer -->
     <div class="shrink-0 px-4 py-1.5 border-t border-gray-100 dark:border-gray-800 text-center">

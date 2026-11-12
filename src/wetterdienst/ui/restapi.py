@@ -13,12 +13,13 @@ import os
 import re
 from dataclasses import replace
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast, get_type_hints
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, with_config
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -35,20 +36,24 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     DownloadError,
+    ImageTimeoutError,
     ImageTooLargeError,
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.export import render_image, require_kaleido
+from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import CoverageNetwork, CoverageParameter, Extent
+from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     ValuesResult,
+    _HistoryEntry,
     _InterpolatedValuesDictBody,
     _InterpolatedValuesOgcFeatureCollectionBody,
     _Station,
@@ -61,7 +66,15 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
+from wetterdienst.ui.caching import (
+    CATALOGUE_CACHE_CONTROL,
+    HISTORY_CACHE_CONTROL,
+    cached_json,
+    settings_changed_at,
+    validators,
+)
 from wetterdienst.ui.core import (
+    SELECTION_EXAMPLES,
     AlertsRequest,
     AuthAnswer,
     AuthRequest,
@@ -74,6 +87,7 @@ from wetterdienst.ui.core import (
     ProvidersRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
+    Selection,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -83,10 +97,13 @@ from wetterdienst.ui.core import (
     SummaryRequest,
     ValuesRequest,
     _caller_refusal_status,
+    _draw_stripes,
     _get_stripes_data,
+    _get_stripes_options,
     _get_stripes_stations,
-    _plot_stripes,
+    _require_plotting,
     check_timeseries_api,
+    coverage_needs_a_network,
     failure_status,
     get_auth,
     get_glossary,
@@ -103,6 +120,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.limits import (
     Limits,
+    check_point_rows,
     check_rows,
     check_station_count,
     check_stations_in_reach,
@@ -126,9 +144,11 @@ from wetterdienst.ui.problems import (
     status_phrase,
 )
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
+from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
+    StripesSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -163,7 +183,7 @@ from wetterdienst.ui.streaming import (
     ndjson_stream,
     stream_response,
 )
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
@@ -174,7 +194,6 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 
-    from fastapi.routing import APIRoute
     from starlette.responses import StreamingResponse
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -229,11 +248,8 @@ app = FastAPI(
     ),
     version=__version__,
     contact={"name": "wetterdienst", "url": "https://github.com/earthobservations/wetterdienst/issues"},
-    license_info={
-        "name": "MIT",
-        "identifier": "MIT",
-        "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md",
-    },
+    # `identifier` and `url` are mutually exclusive in OpenAPI 3.1: the SPDX identifier says which licence
+    license_info={"name": "MIT", "identifier": "MIT"},
     servers=[
         {"url": "https://wetterdienst.eobs.org", "description": "The hosted instance."},
         {"url": "http://127.0.0.1:7890", "description": "A local server, as `wetterdienst restapi` starts it."},
@@ -372,11 +388,15 @@ def _problem_response(
 
 
 def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse:
-    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with."""
+    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with.
+
+    An MCP tool's request gets the `tool_detail` of the problem where it has one (`ProblemError`).
+    """
+    tool_detail = getattr(error, "tool_detail", None) if is_tool_request(request.scope) else None
     return _problem_response(
         request,
         error.status_code,
-        str(error.detail),
+        tool_detail or str(error.detail),
         kind_of(error),
         extra=getattr(error, "extra", None),
         headers=error.headers,
@@ -386,6 +406,9 @@ def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
+    if exc.status_code == 405 and request.url.path in _HEAD_PROBES:
+        # Starlette lists the methods of the first route that matched the path, which is the `GET`: the probes take both
+        exc = StarletteHTTPException(405, exc.detail, {**(exc.headers or {}), "Allow": "GET, HEAD"})
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=exc.headers)
     if not isinstance(exc.detail, str):
@@ -431,7 +454,17 @@ def _writable(value: Any, depth: int = _ERROR_INPUT_DEPTH) -> Any:  # noqa: ANN4
 
 @app.exception_handler(RequestValidationError)
 async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """Answer a request that fails validation with a 422 problem, its entries under `errors`."""
+    """Answer a request that fails validation with a 422 problem, its entries under `errors`.
+
+    `coverage` with no fault but a missing `provider` or `network` is the one request that is a 400: it listed
+    every provider until 1.0.0, and its answer names `providers`, which does (GH-3996).
+    """
+    route = request.scope.get("route")
+    if getattr(route, "name", None) == "coverage" and all(
+        error.get("type") == "missing" and tuple(error.get("loc", ())[1:]) in {("provider",), ("network",)}
+        for error in exc.errors()
+    ):
+        return _problem_response(request, 400, coverage_needs_a_network(app.url_path_for("providers")))
     errors = jsonable_encoder(_writable(exc.errors()))
     return _problem_response(request, 422, _describe_validation_errors(errors), errors=errors)
 
@@ -508,7 +541,7 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
     pass by itself. This is what `configured: false` reports, without the setting's name; the body
-    points at `coverage` for it. The request's window and parameters are parsed by the time this is
+    points at `providers` for it. The request's window and parameters are parsed by the time this is
     raised, its stations are not, so the body does not vouch for the request. The message is not
     lost, it moves to the server log, as a warning: a state that lasts until someone configures the
     key is no incident.
@@ -520,7 +553,7 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
         501,
         (
             f"This server has no credential{of}, which the provider requires, so it cannot serve the "
-            f"request. {app.url_path_for('coverage')} tells whether a provider is "
+            f"request. {app.url_path_for('providers')} tells whether a provider is "
             "configured; otherwise ask whoever runs this instance."
         ),
         ProblemKind.CREDENTIAL_MISSING,
@@ -579,9 +612,6 @@ def _refuse_sql_unless_enabled(
         )
 
 
-#: the formats a chart is rendered to by the browser; `html` is the figure itself and has no size
-_IMAGE_FORMATS = frozenset({"png", "jpg", "webp", "svg", "pdf"})
-
 #: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
 #: renders it for as long as it takes and holds the whole canvas: 14000 x 10000 px took 18 s, and
 #: 28000 x 20000 px 30 s and then an empty body that was answered with a 200 (GH-2765)
@@ -611,7 +641,7 @@ def _refuse_oversized_image(
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
     """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
-    if request.format in _IMAGE_FORMATS:
+    if renders_with_kaleido(request.format):
         _refuse_oversized_image(request.width, request.height, request.scale)
 
 
@@ -635,6 +665,8 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 # for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
+    # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
+    "ndjson": NDJSON_MEDIA_TYPE,
     "html": "text/html",
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -726,7 +758,7 @@ class _HistoryWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     stations: NotRequired[list[_Station]]
     # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
-    histories: list[dict[str, Any]]
+    histories: list[_HistoryEntry]
 
 
 class _IssuesWithMetadataDict(TypedDict):
@@ -867,7 +899,8 @@ def index() -> HTMLResponse:
                 <h1>{info.slogan}</h1>
                 <h2>Endpoints</h2>
                 <ul>
-                    <li><a href="api/coverage" target="_blank" rel="noopener">coverage</a></li>
+                    <li><a href="api/providers" target="_blank" rel="noopener">providers</a></li>
+                    <li><a href="api/coverage?provider=dwd&amp;network=observation" target="_blank" rel="noopener">coverage</a></li>
                     <li><a href="api/glossary" target="_blank" rel="noopener">glossary</a></li>
                     <li><a href="api/settings" target="_blank" rel="noopener">settings</a></li>
                     <li><a href="api/stations" target="_blank" rel="noopener">stations</a></li>
@@ -931,6 +964,10 @@ def robots() -> PlainTextResponse:
     )
 
 
+#: a probe is never reused: what it answered is not what it would answer now
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
 class Health(BaseModel):
     """The answer of the liveness probe."""
 
@@ -943,6 +980,85 @@ class Health(BaseModel):
 def health() -> Health:
     """Health check: liveness, for a probe. It is `OK` as long as the server answers; it checks nothing else."""
     return Health(status="OK")
+
+
+class Ready(BaseModel):
+    """The answer of the readiness probe."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"status": "ready"}]})
+
+    status: Literal["ready"] = Field(
+        description="Always `ready`: the server can serve a data request. Where it cannot the answer is a 503 problem "
+        "of the kind `not-ready`, with the `checks` that failed."
+    )
+
+
+@app.get(
+    "/ready",
+    response_model=Ready,
+    tags=[TAG_SERVER],
+    responses={200: {"headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}},
+)
+def ready() -> Response:
+    """Readiness check, for a probe that decides whether to send traffic to the server.
+
+    Can it serve a data request? `ready` where the settings are valid and the cache directory is one the server can
+    write to or make. A 503 problem of the kind `not-ready` where not, its `checks` naming `settings` or `cache`. No
+    provider is asked, so one that is down does not make the server not ready, and no credential is needed. `/health`
+    is the liveness probe: it answers while the process does, and says nothing of this.
+    """
+    if failed := failed_checks():
+        raise ProblemError(
+            503,
+            f"The server is running but is not ready to serve data: {' and '.join(failed)} failed. "
+            "The server log says what is wrong.",
+            ProblemKind.NOT_READY,
+            extra={"checks": failed},
+            headers=_NO_STORE,
+        )
+    return JSONResponse(Ready(status="ready").model_dump(), headers=_NO_STORE)
+
+
+def _head_of(answer: Response) -> Response:
+    """Give the answer of a `GET` as the `HEAD` of it is: its status and headers (`Content-Length` too), no body."""
+    return Response(status_code=answer.status_code, headers=dict(answer.headers))
+
+
+#: the routes that answer `HEAD` as their `GET` does
+_HEAD_PROBES = ("/health", "/ready")
+
+_HEAD_ANSWER = {
+    "description": "The status and the headers of the `GET`, with no body.",
+}
+
+
+@app.head(
+    "/health",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Health check, headers only",
+    responses={200: _HEAD_ANSWER},
+)
+def health_head() -> Response:
+    """Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`."""
+    return _head_of(JSONResponse(health().model_dump()))
+
+
+@app.head(
+    "/ready",
+    tags=[TAG_SERVER],
+    response_class=Response,
+    summary="Readiness check, headers only",
+    responses={
+        200: {**_HEAD_ANSWER, "headers": {"Cache-Control": {"description": "`no-store`", "schema": {"type": "string"}}}}
+    },
+)
+def ready_head(request: Request) -> Response:
+    """Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`."""
+    try:
+        return _head_of(ready())
+    except ProblemError as e:
+        return _head_of(_problem_of(request, e))
 
 
 class VersionAnswer(BaseModel):
@@ -1129,6 +1245,17 @@ def _problem_components() -> dict[str, dict[str, Any]]:
     return components
 
 
+def _head_answer_of(status: int) -> dict[str, Any]:
+    """Describe the answer of a `HEAD` to a problem: the status and headers of the `GET`'s, and no body."""
+    name, title = _PROBLEM_COMPONENTS[status]
+    answer: dict[str, Any] = {
+        "description": f"{title}, as `GET` answers it, without the body (the problem of the component `{name}`).",
+    }
+    if status in RETRY_AFTER_STATUSES:
+        answer["headers"] = _RETRY_AFTER_HEADER
+    return answer
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
     """Describe the error body in the schema: the problem of `_problem_response`, and the routes that can answer it.
 
@@ -1175,6 +1302,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
                 "type": "integer",
                 "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows).",
             },
+            "checks": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(CHECKS)},
+                "description": "Of `not-ready`: the checks of `/ready` that failed.",
+            },
         },
         "required": ["type", "title", "status", "detail", "instance", "request_id"],
         "examples": [
@@ -1195,9 +1327,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             answers = {*_EVERY_ROUTE_ANSWERS, *_ROUTE_ANSWERS[route]}
         elif path in _HOST_CHECKED_ROUTES:
             answers = {400}
+        elif path == "/ready":
+            answers = {503}
         else:
             answers = set()
-        for operation in item.values():
+        for method, operation in item.items():
             responses = operation.get("responses", {})
             if (invalid := responses.get("422")) is not None:
                 # the one status that FastAPI adds, kept as it describes it, with the problem as its content
@@ -1205,7 +1339,11 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             declared = {key: value for key, value in responses.items() if key not in map(str, _PROBLEM_COMPONENTS)}
             declared.update(
                 {
-                    str(status): {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    str(status): (
+                        _head_answer_of(status)
+                        if method == "head"
+                        else {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    )
                     for status in sorted(answers)
                 }
             )
@@ -1228,6 +1366,56 @@ def _declare_list_parameters(schema: dict[str, Any]) -> None:
                 if parameter.get("in") == "query" and any(option.get("type") == "array" for option in options):
                     parameter["style"] = "form"
                     parameter["explode"] = False
+
+
+def _selection_of(route: APIRoute) -> Selection | None:
+    """Give the exclusive parameters of the request model a route takes, if its model has some."""
+    for hint in get_type_hints(route.endpoint).values():
+        selection = getattr(hint, "selection", None)
+        if isinstance(selection, Selection):
+            return selection
+    return None
+
+
+def _declare_selections(schema: dict[str, Any]) -> None:
+    """State the exclusive parameters of each operation in the document, and an example of each (GH-3134).
+
+    Which parameters a request may not combine is a rule over several query parameters, and OpenAPI 3.1 cannot
+    say it of them: `oneOf` is a keyword of one schema, and the one thing that holds a schema for several
+    query parameters is one object parameter (`style: form`, `explode: true`), which takes the parameters away from
+    the operation, as they are there to a generated client, to the tools of the MCP server and to the check against
+    the last release. So the parameters stay as they are, and each operation whose request model has a `Selection`
+    says it in the three ways a document can carry:
+
+    - `x-wetterdienst-selection`, an extension of the operation: `exactly_one_of` the groups of parameters,
+      `then` the groups that one of them asks for in turn (a point wants a `rank` or a `distance`), and `requires`,
+      the parameters that need a group beside them. It is `Selection.document`, the definition the model's
+      validator checks the request by;
+    - the `description` of each parameter it names, in the words of the refusal (`Selection.sentences`). Only the
+      parameter's own `description` is changed, not that of its schema, which a tool of the MCP server is built
+      from, so the tools' schemas do not grow;
+    - the `examples` of each parameter, one value it takes (`SELECTION_EXAMPLES`), of the type of its
+      schema, a list as a list, which `explode: false` has a client write comma-separated. It is `examples`
+      and not `example`, which the MCP server copies into the schema of its tool: 745 characters more in the list
+      of the tools, which `examples` of the parameter does not.
+    """
+    # the routes of the router, which `app` includes under the prefix of the version (it holds them as an
+    # included router, not as routes), and not the alias, which the document leaves out
+    for route in router.routes:
+        if not isinstance(route, APIRoute) or not route.include_in_schema:
+            continue
+        selection = _selection_of(route)
+        if selection is None:
+            continue
+        for method in route.methods or ():
+            operation = schema["paths"][f"{API_PREFIX}{route.path}"][method.lower()]
+            operation["x-wetterdienst-selection"] = selection.document()
+            sentences = selection.sentences()
+            for parameter in operation["parameters"]:
+                name = parameter["name"]
+                if name in sentences:
+                    parameter["description"] = " ".join([parameter["description"].rstrip(), *sentences[name]])
+                    parameter["examples"] = {"example": {"value": SELECTION_EXAMPLES[name]}}
 
 
 def _openapi() -> dict[str, Any]:
@@ -1266,6 +1454,7 @@ def _openapi() -> dict[str, Any]:
     schema["info"]["x-api-version"] = API_VERSION
     _declare_problem_schema(schema)
     _declare_list_parameters(schema)
+    _declare_selections(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001
@@ -1329,6 +1518,44 @@ for _discovery in ("oauth-authorization-server", "oauth-protected-resource"):
         app.get(f"/.well-known/{_discovery}{_resource}", include_in_schema=False)(oauth_metadata_not_found)
 
 
+_VALIDATOR_HEADERS = {
+    "ETag": {
+        "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as "
+        "`If-None-Match` to be answered with a 304 while the answer is the same.",
+        "schema": {"type": "string"},
+    },
+    "Cache-Control": {
+        "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+        "schema": {"type": "string"},
+    },
+}
+_LAST_MODIFIED_HEADER = {
+    "Last-Modified": {
+        "description": "When the server, which these answers change with, last changed (it started, or its `.env` "
+        "did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+        "schema": {"type": "string", "format": "http-date"},
+    }
+}
+
+
+def _revalidatable(*, last_modified: bool) -> dict[int | str, dict[str, Any]]:
+    """Describe the cache headers of a route that answers `If-None-Match`, with the 304 it answers (GH-3134)."""
+    headers = {**_VALIDATOR_HEADERS, **(_LAST_MODIFIED_HEADER if last_modified else {})}
+    return {
+        200: {"headers": headers},
+        304: {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its "
+            "`retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": headers,
+        },
+    }
+
+
+def _catalogue_answer(request: Request, content: str) -> Response:
+    """Answer with a catalogue document, to be kept and asked about again, or with the 304 where it is held."""
+    return cached_json(request, content, cache_control=CATALOGUE_CACHE_CONTROL, last_modified=settings_changed_at())
+
+
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
     """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
 
@@ -1345,7 +1572,7 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
         raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
     except ApiNotFoundError as e:
         raise ProblemError(
-            404, f"Choose provider and network from {app.url_path_for('coverage')}", ProblemKind.UNKNOWN_NETWORK
+            404, f"Choose provider and network from {app.url_path_for('providers')}", ProblemKind.UNKNOWN_NETWORK
         ) from e
 
 
@@ -1365,9 +1592,9 @@ def auth(
 
     This is the one call that probes the provider, for the one network asked about: one attempt that
     gives up after a few seconds. The answer may be up to a minute old: the provider is probed at most
-    once a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so
+    once a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so
     ask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool
-    and the CLI command (`wetterdienst about auth`) are this call.
+    and the CLI command (`wetterdienst auth`) are this call.
     """
     provider, network = request.provider, request.network
 
@@ -1376,12 +1603,10 @@ def auth(
     return get_auth(api, provider, network)
 
 
-# What `/api/coverage` answers is what `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build,
-# described by the `Coverage*` models of `wetterdienst.model.metadata` and the two below. The answer is still sent as
-# those return it, so the models only describe it.
-# the answer without a provider and network: every provider, its networks and whether each needs
-# credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
-CoverageProviders = dict[str, dict[str, CoverageNetwork]]
+# What `/api/coverage` answers is what `TimeseriesRequest.discover()` builds, described by the `Coverage*` models of
+# `wetterdienst.model.metadata` and the two below. The answer is still sent as `discover()` returns it, so the models
+# only describe it. It is one answer (the resolutions of the network asked about, GH-3996), so the document types it
+# as one object, which a client generator can follow; the list of every provider and its networks is `/api/providers`.
 
 
 # The datasets and resolutions as the route describes them. They are `CoverageDataset` and `CoverageResolution` of
@@ -1405,57 +1630,52 @@ class CoverageResolution(TypedDict):
     datasets: dict[str, CoverageDataset]
 
 
+# the answer: the resolutions the network has, which a filter that matches none of leaves out
 CoverageResolutions = dict[Resolution, CoverageResolution]
-# What the route declares: one object holding either, as a union of the two would make the
-# schema's top level `anyOf`, and the MCP `coverage` tool, which takes its output schema from
-# this, would wrap its result in `{"result": ...}` and drop `pretty`. The two above are the exact
-# shapes, which the tests hold the answers to
-CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
-@router.get("/coverage", response_model=CoverageAnswer, tags=[TAG_CATALOGUE])
+@router.get(
+    "/coverage",
+    response_model=CoverageResolutions,
+    tags=[TAG_CATALOGUE],
+    responses=_revalidatable(last_modified=True),
+)
 def coverage(
     request: Annotated[CoverageRequest, Query()],
+    http_request: Request,
 ) -> Response:
-    """List available data: providers/networks, or the resolutions, datasets and parameters within one.
+    """List the resolutions, datasets and parameters of one network.
 
-    Call with no arguments to list every provider and its networks. Pass provider+network (e.g.
-    provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
-    resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
+    `provider` and `network` are required (e.g. provider="dwd", network="observation"); `providers` lists the
+    providers and their networks, with whether each needs credentials and has them (`configured`). Narrow the
+    answer with resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names. It
+    is keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers
+    at once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
 
-    The list of every provider downloads nothing, so it answers at once. Per network it gives
-    `name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`
-    does not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a
-    timeseries network, which has stations and values (every network but two); `radar` and `alerts`
-    are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
-    that needs credentials, `configured` says whether they are present; whether the provider accepts
-    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and
-    network, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and
-    `country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the
-    network's. `providers` has the extent of every network.
+    Each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a
+    regional one): the dataset's own where it is narrower than its network's, else the network's. Whether the
+    network needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider
+    accepts them is `auth`'s.
+
+    `unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or
+    `convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`
+    for a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with
+    `convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no
+    options: a `unit_targets` of your own changes what `values` return, not this answer.
+
+    `aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the
+    others of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its
+    source states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`
+    (the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`
+    means the source does not state it: not a reading, not a mean.
     """
     provider, network = request.provider, request.network
 
-    if (provider and not network) or (not provider and network):
-        raise HTTPException(
-            status_code=400,
-            detail="Either both or none of 'provider' and 'network' must be given. If none are given, all providers "
-            "and networks are returned.",
-        )
+    # `provider=` is as good as none, as it is for the MCP tool and the command (GH-3996)
+    if not provider or not network:
+        raise HTTPException(status_code=400, detail=coverage_needs_a_network(app.url_path_for("providers")))
 
-    if not provider and not network:
-        # the list of every provider has no resolutions or datasets to narrow; answering it
-        # unfiltered would let the caller believe the filter applied
-        if request.resolutions or request.datasets:
-            raise HTTPException(
-                status_code=400,
-                detail="'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
-                "'provider' and 'network' must be given with them.",
-            )
-        cov = Wetterdienst.discover()
-        return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
-
-    api = _resolve_listed_network(str(provider), str(network), "list the coverage of")
+    api = _resolve_listed_network(provider, network, "list the coverage of")
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
@@ -1470,24 +1690,34 @@ def coverage(
         datasets=request.datasets,
     )
 
-    return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
+    return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
 
 
-@router.get("/providers", response_model=ProvidersAnswer, tags=[TAG_CATALOGUE])
+@router.get(
+    "/providers", response_model=ProvidersAnswer, tags=[TAG_CATALOGUE], responses=_revalidatable(last_modified=True)
+)
 def providers(
     request: Annotated[ProvidersRequest, Query()],
+    http_request: Request,
 ) -> Response:
-    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+    """List the providers and their networks, and describe what each provider is: name, country, licence, credit line.
 
     For every provider, or the one named with `provider`: the names it goes by, the country of the agency
     that runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent
     of its data), the terms it publishes its data under (`license`, null where it states none) and the credit
-    line to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:
-    `scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the
-    resolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer
-    than its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded
-    and no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`
-    checks whether its credentials are accepted.
+    line to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its
+    networks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,
+    `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),
+    whether a request has to give a date (`date_required`) and its number of `parameters`.
+
+    `kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values
+    (every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other
+    endpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are
+    present; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for
+    one network.
+
+    Nothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and
+    parameters of one network are `coverage`'s.
     """
     begin_response()
 
@@ -1498,17 +1728,28 @@ def providers(
             status_code=404,
             detail=f"{e} Use {app.url_path_for('providers')} to list the providers.",
         ) from e
-    return Response(
-        content=answer.model_dump_json(indent=4 if request.pretty else None),
-        media_type="application/json",
-        headers=dict(catalogue_headers(answer.metadata)),
+    content = answer.model_dump_json(indent=4 if request.pretty else None)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=CATALOGUE_CACHE_CONTROL,
+        last_modified=settings_changed_at(),
+        ignoring=[answer.metadata.retrieved_at],
+        headers=catalogue_headers(answer.metadata),
     )
 
 
-@router.get("/glossary", response_model=list[GlossaryEntry], tags=[TAG_CATALOGUE])
+@router.get(
+    "/glossary",
+    response_model=list[GlossaryEntry],
+    tags=[TAG_CATALOGUE],
+    responses=_revalidatable(last_modified=True),
+)
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
-) -> list[GlossaryEntry]:
+    http_request: Request,
+    response: Response,
+) -> Response | list[GlossaryEntry]:
     """Look up what a parameter measures and which unit it is returned in.
 
     Filter with parameter="radiation" to match names containing that text, or
@@ -1517,14 +1758,32 @@ def glossary(
     large response and a broad filter can still be a wide one (parameter="temperature" matches
     nearly two hundred).
 
+    These are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)
+    are not parameters and are not listed: they come back in the `quality_flags` column of the values, which the
+    quality-flags page of the documentation explains.
+
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
     including any `unit_targets` option override.
+
+    `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,
+    ...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each
+    provider and the `timestamp_position`, which the glossary does not know.
     """
     # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
 
-    return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
+    entries = get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
+    checked = validators(
+        http_request,
+        json.dumps(jsonable_encoder(entries)),
+        cache_control=CATALOGUE_CACHE_CONTROL,
+        last_modified=settings_changed_at(),
+    )
+    if checked.matched:
+        return checked.not_modified()
+    response.headers.update(checked.headers)
+    return entries
 
 
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
@@ -1536,7 +1795,7 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
     try:
         return check_timeseries_api(resolve_network(provider, network), provider, network, history=history)
     except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        msg = f"{e} Use {app.url_path_for('providers')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
     except NotImplementedError as e:
@@ -1579,7 +1838,7 @@ def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
                 cast("dt.datetime | None", request.start),
                 cast("dt.datetime | None", request.end),
             )
-            check_rows(rows, limits, streamed=False)
+            check_point_rows(rows, limits)
 
     return check
 
@@ -1596,17 +1855,18 @@ def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
     return check
 
 
-def _is_streamed(request: ValuesRequest) -> bool:
+def _is_streamed(request: ValuesRequest, http_request: Request) -> bool:
     """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
 
     A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
-    in one body as it was before; ndjson is refused with it (and with `with_stations`).
+    in one body as it was before; ndjson is refused with it (and with `with_stations`). An MCP tool's request is
+    never streamed: a tool answers one body, held to `rows` in every format (GH-3464).
     """
     if request.format == "ndjson":
         if (refusal := ndjson_refusal(request)) is not None:
             raise ProblemError(400, refusal)
-        return True
-    return request.format == "csv" and not request.sql_values
+        return not is_tool_request(http_request.scope)
+    return request.format == "csv" and not request.sql_values and not is_tool_request(http_request.scope)
 
 
 def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
@@ -1792,7 +2052,8 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    streamed = request.format in STREAM_FORMATS
+    # a tool's request is answered as one body in every format, held to `rows` (GH-3464)
+    streamed = request.format in STREAM_FORMATS and not is_tool_request(http_request.scope)
     check_rows(stations_.df.height, limits_of(settings), streamed=streamed)
 
     metadata = response_metadata(stations_, request)
@@ -1816,7 +2077,7 @@ def issues(
     try:
         api = resolve_network(request.provider, request.network)
     except ApiNotFoundError as e:
-        msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
+        msg = f"{e} Use {app.url_path_for('providers')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
         raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
 
@@ -1865,6 +2126,11 @@ def values(
     feature's `values`, keeping their order but not `station_id`; a feature is one resolution and
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
+
+    With `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is
+    relative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`
+    (where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in
+    either means the source does not state it.
     """
     begin_response()
     _refuse_sql_unless_enabled(request)
@@ -1879,7 +2145,7 @@ def values(
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
     limits = limits_of(settings)
 
-    if _is_streamed(request):
+    if _is_streamed(request, http_request):
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
 
@@ -1890,7 +2156,10 @@ def values(
 
 
 def _request_options(
-    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings]
+    request: BaseModel,
+    given: Collection[str],
+    applied: type[_AppliedSettings | StationsSettings | StripesSettings],
+    base: Options | None = None,
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -1904,8 +2173,11 @@ def _request_options(
     not tell, as the request's dicts are merged into the ones the server sets. With the server's
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
+
+    `base` stands in for the server's options where an endpoint fixes some of them itself, as the stripes do
+    (GH-2348, GH-3980).
     """
-    server = Options()
+    server = base if base is not None else Options()
     # each option given by the field that sets it
     passed = {
         str(option.validation_alias): (field, value)
@@ -1913,6 +2185,10 @@ def _request_options(
         # not an option the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
+    # one mode for every check, which a `plausibility_<check>` given beside it overrides
+    every = getattr(request, "plausibility", None)
+    if every is not None and "plausibility" in given:
+        passed["plausibility"] = ("plausibility", every)
     try:
         return overlay_options(server, {option: value for option, (_, value) in passed.items()})
     except ValidationError as e:
@@ -1983,15 +2259,34 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     defect, so it is an error with one.
     """
     status = failure_status(e)
-    if isinstance(e, (NoInternetError, DownloadError)):
+    if isinstance(e, (NoInternetError, DownloadError, StationListingIncompleteError)):
         log.warning(f"Failed to {what}: {e}")
     else:
         log.error(f"Failed to {what}.", exc_info=e)
     detail = {503: _UPSTREAM_UNREACHABLE, 504: _UPSTREAM_TIMED_OUT}.get(status, _UPSTREAM_FAILED)
+    if isinstance(e, StationListingIncompleteError):
+        # names the directories of DWD's public tree that the lookup went without, and the id the caller asked for:
+        # what a 404 hid, and what `file-skipped` tells an answer that has a place for it (GH-3834)
+        detail = str(e)
     kind = {503: ProblemKind.UPSTREAM_UNREACHABLE, 504: ProblemKind.UPSTREAM_TIMEOUT}.get(
         status, ProblemKind.UPSTREAM_FAILED
     )
     return ProblemError(status, detail, kind)
+
+
+def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:
+    """Answer a chart whose browser did not finish in time with a 504 of the kind `image-timeout` (GH-3723).
+
+    No provider is involved and the request was well formed: the renderer of this server did not answer, was closed,
+    and the same request can succeed on a retry, so the client is told that and nothing of the server's machine. The
+    seconds are the server's own limit and go to the log.
+    """
+    log.warning(f"Failed to {what}: {e}")
+    return ProblemError(
+        504,
+        "The image was not rendered in time. The request was valid; try again later.",
+        ProblemKind.IMAGE_TIMEOUT,
+    )
 
 
 def _server_error(e: Exception) -> HTTPException:
@@ -2062,6 +2357,8 @@ def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPExc
         return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
+    if isinstance(e, ImageTimeoutError):
+        return _image_timeout(e, what)
     if isinstance(e, UpstreamError):
         return _upstream_failure(e, what)
     if failure_status(e) == 501:
@@ -2268,16 +2565,23 @@ def stripes_stations(
 @router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Get climate stripes data values with timestamps, and the series they are of.
 
     The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
-    "degree_celsius"; `metadata` is the block every answer has. The server's
-    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
-    for: the target of the quantity where the values are converted, the source's unit where not.
+    "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
+    `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
+    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
+    quantity where the values are converted, the source's unit where not. The colours of the stripes
+    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
     """
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
+    # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
+    _request_options(request, http_request.query_params.keys(), StripesSettings, _get_stripes_options())
     try:
         stripes_data = _get_stripes_data(request)
     except AssertionError:
@@ -2316,26 +2620,42 @@ def stripes_image(
     # the image is rendered at `dpi / 100` times plotly's default size
     _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
+    begin_response()
+
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
-        fig = _plot_stripes(request)
+        # before the record is downloaded: a server without the `plotting` extra refuses at once
+        _require_plotting()
+        stripes_data = _get_stripes_data(request)
+        fig = _draw_stripes(stripes_data, request)
     except AssertionError:
         # a request its model should have refused: our bug, which FastAPI answers as a 500
         raise
     except Exception as e:
         raise _failure(e, request, "plot stripes") from e
     require_kaleido()
+    # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
+    # none of it (GH-3581)
     return Response(
-        content=fig.to_image(request.format, scale=request.dpi / 100),
+        content=render_image(fig, request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers=_image_headers(request.format),
+        headers={
+            **response_headers(stripes_metadata(stripes_data, request, image=True)),
+            **_image_headers(request.format),
+        },
     )
 
 
-@router.get("/history", response_model=_HistoryWithMetadataDict, tags=[TAG_STATIONS])
+@router.get(
+    "/history",
+    response_model=_HistoryWithMetadataDict,
+    tags=[TAG_STATIONS],
+    responses=_revalidatable(last_modified=False),
+)
 def history(
     request: Annotated[HistoryRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Return a station's metadata history -- how the station itself changed over time (not weather).
 
@@ -2376,7 +2696,18 @@ def history(
         content, metadata = render_history(stations_, history_provider, request)
     except Exception as e:
         raise _logged_server_error(e, "collect station history") from e
-    return _answer(content, "json", metadata)
+    if not metadata.counts.rows or metadata.warnings:
+        # an empty history, or one that came with warnings, may be a source that answered nothing for the moment, or
+        # ids left out: the next request can give another, so it is not kept (a listing that came back empty is a
+        # `file-skipped` warning, a station with no file in a listing that is there is the source's answer)
+        return _answer(content, "json", metadata)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=HISTORY_CACHE_CONTROL,
+        ignoring=[metadata.retrieved_at],
+        headers=response_headers(metadata),
+    )
 
 
 @router.get(
@@ -2541,4 +2872,13 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:_worker_app", factory=True, host=host, port=port, reload=reload or False)
+    # uvicorn colours the level of its log lines on a terminal and does not read NO_COLOR itself; None leaves it to
+    # its terminal check
+    run(
+        app="wetterdienst.ui.restapi:_worker_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload or False,
+        use_colors=False if no_color() else None,
+    )

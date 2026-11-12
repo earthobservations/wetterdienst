@@ -122,10 +122,23 @@ describe('plural forms', () => {
     expect(Object.keys(pluralForms).sort()).toEqual(locales)
   })
 
-  it('writes the counts of the four messages that have one in plural forms', () => {
+  it('writes the counts of the messages that have one in plural forms', () => {
     // not a list of everything with a count: `dateRange.estimatedValues` and `errExceedsLimit` carry one
-    // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form
-    expect(usedIn(ui.en!).sort()).toEqual(['dataViewer.copiedRows', 'dataViewer.valuesCount', 'dataViewer.valuesTransformed', 'glossary.count'])
+    // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form.
+    // The three units of a window and the counts of a selection are the pieces of the limit notice and of
+    // the note under the date range (GH-3457): they stand where a noun follows a number that may be 1
+    expect(usedIn(ui.en!).sort()).toEqual([
+      'dataViewer.copiedRows',
+      'dataViewer.limitParametersCount',
+      'dataViewer.limitStationsCount',
+      'dataViewer.limitUnit.days',
+      'dataViewer.limitUnit.months',
+      'dataViewer.limitUnit.years',
+      'dataViewer.valuesCount',
+      'dataViewer.valuesTransformed',
+      'glossary.count',
+      'shell.resultsCount',
+    ])
   })
 
   it.each(others)('has plural forms in %s for the messages that en has them in', (locale) => {
@@ -152,7 +165,9 @@ describe('whitespace', () => {
   it.each(sets)('has no stray whitespace in a %s', (_name, catalogs) => {
     const stray = Object.entries(catalogs).flatMap(([locale, catalog]) =>
       Object.entries(catalog)
-        .filter(([, text]) => text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text))
+        // the colon that follows a label is a colon, or French's no-break space (U+00A0) and a colon: a space by design,
+        // and only that one
+        .filter(([key, text]) => !(key === 'common.colon' && /^\u00A0?:$/.test(text)) && (text !== text.trim() || /\s{2,}|[\t\n\r]/.test(text)))
         .map(([key, text]) => `${locale} ${key}: ${JSON.stringify(text)}`),
     )
     expect(stray).toEqual([])
@@ -215,6 +230,16 @@ describe('typography', () => {
       .filter(([, text]) => / [:;?!»]|« /.test(text))
       .map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
     expect(loose).toEqual([])
+  })
+})
+
+describe('words that read as a slur in standard German', () => {
+  // Low German and Luxembourgish words look like German ones: `Neger` is "nearer" in Low German and a slur to every
+  // reader of German, so it is written `Dichter bi` (GH-3875). The words are of the languages that are read as German.
+  const SLURS = /(?<!\p{L})(?:neger|negerin|zigeuner)(?!\p{L})/iu
+  it.each(germanLike)('has none in %s', (locale) => {
+    const found = Object.entries(ui[locale]!).filter(([, text]) => SLURS.test(text)).map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
+    expect(found).toEqual([])
   })
 })
 
@@ -309,11 +334,16 @@ const COGNATE = 'the ordinary word in that language is spelled the same'
 interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
+  'common.colon': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation: a colon is a colon (fr sets a no-break space before it)' },
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
+  'stationSelection.modeList': { de: ['da', 'fr'], why: COGNATE },
+  'mapTool.panelTitle': { en: ['fr', 'nl'], why: COGNATE },
   'stripes.table.class': { de: ['da', 'nl'], why: COGNATE },
   'stripes.table.classes.temperature.high': { en: ['nl'], why: COGNATE },
   'common.documentation': { en: ['fr'], de: ['da'], why: COGNATE },
   'home.statParameters': { en: ['nl'], why: COGNATE },
+  'dataViewer.limitStationsCount': { en: ['fr', 'nl'], why: COGNATE },
+  'dataViewer.limitParametersCount': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
   'about.linksTitle': { en: ['da', 'de-hh', 'de', 'nl'], why: COGNATE },
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
@@ -324,6 +354,7 @@ const UI_SAME: Record<string, Same> = {
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
+  'shell.project': { en: ['nl'], de: ['cs', 'da', 'pl'], why: COGNATE },
   'footer.copyright': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'settings.themeSystem': { en: ['da', 'de-hh', 'de', 'lb'], why: COGNATE },
   'settings.unitTemperature': { de: ['da'], why: COGNATE },
@@ -359,7 +390,6 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.panelTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.panelWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'meteogram.chart.horizonAll': { de: ['nl'], why: COGNATE },
-  'meteogram.chart.viewNormal': { en: ['da', 'de-hh', 'de', 'es', 'fr', 'lb'], why: COGNATE },
   'meteogram.chart.viewCompact': { en: ['fr', 'nl'], de: ['da'], why: COGNATE },
   'meteogram.chart.seriesTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.seriesWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
@@ -372,6 +402,8 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.axisWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'stripes.typeTemperature': { de: ['da'], why: COGNATE },
   'stripes.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'cardTitle.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'parameterSelection.title': { en: ['cs', 'da'], why: COGNATE },
   'stripes.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stripes.auto': { en: ['cs', 'da', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
   'stripes.hoverTrend': { en: ['cs', 'de-hh', 'de', 'lb', 'nl', 'pl'], why: COGNATE },
@@ -379,7 +411,6 @@ const UI_SAME: Record<string, Same> = {
   'explorer.mode': { en: ['fr'], de: ['nl'], why: COGNATE },
   'explorer.modeStation': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
   'explorer.modeInterpolation': { en: ['da', 'de', 'fr'], why: COGNATE },
-  'explorer.unitDefault': { de: ['da'], why: COGNATE },
   'explorer.shape': { de: ['da'], why: COGNATE },
   'explorer.shapeLong': { en: ['fr'], de: ['da', 'nl'], why: COGNATE },
   'explorer.stationsDetails': { de: ['nl'], why: COGNATE },
@@ -395,7 +426,6 @@ const UI_SAME: Record<string, Same> = {
   'dateRange.optional': { en: ['de', 'lb'], why: COGNATE },
   'dateRange.max': { en: ['it'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.dataTitle': { en: ['cs', 'da'], why: COGNATE },
-  'dataViewer.axisDate': { en: ['fr'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.paramLabelParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'dataViewer.paramLabelDatasetParameter': { en: ['nl'], why: COGNATE },
   'dataViewer.statDataset': { en: ['it', 'nl'], why: COGNATE },
@@ -655,6 +685,36 @@ describe('terminology', () => {
       'lb': 'endpunkt',
       'nl': 'eindpunt',
       'pl': 'punkt\\S* końcow',
+    } },
+    // what the user switches in the app, which is no parameter: fr said `Paramètres` for both until GH-2610
+    settings: { en: /\bsettings?\b/i, label: 'common.settings', stems: {
+      'cs': 'nastaven',
+      'da': 'indstilling',
+      'de': 'einstellung',
+      'de-hh': 'instell',
+      'en': 'setting',
+      'es': 'ajuste',
+      'fr': 'réglage',
+      'it': 'impostazion',
+      'lb': 'astellung',
+      'nl': 'instelling',
+      'pl': 'ustawie[nń]',
+    }, rephrased: {
+      'location.denied': { locales: ['fr'], why: 'tells the reader where the browser keeps it, and French browsers call that "Paramètres du site"' },
+    } },
+    // the page `/impressum`, which nl called `Colofon` until GH-2610
+    legal: { en: /\blegal notice\b/i, label: 'footer.legal', stems: {
+      'cs': 'právní informace',
+      'da': 'juridisk meddelelse',
+      'de': 'impressum',
+      'de-hh': 'impressum',
+      'en': 'legal notice',
+      'es': 'aviso legal',
+      'fr': 'mentions légales',
+      'it': 'note legali',
+      'lb': 'impressum',
+      'nl': 'juridische informatie',
+      'pl': 'nota prawna',
     } },
     period: { en: /\bperiods?\b/i, label: 'history.periods', stems: {
       'cs': 'období',

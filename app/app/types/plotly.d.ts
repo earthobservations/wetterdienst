@@ -75,6 +75,9 @@ declare module 'plotly.js-basic-dist-min' {
 
   export function purge(root: HTMLElement): void
 
+  // Plotly's own modebar icons (`camera`), for a button of ours that takes the place of one of its
+  export const Icons: Record<string, unknown>
+
   export function downloadImage(
     root: HTMLElement,
     opts: {

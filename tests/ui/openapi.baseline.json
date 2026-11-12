@@ -10,10 +10,9 @@
     },
     "license": {
       "name": "MIT",
-      "identifier": "MIT",
-      "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
+      "identifier": "MIT"
     },
-    "version": "0.178.0",
+    "version": "0.186.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -92,6 +91,84 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check, headers only",
+        "description": "Health check as `GET /health` answers it, without a body: for a monitor that probes with `HEAD`.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body."
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Ready",
+        "description": "Readiness check, for a probe that decides whether to send traffic to the server.\n\nCan it serve a data request? `ready` where the settings are valid and the cache directory is one the server can\nwrite to or make. A 503 problem of the kind `not-ready` where not, its `checks` naming `settings` or `cache`. No\nprovider is asked, so one that is down does not make the server not ready, and no credential is needed. `/health`\nis the liveness probe: it answers while the process does, and says nothing of this.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ready"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Readiness check, headers only",
+        "description": "Readiness check as `GET /ready` answers it, without a body: the 200 or the 503, with `no-store`.",
+        "operationId": "ready_head_ready_head",
+        "responses": {
+          "200": {
+            "description": "The status and the headers of the `GET`, with no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable, as `GET` answers it, without the body (the problem of the component `Unavailable`).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -277,6 +354,217 @@
               "title": "Station Window End Buffer"
             },
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
+          },
+          {
+            "name": "plausibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "soft",
+                    "hard"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "title": "Plausibility"
+            },
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+          },
+          {
+            "name": "plausibility_range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Range"
+            },
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+          },
+          {
+            "name": "plausibility_elevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Elevation"
+            },
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+          },
+          {
+            "name": "plausibility_stuck",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Stuck"
+            },
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+          },
+          {
+            "name": "plausibility_consistency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Consistency"
+            },
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+          },
+          {
+            "name": "plausibility_floor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Floor"
+            },
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+          },
+          {
+            "name": "plausibility_limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Limits"
+            },
+            "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
+          },
+          {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
+          },
+          {
+            "name": "limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set.",
+              "title": "Limits"
+            },
+            "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set."
           },
           {
             "name": "interpolation_station_distance",
@@ -487,7 +775,7 @@
           "Catalogue"
         ],
         "summary": "Auth",
-        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/coverage` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst about auth`) are this call.",
+        "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. The answer may be up to a minute old: the provider is probed at most\nonce a minute per network (5 seconds after a `valid` of null). `/api/providers` does not probe, so\nask here whether the credentials of a network it lists as `configured` are accepted. The MCP tool\nand the CLI command (`wetterdienst auth`) are this call.",
         "operationId": "auth_api_auth_get",
         "parameters": [
           {
@@ -496,10 +784,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -507,10 +795,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           }
         ],
         "responses": {
@@ -561,44 +849,30 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url`, `scope` (how far it reaches: `global`, `national` or `regional`, which `country`\ndoes not say) and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network. With a provider and\nnetwork, each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and\n`country_codes` for a regional one): the dataset's own where it is narrower than its network's, else the\nnetwork's. `providers` has the extent of every network.",
+        "description": "List the resolutions, datasets and parameters of one network.\n\n`provider` and `network` are required (e.g. provider=\"dwd\", network=\"observation\"); `providers` lists the\nproviders and their networks, with whether each needs credentials and has them (`configured`). Narrow the\nanswer with resolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names. It\nis keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers\nat once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.\n\nEach dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a\nregional one): the dataset's own where it is narrower than its network's, else the network's. Whether the\nnetwork needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider\naccepts them is `auth`'s.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
             "name": "provider",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed.",
+              "type": "string",
+              "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks.",
               "title": "Provider"
             },
-            "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed."
+            "description": "Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with network; `providers` lists the providers and their networks."
           },
           {
             "name": "network",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Data network of the provider, e.g. 'observation'. Needs provider.",
+              "type": "string",
+              "description": "Data network of the provider, e.g. 'observation'. Required with provider.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. Needs provider."
+            "description": "Data network of the provider, e.g. 'observation'. Required with provider."
           },
           {
             "name": "resolutions",
@@ -616,10 +890,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+              "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
               "title": "Resolutions"
             },
-            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network.",
+            "description": "Only these resolutions, comma-separated, e.g. 'daily,hourly'.",
             "style": "form",
             "explode": false
           },
@@ -639,10 +913,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+              "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
               "title": "Datasets"
             },
-            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network.",
+            "description": "Only these datasets, comma-separated, e.g. 'climate_summary'.",
             "style": "form",
             "explode": false
           },
@@ -667,19 +941,57 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": {
-                          "$ref": "#/components/schemas/CoverageNetwork"
-                        }
-                      },
-                      {
-                        "$ref": "#/components/schemas/CoverageResolution"
-                      }
-                    ]
+                    "$ref": "#/components/schemas/CoverageResolution"
+                  },
+                  "propertyNames": {
+                    "$ref": "#/components/schemas/Resolution"
                   },
                   "title": "Response Coverage Api Coverage Get"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
                 }
               }
             }
@@ -721,7 +1033,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to give (`attribution`), and its networks, each with its `kind`, its `extent` (where its stations are:\n`scope`, `continents`, `country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and the\nresolutions and datasets it offers, with how many parameters each has; a dataset whose stations are fewer\nthan its network's has an `extent` of its own, and one without has its network's. Nothing is downloaded\nand no credential is read, so it answers at once; `coverage` lists the parameters of a network, and `auth`\nchecks whether its credentials are accepted.",
+        "description": "List the providers and their networks, and describe what each provider is: name, country, licence, credit line.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),\nwhether a request has to give a date (`date_required`) and its number of `parameters`.\n\n`kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values\n(every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other\nendpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are\npresent; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for\none network.\n\nNothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and\nparameters of one network are `coverage`'s.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -764,6 +1076,51 @@
                   "$ref": "#/components/schemas/ProvidersAnswer"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
             }
           },
           "422": {
@@ -800,7 +1157,7 @@
           "Catalogue"
         ],
         "summary": "Glossary",
-        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
+        "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThese are the parameters the networks offer. The quality marks of the sources (`quality`, `quality_wind`, ...)\nare not parameters and are not listed: they come back in the `quality_flags` column of the values, which the\nquality-flags page of the documentation explains.\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `min`, `sum`, `count`,\n...), `null` for a plain name that states none. It is the canonical value: `coverage` has the one of each\nprovider and the `timestamp_position`, which the glossary does not know.",
         "operationId": "glossary_api_glossary_get",
         "parameters": [
           {
@@ -835,11 +1192,14 @@
                     "degree_day",
                     "degree_hour",
                     "dimensionless",
+                    "duration",
                     "energy_per_area",
                     "fraction",
+                    "length_day",
                     "length_long",
                     "length_medium",
                     "length_short",
+                    "length_tiny",
                     "mass_per_volume",
                     "power_per_area",
                     "precipitation",
@@ -848,6 +1208,7 @@
                     "significant_weather",
                     "speed",
                     "temperature",
+                    "temperature_difference",
                     "time",
                     "turbidity",
                     "volume",
@@ -898,6 +1259,51 @@
                   "title": "Response Glossary Api Glossary Get"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "When the server, which these answers change with, last changed (it started, or its `.env` did): send it back as `If-Modified-Since` where there is no `ETag` to send.",
+                "schema": {
+                  "type": "string",
+                  "format": "http-date"
+                }
+              }
             }
           },
           "422": {
@@ -940,10 +1346,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -951,10 +1357,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -1008,11 +1414,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1033,9 +1444,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1053,7 +1472,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1087,7 +1511,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1107,7 +1536,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -1127,7 +1561,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -1146,7 +1585,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -1166,7 +1610,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -1186,7 +1635,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -1206,7 +1660,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -1226,7 +1685,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -1244,7 +1708,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "timestamp",
@@ -1290,11 +1759,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "format",
@@ -1314,11 +1783,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1457,6 +1926,65 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
+          }
         }
       }
     },
@@ -1475,10 +2003,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -1486,10 +2014,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "station",
@@ -1598,7 +2126,7 @@
           "Values"
         ],
         "summary": "Values",
-        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.",
+        "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.\n\nWith `with_metadata`, `metadata.parameters` gives each parameter its `unit`, its `aggregation` (what the value is\nrelative to its interval: `mean`, `max`, `sum`, ..., `instant` for a single reading) and its `timestamp_position`\n(where the timestamp sits in the row's interval: `instant`, `start`, `end` or `middle`); `null` in\neither means the source does not state it.",
         "operationId": "values_api_values_get",
         "parameters": [
           {
@@ -1607,10 +2135,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -1618,10 +2146,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -1715,11 +2243,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -1740,9 +2273,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "name",
@@ -1760,7 +2301,12 @@
               "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -1794,7 +2340,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -1814,7 +2365,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required. Exactly one of rank or distance is required with latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "rank",
@@ -1834,7 +2390,12 @@
               "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`). Exactly one of rank or distance is required with latitude and longitude. Requires (latitude and longitude) or name.",
+            "examples": {
+              "example": {
+                "value": 3
+              }
+            }
           },
           {
             "name": "distance",
@@ -1853,7 +2414,12 @@
               "description": "Return stations within this many kilometres of the given latitude/longitude.",
               "title": "Distance"
             },
-            "description": "Return stations within this many kilometres of the given latitude/longitude."
+            "description": "Return stations within this many kilometres of the given latitude/longitude. Exactly one of rank or distance is required with latitude and longitude. Requires latitude and longitude.",
+            "examples": {
+              "example": {
+                "value": 25
+              }
+            }
           },
           {
             "name": "left",
@@ -1873,7 +2439,12 @@
               "description": "Western longitude of the bounding box.",
               "title": "Left"
             },
-            "description": "Western longitude of the bounding box."
+            "description": "Western longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 9.5
+              }
+            }
           },
           {
             "name": "bottom",
@@ -1893,7 +2464,12 @@
               "description": "Southern latitude of the bounding box.",
               "title": "Bottom"
             },
-            "description": "Southern latitude of the bounding box."
+            "description": "Southern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.4
+              }
+            }
           },
           {
             "name": "right",
@@ -1913,7 +2489,12 @@
               "description": "Eastern longitude of the bounding box.",
               "title": "Right"
             },
-            "description": "Eastern longitude of the bounding box."
+            "description": "Eastern longitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 10.5
+              }
+            }
           },
           {
             "name": "top",
@@ -1933,7 +2514,12 @@
               "description": "Northern latitude of the bounding box.",
               "title": "Top"
             },
-            "description": "Northern latitude of the bounding box."
+            "description": "Northern latitude of the bounding box. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": 53.9
+              }
+            }
           },
           {
             "name": "sql",
@@ -1951,7 +2537,12 @@
               "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true.",
               "title": "Sql"
             },
-            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
+            "description": "SQL WHERE clause applied to the station metadata, e.g. \"region='Sachsen'\". The REST API and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true. Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "examples": {
+              "example": {
+                "value": "region='Sachsen'"
+              }
+            }
           },
           {
             "name": "with_metadata",
@@ -1959,11 +2550,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -1971,11 +2562,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the metadata of the stations that have rows in the answer, one entry per dataset that has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows is not listed."
           },
           {
             "name": "format",
@@ -1995,11 +2586,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2241,6 +2832,217 @@
               "title": "Station Window End Buffer"
             },
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
+          },
+          {
+            "name": "plausibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "soft",
+                    "hard"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+              "title": "Plausibility"
+            },
+            "description": "One mode for every plausibility check at once: `soft` keeps every value a check finds implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number (`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but `floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given beside it by `plausibility_<check>` wins. Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check."
+          },
+          {
+            "name": "plausibility_range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Range"
+            },
+            "description": "What the check `range` does to a reading outside the physical range of its parameter: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:range`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RANGE if set, else hard."
+          },
+          {
+            "name": "plausibility_elevation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Elevation"
+            },
+            "description": "What the check `elevation` does to a station pressure the barometric formula does not expect at the station's elevation: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:elevation`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__ELEVATION if set, else hard."
+          },
+          {
+            "name": "plausibility_stuck",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Stuck"
+            },
+            "description": "What the check `stuck` does to a sensor that held one value over a period it should not have (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:stuck`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STUCK if set, else soft."
+          },
+          {
+            "name": "plausibility_consistency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Consistency"
+            },
+            "description": "What the check `consistency` does to a reading that another parameter of the same file contradicts (never downloaded for the check): `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:consistency`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__CONSISTENCY if set, else hard."
+          },
+          {
+            "name": "plausibility_floor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Floor"
+            },
+            "description": "What the check `floor` does to a model value a little below the floor of its quantity: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:floor`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__FLOOR if set, else hard."
+          },
+          {
+            "name": "plausibility_limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard.",
+              "default": "hard",
+              "title": "Plausibility Limits"
+            },
+            "description": "What the check `limits` does to a reading outside the bounds `limits` sets for its parameter: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:limits`. A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft. Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__LIMITS if set, else hard."
+          },
+          {
+            "name": "plausibility_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Source"
+            },
+            "description": "What the check `source` does to a value that the source itself marks as erroneous or doubtful in its own quality flag: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`); `soft` keeps the value and flags it `suspect:source`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__SOURCE if set, else soft."
+          },
+          {
+            "name": "plausibility_step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Step"
+            },
+            "description": "What the check `step` does to a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back (a verdict on a series, which depends on what was read): `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:step`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__STEP if set, else soft."
+          },
+          {
+            "name": "plausibility_relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "type": "string",
+              "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft.",
+              "default": "soft",
+              "title": "Plausibility Relations"
+            },
+            "description": "What the check `relations` does to two readings of one file that contradict each other (a maximum below the mean, a dew point above the air temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are flagged: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`; `soft` keeps the value and flags it `suspect:relations`. A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode). Interpolation and summary leave a suspect value out in any case. Default: the server's WD_TS_PLAUSIBILITY__RELATIONS if set, else soft."
+          },
+          {
+            "name": "limits",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set.",
+              "title": "Limits"
+            },
+            "description": "Bounds you set per parameter, `{name: [low, high]}`, for the plausibility check `limits`. A key is a canonical parameter name (every dataset that serves it) or `resolution/dataset/parameter` (that dataset only, which wins where both name a parameter). A bound is in the unit of the values this request returns (`unit_targets`, or the source's unit with `convert_units` off), either may be null but not both, and `low` may not exceed `high`. A value outside is judged by the mode of `plausibility.limits`: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Given as a JSON object, e.g. {\"temperature_air_mean_2m\": [-30, 45], \"precipitation_amount\": [null, 200]}. A name it leaves out keeps the server's WD_TS_LIMITS entry, if set."
           }
         ],
         "responses": {
@@ -2310,6 +3112,65 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ],
+            [
+              "name"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ],
+            [
+              "left",
+              "bottom",
+              "right",
+              "top"
+            ],
+            [
+              "sql"
+            ]
+          ],
+          "then": [
+            {
+              "when": [
+                "latitude",
+                "longitude"
+              ],
+              "exactly_one_of": [
+                [
+                  "rank"
+                ],
+                [
+                  "distance"
+                ]
+              ]
+            }
+          ],
+          "requires": {
+            "distance": [
+              [
+                "latitude",
+                "longitude"
+              ]
+            ],
+            "rank": [
+              [
+                "latitude",
+                "longitude"
+              ],
+              [
+                "name"
+              ]
+            ]
+          }
         }
       }
     },
@@ -2328,10 +3189,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2339,10 +3200,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -2450,7 +3311,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -2470,7 +3336,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -2490,7 +3361,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -2705,11 +3581,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -2717,11 +3593,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -2849,6 +3725,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -2867,10 +3754,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -2878,10 +3765,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -2989,7 +3876,12 @@
               "description": "Station id used as the reference location, e.g. '01048'.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'."
+            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "latitude",
@@ -3009,7 +3901,12 @@
               "description": "Latitude of the reference point for geospatial filtering or interpolation.",
               "title": "Latitude"
             },
-            "description": "Latitude of the reference point for geospatial filtering or interpolation."
+            "description": "Latitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 53.63
+              }
+            }
           },
           {
             "name": "longitude",
@@ -3029,7 +3926,12 @@
               "description": "Longitude of the reference point for geospatial filtering or interpolation.",
               "title": "Longitude"
             },
-            "description": "Longitude of the reference point for geospatial filtering or interpolation."
+            "description": "Longitude of the reference point for geospatial filtering or interpolation. Exactly one of station or (latitude and longitude) is required.",
+            "examples": {
+              "example": {
+                "value": 10.0
+              }
+            }
           },
           {
             "name": "elevation",
@@ -3231,11 +4133,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
           },
           {
             "name": "with_stations",
@@ -3243,11 +4145,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Include the queried stations' metadata block in the output.",
+              "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
               "default": false,
               "title": "With Stations"
             },
-            "description": "Include the queried stations' metadata block in the output."
+            "description": "Include the stations used, one entry per dataset, with their `distance` from the point (km) and `elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value."
           },
           {
             "name": "pretty",
@@ -3375,6 +4277,17 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "latitude",
+              "longitude"
+            ]
+          ]
         }
       }
     },
@@ -3503,7 +4416,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not. The colours of the stripes\n(`/api/stripes/image`) are relative to the years' own range and are the same in any unit.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -3537,7 +4450,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -3555,7 +4473,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -3634,6 +4557,27 @@
               "title": "Pretty"
             },
             "description": "Pretty-print JSON/GeoJSON output."
+          },
+          {
+            "name": "unit_targets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit.",
+              "title": "Unit Targets"
+            },
+            "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit."
           }
         ],
         "responses": {
@@ -3686,6 +4630,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -3729,7 +4683,12 @@
               "description": "Station id, e.g. '01048'; give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name."
+            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "01048"
+              }
+            }
           },
           {
             "name": "name",
@@ -3747,7 +4706,12 @@
               "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
               "title": "Name"
             },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."
+            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
+            "examples": {
+              "example": {
+                "value": "Hamburg Fuhlsbüttel"
+              }
+            }
           },
           {
             "name": "name_threshold",
@@ -3908,6 +4872,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "station"
+            ],
+            [
+              "name"
+            ]
+          ]
         }
       }
     },
@@ -3926,10 +4900,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers.",
               "title": "Provider"
             },
-            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
           },
           {
             "name": "network",
@@ -3937,10 +4911,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers.",
               "title": "Network"
             },
-            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via providers."
           },
           {
             "name": "parameters",
@@ -3971,11 +4945,16 @@
                   "type": "null"
                 }
               ],
-              "description": "Return all stations, ignoring the stations/name/geo filters.",
+              "description": "Return all stations. Not combined with another selection.",
               "default": false,
               "title": "All"
             },
-            "description": "Return all stations, ignoring the stations/name/geo filters."
+            "description": "Return all stations. Not combined with another selection. Exactly one of all or stations is required.",
+            "examples": {
+              "example": {
+                "value": true
+              }
+            }
           },
           {
             "name": "stations",
@@ -3996,9 +4975,17 @@
               "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
               "title": "Stations"
             },
-            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'.",
+            "description": "Station ids, comma-separated, e.g. '01048' or '01048,04411'. Exactly one of all or stations is required.",
             "style": "form",
-            "explode": false
+            "explode": false,
+            "examples": {
+              "example": {
+                "value": [
+                  "01048",
+                  "04411"
+                ]
+              }
+            }
           },
           {
             "name": "sections",
@@ -4037,11 +5024,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
+              "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there.",
               "default": false,
               "title": "With Metadata"
             },
-            "description": "Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
+            "description": "Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what `quality_flags` holds to the `metadata` block of the JSON or GeoJSON, which is always there."
           },
           {
             "name": "with_stations",
@@ -4077,6 +5064,37 @@
                   "$ref": "#/components/schemas/_HistoryWithMetadataDict"
                 }
               }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "422": {
@@ -4110,6 +5128,16 @@
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
+        },
+        "x-wetterdienst-selection": {
+          "exactly_one_of": [
+            [
+              "all"
+            ],
+            [
+              "stations"
+            ]
+          ]
         }
       }
     },
@@ -4151,11 +5179,11 @@
                 "mul"
               ],
               "type": "string",
-              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
+              "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert).",
               "default": "en",
               "title": "Language"
             },
-            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
+            "description": "Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the German ones, and its 'translations' hold the event, headline, description and instruction in the other seven (3 to 5 KB more an alert)."
           },
           {
             "name": "timestamp",
@@ -4430,68 +5458,6 @@
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
       },
-      "CoverageNetwork": {
-        "properties": {
-          "name_short": {
-            "type": "string",
-            "title": "Name Short"
-          },
-          "country": {
-            "type": "string",
-            "title": "Country"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "observation",
-              "forecast",
-              "derived",
-              "radar",
-              "alerts"
-            ],
-            "title": "Kind"
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "global",
-              "national",
-              "regional"
-            ],
-            "title": "Scope"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "auth": {
-            "type": "boolean",
-            "title": "Auth"
-          },
-          "configured": {
-            "type": "boolean",
-            "title": "Configured"
-          },
-          "date_required": {
-            "type": "boolean",
-            "title": "Date Required"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name_short",
-          "country",
-          "kind",
-          "scope",
-          "url",
-          "auth",
-          "configured",
-          "date_required"
-        ],
-        "title": "CoverageNetwork",
-        "description": "A network in the list of every provider and its networks.\n\nWhether the credentials are accepted is not in it: that takes a request to the provider, which a list of\nevery provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641)."
-      },
       "CoverageParameter": {
         "properties": {
           "name": {
@@ -4511,11 +5477,14 @@
               "degree_day",
               "degree_hour",
               "dimensionless",
+              "duration",
               "energy_per_area",
               "fraction",
+              "length_day",
               "length_long",
               "length_medium",
               "length_short",
+              "length_tiny",
               "mass_per_volume",
               "power_per_area",
               "precipitation",
@@ -4524,6 +5493,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -4536,6 +5506,11 @@
             "type": "string",
             "title": "Unit"
           },
+          "unit_source": {
+            "type": "string",
+            "title": "Unit Source",
+            "description": "The unit the provider publishes the parameter in, which the values come in with `convert_units` off. Absent: the same as `unit`."
+          },
           "description": {
             "anyOf": [
               {
@@ -4546,6 +5521,53 @@
               }
             ],
             "title": "Description"
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
           },
           "lead_times": {
             "items": {
@@ -4566,10 +5588,12 @@
           "name_original",
           "unit_type",
           "unit",
-          "description"
+          "description",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "CoverageParameter",
-        "description": "A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."
+        "description": "A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.\n\n`unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one\n`glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the\nenvironment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not\nfollowed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in\n(`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`."
       },
       "CoverageResolution": {
         "properties": {
@@ -4709,11 +5733,14 @@
               "degree_day",
               "degree_hour",
               "dimensionless",
+              "duration",
               "energy_per_area",
               "fraction",
+              "length_day",
               "length_long",
               "length_medium",
               "length_short",
+              "length_tiny",
               "mass_per_volume",
               "power_per_area",
               "precipitation",
@@ -4722,6 +5749,7 @@
               "significant_weather",
               "speed",
               "temperature",
+              "temperature_difference",
               "time",
               "turbidity",
               "volume",
@@ -4741,6 +5769,35 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, `count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, `code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the one of each provider, which declares one for a plain name where its source states it (`instant`)."
           }
         },
         "type": "object",
@@ -4749,10 +5806,11 @@
           "unit_type",
           "unit",
           "unit_symbol",
-          "description"
+          "description",
+          "aggregation"
         ],
         "title": "GlossaryEntry",
-        "description": "One canonical parameter: what it measures and which unit it is returned in."
+        "description": "One canonical parameter: what it measures and which unit it is returned in.\n\n`aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a\nplain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares\none for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which\nthe glossary does not have, since it knows no dataset."
       },
       "Health": {
         "properties": {
@@ -5058,6 +6116,53 @@
             "type": "string",
             "title": "Unit",
             "description": "The symbol of the unit of the values: the target of the quantity where `convert_units` is on, else the unit the source publishes."
+          },
+          "aggregation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "mean",
+                  "max",
+                  "min",
+                  "sum",
+                  "count",
+                  "mean_of_max",
+                  "mean_of_min",
+                  "probability",
+                  "occurrence",
+                  "date",
+                  "change",
+                  "uncertainty",
+                  "code",
+                  "at_max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation",
+            "description": "What the value is relative to its interval: the name's, else the provider's declaration where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not stated, which is not a reading."
+          },
+          "timestamp_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "instant",
+                  "start",
+                  "end",
+                  "middle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Position",
+            "description": "Where the timestamp sits in the row's interval: `instant` (when the value was observed), `start`, `end` or `middle` of it. Null: not stated."
           }
         },
         "additionalProperties": false,
@@ -5069,7 +6174,9 @@
           "name_original",
           "description",
           "quantity",
-          "unit"
+          "unit",
+          "aggregation",
+          "timestamp_position"
         ],
         "title": "ParameterInfo",
         "description": "One parameter of the answer, with the unit its values are in."
@@ -5132,7 +6239,7 @@
               }
             ],
             "title": "Attribution",
-            "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
+            "description": "The credit line to cite when the data is used, in the provider's own words where it states one; null where the provider states none or asks for none. `copyright` of each network is the rights holder's notice, shown for information."
           },
           "networks": {
             "items": {
@@ -5157,31 +6264,6 @@
         ],
         "title": "Provider",
         "description": "A provider of data, and the networks it offers."
-      },
-      "ProviderDataset": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "parameters": {
-            "type": "integer",
-            "title": "Parameters",
-            "description": "How many parameters the dataset has, which `/api/coverage` lists."
-          },
-          "extent": {
-            "$ref": "#/components/schemas/Extent",
-            "description": "Where the stations of the dataset are, where that is less than its network's (`extent` of the network). Left out of the answer for a dataset that has the extent of its network."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "parameters"
-        ],
-        "title": "ProviderDataset",
-        "description": "A dataset of a resolution."
       },
       "ProviderNetwork": {
         "properties": {
@@ -5212,12 +6294,18 @@
           },
           "copyright": {
             "type": "string",
-            "title": "Copyright"
+            "title": "Copyright",
+            "description": "The rights holder's notice, shown for information. The credit line to cite is `attribution` of the provider."
           },
           "auth": {
             "type": "boolean",
             "title": "Auth",
             "description": "Whether the network needs credentials; `/api/auth` tells whether they are accepted."
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "Whether the credentials the network needs are present on this server, true for a network that needs none. Whether the provider accepts them is not checked here: `/api/auth` does, for one network."
           },
           "date_required": {
             "type": "boolean",
@@ -5227,14 +6315,7 @@
           "parameters": {
             "type": "integer",
             "title": "Parameters",
-            "description": "How many parameters the network has in all of its datasets."
-          },
-          "resolutions": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderResolution"
-            },
-            "type": "array",
-            "title": "Resolutions"
+            "description": "How many parameters the network has in all of its datasets, which `/api/coverage` lists for one network, with its resolutions and datasets."
           }
         },
         "additionalProperties": false,
@@ -5246,35 +6327,12 @@
           "url",
           "copyright",
           "auth",
+          "configured",
           "date_required",
-          "parameters",
-          "resolutions"
+          "parameters"
         ],
         "title": "ProviderNetwork",
-        "description": "A network of a provider, with what it offers."
-      },
-      "ProviderResolution": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "datasets": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderDataset"
-            },
-            "type": "array",
-            "title": "Datasets"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "datasets"
-        ],
-        "title": "ProviderResolution",
-        "description": "A resolution of a network."
+        "description": "A network of a provider: what it is and where, not what it offers (`/api/coverage` lists that)."
       },
       "ProvidersAnswer": {
         "properties": {
@@ -5309,7 +6367,7 @@
           "format": {
             "type": "string",
             "title": "Format",
-            "default": "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were shifted to UTC, and, always last, `raw:` where a value was a missing-value marker or a number no sensor can have produced and is returned as null, with the text the source wrote in its place."
+            "default": "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were shifted to UTC, `suspect:<check>` where a plausibility check in the mode `soft` found the value implausible and left it (the suspect level of `source` is flagged in either mode), and, always last, `raw:` where a value was a missing-value marker or a number no sensor can have produced and is returned as null, with the text the source wrote in its place; a number a check in the mode `hard` rejected (the bounds you set included) has `rejected:<check>` before it."
           },
           "source_flags": {
             "items": {
@@ -5418,6 +6476,46 @@
         "title": "QualityKind",
         "description": "One kind of token in the `quality_flags` of a network."
       },
+      "Ready": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status",
+            "description": "Always `ready`: the server can serve a data request. Where it cannot the answer is a 503 problem of the kind `not-ready`, with the `checks` that failed."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Ready",
+        "description": "The answer of the readiness probe.",
+        "examples": [
+          {
+            "status": "ready"
+          }
+        ]
+      },
+      "Resolution": {
+        "type": "string",
+        "enum": [
+          "1_minute",
+          "5_minutes",
+          "6_minutes",
+          "10_minutes",
+          "15_minutes",
+          "hourly",
+          "6_hours",
+          "subdaily",
+          "daily",
+          "monthly",
+          "annual"
+        ],
+        "title": "Resolution",
+        "description": "Enumeration for granularity/resolution of the weather observation."
+      },
       "ResolvedRequest": {
         "properties": {
           "provider": {
@@ -5523,10 +6621,15 @@
           },
           "provider": {
             "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's notice, shown for information."
           },
           "producer": {
             "$ref": "#/components/schemas/_Producer"
+          },
+          "processing_note": {
+            "type": "string",
+            "title": "Processing Note",
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn from the provider's annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -5581,6 +6684,7 @@
           "data_updated_at",
           "provider",
           "producer",
+          "processing_note",
           "request",
           "counts",
           "crs",
@@ -5598,6 +6702,17 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "stations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stations"
           }
         },
         "additionalProperties": false,
@@ -5722,9 +6837,113 @@
       "StripesSeries": {
         "properties": {
           "station": {
+            "properties": {
+              "resolution": {
+                "type": "string",
+                "title": "Resolution"
+              },
+              "dataset": {
+                "type": "string",
+                "title": "Dataset"
+              },
+              "station_id": {
+                "type": "string",
+                "title": "Station Id"
+              },
+              "start_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Start Timestamp"
+              },
+              "end_timestamp": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "End Timestamp"
+              },
+              "latitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Latitude"
+              },
+              "longitude": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Longitude"
+              },
+              "elevation": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Elevation"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              },
+              "region": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Region"
+              }
+            },
             "additionalProperties": true,
             "type": "object",
-            "title": "Station"
+            "required": [
+              "resolution",
+              "dataset",
+              "station_id",
+              "start_timestamp",
+              "end_timestamp",
+              "latitude",
+              "longitude",
+              "elevation",
+              "name",
+              "region"
+            ],
+            "title": "_Station",
+            "description": "Type definition for station."
           },
           "resolution": {
             "type": "string",
@@ -6009,6 +7228,119 @@
             ],
             "title": "Station Window End Buffer",
             "description": "How many days after the end its catalogue publishes a station is still kept for the window of the request, for every resolution; 0 is the exact end. Null: the buffer of the resolution, two days up to daily, 62 for monthly and 732 for annual. The start is compared exactly."
+          },
+          "plausibility_range": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Range",
+            "description": "The mode of the check `range`: `hard` nulls the value and keeps the number as `rejected:range,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:range`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_elevation": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Elevation",
+            "description": "The mode of the check `elevation`: `hard` nulls the value and keeps the number as `rejected:elevation,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:elevation`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_stuck": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Stuck",
+            "description": "The mode of the check `stuck`: `hard` nulls the value and keeps the number as `rejected:stuck,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:stuck`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_consistency": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Consistency",
+            "description": "The mode of the check `consistency`: `hard` nulls the value and keeps the number as `rejected:consistency,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:consistency`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_floor": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Floor",
+            "description": "The mode of the check `floor`: `hard` sets the value to 0.0 and keeps the number as `rejected:floor,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:floor`). It is the mode as set: A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft."
+          },
+          "plausibility_limits": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Limits",
+            "description": "The mode of the check `limits`: `hard` nulls the value and keeps the number as `rejected:limits,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:limits`). It is the mode as set: A forecast network (`kind` `forecast`) keeps the mode as set for `floor` and `limits`, and judges the other checks soft."
+          },
+          "plausibility_source": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Source",
+            "description": "The mode of the check `source`: `hard` nulls the value and keeps the number as `rejected:source,raw:<number>` in `quality_flags` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged `suspect:source`), `soft` keeps the value and flags it (`suspect:source`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_step": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Step",
+            "description": "The mode of the check `step`: `hard` nulls the value and keeps the number as `rejected:step,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:step`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "plausibility_relations": {
+            "type": "string",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Plausibility Relations",
+            "description": "The mode of the check `relations`: `hard` nulls the value and keeps the number as `rejected:relations,raw:<number>` in `quality_flags`, `soft` keeps the value and flags it (`suspect:relations`). It is the mode as set: A forecast network (`kind` `forecast`) is judged soft whatever the mode (only `floor` and `limits` keep their mode)."
+          },
+          "limits": {
+            "additionalProperties": {
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "object",
+            "title": "Limits",
+            "description": "The bounds set per parameter for the check `limits`, in the unit the values of the request come back in: `{name: [low, high]}`, a bound null for none. The server's, with the ones the request gave laid over them. Empty where none are set."
           }
         },
         "additionalProperties": false,
@@ -6022,7 +7354,17 @@
           "skip_criteria",
           "drop_nulls",
           "shape",
-          "station_window_end_buffer"
+          "station_window_end_buffer",
+          "plausibility_range",
+          "plausibility_elevation",
+          "plausibility_stuck",
+          "plausibility_consistency",
+          "plausibility_floor",
+          "plausibility_limits",
+          "plausibility_source",
+          "plausibility_step",
+          "plausibility_relations",
+          "limits"
         ],
         "title": "ValuesSettings",
         "description": "The settings of `/api/values`."
@@ -6174,6 +7516,686 @@
         ],
         "title": "_AlertsWithMetadataOgcFeatureCollection"
       },
+      "_EstimateStation": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Timestamp"
+          },
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Timestamp"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "elevation_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Difference"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resolution",
+          "dataset",
+          "station_id",
+          "start_timestamp",
+          "end_timestamp",
+          "latitude",
+          "longitude",
+          "elevation",
+          "name",
+          "region",
+          "distance",
+          "elevation_difference"
+        ],
+        "title": "_EstimateStation",
+        "description": "A station an interpolation or a summary was made from: the station, and where it stands against the point."
+      },
+      "_HistoryDevice": {
+        "properties": {
+          "device_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Type"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "device_height": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Height"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_type",
+          "station_id",
+          "station_name",
+          "longitude",
+          "latitude",
+          "station_elevation",
+          "device_height",
+          "valid_from",
+          "valid_to",
+          "method"
+        ],
+        "title": "_HistoryDevice",
+        "description": "A device of a station, for the period it was in use."
+      },
+      "_HistoryEntry": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "name": {
+            "$ref": "#/components/schemas/_HistoryNames"
+          },
+          "parameter": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryParameter"
+            },
+            "type": "array",
+            "title": "Parameter"
+          },
+          "device": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryDevice"
+            },
+            "type": "array",
+            "title": "Device"
+          },
+          "geography": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryGeography"
+            },
+            "type": "array",
+            "title": "Geography"
+          },
+          "missing_data": {
+            "$ref": "#/components/schemas/_HistoryMissingData"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "resolution",
+          "dataset"
+        ],
+        "title": "_HistoryEntry",
+        "description": "The history of one station and dataset: who it is of, and the sections asked for (all where none were)."
+      },
+      "_HistoryGeography": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Elevation"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_elevation",
+          "latitude",
+          "longitude",
+          "valid_from",
+          "valid_to",
+          "station_name"
+        ],
+        "title": "_HistoryGeography",
+        "description": "Where a station was, for a period."
+      },
+      "_HistoryMissing": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "missing_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Count"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "parameter",
+          "valid_from",
+          "valid_to",
+          "missing_count",
+          "description"
+        ],
+        "title": "_HistoryMissing",
+        "description": "A summary of the missing data of a parameter, or one period of it: the two have the same fields."
+      },
+      "_HistoryMissingData": {
+        "properties": {
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryMissing"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "summary",
+          "periods"
+        ],
+        "title": "_HistoryMissingData",
+        "description": "The summaries of a station's missing data, and the periods it is missing for."
+      },
+      "_HistoryNames": {
+        "properties": {
+          "station": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryStationName"
+            },
+            "type": "array",
+            "title": "Station"
+          },
+          "operator": {
+            "items": {
+              "$ref": "#/components/schemas/_HistoryOperatorName"
+            },
+            "type": "array",
+            "title": "Operator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station",
+          "operator"
+        ],
+        "title": "_HistoryNames",
+        "description": "The names of a station and of its operator."
+      },
+      "_HistoryOperatorName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "operator_name": {
+            "type": "string",
+            "title": "Operator Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "operator_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryOperatorName",
+        "description": "One name of a station's operator, for the period it held."
+      },
+      "_HistoryParameter": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "type": "string",
+            "title": "Valid To"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "data_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Source"
+          },
+          "extra_info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Info"
+          },
+          "special": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special"
+          },
+          "literature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Literature"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "valid_from",
+          "valid_to",
+          "station_name",
+          "parameter",
+          "description",
+          "unit",
+          "data_source",
+          "extra_info",
+          "special",
+          "literature"
+        ],
+        "title": "_HistoryParameter",
+        "description": "How a parameter was measured at a station, for a period."
+      },
+      "_HistoryStationName": {
+        "properties": {
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          },
+          "valid_from": {
+            "type": "string",
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station_id",
+          "station_name",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "_HistoryStationName",
+        "description": "One name of a station, for the period it held."
+      },
       "_HistoryWithMetadataDict": {
         "properties": {
           "metadata": {
@@ -6188,8 +8210,7 @@
           },
           "histories": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/_HistoryEntry"
             },
             "type": "array",
             "title": "Histories"
@@ -6302,7 +8323,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -6353,7 +8374,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -6985,7 +9006,7 @@
           },
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7036,7 +9057,7 @@
         "properties": {
           "stations": {
             "items": {
-              "$ref": "#/components/schemas/_Station"
+              "$ref": "#/components/schemas/_EstimateStation"
             },
             "type": "array",
             "title": "Stations"
@@ -7440,7 +9461,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -7485,6 +9506,17 @@
           "requested": {
             "type": "integer",
             "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows)."
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "settings",
+                "cache"
+              ]
+            },
+            "description": "Of `not-ready`: the checks of `/ready` that failed."
           }
         },
         "required": [
@@ -7577,7 +9609,7 @@
         }
       },
       "Unavailable": {
-        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
+        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `not-ready`: The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -7595,7 +9627,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: The browser that draws a chart as an image did not finish in time and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -7640,5 +9672,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.178.0"
+  "x-release": "0.186.0"
 }

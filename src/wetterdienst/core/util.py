@@ -14,6 +14,7 @@ import polars as pl
 from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
+from wetterdienst.model.judge import ELEVATION_ZERO_IS_UNKNOWN
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.util.response_warnings import warn_response
 
@@ -199,6 +200,43 @@ class DroppedForElevation(NamedTuple):
     nearest: float = math.inf
 
 
+class StationPlacement(NamedTuple):
+    """Where a station that gave a value stands against the point an interpolation or a summary is made for."""
+
+    #: how far the station is from the point, in km: the distance the answer's rows are made from
+    distance: float
+    #: the elevation of the point minus the station's, in metres, where an elevation was asked about and the station
+    #: has one for the answer's purposes; None otherwise. A reading of a quantity that falls with height was moved by
+    #: the rate of the quantity times this, and the others were not
+    elevation_difference: float | None
+
+
+def place_station(station: dict, elevation: float | None) -> StationPlacement:
+    """Place a station of the ranking, with the elevation it was read at, against the elevation asked about."""
+    station_elevation = station.get("elevation")
+    difference = None if elevation is None or station_elevation is None else elevation - station_elevation
+    return StationPlacement(distance=station["distance"], elevation_difference=difference)
+
+
+def with_placement(df_stations: pl.DataFrame, placements: dict[str, StationPlacement]) -> pl.DataFrame:
+    """Add to a stations frame how far each station is from the point, and its elevation against the point's.
+
+    The columns `distance` (km) and `elevation_difference` (m), rounded to two decimals as the distances of the rows
+    are. A station the placements do not hold, which is none that an answer names, has nulls.
+    """
+    placed = pl.DataFrame(
+        {
+            "station_id": list(placements),
+            "distance": [placement.distance for placement in placements.values()],
+            "elevation_difference": [placement.elevation_difference for placement in placements.values()],
+        },
+        schema={"station_id": pl.String, "distance": pl.Float64, "elevation_difference": pl.Float64},
+    ).with_columns(pl.col("distance", "elevation_difference").round(2))
+    return df_stations.drop(["distance", "elevation_difference"], strict=False).join(
+        placed, on="station_id", how="left", maintain_order="left"
+    )
+
+
 class StationsInReach(NamedTuple):
     """What a parameter has inside its own radius, read off the ranking before any download."""
 
@@ -249,16 +287,35 @@ def hold_stations_in_reach(request: TimeseriesRequest, stations_ranked: Stations
     return replace(stations_ranked, df=df)
 
 
-def one_row_per_station(df_stations_ranked: pl.DataFrame) -> pl.DataFrame:
+def zero_elevation_is_unknown(request: TimeseriesRequest) -> bool:
+    """Tell whether the network of a request lists 0.0 for a station of which it knows no elevation.
+
+    The networks are those of `ELEVATION_ZERO_IS_UNKNOWN`, the list the plausibility check of the station pressure
+    reads too (GH-3708).
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    return Wetterdienst._network_of(type(request)) in ELEVATION_ZERO_IS_UNKNOWN  # noqa: SLF001
+
+
+def one_row_per_station(df_stations_ranked: pl.DataFrame, *, zero_is_unknown: bool = False) -> pl.DataFrame:
     """Keep one row per station, the nearest, with the first elevation any of its rows knows.
 
     The ranking carries a row per station *and* dataset, each with what its own station list
     reported, and the lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds
     of the stations its daily list does. Read off the nearest row alone, whether a station's
     elevation is known would depend on which resolution the parameters named first.
+
+    Where `zero_is_unknown`, an elevation of exactly 0.0 is none (`zero_elevation_is_unknown`): GHCN writes 0.0 for
+    stations it knows no elevation of, 54 of its hourly list standing between 150 and 4,329 m, so it is null here
+    before another row's elevation fills it in, and a station of it is treated as one the provider reports none for
+    (GH-3708). The frame of stations the caller is handed keeps the 0.0, as GHCN writes it.
     """
+    elevation = pl.col("elevation")
+    if zero_is_unknown:
+        elevation = pl.when(elevation.eq(0.0)).then(None).otherwise(elevation)
     return df_stations_ranked.with_columns(
-        pl.col("elevation").fill_null(pl.col("elevation").drop_nulls().first().over("station_id")),
+        elevation.fill_null(elevation.drop_nulls().first().over("station_id")).alias("elevation"),
     ).unique(subset=["station_id"], keep="first", maintain_order=True)
 
 
@@ -267,6 +324,8 @@ def count_stations_in_reach(
     parameters: Iterable[object],
     options: Options,
     interpolatable: Collection[str],
+    *,
+    zero_is_unknown: bool = False,
 ) -> dict[tuple[str, str, str], StationsInReach]:
     """Count what each parameter has within its own radius, before a single value is downloaded.
 
@@ -289,7 +348,7 @@ def count_stations_in_reach(
     # `one_row_per_station` too, the nearest row with an elevation from any of the station's rows.
     # Two dataset indexes can disagree about a station's elevation, and reading it differently here
     # than the walk does would refuse a request the walk would have answered
-    as_the_walk_reads_it = one_row_per_station(df_stations_ranked)
+    as_the_walk_reads_it = one_row_per_station(df_stations_ranked, zero_is_unknown=zero_is_unknown)
     for parameter in parameters:
         if not isinstance(parameter, ParameterModel) or parameter.name not in interpolatable:
             continue
@@ -404,6 +463,25 @@ def collection_is_done(param_dict: dict, waiting_on: set[tuple[str, str, str]]) 
         and all(param_data.finished for param_data in param_dict.values())
         and not waiting_on.difference(param_dict)
     )
+
+
+def walk_was_done_at(
+    station_id: str,
+    *,
+    stations_by_id: dict[str, dict],
+    counts: dict,
+    param_dict: dict,
+    dropped_for_elevation: dict,
+    valid_group: bool = True,
+) -> bool:
+    """Whether `collection_is_done` held for the station: what is still in reach shrinks with its distance.
+
+    For `EstimateLeftOut.forget_since`, which asks it of the stations the walk read once the answer was complete and
+    passed over for want of rows. `valid_group` is the interpolation's other condition, that four stations surround
+    the point, which the stations the walk used have settled and which a station without rows cannot change.
+    """
+    in_reach = parameters_still_in_reach(counts, stations_by_id[station_id]["distance"])
+    return valid_group and collection_is_done(param_dict, dropped_for_elevation.keys() & in_reach)
 
 
 def report_elevation_exclusions(

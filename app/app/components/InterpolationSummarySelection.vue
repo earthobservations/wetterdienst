@@ -9,10 +9,11 @@ const props = defineProps<{
 const modelValue = defineModel<InterpolationSelection>({ required: true })
 
 const { t } = useI18n()
+const sourceLabelId = useId()
 
 const sourceOptions = computed(() => [
-  { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-lucide-pencil' },
-  { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-lucide-map-pin' },
+  { value: 'manual' as InterpolationSource, label: t('interpolation.manualCoords'), icon: 'i-ph-pencil-simple' },
+  { value: 'station' as InterpolationSource, label: t('interpolation.fromStation'), icon: 'i-ph-map-pin' },
 ])
 
 // the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
@@ -53,7 +54,7 @@ const { data: stationsData, pending: stationsPending, error: stationsError, stat
     // fetched by the watcher on the list wanted below alone: useFetch's own refetch on a change of
     // the query asked for the whole station list a second time
     watch: false,
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
     default: () => ({ stations: [] }),
   },
 )
@@ -158,8 +159,8 @@ const displayCoords = computed(() => {
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}:</span>
-      <UFieldGroup>
+      <span :id="sourceLabelId" class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}{{ t('common.colon') }}</span>
+      <UFieldGroup role="group" :aria-labelledby="sourceLabelId">
         <UButton
           v-for="option in sourceOptions"
           :key="option.value"
@@ -167,6 +168,7 @@ const displayCoords = computed(() => {
           :label="option.label"
           color="neutral"
           :variant="modelValue.source === option.value ? 'subtle' : 'ghost'"
+          :aria-pressed="modelValue.source === option.value"
           size="xs"
           @click="setSource(option.value)"
         />
@@ -224,7 +226,7 @@ const displayCoords = computed(() => {
           <p v-if="!stationsPending" role="alert" class="text-sm text-error">
             {{ t('interpolation.loadError') }}
           </p>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
+          <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="refreshStations({ dedupe: 'defer' })" />
         </div>
       </UFormField>
     </div>

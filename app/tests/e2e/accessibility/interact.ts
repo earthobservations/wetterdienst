@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import type { Backend } from './mock-backend'
 import type { ScanResult, Where } from './scan'
 import AxeBuilder from '@axe-core/playwright'
+import { isFocusGuard } from './focus-guard'
 import { addViolations, record, settle } from './scan'
 
 // What axe cannot see from a page at rest: the colours of an element that is hovered or focused
@@ -109,7 +110,10 @@ export async function scanHover(page: Page, backend: Backend, where: Where, _opt
 interface Focused {
   /** Nothing in the page has the focus: the browser has it, or the body */
   none: boolean
-  /** Reka's focus guard: an invisible stop at either end of an open menu that hands the focus on the moment it has it */
+  /**
+   * Reka's focus guard: an invisible stop at either end of an open menu, or the focus proxy at either end of
+   * the toast region, which hands the focus on or which the next Tab leaves
+   */
   guard?: boolean
   /** A short description for a message */
   name: string
@@ -123,13 +127,13 @@ interface Focused {
 }
 
 async function describeFocus(page: Page): Promise<Focused> {
+  if (await page.evaluate(isFocusGuard))
+    return { none: false, guard: true, name: '', indicator: true, obscured: false, key: '' }
   return page.evaluate((probe) => {
     document.querySelectorAll(`[${probe}]`).forEach(node => node.removeAttribute(probe))
     const node = document.activeElement as HTMLElement | null
     if (!node || node === document.body || node === document.documentElement)
       return { none: true, name: '', indicator: true, obscured: false, key: '' }
-    if (node.hasAttribute('data-reka-focus-guard'))
-      return { none: false, guard: true, name: '', indicator: true, obscured: false, key: '' }
     node.setAttribute(probe, '')
     const text = (node.getAttribute('aria-label') ?? node.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
     const classes = [...node.classList].slice(0, 3).join('.')
@@ -245,6 +249,7 @@ export async function scanKeyboard(page: Page, backend: Backend, where: Where, o
     })
   }
   const seen = new Set<string>()
+  let guards = 0
   let engine = ''
   if (options.keepFocus) {
     await transitionsDone(page)
@@ -269,8 +274,13 @@ export async function scanKeyboard(page: Page, backend: Backend, where: Where, o
       await transitionsDone(page)
       focused = await describeFocus(page)
     }
-    if (focused.guard)
+    if (focused.guard) {
+      // a guard hands the focus on at once; one that keeps it through three Tabs has nothing after it
+      if (++guards > 3)
+        break
       continue
+    }
+    guards = 0
     if (focused.none) {
       // the end of the order, or the browser's own chrome taking the focus
       if (seen.size === 0)

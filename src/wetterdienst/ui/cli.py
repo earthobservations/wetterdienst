@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import sys
@@ -14,84 +15,48 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, get_args
 
 import click
 from click.core import ParameterSource
-from pydantic import BaseModel, ValidationError
-from pydantic_settings import SettingsError
+from click.shell_completion import CompletionItem
 
-from wetterdienst import Settings, Wetterdienst, __appname__, __version__
+from wetterdienst import __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     CredentialMissingError,
     CredentialRejectedError,
     DateRequiredError,
     ExportRefusedError,
+    ImageTimeoutError,
     InvalidTimeIntervalError,
     MetadataNotFoundError,
     MissingDependencyError,
     NoInternetError,
     ReversedTimeIntervalError,
 )
-from wetterdienst.io.export import require_kaleido
+from wetterdienst.io.formats import FORMATS, names_of
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.request import TimeseriesRequest
-from wetterdienst.options import Options
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.settings import check_settings
-from wetterdienst.ui.core import (
-    RENAMED_REQUEST_PARAMETERS,
-    HistoryRequest,
-    InterpolationRequest,
-    IssuesRequest,
-    ProvidersRequest,
-    StationsRequest,
-    StripesImageRequest,
-    StripesStationsRequest,
-    SummaryRequest,
-    ValuesRequest,
-    _get_stripes_stations,
-    _is_caller_refusal,
-    _plot_stripes,
-    check_timeseries_api,
-    describe_fields,
-    get_auth,
-    get_glossary,
-    get_interpolate,
-    get_issues,
-    get_stations,
-    get_summarize,
-    get_values,
-    join_names,
-    limit_stations_to_rank,
-    limit_stations_to_window,
-    overlay_options,
-    resolve_network,
-    set_logging_level,
-)
-from wetterdienst.ui.providers import get_providers
-from wetterdienst.ui.render import (
-    InterpolationSettings,
-    SummarySettings,
-    ValuesSettings,
-    ndjson_refusal,
-    render,
-    render_alerts,
-    render_history,
-    render_issues,
-    render_stations,
-    render_stripes_stations,
-)
-from wetterdienst.ui.response_metadata import issues_metadata, result_metadata
-from wetterdienst.util.cli import setup_logging
+from wetterdienst.model.plausibility_modes import CHECKS, default_mode, forecast_note, hard_means
+from wetterdienst.util.cli import no_color, setup_logging
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import begin_response
+from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, begin_response, log_counted_warnings
 from wetterdienst.util.ui import read_list
-from wetterdienst.util.url import file_target_path, redact_password
+from wetterdienst.util.url import ConnectionString, file_target_path, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
+    from pydantic import BaseModel, ValidationError
     from pydantic_core import ErrorDetails
 
+    from wetterdienst import Options, Settings
     from wetterdienst.api import StandaloneRequest
+    from wetterdienst.model.plausibility_modes import Mode
+    from wetterdienst.model.request import TimeseriesRequest
+
+# Everything above is what the command line costs to import, and it is all that `--help`, `--version` and a shell
+# completion load (GH-3809): click, the exceptions, and the plain tables the options are built from. The settings and
+# the request models (pydantic, polars), the providers, the results and everything that renders them are imported by
+# the command that uses them, as the first thing it does (`values` imports what it needs before it reads an option),
+# so that a package that fails to import is told before a request is made, not in the middle of one.
+# tests/ui/cli/test_cli_imports.py holds the import of this module to the modules it lists.
 
 log = logging.getLogger(__name__)
 
@@ -103,10 +68,148 @@ _TIMESTAMP_HELP = (
     "is that one instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05"
 )
 
-_RequestT = TypeVar("_RequestT", bound=BaseModel)
+_RequestT = TypeVar("_RequestT", bound="BaseModel")
 _CommandT = TypeVar("_CommandT", bound="Callable[..., Any]")
 
 appname = f"{__appname__} {__version__}"
+
+
+# What a command reads its data from is imported when the command first calls it, not when this module is imported
+# (GH-3809). These are names of this module because that is where the tests, and a caller who runs the command line in
+# their own process, replace what a command reads from: the command calls whatever the name is bound to.
+def _deferred(module: str, name: str) -> Callable[..., Any]:
+    """Give a function of another module that is imported when it is first called, not when this module is.
+
+    The command that calls it has imported `wetterdienst.ui.core` for its request model by then, or is about to use
+    it at once, before anything is fetched.
+    """
+
+    def call(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        return getattr(importlib.import_module(module), name)(*args, **kwargs)
+
+    call.__name__ = call.__qualname__ = name
+    call.__doc__ = f"`{module}.{name}`, imported when it is first called."
+    return call
+
+
+if TYPE_CHECKING:
+    # the real functions to a type checker, which holds a call to their signatures, a misspelled keyword included
+    from wetterdienst.ui.core import (
+        _plot_stripes,
+        get_auth,
+        get_glossary,
+        get_interpolate,
+        get_issues,
+        get_stations,
+        get_summarize,
+        get_values,
+        set_logging_level,
+    )
+else:
+    get_auth = _deferred("wetterdienst.ui.core", "get_auth")
+    get_glossary = _deferred("wetterdienst.ui.core", "get_glossary")
+    get_interpolate = _deferred("wetterdienst.ui.core", "get_interpolate")
+    get_issues = _deferred("wetterdienst.ui.core", "get_issues")
+    get_stations = _deferred("wetterdienst.ui.core", "get_stations")
+    get_summarize = _deferred("wetterdienst.ui.core", "get_summarize")
+    get_values = _deferred("wetterdienst.ui.core", "get_values")
+    set_logging_level = _deferred("wetterdienst.ui.core", "set_logging_level")
+    _plot_stripes = _deferred("wetterdienst.ui.core", "_plot_stripes")
+
+
+# Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see docs/usage/cli.md). It imports this module and nothing
+# else, so a completion that is not from this module's tables must not import a provider (a second on every TAB) and
+# never reaches the network: the providers and networks are the keys of the registry, which is a dict of names
+# (`wetterdienst.api` imports no provider and no settings, so the registry is cheap to read: GH-3809).
+def _complete_provider(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:  # noqa: ARG001
+    """Complete `--provider` with the providers of the registry."""
+    from wetterdienst.api import Wetterdienst
+
+    return [CompletionItem(name) for name in Wetterdienst.get_provider_names() if name.startswith(incomplete.lower())]
+
+
+def _complete_network(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:  # noqa: ARG001
+    """Complete `--network` with the networks of the `--provider` already on the line, else of every provider.
+
+    Bash hands over `--provider=dwd` as three words, `--provider`, `=` and `dwd`: click reads the `=` as the value and
+    `dwd` is left over in `ctx.args`, where the provider is taken from. The word being completed itself is not: a
+    value after an `=` is not offered (zsh would replace the whole word `--provider=dw` by `dwd`, too), which the
+    docs say, so a space is the spelling to complete with.
+    """
+    from wetterdienst.api import Wetterdienst
+
+    provider = ctx.params.get("provider")
+    if provider == "=":
+        provider = next((word for word in ctx.args if word.strip().lower() in Wetterdienst.registry), None)
+    if isinstance(provider, str) and provider.strip().lower() in Wetterdienst.registry:
+        names = Wetterdienst.get_network_names(provider)
+    else:
+        names = sorted({network for networks in Wetterdienst.registry.values() for network in networks})
+    return [CompletionItem(name) for name in names if name.startswith(incomplete.lower())]
+
+
+# `--quiet` is a property of the process's log, and every command that has `--debug` has it. Its value is kept in the
+# context and read where the level is set, so that it can be held against `--debug` whichever comes first on the line
+_QUIET_KEY = "wetterdienst.quiet"
+
+
+def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> bool:  # noqa: ARG001, FBT001
+    ctx.meta[_QUIET_KEY] = value
+    return value
+
+
+#: the loggers of the libraries behind an image, which write what they cleaned up as the interpreter ends
+_IMAGE_LIBRARIES = ("choreographer", "kaleido")
+
+
+class _QuietFilter(logging.Filter):
+    """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno >= logging.ERROR or hasattr(record, RESPONSE_WARNING_RECORD)
+
+
+def _apply_log_level(*, debug: bool) -> None:
+    """Set how much the command logs: `--debug` for the package's debug lines, `--quiet` for less, else as it is.
+
+    `--quiet` keeps the errors (`log.error`, `log.exception`), the sentence that nothing was written to the
+    `--target`, and the warnings about the answer itself, the ones that are also in the `warnings` of its
+    `metadata` (a file the provider let go, a station left out, readings a check rejected, a parameter without rows:
+    `warn_response` marks their log records, and `log_counted_warnings` those that are only counted). It drops the
+    rest: the progress (logged at INFO), the other warnings of the package and everything the libraries underneath
+    write below ERROR. The levels of the root logger and of `wetterdienst` are set to INFO (`station-skipped` is
+    logged there) and the handlers they have are given a filter for the rest, both for the length of the command.
+    The libraries that draw an image (`choreographer`, `kaleido`) write their INFO lines when the interpreter ends,
+    after the command, so they are kept at WARNING for good. The data on stdout, a usage error that click writes
+    itself and the exit code are untouched. With `--debug` it is a usage error, which of the two wins is not for
+    the command to guess.
+    """
+    ctx = click.get_current_context()
+    if not ctx.meta.get(_QUIET_KEY, False):
+        set_logging_level(debug=debug)
+        return
+    if debug:
+        msg = "--quiet and --debug cannot be used together: one logs less than the default and the other more."
+        raise click.UsageError(msg)
+    loggers = [logging.getLogger(), logging.getLogger("wetterdienst")]
+    levels = [logger.level for logger in loggers]
+    handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
+    quiet = _QuietFilter()
+    for name in _IMAGE_LIBRARIES:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    for logger in loggers:
+        logger.setLevel(logging.INFO)
+    for handler in handlers:
+        handler.addFilter(quiet)
+
+    def restore() -> None:
+        for logger, level in zip(loggers, levels, strict=True):
+            logger.setLevel(level)
+        for handler in handlers:
+            handler.removeFilter(quiet)
+
+    ctx.call_on_close(restore)
+
 
 # Options more than one command takes, defined once so each reads the same wherever it appears. A
 # command lists the ones it takes in the order its help shows them: what is asked for, which
@@ -114,15 +217,17 @@ appname = f"{__appname__} {__version__}"
 provider_opt = click.option(
     "--provider",
     type=click.STRING,
+    shell_complete=_complete_provider,
     required=True,
     help=(
         "Data provider/organisation. List the provider/network combinations with: "
-        "wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
+        "wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws, geosphere"
     ),
 )
 network_opt = click.option(
     "--network",
     type=click.STRING,
+    shell_complete=_complete_network,
     required=True,
     help="Data network of the provider. Examples: observation, mosmix, radar, ghcn, pegel, hydrology",
 )
@@ -172,6 +277,8 @@ stations_timestamp_opt = click.option(
 NO_STATIONS = "No stations available for given constraints"
 NO_DATA = "No data available for given constraints"
 NOTHING_WRITTEN = "Nothing was written to --target."
+#: marks the line as one `--quiet` keeps: a scheduled run that wrote nothing must not look like one that did
+_NOTHING_WRITTEN_RECORD = {RESPONSE_WARNING_RECORD: "nothing-written"}
 
 
 def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
@@ -188,7 +295,14 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     )
 
 
-def _bool_opt(name: str, *, default: bool, help: str, dest: str | None = None) -> Callable[[_CommandT], _CommandT]:  # noqa: A002
+def _bool_opt(
+    name: str,
+    *,
+    default: bool,
+    help: str,  # noqa: A002
+    dest: str | None = None,
+    **kwargs: Any,  # noqa: ANN401
+) -> Callable[[_CommandT], _CommandT]:
     """Make a boolean option, spelled one way on every command: bare it is on, and it takes `=true` or `=false`.
 
     A value is read as the REST API reads one of its boolean query parameters, which is what
@@ -197,10 +311,10 @@ def _bool_opt(name: str, *, default: bool, help: str, dest: str | None = None) -
     flag, takes `--all=true` as REST's `all=true`.
     """
     names = (name, dest) if dest else (name,)
-    return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help)
+    return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help, **kwargs)
 
 
-# GH-2438: --date, the old name of --timestamp
+# GH-2438: --date, the old name of --timestamp, on the commands that had it in 0.139.0 (not `stations`: GH-3869)
 renamed_date_opt = _renamed_opt("--date", "--timestamp")
 start_opt = click.option(
     "--start",
@@ -212,7 +326,7 @@ end_opt = click.option(
     type=click.STRING,
     help="End of a time window. Given alone, it is read as --timestamp.",
 )
-# GH-2437: the window is a pair of UTC timestamps, not of dates
+# GH-2437: the window is a pair of UTC timestamps, not of dates; on the commands that had `--start-date` in 0.139.0
 start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
@@ -271,6 +385,86 @@ station_window_end_buffer_opt = click.option(
         "two days up to daily, 62 for monthly and 732 for annual"
     ),
 )
+
+
+def _plausibility_option(check: str) -> Callable[[_CommandT], _CommandT]:
+    """Make the option that sets the mode of a plausibility check: `--plausibility-<check> soft|hard`."""
+    return click.option(
+        f"--plausibility-{check}",
+        type=click.Choice(["hard", "soft"]),
+        default=default_mode(check),
+        help=(
+            f"What the check '{check}' does to a value it finds implausible: hard {hard_means(check)}, soft keeps it "
+            f"and flags it `suspect:{check}`. {forecast_note(check)} "
+            f"Default: WD_TS_PLAUSIBILITY__{check.upper()} if set, else {default_mode(check)}"
+        ),
+    )
+
+
+def plausibility_opts(command: _CommandT) -> _CommandT:
+    """Add `--plausibility`, the mode of every check, and the options that set one: `--plausibility-range`..."""
+    for check in reversed(CHECKS):
+        command = _plausibility_option(check)(command)
+    return click.option(
+        "--plausibility",
+        type=click.Choice(["hard", "soft"]),
+        help=(
+            "One mode for every plausibility check: soft keeps what a check finds implausible, flagged "
+            "`suspect:<check>`, hard nulls it and keeps the number as `rejected:<check>,raw:<number>`. A check "
+            "given beside it by --plausibility-<check> wins. The suspect level of source stays flagged. A forecast "
+            "network (kind forecast) is soft in every "
+            "check but floor and limits, whatever is given. Default: WD_TS_PLAUSIBILITY if set, else the mode of "
+            "each check"
+        ),
+    )(command)
+
+
+def _read_limits(ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> dict[str, Any] | None:
+    """Read the `--limits` given, each a JSON object or `name=low:high`, as one mapping; the later wins for a name."""
+    if not values or ctx.resilient_parsing:
+        # click calls a callback with the default too, and with a line that is being completed (`resilient_parsing`):
+        # neither reads a limit, and neither pays for the import of the model that does (GH-3809)
+        return None
+    from wetterdienst.model.limits import read_limit_text
+
+    limits: dict[str, Any] = {}
+    for text in values:
+        try:
+            if text.lstrip().startswith("{"):
+                given = json.loads(text)
+                if not isinstance(given, dict):
+                    msg = f"{text!r} is not a JSON object"
+                    raise ValueError(msg)  # noqa: TRY301
+                pairs = list(given.items())
+            else:
+                pairs = [read_limit_text(text)]
+            for name, pair in pairs:
+                # a name given again goes to the end, so that the last of its spellings given is the later
+                limits.pop(name, None)
+                limits[name] = pair
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--limits") from e
+    return limits or None
+
+
+limits_opt = click.option(
+    "--limits",
+    "limits",
+    multiple=True,
+    callback=_read_limits,
+    help=(
+        "Bounds of your own for the plausibility check limits, in the unit the values come back in (see "
+        "--unit-targets): a JSON map of a parameter to [low, high], null for no bound at one end "
+        '({"temperature_air_mean_2m":[-30,45],"precipitation_amount":[null,200]}), or name=low:high with an end '
+        "left empty for none (temperature_air_mean_2m=-30:45, precipitation_amount=:200). Repeat it for more "
+        "parameters. A name is a canonical parameter (every dataset that serves it) or resolution/dataset/parameter "
+        "(that dataset only, which wins where both name a parameter). A value outside is judged by "
+        "--plausibility-limits: hard (the default) nulls it and keeps the number as `rejected:limits,raw:<number>`, "
+        "soft keeps it and flags it `suspect:limits`. A forecast network follows this mode too. Default: "
+        "WD_TS_LIMITS if set, else none; a name given here replaces the one of WD_TS_LIMITS"
+    ),
+)
+
 sql_values_opt = click.option(
     "--sql-values",
     type=click.STRING,
@@ -295,23 +489,34 @@ humanize_opt = _bool_opt(
     help="Use canonical parameter names instead of the provider's own codes. Default: WD_TS_HUMANIZE if set, else true",
 )
 
+
+def _or_list(names: Iterable[str]) -> str:
+    """Write names as a list ending in "or": `json, geojson or csv`."""
+    *head, last = names
+    return f"{', '.join(head)} or {last}"
+
+
+# the formats of a command that answers in one body: `ndjson`, which `to_format` has, is the stream of `stations` and
+# `values` only, as `interpolate` and `summarize` name no stations to stream by (GH-3590)
+_BODY_FORMATS = [name for name in FORMATS if name != "ndjson"]
+_BODY_DATA_FORMATS = [name for name in names_of("data") if name != "ndjson"]
+
 format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
+    type=click.Choice(_BODY_FORMATS, case_sensitive=False),
     default="json",
-    help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list(_BODY_DATA_FORMATS)} for data, {_or_list(names_of('chart'))} for a chart. "
+    "Default: json",
 )
 # of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
 stream_format_opt = click.option(
     "--format",
     "fmt",
-    type=click.Choice(
-        ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False
-    ),
+    type=click.Choice(list(FORMATS), case_sensitive=False),
     default="json",
-    help="Output format: json, geojson, csv or ndjson (the metadata, a line for each row, then the end) for data, "
-    "html, png, jpg, webp, svg or pdf for a chart. Default: json",
+    help=f"Output format: {_or_list(names_of('data'))} (the metadata, a line for each row, then the end) "
+    f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
@@ -326,7 +531,9 @@ target_opt = click.option(
 )
 # what a target that already holds data does with the next write. `to_target` has taken this since
 # it was written, and the docs advertise it, but no command passed it, so every CLI export replaced
-# -- which is only the wrong default for a schedule, where the point is usually to accumulate
+# -- which is only the wrong default for a schedule, where the point is usually to accumulate.
+# `replace` is the default of a result's `to_target`, which the command writes: one frame, written as a whole,
+# where `TimeseriesValues.to_target` defaults to `fail` as it fills one table station by station
 if_exists_opt = click.option(
     "--if-exists",
     type=click.Choice(["replace", "append", "fail", "skip"]),
@@ -350,8 +557,21 @@ with_metadata_opt = _bool_opt(
     "--with-metadata",
     default=False,
     help=(
-        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
         "which is always there. Default: false"
+    ),
+)
+# for the commands that write a result to a `--target`: it reaches the file as `to_target(..., with_metadata=True)`
+with_metadata_target_opt = _bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Add the units, the aggregation and timestamp position of the parameters and the quality flags to "
+        "the metadata block of JSON/GeoJSON output, "
+        "which is always there. With a file --target it writes the block beside the file as "
+        "<file>.metadata.json (CSV, Excel, JSON, GeoJSON and the other bare types) and adds those parts to the "
+        "block in a Parquet, NetCDF or Zarr file; a database --target is refused. Default: false"
     ),
 )
 with_stations_opt = _bool_opt(
@@ -359,7 +579,30 @@ with_stations_opt = _bool_opt(
     default=False,
     help="Include the stations in JSON/GeoJSON output. Default: false",
 )
-debug_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
+# of `interpolate` and `summarize`, whose stations are the ones the rows were made from
+with_estimate_stations_opt = _bool_opt(
+    "--with-stations",
+    default=False,
+    help=(
+        "Include in JSON output the stations used, one entry per dataset, with their distance from the point (km) and "
+        "elevation difference to it (m; null if the point has no elevation). The rows' ids say which gave a value. "
+        "GeoJSON always lists them. Default: false"
+    ),
+)
+_debug_only_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
+_quiet_opt = _bool_opt(
+    "--quiet",
+    default=False,
+    help="Log errors and warnings about the answer only: no progress. Not with --debug. Default: false",
+    expose_value=False,
+    callback=_remember_quiet,
+)
+
+
+def debug_opt(command: _CommandT) -> _CommandT:
+    """Give a command `--debug` and `--quiet`, the two ends of how much it logs; `restapi` has `--debug` alone."""
+    return _debug_only_opt(_quiet_opt(command))
+
 
 # the reference point `interpolate` and `summarize` estimate for: exactly one of a station or a point,
 # which their request models enforce
@@ -440,7 +683,7 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
     return apply
 
 
-_COVERAGE_HINT = "`wetterdienst about coverage`, without --provider and --network, lists the available ones."
+_PROVIDERS_HINT = "`wetterdienst providers` lists the available ones."
 
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -449,10 +692,12 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest] | Standalone
     A provider or network that does not exist is the command line's mistake, so it is a usage error
     naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
     """
+    from wetterdienst.ui.core import resolve_network
+
     try:
         return resolve_network(provider, network)
     except ApiNotFoundError as e:
-        msg = f"{e} {_COVERAGE_HINT}"
+        msg = f"{e} {_PROVIDERS_HINT}"
         raise click.UsageError(msg) from e
 
 
@@ -463,14 +708,26 @@ def get_timeseries_api(provider: str, network: str, *, history: bool = False) ->
     history is the command line's mistake, so a usage error naming the cause, as the REST API answers
     it with a 404.
     """
+    from wetterdienst.ui.core import check_timeseries_api
+
     api = get_api(provider, network)
     try:
         return check_timeseries_api(api, provider, network, history=history)
     except ApiNotFoundError as e:
-        msg = f"{e} {_COVERAGE_HINT}"
+        msg = f"{e} {_PROVIDERS_HINT}"
         raise click.UsageError(msg) from e
     except NotImplementedError as e:
         raise click.UsageError(str(e)) from e
+
+
+def _lead_time_named(lead_time: str | None) -> str | None:
+    """Give the lead time the caller named on the command line, and None for the `short` the option defaults to.
+
+    The option defaults to `short`, which is what a DMO request reads where none is named; passed on as if it were
+    named, a request said it had asked for `short` (`parameter-without-rows` names what was asked for).
+    """
+    context = click.get_current_context()
+    return None if context.get_parameter_source("lead_time") is ParameterSource.DEFAULT else lead_time
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
@@ -480,6 +737,8 @@ def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _Reques
     out of range -- a negative distance, say -- not a bug to show a stack trace for. It is told in
     click's terms, by the options involved, as click tells its own errors.
     """
+    from pydantic import ValidationError
+
     try:
         return model.model_validate(values)
     except ValidationError as e:
@@ -501,6 +760,11 @@ def _build_options(options: dict[str, tuple[str, Any]]) -> Options:
     variable is not the command line's to fix. The options' is told by the option as click tells an
     invalid value, with the value the option gave rather than the one merged with the environment's.
     """
+    from pydantic import ValidationError
+
+    from wetterdienst.options import Options
+    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, overlay_options
+
     ctx = click.get_current_context()
     # each option given by the command line option that sets it
     given = {
@@ -508,8 +772,12 @@ def _build_options(options: dict[str, tuple[str, Any]]) -> Options:
         for param, (option, value) in options.items()
         if ctx.get_parameter_source(param) is not ParameterSource.DEFAULT
     }
-    replacing = {option: value for option, (_, value) in given.items() if not isinstance(value, dict)}
-    merging = {option: value for option, (_, value) in given.items() if isinstance(value, dict)}
+    # a dict, and the mode of a plausibility check, which lays itself over the modes the environment sets
+    merged_kinds = [
+        option for option, (_, value) in given.items() if isinstance(value, dict) or option in PLAUSIBILITY_OPTIONS
+    ]
+    replacing = {option: value for option, (_, value) in given.items() if option not in merged_kinds}
+    merging = {option: value for option, (_, value) in given.items() if option in merged_kinds}
     try:
         # the environment is read here for what no option replaces
         built = Options(**replacing)
@@ -555,6 +823,8 @@ def _describe_validation_error(error: ValidationError, ctx: click.Context) -> st
     option. pydantic's echo of the whole input is left out, which for such a rule is every option
     the command took.
     """
+    from wetterdienst.ui.core import describe_fields, join_names
+
     # each field by the option that sets it: `format` comes from --format, whose parameter is `fmt`
     params: dict[str, click.Parameter] = {}
     for param in ctx.command.params:
@@ -586,6 +856,8 @@ def _option_hint(field: str, params: dict[str, click.Parameter], ctx: click.Cont
 
 def _describe_problem(problem: ErrorDetails, params: dict[str, click.Parameter], ctx: click.Context) -> str:
     """Tell one validation error in click's terms: a missing option, or an invalid value for one."""
+    from wetterdienst.ui.core import describe_fields, join_names
+
     kind, info = problem["type"], problem.get("ctx", {})
     field = str(problem["loc"][0]) if problem["loc"] else ""
 
@@ -619,6 +891,8 @@ def _require_one_of(**given: bool) -> None:
 
     For the commands with no request model; each option is keyed by its parameter's name.
     """
+    from wetterdienst.ui.core import join_names
+
     ctx = click.get_current_context()
     hints = {param.name: param.get_error_hint(ctx) for param in ctx.command.params}
     made = [hints[name] for name, is_set in given.items() if is_set]
@@ -658,7 +932,7 @@ Weather, climate and hydrology data from national weather services, in one inter
 A typical session finds a provider's network, then a station, then reads its data:
 
 \b
-    wetterdienst about coverage
+    wetterdienst providers
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2020-05
 
@@ -755,6 +1029,15 @@ VALUES_EXAMPLES = r"""
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
 
+    # keep a number a plausibility check finds implausible, flagged `suspect:range`, instead of nulling it
+    wetterdienst values --provider=dwd --network=observation --parameters=hourly/moisture/pressure_air_site \
+        --stations=1048 --timestamp=2024-01 --plausibility-range=soft --plausibility-stuck=hard
+
+    # null a temperature outside -30 to 45 degrees (in the unit asked for) and a daily rain above 200 mm, keeping what
+    # the source wrote as `rejected:limits,raw:<number>`; `--plausibility-limits=soft` keeps the value and flags it
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+        --stations=1048 --timestamp=2024-01 --limits=temperature_air_mean_2m=-30:45 --limits=precipitation_amount=:200
+
     # MOSMIX and DMO forecasts
     wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
     wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --stations=65510 --lead-time=long
@@ -789,21 +1072,18 @@ SUMMARIZE_EXAMPLES = r"""
 """
 
 COVERAGE_EXAMPLES = r"""
-    # every provider and network
-    wetterdienst about coverage
-
     # the resolutions, datasets and parameters of one network, or of part of it
-    wetterdienst about coverage --provider=dwd --network=observation
-    wetterdienst about coverage --provider=dwd --network=observation --resolutions=1_minute
-    wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
+    wetterdienst coverage --provider=dwd --network=observation
+    wetterdienst coverage --provider=dwd --network=observation --resolutions=1_minute
+    wetterdienst coverage --provider=dwd --network=observation --datasets=climate_summary
 """
 
 AUTH_EXAMPLES = r"""
     # whether the credentials this installation holds for a provider are present and accepted
-    wetterdienst about auth --provider=aemet --network=observation
+    wetterdienst auth --provider=aemet --network=observation
 
     # a network that needs none is configured and valid without a request
-    wetterdienst about auth --provider=dwd --network=observation
+    wetterdienst auth --provider=dwd --network=observation
 """
 
 RESTAPI_EXAMPLES = r"""
@@ -875,6 +1155,8 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     told in one line, exit 1: the message names the setting to change, which is what the person at
     the command line can do, and the command line was right, so it is no usage error (GH-2665).
     """
+    from wetterdienst.ui.core import _is_caller_refusal
+
     if isinstance(e, (MissingDependencyError, NoInternetError)):
         raise e
     if isinstance(e, (CredentialMissingError, CredentialRejectedError)):
@@ -954,19 +1236,24 @@ def _finish(
     (GH-2635). A target is left as it is, since nothing is there to write: replacing a table with an
     empty one is not what a schedule that found no reading yet is after.
     """
+    from wetterdienst.ui.render import render
+
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    # the sums of the warnings that count something, which only the answer's metadata carries otherwise
+    log_counted_warnings(log)
     empty = values_.df.is_empty()
     if empty:
         log.warning(NO_DATA)
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
-        _export_or_exit(values_, target, if_exists)
+        _export_or_exit(values_, target, if_exists, with_metadata=request.with_metadata)
         return
     _echo(render(values_, request, applied, options))
 
 
-def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
+def _export_or_exit(result: Any, target: str, if_exists: str, *, with_metadata: bool = False) -> None:  # noqa: ANN401
     """Write to the target, telling a sink that refuses apart from a sink that broke.
 
     A refusal is a finished sentence and wants nothing else -- `Append mode is not supported for
@@ -979,9 +1266,12 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
     got that right for long. A `KeyError` from inside a sink was reported as advice and printed its
     own argument and nothing else -- exporting a stations frame to InfluxDB pops a `timestamp` column
     that only values carry, and the whole report was `ERROR date`, as the column was then called.
+
+    `--with-metadata` goes to `to_target` as it is: a file target gets `<file>.metadata.json` beside it, or the
+    heavy parts in the block of a Parquet, NetCDF or Zarr file, and a database target is refused (GH-3704).
     """
     try:
-        result.to_target(target, if_exists=if_exists)
+        result.to_target(target, if_exists=if_exists, with_metadata=with_metadata)
     except (ExportRefusedError, MissingDependencyError) as e:
         # a refusal, or a sink whose package is not installed: the message is the whole of it
         log.error(str(e))  # noqa: TRY400
@@ -991,11 +1281,90 @@ def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: 
         sys.exit(1)
 
 
+def _refuse_database_metadata(target: str | None, *, with_metadata: bool) -> None:
+    """Refuse `--with-metadata` with a database `--target`, before the fetch (GH-3711).
+
+    The metadata goes beside a file, and a database has none: the refusal depends on the target's scheme and the
+    flag alone, so it is told at once, where `to_target` would tell it after the whole request was downloaded. It
+    is told for an empty result too, which is never written: the combination is invalid whatever the data.
+    """
+    if not (target and with_metadata):
+        return
+    from wetterdienst.io.sinks import refuse_metadata_without_file
+
+    try:
+        refuse_metadata_without_file(target, ConnectionString(target))
+    except ValueError:
+        # a target `urlparse` cannot read (`duckdb://[x/obs.duckdb`): the export tells it, as it always did
+        return
+    except ExportRefusedError as e:
+        log.error(str(e))  # noqa: TRY400
+        sys.exit(1)
+
+
+def _target_path(target: str) -> str:
+    """Give the path a `--target` names, or tell it cannot name one: a NUL (`%00`) is in no file name, exit 1.
+
+    Told before the fetch, as the other refusals of a target are for `history` and `alerts`, which write the file
+    themselves.
+    """
+    try:
+        return file_target_path(target)
+    except ExportRefusedError as e:
+        raise click.ClickException(str(e)) from e
+
+
+def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
+    """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
+
+    The extension decides what is written, as it does for `stations` and `values`, so an explicit `--format` that
+    names another format is a usage error instead of one of the two silently winning. `--with-metadata` writes beside
+    a file, and the JSON and GeoJSON on stdout carry the block always, so it needs a `--target`.
+
+    Raises:
+        click.BadParameter: An extension of none of the three, or a `--format` that disagrees with it.
+        click.UsageError: `--with-metadata` without `--target`.
+
+    """
+    from wetterdienst.io.sinks import ALERT_FILE_FORMATS
+
+    if not target:
+        if with_metadata:
+            msg = (
+                "--with-metadata writes <file>.metadata.json beside the --target file, so it needs --target; "
+                "the JSON and GeoJSON on stdout carry the metadata block always"
+            )
+            raise click.UsageError(msg)
+        return None
+    path = _target_path(target)
+    extension = next((ext for ext in ALERT_FILE_FORMATS if path.lower().endswith(ext)), None)
+    if extension is None:
+        msg = (
+            f"{path!r} is none of the files alerts are written as ({', '.join(ALERT_FILE_FORMATS)}): the extension "
+            "decides the format. Leave out --target to write to stdout"
+        )
+        raise click.BadParameter(msg, param_hint="--target")
+    context = click.get_current_context()
+    if (
+        context.get_parameter_source("fmt") is not ParameterSource.DEFAULT
+        and fmt.lower() != ALERT_FILE_FORMATS[extension]
+    ):
+        msg = (
+            f"--format={fmt.lower()} does not match {extension}, which is written as "
+            f"{ALERT_FILE_FORMATS[extension]}: the extension decides what --target holds"
+        )
+        raise click.BadParameter(msg, param_hint="--format")
+    # a file named without the scheme is read as a path, `%` and all: only the two characters the URI reads are written
+    # as it reads them, and the rest, a name that is not UTF-8 included (`quote` raises on its surrogates), as it is
+    return target if target.startswith("file://") else "file://" + path.replace("%", "%25").replace("?", "%3F")
+
+
 def _refuse_non_file_target(target: str | None, command: str) -> None:
     """Refuse a --target with a scheme other than `file://`, for a command that writes plain text.
 
-    `alerts` and `history` write their output with `Path.write_text`, not the timeseries commands'
-    `to_target()`, so only a local path or a `file://` URI is a target they can write. Called before
+    `history` writes its output with `Path.write_text`, and `alerts` through a `to_target` that takes files only
+    (GH-3706), not the timeseries commands' one, so only a local path or a `file://` URI is a target they can
+    write. Called before
     the fetch, so that `s3://...` or `duckdb://...` is a usage error at once, rather than a write to
     the path read off the URI (`s3:/bucket/...`) that fails once the whole fetch has run.
     """
@@ -1004,12 +1373,24 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
         raise click.BadParameter(msg)
 
 
-def _renamed_to(command: click.Command, option: str) -> str | None:
+def _route_of(ctx: click.Context) -> str:
+    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage`."""
+    names = []
+    while ctx.parent is not None:
+        names.append(ctx.info_name or "")
+        ctx = ctx.parent
+    return "_".join(reversed(names))
+
+
+def _renamed_to(command: click.Command, option: str, route: str) -> str | None:
     """Tell the option a renamed one is now spelled, where the rename is mechanical, else None.
 
     An option was renamed for 1.0 if the command has it with its underscores as hyphens
     (`--convert_units`, now `--convert-units`) or in the plural (`--station`, now `--stations`): the
     spellings a command line is free to mistake for the new one, and the only ones it can have kept.
+    Either is a rename only on a route that had the old spelling in 0.139.0 (`OLD_NAMES_OF_ROUTE`,
+    `OLD_UNDERSCORE_OPTIONS_OF_ROUTE`): `providers` never had `--dataset`, nor `stations` `--date`
+    or `--name_threshold`.
     """
     # a hidden option is itself a refusal, such as `--start-date`, and no name to send the caller to
     taken = {
@@ -1018,9 +1399,14 @@ def _renamed_to(command: click.Command, option: str) -> str | None:
         if not getattr(param, "hidden", False)
         for opt in (*param.opts, *param.secondary_opts)
     }
+    # only a mistyped option gets here, so only a mistyped option waits for the table of what was renamed to import
+    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, old_names_of_route, old_underscore_options_of_route
+
+    name = option.removeprefix("--")
     # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
-    plural = f"{option}s" if option.removeprefix("--") in RENAMED_REQUEST_PARAMETERS else None
-    candidates = (option.replace("_", "-"), plural)
+    plural = f"{option}s" if name in RENAMED_REQUEST_PARAMETERS and name in old_names_of_route(route) else None
+    hyphenated = option.replace("_", "-") if name in old_underscore_options_of_route(route) else None
+    candidates = (hyphenated, plural)
     return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
 
 
@@ -1035,7 +1421,7 @@ class _Command(click.Command):
         try:
             return super().parse_args(ctx, args)
         except click.NoSuchOption as e:
-            renamed = _renamed_to(self, e.option_name)
+            renamed = _renamed_to(self, e.option_name, _route_of(ctx))
             if renamed is None:
                 # click guesses among every option the command registered, the hidden refusals too (GH-3167): one
                 # of them as a suggestion would send the caller to an option that says it was renamed
@@ -1046,10 +1432,30 @@ class _Command(click.Command):
             raise click.UsageError(msg, ctx) from e
 
 
+class _CoverageCommand(_Command):
+    """`coverage`, which says what to call instead where it is given no provider or network (GH-3996).
+
+    It listed every provider and network before 1.0.0; that is `providers` now. Click would say only
+    that the option is missing, which tells a caller of the old form nothing.
+    """
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except click.MissingParameter as e:
+            from wetterdienst.ui.core import coverage_needs_a_network
+
+            raise click.UsageError(coverage_needs_a_network("`wetterdienst providers`"), ctx) from e
+
+
 class _Group(click.Group):
     """A group of commands that refuse a renamed option by its new name."""
 
     command_class = _Command
+
+
+#: the commands that were `wetterdienst about <command>` before 1.0.0 and are `wetterdienst <command>` now (GH-4000)
+_MOVED_FROM_ABOUT = ("auth", "coverage", "fields", "glossary", "providers")
 
 
 class _Cli(_Group):
@@ -1060,7 +1466,23 @@ class _Cli(_Group):
     the value. Whatever command it comes from, such an error is told here instead, a line each, with
     exit status 1: the environment is not the command line's to fix. An error the settings from
     the environment alone do not reproduce is the options', and is left as it is.
+
+    `about` was the group of `auth`, `coverage`, `fields`, `glossary` and `providers`, which are commands of their
+    own now. It is no command and no alias: a call of it is a usage error that names the command to call (GH-4000).
     """
+
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
+        if args and args[0] == "about":
+            moved = args[1] if len(args) > 1 and args[1] in _MOVED_FROM_ABOUT else None
+            if moved:
+                msg = f"`wetterdienst about {moved}` moved to `wetterdienst {moved}`."
+            else:
+                names = ", ".join(f"`wetterdienst {name}`" for name in _MOVED_FROM_ABOUT)
+                msg = f"`wetterdienst about` is gone: its commands moved up to {names}."
+            raise click.UsageError(msg, ctx)
+        return super().resolve_command(ctx, args)
 
     def invoke(self, ctx: click.Context) -> Any:  # noqa: ANN401
         try:
@@ -1070,18 +1492,36 @@ class _Cli(_Group):
             # such as rendering an image: the message names what to install, and is the whole of it
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
+        except ImageTimeoutError as e:
+            # whatever image the command was drawing: the browser did not finish, and was closed. One line, as
+            # for an outage, where a traceback says nothing the line does not (GH-3723)
+            log.error(str(e))  # noqa: TRY400
+            sys.exit(1)
         except NoInternetError as e:
             # whatever the command was fetching: no connection to the provider could be made, which
             # is told in the one line it is, naming the URL, and not as a traceback. An empty result
             # would be exit 0, and would not say why (GH-2640)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
-        except (ValidationError, SettingsError) as e:
+        except Exception as e:
+            # Only what pydantic's classes are told apart by is looked at, and only if they are imported: an error
+            # that cannot be pydantic's is not the settings' (`--help`, `--version` and a usage error come through
+            # here without it: GH-3809), and importing the settings here would run an import that failed in the
+            # command again and show its error twice
+            pydantic_core = sys.modules.get("pydantic_core")
+            pydantic_settings = sys.modules.get("pydantic_settings")
+            settings = sys.modules.get("wetterdienst.settings")
+            options = sys.modules.get("wetterdienst.options")
+            if pydantic_core is None or pydantic_settings is None or settings is None:
+                raise
+            if not isinstance(e, (pydantic_core.ValidationError, pydantic_settings.SettingsError)):
+                raise
             # another model's error is not the settings', even beside a malformed variable an
             # option overrode
-            if isinstance(e, ValidationError) and e.title not in {Settings.__name__, Options.__name__}:
+            titles = {settings.Settings.__name__, *([options.Options.__name__] if options else [])}
+            if isinstance(e, pydantic_core.ValidationError) and e.title not in titles:
                 raise
-            problems = check_settings()
+            problems = settings.check_settings()
             if not problems:
                 raise
             raise click.ClickException("\n".join(problems)) from None
@@ -1094,15 +1534,20 @@ class _Cli(_Group):
     context_settings={"max_content_width": 120},
 )
 @click.version_option(__version__, "-v", "--version", message="%(version)s")
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """Command line interface for the Wetterdienst package."""
     setup_logging()
+    if no_color():
+        # nothing here styles its output, but click does for what it writes itself (the deprecation of a command or an
+        # option is red): with NO_COLOR it strips every escape code from what `click.echo` writes, on a terminal too
+        ctx.color = False
 
 
 @cli.command("cache")
 def cache() -> None:
     """Display cache location."""
-    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst import Settings
 
     print(Settings().cache_dir)  # noqa: T201
 
@@ -1110,7 +1555,7 @@ def cache() -> None:
 @cli.command("info")
 def info() -> None:
     """Display project information."""
-    from wetterdienst import Info  # noqa: PLC0415
+    from wetterdienst import Info
 
     print(Info())  # noqa: T201
 
@@ -1120,14 +1565,14 @@ def info() -> None:
 @_bool_opt(
     "--reload", default=False, help="Reload the service when a source file changes, for development. Default: false"
 )
-@debug_opt
+@_debug_only_opt
 def restapi(
     listen: str,
     reload: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Start the Wetterdienst REST API web service."""
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # Run HTTP service.
     log.info(f"Starting {appname}")
@@ -1138,23 +1583,18 @@ def restapi(
     restapi_module.start_service(listen, reload=reload)
 
 
-@cli.group(cls=_Group)
-def about() -> None:
-    """Get information about the data."""
-
-
-@about.command(epilog=_examples(COVERAGE_EXAMPLES))
-@click.option("--provider", type=click.STRING, help="Data provider. Without it and --network, every combination.")
-@click.option("--network", type=click.STRING, help="Data network of the provider.")
+@cli.command(cls=_CoverageCommand, epilog=_examples(COVERAGE_EXAMPLES))
+@provider_opt
+@network_opt
 @click.option(
     "--resolutions",
     type=click.STRING,
-    help="Only these resolutions, comma-separated. Needs --provider and --network. Example: daily,hourly",
+    help="Only these resolutions, comma-separated. Example: daily,hourly",
 )
 @click.option(
     "--datasets",
     type=click.STRING,
-    help="Only these datasets, comma-separated. Needs --provider and --network. Example: climate_summary",
+    help="Only these datasets, comma-separated. Example: climate_summary",
 )
 @debug_opt
 def coverage(
@@ -1164,37 +1604,28 @@ def coverage(
     datasets: str,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Get coverage information.
+    """Get the resolutions, datasets and parameters of one network.
 
-    Without --provider and --network, every provider and network with its `name_short`, `country`, `url`
-    and `kind`, and whether it needs credentials and has them. `kind` is `observation`, `forecast` or
-    `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
-    standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
-    resolutions, datasets and parameters of that network.
+    --provider and --network are required; `providers` lists the providers and their networks, with
+    their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations and
+    values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse) and whether
+    they need credentials and have them. A parameter's `unit` is the unit its values come
+    back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
+    percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
+    only where it differs from `unit`; absent, it is the same. A unit target of your own changes the values,
+    not this answer. `aggregation` is what the value is relative to its interval (`mean`, `max`, `sum`, ...,
+    `instant` for a single reading) and `timestamp_position` where its timestamp sits in the row's interval
+    (`instant`, `start`, `end`, `middle`); `null` in either: the source does not state it.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.ui.core import coverage_needs_a_network
 
-    # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
-    # provider and network without the other, or resolutions / datasets, which that list has none of
-    filters = [name for name, value in (("resolutions", resolutions), ("datasets", datasets)) if value]
-    if bool(provider) != bool(network) or (filters and not (provider or network)):
-        ctx = click.get_current_context()
-        params = {param.name: param for param in ctx.command.params}
-        missing = [name for name, value in (("provider", provider), ("network", network)) if not value]
-        # what the missing ones are required with: the other of the two, else the filters given
-        given = [name for name in ("provider", "network") if name not in missing] or filters
-        message = f"Required with {join_names([_option_hint(name, params, ctx) for name in given])}."
-        hint = join_names([_option_hint(name, params, ctx) for name in missing])
-        raise click.MissingParameter(
-            message, ctx, param_hint=hint, param_type="options" if len(missing) > 1 else "option"
-        )
+    _apply_log_level(debug=debug)
 
-    if not provider and not network:
-        # the listing marks a provider unconfigured where the settings are invalid, but this command
-        # tells them, and exits 1, as it did when the listing raised (GH-2335)
-        Settings()
-        print(json.dumps(Wetterdienst.discover(), indent=2))  # noqa: T201
-        return
+    if not provider or not network:
+        # an empty value is as good as none, as it is for the REST route and the MCP tool
+        raise click.UsageError(coverage_needs_a_network("`wetterdienst providers`"))
 
     resolutions_list = read_list(resolutions)
     datasets_list = read_list(datasets)
@@ -1207,8 +1638,8 @@ def coverage(
         msg = f"Coverage is not available for provider '{provider}' and network '{network}'."
         raise click.UsageError(msg)
 
-    # one network's metadata reads no setting, and a malformed one is told the same as for the listing
-    # of every network, after the usage errors above as in `stations` and `values` (GH-2619)
+    # one network's metadata reads no setting, and a malformed one is told the same as for the other commands,
+    # after the usage errors above as in `stations` and `values` (GH-2619)
     Settings()
     try:
         cov = api.discover(
@@ -1223,33 +1654,50 @@ def coverage(
     print(json.dumps(cov, indent=2))  # noqa: T201
 
 
-@about.command("providers")
-@click.option("--provider", type=click.STRING, help="Only this provider. Without it, every provider. Example: dwd")
+@cli.command("providers")
+@click.option(
+    "--provider",
+    type=click.STRING,
+    shell_complete=_complete_provider,
+    help="Only this provider. Without it, every provider. Example: dwd",
+)
 @debug_opt
 def providers(
     provider: str,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+    """List the providers and their networks, and describe what each provider is.
 
     Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
-    its data under (`license`, null where it states none), the credit line to give (`attribution`), and its
-    networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
-    offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
+    its data under (`license`, null where it states none), the credit line to cite (`attribution`; the `copyright`
+    of a network is the rights holder's notice, for information), and its networks with their `kind`
+    (`observation`, `forecast` or `derived` for a timeseries network, which has stations and values; `radar` or
+    `alerts` for a standalone one, which `stations` and `values` refuse), `extent`, source `url`, whether they need
+    credentials (`auth`) and have them (`configured`), whether a request has to give a date and their number of
+    parameters. Nothing is downloaded and no credential is probed. `coverage` lists the resolutions, datasets
+    and parameters of one network.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import ProvidersRequest
+    from wetterdienst.ui.providers import get_providers
+
+    _apply_log_level(debug=debug)
     begin_response()
+
+    # the listing marks a provider unconfigured where the settings are invalid, but this command tells them,
+    # and exits 1, as the listing of every network did (GH-2335)
+    Settings()
 
     request = ProvidersRequest.model_validate({"provider": provider})
     try:
         answer = get_providers(request.provider)
     except ApiNotFoundError as e:
-        msg = f"{e} List them with: wetterdienst about providers"
+        msg = f"{e} List them with: wetterdienst providers"
         raise click.UsageError(msg) from e
     print(answer.model_dump_json(indent=2))  # noqa: T201
 
 
-@about.command("auth", epilog=_examples(AUTH_EXAMPLES))
+@cli.command("auth", epilog=_examples(AUTH_EXAMPLES))
 @provider_opt
 @network_opt
 @debug_opt
@@ -1267,10 +1715,12 @@ def auth(
     provider): unknown, not rejected. A network that needs none is configured and valid.
 
     This is the one command that probes the provider, for the one network asked about: a single
-    attempt that gives up after a few seconds. `about coverage` does not probe and has no `valid`, only
+    attempt that gives up after a few seconds. `providers` does not probe and has no `valid`, only
     whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the answer.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+
+    _apply_log_level(debug=debug)
 
     # a malformed server setting is refused by its variable, as for the other commands
     Settings()
@@ -1279,7 +1729,7 @@ def auth(
     print(json.dumps(get_auth(api, provider, network), indent=2))  # noqa: T201
 
 
-@about.command("glossary")
+@cli.command("glossary")
 @click.option(
     "--parameter",
     type=click.STRING,
@@ -1306,9 +1756,12 @@ def glossary(
     """Look up what a parameter measures and which unit it is returned in.
 
     The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
-    override.
+    override. `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...),
+    null for a plain name; `coverage` has the one of each parameter of a network.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+
+    _apply_log_level(debug=debug)
 
     # a malformed server setting is refused by its variable, as it is for the other commands
     Settings()
@@ -1316,14 +1769,14 @@ def glossary(
 
     if not entries:
         # an empty list is an answer, as `/api/glossary`'s 200 is, and no failure (GH-2635)
-        log.warning("No canonical parameter matches the given filters.")
+        log.warning("No parameter matches the given filters.")
 
     # ensure_ascii=False so unit symbols print as °C and J/cm² rather than escapes; this command
     # exists to show them
     print(json.dumps(entries, indent=2, ensure_ascii=False))  # noqa: T201
 
 
-@about.command("fields")
+@cli.command("fields")
 @provider_opt
 @network_opt
 @click.option(
@@ -1359,7 +1812,9 @@ def fields(
 
     DWD observation only: no other provider publishes such a description.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+    _apply_log_level(debug=debug)
     api = get_api(provider, network)
     if not issubclass(api, DwdObservationRequest):
         msg = f"Fields are described for provider 'dwd', network 'observation' only, not {provider}/{network}."
@@ -1391,11 +1846,8 @@ def fields(
 @parameters_opt
 @periods_opt
 @stations_timestamp_opt
-@renamed_date_opt
 @start_opt
 @end_opt
-@start_date_renamed_opt
-@end_date_renamed_opt
 @all_opt
 @stations_opt
 @name_opt
@@ -1417,7 +1869,7 @@ def fields(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @debug_opt
 def stations(
     provider: str,
@@ -1460,6 +1912,10 @@ def stations(
     A selection that finds no station is no failure: the list is empty, the command says so on stderr
     and exits 0. A station id of --stations the network has no station for is named in a warning and left out.
     """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import StationsRequest, limit_stations_to_rank, limit_stations_to_window
+    from wetterdienst.ui.render import render_stations
+
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
         StationsRequest,
@@ -1491,8 +1947,9 @@ def stations(
             "with_metadata": with_metadata,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(provider=provider, network=network)
 
@@ -1525,9 +1982,9 @@ def stations(
 
     if target:
         if empty:
-            log.warning(NOTHING_WRITTEN)
+            log.warning(NOTHING_WRITTEN, extra=_NOTHING_WRITTEN_RECORD)
             return
-        _export_or_exit(stations_, target, if_exists)
+        _export_or_exit(stations_, target, if_exists, with_metadata=request.with_metadata)
         return
 
     _echo(render_stations(stations_, request))
@@ -1566,7 +2023,12 @@ def issues_cmd(
     default to what a `values` request defaults to, which is what makes the answer one that request
     accepts.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import IssuesRequest
+    from wetterdienst.ui.render import render_issues
+    from wetterdienst.ui.response_metadata import issues_metadata
+
+    _apply_log_level(debug=debug)
     begin_response()
 
     api = get_api(provider=provider, network=network)
@@ -1645,10 +2107,14 @@ def history(
 
     Select the stations with exactly one of --all or --stations.
     """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import HistoryRequest
+    from wetterdienst.ui.render import render_history
+
     _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
-    path = file_target_path(target) if target else None
-    if path is not None and not path.endswith(".json"):
+    path = _target_path(target) if target else None
+    if path is not None and not path.lower().endswith(".json"):
         msg = "--target for history endpoint must end with .json"
         raise click.BadParameter(msg)
 
@@ -1667,7 +2133,7 @@ def history(
         },
     )
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
 
     api = get_timeseries_api(provider=provider, network=network, history=True)
@@ -1773,6 +2239,8 @@ def history(
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
 @station_window_end_buffer_opt
+@plausibility_opts
+@limits_opt
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1780,7 +2248,7 @@ def history(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
+@with_metadata_target_opt
 @with_stations_opt
 @debug_opt
 def values(
@@ -1822,6 +2290,17 @@ def values(
     skip_threshold: float,
     drop_nulls: bool,  # noqa: FBT001
     station_window_end_buffer: int | None,
+    plausibility: Mode | None,
+    plausibility_range: Mode,
+    plausibility_elevation: Mode,
+    plausibility_stuck: Mode,
+    plausibility_consistency: Mode,
+    plausibility_floor: Mode,
+    plausibility_limits: Mode,
+    plausibility_source: Mode,
+    plausibility_step: Mode,
+    plausibility_relations: Mode,
+    limits: dict[str, Any] | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -1832,6 +2311,10 @@ def values(
     Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
     --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, ValuesRequest
+    from wetterdienst.ui.render import ValuesSettings, ndjson_refusal
+
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
         ValuesRequest,
@@ -1840,7 +2323,7 @@ def values(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "timestamp": timestamp_resolved,
             "issue": issue,
             "all": all_,
@@ -1870,13 +2353,25 @@ def values(
             "skip_threshold": skip_threshold,
             "drop_nulls": drop_nulls,
             "station_window_end_buffer": station_window_end_buffer,
+            "plausibility": plausibility,
+            "plausibility_range": plausibility_range,
+            "plausibility_elevation": plausibility_elevation,
+            "plausibility_stuck": plausibility_stuck,
+            "plausibility_consistency": plausibility_consistency,
+            "plausibility_floor": plausibility_floor,
+            "plausibility_limits": plausibility_limits,
+            "plausibility_source": plausibility_source,
+            "plausibility_step": plausibility_step,
+            "plausibility_relations": plausibility_relations,
+            "limits": limits,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
     if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
         raise click.UsageError(refusal)
 
@@ -1896,6 +2391,9 @@ def values(
             "skip_threshold": ("skip_threshold", request.skip_threshold),
             "drop_nulls": ("drop_nulls", request.drop_nulls),
             "station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer),
+            "plausibility": ("plausibility", request.plausibility),
+            **{name: (name, getattr(request, name)) for name in PLAUSIBILITY_OPTIONS},
+            "limits": ("limits", request.limits or {}),
         }
     )
 
@@ -1938,8 +2436,8 @@ def values(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
-@with_stations_opt
+@with_metadata_target_opt
+@with_estimate_stations_opt
 @debug_opt
 def interpolate(
     provider: str,
@@ -1980,6 +2478,10 @@ def interpolate(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import InterpolationRequest
+    from wetterdienst.ui.render import InterpolationSettings
+
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     if not timestamp_resolved:
         msg = "Provide either --timestamp or --start / --end."
@@ -1991,7 +2493,7 @@ def interpolate(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "interpolation_station_distance": interpolation_station_distance,
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
@@ -2018,8 +2520,9 @@ def interpolate(
         },
     )
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2085,8 +2588,8 @@ def interpolate(
 @target_opt
 @if_exists_opt
 @pretty_opt
-@with_metadata_opt
-@with_stations_opt
+@with_metadata_target_opt
+@with_estimate_stations_opt
 @debug_opt
 def summarize(
     provider: str,
@@ -2126,6 +2629,10 @@ def summarize(
 
     Give the point as exactly one of --station or --latitude/--longitude.
     """
+    from wetterdienst import Settings
+    from wetterdienst.ui.core import SummaryRequest
+    from wetterdienst.ui.render import SummarySettings
+
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     if not timestamp_resolved:
         msg = "Provide either --timestamp or --start / --end."
@@ -2137,7 +2644,7 @@ def summarize(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
+            "lead_time": _lead_time_named(lead_time),
             "summary_station_distance": summary_station_distance,
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
@@ -2162,8 +2669,9 @@ def summarize(
             "pretty": pretty,
         },
     )
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
     begin_response()
+    _refuse_database_metadata(target, with_metadata=request.with_metadata)
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2206,8 +2714,8 @@ def _radar_sites(
     country_name: str | None,
 ) -> dict | list[dict]:
     """Look up the radar sites the one given selector names, raising KeyError where none match."""
-    from wetterdienst.provider.dwd.radar.api import DwdRadarSites  # noqa: PLC0415
-    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.api import DwdRadarSites
+    from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 
     if dwd:
         return DwdRadarSites().all()
@@ -2242,6 +2750,8 @@ def radar(
 
     Select the sites with exactly one of --dwd, --all, --odim-code, --wmo-code or --country-name.
     """
+    from wetterdienst import Settings
+
     # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
     _require_one_of(
         dwd=dwd,
@@ -2280,7 +2790,7 @@ def radar(
     "--language",
     type=click.Choice(["de", "en", "es", "fr", "mul"], case_sensitive=False),
     default="en",
-    help="Language of the warning texts. Default: en",
+    help="Language of the warning texts; mul holds eight, the other seven as 'translations'. Default: en",
 )
 @click.option(
     "--timestamp",
@@ -2302,9 +2812,30 @@ def radar(
 @click.option(
     "--target",
     type=click.STRING,
-    help="Write output to this file instead of stdout. Example: file://alerts.geojson",
+    help=(
+        "Write the alerts to this file instead of stdout, in the format its extension names: .json, .geojson or "
+        ".csv. Databases are refused. A snapshot without a warning still writes the file. Example: file://alerts.csv"
+    ),
+)
+@click.option(
+    "--if-exists",
+    type=click.Choice(["replace", "append", "fail", "skip"]),
+    default="replace",
+    help=(
+        "What to do when the --target file is there: 'replace' (default), 'fail' or 'skip'. A file takes "
+        "no 'append'. Default: replace"
+    ),
 )
 @pretty_opt
+@_bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Write the metadata block (provider, licence, credit line, date of the data) beside the --target file as "
+        "<file>.metadata.json. A .json or .geojson file holds it already; a .csv file does not. Needs --target. "
+        "Default: false"
+    ),
+)
 @debug_opt
 def alerts(
     granularity: str,
@@ -2312,20 +2843,27 @@ def alerts(
     timestamp: str,
     fmt: str,
     target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
     pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
 ) -> None:
     """Acquire DWD weather alerts (CAP warnings).
 
     Returns all warnings active at the selected time (the latest snapshot by default), one row per
     alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+
+    With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
     """
-    set_logging_level(debug=debug)
+    from wetterdienst import Settings
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+    from wetterdienst.ui.render import render_alerts
+
+    _apply_log_level(debug=debug)
     begin_response()
 
-    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
-
     _refuse_non_file_target(target, "alerts")
+    target_url = _alerts_target(target, fmt, with_metadata=with_metadata)
 
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
@@ -2352,18 +2890,21 @@ def alerts(
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e
 
-    output, _ = render_alerts(result, fmt, pretty=pretty)
-
-    if target:
-        path = file_target_path(target)
+    if target_url:
+        # an empty snapshot is written as it is, as no warning is an answer a file should say, where a table of
+        # stations or values is left alone (a schedule that rewrites the file must not keep yesterday's warnings)
         try:
-            Path(path).write_text(output, encoding="utf-8")
+            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata, pretty=pretty)
+        except (ExportRefusedError, MissingDependencyError) as e:
+            # a refusal, the message the whole of it: `--if-exists=fail` on a file that is there, `append`
+            raise click.ClickException(str(e)) from e
         except OSError as e:
             # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"
             raise click.ClickException(msg) from e
         return
 
+    output, _ = render_alerts(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
 
 
@@ -2392,7 +2933,11 @@ def stripes_stations(
     debug: bool,  # noqa: FBT001
 ) -> None:
     """List stations for climate stripes."""
-    set_logging_level(debug=debug)
+    from wetterdienst.ui.core import StripesStationsRequest, _get_stripes_stations
+    from wetterdienst.ui.render import render_stripes_stations
+    from wetterdienst.ui.response_metadata import result_metadata
+
+    _apply_log_level(debug=debug)
     begin_response()
     if kind not in ["temperature", "precipitation"]:
         msg = f"Invalid kind '{kind}'"
@@ -2449,6 +2994,10 @@ def stripes_image(
 
     Select the station with exactly one of --station or --name.
     """
+    from wetterdienst import Settings
+    from wetterdienst.io.export import render_image, require_kaleido
+    from wetterdienst.ui.core import StripesImageRequest
+
     # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
     # would be written to the path read off it (`s3:/bucket/...`) once the station is fetched and the plot rendered
     if target and "://" in target:
@@ -2478,7 +3027,7 @@ def stripes_image(
         msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
         raise click.BadParameter(msg, param_hint="--target")
 
-    set_logging_level(debug=debug)
+    _apply_log_level(debug=debug)
 
     # the provider request builds its settings from the environment inside the catch-all below:
     # checked here first, a malformed `WD_*` setting is told by its variable
@@ -2493,7 +3042,7 @@ def stripes_image(
         raise click.ClickException(str(e)) from e
 
     require_kaleido()
-    image = fig.to_image(fmt, scale=dpi / 100)
+    image = render_image(fig, fmt, scale=dpi / 100)
 
     if target_path is not None:
         # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own

@@ -46,6 +46,26 @@ This repository uses a **monorepo structure** with separate release workflows fo
 
 **Key point**: Backend releases only build backend images, app releases only build app images.
 
+## Who can release
+
+A tag starts the publishing workflows, and a workflow runs from the commit its tag points to, which can be
+a commit on no reviewed branch. The release tags are therefore protected by repository settings, which
+this repository does not hold as files (GH-3344):
+
+| Setting | Value | What it stops |
+|---|---|---|
+| Tag ruleset on `refs/tags/v*` and `refs/tags/app-v*` | creating, updating and deleting are restricted to the bypass team of the `default` branch ruleset | a tag by anyone with write access, and a tag moved to another commit |
+| Environment `pypi` | deployment tag pattern `v*` | the `publish` job of `release.yml` (the only job with `id-token: write`) running from a branch or an `app-v*` tag |
+| PyPI trusted publisher | bound to the environment `pypi` | a workflow run that does not name that environment publishing to PyPI |
+| Environment `production` | deployment tag patterns `v*` and `app-v*`, holding `COOLIFY_API_TOKEN`, `COOLIFY_BACKEND_UUID` and `COOLIFY_APP_UUID` | the two `deploy` jobs of `docker-publish*.yml` running from a branch, and a workflow that does not name the environment reading the Coolify secrets |
+
+`gh release create vX.Y.Z --target <sha>` creates the tag under the account that runs it, so that account
+has to be in the bypass team. Neither release workflow creates a tag: `app-release.yml` only uploads a
+file to the release that exists. A release that fails with `Cannot create ref due to creations being
+restricted` was made by an account outside the bypass team; make it as the maintainer, do not widen the
+ruleset. The environments hold no required reviewer, so a release waits for no click: the tag pattern
+checks where a run comes from, the ruleset checks who can make the tag.
+
 ## Creating Releases
 
 ### Release notes are not the changelog
@@ -116,9 +136,10 @@ Three contracts are held by snapshots, so that a change to one is a diff in the 
 | the `--help` of every command | `tests/ui/cli/help.snapshot.txt` | `uv run poe cli:snapshot` |
 | the public surface of the Python API | `tests/public_surface.snapshot.json` | `uv run poe surface:snapshot` |
 
-`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. So each contract
-is also checked against what the **last release** offered: a baseline is that surface as released, a test fails when
-the code no longer offers something the baseline does, and additions always pass.
+`uv run poe contracts:snapshot` does all three. The OpenAPI snapshot leaves out `info.version`, so the first
+regeneration after a release does not rewrite that line. A snapshot shows a change; it does not refuse one. So each
+contract is also checked against what the **last release** offered: a baseline is that surface as released, a test
+fails when the code no longer offers something the baseline does, and additions always pass.
 
 | Baseline | File | What must still be offered |
 | --- | --- | --- |
@@ -150,7 +171,7 @@ The checklist for the release that makes 0.x into 1.0.0, in the order to do it. 
 #2561 (REST, CLI, MCP) and the issues under them promise for the tag; every file named is in the repository. The
 release steps above (and the release commit of the last 0.x release, which did them last) are the
 mechanics; this list adds what only 1.0.0 needs. The app stays 0.x (`docs/usage/compatibility.md`, "The web app and
-the image"), so its release after this one is the next 0.x app version (after 0.39.0 today), not `app-v1.0.0`.
+the image"), so its release after this one is the next 0.x app version (after 0.47.0 today), not `app-v1.0.0`.
 
 ### 0. What must be true first
 
@@ -160,7 +181,7 @@ the image"), so its release after this one is the next 0.x app version (after 0.
   links from `README.md` and `docs/usage/index.md` exist (#3130); the three contract checks exist (#3131):
   `tests/ui/test_openapi_baseline.py`, `tests/ui/cli/help.snapshot.txt`, `tests/baselines/test_baselines.py`.
   Both issues stay open until step 5 closes them with the tag.
-- [ ] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
+- [x] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
   the floor of Python are made and are on the page.
 - [ ] No pull request that changes a frozen surface is open or planned for the tag: the `ACCEPTED_BREAKS` of
   `tests/ui/openapi_diff.py` and `tests/baselines/{cli,surface,mcp,parameters}.py` are empty, apart from the one
@@ -337,7 +358,7 @@ run on `main` proves the commit, not the published wheel.
 An app that ships against a backend it was not run with is how app 0.21.0 got a 422 from 0.155.0; the app is
 released after step 3, never in the same PR as the backend.
 
-- [ ] `app/package.json` `version` the next 0.x app version after 0.39.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
+- [ ] `app/package.json` `version` the next 0.x app version after 0.47.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
   `## [X.Y.Z] - YYYY-MM-DD` section cut from `[Unreleased]`; `.github/RELEASE_STRATEGY.md` "currently" line for the
   app; `docs/usage/migrating.md` (the pair sentence in the intro) names `app-vX.Y.Z` with 1.0.0. Land it.
 - [ ] `git tag app-vX.Y.Z && git push origin app-vX.Y.Z` (starts `docker-publish-app.yml`), then
@@ -357,19 +378,23 @@ released after step 3, never in the same PR as the backend.
   announced exception (a correction of data, an ended upstream source).
 - [ ] Announce: the release body is the text; link it from the places the project has (the issue trackers above).
 
-### Decisions the maintainer has to make first
+### Decisions made by the maintainer
 
-Not decided anywhere this checklist could read, and each changes a line above.
+Decided on 2026-11-08 and recorded on #2625 and #3137.
 
-- **The app number**: `docs/usage/compatibility.md` says the app stays 0.x. The examples of this file used
-  `app-v1.0.0` and are changed to 0.x here; if the app is to be 1.0 as well, step 6 and the compatibility page change.
-- **Whether a 0.x release goes between step 1 and step 2**: the page says the shims go "with the tag"; a release in
-  between would ship their removal as 0.x. This list assumes none.
+- **The app number**: the app stays 0.x, as `docs/usage/compatibility.md` says. Its release after the tag is the
+  next 0.x app version (step 6).
+- **A last 0.x release before the tag**: the remaining breaking items (#3536 step 2, the compact `providers` answer
+  by default, among them) go out in a last 0.x release. It runs live for a few days, and then step 2 makes
+  `1.0.0` from a clean changelog. The shims of step 1 were already removed in 0.173.0.
+- **`dwd/mosmix` `TM`**: if DWD has not answered by the tag which 24 hours `TM` covers,
+  `temperature_air_mean_2m_last_24h` keeps its name. Its description and `docs/data/time_reference.md` say the
+  window is unconfirmed, and which way the measurement points. An answer before the tag decides instead.
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.178.0`)
-- **App**: Version in `app/package.json` (currently `0.39.0`; the package is also marked `private`)
+- **Backend**: Version in `pyproject.toml` (currently `0.186.0`)
+- **App**: Version in `app/package.json` (currently `0.47.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 

@@ -1,5 +1,11 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 """Tests for meteorological data provider."""
 
 import datetime as dt
@@ -11,7 +17,8 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst.exceptions import DownloadError
+from wetterdienst.exceptions import DownloadError, MetaFileFormatError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
     _ABSENT_DAY_NO_PHENOMENON,
@@ -55,6 +62,29 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
         ("249180030", "Chałupki", "Odra (1)", None, 198.0),
     ]
     assert df["region"].is_null().all()
+
+
+def test_imgw_meteorology_station_list_trims_the_river_and_gives_none_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A river the list pads with blanks is the river, one it leaves empty is null (GH-3603), as in imgw/hydrology."""
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112) ;2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna; ;1954;49 59 44;18 55 09;270\r\n"
+        "4;249180030;Chałupki;;1948;49 55 33;18 19 39;198\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    assert df.select("station_id", "river").rows() == [
+        ("249170080", "Opawa (112)"),
+        ("249180010", None),
+        ("249180030", None),
+    ]
 
 
 def test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_is_none_as_null(
@@ -149,7 +179,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "dataset": "climate",
                 "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.2875,
+                "value": 28.75,
                 "quality_flags": None,
             },
             {
@@ -278,7 +308,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "dataset": "synop",
                 "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.6,
+                "value": 60.0,
                 "quality_flags": None,
             },
             {
@@ -287,7 +317,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "dataset": "synop",
                 "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.753,
+                "value": 75.3,
                 "quality_flags": None,
             },
             {
@@ -445,7 +475,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
     """Test fetching of daily synop data.
 
     Synop daily is archived per-station ("YYYY_<station-code>_s.zip"), not per-month like
-    the other meteorology daily datasets, and needs its own file-selection logic in _get_urls().
+    the other meteorology daily datasets, and needs its own file-selection logic in _get_archives().
     """
     request = ImgwMeteorologyRequest(
         parameters=[("daily", "synop")],
@@ -461,7 +491,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "dataset": "synop",
                 "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 0.905,
+                "value": 90.5,
                 "quality_flags": None,
             },
             {
@@ -1081,18 +1111,18 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
-    from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
 
     missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
     values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
-    monkeypatch.setattr(values, "_get_urls", lambda _dataset, _station_id: ["unused"])
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset, _station_id: {"unused": CacheExpiry.FIVE_MINUTES})
     dataset = ImgwMeteorologyMetadata.daily.climate
-    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing, failed])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing, failed])
     with pytest.raises(DownloadError):
         values._collect_station_parameter_or_dataset("249180010", dataset)  # noqa: SLF001
-    monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("249180010", dataset).is_empty()  # noqa: SLF001
 
 
@@ -1191,7 +1221,7 @@ def test_imgw_meteorology_daily_climate_across_the_end_of_k_d_t() -> None:
 def _meteorology_urls(
     monkeypatch: pytest.MonkeyPatch, resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
 ) -> list[str]:
-    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    """Run the file selection of ``_get_archives`` on a listing, for a window of UTC instants."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
@@ -1201,7 +1231,7 @@ def _meteorology_urls(
     values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(imgw_meteorology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
     dataset = getattr(ImgwMeteorologyMetadata, resolution).climate
-    return [url.rsplit("/", 1)[-1] for url in values._get_urls(dataset, "249180010")]  # noqa: SLF001
+    return [url.rsplit("/", 1)[-1] for url in values._get_archives(dataset, "249180010")]  # noqa: SLF001
 
 
 def _utc(*args: int) -> dt.datetime:
@@ -1251,3 +1281,312 @@ def test_imgw_meteorology_a_file_name_without_a_period_is_an_error(monkeypatch: 
     files = ["https://example.invalid/2023_k.zip", "https://example.invalid/abcd_k.zip"]
     with pytest.raises(ValueError, match=r"abcd_k\.zip"):
         _meteorology_urls(monkeypatch, "daily", files, _utc(2023, 1, 1), _utc(2023, 2, 1))
+
+
+# The daily synop of the year under way is one file for every station and month, "2026_10_s.zip", in the layout of the
+# per-station "2025_375_s.zip" (65 columns, the station id first); the clock is set to 15 October 2026. Rows modelled
+# on those read on 2026-11-10 from both, of two stations.
+# BIELSKO-BIALA (349190600) and WARSZAWA (352200375), whose three last digits are the code of the per-station names.
+_S_D_ROWS = {
+    ("349190600", "BIELSKO-BIA£A", "2026", "09", "30"): "21.1,,8.4,,14.5,,6.0",
+    ("352200375", "WARSZAWA", "2026", "09", "30"): "17.0,,9.0,,12.0,,7.5",
+    ("349190600", "BIELSKO-BIA£A", "2026", "10", "01"): "21.5,,8.0,,13.9,,4.7",
+    ("352200375", "WARSZAWA", "2026", "10", "01"): "18.2,,10.1,,13.3,,5.0",
+    ("352200375", "WARSZAWA", "2025", "01", "01"): "6.5,,-1.8,,3.8,,-4.5",
+}
+
+
+def _s_d(*keys: tuple[str, str, str, str, str]) -> bytes:
+    lines = []
+    for key in keys:
+        station, name, year, month, day = key
+        lines.append(f'"{station}",{name},"{year}","{month}","{day}",{_S_D_ROWS[key]},,,"9",,,"9",,"9"')
+    return "\n".join(lines).encode("latin-1")
+
+
+def _synop_zips() -> dict[str, bytes]:
+    """Give the archives of the listing by name: the months of 2026 hold both stations, the closed year one."""
+
+    def archive(entry: str, content: bytes) -> bytes:
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr(entry, content)
+        return buffer.getvalue()
+
+    september = ("349190600", "BIELSKO-BIA£A", "2026", "09", "30"), ("352200375", "WARSZAWA", "2026", "09", "30")
+    october = ("349190600", "BIELSKO-BIA£A", "2026", "10", "01"), ("352200375", "WARSZAWA", "2026", "10", "01")
+    return {
+        "2025_375_s.zip": archive("s_d_375_2025.csv", _s_d(("352200375", "WARSZAWA", "2025", "01", "01"))),
+        "2026_09_s.zip": archive("s_d_09_2026.csv", _s_d(*september)),
+        "2026_10_s.zip": archive("s_d_10_2026.csv", _s_d(*october)),
+    }
+
+
+#: what the folders of 2025 and 2026 hold: the per-station files of the closed year (two stations), the months of 2026
+_SYNOP_LISTING = [
+    "2025_100_s.zip",
+    "2025_375_s.zip",
+    *(f"2026_{month:02d}_s.zip" for month in range(1, 11)),
+]
+
+
+def _serve_synop(monkeypatch: pytest.MonkeyPatch, listing: list[str]) -> tuple[list[str], dict[str, CacheExpiry]]:
+    """Serve ``listing`` and the archives of `_synop_zips` (404 for the rest), and record what is downloaded."""
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
+    from wetterdienst.provider.imgw.meteorology import api as imgw_api  # noqa: PLC0415
+
+    zips = _synop_zips()
+    downloaded: list[str] = []
+    expiries: dict[str, CacheExpiry] = {}
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend(urls)
+        expiries.update(dict.fromkeys(urls, ttl))
+        return [
+            File(url=url, content=BytesIO(zips[name]), status=200)
+            if (name := url.rsplit("/", 1)[-1]) in zips
+            else File(url=url, content=FileNotFoundError(url), status=404)
+            for url in urls
+        ]
+
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 10, 15, tzinfo=dt.UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
+    return downloaded, expiries
+
+
+def _synop_values(station_id: str, start: str, end: str) -> tuple[ImgwMeteorologyValues, pl.DataFrame]:
+    from tests.provider.value_stubs import stations_result  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "synop", "temperature_air_max_2m")],
+        start=start,
+        end=end,
+        settings=Settings(cache_disable=True),
+    )
+    values = stations_result(request, "daily", "synop", station_id).values()
+    return values, values.all().df
+
+
+def test_imgw_meteorology_daily_synop_reads_the_year_under_way_from_its_monthly_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The months of the year under way hold every station and are read for the one asked for (GH-3941).
+
+    The listing holds the per-station files of the closed year and the monthly files of 2026. A window in 2026 takes
+    the months it overlaps, September (final, 12 hours) and October (under way, 5 minutes), and the rows of the
+    station asked for only; the fetch-ahead names the same files with the same expiries.
+    """
+    # the folder of 2025 is not listed for a window in 2026 (`list_files_for_interval` descends into the folders that
+    # overlap it), so its files are not in the listing the stub serves
+    listing = [name for name in _SYNOP_LISTING if name.startswith("2026")]
+    downloaded, expiries = _serve_synop(monkeypatch, listing)
+
+    values, df = _synop_values("352200375", "2026-09-30", "2026-10-01")
+
+    assert downloaded == ["https://x/2026_09_s.zip", "https://x/2026_10_s.zip"]
+    assert expiries == {
+        "https://x/2026_09_s.zip": CacheExpiry.TWELVE_HOURS,
+        "https://x/2026_10_s.zip": CacheExpiry.FIVE_MINUTES,
+    }
+    assert set(df.get_column("station_id")) == {"352200375"}
+    assert df.sort("timestamp").select("timestamp", "value").rows() == [
+        (dt.datetime(2026, 9, 30, tzinfo=dt.UTC), 17.0),
+        (dt.datetime(2026, 10, 1, tzinfo=dt.UTC), 18.2),
+    ]
+    named = values._files_ahead("352200375", [values.sr.request.metadata["daily"]["synop"]])  # noqa: SLF001
+    assert list(named.urls) == downloaded
+    assert {url: named.ttl_of(url) for url in named.urls} == expiries
+
+
+def test_imgw_meteorology_daily_synop_reads_a_closed_year_from_the_per_station_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A closed year is the per-station file; no monthly file is downloaded for a year it covers (GH-3941).
+
+    IMGW replaces the monthly files by the per-station one when it closes the year, and for a while the folder may
+    hold both: the listing decides, and a year with a per-station file for the station is read from it alone, so that
+    no day is read twice and no all-station file is downloaded for nothing. Another station's file is not read.
+    """
+    # the folder of 2025 as it may look for a while: the per-station files and the months they replace; and the decade
+    # file of 1996 to 2000 beside a month of 1998, which it covers although the year is neither end of its name
+    listing = [
+        *_SYNOP_LISTING,
+        *(f"2025_{month:02d}_s.zip" for month in range(1, 13)),
+        "1996_2000_375_s.zip",
+        "1998_05_s.zip",
+    ]
+    downloaded, expiries = _serve_synop(monkeypatch, listing)
+
+    values, df = _synop_values("352200375", "1998-05-01", "2025-01-02")
+
+    assert downloaded == ["https://x/2025_375_s.zip", "https://x/1996_2000_375_s.zip"]
+    assert expiries == dict.fromkeys(downloaded, CacheExpiry.TWELVE_HOURS)
+    assert df.select("timestamp", "value").rows() == [(dt.datetime(2025, 1, 1, tzinfo=dt.UTC), 6.5)]
+    named = values._files_ahead("352200375", [values.sr.request.metadata["daily"]["synop"]])  # noqa: SLF001
+    assert list(named.urls) == downloaded
+
+
+def test_imgw_meteorology_daily_synop_a_month_is_skipped_only_for_the_stations_own_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-station file of another station does not stand in for the months of the station asked for (GH-3941).
+
+    A year with the file of the station ending in 100 only has no file of station 375: its months are read for it,
+    and the file of the other station is not.
+    """
+    listing = ["2025_100_s.zip", *(f"2025_{month:02d}_s.zip" for month in range(1, 13))]
+    downloaded, _ = _serve_synop(monkeypatch, listing)
+
+    _synop_values("352200375", "2025-01-01", "2025-01-02")
+
+    assert downloaded == ["https://x/2025_01_s.zip"]
+
+
+def test_imgw_meteorology_daily_synop_names_of_the_two_kinds_are_told_apart() -> None:
+    """``2026_10_s.zip`` is October of every station, ``2026_100_s.zip`` the year of the station ending in 100."""
+    from wetterdienst.provider.imgw.meteorology.api import _file_period  # noqa: PLC0415
+
+    names = pl.DataFrame({"file": ["2026_10_s.zip", "2026_100_s.zip", "1996_2000_100_s.zip"]})
+    start, end = _file_period(ImgwMeteorologyMetadata.daily.synop)
+    periods = names.select("file", start.alias("start"), end.alias("end"))
+    assert periods.select("start", "end").rows() == [
+        (dt.datetime(2026, 10, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 31, tzinfo=dt.UTC)),
+        (dt.datetime(2026, 1, 1, tzinfo=dt.UTC), dt.datetime(2026, 12, 31, tzinfo=dt.UTC)),
+        (dt.datetime(1996, 1, 1, tzinfo=dt.UTC), dt.datetime(2000, 12, 31, tzinfo=dt.UTC)),
+    ]
+
+
+# the rows of `kody_stacji.csv` and `wykaz_stacji.csv` as published (read 2026-11-10): Bielsko-Biała and Warszawa
+# report synop, and their ids end in 600 and 375, the code of their per-station files; Strzyżów (climate), Starnin
+# and Pszczyna are climate or precipitation stations whose ids all end in 010
+_KODY = (
+    "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;Wysokość n.p.m.\r\n"
+    "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+    "413;250240010;Strzyżów;Bug (266);2001;50 50 24;24 02 08;181\r\n"
+    "588;253150010;Starnin;Rega (42);1961;53 57 57;15 27 24;36\r\n"
+    "736;349190600;Bielsko-Biała;Biała (2114);1947;49 48 24;19 00 08;396\r\n"
+    "774;352200375;Warszawa;Wisła (2);1918;52 09 46;20 57 40;106\r\n"
+)
+_WYKAZ = (
+    '"249180010","PSZCZYNA"," 5409"\r\n'
+    '"250240010","STRZYŻÓW"," 5927"\r\n'
+    '"253150010","STARNIN","92143"\r\n'
+    '"349190600","BIELSKO-BIAŁA","  600"\r\n'
+    '"352200375","WARSZAWA","  375"\r\n'
+)
+_SOMEWHERE = "800;349200010;Somewhere;Wisła (2);1950;50 00 00;20 00 00;200\r\n"
+_SYNOP_IDS = ["349190600", "352200375"]
+_ALL_IDS = ["249180010", "250240010", "253150010", "349190600", "352200375"]
+
+
+def _serve_station_lists(monkeypatch: pytest.MonkeyPatch, wykaz: str = _WYKAZ, kody: str = _KODY) -> list[str]:
+    """Serve the two station lists, and give the urls asked for."""
+    asked: list[str] = []
+
+    def download_file(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        asked.append(url)
+        body = {"kody_stacji": kody.encode("utf8"), "wykaz_stacji": wykaz.encode("cp1250")}
+        return File(url=url, content=BytesIO(next(body[part] for part in body if part in url)), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.imgw.meteorology.api.download_file", download_file)
+    return asked
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+def test_imgw_meteorology_synop_lists_only_the_stations_that_report_synop(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """The synop archives hold the stations of the synop network only, and so does the list of them (GH-3944).
+
+    `kody_stacji.csv` lists the climate and precipitation stations too, which have no synop row: they were offered,
+    returned nothing, and a walk read the monthly files of the current year for each of them. IMGW's `wykaz_stacji.csv`
+    gives the synop stations a five-character code of at most three digits, the code of their per-station files.
+    """
+    _serve_station_lists(monkeypatch)
+
+    synop = ImgwMeteorologyRequest(parameters=[(resolution, "synop")]).all().df
+
+    assert synop["station_id"].to_list() == _SYNOP_IDS
+    assert synop["name"].to_list() == ["Bielsko-Biała", "Warszawa"]
+    assert set(synop["dataset"]) == {"synop"}
+    assert set(synop["resolution"]) == {resolution}
+
+
+def test_imgw_meteorology_synop_leaves_the_stations_of_the_other_datasets_as_they_are(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Climate and precipitation keep every station of the list, and a request for both gets each its own (GH-3944)."""
+    asked = _serve_station_lists(monkeypatch)
+
+    climate = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "precipitation")]).all().df
+    assert climate["station_id"].to_list() == _ALL_IDS * 2
+    assert not [url for url in asked if "wykaz_stacji" in url], "the list of the synop stations is read for synop only"
+
+    mixed = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "synop")]).all().df
+    assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
+    assert mixed.filter(pl.col("dataset") == "synop")["station_id"].to_list() == _SYNOP_IDS
+    # whichever comes first: the narrowing of the synop list does not carry over to the datasets after it
+    mixed = ImgwMeteorologyRequest(parameters=[("daily", "synop"), ("daily", "climate")]).all().df
+    assert mixed.filter(pl.col("dataset") == "synop")["station_id"].to_list() == _SYNOP_IDS
+    assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
+
+
+def test_imgw_meteorology_synop_does_not_list_a_station_that_shares_the_code_of_a_synop_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station is a synop station by its id, not by the last three digits it shares with one (GH-3944).
+
+    Two of the three stations ending in 010 have no synop file; a code alone could not have told them from a synop
+    station that ended in 010.
+    """
+    wykaz = _WYKAZ + '"349200010","SOMEWHERE","  010"\r\n'
+    _serve_station_lists(monkeypatch, wykaz, kody=_KODY + _SOMEWHERE)
+
+    synop = ImgwMeteorologyRequest(parameters=[("daily", "synop")])
+
+    assert synop.all().df["station_id"].to_list() == [*_SYNOP_IDS, "349200010"]
+    assert synop.filter_by_station_id("250240010").df.is_empty()
+    assert synop.filter_by_station_id("349200010").df["station_id"].to_list() == ["349200010"]
+
+
+def test_imgw_meteorology_synop_raises_for_a_list_that_names_no_synop_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station list without a synop code has changed its layout, and must not read as no synop stations (GH-3944)."""
+    _serve_station_lists(monkeypatch, wykaz='"249180010","PSZCZYNA"," 5409"\r\n')
+
+    with pytest.raises(MetaFileFormatError, match=r"wykaz_stacji\.csv"):
+        ImgwMeteorologyRequest(parameters=[("daily", "synop")]).all()
+    # the other datasets do not read it
+    assert len(ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df) == len(_ALL_IDS)
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_live_synop_stations_are_the_stations_of_the_synop_archives() -> None:
+    """The live list names a station for each per-station synop file of 2025, once, and none of the others (GH-3944).
+
+    The files of 2025 are one for each station that reports synop, named by the last three digits of its id. Every
+    code has exactly one listed station, so that the code finds a station's file and no other's. The list may name
+    stations that have no file of 2025: those that closed (their files are in the older decades) and those new in 2026
+    (Barwice 353160213 is in the monthly files from 2026-09-10 only); it is held to fewer than 100 stations.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.fileindex import list_files_for_interval  # noqa: PLC0415
+
+    settings = Settings(cache_disable=True)
+    url = ImgwMeteorologyValues._endpoint.format(resolution="dobowe", dataset="synop")  # noqa: SLF001
+    names = [file.rsplit("/", 1)[-1] for file in list_files_for_interval(url, settings, None) if "/2025/" in file]
+    codes = sorted(name.split("_")[1] for name in names if name.endswith("_s.zip") and len(name.split("_")[1]) == 3)
+    assert len(codes) > 50
+
+    ids = ImgwMeteorologyRequest(parameters=[("daily", "synop")], settings=settings).all().df["station_id"].to_list()
+
+    suffixes = [station_id[-3:] for station_id in ids]
+    assert len(set(suffixes)) == len(suffixes), "two listed stations share the code of their files"
+    assert set(codes) <= set(suffixes), (
+        f"stations with a file of 2025 that are not listed: {set(codes) - set(suffixes)}"
+    )
+    assert len(ids) < 100, "the list is no longer the synop stations alone"

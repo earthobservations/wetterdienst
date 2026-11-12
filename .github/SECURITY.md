@@ -93,7 +93,7 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 ### The REST API and MCP
 
 It is open by design: **there is no authentication**, and none is planned in the server. Whoever reaches it can use
-every provider credential it holds and spend its quotas. `/api/auth` and `/api/coverage` say whether a credential is
+every provider credential it holds and spend its quotas. `/api/auth` and `/api/providers` say whether a credential is
 configured (and accepted), never what it is. A server that holds keys or is reachable beyond its operator's network
 belongs behind a gateway that authenticates, terminates TLS and rate-limits per client.
 

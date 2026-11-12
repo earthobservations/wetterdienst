@@ -68,26 +68,27 @@ def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
     assert "no period" in snow
 
 
-def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None:
-    """The global and diffuse irradiance of the hour is that hour's energy over 3600 s, not a reading at one moment.
+def test_the_poi_radiation_of_the_hour_is_the_mean_of_that_hour() -> None:
+    """The global, diffuse and direct irradiance of the hour is that hour's energy over 3600 s: its mean (GH-3134).
 
-    It equals the sum of DWD's 10-minute radiation (J/cm2) of the hour, times 10000 and over 3600, to within 0.9 W/m2 on
-    all 250 hourly values of 10 stations. The word "mean" stays out of the description: DWD does not say it and
-    `test_mean_names` holds the name to what the source states.
+    The global and diffuse one equal the sum of DWD's 10-minute radiation (J/cm2) of the hour, times 10000 and over
+    3600, to within 0.9 W/m2 on all 250 hourly values of 10 stations. DWD does not use the word "mean": its column is
+    "Globalstrahlung (letzte Stunde)" in W/m2. An energy over the hour's seconds is the hour's mean power, and the
+    description says so, so the names carry `_mean` (GH-3151) and `test_mean_names` holds them to it.
     """
-    for name in ("global_radiation_last_hour", "diffuse_solar_radiation_last_hour"):
+    for name in ("global_radiation_last_hour", "diffuse_solar_radiation_last_hour", "direct_solar_radiation_last_hour"):
         text = _description(DwdPoiMetadata, "hourly", "data", name)
         assert "divided by 3600 s" in text
-        assert "mean" not in text.lower()
-        assert "averag" not in text.lower()
+        assert "mean of the hour" in text
+        assert "reading at one moment" not in text or "not a reading at one moment" in text
 
 
 @pytest.mark.parametrize(
     ("dataset", "name_original", "said"),
     [
-        ("icon", "rad1h", "not clipped at 0"),
-        ("icon_eu", "rad1h", "not clipped at 0"),
-        ("icon", "rads3", "not clipped at 0"),
+        ("icon", "rad1h", "returned as 0.0, with the number kept as `raw:`"),
+        ("icon_eu", "rad1h", "returned as 0.0, with the number kept as `raw:`"),
+        ("icon", "rads3", "returned as 0.0, with the number kept as `raw:`"),
         ("icon", "rr1", "returned as 0.0, with the number kept as `raw:`"),
         ("icon_eu", "rr1", "returned as 0.0, with the number kept as `raw:`"),
         ("icon", "rr3", "returned as 0.0, with the number kept as `raw:`"),
@@ -96,7 +97,7 @@ def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None
 def test_the_dmo_elements_that_run_below_zero_say_what_becomes_of_it(
     dataset: str, name_original: str, said: str
 ) -> None:
-    """ICON's `Rad1h` and `RadS3` are not clipped at 0, its `RR1` and `RR3` are 0.0 with the number as `raw:` (GH-3263).
+    """ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` below 0 are 0.0 with the number as `raw:` (GH-3263).
 
     Read 2026-10-22: `Rad1h` negative in 411 of 1872 icon-eu values, `RadS3` in 273 of 1209 icon values, `RR1` in 3 of
     1872 icon-eu values and `RR3` in 143 of 182,714 icon values.

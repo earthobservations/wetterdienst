@@ -15,6 +15,16 @@ the place to look when a series has a jump that the weather does not explain.
   the kind `not-implemented`.
 - **How it comes.** One history for each station and dataset: DWD publishes its station metadata per dataset,
   so a request for several datasets gives up to one history per station and dataset.
+- **A directory that came back empty.** DWD lists the files of a dataset in directories (`historical`, the
+  `meta_data` of a 1, 5 and 10 minute dataset, the dataset's own directory for the solar datasets). If one comes back
+  empty or missing, or lists files and no description of its stations, while the stations are looked up or the
+  history read, the REST API, the MCP tool, the command line
+  and Python answer with the histories of the datasets that are listed (a 200, exit 0) and `file-skipped` warnings
+  that name the directory and the periods of the dataset that were skipped for it, and, where the history was to
+  read it, the stations: the answer is partial and carries no cache header. Try again later. `stations` and `values`
+  do the same for the stations they look up. A station with no file in a listing that is there has no history of it,
+  which is the source's answer and no warning. A connection that cannot be made, a failing server and a 200 page that is
+  no index of a directory are errors as before.
 - **No snapshots.** The history is what the provider lists today. It cannot be asked for "the station as it was
   on a date"; to find the entry that applies on a date, filter a section by its `valid_from` and `valid_to`.
 
@@ -100,4 +110,8 @@ with one entry for each station and dataset.
 
 - Station history relies on provider-specific metadata; where a provider publishes none the request is refused, see
   above.
-- The responses are cached like any other download, see [Settings](settings.md) for the cache.
+- The responses are cached like any other download, see [Settings](settings.md) for the cache. A listing that came
+  back empty or missing is not kept in it.
+- In Python the warning is a log line at level `WARNING` (`wetterdienst.util.response_warnings.recorded_warnings`
+  gives it after `begin_response()`, as the REST API does): `filter_by_station_id` and `all` of an empty directory
+  answer the stations of the other periods.

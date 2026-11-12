@@ -102,7 +102,14 @@ class Recorder:
         self.schemas: dict[str, list[str]] = {}
 
     def record(self, kind: str, label: str, df: pl.DataFrame) -> None:
-        """Take a frame of a kind (``values`` or ``stations``)."""
+        """Take a frame of a kind (``values`` or ``stations``).
+
+        A values frame never carries the control characters `quality_flags` is built with behind the scenes (the mark
+        of a plausibility verdict, GH-3676): they are the readers' own and `join_quality_flags` takes them out.
+        """
+        if "quality_flags" in df.columns:
+            leaked = df.filter(pl.col("quality_flags").str.contains(r"[\x00-\x1f]").fill_null(value=False))
+            assert leaked.is_empty(), f"a control character in quality_flags: {leaked.get_column('quality_flags')[0]!r}"
         self.schemas[schema_id(schema_of(df))] = schema_of(df)
         getattr(self, kind).append(describe(label, df))
 

@@ -179,6 +179,9 @@ def _find_dataset(metadata_name: str, resolution: str, dataset: str) -> DatasetM
 #: their datasets stays in `RENAMED_PARAMETERS_IN_DATASET`, because the baseline of a release records it and
 #: `tests/baselines/parameters.py` reports a released rename entry that is gone
 LEFT_THE_TABLE = {
+    # GH-3134: only DWD POI kept the plain names, and it states the mean of the hour
+    "radiation_global_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
     "evapotranspiration_potential_grass_fao_last_24h",
     "evapotranspiration_potential_grass_haude_last_24h",
     "groundwater_level_max",
@@ -815,34 +818,78 @@ def test_the_metoffice_direct_irradiation_is_named_for_its_plane_and_the_old_nam
 def test_the_poi_direct_radiation_is_named_for_its_plane_and_the_old_name_is_refused(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Only DWD POI had `radiation_sky_short_wave_direct_intensity`, so the table has no entry any more (GH-3263).
+    """Only DWD POI had the direct radiation names, so the table has no entry any more (GH-3263, GH-3134).
 
     DWD POI's `direct_solar_radiation_last_hour` is above the global radiation at the French stations (07280 at
     09 UTC on 2026-10-22: 603 against 297 W/m2), so it is the irradiance perpendicular to the sun's rays, WMO-No. 8's
     "direct solar radiation" of a pyrheliometer, and the name says so. `_normal` would read as a climatological normal.
+    It is the energy of the hour over 3600 s, so the mean of the hour, and carries `_mean` (GH-3134).
     """
-    old = "radiation_sky_short_wave_direct_intensity"
-    new = "radiation_sky_short_wave_direct_perpendicular_intensity"
+    olds = ("radiation_sky_short_wave_direct_intensity", "radiation_sky_short_wave_direct_perpendicular_intensity")
+    new = "radiation_sky_short_wave_direct_perpendicular_intensity_mean"
     poi = {p.name_original: p.name for p in DwdPoiMetadata["hourly"]["data"]}
     assert poi["direct_solar_radiation_last_hour"] == new
-    assert old not in PARAMETERS
-    assert RENAMED_PARAMETERS[old] == new
+    for old in olds:
+        assert old not in PARAMETERS
+        assert RENAMED_PARAMETERS[old] == new
     assert "perpendicular" in PARAMETERS[new].description
-    assert PARAMETERS[new].unit_type == PARAMETERS["radiation_global_intensity"].unit_type
-    # nobody else declares either name
+    assert PARAMETERS[new].unit_type == PARAMETERS["radiation_global_intensity_mean"].unit_type
+    # nobody else declares any of the names
     declared = {
         (metadata.name, parameter.name_original)
         for metadata in ALL_METADATA
         for resolution in metadata
         for dataset in resolution
         for parameter in dataset
-        if parameter.name in (old, new)
+        if parameter.name in (*olds, new)
     }
     assert declared == {("DwdPoiMetadata", "direct_solar_radiation_last_hour")}
-    assert parse_parameters(f"hourly/data/{old}", DwdPoiMetadata, on_unknown="warn") == []
-    assert f"It was renamed to '{new}'." in caplog.text
-    with pytest.raises(ValidationError, match=rf"'{old}' is now '{new}'"):
-        Options(geo_station_distance={old: 10.0})
+    for old in olds:
+        caplog.clear()
+        assert parse_parameters(f"hourly/data/{old}", DwdPoiMetadata, on_unknown="warn") == []
+        assert f"It was renamed to '{new}'." in caplog.text
+        with pytest.raises(ValidationError, match=rf"'{old}' is now '{new}'"):
+            Options(geo_station_distance={old: 10.0})
+
+
+def test_the_poi_irradiances_of_the_hour_and_the_nws_visibility_are_named_for_the_mean_they_state(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """DWD POI's three irradiances are the mean of the hour and NWS's visibility a 10-minute mean (GH-3134, GH-3151).
+
+    POI: "Globalstrahlung (letzte Stunde)", "Diffuse Strahlung (letzte Stunde)" and "Direkte Strahlung (letzte
+    Stunde)" in W/m2 are the energy of the preceding hour over 3600 s (the 10-minute J/cm2 of the hour times 10000 over
+    3600 within 0.9 W/m2 at 250 of 250 values). The plain global and diffuse names have no other row and left the
+    table; the dataset answers each old name with the new one. NWS: the ASOS User's Guide, 4.2.2, "ASOS computes a
+    running 10-minute harmonic mean once per minute" of the 1-minute visibilities; `visibility` is the source's own
+    field name there, so a request for it still selects the row and the answer carries the new name.
+    """
+    poi = {p.name_original: p.name for p in DwdPoiMetadata["hourly"]["data"]}
+    assert poi["global_radiation_last_hour"] == "radiation_global_intensity_mean"
+    assert poi["diffuse_solar_radiation_last_hour"] == "radiation_sky_short_wave_diffuse_intensity_mean"
+    for old, new in (
+        ("radiation_global_intensity", "radiation_global_intensity_mean"),
+        ("radiation_sky_short_wave_diffuse_intensity", "radiation_sky_short_wave_diffuse_intensity_mean"),
+    ):
+        caplog.clear()
+        assert parse_parameters(f"hourly/data/{old}", DwdPoiMetadata, on_unknown="warn") == []
+        assert f"It was renamed to '{new}' in this dataset." in caplog.text
+    nws = {p.name_original: p.name for p in NwsObservationMetadata["hourly"]["data"]}
+    assert nws["visibility"] == "visibility_mean_last_10min"
+    assert [p.name for p in parse_parameters("hourly/data/visibility", NwsObservationMetadata, on_unknown="raise")] == [
+        "visibility_mean_last_10min"
+    ]
+    # the plain name is still the reading of a source that states no statistic
+    readings = {
+        metadata.name
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        for dataset in resolution
+        for parameter in dataset
+        if parameter.name == "visibility"
+    }
+    assert "NwsObservationMetadata" not in readings
+    assert "DwdPoiMetadata" in readings
 
 
 def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None:
@@ -963,11 +1010,9 @@ def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: p
     assert names["e_ttt"] == "error_absolute_temperature_air_2m"
     assert names["td"] == "temperature_dew_point_2m"
     assert names["e_td"] == "error_absolute_temperature_dew_point_2m"
-    assert PARAMETERS["error_absolute_temperature_air_2m"].unit_type == PARAMETERS["temperature_air_2m"].unit_type
-    assert (
-        PARAMETERS["error_absolute_temperature_dew_point_2m"].unit_type
-        == PARAMETERS["temperature_dew_point_2m"].unit_type
-    )
+    # the error of a temperature is a difference of temperatures: it has no offset (GH-3688)
+    assert PARAMETERS["error_absolute_temperature_air_2m"].unit_type == "temperature_difference"
+    assert PARAMETERS["error_absolute_temperature_dew_point_2m"].unit_type == "temperature_difference"
     for old in ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_dew_point_mean_2m"):
         assert old not in PARAMETERS
         assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata, on_unknown="warn") == []
@@ -1041,3 +1086,18 @@ def test_a_plain_wind_name_is_refused_in_a_dataset_whose_source_states_the_mean(
     """The plain name stays for the datasets that state no statistic and names the mean one in the others (GH-3151)."""
     assert parse_parameters(value, metadata, on_unknown="warn") == []
     assert f"It was renamed to '{new}' in this dataset." in caplog.text
+
+
+def test_the_knmi_daily_sea_level_pressure_is_named_for_the_mean_it_states(caplog: pytest.LogCaptureFixture) -> None:
+    """KNMI's daily `PG` is "Daily mean sea level pressure (in 0.1 hPa) calculated from 24 hourly values" (GH-3925).
+
+    The plain name stays for the hourly `P`, a reading, and the 10-minute `pp`, a mean over one minute; in the daily
+    dataset the old name is refused with the mean one named.
+    """
+    knmi = {p.name_original: p.name for p in KnmiObservationMetadata["daily"]["data"]}
+    assert knmi["PG"] == "pressure_air_sea_level_mean"
+    assert PARAMETERS["pressure_air_sea_level_mean"].aggregation == "mean"
+    assert parse_parameters("daily/data/pressure_air_sea_level", KnmiObservationMetadata, on_unknown="warn") == []
+    assert "It was renamed to 'pressure_air_sea_level_mean' in this dataset." in caplog.text
+    hourly = {p.name_original: p.name for p in KnmiObservationMetadata["hourly"]["data"]}
+    assert hourly["P"] == "pressure_air_sea_level"

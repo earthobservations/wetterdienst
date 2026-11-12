@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
+import type { StationPickerMode, StationPickerTool } from '~/utils/station-picker-mode'
+import StationPicker from '~/components/StationPicker.vue'
 
+// The station picker of the explorer and the history, which holds the list of the stations of the dataset chosen
+// (fetched when the search is opened or the map shown, as it is large), the stations chosen, and those of a shared
+// link; what it shows is `StationPicker`, as for the forecast and the stripes
 const props = defineProps<{
   modelValue?: { stations: Station[] }
   parameterSelection: ParameterSelectionState['selection']
   initialStationIds?: string[]
   multiple?: boolean
+  /** Whose picker it is: each tool remembers its own mode, the list or the map */
+  tool: StationPickerTool
 }>()
 
 const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
 
-const { t } = useI18n()
-
-const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
-
 const selectedStations = ref<Station[]>(props.modelValue?.stations ?? [])
 
-const showMap = ref(false)
+// What the picker shows, as it says: the map is on screen when its mode is the map
+const mode = ref<StationPickerMode>('list')
+const showMap = computed(() => mode.value === 'map')
 
 watch(selectedStations, (newVal, oldVal) => {
   if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
@@ -51,7 +56,7 @@ const { data: stationsData, pending: stationsPending, error: stationsError, refr
     // station list twice. Fetching is driven explicitly here instead: a parameter change clears
     // the list and refetches if a picker is open, otherwise the next open does it.
     watch: false,
-    ...RETRY_TRANSIENT,
+    ...API_FETCH,
     default: () => ({ stations: [] }),
   },
 )
@@ -84,8 +89,8 @@ watch(selectOpen, (isOpen) => {
     fetchStations()
 })
 
-watch(showMap, (isOpen) => {
-  if (isOpen)
+watch(showMap, (isShown) => {
+  if (isShown)
     fetchStations()
 })
 
@@ -148,135 +153,39 @@ watch(() => props.parameterSelection, (ps) => {
   }
 }, { deep: true, immediate: true })
 
-// Items for the select menu
-const stationItems = computed(() =>
-  allStations.value.map(station => ({
-    label: stationLabel(station),
-    value: station.station_id,
-  })),
-)
-
-// Bridge between Station[] and item objects
-const selectedItems = computed({
-  get: () => props.multiple
-    ? selectedStations.value.map(s => ({
-        label: stationLabel(s),
-        value: s.station_id,
-      }))
-    : selectedStations.value[0]
-      ? [{
-          label: stationLabel(selectedStations.value[0]),
-          value: selectedStations.value[0].station_id,
-        }]
-      : [],
-  set: (items: { label: string, value: string }[]) => {
-    if (props.multiple) {
-      // Merge new selections with existing ones, avoid reset
-      const newStations = items
-        .map(item => allStations.value.find(s => s.station_id === item.value))
-        .filter((s): s is Station => s !== undefined)
-      // Only update if changed
-      if (JSON.stringify(newStations) !== JSON.stringify(selectedStations.value)) {
-        selectedStations.value = newStations
-      }
+// "Use my location" asks for the station nearest to the reader among those of the dataset chosen, as the list is asked
+const locateQuery = computed(() => props.parameterSelection.parameters?.length
+  ? {
+      provider: props.parameterSelection.provider,
+      network: props.parameterSelection.network,
+      parameters: `${props.parameterSelection.resolution}/${props.parameterSelection.dataset}`,
     }
-    else {
-      // items may be undefined or empty when clearing selection; guard against that
-      const stationId = items && items[0] ? items[0].value : undefined
-      const station = stationId ? allStations.value.find(s => s.station_id === stationId) : undefined
-      if (JSON.stringify([station]) !== JSON.stringify(selectedStations.value)) {
-        selectedStations.value = station ? [station] : []
-      }
-    }
-  },
-})
+  : undefined)
 
-// Handler for map selection event with explicit typing to satisfy typecheck
-function onMapSelectedStations(val: Station[]) {
+// A pick, from the search, the map or the chips
+function onPick(val: Station[]) {
   selectedStations.value = val
+  // the parent is told by the watcher of the selection, once
   emit('update:selectedStations', val)
-  emit('update:modelValue', { stations: val })
-}
-
-function removeStation(station: Station) {
-  const index = selectedStations.value.findIndex(s => s.station_id === station.station_id)
-  if (index >= 0) {
-    // Replace array to trigger reactivity
-    selectedStations.value = [
-      ...selectedStations.value.slice(0, index),
-      ...selectedStations.value.slice(index + 1),
-    ]
-  }
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <USelectMenu
-      v-model="selectedItems"
-      v-model:open="selectOpen"
-      :items="stationItems"
-      :multiple="multiple"
-      :loading="stationsPending"
-      searchable
-      virtualize
-      color="primary"
-      class="w-full"
-      :class="{ 'needs-input': selectedStations.length === 0 }"
-      :placeholder="t('common.stationSearch')"
-    />
-    <p v-if="stationsError && !stationsPending" class="text-sm text-error text-center">
-      {{ t('stationSelection.loadError') }}
-    </p>
-    <p v-else-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 dark:text-gray-400 text-center">
-      {{ t('stationSelection.noneFound') }}
-    </p>
-    <UContainer v-if="selectedStations.length > 0" class="mt-2">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm font-medium">
-          {{ t('stationSelection.selectedStations') }}
-        </h3>
-        <UButton size="xs" color="neutral" variant="ghost" @click="selectedStations = []">
-          {{ t('stationSelection.clearAll') }}
-        </UButton>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <UBadge
-          v-for="station in selectedStations"
-          :key="station.station_id"
-          variant="subtle"
-          class="cursor-pointer"
-          @click="removeStation(station)"
-        >
-          {{ stationShortLabel(station) }}
-          <span class="ml-1">×</span>
-        </UBadge>
-      </div>
-    </UContainer>
-    <UCollapsible v-model="showMap" class="mt-4">
-      <UButton
-        :label="t('stationSelection.chooseOnMap')"
-        icon="i-lucide-map-pin"
-        variant="subtle"
-        color="primary"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        @click="showMap = !showMap"
-      />
-      <template #content>
-        <ClientOnly>
-          <p v-if="!mapNotLoaded" class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
-            <UIcon name="i-lucide-hand-pointer-2" class="w-4 h-4 text-primary-500" />
-            {{ multiple ? t('stationSelection.mapHintMultiple') : t('stationSelection.mapHint') }}
-          </p>
-          <MapStations
-            :stations="allStations"
-            :selected-stations="selectedStations"
-            :multiple="multiple"
-            @update:selected-stations="onMapSelectedStations"
-          />
-        </ClientOnly>
-      </template>
-    </UCollapsible>
-  </div>
+  <StationPicker
+    :tool="tool"
+    :stations="allStations"
+    :selected="selectedStations"
+    :multiple="multiple"
+    :loading="stationsPending"
+    :error="!!stationsError"
+    :empty="stationsLoaded && !allStations.length"
+    :locate="locateQuery"
+    @update:selected="onPick"
+    @update:open="selectOpen = $event"
+    @update:mode="mode = $event"
+  >
+    <template #actions>
+      <slot name="actions" />
+    </template>
+  </StationPicker>
 </template>

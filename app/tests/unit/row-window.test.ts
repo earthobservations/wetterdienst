@@ -1,0 +1,603 @@
+import { describe, expect, it } from 'vitest'
+import { limitRefusal } from '../../app/utils/limit-refusal'
+import { aboutRows, countReadings, defaultRange, effectiveMaximum, estimateRows, fittingWindow, hasNoReadingsYet, untilToday, windowForRefusal } from '../../app/utils/row-window'
+
+const NOW = Date.UTC(2026, 9, 26, 12)
+const day = (text: string) => Date.parse(`${text}T00:00:00Z`)
+function record(start: string | null, end: string | null = null) {
+  return {
+    start_timestamp: start ? `${start}T00:00:00+00:00` : null,
+    // a record ends at its last reading, within its last day
+    end_timestamp: end ? `${end}T23:59:59+00:00` : null,
+  }
+}
+/** The first day of a window's range, one unit longer than it is: the window one step back. */
+function windowStartOf(window: { unit: string, count: number, endDate: string }): string {
+  const end = new Date(`${window.endDate}T00:00:00Z`)
+  if (window.unit === 'days')
+    end.setUTCDate(end.getUTCDate() - window.count)
+  else
+    end.setUTCMonth(end.getUTCMonth() - (window.unit === 'years' ? 12 : 1) * (window.count + 1))
+  return end.toISOString().slice(0, 10)
+}
+const spanOf = (start: string, end: string) => ({ start: day(start), end: day(end) })
+
+describe('countReadings', () => {
+  it.each([
+    ['1_minute', '2026-01-01', '2026-01-01', 1440],
+    ['5_minutes', '2026-01-01', '2026-01-01', 288],
+    ['10_minutes', '2026-01-01', '2026-01-01', 144],
+    ['hourly', '2026-01-01', '2026-01-01', 24],
+    ['6_hours', '2026-01-01', '2026-01-01', 4],
+    ['daily', '2026-01-01', '2026-01-31', 31],
+    ['monthly', '2026-01-01', '2026-12-31', 12],
+    ['annual', '2000-01-01', '2009-12-31', 10],
+  ] as const)('counts a %s window from %s to %s (whole days) as %i readings', (resolution, from, to, expected) => {
+    expect(countReadings(resolution, day(from), day(to) + 86_400_000 - 1)).toBe(expected)
+  })
+
+  it('counts a month or a year by its first day, which a window that begins after it does not hold', () => {
+    expect(countReadings('monthly', day('2026-01-15'), day('2026-03-31'))).toBe(2)
+    expect(countReadings('monthly', day('2026-01-15'), day('2026-01-31'))).toBe(0)
+    expect(countReadings('annual', day('2000-06-01'), day('2002-12-31'))).toBe(2)
+  })
+
+  it('counts nothing for subdaily, which names no interval, and for a window that ends before it begins', () => {
+    expect(countReadings('subdaily', day('2026-01-01'), day('2026-01-31'))).toBe(0)
+    expect(countReadings('daily', day('2026-01-31'), day('2026-01-01'))).toBe(0)
+  })
+})
+
+describe('estimateRows', () => {
+  it('counts the readings of each station\'s record times the parameters', () => {
+    const estimate = estimateRows({
+      resolution: 'daily',
+      records: [record('2020-01-01', '2020-01-31'), record('2020-01-01', '2020-01-10')],
+      parameterCount: 3,
+      now: NOW,
+    })
+    expect(estimate.rows).toBe((31 + 10) * 3)
+    expect(estimate.span).toEqual(spanOf('2020-01-01', '2020-01-31'))
+    expect(estimate.unknown).toBe(0)
+  })
+
+  it('counts 1-minute, 10-minute and hourly records', () => {
+    const records = [record('2025-01-01', '2025-01-10')]
+    expect(estimateRows({ resolution: '1_minute', records, parameterCount: 1, now: NOW }).rows).toBe(10 * 1440)
+    expect(estimateRows({ resolution: '10_minutes', records, parameterCount: 2, now: NOW }).rows).toBe(10 * 144 * 2)
+    expect(estimateRows({ resolution: 'hourly', records, parameterCount: 1, now: NOW }).rows).toBe(10 * 24)
+  })
+
+  it('counts a month and a year of monthly and annual records', () => {
+    const records = [record('2000-01-01', '2009-12-31')]
+    expect(estimateRows({ resolution: 'monthly', records, parameterCount: 2, now: NOW }).rows).toBe(120 * 2)
+    expect(estimateRows({ resolution: 'annual', records, parameterCount: 1, now: NOW }).rows).toBe(10)
+  })
+
+  it('ends a record that has no end at now', () => {
+    const estimate = estimateRows({ resolution: 'daily', records: [record('2026-10-01')], parameterCount: 1, now: NOW })
+    // 1 to 26 October, the 26th at noon having begun
+    expect(estimate.rows).toBe(26)
+    expect(estimate.span).toEqual(spanOf('2026-10-01', '2026-10-26'))
+  })
+
+  it('counts a station once for each timestamp in the wide shape', () => {
+    const records = [record('2020-01-01', '2020-01-10')]
+    expect(estimateRows({ resolution: 'daily', records, parameterCount: 4, tidy: false, now: NOW }).rows).toBe(10)
+  })
+
+  it('narrows each record to the window the user gave, and the span with it', () => {
+    const estimate = estimateRows({
+      resolution: 'daily',
+      records: [record('2000-01-01', '2020-12-31'), record('2015-01-01', '2016-12-31')],
+      parameterCount: 1,
+      range: { startDate: '2016-01-01', endDate: '2016-01-31' },
+      now: NOW,
+    })
+    expect(estimate.rows).toBe(31 * 2)
+    expect(estimate.span).toEqual(spanOf('2016-01-01', '2016-01-31'))
+  })
+
+  it('leaves a station out whose record ends before the window begins', () => {
+    const estimate = estimateRows({
+      resolution: 'daily',
+      records: [record('2000-01-01', '2005-12-31'), record('2000-01-01', '2020-12-31')],
+      parameterCount: 1,
+      range: { startDate: '2016-01-01', endDate: '2016-01-31' },
+      now: NOW,
+    })
+    expect(estimate.rows).toBe(31)
+  })
+
+  it('ignores a window with one date, as the request sends the end only after a start', () => {
+    const records = [record('2020-01-01', '2020-01-10')]
+    expect(estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: '2020-01-05' }, now: NOW }).rows).toBe(10)
+    expect(estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { endDate: '2020-01-05' }, now: NOW }).rows).toBe(10)
+  })
+
+  it('takes a station without a start from the window, and counts it unknown without one', () => {
+    const records = [record(null, null), record('2020-01-01', '2020-01-10')]
+    const unbounded = estimateRows({ resolution: 'daily', records, parameterCount: 1, now: NOW })
+    expect(unbounded.rows).toBe(10)
+    expect(unbounded.unknown).toBe(1)
+    const bounded = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: '2020-01-01', endDate: '2020-01-05' }, now: NOW })
+    expect(bounded.rows).toBe(5 + 5)
+    expect(bounded.unknown).toBe(0)
+  })
+
+  it('says nothing for a selection without a record to count, and for a resolution without an interval', () => {
+    expect(estimateRows({ resolution: 'daily', records: [record(null)], parameterCount: 1, now: NOW })).toEqual({ rows: null, span: null, unknown: 1 })
+    expect(estimateRows({ resolution: 'daily', records: [], parameterCount: 1, now: NOW }).rows).toBeNull()
+    expect(estimateRows({ resolution: 'subdaily', records: [record('2020-01-01', '2020-01-31')], parameterCount: 1, now: NOW }).rows).toBeNull()
+  })
+})
+
+describe('aboutRows', () => {
+  it.each([[476_321, 480_000], [614_866, 610_000], [99_999, 100_000], [450, 450], [1234, 1200], [7, 7]])('says %i as about %i', (rows, about) => {
+    expect(aboutRows(rows)).toBe(about)
+  })
+})
+
+describe('fittingWindow', () => {
+  // 1-minute data of one station and one parameter over three years: 1440 rows a day
+  const threeYears = spanOf('2023-10-27', '2026-10-26')
+  const threeYearsRows = 1096 * 1440
+
+  it('takes the newest part that comes to 90 % of the limit, in days for a span that short', () => {
+    // 90 % of 500,000 is 450,000: 312 days of 1440 readings are 449,280
+    const window = fittingWindow({ requested: threeYearsRows, maximum: 500_000, resolution: '1_minute', span: threeYears })
+    expect(window).toMatchObject({ unit: 'months', count: 10, endDate: '2026-10-26' })
+    // 10 months, from 27 December 2025 to 26 October 2026: 304 days
+    expect(window!.startDate).toBe('2025-12-27')
+    expect(window!.rows).toBeLessThanOrEqual(450_000)
+  })
+
+  it('rounds down, never up: one day more than the window would not fit', () => {
+    const window = fittingWindow({ requested: threeYearsRows, maximum: 500_000, resolution: '1_minute', span: threeYears })!
+    const days = (Date.parse(`${window.endDate}T00:00:00Z`) - Date.parse(`${window.startDate}T00:00:00Z`)) / 86_400_000 + 1
+    expect(days * 1440).toBeLessThanOrEqual(450_000)
+    // the next month would not
+    expect((days + 31) * 1440).toBeGreaterThan(450_000)
+  })
+
+  it('takes years of daily data, for the worked example of the issue', () => {
+    // 614,866 daily rows of climate_summary for a few stations without a range: the window holds 450,000 of them
+    const window = fittingWindow({ requested: 614_866, maximum: 500_000, resolution: 'daily', span: spanOf('1891-01-01', '2026-10-26') })
+    // 135.8 years: 73.2 % of it, 99.4 years, rounded down to 99 years
+    expect(window).toMatchObject({ unit: 'years', count: 99, endDate: '2026-10-26', startDate: '1927-10-27' })
+    expect(window!.rows).toBeLessThanOrEqual(450_000)
+  })
+
+  it('answers null where the whole span fits', () => {
+    expect(fittingWindow({ requested: 400_000, maximum: 500_000, resolution: 'daily', span: spanOf('2000-01-01', '2020-12-31') })).toBeNull()
+    // between 90 % and 100 %: the margin is the reason to narrow, so there is a window
+    expect(fittingWindow({ requested: 480_000, maximum: 500_000, resolution: 'daily', span: spanOf('2000-01-01', '2020-12-31') })).not.toBeNull()
+  })
+
+  it('answers null for no limit, no span and a limit too small to hold a reading', () => {
+    expect(fittingWindow({ requested: 10, maximum: 0, resolution: 'daily', span: threeYears })).toBeNull()
+    expect(fittingWindow({ requested: 600_000, maximum: 500_000, resolution: 'daily', span: null })).toBeNull()
+    expect(fittingWindow({ requested: 10, maximum: 1, resolution: 'daily', span: threeYears })).toBeNull()
+  })
+
+  it('answers null where not even one day fits', () => {
+    // a hundred stations of one parameter at 1-minute readings: 144,000 rows a day against a 100 rows limit
+    expect(fittingWindow({ requested: 144_000 * 30, maximum: 100, resolution: '1_minute', span: spanOf('2026-09-27', '2026-10-26') })).toBeNull()
+  })
+
+  it('takes a tiny span apart in days', () => {
+    // two days of which one fits: 100 rows a day against 150 allowed (90 % is 135)
+    const window = fittingWindow({ requested: 200, maximum: 150, resolution: 'hourly', span: spanOf('2026-10-25', '2026-10-26') })
+    expect(window).toMatchObject({ unit: 'days', count: 1, startDate: '2026-10-26', endDate: '2026-10-26' })
+  })
+
+  it('names months, not days, for monthly data, and years for annual data', () => {
+    // 1,000 rows over 100 years of monthly data (1,200 months), 450 allowed: 37.5 %, 37 years
+    const monthly = fittingWindow({ requested: 1000, maximum: 500, resolution: 'monthly', span: spanOf('1926-01-01', '2025-12-31') })
+    expect(monthly!.unit).toBe('years')
+    const shortMonthly = fittingWindow({ requested: 100, maximum: 50, resolution: 'monthly', span: spanOf('2025-01-01', '2025-03-31') })
+    expect(shortMonthly!.unit).toBe('months')
+    // a month does not fit and there is no smaller unit for it
+    expect(fittingWindow({ requested: 1000, maximum: 20, resolution: 'monthly', span: spanOf('2025-01-01', '2025-12-31') })).toBeNull()
+    const annual = fittingWindow({ requested: 1000, maximum: 500, resolution: 'annual', span: spanOf('1926-01-01', '2025-12-31') })
+    expect(annual!.unit).toBe('years')
+    // not a month of it
+    expect(fittingWindow({ requested: 1000, maximum: 8, resolution: 'annual', span: spanOf('1926-01-01', '2025-12-31') })).toBeNull()
+  })
+
+  it('counts a month back from the end by the calendar, to the day before the same day of the month', () => {
+    // 31 March less a month is 1 March, not 28 February
+    const window = fittingWindow({ requested: 365, maximum: 40, resolution: 'daily', span: spanOf('2025-04-01', '2026-03-31') })
+    expect(window).toMatchObject({ unit: 'months', count: 1, startDate: '2026-03-01', endDate: '2026-03-31' })
+  })
+
+  it('weights the days by what the stations hold, where the page knows it', () => {
+    // all the rows of the span are in the first half: the newest half holds none, so the whole of it fits
+    const span = spanOf('2020-01-01', '2020-12-31')
+    const window = fittingWindow({
+      requested: 1000,
+      maximum: 500,
+      resolution: 'daily',
+      span,
+      rowsWithin: (start, end) => (end < day('2020-07-01') ? 100 : start >= day('2020-07-01') ? 0 : 50),
+    })
+    expect(window).toMatchObject({ unit: 'months' })
+    expect(window!.count).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('effectiveMaximum', () => {
+  it('holds a high resolution to the page\'s own limit too', () => {
+    expect(effectiveMaximum('1_minute', 500_000)).toBe(100_000)
+    expect(effectiveMaximum('10_minutes', 0)).toBe(100_000)
+    expect(effectiveMaximum('10_minutes', 50_000)).toBe(50_000)
+    expect(effectiveMaximum('hourly', 500_000)).toBe(500_000)
+    expect(effectiveMaximum('hourly', 0)).toBe(0)
+  })
+})
+
+describe('windowForRefusal', () => {
+  it('fits the server\'s own count: 1-minute data of one station over a given range', () => {
+    // the whole 2025: 525,600 rows a parameter; the server refuses 1 parameter for 12 months at its 500,000 limit
+    const window = windowForRefusal({
+      resolution: '1_minute',
+      records: [record('2020-01-01', '2026-10-25')],
+      parameterCount: 1,
+      range: { startDate: '2025-01-01', endDate: '2025-12-31' },
+      requested: 525_600,
+      maximum: 500_000,
+      now: NOW,
+    })
+    // a high resolution is held to 100,000 rows: 90,000 rows are 62 days of 1440 readings
+    expect(window).toMatchObject({ unit: 'months', count: 2, endDate: '2025-12-31', startDate: '2025-11-01' })
+    expect(window!.rows).toBeLessThanOrEqual(90_000 + 1)
+  })
+
+  it('fits the daily example of the issue: all the record of several stations, no range', () => {
+    const records = [record('1891-01-01', null), record('1936-01-01', null), record('1949-01-01', null), record('1901-01-01', null)]
+    const whole = estimateRows({ resolution: 'daily', records, parameterCount: 4, now: NOW })
+    const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 4, requested: 614_866, maximum: 500_000, now: NOW })
+    expect(whole.rows).toBeGreaterThan(450_000)
+    expect(window!.unit).toBe('years')
+    expect(window!.endDate).toBe('2026-10-26')
+    // what the stations hold in the window, scaled to the server's total, is at most 90 % of the limit
+    const inside = estimateRows({ resolution: 'daily', records, parameterCount: 4, range: { startDate: window!.startDate, endDate: window!.endDate }, now: NOW })
+    expect(inside.rows! * 614_866 / whole.rows!).toBeLessThanOrEqual(450_000)
+  })
+
+  it('weighs the newest part by the stations that still deliver', () => {
+    // one old station and one running: the newest years hold more of the rows than the span's average
+    const records = [record('1950-01-01', '1980-12-31'), record('1950-01-01', null)]
+    const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, requested: 800_000, maximum: 500_000, now: NOW })
+    const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window!.startDate, endDate: window!.endDate }, now: NOW })
+    const whole = estimateRows({ resolution: 'daily', records, parameterCount: 1, now: NOW })
+    expect(inside.rows! * 800_000 / whole.rows!).toBeLessThanOrEqual(450_000)
+  })
+
+  it('answers null for stations without a record and no range: there is no span to take a part of', () => {
+    expect(windowForRefusal({ resolution: 'daily', records: [record(null)], parameterCount: 1, requested: 614_866, maximum: 500_000, now: NOW })).toBeNull()
+  })
+
+  it('fits a point, which is its range alone', () => {
+    const window = windowForRefusal({
+      resolution: 'hourly',
+      records: [{}],
+      parameterCount: 5,
+      range: { startDate: '2000-01-01', endDate: '2025-12-31' },
+      requested: 5 * 24 * 9497,
+      maximum: 500_000,
+      now: NOW,
+    })
+    expect(window).toMatchObject({ unit: 'years', endDate: '2025-12-31' })
+  })
+
+  describe('with a range that reaches past today (GH-3740)', () => {
+    // 2026-10-26 is today; a station that is going on ends there, not at the range's end
+    const records = [record('2000-01-01', null)]
+    const range = { startDate: '2020-01-01', endDate: '2030-12-31' }
+    const toToday = { startDate: '2020-01-01', endDate: '2026-10-26' }
+
+    it('ends the window at today, not in the future', () => {
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      // the server counts to the end of the range: the future part is rows too
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      expect(requested).toBeGreaterThan(clamped)
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })
+      expect(window).not.toBeNull()
+      expect(window!.endDate).toBe('2026-10-26')
+      expect(Date.parse(window!.endDate)).toBeLessThanOrEqual(day('2026-10-26'))
+    })
+
+    it('names the rows of the part up to today, not of the whole range', () => {
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })!
+      // what the window holds, as the server counts it, is what the button says (to two digits) and fits the limit
+      const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!
+      expect(window.rows).toBe(aboutRows(inside))
+      expect(inside).toBeLessThanOrEqual(1800)
+      // and it is the largest window that does: one more unit would not fit
+      const longer = windowStartOf(window)
+      expect(estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: longer, endDate: window.endDate }, now: NOW }).rows!).toBeGreaterThan(1800)
+    })
+
+    it('scales the server\'s count to the part up to today where the stations are not evenly spread', () => {
+      // a count the server makes of more than the page knows: twice the page's, as for a dataset with periods it adds
+      const requested = 2 * estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: 2000, now: NOW })!
+      const inside = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      const share = requested * clamped / estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      expect(window.rows).toBe(aboutRows(share * inside / clamped))
+    })
+
+    it('offers the range up to today where that fits by itself, from its first day, in a unit that says no more than it holds', () => {
+      const clamped = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: toToday, now: NOW }).rows!
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range, requested, maximum: Math.ceil(clamped / 0.9) + 10, now: NOW })
+      // 2020-01-01 to 2026-10-26 is 6 whole years and some: no unit ends on the start, so 6 years (rounded down), the whole span
+      expect(window).toMatchObject({ unit: 'years', count: 6, startDate: '2020-01-01', endDate: '2026-10-26', rows: aboutRows(clamped) })
+    })
+
+    it('keeps every reading of a monthly or annual range that fits up to today', () => {
+      // the server's count is the page's (80 readings up to today of the range's 130; 2 of 6), at limits just above the part
+      const refused = (resolution: 'monthly' | 'annual', startDate: string, maximum: number) => {
+        const given = { startDate, endDate: '2030-12-31' }
+        const requested = estimateRows({ resolution, records, parameterCount: 1, range: given, now: NOW }).rows!
+        return windowForRefusal({ resolution, records, parameterCount: 1, range: given, requested, maximum, now: NOW })
+      }
+      // March 2020 to October 2026 is 80 readings: all of them, labelled by the 6 whole years they hold
+      expect(refused('monthly', '2020-03-01', 100)).toMatchObject({ unit: 'years', count: 6, startDate: '2020-03-01', endDate: '2026-10-26', rows: 80 })
+      // 2025 and 2026 begin in it: 2 readings, from 2025-01-01, and never fewer than 1 year in the label
+      expect(refused('annual', '2025-01-01', 3)).toMatchObject({ unit: 'years', count: 1, startDate: '2025-01-01', endDate: '2026-10-26', rows: 2 })
+    })
+
+    it('says a span in months or days, not as one year', () => {
+      const short = { startDate: '2026-10-01', endDate: '2030-12-31' }
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: short, now: NOW }).rows!
+      const window = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: short, requested, maximum: 1000, now: NOW })
+      // 26 days of 2026-10: no whole month, and the days reach back exactly to the start
+      expect(window).toMatchObject({ unit: 'days', count: 26, startDate: '2026-10-01', endDate: '2026-10-26', rows: 26 })
+      const long = windowForRefusal({ resolution: 'daily', records, parameterCount: 1, range: { startDate: '2026-08-01', endDate: '2030-12-31' }, requested: 5000, maximum: 1000, now: NOW })
+      // 2026-08-01 to 2026-10-26 is 87 days: 2 whole months (it says less than the window holds, never more)
+      expect(long).toMatchObject({ unit: 'months', count: 2, startDate: '2026-08-01', endDate: '2026-10-26' })
+    })
+
+    it('does not count the server\'s narrowed count below the page\'s own for the part up to today (periods read back from the range end)', () => {
+      // 100 hourly stations, 2026-03-01 to 2030-12-31: the server counts 1,754,500 rows of the long range, of
+      // which 576,000 are the part up to today (it reads only the last years of the range, counted back from its
+      // end), where the page's share of the long range (a fraction of 1,754,500) is far less
+      const many = Array.from({ length: 100 }, () => record('2000-01-01', null))
+      const long = { startDate: '2026-03-01', endDate: '2030-12-31' }
+      const toNow = { startDate: '2026-03-01', endDate: '2026-10-26' }
+      const requested = 1_754_500
+      const window = windowForRefusal({ resolution: 'hourly', records: many, parameterCount: 1, range: long, requested, maximum: 500_000, now: NOW })!
+      expect(window).not.toBeNull()
+      const inside = estimateRows({ resolution: 'hourly', records: many, parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!
+      expect(inside).toBeLessThanOrEqual(0.9 * 500_000)
+      expect(window.endDate).toBe('2026-10-26')
+      // not a window of the share the long range would give: that part alone is more than the limit
+      expect(estimateRows({ resolution: 'hourly', records: many, parameterCount: 1, range: toNow, now: NOW }).rows!).toBeGreaterThan(500_000)
+    })
+
+    it('keeps a forecast\'s range as it is: its readings lie ahead of today', () => {
+      const stations = [{}]
+      const ahead = { startDate: '2026-10-20', endDate: '2026-12-31' }
+      const requested = estimateRows({ resolution: 'hourly', records: stations, parameterCount: 1, range: ahead, now: NOW }).rows!
+      const common = { resolution: 'hourly' as const, records: stations, parameterCount: 1, range: ahead, requested, maximum: 1000, now: NOW }
+      expect(windowForRefusal({ ...common, future: true })).toMatchObject({ endDate: '2026-12-31' })
+      // as an observation it is held to today, where the same range is fitted to 2026-10-26
+      expect(windowForRefusal(common)!.endDate).toBe('2026-10-26')
+      expect(hasNoReadingsYet({ ...common, range: { startDate: '2027-01-01', endDate: '2027-02-01' }, future: true })).toBe(false)
+    })
+
+    it('offers nothing for a range that lies wholly after today, and says so', () => {
+      const future = { startDate: '2027-01-01', endDate: '2030-12-31' }
+      const requested = estimateRows({ resolution: 'daily', records, parameterCount: 1, range: future, now: NOW }).rows!
+      const input = { resolution: 'daily' as const, records, parameterCount: 1, range: future, requested, maximum: 500, now: NOW }
+      expect(windowForRefusal(input)).toBeNull()
+      expect(hasNoReadingsYet(input)).toBe(true)
+    })
+
+    it('takes a range that starts today as the one day, and a range that starts tomorrow as none', () => {
+      const input = (startDate: string) => {
+        const range = { startDate, endDate: '2030-12-31' }
+        return { resolution: 'daily' as const, records, parameterCount: 1, range, requested: estimateRows({ resolution: 'daily', records, parameterCount: 1, range, now: NOW }).rows!, maximum: 500, now: NOW }
+      }
+      expect(windowForRefusal(input('2026-10-26'))).toMatchObject({ unit: 'days', count: 1, startDate: '2026-10-26', endDate: '2026-10-26', rows: 1 })
+      expect(hasNoReadingsYet(input('2026-10-26'))).toBe(false)
+      expect(windowForRefusal(input('2026-10-27'))).toBeNull()
+      expect(hasNoReadingsYet(input('2026-10-27'))).toBe(true)
+    })
+
+    it('says a range has no readings yet where the part up to today holds none of the resolution\'s', () => {
+      // monthly readings stand on the 1st: 2 October to today has none
+      const range = { startDate: '2026-10-02', endDate: '2030-12-31' }
+      const input = { resolution: 'monthly' as const, records, parameterCount: 1, range, requested: 5000, maximum: 500, now: NOW }
+      expect(windowForRefusal(input)).toBeNull()
+      expect(hasNoReadingsYet(input)).toBe(true)
+      // a range that ends before today is not about today
+      expect(hasNoReadingsYet({ ...input, range: { startDate: '2026-10-02', endDate: '2026-10-20' } })).toBe(false)
+      // nor is a selection the page cannot count
+      expect(hasNoReadingsYet({ ...input, records: [record(null)], range: undefined })).toBe(false)
+    })
+
+    it('leaves a range that ends today, or before, as it is', () => {
+      expect(untilToday(toToday, NOW)).toBe(toToday)
+      expect(untilToday({ startDate: '2020-01-01' }, NOW)).toEqual({ startDate: '2020-01-01' })
+      expect(untilToday(undefined, NOW)).toBeUndefined()
+      expect(untilToday(range, NOW)).toEqual(toToday)
+      expect(untilToday({ startDate: '2027-01-01', endDate: '2027-02-01' }, NOW)).toBeNull()
+    })
+  })
+})
+
+describe('defaultRange', () => {
+  const base = { maxRows: 500_000, required: false, now: NOW }
+
+  it('leaves the range empty where the whole record fits under 90 % of the limit', () => {
+    expect(defaultRange({ ...base, resolution: 'daily', records: [record('1990-01-01', '2020-12-31')], parameterCount: 3 })).toEqual({ kind: 'none' })
+  })
+
+  it('starts a window where it does not', () => {
+    const range = defaultRange({ ...base, resolution: 'daily', records: [record('1891-01-01', null), record('1936-01-01', null), record('1949-01-01', null), record('1900-01-01', null)], parameterCount: 5 })
+    expect(range.kind).toBe('window')
+    if (range.kind === 'window') {
+      expect(range.window.rows).toBeLessThanOrEqual(450_000)
+      expect(range.window.endDate).toBe('2026-10-26')
+    }
+  })
+
+  it('takes the limit of the server and none at all as no range to start', () => {
+    const records = [record('1891-01-01', null)]
+    expect(defaultRange({ ...base, maxRows: 10_000, resolution: 'daily', records, parameterCount: 1 }).kind).toBe('window')
+    expect(defaultRange({ ...base, maxRows: 0, resolution: 'daily', records, parameterCount: 1 })).toEqual({ kind: 'none' })
+  })
+
+  it('starts a high resolution at 90 % of the page\'s own 100,000, not the server\'s 500,000', () => {
+    const range = defaultRange({ ...base, required: true, resolution: '10_minutes', records: [record('2000-01-01', null)], parameterCount: 1 })
+    expect(range.kind).toBe('window')
+    if (range.kind === 'window')
+      expect(range.window.rows).toBeLessThanOrEqual(90_000)
+  })
+
+  it('fills a required range with the whole span where that fits, and leaves one that is not required empty', () => {
+    const records = [record('2026-10-20', '2026-10-25')]
+    expect(defaultRange({ ...base, required: true, resolution: 'hourly', records, parameterCount: 1 })).toEqual({ kind: 'whole', startDate: '2026-10-20', endDate: '2026-10-25' })
+    expect(defaultRange({ ...base, resolution: 'hourly', records, parameterCount: 1 })).toEqual({ kind: 'none' })
+  })
+
+  it('says nothing for what the page cannot count: no record, subdaily, no start', () => {
+    expect(defaultRange({ ...base, resolution: 'daily', records: [record(null)], parameterCount: 1 })).toEqual({ kind: 'none' })
+    expect(defaultRange({ ...base, resolution: 'daily', records: [], parameterCount: 1 })).toEqual({ kind: 'none' })
+    expect(defaultRange({ ...base, resolution: 'subdaily', records: [record('1990-01-01', null)], parameterCount: 1 })).toEqual({ kind: 'none' })
+    // a range that is required is the span, counted or not
+    expect(defaultRange({ ...base, required: true, resolution: 'subdaily', records: [record('1990-01-01', null)], parameterCount: 1 })).toMatchObject({ kind: 'whole', startDate: '1990-01-01' })
+  })
+
+  it('counts the stations that have a record and leaves one without out', () => {
+    const range = defaultRange({ ...base, resolution: 'daily', records: [record(null), record('1891-01-01', null)], parameterCount: 10 })
+    expect(range.kind).toBe('window')
+  })
+})
+
+describe('limitRefusal', () => {
+  const problem = { type: 'urn:wetterdienst:problem:limit-exceeded', status: 400, limit: 'rows', maximum: 500_000, requested: 614_866, detail: 'This request would return ...' }
+
+  it('reads the fields of the problem, not its text', () => {
+    expect(limitRefusal({ data: problem })).toEqual({ limit: 'rows', maximum: 500_000, requested: 614_866 })
+    expect(limitRefusal({ data: JSON.stringify({ ...problem, limit: 'stations', maximum: 100, requested: 1284 }) })).toEqual({ limit: 'stations', maximum: 100, requested: 1284 })
+  })
+
+  it.each([
+    ['another problem', { data: { ...problem, type: 'urn:wetterdienst:problem:server-busy' } }],
+    ['a limit that is not known', { data: { ...problem, limit: 'bytes' } }],
+    ['numbers that are text', { data: { ...problem, requested: '614866' } }],
+    ['no numbers', { data: { ...problem, maximum: undefined } }],
+    ['a body that is not JSON', { data: 'Bad Gateway' }],
+    ['no body', {}],
+    ['nothing', null],
+  ])('is none for %s', (_name, error) => {
+    expect(limitRefusal(error)).toBeNull()
+  })
+})
+
+describe('a high resolution, counted as the date range form does', () => {
+  // the form: every selected station over the window, every parameter whatever the shape, and no more than 100,000
+  const formValues = (start: string, end: string, perDay: number, stations: number, parameters: number) =>
+    ((day(end) - day(start)) / 86_400_000) * perDay * stations * parameters
+
+  it('starts a window of the wide shape that the form accepts, as the form counts the parameters in it', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null)],
+      parameterCount: 3,
+      tidy: false,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    expect(formValues(range.window.startDate, range.window.endDate, 144, 1, 3)).toBeLessThanOrEqual(100_000)
+  })
+
+  it('counts a station whose record ended before the window too, as the form counts every station', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null), record('1993-01-01', '2000-12-31'), record('1993-01-01', '2000-12-31')],
+      parameterCount: 1,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    expect(formValues(range.window.startDate, range.window.endDate, 144, 3, 1)).toBeLessThanOrEqual(100_000)
+  })
+
+  it('fits the refusal\'s window to the form too', () => {
+    const window = windowForRefusal({
+      resolution: '1_minute',
+      records: [record('1993-01-01', null)],
+      parameterCount: 2,
+      tidy: false,
+      requested: 3_000_000,
+      maximum: 500_000,
+      now: NOW,
+    })!
+    expect(formValues(window.startDate, window.endDate, 1440, 1, 2)).toBeLessThanOrEqual(100_000)
+  })
+
+  it('scales the refusal\'s window by the stations\' records within the range, not by the whole range', () => {
+    // the record begins in June, the range in January: only the days of the record are rows
+    const window = windowForRefusal({
+      resolution: '10_minutes',
+      records: [record('2026-06-01', null)],
+      parameterCount: 1,
+      requested: 22_000,
+      maximum: 20_000,
+      range: { startDate: '2026-01-01', endDate: '2026-10-26' },
+      now: NOW,
+    })!
+    expect(window.unit).toBe('months')
+    expect(window.count).toBe(4)
+    expect(window.rows).toBe(aboutRows(estimateRows({ resolution: '10_minutes', records: [record('2026-06-01', null)], parameterCount: 1, range: { startDate: window.startDate, endDate: window.endDate }, now: NOW }).rows!))
+  })
+
+  it('says the rows of a window as the server counts them: the wide shape is a row for each timestamp', () => {
+    const range = defaultRange({
+      resolution: '10_minutes',
+      records: [record('1993-01-01', null)],
+      parameterCount: 3,
+      tidy: false,
+      maxRows: 500_000,
+      required: true,
+      now: NOW,
+    })
+    expect(range.kind).toBe('window')
+    if (range.kind !== 'window')
+      return
+    const served = estimateRows({ resolution: '10_minutes', records: [record('1993-01-01', null)], parameterCount: 3, tidy: false, range: { startDate: range.window.startDate, endDate: range.window.endDate }, now: NOW }).rows!
+    expect(range.window.rows).toBe(aboutRows(served))
+  })
+
+  it('does not stretch a window across a gap in the records, where the form counts every day of it', () => {
+    const records = [record('2000-01-01', '2025-01-01'), record('2026-10-20', null)]
+    const range = defaultRange({ resolution: '1_minute', records, parameterCount: 1, maxRows: 500_000, required: true, now: NOW })
+    expect(range.kind).toBe('window')
+    if (range.kind === 'window')
+      expect(formValues(range.window.startDate, range.window.endDate, 1440, 2, 1)).toBeLessThanOrEqual(100_000)
+    const refused = windowForRefusal({
+      resolution: '1_minute',
+      records,
+      parameterCount: 1,
+      requested: 600_000,
+      maximum: 500_000,
+      range: { startDate: '2024-06-01', endDate: '2026-10-25' },
+      now: NOW,
+    })!
+    expect(formValues(refused.startDate, refused.endDate, 1440, 2, 1)).toBeLessThanOrEqual(100_000)
+  })
+})

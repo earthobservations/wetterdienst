@@ -104,7 +104,7 @@ two different units.
 This means the canonical `name` you pick has to already exist in that table. If your service reports
 a quantity that is not in it yet, add it there first. If it reports something that looks like an
 existing name but is a *different* physical quantity, give it its own name rather than reusing the
-existing one -- see the `radiation_global` and `radiation_global_intensity` pair, which are
+existing one -- see the `radiation_global` and `radiation_global_intensity_mean` pair, which are
 irradiation (accumulated energy per area) and irradiance (power per area) and are not convertible
 into one another without the accumulation interval.
 
@@ -296,14 +296,46 @@ pass the text as the last kind of the flags, `join_quality_flags(plain_flag, raw
 `raw:-999` after the plain flag. Declare the text as the source writes it (`Sentinel("-999")`, not
 `-999.0`); a value read from text keeps the text of its own cell. `Sentinel(..., where=...)` limits it to a
 parameter, `to=0.0` makes it a value the source documents (no precipitation), and `non_numeric=True` takes
-every text that is no number for one. A value no sensor can have produced (4021 degrees) has no
-sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in the unit of the source
-taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
-are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
-be narrower than that range where its source's own records or precision allow it, never wider; the
-narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A model's amount that is a little below its floor (-0.02 mm of rain) is `Floor(0.0)`: the floor, with the number as `raw`. A wide frame keeps the text beside each
-column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
+every text that is no number for one. A wide frame keeps the text beside each column with `clear_sentinels` and
+`unpivot_with_raw`. A value no sensor can have produced (4021 degrees) is no sentinel and is not the reader's to
+judge, see below. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.
+
+**A reader judges nothing.** What no sensor can have produced (a number outside the physical range of its parameter, a
+station pressure the elevation does not allow, a sensor that did not move for hours, a reading its neighbour contradicts,
+an amount a little below its floor) is judged by the values core, in canonical units, with the mode the request chose
+for each of the [plausibility checks](../data/plausibility.md) (GH-3676), and the bounds the caller sets per parameter
+(`limits`, GH-3687), and the verdict of the source's own quality flag (`source`, GH-3677, a map of the codes a
+provider documents as wrong, in `model/source_flags.py`); it writes `rejected:<check>,raw:<text>`
+(hard) or `suspect:<check>` (soft) itself. The reader decodes the codes its source documents (`Sentinel`, above), hands
+the numbers over in the unit of its source, and:
+
+- **hands the text beside the number** where it reads a text and converts or interprets it before the core sees it: a
+  column `source_text` of the frame next to `value`. The core writes it in the `raw:` token of a value it rejects
+  (`raw:-0.80`, not `raw:-0.8`). A reader whose `value` is a text needs nothing (its `value` is the text), one whose
+  `value` is a number gets the number as short as it goes, and one that converts the number itself hands the text it
+  read.
+- **declares no bounds**: the table `wetterdienst/model/plausibility_ranges.py` is the same for every provider, by
+  canonical parameter name and, where the quantity grows with the span, by resolution, in the canonical unit (°C, hPa,
+  m/s, mm, MJ/m², a fraction in percent, a duration in hours, a wave period in seconds), and judges a new network's
+  parameters as soon as they have a canonical name (`tests/test_docs_plausibility.py` holds the coverage table of
+  [the page](../data/plausibility.md) to it). A parameter the table has no bound for gets the one of its family, or of
+  its unit type; a new quantity with a record is added to the table with its source (the WMO record rounded outward, then
+  the definition, then a named source), once for all networks, and `tests/provider/physical_ranges.py` reads the same
+  table for the provider tests. A bound a provider alone would want is not an entry: the rules it hands over (next
+  point) are, and `Bound` is the one narrow case. The other checks are declared in `model/judge.py`: the station pressure held to the elevation of the station
+  (`ELEVATION_PRESSURE`, for every network that has an elevation; a list that writes 0.0 for an elevation it does not
+  know is named in `ELEVATION_ZERO_IS_UNKNOWN`), the amounts a model writes below zero (`FLOORS`), the runs of one
+  value that `stuck` takes for a stopped sensor (the table `RULES` of `model/persistence.py`, with the source of each limit), the road's run rule (`RUNS`), and
+  the jumps that `step` takes for a reading that is none (the table `RULES` of `model/rate_of_change.py`, a spike and a step per parameter and resolution, with the source of each limit), and the relations that `relations` holds two readings of one file to (the table of `model/relations.py`: a maximum, a mean and a minimum, a dew point, a gust, and the sunshine of a day against the day length of `model/sun.py`; a provider that collects a dataset whole, `grouped`, gets them without a line of its own, and a rule only it knows is a `Beside` of `consistency`).
+- **hands over what only it knows** by overriding `TimeseriesValues._plausibility_rules(station_id, dataset)` and
+  returning rules of `wetterdienst.model.judge`, in canonical names and units: `Bound` (a range for one station, such as
+  the stations without frost), `Beside` (a reading that the reading of another parameter at the same timestamp
+  contradicts: it is given both values and says whether the first is no reading), and `StuckPeriod` (a sensor of one
+  station that did not work in a span of days). A relation needs its second parameter in the frame, so the dataset is
+  `grouped`; the core never downloads one. Name the number each stub's reader rejects in `verdicts` (and the soft ones
+  in `suspects`), and add the network and its datasets to `COVERAGE` in `wetterdienst/model/plausibility.py` and to the
+  table of `docs/data/plausibility.md`, which `tests/test_docs_plausibility.py` holds to what the core is told.
 
 ## Step 4: What a new provider brings with it
 
@@ -314,7 +346,10 @@ The tests hold every provider to the same rules, and fail until a new one has wh
   registry, and the README states how many services there are.
 - **Its licence and credit line**: `license` and `attribution` in the metadata (Step 1). A provider that states no
   terms declares `"license": None` and is named with the reason in `LICENSE_NOT_STATED` of
-  `tests/ui/test_response_metadata.py`.
+  `tests/ui/test_response_metadata.py`. The provider is listed on the
+  [licences and credit lines](../data/provider/licenses.md) page by itself, which is built from these fields. The
+  answers carry the note of what wetterdienst did to the data on their own (`model/processing_note.py`), the same for
+  every provider.
 - **A stub of its station catalogue** in `tests/provider/station_catalogue_stubs.py`: rows of the real list, served
   through the provider's own reader. The rules of `tests/provider/station_catalogue.py` apply to it, and to the live
   list in `test_station_catalogues_live.py` (marker `remote`). A provider of one country adds its bounding box to

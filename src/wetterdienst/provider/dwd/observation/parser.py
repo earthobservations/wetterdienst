@@ -21,13 +21,13 @@ from wetterdienst.model.quality_flags import (
     calm,
     clear_sentinels,
     no_direction_code,
-    raw_column,
 )
 from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from wetterdienst.util.network import File
@@ -84,8 +84,10 @@ MEASUREMENT_METHOD_CODES = {"P": "1", "I": "2"}
 # 47, "fog, sky invisible", most of all. It is a statement that no amount could be given, not an
 # amount: left alone it is read as -1 eighths and converts to -0.125 of the sky.
 #
-# Only the cover fields. `v_sN_cs` beside them is a cloud *type* code where -1 is DWD's own value
-# for an automated observation, and dimensionless, so nothing distorts it.
+# The cloud *type* fields `v_sN_cs` write the same -1 (GH-3772; read 2026-11-03, stations 00433, 01420, 02014
+# and 03921, all periods): 2,633 of the 2,641 hours with a type of -1 have an obscured first layer beside it, 2,627 an
+# obscured total cover. DWD's descriptions name no -1 for the type (only -999), so it is not a type but the same
+# absence, and it is not returned either; the older reading, "DWD's value for an automated observation", had no source.
 SKY_OBSCURED = "-1"
 CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total.name_original,
@@ -95,13 +97,19 @@ CLOUD_COVER_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer3.name_original,
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_layer4.name_original,
 }
-# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five
-# moisture columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
+CLOUD_TYPE_PARAMETERS = {
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer1.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer2.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer3.name_original,
+    DwdObservationMetadata.hourly.cloud_type.cloud_type_layer4.name_original,
+}
+# The hourly moisture dataset documents `missing value = -999`, but its files write -99.9 for the five moisture
+# columns in every hour without a reading (station 03735, 1949-01-28 06:00, in
 # stundenwerte_TF_03735_19490101_19511231_hist.zip; station 14006, 2025-01-05 01:00, in
-# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD`
-# is not touched by this rule. -99.9 is outside the physical range of all five. Only this dataset:
-# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them
-# writing it, so the rule stays local rather than a blanket -99.9.
+# stundenwerte_TF_14006_20201104_20251231_hist.zip). `TT_STD` beside them is a reading, and `P_STD` is not touched by
+# this rule. -99.9 is outside the physical range of four of them (the dew point reaches -100 C). Only this dataset:
+# GH-2669 sampled hourly air temperature, dew point and subdaily moisture and found none of them writing it, so the
+# rule stays local rather than a blanket -99.9.
 MOISTURE_MISSING = -99.9
 MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.humidity_absolute.name_original,
@@ -111,37 +119,12 @@ MOISTURE_MISSING_PARAMETERS = {
     DwdObservationMetadata.hourly.moisture.temperature_dew_point_2m.name_original,
 }
 
-# The hourly moisture file of a station without a barometer carries one pressure for the whole file, which is no
-# reading (GH-2699; read 2026-10-15 in all 1314 files of recent/ and historical/ of opendata.dwd.de). `P_STD` is
-# "Stundenwerte Luftdruck" ("hourly value of barometric pressure") in DWD's sheet, from SYNOP reports, and the sheet
-# says nothing of a constant. 761 files hold a single distinct value in every one of their 8 to 202,384 readings
-# (stundenwerte_TF_14072_akt.zip: 997.3 in 12,844 rows). 736 of them, and 55 more with two values, are zips without a
-# `Metadaten_Geraete_Luftdruck_*.txt`, the instrument list of the barometer (818 files have none); 471 of the 496 zips
-# that have one hold 10 or more distinct values (the others, 25, are constant). A mean, a trend or a pressure
-# reduction over the constant reflects the station, not the weather.
-#
-# Judged per file, here, before the files of the periods are put together: a file of at least
-# `STATION_CONSTANT_MIN_READINGS` readings with at most `STATION_CONSTANT_MAX_VALUES` distinct values has them nulled,
-# and each value stays as the text of `quality_flags`' `raw` token (`raw:997.3`). Fewer readings are no evidence (a
-# file of 24 rows is one day). A constant that changed once is two values (953.1 and then 954.8 from 2026-10-13 at
-# station 00142; 55 files, GH-3139, all without a barometer list; 00091's historical file holds 977.1 and then 977.6
-# from 2024-03-25). Read on the same 1314 files on 2026-10-19: of the 1,305 files with 500 or more readings
-# none holds 3 to 46 distinct values; the constants hold 1 (752) or 2 (55), the fewest of any other file is 47
-# (stundenwerte_TF_19271_akt.zip, a barometer in 7,643 readings) and the next 50, 53, 54, 57, 58, ... A threshold of
-# three sits in that gap, with room for a second step.
-STATION_CONSTANT_MIN_READINGS = 500
-STATION_CONSTANT_MAX_VALUES = 3
-STATION_CONSTANT_PARAMETERS = (
-    (DwdObservationMetadata.hourly.moisture, DwdObservationMetadata.hourly.moisture.pressure_air_site.name_original),
-)
-
 # The hourly weather phenomena file writes -1 in `WW` for every hour in which the present weather was not
 # reported, and says so in the text column beside it: `       1869;2025040900;    3;  -1;Wetter wurde
 # nicht gemeldet;eor` (stundenwerte_WW_01869_akt.zip; 9263 of the 13088 records of station 01869 are
 # that row, and no other `WW_Text` goes with -1 nor does -1 go with another text). No description states
 # it. It is "not reported", not a weather: left alone it is counted, maxed and averaged as one. Only
-# this column: `v_sN_cs` of hourly cloud_type is a code where -1 is DWD's own value for an automated
-# observation.
+# this column: the -1 of `v_sN_cs` in hourly cloud_type is the obscured sky (see `SKY_OBSCURED`).
 WEATHER_NOT_REPORTED = -1
 WEATHER_NOT_REPORTED_PARAMETERS = {
     DwdObservationMetadata.hourly.weather_phenomena.weather.name_original,
@@ -280,6 +263,7 @@ _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
 _PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = no_direction_code(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = no_direction_code("0")
+
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
 _NO_RAW_COLUMNS = {
     "stations_id",
@@ -304,25 +288,6 @@ CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.visibility.visibility_measurement_method.name_original,
 }
-
-
-def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
-    """Null a column of one file that holds at most a few values, keeping the text of each as `raw` (GH-2699).
-
-    A file is the unit: this runs on one file before the files are put together, so a station whose
-    recent file is constant and whose historical file is not is judged on each. The value is judged
-    as a number (`997.3` and `997.30` are one), and the `raw` token is the text the file wrote.
-    """
-    value = pl.col(column)
-    readings = value.cast(pl.Float64, strict=False).drop_nulls()
-    constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() <= STATION_CONSTANT_MAX_VALUES)
-    raw = pl.when(constant & value.is_not_null()).then(value)
-    if raw_column(column) in df.collect_schema():
-        raw = pl.coalesce(pl.col(raw_column(column)), raw)
-    return df.with_columns(
-        pl.when(constant).then(pl.lit(None, dtype=pl.String)).otherwise(value).alias(column),
-        raw.alias(raw_column(column)),
-    )
 
 
 def _decode_measurement_method(series: pl.Series) -> pl.Series:
@@ -371,6 +336,80 @@ def _encode_true_local_time_offset(series: pl.Series) -> pl.Series:
     return (true_local_time - stamp).dt.total_minutes().cast(pl.String)
 
 
+def _round_solar_stamps(
+    df: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
+) -> pl.DataFrame:
+    """Stamp the hourly solar rows (`YYYYMMDDHH:MM`) with the clock hour their raw end is nearest to (GH-3938).
+
+    The raw stamp is the minute the source hour ended, which differs by station and date (:00 to :59), and the clock
+    hour is that stamp rounded to the nearest hour (:30 up), as it always was. Where the minute drifts across :30,
+    two source hours round to one clock hour (12:30 and 13:29 are both 13:00). One row per station and hour is
+    served: the one whose raw end is nearest the hour (13:29), the earlier one if both are as near. Before, one of
+    them was dropped without a word, whichever the merge happened to keep.
+
+    The rows that are dropped for it are logged: one warning for each station of the file, with the number and each
+    row's raw `MESS_DATUM`, hour and values, for those whose hour lies in the `window` of the request (a bound that
+    is None is open; no window is the whole file). The file holds the station's whole record, so a collision in a
+    year nobody asked for is a debug line only.
+
+    A raw stamp that the file lists twice for one station is one source hour: the first row is kept, and the
+    duplicates are only counted in a debug line. A row is never moved to another hour.
+    """
+    raw = df.get_column("timestamp").str.to_datetime(TIME_FORMAT_SOLAR, time_zone="UTC")
+    frame = df.with_row_index("_position").with_columns(raw.alias("_raw"), raw.dt.round("1h").alias("_hour"))
+    frame = frame.unique(subset=["station_id", "_raw"], keep="first", maintain_order=True)
+    if (duplicates := df.height - frame.height) > 0:
+        log.debug(f"{duplicates} row(s) of {filename} repeat the raw stamp of another row of the station and are one.")
+    frame = frame.with_columns((pl.col("_raw") - pl.col("_hour")).dt.total_seconds().abs().alias("_distance"))
+    frame = frame.sort(["station_id", "_hour", "_distance", "_raw"], maintain_order=True)
+    frame = frame.with_columns(
+        pl.col("_position").first().over(["station_id", "_hour"]).alias("_kept"),
+        pl.col("_distance").first().over(["station_id", "_hour"]).alias("_kept_distance"),
+        pl.col("timestamp").first().over(["station_id", "_hour"]).alias("_kept_stamp"),
+    )
+    _log_dropped_solar_rows(frame.filter(pl.col("_position") != pl.col("_kept")), filename, window)
+    return (
+        frame.filter(pl.col("_position") == pl.col("_kept"))
+        .sort("_position")
+        .with_columns(pl.col("_hour").dt.strftime("%Y%m%d%H%M").alias("timestamp"))
+        .drop("_position", "_raw", "_hour", "_distance", "_kept", "_kept_distance", "_kept_stamp")
+    )
+
+
+def _log_dropped_solar_rows(
+    dropped: pl.DataFrame,
+    filename: str,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None,
+) -> None:
+    """Say which hourly solar rows were dropped for a nearer one: a warning for each station for those in the window."""
+    lower, upper = (bound.astimezone(dt.UTC) if bound else None for bound in (window or (None, None)))
+    for (station,), rows in dropped.group_by("station_id", maintain_order=True):
+        inside = []
+        for row in rows.iter_rows(named=True):
+            minutes, kept_minutes = row["_distance"] // 60, row["_kept_distance"] // 60
+            how = (
+                f"as near as {row['_kept_stamp']} ({minutes} min), which is earlier and is kept"
+                if row["_distance"] == row["_kept_distance"]
+                else f"{minutes} min from it against {kept_minutes} min of {row['_kept_stamp']}"
+            )
+            text = (
+                f"MESS_DATUM {row['timestamp']} -> {row['_hour']:%Y-%m-%d %H:%M} UTC, {how} "
+                f"(FG_LBERG={row['fg_lberg']}, SD_LBERG={row['sd_lberg']})"
+            )
+            if (lower and row["_hour"] < lower) or (upper and row["_hour"] > upper):
+                log.debug(f"Hourly solar of station {station} ({filename}) outside the window: {text}")
+            else:
+                inside.append(text)
+        if inside:
+            message = (
+                f"Hourly solar of station {station} ({filename}): {len(inside)} source hour(s) round to an hour that a "
+                f"nearer source hour of the station also rounds to, and are dropped: {'; '.join(inside)}."
+            )
+            log.warning(message)
+
+
 COLUMNS_MAPPING = {
     "stations_id": "station_id",
     "mess_datum": "timestamp",
@@ -402,12 +441,14 @@ WOZ_COLUMN = "woz"
 # fixed UTC+1, not UTC, and are shifted by -1 h (GH-2709): against NOAA ISD the value of the stamp HH is the report of
 # HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
 # So are the hourly soil temperature stamps of the periods whose source is "Archiv des eMD" (74 stations, up to 1991:
-# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, from
-# 1995-02-01 to 1996-05-31). Only these: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most
-# of the stations checked and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`,
-# per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot
-# carry two clocks, so the shift is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from
-# one boolean column per parameter named here. The rows are flagged `zone:mez`.
+# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, Nürnberg,
+# Frankfurt/Main, Trier-Petrisberg and Bremen, in blocks of whole days). Only these: the plain `Stundenwerte in MEZ`
+# of 160 stations is UTC in the values in most of the months ISD tells apart (6,021 against 141 at lag -1,
+# docs/data/time_reference.md) and no rule on the file tells the others. The periods come from
+# `ProductFile.mez_md_spans`, per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and
+# one stamp column cannot carry two clocks, so the shift is made after the wide frame is unpivoted
+# (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter named here. The rows are flagged
+# `zone:mez`.
 MEZ_MD_PREFIX = "mez_md__"
 
 
@@ -416,14 +457,40 @@ def mez_md_column(parameter: str) -> str:
     return f"{MEZ_MD_PREFIX}{parameter}"
 
 
+#: the prefix of the boolean column that says which of those stamps only the 1973-01 to 1975-12 batch of the table of
+#: GH-3776 shifted: the rows `zone:mez-1973-75` flags, not those a MEZ (MD) period shifts too
+MEZ_BATCH_PREFIX = "mez_batch__"
+
+
+def mez_batch_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are of the batch."""
+    return f"{MEZ_BATCH_PREFIX}{parameter}"
+
+
+#: the prefix of the boolean column that says which stamps of a parameter lie in the months of the table of GH-3910
+#: whose stamps are mean local time: the rows of these that a MEZ (MD) period shifts are flagged
+#: `zone:mez-local-mean-time` instead of `zone:mez`
+LOCAL_MEAN_TIME_PREFIX = "local_mean_time__"
+
+
+def local_mean_time_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are mean local time."""
+    return f"{LOCAL_MEAN_TIME_PREFIX}{parameter}"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
-    """Parse the climate observations data from the DWD."""
+    """Parse the climate observations data from the DWD.
+
+    `window` is the request's (start, end), which the rows of a file that are left out for another are reported for
+    (the hourly solar, GH-3938); without it every row of the file is.
+    """
     if dataset == DwdObservationMetadata.subdaily.wind_extreme:
-        data = [_parse_climate_observations_data(file, dataset, period) for file in files]
+        data = [_parse_climate_observations_data(file, dataset, period, window) for file in files]
         if not data:
             return pl.LazyFrame()
         try:
@@ -435,7 +502,7 @@ def parse_climate_observations_data(
     else:
         data = []
         for file in files:
-            data.append(_parse_climate_observations_data(file, dataset, period))
+            data.append(_parse_climate_observations_data(file, dataset, period, window))
         if not data:
             return pl.LazyFrame()
         return pl.concat(_drop_mez_copies_of_utc_rows(files, data, dataset, period))
@@ -445,6 +512,7 @@ def _parse_climate_observations_data(  # noqa: C901
     file: File,
     dataset: DatasetModel,
     period: Period,
+    window: tuple[dt.datetime | None, dt.datetime | None] | None = None,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
     if isinstance(file.content, Exception):
@@ -462,9 +530,11 @@ def _parse_climate_observations_data(  # noqa: C901
             infer_schema=False,
         )
     except pl.exceptions.SchemaError:
+        note_skipped_download(SkipCause.UNPARSEABLE)
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
         return pl.LazyFrame()
     except ValueError:
+        note_skipped_download(SkipCause.UNPARSEABLE)
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
@@ -485,12 +555,9 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
+    df = clear_sentinels(df, sorted((CLOUD_COVER_PARAMETERS | CLOUD_TYPE_PARAMETERS) & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
         df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
-    for constant_dataset, parameter in STATION_CONSTANT_PARAMETERS:
-        if dataset == constant_dataset and parameter in columns:
-            df = _null_station_constant(df, parameter)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
         df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
     if dataset == DwdObservationMetadata.hourly.precipitation:
@@ -537,16 +604,13 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.with_columns(pl.lit(None, dtype=pl.String).alias(parameter) for parameter in missing_parameters)
     # Special handling for hourly solar data, as it has more date columns
     elif dataset == DwdObservationMetadata.hourly.solar:
-        # Fix timestamps of hourly solar data
-        # The timestamps are sometimes given as e.g. 2024-12-08 17:59:00 instead of 2024-12-08 18:00:00
-        # Other times they are off by 10 minutes, e.g. 2024-12-08 17:50:00 or 2024-12-08 17:10:00
-        # @nkiessling proposed to round the timestamps to the nearest hour
-        # Until further discussion, we will apply this rounding
-        df = df.with_columns(
-            pl.col("timestamp")
-            .str.to_datetime("%Y%m%d%H:%M", time_zone="UTC")
-            .dt.round(dt.timedelta(hours=1))
-            .dt.strftime("%Y%m%d%H%M")
+        # The raw stamp is the minute the hour ended and differs by station and date (:00 to :59). It is rounded to the
+        # nearest hour, and of two rows that round to one hour the nearer one is kept and the other is logged (GH-3938)
+        df = df.map_batches(
+            lambda frame: _round_solar_stamps(frame, file.filename, window),
+            predicate_pushdown=False,
+            projection_pushdown=False,
+            streamable=False,
         )
     elif dataset == DwdObservationMetadata.subdaily.wind_extreme:
         if "FX3" in file.filename:
@@ -591,6 +655,30 @@ def _parse_climate_observations_data(  # noqa: C901
                 if file.mez_md_spans.get(column)
                 else pl.lit(value=False)
             ).alias(mez_md_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.mez_batch_spans[column]
+                )
+                if file.mez_batch_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(mez_batch_column(column))
+            for column in parameters
+            if column in columns
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.local_mean_time_spans[column]
+                )
+                if file.local_mean_time_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(local_mean_time_column(column))
             for column in parameters
             if column in columns
         )

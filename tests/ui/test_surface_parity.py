@@ -11,12 +11,14 @@ answers are held to each other.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import json
 import logging
 import re
 from typing import TYPE_CHECKING, Any
 
 import click
+import freezegun
 import polars as pl
 import pytest
 from click.testing import CliRunner, Result
@@ -30,6 +32,8 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
+from wetterdienst.util import response_warnings
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     import pathlib
@@ -95,12 +99,14 @@ def _serve_dwd(monkeypatch: pytest.MonkeyPatch) -> None:
     def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401, ARG001
         dataset = getattr(parameter_or_dataset, "dataset", parameter_or_dataset)
         names = [parameter.name_original for parameter in dataset]
+        # a reading of 1 hPa is no pressure: the core judges what the stub hands over, as it would the reader's
+        pressures = {parameter.name_original for parameter in dataset if parameter.name.startswith("pressure_air_s")}
         days = [dt.datetime(2020, 5, day, tzinfo=UTC) for day in range(1, 4)]
         return pl.DataFrame(
             {
                 "timestamp": [day for day in days for _ in names],
                 "parameter": names * len(days),
-                "value": [1.0] * (len(days) * len(names)),
+                "value": [1000.0 if name in pressures else 1.0 for _ in days for name in names],
                 "quality_flags": ["1"] * (len(days) * len(names)),
                 "resolution": ["daily"] * (len(days) * len(names)),
                 "dataset": [dataset.name] * (len(days) * len(names)),
@@ -282,6 +288,106 @@ def test_an_empty_result_leaves_a_target_as_it_is(tmp_path: pathlib.Path, caplog
     assert result.exit_code == 0, result.output
     assert target.read_text() == "kept"
     assert "Nothing was written to --target" in caplog.text
+
+
+def _response_warnings(caplog: pytest.LogCaptureFixture) -> dict[str, list[str]]:
+    """Give the lines of the log that qualify the answer, as the `--quiet` filter tells them, by their code."""
+    lines: dict[str, list[str]] = {}
+    for record in caplog.records:
+        code = getattr(record, response_warnings.RESPONSE_WARNING_RECORD, None)
+        if code is not None:
+            lines.setdefault(code, []).append(record.getMessage())
+    return lines
+
+
+@pytest.mark.parametrize("quiet", [[], ["--quiet"]])
+def test_the_command_line_says_the_values_a_check_rejected_with_their_count_also_in_a_csv(
+    quiet: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A CSV has no `metadata.warnings`: what a check rejected is one line on stderr, with `--quiet` as without it."""
+    with caplog.at_level(logging.INFO):
+        result = _cli(
+            "values",
+            "--stations=00001",
+            "--timestamp=2020-05",
+            "--limits=temperature_air_mean_2m=2:3",
+            "--format=csv",
+            *quiet,
+        )
+
+    assert result.exit_code == 0, result.output
+    # the three days of the stub are 1.0, outside 2 to 3: null, and the CSV has them as such
+    assert result.stdout.startswith("station_id,resolution,dataset,parameter,timestamp,value")
+    lines = _response_warnings(caplog)
+    assert len(lines["rejected-by-plausibility"]) == 1
+    assert lines["rejected-by-plausibility"][0].startswith(
+        "3 values were numbers a plausibility check rejected (limits 3;"
+    )
+
+
+@pytest.mark.parametrize("quiet", [[], ["--quiet"]])
+def test_the_command_line_says_the_stations_skip_empty_left_out_also_under_quiet(
+    quiet: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A station `skip_empty` leaves out is a line on stderr (it is logged at INFO), with `--quiet` as without it."""
+    with caplog.at_level(logging.INFO):
+        result = _cli(
+            "values",
+            "--stations=00001,00002",
+            "--timestamp=2020-05",
+            "--limits=temperature_air_mean_2m=2:3",
+            "--skip-empty=true",
+            "--skip-threshold=0.9",
+            "--format=csv",
+            *quiet,
+        )
+
+    assert result.exit_code == 0, result.output
+    skipped = _response_warnings(caplog)["station-skipped"]
+    assert sorted(line.split()[1] for line in skipped) == ["00001", "00002"]
+
+
+def test_a_library_call_logs_no_counted_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """The sums are the command line's to log at the end: the library and REST carry them in the answer alone."""
+    with caplog.at_level(logging.INFO):
+        response = _rest(
+            "/api/values", stations="00001", timestamp="2020-05", limits='{"temperature_air_mean_2m": [2, 3]}'
+        )
+
+    assert response.status_code == 200, response.text
+    # the answer has the sum, in its block
+    assert "rejected-by-plausibility" in response.text
+    assert "rejected-by-plausibility" not in _response_warnings(caplog)
+
+
+def test_quiet_still_says_that_nothing_was_written_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A scheduled run that wrote nothing must not look like one that did: `--quiet` keeps that sentence only."""
+    target = tmp_path / "values.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("values", "--stations=00001", "--timestamp=1930-06-01", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No data available" not in caplog.text
+
+
+def test_quiet_still_says_that_a_listing_wrote_nothing_to_a_target(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The same for `stations`: the sentence stays under `--quiet`, the one about the empty listing does not."""
+    target = tmp_path / "stations.csv"
+    target.write_text("kept")
+    with caplog.at_level(logging.INFO):
+        result = _cli("stations", "--name=Nowhereville", f"--target=file://{target}", "--quiet")
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == "kept"
+    assert "Nothing was written to --target" in caplog.text
+    assert "No stations available" not in caplog.text
 
 
 def test_a_failure_is_still_an_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -620,10 +726,10 @@ _SURFACES = {
     core.HistoryRequest: (("history",), "/api/history", "history"),
     core.IssuesRequest: (("issues",), "/api/issues", "issues"),
     core.AlertsRequest: (("alerts",), "/api/alerts", "alerts"),
-    core.AuthRequest: (("about", "auth"), "/api/auth", "auth"),
-    core.CoverageRequest: (("about", "coverage"), "/api/coverage", "coverage"),
-    core.GlossaryRequest: (("about", "glossary"), "/api/glossary", "glossary"),
-    core.ProvidersRequest: (("about", "providers"), "/api/providers", "providers"),
+    core.AuthRequest: (("auth",), "/api/auth", "auth"),
+    core.CoverageRequest: (("coverage",), "/api/coverage", "coverage"),
+    core.GlossaryRequest: (("glossary",), "/api/glossary", "glossary"),
+    core.ProvidersRequest: (("providers",), "/api/providers", "providers"),
     core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
     # the data of the stripes has no command of its own yet (GH-3035)
     core.StripesImageRequest: (("stripes", "image"), "/api/stripes/image", "stripes_image"),
@@ -633,15 +739,22 @@ _SURFACES = {
 
 #: what a surface has beside the fields of the request, and why: the short list a new parameter cannot join
 #: by being forgotten
+#: the options of a command that are no setting of a request: click's own `--help` and `--version`, told by their
+#: name and not by `expose_value`, which `--quiet` (a log level that hands the command no value) would not pass
+_NOT_REQUEST_OPTIONS = {"help", "version"}
 _CLI_ONLY = {
     "target": "writes the result to a file or a database instead of stdout, where REST answers the caller",
     "if_exists": "what --target does with data already there",
     "debug": "the log level of the command's own process; a request no longer sets that of a server (GH-3336)",
+    "quiet": "the log level of the command's own process, the other end of --debug",
     "start": "with --end, the window as two options, read as the one `timestamp`",
     "end": "with --start, the window as two options, read as the one `timestamp`",
 }
 _CLI_ONLY_OF = {
     ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
+    ("alerts",): {
+        "with_metadata": "writes <file>.metadata.json beside the --target file; a REST answer carries the block always"
+    },
 }
 _REST_ONLY_OF = {
     core.CoverageRequest: {"pretty": "the command line always indents"},
@@ -667,7 +780,7 @@ def _cli_options(path: tuple[str, ...]) -> dict[str, click.Option]:
     return {
         param.opts[0].removeprefix("--").replace("-", "_"): param
         for param in _cli_command(path).params
-        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+        if isinstance(param, click.Option) and param.name not in _NOT_REQUEST_OPTIONS and not param.hidden
     }
 
 
@@ -745,12 +858,32 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
             assert {c.lower() for c in param.type.choices} == {c.lower() for c in choices}, name
 
 
+def test_every_cli_only_entry_is_an_option_some_command_has_without_a_field() -> None:
+    """An entry of the lists above is an option of a command that has no field of the name, or it is deleted.
+
+    The test above holds each command's options to the lists (`<=`), so an entry whose option was renamed or removed
+    kept passing, with its reason, for as long as nobody read the list. `_CLI_ONLY` is for all commands: each of its
+    names is a command-only option of at least one of them. `_CLI_ONLY_OF` is for one command, which must be a command
+    of a surface, and must not repeat what `_CLI_ONLY` already says.
+    """
+    only = {
+        path: set(_cli_options(path)) - set(model.model_fields)
+        for model, (path, _, _) in _SURFACES.items()
+        if path is not None
+    }
+    assert set(_CLI_ONLY) - set().union(*only.values()) == set(), "an entry of _CLI_ONLY that no command has"
+    assert set(_CLI_ONLY_OF) <= set(only), "an entry of _CLI_ONLY_OF for a command that is no surface"
+    for path, entries in _CLI_ONLY_OF.items():
+        assert set(entries) <= only[path], f"{' '.join(path)}: an entry for an option the command lacks"
+        assert not set(entries) & set(_CLI_ONLY), f"{' '.join(path)}: an entry that _CLI_ONLY has already"
+
+
 def _options_of_every_command() -> list[tuple[tuple[str, ...], click.Option]]:
     return [
         (path, param)
         for path, command in _commands(cli)
         for param in command.params
-        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+        if isinstance(param, click.Option) and param.name not in _NOT_REQUEST_OPTIONS and not param.hidden
     ]
 
 
@@ -770,6 +903,8 @@ def test_no_option_of_the_command_line_has_an_underscore() -> None:
         pytest.param(path, param.opts[0], id=f"{' '.join(path)} {param.opts[0]}")
         for path, param in _options_of_every_command()
         if "-" in param.opts[0].removeprefix("--")
+        # only a command that spelled it with an underscore in 0.139.0 was renamed (GH-3869, test_renamed_routes.py)
+        and param.opts[0].removeprefix("--").replace("-", "_") in core.old_underscore_options_of_route("_".join(path))
     ],
 )
 @pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])
@@ -787,21 +922,9 @@ def test_an_option_by_its_underscored_name_is_refused_naming_the_hyphenated_one(
     assert f"Error: {old} was renamed to {option}." in result.output
 
 
-# a list is plural on every surface: what the singular was is refused naming the plural
-_SINGULARS = [
-    ((command,), old, new)
-    for command in ("stations", "values", "history")
-    for old, new in (("--station", "--stations"), ("--parameter", "--parameters"))
-] + [
-    (("stations",), "--period", "--periods"),
-    (("values",), "--period", "--periods"),
-    (("interpolate",), "--parameter", "--parameters"),
-    (("interpolate",), "--period", "--periods"),
-    (("summarize",), "--parameter", "--parameters"),
-    (("summarize",), "--period", "--periods"),
-    (("about", "coverage"), "--resolution", "--resolutions"),
-    (("about", "coverage"), "--dataset", "--datasets"),
-]
+# a list is plural on every surface: what the singular was is refused naming the plural, on the routes that had the
+# singular in 0.139.0 (`stations` took `--parameters` and `--periods` then: GH-3869, tests/ui/test_renamed_routes.py)
+_SINGULARS = [((command,), "--station", "--stations") for command in ("stations", "values", "history")]
 
 
 @pytest.mark.parametrize(
@@ -820,13 +943,7 @@ def test_an_option_by_the_singular_of_its_list_is_refused_naming_the_plural(
 
 @pytest.mark.parametrize(
     ("endpoint", "old", "new"),
-    [
-        (endpoint, old, new)
-        for endpoint in ("/api/stations", "/api/values", "/api/history")
-        for old, new in (("station", "stations"), ("parameter", "parameters"))
-    ]
-    + [(endpoint, "period", "periods") for endpoint in ("/api/stations", "/api/values")]
-    + [("/api/coverage", "resolution", "resolutions"), ("/api/coverage", "dataset", "datasets")],
+    [(endpoint, "station", "stations") for endpoint in ("/api/stations", "/api/values", "/api/history")],
 )
 def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint: str, old: str, new: str) -> None:
     """Over REST, as on the command line, the old name fails with the new one in the answer (GH-2561)."""
@@ -843,10 +960,6 @@ def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint:
         ("values", "station", "stations"),
         ("stations", "station", "stations"),
         ("history", "station", "stations"),
-        ("values", "parameter", "parameters"),
-        ("values", "period", "periods"),
-        ("coverage", "resolution", "resolutions"),
-        ("coverage", "dataset", "datasets"),
     ],
 )
 def test_the_singular_of_a_list_is_refused_by_the_mcp_tool_naming_the_plural(tool: str, old: str, new: str) -> None:
@@ -1021,6 +1134,290 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     with pytest.raises(ToolError) as tool_error:
         asyncio.run(call())
     assert f"xactly one of {named}" in str(tool_error.value)
+
+
+# the exclusive selections are stated in the OpenAPI document, from the definition the refusal is made by (GH-3134)
+
+#: the operations that state a selection, each with the request model it is made of and the parameters the
+#: request needs besides the selection
+_SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
+    "/api/v1/stations": (core.StationsRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/values": (core.ValuesRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/history": (core.HistoryRequest, {"provider": "dwd", "network": "observation", "parameters": PARAMETER}),
+    "/api/v1/interpolate": (
+        core.RestInterpolationRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
+    ),
+    "/api/v1/summarize": (
+        core.RestSummaryRequest,
+        {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
+    ),
+    "/api/v1/stripes/values": (core.StripesValuesRequest, {"kind": "temperature"}),
+    "/api/v1/stripes/image": (core.StripesImageRequest, {"kind": "temperature"}),
+}
+
+
+#: the tools of the MCP server that are these operations
+_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize", "stripes_values", "stripes_image"}
+
+
+def _operation(path: str) -> dict[str, Any]:
+    """Give the operation of the served OpenAPI document that answers `path`."""
+    return restapi.app.openapi()["paths"][path]["get"]
+
+
+def _as_query(value: Any) -> str:  # noqa: ANN401
+    """Write the value of a parameter as a client writes it in a query: a list comma-separated (`explode: false`)."""
+    if isinstance(value, list):
+        return ",".join(value)
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
+def _example_query(*names: str, path: str) -> dict[str, str]:
+    """Give the examples the document has for the parameters `names` of an operation, as a query."""
+    examples = {p["name"]: p["examples"]["example"]["value"] for p in _operation(path)["parameters"] if "examples" in p}
+    return {name: _as_query(examples[name]) for name in names}
+
+
+def _alternatives(path: str) -> list[dict[str, str]]:
+    """Give each alternative the document states for an operation as a query of its examples, the point with a rank."""
+    selection = _operation(path)["x-wetterdienst-selection"]
+    point_asks = [then["when"] for then in selection.get("then", [])]
+    return [
+        _example_query(*group, *(["rank"] if list(group) in point_asks else []), path=path)
+        for group in selection["exactly_one_of"]
+    ]
+
+
+def test_the_operations_that_state_a_selection_are_the_ones_whose_request_has_one() -> None:
+    """An operation has `x-wetterdienst-selection` when its request model has a selection, and none else does."""
+    document = restapi.app.openapi()
+    stated = {
+        path: operation["get"]["x-wetterdienst-selection"]
+        for path, operation in document["paths"].items()
+        if "get" in operation and "x-wetterdienst-selection" in operation["get"]
+    }
+    assert stated.keys() == _SELECTION_ROUTES.keys()
+    for path, (model, _) in _SELECTION_ROUTES.items():
+        assert stated[path] == model.selection.document()
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_the_document_says_what_the_refusal_of_no_selection_says(path: str) -> None:
+    """The alternatives of an operation, and the sentence of each parameter, are what the server refuses with."""
+    _, base = _SELECTION_ROUTES[path]
+    operation = _operation(path)
+    selection = operation["x-wetterdienst-selection"]
+
+    refused = TestClient(restapi.app, raise_server_exceptions=False).get(path, params=base)
+
+    assert refused.status_code == 422, refused.text
+    (error,) = refused.json()["errors"]
+    assert error["type"] == "missing_one_of"
+    assert error["ctx"]["one_of"] == selection["exactly_one_of"]
+    described = {p["name"]: p["description"] for p in operation["parameters"]}
+    named = [name for group in selection["exactly_one_of"] for name in group]
+    for name in named:
+        assert f"{error['msg']}." in described[name], name
+    # every parameter it names is one the operation takes, with an example
+    assert set(named) <= {p["name"] for p in operation["parameters"] if "examples" in p}
+
+
+@pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
+def test_the_document_says_what_the_refusal_of_a_point_without_a_measure_says(path: str) -> None:
+    """A point needs a `rank` or a `distance`, which are not given alone: the document says what is refused."""
+    _, base = _SELECTION_ROUTES[path]
+    operation = _operation(path)
+    selection = operation["x-wetterdienst-selection"]
+    described = {p["name"]: p["description"] for p in operation["parameters"]}
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    point = client.get(path, params={**base, **_example_query("latitude", "longitude", path=path)})
+    (error,) = point.json()["errors"]
+    assert point.status_code == 422
+    assert error["type"] == "missing_one_of"
+    assert error["ctx"]["one_of"] == selection["then"][0]["exactly_one_of"]
+    assert selection["then"][0]["when"] == ["latitude", "longitude"]
+    for name in ("latitude", "longitude", "rank", "distance"):
+        assert f"{error['msg']}." in described[name], name
+
+    for name in ("rank", "distance"):
+        alone = client.get(path, params={**base, "all": "true", **_example_query(name, path=path)})
+        (error,) = alone.json()["errors"]
+        assert alone.status_code == 422
+        assert error["type"] == "requires"
+        assert error["ctx"]["requires"] == selection["requires"][name]
+        assert f"{error['msg']}." in described[name]
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_every_alternative_the_document_states_is_made_by_its_examples_and_no_two_are_allowed(path: str) -> None:
+    """The examples of an alternative are a request the model accepts, and two alternatives together are refused."""
+    model, base = _SELECTION_ROUTES[path]
+    alternatives = _alternatives(path)
+    assert len(alternatives) == len(model.selection.exactly_one_of)
+
+    for alternative in alternatives:
+        model.model_validate({**base, **alternative})
+    for i, first in enumerate(alternatives):
+        for second in alternatives[i + 1 :]:
+            with pytest.raises(core.ValidationError) as refused:
+                model.model_validate({**base, **first, **second})
+            assert {error["type"] for error in refused.value.errors()} == {"mutually_exclusive"}
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_each_example_of_a_selection_is_a_value_its_parameter_takes(path: str) -> None:
+    """An example is a value of the schema of its parameter, so a generated client is given a valid one."""
+    jsonschema = pytest.importorskip("jsonschema")
+    for parameter in _operation(path)["parameters"]:
+        if "examples" in parameter:
+            jsonschema.validate(parameter["examples"]["example"]["value"], parameter["schema"])
+
+
+@pytest.mark.parametrize("path", ["/api/v1/stations", "/api/v1/values"])
+def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
+    path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The examples of each alternative pass the validation and the lookup of a network of 8 stations (not refused).
+
+    That is all it shows. A real network is larger, and a server refuses a request that reads more stations than it
+    allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `sql` is a 403 where the
+    server does not enable it, which this test does. `history` reads the network's metadata from upstream, which the
+    stand-in does not serve; it, `interpolate`, `summarize` and the two stripes operations are not run here, only
+    held to the model and to the schemas of their parameters.
+    """
+    _, base = _SELECTION_ROUTES[path]
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    for alternative in _alternatives(path):
+        answered = client.get(path, params={**base, **alternative})
+        # the stand-in network has no station by the name or at the place of an example: an empty answer, still a 200
+        assert answered.status_code == 200, (alternative, answered.text[:300])
+
+
+#: what each operation takes, written out here and not read from the document or the model, so that the tests below
+#: hold both to it from outside (GH-3134)
+_STATION_GROUPS = [
+    ["all"],
+    ["stations"],
+    ["name"],
+    ["latitude", "longitude"],
+    ["left", "bottom", "right", "top"],
+    ["sql"],
+]
+_EXPECTED_GROUPS = {
+    "/api/v1/stations": _STATION_GROUPS,
+    "/api/v1/values": _STATION_GROUPS,
+    "/api/v1/history": [["all"], ["stations"]],
+    "/api/v1/interpolate": [["station"], ["latitude", "longitude"]],
+    "/api/v1/summarize": [["station"], ["latitude", "longitude"]],
+    "/api/v1/stripes/values": [["station"], ["name"]],
+    "/api/v1/stripes/image": [["station"], ["name"]],
+}
+#: parameters to combine, as a client writes them
+_ATOMS = {
+    "all": {"all": "true"},
+    "stations": {"stations": "01048"},
+    "name": {"name": "Dresden"},
+    "point": {"latitude": "51.05", "longitude": "13.74"},
+    "latitude": {"latitude": "51.05"},
+    "box": {"left": "13", "bottom": "50", "right": "14", "top": "52"},
+    "box without top": {"left": "13", "bottom": "50", "right": "14"},
+    "sql": {"sql": "region='Sachsen'"},
+    "station": {"station": "01048"},
+    "rank": {"rank": "3"},
+    "distance": {"distance": "25"},
+}
+
+
+def _is_accepted(path: str, keys: set[str]) -> bool:
+    """Say, from the rules as written for a client, whether a request giving `keys` makes exactly one selection."""
+    made = [group for group in _EXPECTED_GROUPS[path] if keys & set(group)]
+    if len(made) != 1 or not set(made[0]) <= keys:
+        return False
+    if _EXPECTED_GROUPS[path] is _STATION_GROUPS:
+        point = {"latitude", "longitude"} <= keys
+        # a point wants a rank or a distance, not both; a distance wants a point, a rank a point or a name
+        if point and len(keys & {"rank", "distance"}) != 1:
+            return False
+        if "distance" in keys and not point:
+            return False
+        if "rank" in keys and not (point or "name" in keys):
+            return False
+    return True
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_the_document_and_the_refusal_are_the_rules_as_written_for_a_client(path: str) -> None:
+    """The groups of the document, and the requests the model takes, are those the rules say, over 3 parameters at most.
+
+    The expectation is written above and does not come from the `Selection` that the document and the model are made
+    of, so a change to it that was not meant fails here (GH-3134).
+    """
+    model, base = _SELECTION_ROUTES[path]
+    assert _operation(path)["x-wetterdienst-selection"]["exactly_one_of"] == _EXPECTED_GROUPS[path]
+    taken = set(model.model_fields)
+    atoms = {name: query for name, query in _ATOMS.items() if set(query) <= taken}
+
+    checked = 0
+    for size in range(4):
+        for names in itertools.combinations(atoms, size):
+            queries = [atoms[name] for name in names]
+            keys = [key for query in queries for key in query]
+            if len(keys) != len(set(keys)):
+                continue
+            try:
+                model.model_validate({**base, **{key: value for query in queries for key, value in query.items()}})
+                accepted = True
+            except core.ValidationError:
+                accepted = False
+            assert accepted == _is_accepted(path, set(keys)), names
+            checked += 1
+    assert checked > len(atoms)
+
+
+@pytest.mark.parametrize("path", _SELECTION_ROUTES)
+def test_what_the_document_says_a_parameter_needs_is_refused_when_it_is_missing(path: str) -> None:
+    """Every `then` and `requires` of the document is enforced by the model of its operation, not only stated."""
+    model, base = _SELECTION_ROUTES[path]
+    selection = _operation(path)["x-wetterdienst-selection"]
+    first = _example_query(*selection["exactly_one_of"][0], path=path)
+
+    for field, needs in selection.get("requires", {}).items():
+        lacking = {key: value for key, value in first.items() if key not in {n for group in needs for n in group}}
+        with pytest.raises(core.ValidationError) as refused:
+            model.model_validate({**base, **lacking, **_example_query(field, path=path)})
+        assert {error["type"] for error in refused.value.errors()} == {"requires"}, field
+    for then in selection.get("then", []):
+        point = _example_query(*then["when"], path=path)
+        with pytest.raises(core.ValidationError) as refused:
+            model.model_validate({**base, **point})
+        assert {error["type"] for error in refused.value.errors()} == {"missing_one_of"}
+
+
+def test_the_tools_of_the_mcp_server_do_not_carry_the_selection_examples() -> None:
+    """The examples and the sentences are on the parameters of the document, not on the schemas of the tools (#3546)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def tools() -> Any:  # noqa: ANN401
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return await client.list_tools()
+
+    selection_tools = [tool for tool in asyncio.run(tools()) if tool.name in _SELECTION_TOOLS]
+
+    assert {tool.name for tool in selection_tools} == _SELECTION_TOOLS
+    for tool in selection_tools:
+        for name, schema in tool.input_schema["properties"].items():
+            assert "example" not in schema, (tool.name, name)
+            assert "examples" not in schema, (tool.name, name)
+            assert "is required" not in schema.get("description", ""), (tool.name, name)
 
 
 @pytest.mark.parametrize("given", [["00001", "00002"], "00001,00002"])
@@ -1214,3 +1611,833 @@ def test_readings_dropped_for_being_a_missing_value_marker_are_counted(monkeypat
     # kept as null, the readings carry the marker in their flags, and are counted all the same
     assert {row["quality_flags"] for row in kept["values"] if row["value"] is None} == {"raw:-999"}
     assert kept["metadata"]["warnings"][0]["message"].startswith("2 readings")
+
+
+# a requested parameter the source holds no values for is told as such, once, on every surface (GH-3539)
+
+_EMPTY = "daily/kl/sunshine_duration"
+_EMPTY_NAME = "daily/climate_summary/sunshine_duration"
+_FULL = "daily/kl/temperature_air_mean_2m"
+_CODE = "parameter-without-rows"
+
+
+def _all_of_the_dataset() -> list[str]:
+    """Name every parameter of `daily/kl` as the source does."""
+    return [parameter.name_original for parameter in DwdObservationRequest.metadata["daily"]["kl"]]
+
+
+def _holding_none_of(monkeypatch: pytest.MonkeyPatch, *names: str, stations: set[str] | None = None) -> None:
+    """Have the source hold nothing of the parameters `names` (their original names), at `stations` if named."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if stations is not None and station_id not in stations:
+            return df
+        return df.filter(~pl.col("parameter").is_in(names))
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def _told(
+    parameters: list[str] | str,
+    stations: list[str],
+    *,
+    window: tuple[str, str] = ("2020-05-01", "2020-05-03"),
+    **kwargs: Any,  # noqa: ANN401
+) -> list[dict[str, Any]]:
+    """Read the values in the library and give the warnings `parameter-without-rows` the answer would carry."""
+    begin_response()
+    request = DwdObservationRequest(parameters=parameters, start=window[0], end=window[1], **kwargs)
+    request.filter_by_station_id(stations).values().all()
+    return [warning for warning in recorded_warnings() if warning["code"] == _CODE]
+
+
+def test_a_named_parameter_without_a_row_is_told_with_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The answer says the source holds none of it, naming the parameter and the stations, one warning for both."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    (warning,) = _told([_EMPTY, _FULL], ["00001", "00002"])
+
+    assert warning["parameter"] == _EMPTY_NAME
+    assert warning["stations"] == ["00001", "00002"]
+    assert warning["message"] == (
+        "The source has no values for daily/climate_summary/sunshine_duration at stations 00001, 00002 "
+        "from 2020-05-01 to 2020-05-03. Leave it out, or try another station or window."
+    )
+    assert len(warning["message"]) <= 250
+
+
+def test_a_parameter_with_rows_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter that came back with rows has no warning, nor have the others of the request."""
+    assert _told([_FULL], ["00001"]) == []
+    _holding_none_of(monkeypatch, "sdk")
+    assert [w["parameter"] for w in _told([_EMPTY, _FULL], ["00001"])] == [_EMPTY_NAME]
+
+
+def test_a_parameter_that_one_of_the_stations_has_is_not_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One station with a row is the source holding it: the warning is for a parameter no station has."""
+    _holding_none_of(monkeypatch, "sdk", stations={"00001"})
+
+    assert _told([_EMPTY], ["00001", "00002"]) == []
+    assert [w["stations"] for w in _told([_EMPTY], ["00001"])] == [["00001"]]
+
+
+def test_a_dataset_is_not_told_by_its_parameters_but_when_it_has_no_row_at_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dataset asked for whole has a warning only when none of its parameters has a row, and then one."""
+    _holding_none_of(monkeypatch, "sdk", "rsk")
+    assert _told("daily/kl", ["00001"]) == []
+
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+    (warning,) = _told("daily/kl", ["00001", "00002"])
+    assert warning["parameter"] == "daily/climate_summary"
+    assert warning["stations"] == ["00001", "00002"]
+    assert "any parameter of daily/climate_summary" in warning["message"]
+
+
+def test_a_parameter_named_in_an_empty_dataset_is_told_by_its_own_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter asked for by name beside its whole dataset keeps its warning, and the dataset adds none."""
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+
+    assert [w["parameter"] for w in _told(["daily/kl", _EMPTY], ["00001"])] == [_EMPTY_NAME]
+
+
+def test_readings_all_null_and_dropped_are_no_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter whose readings are all null has no row once `drop_nulls` has dropped them; kept, it has rows."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def nulls(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        return df.with_columns(
+            pl.when(pl.col("parameter") == "sdk").then(None).otherwise(pl.col("value")).alias("value")
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", nulls)
+
+    assert [w["parameter"] for w in _told([_EMPTY, _FULL], ["00001"])] == [_EMPTY_NAME]
+    assert _told([_EMPTY, _FULL], ["00001"], options={"drop_nulls": False}) == []
+
+
+def test_a_station_the_window_precedes_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station that begins after the window ends was not read, and another warning or none explains it."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+    request = DwdObservationRequest(parameters=[_EMPTY], start="1935-01-01", end="1935-01-31")
+    request.filter_by_station_id(["00001", "00005"]).values().all()
+
+    (warning,) = [w for w in recorded_warnings() if w["code"] == _CODE]
+    assert warning["stations"] == ["00001"]
+
+
+def test_a_list_of_stations_is_cut_and_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter that a whole network lacks does not list every station: the first ones, and how many there are."""
+    _holding_none_of(monkeypatch, "sdk")
+    monkeypatch.setattr("wetterdienst.model.parameter_rows.MAX_STATIONS_LISTED", 2)
+
+    (warning,) = _told([_EMPTY], ["00001", "00002", "00003"])
+
+    assert warning["stations"] == ["00001", "00002"]
+    assert "3 stations, the first 2 of them 00001, 00002" in warning["message"]
+
+
+def test_an_estimate_does_not_tell_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A summary reads the stations around a point, most of which lack a parameter, and it does not warn of that."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+
+    DwdObservationRequest(parameters=[_EMPTY], start="2020-05-01", end="2020-05-03").summarize(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _CODE] == []
+
+
+def _surfaces(parameters: str) -> dict[str, list[dict[str, Any]]]:
+    """Ask the library, the command line, REST (JSON and NDJSON) and the MCP tool for the values of one station."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    begin_response()
+    request = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-31 23:59:59")
+    request.filter_by_station_id("00001").values().all()
+    library = recorded_warnings()
+    cli_result = CliRunner().invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=observation",
+            f"--parameters={parameters}",
+            "--stations=00001",
+            "--timestamp=2020-05",
+        ],
+    )
+    assert cli_result.exit_code == 0, cli_result.output
+    rest_response = _rest("/api/values", parameters=parameters, stations="00001", timestamp="2020-05")
+    assert rest_response.status_code == 200, rest_response.text
+    streamed = _rest("/api/values", parameters=parameters, stations="00001", timestamp="2020-05", format="ndjson")
+    assert streamed.status_code == 200, streamed.text
+
+    async def call() -> Any:  # noqa: ANN401
+        async with Client(build_mcp_server(restapi.app)) as client:
+            result = await client.call_tool(
+                "values",
+                {
+                    "provider": "dwd",
+                    "network": "observation",
+                    "parameters": parameters,
+                    "stations": "00001",
+                    "timestamp": "2020-05",
+                },
+            )
+            return result.structured_content
+
+    answer = asyncio.run(call())
+    lines = [json.loads(line) for line in streamed.text.splitlines()]
+    assert _json(cli_result.stdout)["metadata"] == _json(rest_response.text)["metadata"]
+    return {
+        "library": library,
+        "cli": json.loads(cli_result.stdout)["metadata"]["warnings"],
+        "rest": rest_response.json()["metadata"]["warnings"],
+        "ndjson": lines[-1]["end"]["warnings"],
+        "mcp": answer.get("result", answer)["metadata"]["warnings"],
+    }
+
+
+def test_a_parameter_without_rows_is_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    told = _surfaces(_EMPTY)
+
+    assert [w["parameter"] for w in told["rest"]] == [_EMPTY_NAME]
+    assert told["rest"][0]["stations"] == ["00001"]
+    assert told["rest"][0]["message"].startswith("The source has no values for daily/climate_summary/sunshine")
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_EMPTY, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _CODE
+    assert rest.json()["metadata"]["counts"]["rows"] == 0
+
+
+def test_a_dataset_with_rows_is_told_of_nothing_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole dataset one of whose parameters is empty has no warning, which is what the REST plumbing keeps of it."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    assert _surfaces("daily/kl") == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}
+
+
+def test_a_dataset_without_rows_is_told_once_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A whole dataset the source holds nothing of is one warning whatever the number of its parameters."""
+    _holding_none_of(monkeypatch, *_all_of_the_dataset())
+
+    told = _surfaces("daily/kl")
+
+    assert [w["parameter"] for w in told["rest"]] == ["daily/climate_summary"]
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+
+
+def test_an_interpolation_does_not_tell_it_either(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An interpolation reads the stations around a point as a summary does, and does not warn of one that lacks it."""
+    _holding_none_of(monkeypatch, "tmk")
+    begin_response()
+
+    DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03").interpolate(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _CODE] == []
+
+
+def test_rows_outside_the_window_are_no_rows_of_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter the source holds, but not in the window, has none in the answer, and the warning says the window."""
+    # the stub holds May 2020 for every parameter
+    told = _told([_EMPTY, _FULL], ["00001"], window=("2020-06-01", "2020-06-02"))
+
+    assert [w["parameter"] for w in told] == [_EMPTY_NAME, "daily/climate_summary/temperature_air_mean_2m"]
+    assert all("from 2020-06-01 to 2020-06-02." in w["message"] for w in told)
+    assert _told([_FULL], ["00001"]) == []
+    del monkeypatch
+
+
+def test_a_station_that_is_not_listed_for_a_dataset_is_not_read_for_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The index lists the station for `climate_summary` only: a parameter of another is not its to lack."""
+    _holding_none_of(monkeypatch, "sdk", "rs")
+    more_precip = "daily/precipitation_more/precipitation_amount"
+
+    told = _told([_EMPTY, more_precip], ["00001"])
+
+    assert [w["parameter"] for w in told] == [_EMPTY_NAME]
+
+
+def test_periods_that_hold_back_the_source_are_said_to_be_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request narrowed by `periods` says the answer is of those, and what to ask instead."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    (narrowed,) = _told([_EMPTY], ["00001"], periods="recent")
+    (all_periods,) = _told([_EMPTY], ["00001"], periods=["recent", "historical"])
+    (unnarrowed,) = _told([_EMPTY], ["00001"])
+
+    assert narrowed["message"] == (
+        "The source has no values for daily/climate_summary/sunshine_duration at station 00001 from 2020-05-01 to "
+        "2020-05-03 in the periods asked for (recent). Try without `periods`."
+    )
+    assert "periods" not in all_periods["message"]
+    assert "periods" not in unnarrowed["message"]
+    # the same over REST
+    rest = _rest("/api/values", parameters=_EMPTY, stations="00001", timestamp="2020-05", periods="recent")
+    assert rest.json()["metadata"]["warnings"][0]["message"] == narrowed["message"].replace("2020-05-03", "2020-05-31")
+
+
+def test_the_periods_are_said_to_narrow_only_the_datasets_they_narrowed() -> None:
+    """`periods` of historical and recent leave out nothing of `daily/kl` and the `now` of the one-minute data."""
+    request = DwdObservationRequest(
+        parameters=[_EMPTY, "1_minute/precipitation/precipitation_amount"], periods=["historical", "recent"]
+    )
+    daily = request.metadata["daily"]["climate_summary"]
+    minute = request.metadata["1_minute"]["precipitation"]
+
+    assert request._narrowed_by(daily) == []  # noqa: SLF001
+    assert request._narrowed_by(minute) == [  # noqa: SLF001
+        ("the periods asked for (historical, recent)", "try without `periods`")
+    ]
+
+
+def _rows_of(request: Any, dataset: Any, window: tuple[dt.datetime, dt.datetime] | None = None) -> list[dict[str, Any]]:  # noqa: ANN401
+    """Give the warning a walk over one station that found no row of the request's only parameter tells."""
+    from wetterdienst.model.parameter_rows import ParameterRows  # noqa: PLC0415
+
+    begin_response()
+    rows = ParameterRows(request, *(window or (None, None)))
+    rows.examine("10001", [dataset])
+    rows.warn()
+    return recorded_warnings()
+
+
+def test_a_run_and_a_lead_time_that_hold_back_the_source_are_named() -> None:
+    """A forecast request for one run, or one lead time, says so; one that named neither does not (GH-3539)."""
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
+
+    issue = dt.datetime(2026, 10, 28, 9, tzinfo=UTC)
+    parameter = "hourly/large/temperature_air_max_2m_last_12h"
+    mosmix = DwdMosmixRequest(parameters=parameter, issue=issue)
+    swsmos = DwdSwsmosRequest(parameters="hourly/data", issue=issue)
+    dmo_parameter = "hourly/icon/temperature_air_2m"
+    asked = DwdDmoRequest(parameters=dmo_parameter, issue=issue, lead_time="short")
+    default = DwdDmoRequest(parameters=dmo_parameter)
+
+    large = mosmix.metadata["hourly"]["large"]
+    icon = asked.metadata["hourly"]["icon"]
+    assert mosmix._narrowed_by(large) == [("the run issued 2026-10-28 09 UTC", None)]  # noqa: SLF001
+    assert swsmos._narrowed_by(swsmos.metadata["hourly"]["data"]) == [  # noqa: SLF001
+        ("the run issued 2026-10-28 09 UTC", None)
+    ]
+    # DMO runs at 00 and 12 UTC
+    assert asked._narrowed_by(icon) == [  # noqa: SLF001
+        ("the run issued 2026-10-28 00 UTC", None),
+        ("the lead time asked for (short)", "try the other `lead_time`"),
+    ]
+    # the short run is what a request reads where it named no lead time, which is no asking
+    assert default._narrowed_by(icon) == []  # noqa: SLF001
+    assert DwdMosmixRequest(parameters=parameter)._narrowed_by(large) == []  # noqa: SLF001
+
+    # through the warning: a run is named without a hint to ask for another (no run has Los Angeles' TX), a lead time
+    # with one, a request that named neither says neither
+    (told,) = _rows_of(mosmix, large)
+    assert told["message"] == (
+        "The source has no values for hourly/large/temperature_air_max_2m_last_12h at station 10001 in the run issued "
+        "2026-10-28 09 UTC. Leave it out, or try another station or window."
+    )
+    (told,) = _rows_of(asked, icon)
+    assert "in the run issued 2026-10-28 00 UTC and in the lead time asked for (short)." in told["message"]
+    assert told["message"].endswith("Try the other `lead_time`.")
+    (told,) = _rows_of(default, icon)
+    assert "lead time" not in told["message"]
+    assert len(told["message"]) <= 250
+
+
+@pytest.mark.parametrize(
+    "window",
+    [
+        pytest.param(("2020-05-01", "2020-05-03"), id="past"),
+        pytest.param(("2099-05-01", "2099-05-03"), id="future"),
+        pytest.param((_TODAY.strftime("%Y-%m-%d"), _TODAY.strftime("%Y-%m-%d")), id="today"),
+    ],
+)
+def test_a_window_that_reaches_the_present_is_told_as_any_other(
+    monkeypatch: pytest.MonkeyPatch, window: tuple[str, str]
+) -> None:
+    """Nothing is said of the source being behind: a late source cannot be told from one that never reports it."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    (warning,) = _told([_EMPTY], ["00001"], window=window)
+
+    assert "Leave it out, or try another station or window." in warning["message"]
+    assert "published" not in warning["message"]
+    assert "later" not in warning["message"]
+    assert len(warning["message"]) <= 250
+
+
+def test_a_window_of_a_day_or_of_minutes_is_written_as_such() -> None:
+    """A window of whole days is told in days, one of hours in minutes of UTC."""
+    from wetterdienst.model.parameter_rows import _window  # noqa: PLC0415
+
+    day = dt.datetime(2020, 5, 1, tzinfo=UTC)
+    assert _window(day, day.replace(hour=23, minute=59)) == " on 2020-05-01"
+    assert _window(day, day.replace(day=3, hour=23, minute=59)) == " from 2020-05-01 to 2020-05-03"
+    assert _window(day.replace(hour=6), day.replace(hour=12)) == " from 2020-05-01 06:00 to 2020-05-01 12:00 UTC"
+    assert _window(None, None) == ""
+
+
+# a file the provider lets go drops its station from the warning, and no other
+
+
+def _letting_go(monkeypatch: pytest.MonkeyPatch, stations: set[str], *, whole_request: bool = False) -> None:
+    """Have the source hold nothing of `sdk`, and the provider let go a file of each of `stations` on the way."""
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if station_id in stations:
+            note_skipped_download(SkipCause.FAILED, whole_request=whole_request)
+        return df.filter(pl.col("parameter") != "sdk")
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_a_station_whose_file_was_let_go_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The other stations still count: one that failed does not take the parameter's warning from the rest."""
+    _letting_go(monkeypatch, {"00001"})
+
+    (warning,) = _told([_EMPTY], ["00001", "00002", "00003"])
+
+    assert warning["stations"] == ["00002", "00003"]
+    assert _told([_EMPTY], ["00001"]) == []
+
+
+def test_a_file_that_every_station_is_read_from_silences_the_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run that could not be read is every station's: nobody is named."""
+    _letting_go(monkeypatch, {"00001"}, whole_request=True)
+
+    assert _told([_EMPTY], ["00001", "00002"]) == []
+
+
+def test_a_file_let_go_outside_the_collection_of_a_station_is_nothing() -> None:
+    """The note is the collection's: a provider that calls it outside one (listing the stations) changes nothing."""
+    from wetterdienst.util.response_warnings import SkipCause, note_skipped_download  # noqa: PLC0415
+
+    note_skipped_download(SkipCause.FAILED)
+    note_skipped_download(SkipCause.FAILED, whole_request=True)
+
+
+def test_the_lead_time_that_was_asked_for_survives_a_replaced_or_copied_request() -> None:
+    """`dataclasses.replace` hands over the lead time a request resolved to: a default must stay no asking (GH-3539)."""
+    import copy  # noqa: PLC0415
+    import dataclasses  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+
+    parameter = "hourly/icon/temperature_air_2m"
+    default = DwdDmoRequest(parameters=parameter)
+    asked = DwdDmoRequest(parameters=parameter, lead_time="long")
+    icon = default.metadata["hourly"]["icon"]
+
+    for made in (dataclasses.replace(default), copy.copy(default), copy.deepcopy(default)):
+        assert made._narrowed_by(icon) == []  # noqa: SLF001
+    for made in (dataclasses.replace(asked), copy.copy(asked), copy.deepcopy(asked)):
+        assert made._narrowed_by(icon) == [  # noqa: SLF001
+            ("the lead time asked for (long)", "try the other `lead_time`")
+        ]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "named"), [([], None), (["--lead-time=short"], "short"), (["--lead-time=long"], "long")]
+)
+def test_the_command_line_names_no_lead_time_unless_it_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch, arguments: list[str], named: str | None
+) -> None:
+    """The option defaults to `short`, which is no asking: only a lead time that was typed is in the request."""
+    seen: list[Any] = []
+
+    def get_values(*, request: Any, **_kwargs: object) -> None:  # noqa: ANN401
+        seen.append(request.lead_time)
+        msg = "stop"
+        raise click.ClickException(msg)
+
+    monkeypatch.setattr(cli_module, "get_values", get_values)
+    result = CliRunner().invoke(
+        cli,
+        [
+            "values",
+            "--provider=dwd",
+            "--network=dmo",
+            "--parameters=hourly/icon/temperature_air_2m",
+            "--stations=10384",
+            *arguments,
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert seen == [named]
+
+
+def test_the_other_lead_time_is_a_hint_only_for_a_product_that_publishes_it() -> None:
+    """`icon_eu` publishes the short run alone: asking for the other would be a 500, so it is not suggested."""
+    from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo.api import _refuse_parameters_the_run_does_not_carry  # noqa: PLC0415
+
+    icon = DwdDmoRequest(parameters="hourly/icon/temperature_air_2m", lead_time="short")
+    eu = DwdDmoRequest(parameters="hourly/icon_eu/wind_gust_max_last_3h", lead_time="short")
+
+    assert icon._narrowed_by(icon.metadata["hourly"]["icon"]) == [  # noqa: SLF001
+        ("the lead time asked for (short)", "try the other `lead_time`")
+    ]
+    assert eu._narrowed_by(eu.metadata["hourly"]["icon_eu"]) == [("the lead time asked for (short)", None)]  # noqa: SLF001
+
+    # and a lead time that a product does not publish is refused with a 400, not met as an IndexError later
+    long = DwdDmoRequest(parameters="hourly/icon_eu/wind_gust_max_last_3h", lead_time="long")
+    with pytest.raises(ParameterNotCarriedError, match=r"icon_eu publishes no 168 h run.*publishes: short"):
+        _refuse_parameters_the_run_does_not_carry(long.parameters, long.lead_time)  # ty: ignore[invalid-argument-type]
+    _refuse_parameters_the_run_does_not_carry(eu.parameters, eu.lead_time)  # ty: ignore[invalid-argument-type]
+
+
+def test_periods_that_change_nothing_are_not_said_to_be_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`periods` the window would have read anyway are no reason: `try without periods` would answer the same."""
+    _holding_none_of(monkeypatch, "sdk")
+
+    # the `historical` release runs to the start of the current year: the clock stands where 2026-10 is `recent` alone
+    with freezegun.freeze_time("2026-10-29"):
+        (recent_for_recent,) = _told([_EMPTY], ["00001"], window=("2026-10-01", "2026-10-03"), periods="recent")
+    (historical_for_2020,) = _told([_EMPTY], ["00001"], periods="historical")
+    (recent_for_2020,) = _told([_EMPTY], ["00001"], periods="recent")
+
+    assert "periods" not in recent_for_recent["message"]
+    assert "periods" not in historical_for_2020["message"]
+    # the window of 2020 is read from `historical`, which `recent` leaves out
+    assert "in the periods asked for (recent). Try without `periods`." in recent_for_2020["message"]
+    assert "Leave it out, or try another station or window." in recent_for_recent["message"]
+
+
+# walks that overlap keep to their own parameters named (`parameter-ended`) and their own stations
+
+
+def _parameter_rows_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "wetterdienst.model.parameter_rows"]
+
+
+def _walk(stations: list[str], parameters: list[str]) -> Any:  # noqa: ANN401
+    request = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-03")
+    return request.filter_by_station_id(stations).values().query()
+
+
+def _start_recording(mode: str) -> None:
+    """Start the way the library is used (nothing recorded) or the way a response is made (`begin_response`)."""
+    if mode == "response":
+        begin_response()
+    else:
+        response_warnings._RECORDED.set(None)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("mode", ["library", "response"])
+def test_walks_that_are_interleaved_each_tell_their_parameters(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, mode: str
+) -> None:
+    """Two generators read alternately: neither walk's warning silences the other's, recorded or only logged."""
+    import itertools  # noqa: PLC0415
+
+    _holding_none_of(monkeypatch, "sdk")
+    _start_recording(mode)
+    with caplog.at_level(logging.INFO):
+        for _ in itertools.zip_longest(_walk(["00001"], [_EMPTY, _FULL]), _walk(["00001", "00002"], [_EMPTY, _FULL])):
+            # a warning that names the parameter between the collections belongs to the stations of neither walk
+            response_warnings.warn_response(logging.getLogger(__name__), "another", "m", parameter=_EMPTY_NAME)
+
+    lines = _parameter_rows_lines(caplog)
+    assert len(lines) == 2
+    assert any("station 00001 " in line for line in lines)
+    assert any("stations 00001, 00002 " in line for line in lines)
+    if mode == "response":
+        assert [w["code"] for w in recorded_warnings()].count(_CODE) == 2
+
+
+@pytest.mark.parametrize("mode", ["library", "response"])
+def test_a_walk_in_the_collection_of_another_does_not_silence_it(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, mode: str
+) -> None:
+    """A provider that reads values of its own while it collects a station: both walks tell their parameter."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+    inside = []
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if not inside:
+            inside.append(station_id)
+            list(_walk(["00002"], [_EMPTY]))
+        return original(self, station_id, parameter_or_dataset).filter(pl.col("parameter") != "sdk")
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    _start_recording(mode)
+    with caplog.at_level(logging.INFO):
+        list(_walk(["00001"], [_EMPTY]))
+
+    lines = _parameter_rows_lines(caplog)
+    assert len(lines) == 2
+    assert any("station 00002 " in line for line in lines)
+    assert any("station 00001 " in line for line in lines)
+    if mode == "response":
+        assert [w["code"] for w in recorded_warnings()].count(_CODE) == 2
+
+
+def test_two_requests_in_one_response_each_tell_the_parameter_they_lack(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two reads made while one response is being built (the earlier one's warning is in it): both are told."""
+    _holding_none_of(monkeypatch, "sdk")
+    begin_response()
+
+    for end in ("2020-05-02", "2020-05-03"):
+        request = DwdObservationRequest(parameters=[_EMPTY, _FULL], start="2020-05-01", end=end)
+        request.filter_by_station_id(["00001", "00002"]).values().all()
+
+    told = [w for w in recorded_warnings() if w["code"] == _CODE]
+    assert [w["parameter"] for w in told] == [_EMPTY_NAME, _EMPTY_NAME]
+    assert told[0]["message"] != told[1]["message"]
+
+
+# the stations whose file the provider let go are told alike on every surface, and not by an estimate (GH-3552)
+
+_FILE_SKIPPED = "file-skipped"
+
+
+def _withdrawing(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have the file of `stations` be one the index lists and DWD has withdrawn, through the provider's own download."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if station_id in stations:
+            url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+            download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+            return pl.DataFrame()
+        return original(self, station_id, parameter_or_dataset)
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def test_a_file_let_go_is_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header."""
+    _withdrawing(monkeypatch, "00001")
+
+    told = _surfaces(_FULL)
+
+    (warning,) = told["rest"]
+    assert warning["code"] == _FILE_SKIPPED
+    assert warning["stations"] == ["00001"]
+    assert warning["message"].startswith("A file of station 00001 (daily/climate_summary) was not used")
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_FULL, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _FILE_SKIPPED
+    assert rest.json()["metadata"]["counts"]["rows"] == 0
+
+
+def test_a_file_let_go_is_not_told_again_as_a_parameter_without_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station let go is the warning's, the one the source holds nothing at is `parameter-without-rows`'s."""
+    _holding_none_of(monkeypatch, "tmk")
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    assert request.filter_by_station_id(["00001", "00002"]).values().all().df.is_empty()
+
+    assert [(w["code"], w["stations"]) for w in recorded_warnings()] == [
+        (_FILE_SKIPPED, ["00001"]),
+        (_CODE, ["00002"]),
+    ]
+
+
+# the dates a provider leaves out for another window are told alike on every surface (GH-3832)
+
+_OTHER_WINDOW = "other-window-left-out"
+
+
+def _leaving_out(monkeypatch: pytest.MonkeyPatch, station: str, count: int) -> None:
+    """Have the provider answer nothing for `station` and tell that it left `count` dates of another window out."""
+    from wetterdienst.util.response_warnings import note_left_out  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        if station_id == station:
+            note_left_out("daily/climate_summary/temperature_air_mean_2m", count, "these dates are of another series")
+            return pl.DataFrame()
+        return original(self, station_id, parameter_or_dataset)
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+
+
+def test_dates_left_out_for_another_window_are_told_alike_on_every_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library, the command line, REST (JSON and NDJSON) and the MCP tool say the same; REST sets the header.
+
+    The parameter is not told as one the source holds no values for: it has them, of another window.
+    """
+    _leaving_out(monkeypatch, "00001", 3)
+
+    told = _surfaces(_FULL)
+
+    (warning,) = told["rest"]
+    assert warning["code"] == _OTHER_WINDOW
+    assert warning["parameter"] == "daily/climate_summary/temperature_air_mean_2m"
+    assert warning["stations"] == ["00001"]
+    assert "on 3 dates that are not in the answer (00001 3): these dates are of another series" in warning["message"]
+    assert told["cli"] == told["rest"] == told["ndjson"] == told["mcp"] == told["library"]
+    rest = _rest("/api/values", parameters=_FULL, stations="00001", timestamp="2020-05")
+    assert rest.headers["X-Wetterdienst-Warnings"] == _OTHER_WINDOW
+
+
+def test_nothing_let_go_is_told_of_on_any_surface() -> None:
+    """A request whose files were all read has no `file-skipped` warning on any surface."""
+    assert _surfaces(_FULL) == {surface: [] for surface in ("library", "cli", "rest", "ndjson", "mcp")}
+
+
+@pytest.mark.parametrize("estimate", ["summarize", "interpolate"])
+def test_an_estimate_tells_a_file_let_go_once_and_not_of_each_station(
+    monkeypatch: pytest.MonkeyPatch, estimate: str
+) -> None:
+    """An estimate reads the stations around a point as candidates: `file-skipped` is not told of each, the summary is.
+
+    The two stations whose file was let go are one `source-data-left-out` warning (GH-3848).
+    """
+    _withdrawing(monkeypatch, "00001", "00002")
+    begin_response()
+
+    getattr(DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03"), estimate)(_POINT)
+
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+    (summary,) = [w for w in recorded_warnings() if w["code"] == "source-data-left-out"]
+    assert summary["stations"] == ["00002", "00001"]
+    assert "at 2 of the 7 stations it read." in summary["message"]
+
+
+def test_a_station_a_rank_walk_passed_over_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station's file is let go and the walk goes on to the next ones: the answer is theirs, not partial."""
+    _withdrawing(monkeypatch, "00007")
+    begin_response()
+
+    request = DwdObservationRequest(parameters=[_FULL], start="2020-05-01", end="2020-05-03")
+    df = request.filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) <= _DRESDEN
+    assert df["station_id"].n_unique() == 2
+    assert [w for w in recorded_warnings() if w["code"] == _FILE_SKIPPED] == []
+
+
+# a rank walk that replaced a station names it only if it did not fill its rank, any other pick always does (GH-3552)
+
+_EVERY_STATION = [station[0] for station in _STATIONS]
+
+
+def _partly_let_go(monkeypatch: pytest.MonkeyPatch, *stations: str) -> None:
+    """Have `stations` lose a file and come back with one day of three, which is 33 % of the window."""
+    from wetterdienst.provider.dwd.observation import download  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        if station_id not in stations:
+            return df
+        url = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/{station_id}.zip"
+        download.download_climate_observations_data(pl.Series([url]), self.sr.request.settings)
+        return df.filter(pl.col("timestamp") == dt.datetime(2020, 5, 1, tzinfo=UTC))
+
+    def withdrawn(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    monkeypatch.setattr(download, "download_files", withdrawn)
+
+
+def _skipping_request() -> DwdObservationRequest:
+    """Make the request for the one parameter that skips a station below 60 % of the window."""
+    return DwdObservationRequest(
+        parameters=[_FULL],
+        start="2020-05-01",
+        end="2020-05-03",
+        options={"skip_empty": True, "skip_threshold": 0.6},
+    )
+
+
+def _file_skipped_stations() -> list[list[str]]:
+    return [w["stations"] for w in recorded_warnings() if w["code"] == _FILE_SKIPPED]
+
+
+def test_a_below_threshold_candidate_a_filled_rank_walk_replaced_is_not_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The nearest station lost a file and is below the threshold; the walk filled its rank with the next ones."""
+    _partly_let_go(monkeypatch, "00007")
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df["station_id"].n_unique() == 2
+    assert "00007" not in set(df["station_id"])
+    assert _file_skipped_stations() == []
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped"]
+
+
+def test_a_rank_walk_that_lost_every_file_names_every_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An outage that empties the walk leaves the answer empty: nothing was replaced, and all walked are told."""
+    _withdrawing(monkeypatch, *_EVERY_STATION)
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert df.is_empty()
+    (stations,) = _file_skipped_stations()
+    assert set(stations) <= set(_EVERY_STATION)
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_a_rank_walk_that_ends_short_names_the_candidates_it_passed_over(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only one station is left to fill two slots: the ones whose file was lost were not replaced, and are told."""
+    _withdrawing(monkeypatch, *(station for station in _EVERY_STATION if station != "00001"))
+    begin_response()
+
+    df = _skipping_request().filter_by_rank(_POINT, rank=2).values().all().df
+
+    assert set(df["station_id"]) == {"00001"}
+    (stations,) = _file_skipped_stations()
+    assert "00001" not in stations
+    assert {"00007", "00006", "00003"} <= set(stations)
+
+
+def test_skip_empty_with_ids_names_a_station_emptied_by_a_lost_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station is missing from the answer because its file failed, not for lack of data: it is told."""
+    _withdrawing(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+
+
+def test_skip_empty_with_ids_names_a_station_below_the_threshold_after_a_lost_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped for too few readings (`station-skipped`) because its file failed: this is told as well."""
+    _partly_let_go(monkeypatch, "00001")
+    begin_response()
+
+    df = _skipping_request().filter_by_station_id(["00001", "00002"]).values().all().df
+
+    assert set(df["station_id"]) == {"00002"}
+    assert _file_skipped_stations() == [["00001"]]
+    assert [w["code"] for w in recorded_warnings()] == ["station-skipped", _FILE_SKIPPED]

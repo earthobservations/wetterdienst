@@ -11,11 +11,11 @@ import sys
 import threading
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
-from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, LiteralString, cast
 
 import polars as pl
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, SkipValidation, ValidationError, field_validator, model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
 # pydantic refuses typing.TypedDict as a response model on Python below 3.12, and GlossaryEntry
@@ -26,6 +26,7 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     ConfigurationError,
     DateRequiredError,
+    ImageTimeoutError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     NoInternetError,
@@ -34,28 +35,37 @@ from wetterdienst.exceptions import (
     NotFoundError,
     RequestError,
     StartDateEndDateError,
+    StationListingIncompleteError,
     StationNotFoundError,
     UpstreamError,
 )
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
+from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
+from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means, leave_out_suspect
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
     TimeseriesRequest,
+    answer_cut_to_window,
     limit_to_window,
+    require_window,
 )
+from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
+    from types import ModuleType
 
     import plotly.graph_objs as go
 
@@ -76,11 +86,13 @@ log = get_one_line_logger(__name__)
 # is attached to the field itself (pydantic drops it from a bare "Alias | None" union).
 _ProviderField = Annotated[
     str,
-    Field(description="Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."),
+    Field(
+        description="Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via providers."
+    ),
 ]
 _NetworkField = Annotated[
     str,
-    Field(description="Data network of the provider, e.g. 'observation'. List valid combinations via coverage."),
+    Field(description="Data network of the provider, e.g. 'observation'. List valid combinations via providers."),
 ]
 _ParametersField = Annotated[
     list[str],
@@ -102,6 +114,7 @@ _PeriodsField = Annotated[
 _ElevationField = Annotated[
     float | None,
     Field(
+        allow_inf_nan=False,
         description="Elevation of the requested point in metres above sea level. Given, a quantity "
         "that falls with height -- air temperature, dew point -- is brought from each station's "
         "altitude to this one, which is what tells a valley reading from a summit one. "
@@ -116,7 +129,7 @@ _IssueField = Annotated[
     str | None,
     Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
-_AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the stations/name/geo filters.")]
+_AllField = Annotated[bool | None, Field(description="Return all stations. Not combined with another selection.")]
 _StationsField = Annotated[
     list[str] | None,
     Field(description="Station ids, comma-separated, e.g. '01048' or '01048,04411'."),
@@ -140,11 +153,19 @@ _NameThresholdField = Annotated[
 ]
 _LatitudeField = Annotated[
     float | None,
-    Field(ge=-90, le=90, description="Latitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LATITUDE_MIN,
+        le=LATITUDE_MAX,
+        description="Latitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 _LongitudeField = Annotated[
     float | None,
-    Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
+    Field(
+        ge=LONGITUDE_MIN,
+        le=LONGITUDE_MAX,
+        description="Longitude of the reference point for geospatial filtering or interpolation.",
+    ),
 ]
 #: the largest count a request may name (`rank`): more than any network has stations, and far below what a
 #: fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
@@ -171,10 +192,18 @@ _DistanceField = Annotated[
     float | None,
     Field(ge=0, description="Return stations within this many kilometres of the given latitude/longitude."),
 ]
-_LeftField = Annotated[float | None, Field(ge=-180, le=180, description="Western longitude of the bounding box.")]
-_BottomField = Annotated[float | None, Field(ge=-90, le=90, description="Southern latitude of the bounding box.")]
-_RightField = Annotated[float | None, Field(ge=-180, le=180, description="Eastern longitude of the bounding box.")]
-_TopField = Annotated[float | None, Field(ge=-90, le=90, description="Northern latitude of the bounding box.")]
+_LeftField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Western longitude of the bounding box.")
+]
+_BottomField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the bounding box.")
+]
+_RightField = Annotated[
+    float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the bounding box.")
+]
+_TopField = Annotated[
+    float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the bounding box.")
+]
 _SqlField = Annotated[
     str | None,
     Field(
@@ -192,7 +221,8 @@ _SqlValuesField = Annotated[
 _WithMetadataField = Annotated[
     bool,
     Field(
-        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        description="Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what "
+        "`quality_flags` holds to the `metadata` block of the "
         "JSON or GeoJSON, which is always there."
     ),
 ]
@@ -200,11 +230,29 @@ _WithMetadataField = Annotated[
 _WithMetadataSettingsField = Annotated[
     bool,
     Field(
-        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        description="Add the unit of every parameter, its `aggregation` and `timestamp_position`, and what "
+        "`quality_flags` holds to the `metadata` block of the "
         "JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]
+# of the values: the stations that have rows in the answer (GH-3818)
+_WithValueStationsField = Annotated[
+    bool,
+    Field(
+        description="Include the metadata of the stations that have rows in the answer, one entry per dataset that "
+        "has rows (per requested dataset for a merged wide row, which names none). A queried station with no rows "
+        "is not listed.",
+    ),
+]
+# of the interpolation and the summary: the stations are the ones the rows were made from, and where each stands
+_WithEstimateStationsField = Annotated[
+    bool,
+    Field(
+        description="Include the stations used, one entry per dataset, with their `distance` from the point (km) and "
+        "`elevation_difference` to it (m; null if the point has no elevation). The rows' ids say which gave a value.",
+    ),
+]
 _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
@@ -214,8 +262,9 @@ _StreamFormatField = Annotated[
     Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(
         description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
-        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
-        "longer answer than the others: see the limits of the server."
+        "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
+        "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
+        "limits of the server."
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
@@ -306,6 +355,70 @@ _DropNullsField = Annotated[
         "Default: the server's WD_TS_DROP_NULLS if set, else true."
     ),
 ]
+
+
+def _plausibility_field(check: str, what: str) -> Any:  # noqa: ANN401
+    """Make the field of a plausibility check: its mode, `hard` or `soft`, as `plausibility_<check>`."""
+    return Annotated[
+        Mode,
+        Field(
+            description=f"What the check `{check}` does to {what}: `hard` {hard_means(check)}; `soft` keeps the "
+            f"value and flags it `suspect:{check}`. {forecast_note(check)} "
+            f"Interpolation and summary leave a suspect value out in any case. "
+            f"Default: the server's WD_TS_PLAUSIBILITY__{check.upper()} if set, else "
+            f"{default_mode(check)}.",
+        ),
+    ]
+
+
+_PlausibilityField = Annotated[
+    Mode | None,
+    Field(
+        description="One mode for every plausibility check at once: `soft` keeps every value a check finds "
+        "implausible and flags it (`suspect:<check>`), `hard` nulls it and keeps the number "
+        "(`rejected:<check>,raw:<number>`), except on a forecast network (`kind` `forecast`), where every check but "
+        "`floor` and `limits` is soft whatever the mode. The suspect level of `source` stays flagged. A check given "
+        "beside it by `plausibility_<check>` wins. "
+        "Default: the server's WD_TS_PLAUSIBILITY if set, else the mode of each check.",
+    ),
+]
+_PlausibilityRangeField = _plausibility_field("range", "a reading outside the physical range of its parameter")
+_PlausibilityElevationField = _plausibility_field(
+    "elevation", "a station pressure the barometric formula does not expect at the station's elevation"
+)
+_PlausibilityStuckField = _plausibility_field(
+    "stuck",
+    "a sensor that held one value over a period it should not have "
+    "(a verdict on a series, which depends on what was read)",
+)
+_PlausibilityConsistencyField = _plausibility_field(
+    "consistency", "a reading that another parameter of the same file contradicts (never downloaded for the check)"
+)
+_PlausibilityFloorField = _plausibility_field("floor", "a model value a little below the floor of its quantity")
+_PlausibilityLimitsField = _plausibility_field("limits", "a reading outside the bounds `limits` sets for its parameter")
+_PlausibilitySourceField = _plausibility_field(
+    "source", "a value that the source itself marks as erroneous or doubtful in its own quality flag"
+)
+_PlausibilityStepField = _plausibility_field(
+    "step",
+    "a change between two consecutive readings beyond what the weather does, or a reading that jumps away and back "
+    "(a verdict on a series, which depends on what was read)",
+)
+_PlausibilityRelationsField = _plausibility_field(
+    "relations",
+    "two readings of one file that contradict each other (a maximum below the mean, a dew point above the air "
+    "temperature, a gust below the mean wind) or a day of sunshine longer than the day; both readings of a pair are "
+    "flagged",
+)
+_LimitsField = Annotated[
+    dict[str, Limit] | None,
+    Field(
+        description=LIMITS_DESCRIPTION + ' Given as a JSON object, e.g. {"temperature_air_mean_2m": [-30, 45], '
+        '"precipitation_amount": [null, 200]}. A name it leaves out keeps the server\'s WD_TS_LIMITS entry, if set.'
+    ),
+]
+#: the query parameters and command line options that set the mode of a check, by the check they set (GH-3676)
+PLAUSIBILITY_OPTIONS = {f"plausibility_{check}": check for check in CHECKS}
 _SectionsField = Annotated[
     set[Literal["name", "parameter", "device", "geography", "missing_data"]] | None,
     Field(
@@ -505,7 +618,9 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
 #: parameter it does not know (GH-2438); so does each MCP tool taking the new name, and the command
 #: line, which names its option (`--station` was renamed to `--stations`). A model that takes the
 #: old name for what it is -- the one reference `station` of an interpolation or a summary, the
-#: `dataset` of the issues of a DMO product -- is not refused it
+#: `dataset` of the issues of a DMO product -- is not refused it. Only a route that had the old name
+#: is refused it as a rename (`OLD_NAMES_OF_ROUTE`): a route that never had it, as `stations` never had
+#: `date`, answers as for any parameter it does not know (GH-3869)
 RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
     "date": "timestamp",
     "station": "stations",
@@ -514,6 +629,107 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
     "dataset": "datasets",
     "resolution": "resolutions",
 }
+
+
+#: the old names of `RENAMED_REQUEST_PARAMETERS` that each route took in 0.139.0, the release the renames are counted
+#: from, by route: the name of its MCP tool (`stations`, `stripes_values`), which is that of its REST path and of its
+#: command (`coverage` was `about coverage` in 0.139.0). A route is told that an old name "was renamed" only if it had
+#: it: a route that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route
+#: added since had no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that
+#: release's code declared (`tests/ui/routes_0_139_0.json`, read from the tag), over REST and on the command line, so
+#: it is not a table from memory (GH-3869)
+OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
+    "stations": frozenset({"station"}),
+    "history": frozenset({"station"}),
+    "values": frozenset({"date", "station"}),
+    "interpolate": frozenset({"date", "station"}),
+    "summarize": frozenset({"date", "station"}),
+    "issues": frozenset({"dataset", "station"}),
+    "glossary": frozenset({"parameter"}),
+    "alerts": frozenset({"date"}),
+    # the command `fields` only, which still takes all three
+    "fields": frozenset({"dataset", "period", "resolution"}),
+    "stripes_values": frozenset({"station"}),
+    "stripes_image": frozenset({"station"}),
+}
+
+
+def old_names_of_route(route: str) -> frozenset[str]:
+    """Give the names of `RENAMED_REQUEST_PARAMETERS` that the route had in 0.139.0, none for one added since."""
+    return OLD_NAMES_OF_ROUTE.get(route, frozenset())
+
+
+#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it
+#: (`stripes values` of that release is `stripes image` now): the command line spells them with hyphens, and
+#: `--convert_units` is told it "was renamed to --convert-units" only on a command that had it, not on `stations`,
+#: which spelled `--name-threshold` so already. `tests/ui/test_renamed_routes.py` holds it to the options of that
+#: release's code, as it does `OLD_NAMES_OF_ROUTE` (GH-3869)
+OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
+    "stations": frozenset({"if_exists", "with_metadata"}),
+    "issues": frozenset({"lead_time"}),
+    "history": frozenset({"with_metadata", "with_stations"}),
+    "values": frozenset(
+        {
+            "convert_units",
+            "drop_nulls",
+            "if_exists",
+            "lead_time",
+            "skip_criteria",
+            "skip_empty",
+            "skip_threshold",
+            "sql_values",
+            "unit_targets",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "interpolate": frozenset(
+        {
+            "convert_units",
+            "if_exists",
+            "interpolation_station_distance",
+            "interpolation_station_distance_heterogeneous",
+            "interpolation_station_distance_homogeneous",
+            "lead_time",
+            "sql_values",
+            "unit_targets",
+            "use_nearby_station_distance",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "summarize": frozenset(
+        {
+            "convert_units",
+            "if_exists",
+            "lead_time",
+            "sql_values",
+            "summary_station_distance",
+            "summary_station_distance_heterogeneous",
+            "summary_station_distance_homogeneous",
+            "unit_targets",
+            "use_nearby_station_distance",
+            "with_metadata",
+            "with_stations",
+        }
+    ),
+    "radar": frozenset({"country_name", "wmo_code"}),
+    "stripes_image": frozenset(
+        {
+            "end_year",
+            "name_threshold",
+            "show_data_availability",
+            "show_title",
+            "show_years",
+            "start_year",
+        }
+    ),
+}
+
+
+def old_underscore_options_of_route(route: str) -> frozenset[str]:
+    """Give the options of a command that were spelled with an underscore in 0.139.0, none for one added since."""
+    return OLD_UNDERSCORE_OPTIONS_OF_ROUTE.get(route, frozenset())
 
 
 #: query parameters removed on the way to 1.0, name to what to do instead. A request that still gives one is
@@ -538,6 +754,10 @@ def removed_parameter_message(name: str) -> str:
 class _RefusesRenamedParameters(BaseModel):
     """A request model that refuses a parameter given by its old name, naming the new one, or one that is gone."""
 
+    #: the route the model is the query of, as `OLD_NAMES_OF_ROUTE` names it, which says which old names it had; a model
+    #: of no route (or one added since 0.139.0) never had one
+    route: ClassVar[str] = ""
+
     @model_validator(mode="before")
     @classmethod
     def refuse_renamed_parameters(cls, data: Any) -> Any:  # noqa: ANN401
@@ -547,6 +767,7 @@ class _RefusesRenamedParameters(BaseModel):
                 _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
                 for old, new in RENAMED_REQUEST_PARAMETERS.items()
                 if old in data and old not in cls.model_fields and new in cls.model_fields
+                if old in old_names_of_route(cls.route)
             ]
             errors += [
                 _rule_error("removed", removed_parameter_message(name), (name,), data[name])
@@ -564,11 +785,25 @@ def _is_set(request: BaseModel, field: str) -> bool:
     return not (value is None or value is False or (isinstance(value, (str, list)) and not value))
 
 
+def exactly_one_of_message(groups: Sequence[Sequence[str]], given: Sequence[str] = ()) -> str:
+    """Say that exactly one of the groups is required, with the fields it goes with where there are some.
+
+    The refusal says it, and the OpenAPI document says it of each parameter, in these words (GH-3134).
+    """
+    message = f"Exactly one of {describe_fields(groups)} is required"
+    return f"{message} with {join_names(given)}" if given else message
+
+
+def requires_message(groups: Sequence[Sequence[str]]) -> str:
+    """Say that a field needs one of the groups beside it, as the refusal and the OpenAPI document do."""
+    return f"Requires {describe_fields(groups)}"
+
+
 def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list[InitErrorDetails]:
     """Check a request gives exactly one of alternative groups of fields, and the whole of it."""
     made = [group for group in groups if any(_is_set(request, field) for field in group)]
     if not made:
-        message = f"Exactly one of {describe_fields(groups)} is required"
+        message = exactly_one_of_message(groups)
         return [_rule_error("missing_one_of", message, one_of=[list(group) for group in groups])]
     if len(made) > 1:
         # each group by the first field it gives, the one the error is located at
@@ -600,40 +835,132 @@ def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list
 
 
 _POINT = ("latitude", "longitude")
-_STATION_SELECTIONS = (("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
+_POINT_MEASURES = (("rank",), ("distance",))
+
+Group = tuple[str, ...]
 
 
-def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[InitErrorDetails]:
-    """Check the one station selection a stations or values request makes.
+@dataclass(frozen=True)
+class Selection:
+    """The exclusive parameters of a request: the one definition the refusal and the OpenAPI document are written from.
 
-    `get_stations` takes the first selection it finds, so a request making two was answered for
-    one of them and the other dropped without a word. The CLI's option parser refused that, but the
-    REST API and MCP build these models without it and answered. Checked here, all three share one
-    rule.
+    `exactly_one_of` are the alternatives, each a group of parameters that are given whole: a request makes
+    exactly one. `then` are the alternatives that the one made asks for in turn: with the group given as `when`,
+    exactly one of the groups after it. `requires` is the parameter that is not given alone: it needs one of the
+    groups beside it.
+
+    A request model holds it as `selection`, and its validator checks the request against all of it
+    (`_check_selection`), so that a change here changes what is refused, and `restapi._declare_selections` writes
+    it into the document as `x-wetterdienst-selection` with the same words (GH-3134).
+    `tests/ui/test_surface_parity.py` holds the document, the refusal and the examples together.
+    """
+
+    exactly_one_of: tuple[Group, ...]
+    then: tuple[tuple[Group, tuple[Group, ...]], ...] = ()
+    requires: tuple[tuple[str, tuple[Group, ...]], ...] = ()
+
+    def sentences(self) -> dict[str, list[str]]:
+        """Say of each parameter the selection is about what is asked of it, in the words of the refusal."""
+        found: dict[str, list[str]] = {}
+        for group in self.exactly_one_of:
+            for name in group:
+                found.setdefault(name, []).append(f"{exactly_one_of_message(self.exactly_one_of)}.")
+        for when, groups in self.then:
+            for name in (*when, *(name for group in groups for name in group)):
+                found.setdefault(name, []).append(f"{exactly_one_of_message(groups, when)}.")
+        for name, needs in self.requires:
+            found.setdefault(name, []).append(f"{requires_message(needs)}.")
+        return found
+
+    def document(self) -> dict[str, Any]:
+        """Give the selection as the member `x-wetterdienst-selection` of an operation of the OpenAPI document."""
+        document: dict[str, Any] = {"exactly_one_of": [list(group) for group in self.exactly_one_of]}
+        if self.then:
+            document["then"] = [
+                {"when": list(when), "exactly_one_of": [list(group) for group in groups]} for when, groups in self.then
+            ]
+        if self.requires:
+            document["requires"] = {name: [list(group) for group in needs] for name, needs in self.requires}
+        return document
+
+
+#: the stations of `stations` and `values`: all, ids, a name, a point (with a rank or a distance), a box or SQL
+STATION_SELECTION = Selection(
+    exactly_one_of=(("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",)),
+    then=((_POINT, _POINT_MEASURES),),
+    # a `rank` goes with a name as well as with a point: there it caps the fuzzy matches
+    requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
+)
+#: the stations of `history`
+HISTORY_SELECTION = Selection(exactly_one_of=(("all",), ("stations",)))
+#: the reference of `interpolate` and `summarize`: a station, or a point, which needs no rank
+REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
+#: the station of the climate stripes
+STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
+
+#: one value for each parameter of a selection, as the schema of the parameter has it, a list as a list, which the
+#: document spells comma-separated (`explode: false`). A request gives a whole group of them, with a `rank` for the
+#: point, and the model accepts it (`tests/ui/test_surface_parity.py` makes each); the limits of the server still
+#: apply, such as the stations one request may read, and `sql` is refused with a 403 where the server does not
+#: enable it
+SELECTION_EXAMPLES: dict[str, Any] = {
+    "all": True,
+    "stations": ["01048", "04411"],
+    "name": "Hamburg Fuhlsbüttel",
+    "latitude": 53.63,
+    "longitude": 10.0,
+    "rank": 3,
+    "distance": 25,
+    "left": 9.5,
+    "bottom": 53.4,
+    "right": 10.5,
+    "top": 53.9,
+    "sql": "region='Sachsen'",
+    "station": "01048",
+}
+
+
+def _check_selection(request: BaseModel, selection: Selection) -> list[InitErrorDetails]:
+    """Check the one selection a request makes, by all of its `Selection`: the model of every route calls this.
+
+    The alternatives, what a group made asks for in turn (`then`) and the parameters that are not given alone
+    (`requires`) are all enforced here, so that what the document states of a `Selection` is what is refused.
+    A selection with neither `then` nor `requires` is the alternatives alone.
+
+    For `stations` and `values`, `get_stations` takes the first selection it finds, so a request making two was
+    answered for one of them and the other dropped without a word. The CLI's option parser refused that, but the
+    REST API and MCP build these models without it and answered. Checked here, all three share one rule.
 
     `rank` goes with `name` as well as with a point: there it caps the fuzzy matches.
     """
-    errors = _check_one_of(request, _STATION_SELECTIONS)
+    errors = _check_one_of(request, selection.exactly_one_of)
     if errors:
         return errors
-    if _is_set(request, "latitude"):
-        if request.rank is None and request.distance is None:
-            message = f"Exactly one of rank or distance is required with {join_names(_POINT)}"
-            return [_rule_error("missing_one_of", message, one_of=[["rank"], ["distance"]], required_with=[*_POINT])]
-        return _check_one_of(request, (("rank",), ("distance",)))
-    if request.distance is not None:
-        message = f"Requires {describe_fields([_POINT])}"
-        errors.append(_rule_error("requires", message, ("distance",), request.distance, requires=[[*_POINT]]))
-    if request.rank is not None and not request.name:
-        message = f"Requires {describe_fields([_POINT, ('name',)])}"
-        errors.append(_rule_error("requires", message, ("rank",), request.rank, requires=[[*_POINT], ["name"]]))
+    for when, groups in selection.then:
+        if _is_set(request, when[0]):
+            if not any(_is_set(request, field) for group in groups for field in group):
+                message = exactly_one_of_message(groups, when)
+                one_of = [list(group) for group in groups]
+                return [_rule_error("missing_one_of", message, one_of=one_of, required_with=[*when])]
+            return _check_one_of(request, groups)
+    for field, needs in selection.requires:
+        if getattr(request, field) is not None and not any(
+            all(_is_set(request, name) for name in group) for group in needs
+        ):
+            message = requires_message(needs)
+            errors.append(
+                _rule_error("requires", message, (field,), getattr(request, field), requires=[list(g) for g in needs])
+            )
     return errors
 
 
 class StationsRequest(_RefusesRenamedParameters):
     """Stations request with validated parameters."""
 
+    route: ClassVar[str] = "stations"
+
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATION_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -715,7 +1042,7 @@ class StationsRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> StationsRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -725,7 +1052,10 @@ class HistoryRequest(_RefusesRenamedParameters):
     Used to get historical station metadata.
     """
 
+    route: ClassVar[str] = "history"
+
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = HISTORY_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -784,14 +1114,17 @@ class HistoryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> HistoryRequest:
         """Check that exactly one of all or stations is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("all",), ("stations",))))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
 class ValuesRequest(_RefusesRenamedParameters):
     """Values request with validated parameters."""
 
+    route: ClassVar[str] = "values"
+
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STATION_SELECTION
 
     # from stations
     provider: _ProviderField
@@ -862,7 +1195,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     sql: _SqlField = None
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithValueStationsField = False
 
     format: _StreamFormatField = "json"
     pretty: _PrettyField = False
@@ -884,11 +1217,22 @@ class ValuesRequest(_RefusesRenamedParameters):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
+    plausibility_step: _PlausibilityStepField = "soft"
+    plausibility_relations: _PlausibilityRelationsField = "soft"
+    limits: _LimitsField = None
 
-    @field_validator("unit_targets", mode="before")
+    @field_validator("unit_targets", "limits", mode="before")
     @classmethod
-    def validate_unit_targets(cls, v: str | dict | None) -> dict[str, str] | None:
-        """Validate unit targets."""
+    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
+        """Validate unit targets and limits: a mapping, or the JSON text of one."""
         if not v:
             return None
         if isinstance(v, dict):
@@ -898,14 +1242,17 @@ class ValuesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
         """Check that exactly one station selection is made."""
-        _raise_rule_errors(self, _check_station_selection(self))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
 class InterpolationRequest(_RefusesRenamedParameters):
     """Interpolation request with validated parameters."""
 
+    route: ClassVar[str] = "interpolate"
+
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = REFERENCE_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -991,7 +1338,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithEstimateStationsField = False
 
     pretty: _PrettyField = False
 
@@ -1003,14 +1350,17 @@ class InterpolationRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> InterpolationRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
 class SummaryRequest(_RefusesRenamedParameters):
     """Summary request with validated parameters."""
 
+    route: ClassVar[str] = "summarize"
+
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = REFERENCE_SELECTION
 
     provider: _ProviderField
     network: _NetworkField
@@ -1093,7 +1443,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     format: _FormatField = "json"
 
     with_metadata: _WithMetadataSettingsField = False
-    with_stations: _WithStationsField = False
+    with_stations: _WithEstimateStationsField = False
 
     pretty: _PrettyField = False
 
@@ -1105,7 +1455,7 @@ class SummaryRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_reference_point(self) -> SummaryRequest:
         """Check that exactly one of station or latitude/longitude is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("station",), _POINT)))
+        _raise_rule_errors(self, _check_selection(self, self.selection))
         return self
 
 
@@ -1153,6 +1503,17 @@ class SettingsRequest(BaseModel):
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
+    plausibility: _PlausibilityField = None
+    plausibility_range: _PlausibilityRangeField = "hard"
+    plausibility_elevation: _PlausibilityElevationField = "hard"
+    plausibility_stuck: _PlausibilityStuckField = "soft"
+    plausibility_consistency: _PlausibilityConsistencyField = "hard"
+    plausibility_floor: _PlausibilityFloorField = "hard"
+    plausibility_limits: _PlausibilityLimitsField = "hard"
+    plausibility_source: _PlausibilitySourceField = "soft"
+    plausibility_step: _PlausibilityStepField = "soft"
+    plausibility_relations: _PlausibilityRelationsField = "soft"
+    limits: _LimitsField = None
     # interpolate
     interpolation_station_distance: _RestInterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
@@ -1166,7 +1527,9 @@ class SettingsRequest(BaseModel):
     min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
     num_additional_stations: _RestNumAdditionalStationsField = 3
 
-    @field_validator("unit_targets", "interpolation_station_distance", "summary_station_distance", mode="before")
+    @field_validator(
+        "unit_targets", "limits", "interpolation_station_distance", "summary_station_distance", mode="before"
+    )
     @classmethod
     def validate_json_mapping(cls, v: str | dict | None) -> dict | None:
         """Read a mapping given as JSON, as the requests read it."""
@@ -1183,6 +1546,8 @@ _ISSUE_STATION = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9_.-]{0,31}")
 
 class IssuesRequest(_RefusesRenamedParameters):
     """Request model for listing available issue datetimes."""
+
+    route: ClassVar[str] = "issues"
 
     model_config = {"extra": "forbid"}
 
@@ -1229,6 +1594,8 @@ class IssuesRequest(_RefusesRenamedParameters):
 class AuthRequest(_RefusesRenamedParameters):
     """Request model for checking the credentials of a provider and network."""
 
+    route: ClassVar[str] = "auth"
+
     model_config = {"extra": "forbid"}
 
     provider: _ProviderField
@@ -1236,28 +1603,30 @@ class AuthRequest(_RefusesRenamedParameters):
 
 
 class CoverageRequest(_RefusesRenamedParameters):
-    """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
+    """Request model for listing the resolutions, datasets and parameters of one network."""
+
+    route: ClassVar[str] = "coverage"
 
     model_config = {"extra": "forbid"}
 
     provider: Annotated[
-        str | None,
+        str,
         Field(
-            description="Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, "
-            "datasets and parameters; with neither, every provider and its networks are listed."
+            description="Data provider, e.g. 'dwd'. `coverage` describes one network, so it is required with "
+            "network; `providers` lists the providers and their networks."
         ),
-    ] = None
+    ]
     network: Annotated[
-        str | None,
-        Field(description="Data network of the provider, e.g. 'observation'. Needs provider."),
-    ] = None
+        str,
+        Field(description="Data network of the provider, e.g. 'observation'. Required with provider."),
+    ]
     resolutions: Annotated[
         list[str] | None,
-        Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network."),
+        Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'."),
     ] = None
     datasets: Annotated[
         list[str] | None,
-        Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network."),
+        Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'."),
     ] = None
     pretty: _PrettyField = False
 
@@ -1268,8 +1637,23 @@ class CoverageRequest(_RefusesRenamedParameters):
         return _read_items(v)
 
 
+def coverage_needs_a_network(providers: str) -> str:
+    """Tell a caller that `coverage` describes one network, and where the providers and networks are listed.
+
+    Until 1.0.0 `coverage` without `provider` and `network` listed every provider and its networks; that is
+    `providers` now (GH-3996), named as the surface calls it (`providers` is `/api/providers` for REST,
+    `wetterdienst providers` for the command line, the tool `providers` for MCP).
+    """
+    return (
+        "coverage describes one network, so both provider and network are required. "
+        f"To list the providers and their networks, use {providers}."
+    )
+
+
 class ProvidersRequest(_RefusesRenamedParameters):
     """Request model for describing the providers."""
+
+    route: ClassVar[str] = "providers"
 
     model_config = {"extra": "forbid"}
 
@@ -1282,6 +1666,8 @@ class ProvidersRequest(_RefusesRenamedParameters):
 
 class GlossaryRequest(_RefusesRenamedParameters):
     """Request model for looking up the canonical parameters."""
+
+    route: ClassVar[str] = "glossary"
 
     model_config = {"extra": "forbid"}
 
@@ -1299,6 +1685,8 @@ class GlossaryRequest(_RefusesRenamedParameters):
 class AlertsRequest(_RefusesRenamedParameters):
     """Request model for the DWD weather alerts."""
 
+    route: ClassVar[str] = "alerts"
+
     model_config = {"extra": "forbid"}
 
     granularity: Annotated[
@@ -1310,8 +1698,9 @@ class AlertsRequest(_RefusesRenamedParameters):
     language: Annotated[
         Literal["de", "en", "es", "fr", "mul"],
         Field(
-            description="Language of the warnings. 'mul' bundles every language in one file, of which only the "
-            "first is read: prefer a single language."
+            description="Language of the warnings. 'mul' bundles eight languages: the fields of an alert are the "
+            "German ones, and its 'translations' hold the event, headline, description and instruction in the other "
+            "seven (3 to 5 KB more an alert)."
         ),
     ] = "en"
     timestamp: Annotated[
@@ -1339,6 +1728,7 @@ def failure_status(e: BaseException) -> int:
         NotImplementedError                  501  something wetterdienst does not do for a network, e.g. history
         NoInternetError                      503  no connection to the provider could be made
         UpstreamError after a timeout        504  the provider did not answer in time
+        ImageTimeoutError                    504  the browser that draws an image did not finish in time
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
         anything else                        500  our bug
 
@@ -1353,9 +1743,10 @@ def failure_status(e: BaseException) -> int:
     code, and the same request can succeed once the connection is back (GH-2640). Any other
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
-    underneath (its `__cause__`) was a timeout. What is left is a 500, an unclassified
-    `WetterdienstError` among it, so a class added to the hierarchy without a place here is the
-    server's error until it is given one.
+    underneath (its `__cause__`) was a timeout. An `ImageTimeoutError` is a 504 as well: no provider is involved,
+    the server's own renderer did not answer, and the same request can succeed on a retry (GH-3723). What is left
+    is a 500, an unclassified `WetterdienstError` among it, so a class added to the hierarchy without a place here is
+    the server's error until it is given one.
 
     Kept here rather than in the REST API so that `wetterdienst issues` asks the same question
     without importing FastAPI: there a refusal is a usage error, exit 2, a `NoInternetError` one line, exit 1,
@@ -1369,6 +1760,8 @@ def failure_status(e: BaseException) -> int:
         return 501
     if isinstance(e, NoInternetError):
         return 503
+    if isinstance(e, ImageTimeoutError):
+        return 504
     if isinstance(e, UpstreamError):
         return 504 if timed_out(e) else 502
     return 500
@@ -1398,7 +1791,7 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
     run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
     names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
-    refusals of the connection the clause runs on (`ExportMixin._filter_by_sql`): a file, URL or
+    refusals of the connection the clause runs on (`wetterdienst.io.sql_filter.filter_by_sql`): a file, URL or
     extension it may not touch (`PermissionException`), more memory than the limit sized to the
     frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
     outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
@@ -1496,7 +1889,7 @@ _auth_probes = _ProbeCache()
 def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, network: str) -> AuthAnswer:
     """Check the credentials of one network, probing its provider where they are configured.
 
-    The one place a credential is checked against its provider: `/api/coverage` and `about coverage`
+    The one place a credential is checked against its provider: `/api/providers` and `providers`
     do not probe (GH-2564), so this answers `valid` for the one network asked about, as a single
     attempt that gives up after `PROBE_TIMEOUT_SECONDS`. A network that needs none is `configured`
     and `valid` without a request; one whose credentials are missing is not `valid`, as a probe
@@ -1525,13 +1918,28 @@ def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, ne
 
 
 class GlossaryEntry(TypedDict):
-    """One canonical parameter: what it measures and which unit it is returned in."""
+    """One canonical parameter: what it measures and which unit it is returned in.
+
+    `aggregation` is what the name says the value is relative to its interval (`mean`, `max`, `sum`, ...), null for a
+    plain name that states none. It is the canonical value: `coverage` has the one of each provider, which declares
+    one for a plain name where its source states it (`instant`, a single reading), and the `timestamp_position`, which
+    the glossary does not have, since it knows no dataset.
+    """
 
     name: str
     unit_type: UnitType
     unit: str
     unit_symbol: str
     description: str
+    aggregation: Annotated[
+        Aggregation | None,
+        Field(
+            description="What the name says the value is relative to its interval: `mean`, `max`, `min`, `sum`, "
+            "`count`, `mean_of_max`, `mean_of_min`, `probability`, `occurrence`, `date`, `change`, `uncertainty`, "
+            "`code` or `at_max`. Null for a plain name, which states none. The canonical value: `coverage` has the "
+            "one of each provider, which declares one for a plain name where its source states it (`instant`).",
+        ),
+    ]
 
 
 def get_glossary(
@@ -1542,8 +1950,14 @@ def get_glossary(
 ) -> list[GlossaryEntry]:
     """Return the canonical parameter vocabulary, optionally filtered.
 
-    `coverage` answers which parameters a given provider offers; this answers what any of them
-    means and which unit it comes back in, neither of which coverage reports.
+    This is what the networks offer: the quality flags of the sources (`quality`, `quality_wind`, ...) are not
+    parameters, are never requested and come back in the `quality_flags` column of the values, so they are not
+    listed; the quality-flags page of the docs tells what that column holds (GH-3876).
+
+    `coverage` answers which parameters a given provider offers, with the unit each comes back in for a
+    request that passes no options (the environment's targets, as here); this answers what any of them means,
+    for every provider, and the unit under the `unit_targets` of the `options` given, which `coverage` takes
+    no option for.
 
     `parameter` matches as a substring, since the useful question over several hundred names is usually
     "everything about radiation" rather than one exact name. An exact name deliberately does *not*
@@ -1570,6 +1984,8 @@ def get_glossary(
         needles.append(PARAMETER_ALIASES[needle].new)
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
+        if canonical.quality_flag:
+            continue
         if needles and not any(n in canonical.name for n in needles):
             continue
         if unit_type and canonical.unit_type != unit_type:
@@ -1582,6 +1998,7 @@ def get_glossary(
                 unit=target.name,
                 unit_symbol=target.symbol,
                 description=canonical.description,
+                aggregation=canonical.aggregation,
             ),
         )
         if limit is not None and len(entries) >= limit:
@@ -1636,7 +2053,7 @@ def resolve_network(provider: str, network: str) -> type[TimeseriesRequest] | St
     """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts) too.
 
     `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other two.
-    The surfaces take both kinds by name -- `coverage` lists them, `auth` and `issues` answer for them, and
+    The surfaces take both kinds by name -- `providers` lists them, `auth` and `issues` answer for them, and
     the timeseries commands refuse them (`check_timeseries_api`) -- so this picks the one that applies.
 
     Raises:
@@ -1697,6 +2114,20 @@ def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:
 
     """
     dumped = base.model_dump()
+    # the mode of a check is named by `plausibility_<check>` and laid over the checks the base has, as the mapping of
+    # one named `plausibility` is: a check not named keeps its mode (GH-3676)
+    checks = {PLAUSIBILITY_OPTIONS[name]: value for name, value in given.items() if name in PLAUSIBILITY_OPTIONS}
+    given = {name: value for name, value in given.items() if name not in PLAUSIBILITY_OPTIONS}
+    # a bare mode is that mode for every check, and a check named beside it wins
+    every = given.get("plausibility")
+    if isinstance(every, str):
+        given = {**given, "plausibility": dict.fromkeys(CHECKS, every)}
+    if checks:
+        given = {**given, "plausibility": {**given.get("plausibility", {}), **checks}}
+    # the names of the bounds are spelled one way before they are merged, so that the host's entry cannot decide which
+    # of two spellings of one key in the request is the later one (GH-3687)
+    if isinstance(given.get("limits"), Mapping):
+        given = {**given, "limits": with_normal_names(with_aliases_resolved(given["limits"]))}
     merged = {name: {**dumped[name], **value} if isinstance(value, Mapping) else value for name, value in given.items()}
     return options_from_mapping(merged, base)
 
@@ -1737,16 +2168,21 @@ def _get_stations_request(
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
-    any_date_required = any(parameter.dataset.date_required for parameter in parameters)
-    if any_date_required and (not start_date or not end_date) and not isinstance(request, StationsRequest):
-        msg = "Start and end date required for single period datasets"
-        # a history request takes no window at all, so there is no option to tell its caller to pass
-        if isinstance(request, HistoryRequest):
-            raise StartDateEndDateError(msg)
-        raise DateRequiredError(msg)
+    # a stations request lists the stations of such a dataset without a window; the others need one
+    if not isinstance(request, StationsRequest):
+        try:
+            require_window(parameters, start_date, end_date)
+        except DateRequiredError as e:
+            # a history request takes no window at all, so there is no option to tell its caller to pass
+            if isinstance(request, HistoryRequest):
+                msg = "Start and end date required for single period datasets"
+                raise StartDateEndDateError(msg) from e
+            raise
 
     kwargs: dict[str, Any] = {
-        "parameters": parameters,
+        # a dataset stays one entry, which the request reads as all its parameters: it then knows that none of them was
+        # named, which `parameter-without-rows` is told by
+        "parameters": whole_datasets_kept(request.parameters, api.metadata),
         "start": start_date,
         "end": end_date,
         # every request takes periods and validates them against what its datasets publish, so pass
@@ -1772,52 +2208,60 @@ def get_stations(
     settings: Settings,
     options: Options | None = None,
 ) -> StationsResult:
-    """Get stations based on request, by the one selection its model lets it make."""
-    r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
+    """Get stations based on request, by the one selection its model lets it make.
 
-    if getattr(request, "all", False):
-        return r.all()
+    The answers that call it are cut to the window (`timestamp`) afterwards, a stations listing by
+    `limit_stations_to_window` and the values of the stations by what each holds in it, so a station the provider
+    lists without a position (`position-unplaced`) is told, for the whole list and for a search by place, only if it
+    survives the cut (`answer_cut_to_window`); one named by id or SQL is told whatever the cut does to it. Without
+    a window the cut is no cut.
+    """
+    with answer_cut_to_window():
+        r = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings, options=options)
 
-    if request.stations:
-        return r.filter_by_station_id(request.stations)
+        if getattr(request, "all", False):
+            return r.all()
 
-    name: str | None = getattr(request, "name", None)
-    if name:
-        # the rank asked for, else the default of what is asked: the best few of a listing, the best
-        # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
-        default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
-        name_rank: int = getattr(request, "rank", None) or default_rank
-        # a request for a window matches the name among the stations that have a record in it, which
-        # `filter_by_name` does of its own accord, so that the best match is not one that closed long
-        # ago while a current station of the same name has the readings, and the best few of a listing
-        # are not ones that closed either (GH-3026)
-        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
+        if request.stations:
+            return r.filter_by_station_id(request.stations)
 
-    latitude: float | None = getattr(request, "latitude", None)
-    longitude: float | None = getattr(request, "longitude", None)
-    rank: int | None = getattr(request, "rank", None)
-    distance: float | None = getattr(request, "distance", None)
+        name: str | None = getattr(request, "name", None)
+        if name:
+            # the rank asked for, else the default of what is asked: the best few of a listing, the best
+            # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
+            default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
+            name_rank: int = getattr(request, "rank", None) or default_rank
+            # a request for a window matches the name among the stations that have a record in it, which
+            # `filter_by_name` does of its own accord, so that the best match is not one that closed long
+            # ago while a current station of the same name has the readings, and the best few of a listing
+            # are not ones that closed either (GH-3026)
+            return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
 
-    if latitude is not None and longitude is not None and rank is not None:
-        return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
+        latitude: float | None = getattr(request, "latitude", None)
+        longitude: float | None = getattr(request, "longitude", None)
+        rank: int | None = getattr(request, "rank", None)
+        distance: float | None = getattr(request, "distance", None)
 
-    if latitude is not None and longitude is not None and distance is not None:
-        return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
+        if latitude is not None and longitude is not None and rank is not None:
+            return r.filter_by_rank(latlon=(latitude, longitude), rank=rank)
 
-    left: float | None = getattr(request, "left", None)
-    bottom: float | None = getattr(request, "bottom", None)
-    right: float | None = getattr(request, "right", None)
-    top: float | None = getattr(request, "top", None)
-    if left is not None and bottom is not None and right is not None and top is not None:
-        return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
+        if latitude is not None and longitude is not None and distance is not None:
+            return r.filter_by_distance(latlon=(latitude, longitude), distance=distance)
 
-    sql: str | None = getattr(request, "sql", None)
-    if sql:
-        return r.filter_by_sql(sql)
+        left: float | None = getattr(request, "left", None)
+        bottom: float | None = getattr(request, "bottom", None)
+        right: float | None = getattr(request, "right", None)
+        top: float | None = getattr(request, "top", None)
+        if left is not None and bottom is not None and right is not None and top is not None:
+            return r.filter_by_bbox(left=left, bottom=bottom, right=right, top=top)
 
-    # not reached: the request models refuse a request that selects no stations, and say why
-    msg = f"{type(request).__name__} selects no stations"
-    raise AssertionError(msg)
+        sql: str | None = getattr(request, "sql", None)
+        if sql:
+            return r.filter_by_sql(sql)
+
+        # not reached: the request models refuse a request that selects no stations, and say why
+        msg = f"{type(request).__name__} selects no stations"
+        raise AssertionError(msg)
 
 
 def limit_stations_to_window(stations: StationsResult) -> StationsResult:
@@ -1977,12 +2421,15 @@ class StripesSeries(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    station: Mapping[str, Any]
+    # the station as the stations listing has it, which is what the OpenAPI document says of it; the row is
+    # sent as it is and not read back through the model (`SkipValidation`), so the answer is what it always was
+    station: Annotated[_Station, SkipValidation]
     resolution: str
     dataset: str
     parameter: str
     # the unit `value` comes in, named as `/api/values` names one in its settings' `unit_targets`;
-    # the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it (GH-2372)
+    # the request's `unit_targets` (GH-3980) and the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it,
+    # the latter two since GH-2372
     unit: str
 
 
@@ -2001,6 +2448,8 @@ StripesKind = Literal["temperature", "precipitation"]
 
 class StripesStationsRequest(_RefusesRenamedParameters):
     """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
+
+    route: ClassVar[str] = "stripes_stations"
 
     model_config = {"extra": "forbid"}
 
@@ -2026,6 +2475,7 @@ class StripesRequest(_RefusesRenamedParameters):
     """
 
     model_config = {"extra": "forbid"}
+    selection: ClassVar[Selection] = STRIPES_SELECTION
 
     kind: Annotated[
         StripesKind,
@@ -2047,7 +2497,7 @@ class StripesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_and_years(self) -> StripesRequest:
         """Check exactly one of station or name is given, and a year range that ends after it starts."""
-        errors = _check_one_of(self, (("station",), ("name",)))
+        errors = _check_selection(self, self.selection)
         if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
             message = f"Input should be greater than start_year ({self.start_year})"
             errors.append(
@@ -2067,12 +2517,35 @@ class StripesRequest(_RefusesRenamedParameters):
 class StripesValuesRequest(StripesRequest):
     """A request for the values climate stripes are made of."""
 
+    route: ClassVar[str] = "stripes_values"
+
     format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
     pretty: _PrettyField = False
+    unit_targets: Annotated[
+        dict[str, str] | None,
+        Field(
+            description="The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, "
+            "e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is "
+            "reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if "
+            "set. The colours of the stripes image are relative and are the same in any unit."
+        ),
+    ] = None
+
+    @field_validator("unit_targets", mode="before")
+    @classmethod
+    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
+        """Validate unit targets: a mapping, or the JSON text of one."""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return v
+        return _load_json(v)
 
 
 class StripesImageRequest(StripesRequest):
     """A request for a climate stripes image."""
+
+    route: ClassVar[str] = "stripes_image"
 
     show_title: Annotated[bool, Field(description="Show the station name.")] = True
     show_years: Annotated[bool, Field(description="Show the first and last year.")] = True
@@ -2095,7 +2568,7 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
-def _get_stripes_options() -> Options:
+def _get_stripes_options(unit_targets: Mapping[str, str] | None = None) -> Options:
     """Give the options the stripes read a station's values with.
 
     `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
@@ -2103,25 +2576,33 @@ def _get_stripes_options() -> Options:
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
     with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
     outrank the environment's variables, a malformed one included.
+
+    `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
+    winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
     """
-    return Options(shape="long", skip_empty=False)
+    options = Options(shape="long", skip_empty=False)
+    return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
 
 
-def _get_stripes_temperature_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
+def _get_stripes_temperature_request(
+    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
+) -> DwdObservationRequest:
     """Give the request the temperature stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
         periods=periods,
-        options=_get_stripes_options(),
+        options=_get_stripes_options(unit_targets),
     )
 
 
-def _get_stripes_precipitation_request(periods: Period = Period.HISTORICAL) -> DwdObservationRequest:
+def _get_stripes_precipitation_request(
+    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
+) -> DwdObservationRequest:
     """Give the request the precipitation stripes list their stations and read their values with."""
     return DwdObservationRequest(
         parameters=[("annual", "precipitation_more", "precipitation_amount")],
         periods=periods,
-        options=_get_stripes_options(),
+        options=_get_stripes_options(unit_targets),
     )
 
 
@@ -2150,10 +2631,14 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
 def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     """Get stripes data for station in Germany, for a request its model has checked.
 
+    The `unit_targets` of a request for the values name the unit they are returned in, as for `/api/values`
+    (GH-3980); the colour of a year, scaled over the years, is the same in any unit. The image has none.
+
     Returns StripesData with metadata and dataframe.
     """
     kind, start_year, end_year = stripes.kind, stripes.start_year, stripes.end_year
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL)
+    unit_targets = stripes.unit_targets if isinstance(stripes, StripesValuesRequest) else None
+    request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL, unit_targets=unit_targets)
 
     if stripes.station:
         stations = request.filter_by_station_id(stripes.station)
@@ -2168,12 +2653,16 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # list is not taken for an unknown station
     found = stations.to_dict()["stations"]
     if not found:
+        if stripes.station and (gaps := request._gaps_that_may_list(stripes.station)):  # noqa: SLF001
+            # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
+            raise StationListingIncompleteError(stripes.station, gaps)
         parameter = "station_id" if stripes.station else "name"
         msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
         raise StationNotFoundError(msg)
     station = found[0]
 
-    df = stations.values().all().df.sort("timestamp")
+    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
+    df = leave_out_suspect(stations.values().all().df).sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     # a station that returns no rows has no first and last year to upsample between (polars raises
@@ -2234,12 +2723,26 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     return StripesData(series=series, df=df)
 
 
+def _require_plotting() -> ModuleType:
+    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+
+    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
+    """
+    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+
+
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked.
+    """Create warming stripes for station in Germany, for a request its model has checked."""
+    _require_plotting()
+    return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    go = import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+    go = _require_plotting()
 
     kind = stripes.kind
     show_title, show_years, show_data_availability = (
@@ -2247,7 +2750,6 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
         stripes.show_years,
         stripes.show_data_availability,
     )
-    stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
     station_dict = stripes_data.series.station

@@ -18,6 +18,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import _options, _settings, stations_result
+from wetterdienst.exceptions import DateRequiredError
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
 from wetterdienst.provider.fmi.observation import api as fmi_api
@@ -136,11 +137,10 @@ def test_fmi_without_a_reading_comes_out_as_the_empty_long_form(
     assert df.is_empty()
 
 
-def test_fmi_hourly_without_a_date_range_comes_out_as_the_empty_long_form(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The WFS is asked for a window, so a request with no bounds asks for nothing."""
+def test_fmi_hourly_without_a_date_range_is_refused_and_asks_for_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The WFS is asked for a window, so a request with no bounds is refused before it asks for anything."""
     asked = _serve(monkeypatch, _collection(_element("2024-01-01T00:00:00Z", "t2m", "-1.5")))
     request = FmiObservationRequest(parameters=[("hourly", "data")], settings=_settings())
-    df = stations_result(request, "hourly", "data", STATION).values().all().df
-    assert df.schema == pl.Schema(LONG_SCHEMA)
-    assert df.is_empty()
+    with pytest.raises(DateRequiredError, match="The dataset hourly/data needs a window"):
+        stations_result(request, "hourly", "data", STATION).values().all()
     assert asked == []

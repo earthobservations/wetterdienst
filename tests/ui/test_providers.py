@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""What each provider is: `/api/providers`, `wetterdienst about providers` and the MCP tool `providers` (GH-2565).
+"""What each provider is: `/api/providers`, `wetterdienst providers` and the MCP tool `providers` (GH-2565).
 
 Offline: the answer is read out of the metadata models, so nothing is stood in for.
 """
@@ -8,17 +8,22 @@ Offline: the answer is read out of the metadata models, so nothing is stood in f
 from __future__ import annotations
 
 import json
-from typing import Any
+import os
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
+from tests.conftest import ECCC_ATTRIBUTION, is_no_such_option
 from wetterdienst import Wetterdienst
 from wetterdienst.model.metadata import MetadataModel
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.providers import get_providers
+
+if TYPE_CHECKING:
+    import pathlib
 
 #: the members of the block of an answer about the library
 CATALOGUE = {"api_version", "schema_version", "retrieved_at", "producer", "counts", "warnings"}
@@ -28,6 +33,15 @@ CATALOGUE = {"api_version", "schema_version", "retrieved_at", "producer", "count
 def client() -> TestClient:
     """Make a client of the app."""
     return TestClient(restapi.app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    for name in list(os.environ):
+        if name.upper().startswith("WD_") and name.upper() != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
 
 
 def _timeseries_metadata() -> list[tuple[str, str, MetadataModel]]:
@@ -143,40 +157,82 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
     assert (dwd.country, dwd.country_code) == ("Germany", "DE")
 
 
-def test_the_networks_are_those_coverage_lists_with_what_they_offer(client: TestClient) -> None:
-    """Each network says what `/api/coverage` says of it, and counts what its metadata holds."""
-    coverage = client.get("/api/coverage").json()
-    providers = {provider["provider"]: provider for provider in client.get("/api/providers").json()["providers"]}
+def test_eccc_carries_the_end_use_licence_of_its_data_server() -> None:
+    """ECCC's licence is the one the API it is read from declares in its OpenAPI document (GH-2567)."""
+    eccc = next(provider for provider in get_providers().providers if provider.provider == "eccc")
 
-    assert set(providers) == set(coverage)
-    for name, networks in coverage.items():
-        listed = {network["network"]: network for network in providers[name]["networks"]}
-        assert set(listed) == set(networks)
-        for network, described in networks.items():
-            assert listed[network]["kind"] == described["kind"]
-            assert listed[network]["url"] == described["url"]
-            assert listed[network]["auth"] == described["auth"]
-            assert listed[network]["date_required"] == described["date_required"]
+    assert eccc.license is not None
+    assert eccc.license.spdx_id is None
+    assert eccc.license.name == "Environment and Climate Change Canada Data Server End-use Licence"
+    assert eccc.license.url == "https://eccc-msc.github.io/open-data/licence/readme_en/"
+    assert eccc.attribution == ECCC_ATTRIBUTION
+
+
+def test_the_number_of_parameters_of_a_network_is_what_the_coverage_of_it_lists(client: TestClient) -> None:
+    """`parameters` counts what its metadata holds, which is what `/api/coverage` lists for the one network."""
+    providers = {p["provider"]: p for p in client.get("/api/providers").json()["providers"]}
     observation = next(n for n in providers["dwd"]["networks"] if n["network"] == "observation")
     metadata = Wetterdienst.resolve("dwd", "observation").metadata
-    assert [r["name"] for r in observation["resolutions"]] == [r.name for r in metadata]
-    assert observation["parameters"] == sum(len(d.parameters) for r in metadata for d in r.datasets)
-    daily = next(r for r in observation["resolutions"] if r["name"] == "daily")
-    assert {"name": "climate_summary", "parameters": len(metadata["daily"]["climate_summary"].parameters)} in daily[
-        "datasets"
-    ]
+    # the quality flags are no parameters: the counts are those of the iteration, as `/api/coverage` lists them
+    listed_by_coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"}).json()
+    in_coverage = {
+        (resolution, dataset): len(body["parameters"])
+        for resolution, datasets in listed_by_coverage.items()
+        for dataset, body in datasets["datasets"].items()
+    }
+    assert observation["parameters"] == sum(in_coverage.values())
+    assert observation["parameters"] == sum(len(list(d)) for r in metadata for d in r.datasets)
+    assert observation["parameters"] < sum(len(d.parameters) for r in metadata for d in r.datasets)
+    assert (
+        in_coverage[("daily", "climate_summary")]
+        == len(list(metadata["daily"]["climate_summary"]))
+        < len(metadata["daily"]["climate_summary"].parameters)
+    )
+    # what a network is, and is not: the resolutions and datasets are the coverage's (GH-3996)
+    assert set(observation) == {
+        "network",
+        "extent",
+        "copyright",
+        "kind",
+        "url",
+        "auth",
+        "configured",
+        "date_required",
+        "parameters",
+    }
 
 
-def test_the_standalone_networks_of_dwd_are_listed_without_resolutions(client: TestClient) -> None:
+def test_the_standalone_networks_of_dwd_are_listed_with_their_kind_and_terms(client: TestClient) -> None:
     """`dwd/radar` and `dwd/alerts` have no metadata model: they are listed with their kind and terms, no counts."""
     (dwd,) = client.get("/api/providers", params={"provider": "dwd"}).json()["providers"]
 
     standalone = {network["network"]: network for network in dwd["networks"] if network["kind"] in ("radar", "alerts")}
     assert set(standalone) == {"radar", "alerts"}
     for network in standalone.values():
-        assert (network["resolutions"], network["parameters"], network["auth"]) == ([], 0, False)
+        assert (network["parameters"], network["auth"], network["configured"]) == (0, False, True)
         assert network["copyright"].startswith("© Deutscher Wetterdienst (DWD)")
     assert standalone["alerts"]["url"] == "https://opendata.dwd.de/weather/alerts/cap"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_a_network_that_needs_credentials_says_whether_they_are_configured(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`configured` is whether the credentials are there, true for a network that needs none, and is not probed."""
+    monkeypatch.setattr(Wetterdienst, "is_valid", lambda _api: pytest.fail("a credential was probed"))
+
+    networks = {
+        (provider["provider"], network["network"]): network
+        for provider in client.get("/api/providers").json()["providers"]
+        for network in provider["networks"]
+    }
+
+    assert networks["aemet", "observation"]["auth"] is True
+    assert networks["aemet", "observation"]["configured"] is False
+    assert all(network["configured"] is True for network in networks.values() if not network["auth"])
+    monkeypatch.setenv("WD_AUTH__AEMET", "a-key")
+    configured = client.get("/api/providers", params={"provider": "aemet"}).json()["providers"][0]["networks"][0]
+    assert configured["configured"] is True
 
 
 def test_one_provider_can_be_asked_for_and_an_unknown_one_is_a_404(client: TestClient) -> None:
@@ -194,10 +250,11 @@ def test_the_alias_gives_the_same_answer(client: TestClient) -> None:
     assert _untimed(client.get("/api/providers").json()) == _untimed(client.get("/api/v1/providers").json())
 
 
-def test_the_answer_needs_no_credential_and_no_network(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Nothing is downloaded or probed: a key is not read, and `auth` only says whether a network needs one."""
+def test_the_answer_probes_no_credential_and_downloads_nothing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing is downloaded or probed: `configured` says whether a key is there, and `auth` whether one is needed."""
     monkeypatch.setattr(Wetterdienst, "is_valid", lambda _api: pytest.fail("a credential was probed"))
-    monkeypatch.setattr(Wetterdienst, "is_configured", lambda _api: pytest.fail("a credential was read"))
 
     body = client.get("/api/providers").json()
 
@@ -214,7 +271,7 @@ def test_the_command_line_gives_the_answer_of_rest(client: TestClient) -> None:
     """The same request gives the same answer on both surfaces, but for the time it was made at."""
     rest = client.get("/api/providers", params={"provider": "wsv"}).json()
 
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=wsv"])
 
     assert result.exit_code == 0, result.output
     assert _untimed(json.loads(result.stdout)) == _untimed(rest)
@@ -222,10 +279,10 @@ def test_the_command_line_gives_the_answer_of_rest(client: TestClient) -> None:
 
 def test_the_command_line_refuses_an_unknown_provider() -> None:
     """A provider that is not there is a usage error that says how to list them."""
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=nowhere"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=nowhere"])
 
     assert result.exit_code == 2
-    assert "wetterdienst about providers" in result.output
+    assert "wetterdienst providers" in result.output
 
 
 def test_the_mcp_tool_is_the_endpoint() -> None:
@@ -318,18 +375,6 @@ def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
     assert {"north_america", "south_america", "africa", "asia", "oceania"} <= set(extents["dwd/mosmix"]["continents"])
 
 
-def test_the_list_of_every_network_has_the_scope_and_not_the_extent(client: TestClient) -> None:
-    """`/api/coverage` is kept short: it says how far each network reaches, and `/api/providers` where (GH-3456)."""
-    providers = client.get("/api/providers").json()["providers"]
-    coverage = client.get("/api/coverage").json()
-
-    for provider in providers:
-        for network in provider["networks"]:
-            listed = coverage[provider["provider"]][network["network"]]
-            assert listed["scope"] == network["extent"]["scope"]
-            assert "extent" not in listed
-
-
 def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: TestClient) -> None:
     """With a provider and network, each dataset has its extent in full: its own, or else its network's."""
     providers = client.get("/api/providers", params={"provider": "dwd"}).json()["providers"][0]["networks"]
@@ -345,17 +390,14 @@ def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: T
 
 
 def test_the_command_line_says_where_the_stations_are(client: TestClient) -> None:
-    """`wetterdienst about providers` and `wetterdienst about coverage` have the extent the REST API has."""
+    """`wetterdienst providers` and `wetterdienst coverage` have the extent the REST API has."""
     rest = client.get("/api/providers", params={"provider": "dwd"}).json()
-    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    result = CliRunner().invoke(cli, ["providers", "--provider=dwd"])
     assert result.exit_code == 0, result.output
     extents = {n["network"]: n["extent"] for n in json.loads(result.stdout)["providers"][0]["networks"]}
     assert extents == {n["network"]: n["extent"] for n in rest["providers"][0]["networks"]}
 
-    result = CliRunner().invoke(cli, ["about", "coverage"])
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)["dwd"]["mosmix"]["scope"] == "global"
-    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=dmo"])
+    result = CliRunner().invoke(cli, ["coverage", "--provider=dwd", "--network=dmo"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
 
@@ -380,22 +422,23 @@ def test_the_mcp_tool_has_the_extent() -> None:
 
 
 def test_a_dataset_narrower_than_its_network_has_an_extent_of_its_own(client: TestClient) -> None:
-    """`dwd/dmo` is global and its `icon_eu` dataset is Europe's; every other dataset leaves `extent` out."""
-    body = client.get("/api/providers").json()
+    """`dwd/dmo` is global and its `icon_eu` dataset is Europe's; the others of the network have the network's."""
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "dmo"}).json()
+    network = next(
+        n
+        for n in client.get("/api/providers", params={"provider": "dwd"}).json()["providers"][0]["networks"]
+        if n["network"] == "dmo"
+    )
 
     datasets = {
-        (f"{provider['provider']}/{network['network']}", resolution["name"], dataset["name"]): dataset
-        for provider in body["providers"]
-        for network in provider["networks"]
-        for resolution in network["resolutions"]
-        for dataset in resolution["datasets"]
+        (resolution, name): dataset
+        for resolution, body in coverage.items()
+        for name, dataset in body["datasets"].items()
     }
-    with_extent = {key for key, dataset in datasets.items() if "extent" in dataset}
-    assert with_extent == {("dwd/dmo", "hourly", "icon_eu")}
-    own = datasets["dwd/dmo", "hourly", "icon_eu"]["extent"]
-    assert own["scope"] == "regional"
-    assert "europe" in own["continents"]
-    assert datasets["dwd/dmo", "hourly", "icon"].keys() == {"name", "parameters"}
+    own = {key for key, dataset in datasets.items() if dataset["extent"] != network["extent"]}
+    assert own == {("hourly", "icon_eu")}
+    assert datasets["hourly", "icon_eu"]["extent"]["scope"] == "regional"
+    assert "europe" in datasets["hourly", "icon_eu"]["extent"]["continents"]
 
 
 def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(client: TestClient) -> None:
@@ -407,8 +450,8 @@ def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(cl
     assert coverage["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
 
 
-def test_the_mcp_coverage_tool_is_short_for_every_network_and_full_for_one() -> None:
-    """The tool `coverage` has the scope of each network in its list, and the extent of each dataset of one network."""
+def test_the_mcp_coverage_tool_has_the_extent_of_each_dataset_of_one_network() -> None:
+    """The tool `coverage` has the extent of each dataset of one network; the list of networks is `providers`."""
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
@@ -420,11 +463,72 @@ def test_the_mcp_coverage_tool_is_short_for_every_network_and_full_for_one() -> 
         async with Client(build_mcp_server(restapi.app)) as client:
             return (await client.call_tool("coverage", arguments)).structured_content or {}
 
-    listed = asyncio.run(call({}))
-    assert listed["dwd"]["mosmix"]["scope"] == "global"
-    assert listed["dwd"]["observation"]["scope"] == "national"
-    assert all("extent" not in network for networks in listed.values() for network in networks.values())
-
     one = asyncio.run(call({"provider": "dwd", "network": "dmo"}))
     assert one["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
     assert one["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
+
+
+def test_the_answer_has_no_resolutions_and_no_datasets_to_ask_for(client: TestClient) -> None:
+    """GH-3996: `providers` is who has which network; the resolutions and datasets are `coverage`'s, for one network."""
+    answer = client.get("/api/providers").json()
+    networks = [network for provider in answer["providers"] for network in provider["networks"]]
+
+    assert networks
+    assert all("resolutions" not in network for network in networks)
+    assert all({"country", "country_code", "license", "attribution"} <= set(p) for p in answer["providers"])
+    # `datasets` is no parameter of the route any more: it is refused, as every parameter it does not take is
+    refused = client.get("/api/providers", params={"datasets": "true"})
+    assert refused.status_code == 422
+    assert [error["loc"] for error in refused.json()["errors"]] == [["query", "datasets"]]
+
+
+def test_the_python_function_takes_no_datasets() -> None:
+    """`get_providers` has no resolutions to list: `datasets` was the keyword that asked for them."""
+    with pytest.raises(TypeError, match="datasets"):
+        get_providers(datasets=True)  # ty: ignore[unknown-argument]
+
+
+def test_the_command_line_and_the_mcp_tool_take_no_datasets() -> None:
+    """`--datasets` and the argument `datasets` of `providers` are gone, and the surfaces refuse them."""
+    refused = CliRunner().invoke(cli, ["providers", "--provider=wsv", "--datasets"])
+    assert refused.exit_code == 2
+    assert is_no_such_option(refused.output, "--datasets")
+
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool("providers", {"provider": "dwd", "datasets": True})
+
+    with pytest.raises(ToolError, match="datasets is not an argument of providers"):
+        asyncio.run(call())
+
+
+def test_the_command_line_answers_as_rest_does(client: TestClient) -> None:
+    """The command line's answer is REST's, `configured` of each network included."""
+    result = CliRunner().invoke(cli, ["providers", "--provider=aemet"])
+    assert result.exit_code == 0, result.output
+    rest = client.get("/api/providers", params={"provider": "aemet"}).json()
+    assert _untimed(json.loads(result.stdout)) == _untimed(rest)
+    assert "configured" in rest["providers"][0]["networks"][0]
+
+
+def test_the_fields_say_which_one_is_the_credit_line(client: TestClient) -> None:
+    """`attribution` is named the credit line to cite and `copyright` the notice shown for information (GH-3536)."""
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+
+    assert "credit line to cite" in schemas["Provider"]["properties"]["attribution"]["description"]
+    assert "for information" in schemas["ProviderNetwork"]["properties"]["copyright"]["description"]
+    assert (
+        "`attribution` is the credit line to cite"
+        in schemas["ResponseMetadata"]["properties"]["provider"]["description"]
+    )
+    help_text = CliRunner().invoke(cli, ["providers", "--help"]).output
+    assert "credit line to cite" in help_text
+    assert "--datasets" not in help_text

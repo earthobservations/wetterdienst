@@ -19,7 +19,7 @@ import logging
 import re
 import zipfile
 import zlib
-from typing import TYPE_CHECKING, Any, ClassVar, Never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Never, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -31,8 +31,11 @@ from wetterdienst.exceptions import (
     MetaFileNotFoundError,
     RequestError,
 )
+from wetterdienst.io.export import render_data_format
+from wetterdienst.io.sinks import write_alerts_to_target
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import Extent, ProviderTerms
+from wetterdienst.model.result import describe_provider
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
     DwdWeatherAlertGranularity,
@@ -43,10 +46,14 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
+from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
+from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     from io import BytesIO
+
+    from wetterdienst.model.result import ResultMetadata
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +63,7 @@ _MAX_UNPACKED_BYTES = 256 * 1024**2
 
 # The alert row columns whose values are nested structures; stored as JSON strings in the DataFrame
 # but returned as native objects by ``to_dict``/``to_ogc_feature_collection``.
-_JSON_COLUMNS = ("parameters", "geometry")
+_JSON_COLUMNS = ("parameters", "geometry", "translations")
 
 # List-valued alert row columns.
 _LIST_COLUMNS = ("groups", "warncell_ids", "area_names")
@@ -91,6 +98,9 @@ _SCHEMA = {
     "geometry": pl.String,
     "references": pl.String,
     "language": pl.String,
+    # the further `<info>` blocks of the message (the other languages of `mul`), JSON text: [{"language": ..., + the
+    # fields that differ from the first block's}, ...], `[]` for a message of one block (GH-3801)
+    "translations": pl.String,
 }
 
 
@@ -130,7 +140,7 @@ class DwdWeatherAlertResult:
         return None if sent.is_empty() else cast("dt.datetime", sent.max())
 
     def _alerts(self) -> list[dict[str, Any]]:
-        """Return the alert rows with nested fields (parameters, geometry) decoded to native objects."""
+        """Return the alert rows with nested fields (parameters, geometry, translations) decoded to native objects."""
         alerts = []
         for row in self.df.iter_rows(named=True):
             alert = dict(row)
@@ -142,27 +152,51 @@ class DwdWeatherAlertResult:
             alerts.append(alert)
         return alerts
 
-    def to_dict(self) -> dict[str, Any]:
-        """Return the alerts as ``{"snapshot": ..., "alerts": [...]}`` with nested geometry/parameters.
+    def _metadata(self) -> ResultMetadata:
+        """Give the `metadata` block that `with_metadata` adds: the provider, this library and the date of the data.
+
+        The block of the other results, from the terms of the network; the REST API answers with a fuller one.
+        """
+        return describe_provider(DwdWeatherAlertRequest.terms, self.data_updated_at)
+
+    def to_dict(self, *, with_metadata: bool = False) -> dict[str, Any]:
+        """Return the alerts as ``{"snapshot": ..., "alerts": [...]}`` with nested geometry/parameters/translations.
 
         ``snapshot`` is the UTC production time (ISO string) of the selected snapshot, or ``None``
         for the latest one, so callers can tell which point-in-time snapshot they received.
+
+        Args:
+            with_metadata: whether to put the ``metadata`` block (provider, producer and the date of the data) first
+
         """
-        return {
+        data: dict[str, Any] = {
             "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "alerts": self._alerts(),
         }
+        return {"metadata": self._metadata(), **data} if with_metadata else data
 
-    def to_json(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
-        """Return the alerts as a JSON string."""
-        return json.dumps(self.to_dict(), indent=4 if indent else None, ensure_ascii=False)
+    def to_json(self, indent: int | bool | None = False, *, with_metadata: bool = False) -> str:  # noqa: FBT001, FBT002
+        """Return the alerts as a JSON string.
 
-    def to_ogc_feature_collection(self) -> dict[str, Any]:
+        Args:
+            indent: a number of spaces, ``True`` for 4, ``False`` or ``None`` (the default) for one line, as the
+                ``indent`` of the other results' ``to_json``
+            with_metadata: whether to put the ``metadata`` block first
+
+        """
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=json_indent(indent), ensure_ascii=False)
+
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> dict[str, Any]:
         """Return the alerts as a GeoJSON ``FeatureCollection``.
 
         Each alert becomes a ``Feature`` whose geometry is its ``MultiPolygon`` (``null`` when the
         alert only carries entity/``WARNCELLID`` areas without polygons) and whose properties are the
         remaining alert fields.
+
+        Args:
+            with_metadata: whether to carry the ``metadata`` block as a foreign member after ``type``, as the REST API
+                does (RFC 7946, 6.1)
+
         """
         features = []
         for alert in self._alerts():
@@ -171,33 +205,91 @@ class DwdWeatherAlertResult:
         # "snapshot" is a GeoJSON foreign member carrying the selected snapshot's UTC production time.
         return {
             "type": "FeatureCollection",
+            **({"metadata": self._metadata()} if with_metadata else {}),
             "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "features": features,
         }
 
-    def to_geojson(self, indent: bool = False) -> str:  # noqa: FBT001, FBT002
-        """Return the alerts as a GeoJSON ``FeatureCollection`` string."""
-        return json.dumps(self.to_ogc_feature_collection(), indent=4 if indent else None, ensure_ascii=False)
+    def to_geojson(self, indent: int | bool | None = False, *, with_metadata: bool = False) -> str:  # noqa: FBT001, FBT002
+        """Return the alerts as a GeoJSON ``FeatureCollection`` string.
+
+        Args:
+            indent: a number of spaces, ``True`` for 4, ``False`` or ``None`` (the default) for one line
+            with_metadata: whether to carry the ``metadata`` block as a foreign member
+
+        """
+        return dumps_json(
+            self.to_ogc_feature_collection(with_metadata=with_metadata),
+            indent=json_indent(indent),
+            ensure_ascii=False,
+        )
 
     def to_csv(self) -> str:
         """Return the flat alert DataFrame as CSV.
 
-        List columns are comma-joined and the ``parameters``/``geometry`` structures stay
+        List columns are comma-joined and the ``parameters``/``geometry``/``translations`` structures stay
         JSON-encoded, since CSV cannot represent nested data.
         """
         df = timestamps_to_string(self.df.with_columns(pl.col(column).list.join(",") for column in _LIST_COLUMNS))
         return df.write_csv()
 
-    def to_format(self, fmt: str, *, indent: bool = False) -> str:
-        """Render the result in the requested format (``json``, ``geojson`` or ``csv``)."""
-        if fmt == "json":
-            return self.to_json(indent=indent)
-        if fmt == "geojson":
-            return self.to_geojson(indent=indent)
-        if fmt == "csv":
-            return self.to_csv()
-        msg = f"format {fmt!r} not supported, use one of json, geojson, csv"
-        raise ValueError(msg)
+    def to_format(self, fmt: str, **kwargs: Any) -> str:  # noqa: ANN401
+        """Render the result in the requested format (``json``, ``geojson`` or ``csv``), in any case.
+
+        Like ``to_format`` of the other results, it takes the one set of arguments a caller builds for every format and
+        gives each format those it takes: ``with_metadata`` and ``indent`` to JSON and GeoJSON, none to CSV (it has no
+        place for the ``metadata`` block).
+
+        Args:
+            fmt: the format, in any case
+            **kwargs: ``with_metadata`` and ``indent``, as ``to_json`` takes them
+
+        Raises:
+            UnknownFormatError: ``fmt`` is none of the three. It is a ``ValueError`` and a ``KeyError``.
+            TypeError: an argument that no format takes.
+
+        """
+        return render_data_format(self, fmt, kwargs, only=("json", "geojson", "csv"))
+
+    def to_target(
+        self,
+        target: str,
+        if_exists: Literal["replace", "append", "fail", "skip"] = "replace",
+        *,
+        with_metadata: bool = False,
+        pretty: bool = False,
+    ) -> None:
+        """Write the alerts to a file: JSON, GeoJSON or CSV, by the extension of the target.
+
+        A file holds what the REST API answers for the format (``render_alerts``), on one line unless ``pretty``:
+
+        - ``file://alerts.json``: ``{"metadata": ..., "snapshot": ..., "alerts": [...]}``, an alert with its areas,
+          parameters, translations and geometry nested as they are in ``to_dict``
+        - ``file://alerts.geojson``: the ``FeatureCollection`` of ``to_geojson``, with ``metadata`` as a foreign member
+        - ``file://alerts.csv``: the text of ``to_csv``, bare, a row for each alert: its areas are the comma-joined
+          ``warncell_ids`` and ``area_names``, its ``parameters``, ``translations`` and ``geometry`` JSON text, its
+          times ISO strings
+
+        A snapshot without a warning is written as it is (an empty ``alerts`` list and the block in a JSON file, a CSV
+        of the header alone), so a file that a schedule rewrites does not keep the warnings of the run before. The
+        ``metadata`` block (provider, licence, credit line and the date of the data) is in a JSON and a GeoJSON file,
+        and ``with_metadata`` writes it beside any file as ``<file>.metadata.json``, which is how a CSV file gets it.
+        A database target is refused: an alert is nested, and there is no table for it yet.
+
+        Args:
+            target: ``file://`` and a path, ending in ``.json``, ``.geojson`` or ``.csv``
+            if_exists: ``replace`` (default), ``fail`` or ``skip``; ``append`` is refused for a file
+            with_metadata: write ``<file>.metadata.json`` beside the file
+            pretty: indent a JSON or GeoJSON file with 4 spaces (a district snapshot is 614 KB on one line, 3.7 MB so)
+
+        Raises:
+            ExportRefusedError: a target that is no file of those three types, ``append``, a file that exists under
+                ``fail``, or ``with_metadata`` for a database target.
+
+        """
+        connspec = ConnectionString(target)
+        log.info(f"Exporting {self.df.height} alerts to {redact_password(target)}")
+        write_alerts_to_target(self, target, connspec, if_exists, with_metadata=with_metadata, pretty=pretty)
 
 
 class DwdWeatherAlertRequest:
@@ -245,7 +337,8 @@ class DwdWeatherAlertRequest:
 
         Args:
             granularity: ``community`` (per Gemeinde, default) or ``district`` (per Landkreis).
-            language: one of ``de``, ``en`` (default), ``es``, ``fr``, ``mul``.
+            language: one of ``de``, ``en`` (default), ``es``, ``fr``, ``mul``. A ``mul`` alert has the fields of its
+                first (German) language and the other seven as ``translations``.
             timestamp: point in time to select the active-warnings snapshot for. ``None`` (default)
                 uses the latest snapshot. Otherwise the newest snapshot produced at or before it is
                 used; it must fall within DWD's rolling ~48-hour window. A naive datetime or ISO
@@ -442,7 +535,7 @@ class DwdWeatherAlertRequest:
 
     @staticmethod
     def _build_dataframe(alerts: list[dict[str, Any]]) -> pl.DataFrame:
-        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry) fields."""
+        """Build the flat alert DataFrame, JSON-encoding the nested (parameters, geometry, translations) fields."""
         if not alerts:
             return pl.DataFrame(schema=_SCHEMA)
         rows = []
@@ -454,5 +547,7 @@ class DwdWeatherAlertRequest:
                 )
             for column in _LIST_COLUMNS:
                 row[column] = alert.get(column) or []
+            # a message without an `<info>` has no translations either: `[]` on every row, never null
+            row["translations"] = json.dumps(alert.get("translations") or [], ensure_ascii=False)
             rows.append(row)
         return pl.DataFrame(rows, schema=_SCHEMA)

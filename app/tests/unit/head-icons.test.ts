@@ -24,14 +24,15 @@ describe('the icon of the app (GH-3431)', () => {
 
   it('links the SVG, the 32 px ICO and the iOS icon, each a file of public/', async () => {
     const config = (await import('../../nuxt.config')).default as any
-    const links: { rel: string, href: string }[] = config.app.head.link
+    // the links of the head besides these are the preload of the body face (modules/fonts.ts), a file of the build
+    const links: { rel: string, href: string }[] = config.app.head.link.filter((link: { rel: string }) => link.rel !== 'preload')
     expect(links.map(link => link.rel)).toEqual(['icon', 'icon', 'apple-touch-icon'])
     for (const link of links)
       expect(isFileOfPublic(link.href), link.href).toBe(true)
   })
 
-  it('shows, in the header of the app and of the widget, and on the page of the API reference, files of public/', () => {
-    const sources = ['app/app.vue', 'app/pages/widget.vue', 'server/routes/docs.ts']
+  it('shows, in the header and the footer of the app and of the widget, and on the page of the API reference, files of public/', () => {
+    const sources = ['app/components/AppHeader.vue', 'app/components/AppFooter.vue', 'app/pages/widget.vue', 'server/routes/docs.ts']
     for (const source of sources) {
       const text = readFileSync(join(APP, source), 'utf8')
       const hrefs = [...text.matchAll(/(?:<img src|<link rel="icon"[^>]*?href)="(\/[^"]+)"/g)].map(match => match[1]!)

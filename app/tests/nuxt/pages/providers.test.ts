@@ -1,15 +1,15 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { setResponseStatus } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import ProvidersPage from '~/pages/providers/index.vue'
-import { providersResponse } from '../fixtures/providers'
+import { providersAnswer } from '../fixtures/providers'
 
 // `useFetch` keys the answer by name, so the list and the detail page share one request: cleared
 // between tests, or a later test is served the answer of the one before
 const mounted: Array<{ unmount: () => void }> = []
-let served: (event: H3Event) => unknown = () => providersResponse()
+let served: (event: H3Event) => unknown = providersAnswer
 // registered once: re-registering the same path in a later test does not replace the handler
 registerEndpoint('/api/providers', event => served(event))
 
@@ -23,10 +23,21 @@ async function mountProviders() {
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   clearNuxtData()
-  served = () => providersResponse()
+  served = providersAnswer
 })
 
 describe('providers Page', () => {
+  it('asks the backend for the providers alone, which carry no datasets to ask for', async () => {
+    const queries: Array<Record<string, unknown>> = []
+    served = (event) => {
+      queries.push(getQuery(event))
+      return providersAnswer()
+    }
+    await mountProviders()
+
+    expect(queries).toEqual([{}])
+  })
+
   it('lists each provider by name, with its country and a link to its page', async () => {
     const wrapper = await mountProviders()
     const text = wrapper.text()
@@ -147,7 +158,7 @@ describe('providers Page', () => {
     const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')
     expect(retry).toBeDefined()
 
-    served = () => providersResponse()
+    served = providersAnswer
     await retry!.trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('German Weather Service'))
     expect(wrapper.text()).not.toContain('Request failed')

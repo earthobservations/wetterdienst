@@ -207,12 +207,12 @@ def test_the_values_of_an_mez_md_period_are_shifted_to_utc_per_parameter_and_car
     ]
     # the row of 1991-01-01 00 is shifted onto 1990-12-31 23, which the plain MEZ period has; it is the one that goes
     assert rows["humidity_relative"] == [
-        (_at(1990, 12, 31, 23), 0.81, "3"),
-        (_at(1991, 1, 1, 0), 0.83, "3,zone:mez"),
+        (_at(1990, 12, 31, 23), 81.0, "3"),
+        (_at(1991, 1, 1, 0), 83.0, "3,zone:mez"),
         (_at(1991, 10, 31, 22), None, "3,zone:mez,raw:-999"),
-        (_at(1991, 10, 31, 23), 0.91, "3,zone:mez"),
+        (_at(1991, 10, 31, 23), 91.0, "3,zone:mez"),
         (_at(1991, 11, 1, 1), None, "3,raw:-999"),
-        (_at(1991, 11, 2, 0), 0.93, "3"),
+        (_at(1991, 11, 2, 0), 93.0, "3"),
     ]
 
 
@@ -334,8 +334,9 @@ def test_the_stamps_compared_with_isd_are_left_where_the_label_is_not_plain_mez_
 def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the stamps of 1995-02-01 to 1996-05-31 are returned one hour earlier, flagged `zone:mez` (GH-3029).
 
-    The stamp 1995-02-01 00 is the report of 1995-01-31 23 UTC, which the file has under that stamp already: the
-    row that was not moved is kept. The last MEZ stamp 1996-05-31 23 is 22 UTC, the first UTC stamp is 1996-06-01 00.
+    The stamp 1995-02-01 00 is the report of 1995-01-31 23 UTC, which the file has under that stamp already: in a
+    block of `MEZ_BY_COMPARISON` the row that was moved is kept, not the one that was not. The last MEZ stamp
+    1996-05-31 23 is 22 UTC, the first UTC stamp is 1996-06-01 00.
     """
     monkeypatch.setattr(
         dwd_observation_api,
@@ -355,22 +356,22 @@ def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monk
     tt = df.filter(pl.col("parameter") == "temperature_air_2m").select("timestamp", "value", "quality_flags").rows()
     assert tt == [
         (_at(1995, 1, 31, 22), 5.3, "3"),
-        (_at(1995, 1, 31, 23), 5.3, "3"),
+        (_at(1995, 1, 31, 23), 5.3, "3,zone:mez"),
         (_at(1995, 2, 1, 0), 5.3, "3,zone:mez"),
         (_at(1996, 5, 31, 22), 15.6, "10,zone:mez"),
         (_at(1996, 6, 1, 0), 15.0, "10"),
         (_at(1996, 6, 1, 1), 13.2, "10"),
     ]
     # the humidity has a value of its own at each stamp: the row that was moved onto 1995-01-31 23 (72) is the one
-    # dropped, the stamp 1995-02-01 01 (72) becomes 00
+    # kept, and the unmoved row it lands on (68) is dropped; the stamp 1995-02-01 01 (72) becomes 00
     rf = df.filter(pl.col("parameter") == "humidity_relative").select("timestamp", "value", "quality_flags").rows()
     assert rf == [
-        (_at(1995, 1, 31, 22), 0.65, "3"),
-        (_at(1995, 1, 31, 23), 0.68, "3"),
-        (_at(1995, 2, 1, 0), 0.72, "3,zone:mez"),
-        (_at(1996, 5, 31, 22), 0.75, "10,zone:mez"),
-        (_at(1996, 6, 1, 0), 0.73, "10"),
-        (_at(1996, 6, 1, 1), 0.83, "10"),
+        (_at(1995, 1, 31, 22), 65.0, "3"),
+        (_at(1995, 1, 31, 23), 72.0, "3,zone:mez"),
+        (_at(1995, 2, 1, 0), 72.0, "3,zone:mez"),
+        (_at(1996, 5, 31, 22), 75.0, "10,zone:mez"),
+        (_at(1996, 6, 1, 0), 73.0, "10"),
+        (_at(1996, 6, 1, 1), 83.0, "10"),
     ]
 
 
@@ -393,3 +394,204 @@ def test_the_stamps_compared_with_isd_are_cut_where_the_plain_mez_period_ends_ea
     )
     assert isinstance(file, ProductFile)
     assert file.mez_md_spans == {p: ((_at(1995, 2, 1, 0), _at(1995, 12, 31, 23)),) for p in ("tt_tu", "rf_tu")}
+
+
+# The blocks of whole UTC days that are MEZ in the values of a plain MEZ period (GH-3029), as the archives of the three
+# stations have them (read 2026-11-03): the rows around the first and the last stamp of the block, the stamps next to
+# them being at lag 0 against NOAA ISD or equal to none of its reports. The label is plain MEZ for the whole of the
+# periods named, for both parameters.
+# station id: (name, label from, label to, rows (stamp, TT_TU, RF_TU), timestamps and flags, TT_TU and RF_TU returned)
+_BLOCK_CASES = {
+    "03668": (
+        "Nürnberg",
+        "19510101",
+        "19950831",
+        [
+            ("1985123123", -8.4, 87.0),
+            ("1986010100", -7.0, 86.0),
+            ("1986010101", -6.6, 80.0),
+            ("1986010102", -6.1, 78.0),
+            ("1988103122", 5.2, 74.0),
+            ("1988103123", 4.5, 74.0),
+            ("1988110100", 4.5, 75.0),
+            ("1988110101", 4.1, 78.0),
+            ("1988110102", 3.9, 80.0),
+        ],
+        # the stamp 1986-01-01 01 (-6.6, the report of 00 UTC in ISD) is moved onto the stamp 00 that the file has
+        # (-7.0, equal to no report of ISD at any lag): inside the block the moved row is kept and the one it lands on
+        # is dropped; the stamp 1988-11-01 00 is the last of the block (the 24 of the day), and 01 is at lag 0
+        [
+            (_at(1985, 12, 31, 23), "3"),
+            (_at(1986, 1, 1, 0), "3,zone:mez"),
+            (_at(1986, 1, 1, 1), "3,zone:mez"),
+            (_at(1988, 10, 31, 21), "3,zone:mez"),
+            (_at(1988, 10, 31, 22), "3,zone:mez"),
+            (_at(1988, 10, 31, 23), "3,zone:mez"),
+            (_at(1988, 11, 1, 1), "3"),
+            (_at(1988, 11, 1, 2), "3"),
+        ],
+        [-8.4, -6.6, -6.1, 5.2, 4.5, 4.5, 4.1, 3.9],
+        [87.0, 80.0, 78.0, 74.0, 74.0, 75.0, 78.0, 80.0],
+    ),
+    "01420": (
+        "Frankfurt/Main",
+        "19810101",
+        "19931031",
+        [
+            ("1990043023", 14.6, 69.0),
+            ("1990050100", 13.4, 76.0),
+            ("1990050101", 13.4, 76.0),
+            ("1990050102", 13.2, 76.0),
+            ("1990053123", 13.8, 50.0),
+            ("1990060100", 12.7, 55.0),
+            ("1990060101", 9.6, 69.0),
+            ("1990060102", 8.3, 75.0),
+        ],
+        [
+            (_at(1990, 4, 30, 23), "3"),
+            (_at(1990, 5, 1, 0), "3,zone:mez"),
+            (_at(1990, 5, 1, 1), "3,zone:mez"),
+            (_at(1990, 5, 31, 22), "3,zone:mez"),
+            (_at(1990, 5, 31, 23), "3,zone:mez"),
+            (_at(1990, 6, 1, 1), "3"),
+            (_at(1990, 6, 1, 2), "3"),
+        ],
+        [14.6, 13.4, 13.2, 13.8, 12.7, 9.6, 8.3],
+        [69.0, 76.0, 76.0, 50.0, 55.0, 69.0, 75.0],
+    ),
+    "00691": (
+        "Bremen",
+        "19490101",
+        "19911031",
+        [
+            ("1990103123", 9.1, 88.0),
+            ("1990110100", 8.8, 86.0),
+            ("1990110101", 8.8, 86.0),
+            ("1990110102", 8.7, 91.0),
+            ("1991022823", 1.1, 76.0),
+            ("1991030100", 1.0, 78.0),
+            ("1991030101", 1.0, 73.0),
+            ("1991030102", 0.9, 74.0),
+        ],
+        [
+            (_at(1990, 10, 31, 23), "3"),
+            (_at(1990, 11, 1, 0), "3,zone:mez"),
+            (_at(1990, 11, 1, 1), "3,zone:mez"),
+            (_at(1991, 2, 28, 22), "3,zone:mez"),
+            (_at(1991, 2, 28, 23), "3,zone:mez"),
+            (_at(1991, 3, 1, 1), "3"),
+            (_at(1991, 3, 1, 2), "3"),
+        ],
+        [9.1, 8.8, 8.7, 1.1, 1.0, 1.0, 0.9],
+        [88.0, 86.0, 91.0, 76.0, 78.0, 73.0, 74.0],
+    ),
+    "05100": (
+        "Trier-Petrisberg",
+        "19410101",
+        "19991231",
+        [
+            ("1989073123", 11.9, 92.0),
+            ("1989080100", 11.9, 92.0),
+            ("1989080101", 11.9, 92.0),
+            ("1989080102", 11.1, 88.0),
+            ("1989083123", 17.3, 70.0),
+            ("1989090100", 16.8, 73.0),
+            ("1989090101", 16.4, 77.0),
+            ("1989090102", 16.2, 78.0),
+        ],
+        [
+            (_at(1989, 7, 31, 23), "3"),
+            (_at(1989, 8, 1, 0), "3,zone:mez"),
+            (_at(1989, 8, 1, 1), "3,zone:mez"),
+            (_at(1989, 8, 31, 22), "3,zone:mez"),
+            (_at(1989, 8, 31, 23), "3,zone:mez"),
+            (_at(1989, 9, 1, 1), "3"),
+            (_at(1989, 9, 1, 2), "3"),
+        ],
+        [11.9, 11.9, 11.1, 17.3, 16.8, 16.4, 16.2],
+        [92.0, 92.0, 88.0, 70.0, 73.0, 77.0, 78.0],
+    ),
+}
+
+
+def _block_archive(station: str, name: str, first: str, last: str, rows: list[tuple[str, float, float]]) -> bytes:
+    number = int(station)
+    after = (dt.datetime.strptime(last, "%Y%m%d") + dt.timedelta(days=1)).strftime("%Y%m%d")  # noqa: DTZ007
+    metadata = _HEADER + "".join(
+        f"{number};{start};{end};{name};{parameter};x;x;Daten der Temperatur;Stundenwerte in {info};;;eor;\n"
+        for parameter in ("RF_TU", "TT_TU")
+        for start, end, info in ((first, last, "MEZ"), (after, "20010401", "UTC"))
+    )
+    product = "STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;eor\n" + "".join(
+        f"{number:>12};{stamp};    3;{tt:>6.1f};{rf:>6.1f};eor\n" for stamp, tt, rf in rows
+    )
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(f"Metadaten_Parameter_tu_stunde_{station}.txt", (metadata + _FOOTER).encode("latin-1"))
+        archive.writestr(f"produkt_tu_stunde_19410101_20251231_{station}.txt", product.encode("latin-1"))
+    return buffer.getvalue()
+
+
+def _serve_block(monkeypatch: pytest.MonkeyPatch, station: str) -> None:
+    name, first, last, rows, *_ = _BLOCK_CASES[station]
+    url = f"https://example.invalid/stundenwerte_TU_{station}_hist.zip"
+    archive = _block_archive(station, name, first, last, rows)
+    monkeypatch.setattr(
+        dwd_observation_api, "create_file_list_for_climate_observations", lambda *_, **__: pl.Series([url])
+    )
+    monkeypatch.setattr(
+        dwd_observation_download,
+        "download_files",
+        lambda **_kwargs: [File(url=url, content=BytesIO(archive), status=200)],
+    )
+
+
+@pytest.mark.parametrize("station", sorted(_BLOCK_CASES))
+def test_the_values_of_a_block_of_whole_days_that_is_mez_in_a_plain_mez_period_are_shifted(
+    monkeypatch: pytest.MonkeyPatch, station: str
+) -> None:
+    """Test that the block compared with NOAA ISD (GH-3029) comes back one hour earlier, flagged `zone:mez`.
+
+    Both parameters, from the stamp 01 of the first day to the stamp 00 after the last: the stamps before and after
+    and the stamp 00 of the first day (UTC) are as written. The row a shift moves onto one that is there is dropped.
+    """
+    _serve_block(monkeypatch, station)
+    flags, tt_expected, rf_expected = _BLOCK_CASES[station][4:]
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air")],
+        periods={Period.HISTORICAL},
+        start=_at(1985, 7, 1),
+        end=_at(1991, 3, 2),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "hourly", "temperature_air", station).values().all().df.sort("parameter", "timestamp")
+    for parameter, expected in (("temperature_air_2m", tt_expected), ("humidity_relative", rf_expected)):
+        part = df.filter(pl.col("parameter") == parameter)
+        assert part.select("timestamp", "quality_flags").rows() == flags
+        assert part.get_column("value").to_list() == expected
+
+
+@pytest.mark.parametrize("station", sorted(_BLOCK_CASES))
+def test_the_block_is_returned_as_written_once_its_period_is_not_plain_mez_any_more(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, station: str
+) -> None:
+    """Test that a block outside the plain MEZ periods of the metadata is not shifted (DWD relabelled the period)."""
+    name, first, _last, rows, *_ = _BLOCK_CASES[station]
+    # the plain MEZ period ends the day before the first row, the UTC one begins on its day
+    before = (dt.datetime.strptime(rows[0][0][:8], "%Y%m%d") - dt.timedelta(days=1)).strftime("%Y%m%d")  # noqa: DTZ007
+    archive = _block_archive(station, name, first, before, rows)
+    monkeypatch.setattr(
+        dwd_observation_download,
+        "download_files",
+        lambda **_kwargs: [File(url="https://example.invalid/x.zip", content=BytesIO(archive), status=200)],
+    )
+    (file,) = download_climate_observations_data(
+        pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
+    )
+    assert isinstance(file, ProductFile)
+    # the blocks of the table of GH-3776 that the station has in its earlier years are not what this is about: none
+    # reaches the rows of the block of the comparison with ISD
+    stamps = [dt.datetime.strptime(row[0], "%Y%m%d%H").replace(tzinfo=dt.UTC) for row in rows]
+    for spans in file.mez_md_spans.values():
+        assert not any(first <= stamp <= last for first, last in spans for stamp in stamps)

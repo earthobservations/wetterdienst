@@ -4,14 +4,16 @@ import type { Station } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
+import type { FittingWindow } from '~/utils/row-window'
 import DataViewer from '~/components/DataViewer.vue'
 import DateRangeSelector from '~/components/DateRangeSelector.vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
-import { defaultUnitTargets, MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
-import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
+import { defaultRange, HIGH_RESOLUTION_MAX_VALUES } from '~/utils/row-window'
+import { MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
+import { requestUnitTargets } from '~/utils/unit-targets'
 
 const { t, te } = useI18n()
 
@@ -30,36 +32,6 @@ const stationTableColumns = computed<TableColumn<Station>[]>(() => [
 
 const route = useRoute()
 const router = useRouter()
-
-// Friendly labels for units, reusing the shared catalog (e.g. "degree_celsius" -> units.degree_celsius).
-// Unit *types* come from the shared composable, which the glossary filter uses too.
-const { unitTypeLabel } = useUnitTypeLabel()
-
-function unitLabel(unit: string): string {
-  // a server's default may be a unit the catalog has no name for, which is then named as it is
-  return te(`units.${unit}`) ? t(`units.${unit}`) : unit
-}
-
-// the unit types the Unit Targets setting lists, each request naming every one (see pinnedUnitTargets)
-const unitTypes = UNIT_TARGET_TYPES
-
-// the unit each type left at "Default" comes in: the server's once it has said, else the listed one
-const unitTargetDefaults = ref<Record<string, string>>(defaultUnitTargets(null))
-
-// the value of the "Default (...)" choice, which stands for no entry in `unitTargets`: a select item
-// refuses an empty value (reka-ui throws), and no unit is named this
-const UNIT_TARGET_DEFAULT = 'default'
-
-/** Select items for one unit type: the server's default first, then the units listed for it. */
-function unitTargetItems(unitType: { type: string, units: string[] }) {
-  return [
-    {
-      label: t('explorer.unitDefault', { unit: unitLabel(unitTargetDefaults.value[unitType.type]!) }),
-      value: UNIT_TARGET_DEFAULT,
-    },
-    ...unitType.units.map(unit => ({ label: unitLabel(unit), value: unit })),
-  ]
-}
 
 function stationIdsFromQuery(q: Record<string, any>): string[] {
   return q.stations ? q.stations.toString().split(',').filter(Boolean) : []
@@ -131,19 +103,21 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
   return q
 }
 
-// Every one written, whatever it is: one left out is read back as the server's default, which may
-// not be the value the link was copied with (GH-2359)
+// Every one of the values settings written, whatever it is: one left out is read back as the server's default, which
+// may not be the value the link was copied with (GH-2359)
 function dataSettingsToQuery(settings: DataSettings): Record<string, string> {
   return {
-    humanize: String(settings.humanize),
-    convertUnits: String(settings.convertUnits),
+    // the names and units are the app settings', and are not in the address, except where a link that carried
+    // them still holds them (GH-3878): a link keeps the meaning it was shared with, and one without them follows the
+    // app settings of whoever opens it
+    ...(settings.humanize === undefined ? {} : { humanize: String(settings.humanize) }),
+    ...(settings.convertUnits === undefined ? {} : { convertUnits: String(settings.convertUnits) }),
     shape: settings.shape,
     skipEmpty: String(settings.skipEmpty),
     dropNulls: String(settings.dropNulls),
   }
 }
 
-const showAbout = ref(false)
 const parameterSelectionState = ref<ParameterSelectionState>(fromQuery(route.query))
 function numberFromQuery(value: unknown): number | undefined {
   // a repeated key arrives as an array, and `1e400` parses to Infinity, which travels back into
@@ -170,6 +144,22 @@ const stationSelectionState = ref<StationSelectionState>({
     endDate: route.query.endDate?.toString(),
   },
 })
+// Who the date range belongs to (GH-3457). The page starts it for a selection whose whole record is more
+// than the server sends as one answer: the newest window that fits, with a note that says so
+// (`defaultWindow`). The rule, in one place:
+// - dates the user typed or picked, or applied from a refusal, are theirs (`rangeEdited`) and are never
+//   written over, whatever the selection does after, and a link that carries dates is theirs as well;
+// - a range the user cleared stays cleared (`rangeCleared`, in the link as `range=all`) while the
+//   selection stays within one dataset, so that asking for everything is a choice that is kept;
+// - otherwise the range is the page's, and is worked out again each time the stations, parameters,
+//   shape or the server's limits change: it may move, shrink, or go empty where the whole record fits.
+// A different dataset (provider, network, resolution, dataset) starts over, as it empties the stations.
+const rangeEdited = ref(Boolean(route.query.startDate || route.query.endDate))
+const rangeCleared = ref(route.query.range === 'all' && !rangeEdited.value)
+// the window the page chose and the user has not touched: what the note under the date fields says
+const defaultWindow = ref<FittingWindow | null>(null)
+const serverLimits = useServerLimits()
+
 const initialStationIds = ref<string[]>(stationIdsFromQuery(route.query))
 // The station the link names as the point (GH-2392). It has to be fetched before it can be
 // selected, which the picker does with its list, as `initialStationIds` is restored in station
@@ -200,11 +190,9 @@ const leadTimeOptions = computed(() => [
 ])
 
 // Data settings: wetterdienst's defaults, the server's in their place once it reports them, and the
-// link's over both
+// link's over both. The names and units are not among them: they are the app settings', and a link's `humanize` and
+// `convertUnits` override them for this view only where they differ (see `applyLinkChoices`, GH-3878)
 const startingSettings = ref<DataSettings>({
-  humanize: true,
-  convertUnits: true,
-  unitTargets: {},
   shape: 'long',
   skipEmpty: false,
   skipThreshold: 0.95,
@@ -218,10 +206,12 @@ const startingSettings = ref<DataSettings>({
   numAdditionalStations: 3,
 })
 const settingsFromLink: Partial<DataSettings> = {}
-if (route.query.humanize != null)
-  settingsFromLink.humanize = route.query.humanize.toString() === 'true'
-if (route.query.convertUnits != null)
-  settingsFromLink.convertUnits = route.query.convertUnits.toString() === 'true'
+// What the link carries of the names and the conversion, read now: the address is rewritten as the page's state settles
+const linkChoices = {
+  humanize: route.query.humanize == null ? undefined : route.query.humanize.toString() === 'true',
+  convertUnits: route.query.convertUnits == null ? undefined : route.query.convertUnits.toString() === 'true',
+}
+const { settings: appSettings, seeded } = useSettings()
 const shapeFromLink = route.query.shape?.toString()
 if (shapeFromLink === 'long' || shapeFromLink === 'wide')
   settingsFromLink.shape = shapeFromLink
@@ -230,6 +220,62 @@ if (route.query.skipEmpty != null)
 if (route.query.dropNulls != null)
   settingsFromLink.dropNulls = route.query.dropNulls.toString() !== 'false'
 const dataSettings = ref<DataSettings>({ ...structuredClone(toRaw(startingSettings.value)), ...settingsFromLink })
+
+// The names and the conversion a link carries are an override of the app settings only where they differ from them
+// (GH-3878): an address the page wrote before wrote both at any value, `humanize=true&convertUnits=true` in nearly
+// every one, which is no choice of the link's. One that is no override leaves the address, so that the page read again
+// from it (a visit to the settings and back) is not given a choice that was never the link's. A first visit's settings
+// are compared once the server has answered for the app settings, so that a link is held against the values they start
+// from, not against the app's defaults.
+function applyLinkChoices() {
+  const app = { humanize: appSettings.value.friendlyLabels, convertUnits: appSettings.value.convertUnits }
+  for (const key of ['humanize', 'convertUnits'] as const) {
+    if (linkChoices[key] !== undefined && linkChoices[key] !== app[key])
+      dataSettings.value[key] = linkChoices[key]
+  }
+  const { humanize: _humanize, convertUnits: _convertUnits, ...rest } = router.currentRoute.value.query
+  const kept = {
+    ...(dataSettings.value.humanize === undefined ? {} : { humanize: String(dataSettings.value.humanize) }),
+    ...(dataSettings.value.convertUnits === undefined ? {} : { convertUnits: String(dataSettings.value.convertUnits) }),
+  }
+  if (route.query.humanize != null || route.query.convertUnits != null)
+    void router.replace({ query: { ...rest, ...kept } }).catch(() => {})
+}
+if (appSettings.value.seededFromServer)
+  applyLinkChoices()
+else
+  void seeded.then(applyLinkChoices)
+
+// The readable names, the unit conversion and the unit targets are the app settings' (GH-3878): `DataViewer` reads
+// them for each request, and the Explorer says here what they are, with a link to the page that changes them.
+
+// the name of a unit in the catalog (`units.degree_celsius`) ends in its symbol, "Degrees Celsius (°C)": the symbol is
+// what the summary line writes, the unit's name as it is where the catalog has no symbol for one
+function unitSymbolOf(unit: string): string {
+  if (!te(`units.${unit}`))
+    return unit
+  const label = t(`units.${unit}`)
+  return /\(([^)]+)\)\s*$/.exec(label)?.[1] ?? label
+}
+
+// What the next request asks for, as the settings line tells it: the link's own choice where it brought one, else
+// the app settings'
+const effectiveNames = computed(() => dataSettings.value.humanize ?? appSettings.value.friendlyLabels)
+const effectiveConvert = computed(() => dataSettings.value.convertUnits ?? appSettings.value.convertUnits)
+const settingsSummary = computed(() => {
+  const targets = requestUnitTargets(appSettings.value.units)
+  const units = ['temperature', 'pressure', 'speed'].map(type => unitSymbolOf(targets[type]!)).join(', ')
+  return [
+    effectiveNames.value ? t('explorer.settingsNamesOn') : t('explorer.settingsNamesOff'),
+    effectiveConvert.value ? t('explorer.settingsUnitsOn', { units }) : t('explorer.settingsUnitsOff'),
+  ].join(' · ')
+})
+// a link of an earlier version of the page, or one shared from it, names the choice itself (see `settingsFromLink`)
+const linkOverridesSettings = computed(() => dataSettings.value.humanize !== undefined || dataSettings.value.convertUnits !== undefined)
+function useAppSettings() {
+  dataSettings.value.humanize = undefined
+  dataSettings.value.convertUnits = undefined
+}
 
 // the settings the user has changed, ever: one changed and changed back is still theirs. The
 // server's, written by `seedSettings`, are not
@@ -251,7 +297,7 @@ watch(() => ({ ...dataSettings.value }), (now, before) => {
  * names but `overLink` holds.
  */
 function seedSettings(reported: Partial<DataSettings>, overLink?: ReadonlySet<keyof DataSettings>) {
-  const settings: Record<keyof DataSettings, unknown> = dataSettings.value
+  const settings: Partial<Record<keyof DataSettings, unknown>> = dataSettings.value
   seeding = true
   for (const key of Object.keys(reported) as (keyof DataSettings)[]) {
     if ((!(key in settingsFromLink) || overLink?.has(key)) && !changedSettings.has(key))
@@ -267,7 +313,6 @@ function seedSettings(reported: Partial<DataSettings>, overLink?: ReadonlySet<ke
 const seededFromServer = useServerSettings().then((server) => {
   if (!server)
     return false
-  unitTargetDefaults.value = defaultUnitTargets(server)
   const reported = serverDataSettings(server)
   seedSettings(reported)
   Object.assign(startingSettings.value, reported)
@@ -323,6 +368,9 @@ watch(() => dataSettings.value.useStationDistancePerParameter, (newVal) => {
   })
 }, { deep: true, immediate: true })
 
+// Reference to DataViewer for accessing exposed stats
+const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
+
 // Reference to DateRangeSelector for validation
 const dateRangeSelectorRef = ref<InstanceType<typeof DateRangeSelector> | null>(null)
 
@@ -351,6 +399,10 @@ watch(
     }
     initialStationIds.value = []
     initialInterpolationStationId.value = undefined
+    // another dataset: the range was for the old one
+    rangeEdited.value = false
+    rangeCleared.value = false
+    defaultWindow.value = null
     // a run chosen for one product is not carried over to the next one that offers the choice
     leadTime.value = 'short'
   },
@@ -362,6 +414,8 @@ watch(
     parameterSelectionState,
     () => stationSelectionState.value.selection.stations,
     () => stationSelectionState.value.interpolation,
+    () => stationSelectionState.value.dateRange,
+    rangeCleared,
     initialInterpolationStationId,
     () => dataSettings.value.humanize,
     () => dataSettings.value.convertUnits,
@@ -376,6 +430,8 @@ watch(
     query: {
       ...toQuery(parameterSelectionState.value, stationSelectionState.value, initialInterpolationStationId.value),
       ...dataSettingsToQuery(dataSettings.value),
+      // a range cleared stays so in a link: with none, the page would start one (GH-3457)
+      ...(rangeCleared.value && !stationSelectionState.value.dateRange.startDate && !stationSelectionState.value.dateRange.endDate ? { range: 'all' } : {}),
       // the default run is left out: unlike the data settings, it is no server setting, so a link
       // without it reads back the same run on any server
       ...(selectedLeadTime.value === 'long' ? { leadTime: 'long' } : {}),
@@ -386,9 +442,9 @@ watch(
 
 // Mode options for toggle
 const modeOptions = computed(() => [
-  { value: 'station' as const, label: t('explorer.modeStation'), icon: 'i-lucide-map-pin' },
-  { value: 'interpolation' as const, label: t('explorer.modeInterpolation'), icon: 'i-lucide-locate' },
-  { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-lucide-bar-chart-3' },
+  { value: 'station' as const, label: t('explorer.modeStation'), icon: 'i-ph-map-pin' },
+  { value: 'interpolation' as const, label: t('explorer.modeInterpolation'), icon: 'i-ph-crosshair' },
+  { value: 'summary' as const, label: t('explorer.modeSummary'), icon: 'i-ph-chart-bar' },
 ])
 
 // show mode/station/datasource cards once a dataset is chosen; parameters are needed only for the actual fetch
@@ -417,27 +473,122 @@ const dateRangeRequired = computed(() =>
   || parameterSelectionState.value.selection.dateRequired === true,
 )
 
-// When dates are required and stations are selected, auto-fill from min(start_timestamp) / max(end_timestamp).
+// The date range the page starts for the stations (see `rangeEdited` for who it belongs to). A point
+// (interpolation, summary) has no rows to count, so it is the whole span of the stations' records, as a
+// required range always was; a station selection is the window that fits what the server sends, or the
+// whole span where that fits and a range is required, or no range where it is not.
+function startDateRange() {
+  const state = stationSelectionState.value
+  const stations = state.selection.stations
+  if (!stations.length) {
+    // a window was for stations that are no longer selected
+    defaultWindow.value = null
+    return
+  }
+  if (rangeEdited.value)
+    return
+  const range = state.dateRange
+  const today = new Date().toISOString().slice(0, 10)
+  const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
+  const wholeSpan = () => {
+    const starts = stations.map(s => toDate(s.start_timestamp)).filter(Boolean) as string[]
+    // Active stations have no end_timestamp — treat them as ending today
+    const ends = stations.map(s => toDate(s.end_timestamp) ?? today)
+    if (starts.length) {
+      range.startDate = starts.reduce((a, b) => a < b ? a : b)
+      range.endDate = ends.reduce((a, b) => a > b ? a : b)
+    }
+  }
+  const { resolution, parameters } = parameterSelectionState.value.selection
+  if (state.mode !== 'station' || !resolution || !parameters.length) {
+    // the window a station selection started is not the range any more
+    defaultWindow.value = null
+    if (dateRangeRequired.value)
+      wholeSpan()
+    return
+  }
+  if (rangeCleared.value && !dateRangeRequired.value) {
+    // asking for everything is kept, also after a point (which requires a range) filled the fields
+    range.startDate = undefined
+    range.endDate = undefined
+    defaultWindow.value = null
+    return
+  }
+  const chosen = defaultRange({
+    resolution,
+    records: stations,
+    parameterCount: parameters.length,
+    tidy: dataSettings.value.shape !== 'wide',
+    maxRows: serverLimits.value.max_rows,
+    required: dateRangeRequired.value,
+  })
+  if (chosen.kind === 'window') {
+    range.startDate = chosen.window.startDate
+    range.endDate = chosen.window.endDate
+    defaultWindow.value = chosen.window
+  }
+  else if (chosen.kind === 'whole') {
+    range.startDate = chosen.startDate
+    range.endDate = chosen.endDate
+    defaultWindow.value = null
+  }
+  else {
+    // what the page started before no longer holds, and nothing is the user's
+    range.startDate = undefined
+    range.endDate = undefined
+    defaultWindow.value = null
+  }
+}
+
 watch(
   [
     () => stationSelectionState.value.selection.stations,
+    () => stationSelectionState.value.mode,
     dateRangeRequired,
+    () => parameterSelectionState.value.selection.resolution,
+    () => parameterSelectionState.value.selection.parameters,
+    () => dataSettings.value.shape,
+    serverLimits,
   ],
-  ([stations, required]) => {
-    if (!required || !(stations as Station[]).length)
-      return
-    const today = new Date().toISOString().slice(0, 10)
-    const toDate = (iso: string | undefined | null) => iso ? iso.slice(0, 10) : null
-    const starts = (stations as Station[]).map(s => toDate(s.start_timestamp)).filter(Boolean) as string[]
-    // Active stations have no end_timestamp — treat them as ending today
-    const ends = (stations as Station[]).map(s => toDate(s.end_timestamp) ?? today)
-    if (starts.length)
-      stationSelectionState.value.dateRange.startDate = starts.reduce((a, b) => a < b ? a : b)
-    if (ends.length)
-      stationSelectionState.value.dateRange.endDate = ends.reduce((a, b) => a > b ? a : b)
-  },
-  { deep: true },
+  startDateRange,
+  { deep: true, immediate: true },
 )
+
+// the user typed or picked a date: the fields are theirs from now on (a field emptied by hand is a range cleared)
+function onRangeEdited() {
+  const { startDate, endDate } = stationSelectionState.value.dateRange
+  defaultWindow.value = null
+  if (!startDate && !endDate) {
+    // a range that is not required, emptied: asking for everything, which is kept. One that is required
+    // cannot be empty, and is the page's to fill again at the next change, as it always was; whether
+    // everything was asked for before it was required (a point) is not decided by emptying its fields
+    if (!dateRangeRequired.value)
+      rangeCleared.value = true
+    rangeEdited.value = false
+  }
+  else {
+    rangeEdited.value = true
+    // a field emptied of a required range is no choice of everything; dates in both are an edit of it
+    if (!dateRangeRequired.value || (startDate && endDate))
+      rangeCleared.value = false
+  }
+}
+
+function onRangeCleared() {
+  rangeCleared.value = true
+  rangeEdited.value = false
+  defaultWindow.value = null
+}
+
+// the window that fits what the server refused (the table area's button): written as a user edit would,
+// and asked for again, whatever Fetch says of it, as the refusal is why there is nothing to hold
+async function applyRange(range: { startDate: string, endDate: string }) {
+  stationSelectionState.value.dateRange.startDate = range.startDate
+  stationSelectionState.value.dateRange.endDate = range.endDate
+  onRangeEdited()
+  await nextTick()
+  dataViewerRef.value?.fetchData()
+}
 
 // Check if station/interpolation/summary selection is complete
 const hasLocationSelection = computed(() => {
@@ -491,15 +642,12 @@ const isDateRangeValid = computed(() => {
     const paramCount = parameterSelectionState.value.selection.parameters.length
 
     const estimated = diffDays * perDay * stationCount * paramCount
-    if (estimated > 100000)
+    if (estimated > HIGH_RESOLUTION_MAX_VALUES)
       return false
   }
 
   return true
 })
-
-// Reference to DataViewer for accessing exposed stats
-const dataViewerRef = ref<InstanceType<typeof DataViewer> | null>(null)
 
 // Check if we can fetch
 const canFetch = computed(() => {
@@ -598,36 +746,13 @@ function removeParameterDistance(id: string, paramName: string) {
     delete dataSettings.value.useStationDistancePerParameter[paramName]
   parameterDistanceEntries.value = parameterDistanceEntries.value.filter(e => e.id !== id)
 }
-
-// Helper function for unit target changes
-function handleUnitTargetChange(unitType: string, value: string) {
-  if (value === UNIT_TARGET_DEFAULT) {
-    delete dataSettings.value.unitTargets[unitType]
-  }
-  else {
-    dataSettings.value.unitTargets[unitType] = value
-  }
-}
 </script>
 
 <template>
-  <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4 break-words">
-        {{ t('explorer.title') }}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        {{ t('explorer.subtitle') }}
-      </p>
-    </div>
-
-    <UCollapsible v-model="showAbout">
-      <UButton
-        :label="t('explorer.aboutButton')" icon="i-lucide-info" variant="subtle" color="neutral" trailing-icon="i-lucide-chevron-down" block
-        size="sm"
-      />
-      <template #content>
-        <div class="space-y-3 text-gray-600 dark:text-gray-400 p-4">
+  <div class="frame">
+    <PageHeader :title="t('explorer.title')" :lede="t('explorer.subtitle')" :about-label="t('explorer.aboutButton')">
+      <template #about>
+        <div class="space-y-3 text-muted">
           <p>
             {{ t('explorer.aboutIntro') }}
           </p>
@@ -662,496 +787,490 @@ function handleUnitTargetChange(unitType: string, value: string) {
           </p>
         </div>
       </template>
-    </UCollapsible>
+    </PageHeader>
+    <div class="page-body">
+      <ToolWorkbench>
+        <template #setup>
+          <ParameterSelection v-model="parameterSelectionState.selection" :lead-time="selectedLeadTime" />
 
-    <ParameterSelection v-model="parameterSelectionState.selection" :lead-time="selectedLeadTime" />
-
-    <UCard v-if="offersLeadTime" data-testid="lead-time">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-clock" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.leadTime') }}
-          </h2>
-        </div>
-      </template>
-      <div class="space-y-3">
-        <UFieldGroup>
-          <UButton
-            v-for="option in leadTimeOptions"
-            :key="option.value"
-            :label="option.label"
-            color="neutral"
-            :variant="leadTime === option.value ? 'solid' : 'ghost'"
-            size="sm"
-            @click="leadTime = option.value"
-          />
-        </UFieldGroup>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t('explorer.leadTimeHint') }}
-        </p>
-      </div>
-    </UCard>
-
-    <!-- Mode Selection -->
-    <UCard v-if="showModeSelection">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-layers" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.mode') }}
-          </h2>
-        </div>
-      </template>
-      <div class="space-y-3">
-        <UFieldGroup>
-          <UButton
-            v-for="option in modeOptions"
-            :key="option.value"
-            :icon="option.icon"
-            :label="option.label"
-            color="neutral"
-            :variant="stationSelectionState.mode === option.value ? 'solid' : 'ghost'"
-            size="sm"
-            @click="stationSelectionState.mode = option.value"
-          />
-        </UFieldGroup>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationDesc') }}</span>
-          <span v-else-if="stationSelectionState.mode === 'summary'">{{ t('explorer.modeSummaryDesc') }}</span>
-          <span v-else>{{ t('explorer.modeStationDesc') }}</span>
-        </p>
-        <UCollapsible v-if="stationSelectionState.mode !== 'station'">
-          <UButton
-            :label="t('explorer.modeHowItWorks')"
-            icon="i-lucide-info"
-            variant="ghost"
-            color="neutral"
-            trailing-icon="i-lucide-chevron-down"
-            size="xs"
-          />
-          <template #content>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationHow') }}</span>
-              <span v-else>{{ t('explorer.modeSummaryHow') }}</span>
-            </p>
-          </template>
-        </UCollapsible>
-      </div>
-    </UCard>
-
-    <!-- Data Settings -->
-    <UCollapsible v-if="showModeSelection">
-      <UButton
-        :label="t('explorer.settings')"
-        icon="i-lucide-settings-2"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-        size="sm"
-      />
-      <template #content>
-        <div class="pt-4 space-y-6">
-          <!-- Common settings -->
-          <div class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-settings" class="w-4 h-4 text-primary-500" />
-              <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{ t('explorer.generalSettings') }}
+          <UCard v-if="offersLeadTime" data-testid="lead-time">
+            <template #header>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-ph-clock-counter-clockwise" class="text-primary-600 dark:text-primary-500 shrink-0" />
+                <h2 class="text-lg font-bold">
+                  {{ t('explorer.leadTime') }}
+                </h2>
               </div>
-            </div>
+            </template>
             <div class="space-y-3">
-              <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="dataSettings.humanize" :label="t('explorer.humanize')" />
-                <UCheckbox v-model="dataSettings.convertUnits" :label="t('explorer.convertUnits')" />
-              </div>
-
-              <!-- Unit Targets -->
-              <UCollapsible v-if="dataSettings.convertUnits">
+              <!-- toggle buttons: the chosen one is told by `aria-pressed`, not by the fill alone (4.1.2, GH-3989) -->
+              <FittingButtonGroup role="group" :aria-label="t('explorer.leadTime')">
                 <UButton
-                  :label="t('explorer.unitTargets')"
+                  v-for="option in leadTimeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  color="neutral"
+                  :variant="leadTime === option.value ? 'solid' : 'ghost'"
+                  :aria-pressed="leadTime === option.value"
+                  size="sm"
+                  @click="leadTime = option.value"
+                />
+              </FittingButtonGroup>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t('explorer.leadTimeHint') }}
+              </p>
+            </div>
+          </UCard>
+
+          <!-- Mode Selection -->
+          <UCard v-if="showModeSelection">
+            <template #header>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-ph-stack" class="text-primary-600 dark:text-primary-500 shrink-0" />
+                <h2 class="text-lg font-bold">
+                  {{ t('explorer.mode') }}
+                </h2>
+              </div>
+            </template>
+            <div class="space-y-3">
+              <FittingButtonGroup role="group" :aria-label="t('explorer.mode')">
+                <UButton
+                  v-for="option in modeOptions"
+                  :key="option.value"
+                  :icon="option.icon"
+                  :label="option.label"
+                  color="neutral"
+                  :variant="stationSelectionState.mode === option.value ? 'solid' : 'ghost'"
+                  :aria-pressed="stationSelectionState.mode === option.value"
+                  size="sm"
+                  @click="stationSelectionState.mode = option.value"
+                />
+              </FittingButtonGroup>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationDesc') }}</span>
+                <span v-else-if="stationSelectionState.mode === 'summary'">{{ t('explorer.modeSummaryDesc') }}</span>
+                <span v-else>{{ t('explorer.modeStationDesc') }}</span>
+              </p>
+              <UCollapsible v-if="stationSelectionState.mode !== 'station'">
+                <UButton
+                  :label="t('explorer.modeHowItWorks')"
+                  icon="i-ph-info"
                   variant="ghost"
                   color="neutral"
-                  trailing-icon="i-lucide-chevron-down"
+                  trailing-icon="i-ph-caret-down"
                   size="xs"
                 />
                 <template #content>
-                  <div class="pt-3 space-y-2" data-testid="unit-targets">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      {{ t('explorer.unitTargetsHint') }}
-                    </p>
-                    <div
-                      v-for="unitType in unitTypes"
-                      :key="unitType.type"
-                      class="flex items-center gap-2"
-                    >
-                      <label class="text-xs text-gray-600 dark:text-gray-400 w-40">
-                        {{ unitTypeLabel(unitType.type) }}:
-                      </label>
-                      <USelect
-                        :model-value="dataSettings.unitTargets[unitType.type] ?? UNIT_TARGET_DEFAULT"
-                        :items="unitTargetItems(unitType)"
-                        size="xs"
-                        class="w-44"
-                        @update:model-value="handleUnitTargetChange(unitType.type, String($event))"
+                  <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                    <span v-if="stationSelectionState.mode === 'interpolation'">{{ t('explorer.modeInterpolationHow') }}</span>
+                    <span v-else>{{ t('explorer.modeSummaryHow') }}</span>
+                  </p>
+                </template>
+              </UCollapsible>
+            </div>
+          </UCard>
+
+          <!-- Data Settings -->
+          <UCollapsible v-if="showModeSelection">
+            <UButton
+              :label="t('explorer.settings')"
+              icon="i-ph-gear-six"
+              variant="subtle"
+              color="neutral"
+              trailing-icon="i-ph-caret-down"
+              block
+              size="sm"
+            />
+            <template #content>
+              <div class="pt-4 space-y-6">
+                <!-- Names and units: the app settings', shown and linked, not a copy of them (GH-3878) -->
+                <div
+                  class="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2"
+                  data-testid="app-settings-summary"
+                >
+                  <p class="text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <UIcon name="i-ph-gear-six" class="w-4 h-4 text-primary-600 dark:text-primary-500" aria-hidden="true" />
+                    <span data-testid="app-settings-summary-text">{{ settingsSummary }}</span>
+                    <span aria-hidden="true">—</span>
+                    <NuxtLink to="/settings" class="underline text-primary-700 dark:text-primary-400">
+                      {{ t('explorer.settingsChange') }}
+                    </NuxtLink>
+                  </p>
+                  <div v-if="linkOverridesSettings" class="text-xs text-muted space-y-1" data-testid="app-settings-override">
+                    <p>{{ t('explorer.settingsLinkOverride') }}</p>
+                    <UButton
+                      :label="t('explorer.settingsUseMine')"
+                      variant="subtle"
+                      color="neutral"
+                      size="xs"
+                      @click="useAppSettings"
+                    />
+                  </div>
+                </div>
+
+                <!-- Values-specific settings -->
+                <div
+                  v-if="stationSelectionState.mode === 'station'"
+                  class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
+                >
+                  <div class="flex items-center gap-2 mb-3">
+                    <UIcon name="i-ph-table" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
+                    <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('explorer.valuesOptions') }}
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-4">
+                      <span id="explorer-shape-label" class="text-sm">{{ t('explorer.shape') }}{{ t('common.colon') }}</span>
+                      <UFieldGroup role="group" aria-labelledby="explorer-shape-label">
+                        <UButton
+                          :label="t('explorer.shapeLong')"
+                          color="neutral"
+                          :variant="dataSettings.shape === 'long' ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.shape === 'long'"
+                          size="xs"
+                          @click="dataSettings.shape = 'long'"
+                        />
+                        <UButton
+                          :label="t('explorer.shapeWide')"
+                          color="neutral"
+                          :variant="dataSettings.shape === 'wide' ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.shape === 'wide'"
+                          size="xs"
+                          @click="dataSettings.shape = 'wide'"
+                        />
+                      </UFieldGroup>
+                    </div>
+                    <div class="flex flex-wrap gap-4">
+                      <UCheckbox v-model="dataSettings.skipEmpty" :label="t('explorer.skipEmpty')" />
+                      <UCheckbox v-model="dataSettings.dropNulls" :label="t('explorer.dropNulls')" />
+                    </div>
+                    <div v-if="dataSettings.skipEmpty" class="flex items-center gap-4">
+                      <span id="explorer-skip-criteria-label" class="text-sm">{{ t('explorer.skipCriteria') }}{{ t('common.colon') }}</span>
+                      <UFieldGroup role="group" aria-labelledby="explorer-skip-criteria-label">
+                        <UButton
+                          v-for="criteria in ['min', 'mean', 'max']"
+                          :key="criteria"
+                          :label="criteria"
+                          color="neutral"
+                          :variant="dataSettings.skipCriteria === criteria ? 'solid' : 'ghost'"
+                          :aria-pressed="dataSettings.skipCriteria === criteria"
+                          size="xs"
+                          @click="dataSettings.skipCriteria = criteria as 'min' | 'mean' | 'max'"
+                        />
+                      </UFieldGroup>
+                      <label class="text-sm">{{ t('explorer.threshold') }}{{ t('common.colon') }}</label>
+                      <UInputNumber
+                        v-model="dataSettings.skipThreshold"
+                        :min="0.05"
+                        :max="1"
+                        :step="0.05"
+                        size="sm"
+                        class="w-28"
                       />
                     </div>
                   </div>
-                </template>
-              </UCollapsible>
-            </div>
-          </div>
-
-          <!-- Values-specific settings -->
-          <div
-            v-if="stationSelectionState.mode === 'station'"
-            class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
-          >
-            <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-table" class="w-4 h-4 text-primary-500" />
-              <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{ t('explorer.valuesOptions') }}
-              </div>
-            </div>
-            <div class="space-y-3">
-              <div class="flex items-center gap-4">
-                <label class="text-sm">{{ t('explorer.shape') }}:</label>
-                <UFieldGroup>
-                  <UButton
-                    :label="t('explorer.shapeLong')"
-                    color="neutral"
-                    :variant="dataSettings.shape === 'long' ? 'solid' : 'ghost'"
-                    size="xs"
-                    @click="dataSettings.shape = 'long'"
-                  />
-                  <UButton
-                    :label="t('explorer.shapeWide')"
-                    color="neutral"
-                    :variant="dataSettings.shape === 'wide' ? 'solid' : 'ghost'"
-                    size="xs"
-                    @click="dataSettings.shape = 'wide'"
-                  />
-                </UFieldGroup>
-              </div>
-              <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="dataSettings.skipEmpty" :label="t('explorer.skipEmpty')" />
-                <UCheckbox v-model="dataSettings.dropNulls" :label="t('explorer.dropNulls')" />
-              </div>
-              <div v-if="dataSettings.skipEmpty" class="flex items-center gap-4">
-                <label class="text-sm">{{ t('explorer.skipCriteria') }}:</label>
-                <UFieldGroup>
-                  <UButton
-                    v-for="criteria in ['min', 'mean', 'max']"
-                    :key="criteria"
-                    :label="criteria"
-                    color="neutral"
-                    :variant="dataSettings.skipCriteria === criteria ? 'solid' : 'ghost'"
-                    size="xs"
-                    @click="dataSettings.skipCriteria = criteria as 'min' | 'mean' | 'max'"
-                  />
-                </UFieldGroup>
-                <label class="text-sm">{{ t('explorer.threshold') }}:</label>
-                <UInputNumber
-                  v-model="dataSettings.skipThreshold"
-                  :min="0.05"
-                  :max="1"
-                  :step="0.05"
-                  size="sm"
-                  class="w-28"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Interpolation & Summary settings -->
-          <div
-            v-if="stationSelectionState.mode === 'interpolation' || stationSelectionState.mode === 'summary'"
-            class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
-          >
-            <div class="flex items-center gap-2 mb-3">
-              <UIcon name="i-lucide-locate" class="w-4 h-4 text-primary-500" />
-              <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{ t('explorer.interpolationOptions') }}
-              </div>
-            </div>
-            <div class="space-y-3">
-              <!-- interpolation only: a summary takes the nearest station anyway (GH-2333) -->
-              <div v-if="isInterpolationMode" class="space-y-2">
-                <div class="flex items-center gap-4">
-                  <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}:</label>
-                  <UInputNumber
-                    v-model="dataSettings.useNearbyStationDistance"
-                    :min="0"
-                    :step="0.1"
-                    size="sm"
-                    class="w-32"
-                  />
-                  <span class="text-sm text-gray-500 dark:text-gray-400">km</span>
                 </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('explorer.nearbyDistanceHint') }}
-                </p>
-              </div>
 
-              <UCollapsible>
-                <UButton
-                  :label="t('explorer.advancedSettings')"
-                  variant="ghost"
-                  color="neutral"
-                  trailing-icon="i-lucide-chevron-down"
-                  size="xs"
-                />
-                <template #content>
-                  <div class="pt-3 space-y-4">
-                    <!-- Station Distance Mapping -->
-                    <div class="space-y-2">
-                      <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}:</label>
-                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        {{ t('explorer.stationDistanceHint') }}
-                      </p>
-
-                      <!-- The two default radii, one per kind of parameter -->
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}:</span>
-                        <UInputNumber
-                          v-model="dataSettings.stationDistanceHomogeneous"
-                          :min="0"
-                          :max="MAX_STATION_DISTANCE"
-                          :step="1"
-                          :placeholder="String(startingSettings.stationDistanceHomogeneous)"
-                          size="xs"
-                          class="w-28"
-                        />
-                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}:</span>
-                        <UInputNumber
-                          v-model="dataSettings.stationDistanceHeterogeneous"
-                          :min="0"
-                          :max="MAX_STATION_DISTANCE"
-                          :step="1"
-                          :placeholder="String(startingSettings.stationDistanceHeterogeneous)"
-                          size="xs"
-                          class="w-28"
-                        />
-                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
-                      </div>
-
-                      <!-- One list for every row: it used to be rendered inside the loop, so each
-                           row repeated the same element id -->
-                      <datalist id="parameter-suggestions">
-                        <option v-for="p in selectedParameters" :key="p" :value="p" />
-                      </datalist>
-
-                      <!-- Parameter-specific distances -->
-                      <div
-                        v-for="entry in parameterDistanceEntries"
-                        :key="entry.id"
-                        class="flex items-center gap-2"
-                      >
-                        <UInput
-                          :model-value="entry.paramName"
-                          list="parameter-suggestions"
-                          placeholder="parameter_name"
-                          size="xs"
-                          class="w-32"
-                          :color="isValidParameter(entry.paramName) ? 'neutral' : 'error'"
-                          :highlight="!isValidParameter(entry.paramName)"
-                          @update:model-value="updateParameterName(entry.id, entry.paramName, String($event))"
-                        />
-                        <UInputNumber
-                          :model-value="entry.distance"
-                          :min="0"
-                          :max="MAX_STATION_DISTANCE"
-                          :step="1"
-                          placeholder="20"
-                          size="xs"
-                          class="w-28"
-                          @update:model-value="updateParameterDistance(entry.id, entry.paramName, distanceOf($event))"
-                        />
-                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
-                        <UButton
-                          icon="i-lucide-trash-2"
-                          :aria-label="t('explorer.removeParameterDistance', { parameter: entry.paramName })"
-                          color="error"
-                          variant="ghost"
-                          size="xs"
-                          @click="removeParameterDistance(entry.id, entry.paramName)"
-                        />
-                        <UTooltip v-if="!isValidParameter(entry.paramName)" :text="t('explorer.paramNotSelected')">
-                          <UIcon name="i-lucide-alert-circle" class="text-red-500 w-4 h-4" />
-                        </UTooltip>
-                      </div>
-
-                      <!-- Add new parameter button -->
-                      <div class="flex items-center gap-2">
-                        <UButton
-                          :label="t('explorer.addParameter')"
-                          icon="i-lucide-plus"
-                          color="neutral"
-                          variant="ghost"
-                          size="xs"
-                          @click="addParameterDistance"
-                        />
-                        <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
-                          {{ t('explorer.available') }}: {{ selectedParameters.join(', ') }}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div class="space-y-2">
-                      <div class="flex items-center gap-4">
-                        <label class="text-sm font-medium">{{ t('explorer.minGain') }}:</label>
-                        <UInputNumber
-                          v-model="dataSettings.minGainOfValuePairs"
-                          :min="0.01"
-                          :max="1"
-                          :step="0.01"
-                          size="sm"
-                          class="w-32"
-                        />
-                      </div>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ t('explorer.minGainHint') }}
-                      </p>
-                    </div>
-
-                    <div class="space-y-2">
-                      <div class="flex items-center gap-4">
-                        <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}:</label>
-                        <UInputNumber
-                          v-model="dataSettings.numAdditionalStations"
-                          :min="0"
-                          :max="MAX_ADDITIONAL_STATIONS"
-                          :step="1"
-                          size="sm"
-                          class="w-32"
-                        />
-                      </div>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ t('explorer.additionalStationsHint') }}
-                      </p>
+                <!-- Interpolation & Summary settings -->
+                <div
+                  v-if="stationSelectionState.mode === 'interpolation' || stationSelectionState.mode === 'summary'"
+                  class="p-4 rounded-lg border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950/30"
+                >
+                  <div class="flex items-center gap-2 mb-3">
+                    <UIcon name="i-ph-crosshair" class="w-4 h-4 text-primary-600 dark:text-primary-500" />
+                    <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('explorer.interpolationOptions') }}
                     </div>
                   </div>
-                </template>
-              </UCollapsible>
+                  <div class="space-y-3">
+                    <!-- interpolation only: a summary takes the nearest station anyway (GH-2333) -->
+                    <div v-if="isInterpolationMode" class="space-y-2">
+                      <div class="flex items-center gap-4">
+                        <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}{{ t('common.colon') }}</label>
+                        <UInputNumber
+                          v-model="dataSettings.useNearbyStationDistance"
+                          :min="0"
+                          :step="0.1"
+                          size="sm"
+                          class="w-32"
+                        />
+                        <span class="text-sm text-gray-500 dark:text-gray-400">km</span>
+                      </div>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('explorer.nearbyDistanceHint') }}
+                      </p>
+                    </div>
+
+                    <UCollapsible>
+                      <UButton
+                        :label="t('explorer.advancedSettings')"
+                        variant="ghost"
+                        color="neutral"
+                        trailing-icon="i-ph-caret-down"
+                        size="xs"
+                      />
+                      <template #content>
+                        <div class="pt-3 space-y-4">
+                          <!-- Station Distance Mapping -->
+                          <div class="space-y-2">
+                            <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}{{ t('common.colon') }}</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                              {{ t('explorer.stationDistanceHint') }}
+                            </p>
+
+                            <!-- The two default radii, one per kind of parameter -->
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}{{ t('common.colon') }}</span>
+                              <UInputNumber
+                                v-model="dataSettings.stationDistanceHomogeneous"
+                                :min="0"
+                                :max="MAX_STATION_DISTANCE"
+                                :step="1"
+                                :placeholder="String(startingSettings.stationDistanceHomogeneous)"
+                                size="xs"
+                                class="w-28"
+                              />
+                              <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}{{ t('common.colon') }}</span>
+                              <UInputNumber
+                                v-model="dataSettings.stationDistanceHeterogeneous"
+                                :min="0"
+                                :max="MAX_STATION_DISTANCE"
+                                :step="1"
+                                :placeholder="String(startingSettings.stationDistanceHeterogeneous)"
+                                size="xs"
+                                class="w-28"
+                              />
+                              <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
+                            </div>
+
+                            <!-- One list for every row: it used to be rendered inside the loop, so each
+                           row repeated the same element id -->
+                            <datalist id="parameter-suggestions">
+                              <option v-for="p in selectedParameters" :key="p" :value="p" />
+                            </datalist>
+
+                            <!-- Parameter-specific distances -->
+                            <div
+                              v-for="entry in parameterDistanceEntries"
+                              :key="entry.id"
+                              class="flex items-center gap-2"
+                            >
+                              <UInput
+                                :model-value="entry.paramName"
+                                list="parameter-suggestions"
+                                placeholder="parameter_name"
+                                size="xs"
+                                class="w-32"
+                                :color="isValidParameter(entry.paramName) ? 'neutral' : 'error'"
+                                :highlight="!isValidParameter(entry.paramName)"
+                                @update:model-value="updateParameterName(entry.id, entry.paramName, String($event))"
+                              />
+                              <UInputNumber
+                                :model-value="entry.distance"
+                                :min="0"
+                                :max="MAX_STATION_DISTANCE"
+                                :step="1"
+                                placeholder="20"
+                                size="xs"
+                                class="w-28"
+                                @update:model-value="updateParameterDistance(entry.id, entry.paramName, distanceOf($event))"
+                              />
+                              <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
+                              <UButton
+                                icon="i-ph-trash"
+                                :aria-label="t('explorer.removeParameterDistance', { parameter: entry.paramName })"
+                                color="error"
+                                variant="ghost"
+                                size="xs"
+                                @click="removeParameterDistance(entry.id, entry.paramName)"
+                              />
+                              <UTooltip v-if="!isValidParameter(entry.paramName)" :text="t('explorer.paramNotSelected')">
+                                <UIcon name="i-ph-warning-circle" class="text-red-600 dark:text-red-400 w-4 h-4" />
+                              </UTooltip>
+                            </div>
+
+                            <!-- Add new parameter button -->
+                            <div class="flex items-center gap-2">
+                              <UButton
+                                :label="t('explorer.addParameter')"
+                                icon="i-ph-plus"
+                                color="neutral"
+                                variant="ghost"
+                                size="xs"
+                                @click="addParameterDistance"
+                              />
+                              <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ t('explorer.available') }}{{ t('common.colon') }} {{ selectedParameters.join(', ') }}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div class="space-y-2">
+                            <div class="flex items-center gap-4">
+                              <label class="text-sm font-medium">{{ t('explorer.minGain') }}{{ t('common.colon') }}</label>
+                              <UInputNumber
+                                v-model="dataSettings.minGainOfValuePairs"
+                                :min="0.01"
+                                :max="1"
+                                :step="0.01"
+                                size="sm"
+                                class="w-32"
+                              />
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                              {{ t('explorer.minGainHint') }}
+                            </p>
+                          </div>
+
+                          <div class="space-y-2">
+                            <div class="flex items-center gap-4">
+                              <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}{{ t('common.colon') }}</label>
+                              <UInputNumber
+                                v-model="dataSettings.numAdditionalStations"
+                                :min="0"
+                                :max="MAX_ADDITIONAL_STATIONS"
+                                :step="1"
+                                size="sm"
+                                class="w-32"
+                              />
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                              {{ t('explorer.additionalStationsHint') }}
+                            </p>
+                          </div>
+                        </div>
+                      </template>
+                    </UCollapsible>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UCollapsible>
+        </template>
+        <template #result>
+          <!-- Where and when, beside what: the data source and its map take the wide column, where the map has room
+               for its markers (WCAG 2.5.8), and the results follow under it -->
+          <!-- Place and period -->
+          <UCard v-if="showModeSelection">
+            <template #header>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-ph-map-pin" class="text-primary-600 dark:text-primary-500 shrink-0" />
+                <h2 class="text-lg font-bold">
+                  {{ t('cardTitle.placeAndPeriod') }}
+                </h2>
+              </div>
+            </template>
+
+            <div class="space-y-6">
+              <StationSelection
+                v-if="stationSelectionState.mode === 'station'"
+                v-model="stationSelectionState.selection"
+                :parameter-selection="parameterSelectionState.selection"
+                :initial-station-ids="initialStationIds"
+                :multiple="true"
+                tool="explorer"
+              />
+              <InterpolationSummarySelection
+                v-else
+                v-model="stationSelectionState.interpolation"
+                v-model:initial-station-id="initialInterpolationStationId"
+                :parameter-selection="parameterSelectionState.selection"
+              />
+
+              <USeparator v-if="showDateRangeSelector" />
+
+              <DateRangeSelector
+                v-if="showDateRangeSelector"
+                ref="dateRangeSelectorRef"
+                v-model="stationSelectionState.dateRange"
+                :required="dateRangeRequired"
+                :resolution="parameterSelectionState.selection.resolution"
+                :station-count="stationSelectionState.mode === 'station' ? stationSelectionState.selection.stations.length : 1"
+                :parameter-count="parameterSelectionState.selection.parameters.length"
+                :default-window="defaultWindow"
+                @edited="onRangeEdited"
+                @cleared="onRangeCleared"
+              />
+
+              <USeparator v-if="showDateRangeSelector" />
+
+              <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
+                <UButton :label="t('common.fetch')" icon="i-ph-play" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
+                <UButton :label="t('common.clear')" icon="i-ph-x" variant="outline" class="w-full" @click="clear" />
+              </div>
+
+              <div v-if="dataViewerRef?.valuesPending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <UIcon name="i-ph-circle-notch" class="animate-spin shrink-0" />
+                {{ t('common.loading') }}
+              </div>
             </div>
-          </div>
-        </div>
-      </template>
-    </UCollapsible>
-
-    <!-- Data Source Selection -->
-    <UCard v-if="showModeSelection">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
-          <h2 class="text-lg font-bold">
-            {{ t('explorer.dataSource') }}
-          </h2>
-        </div>
-      </template>
-
-      <div class="space-y-6">
-        <StationSelection
-          v-if="stationSelectionState.mode === 'station'"
-          v-model="stationSelectionState.selection"
-          :parameter-selection="parameterSelectionState.selection"
-          :initial-station-ids="initialStationIds"
-          :multiple="true"
-        />
-        <InterpolationSummarySelection
-          v-else
-          v-model="stationSelectionState.interpolation"
-          v-model:initial-station-id="initialInterpolationStationId"
-          :parameter-selection="parameterSelectionState.selection"
-        />
-
-        <USeparator v-if="showDateRangeSelector" />
-
-        <DateRangeSelector
-          v-if="showDateRangeSelector"
-          ref="dateRangeSelectorRef"
-          v-model="stationSelectionState.dateRange"
-          :required="dateRangeRequired"
-          :resolution="parameterSelectionState.selection.resolution"
-          :station-count="stationSelectionState.mode === 'station' ? stationSelectionState.selection.stations.length : 1"
-          :parameter-count="parameterSelectionState.selection.parameters.length"
-        />
-
-        <USeparator v-if="showDateRangeSelector" />
-
-        <div v-if="showDateRangeSelector" class="flex flex-col sm:flex-row gap-2">
-          <UButton :label="t('common.fetch')" icon="i-lucide-play" color="primary" :disabled="!canFetch" class="w-full" @click="fetchData" />
-          <UButton :label="t('common.clear')" icon="i-lucide-x" variant="outline" class="w-full" @click="clear" />
-        </div>
-
-        <div v-if="dataViewerRef?.valuesPending" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin shrink-0" />
-          {{ t('common.loading') }}
-        </div>
-      </div>
-    </UCard>
-
-    <UCollapsible
-      v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0"
-    >
-      <UButton
-        :label="t('explorer.stationsDetails')"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-      />
-      <template #content>
-        <div class="pt-4">
-          <UTable
-            :data="stationSelectionState.selection.stations"
-            :columns="stationTableColumns"
+          </UCard>
+          <UCollapsible
+            v-if="stationSelectionState.mode === 'station' && stationSelectionState.selection.stations.length > 0"
           >
-            <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
-            <template #latitude-cell="{ row }">
-              {{ row.original.latitude?.toFixed(4) ?? '-' }}
+            <UButton
+              :label="t('explorer.stationsDetails')"
+              variant="subtle"
+              color="neutral"
+              trailing-icon="i-ph-caret-down"
+              block
+            />
+            <template #content>
+              <div class="pt-4">
+                <UTable
+                  :data="stationSelectionState.selection.stations"
+                  :columns="stationTableColumns"
+                >
+                  <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
+                  <template #latitude-cell="{ row }">
+                    {{ row.original.latitude?.toFixed(4) ?? '-' }}
+                  </template>
+                  <template #longitude-cell="{ row }">
+                    {{ row.original.longitude?.toFixed(4) ?? '-' }}
+                  </template>
+                  <template #start_timestamp-cell="{ row }">
+                    {{ row.original.start_timestamp?.slice(0, 10) ?? '-' }}
+                  </template>
+                  <template #end_timestamp-cell="{ row }">
+                    {{ row.original.end_timestamp?.slice(0, 10) ?? '-' }}
+                  </template>
+                </UTable>
+              </div>
             </template>
-            <template #longitude-cell="{ row }">
-              {{ row.original.longitude?.toFixed(4) ?? '-' }}
-            </template>
-            <template #start_timestamp-cell="{ row }">
-              {{ row.original.start_timestamp?.slice(0, 10) ?? '-' }}
-            </template>
-            <template #end_timestamp-cell="{ row }">
-              {{ row.original.end_timestamp?.slice(0, 10) ?? '-' }}
-            </template>
-          </UTable>
-        </div>
-      </template>
-    </UCollapsible>
+          </UCollapsible>
 
-    <UCollapsible v-if="dataViewerRef?.parameterStats?.length">
-      <UButton
-        :label="t('explorer.valuesDetails')"
-        variant="subtle"
-        color="neutral"
-        trailing-icon="i-lucide-chevron-down"
-        block
-      />
-      <template #content>
-        <div class="pt-4">
-          <UTable
-            :data="dataViewerRef.parameterStats"
-            :columns="dataViewerRef.statsTableColumns"
-            :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
+          <UCollapsible v-if="dataViewerRef?.parameterStats?.length">
+            <UButton
+              :label="t('explorer.valuesDetails')"
+              variant="subtle"
+              color="neutral"
+              trailing-icon="i-ph-caret-down"
+              block
+            />
+            <template #content>
+              <div class="pt-4">
+                <UTable
+                  :data="dataViewerRef.parameterStats"
+                  :columns="dataViewerRef.statsTableColumns"
+                  :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
+                />
+              </div>
+            </template>
+          </UCollapsible>
+
+          <DataViewer
+            v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
+            :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
+            @apply-range="applyRange"
           />
-        </div>
-      </template>
-    </UCollapsible>
-
-    <DataViewer
-      v-if="hasLocationSelection" ref="dataViewerRef" :parameter-selection="parameterSelectionState.selection"
-      :station-selection="stationSelectionState" :settings="dataSettings" :lead-time="selectedLeadTime"
-      :unit-target-defaults="unitTargetDefaults"
-    />
-  </UContainer>
+          <!-- where the result will be, until a place is chosen: the column of the result is not an empty hole -->
+          <ToolPlaceholder v-else tool="explorer" />
+        </template>
+      </ToolWorkbench>
+    </div>
+  </div>
 </template>

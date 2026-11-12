@@ -69,12 +69,18 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `summarize` | `/api/v1/summarize` | the nearest station with data at each timestamp, for a point; only when asked for |
 | `history` | `/api/v1/history` | the changes of a station (name, position, instruments), not weather |
 | `issues` | `/api/v1/issues` | the model runs of a forecast network |
-| `coverage` | `/api/v1/coverage` | which providers, networks, resolutions, datasets and parameters there are |
-| `providers` | `/api/v1/providers` | what a provider is: country, licence, credit line, networks |
+| `providers` | `/api/v1/providers` | which provider has which network, and what a provider is: country, licence, credit line to cite, the networks with their `kind`, `extent` and whether they are `configured` |
+| `coverage` | `/api/v1/coverage` | the resolutions, datasets and parameters of one network (`provider` and `network` are required) |
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
+
+An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
+`summary_station_distance`) is advertised as an object, and an assistant gives it as one:
+`unit_targets={"temperature": "degree_fahrenheit"}`. The server sends the REST API its JSON text, which is what the
+query parameter takes (`?unit_targets={"temperature": "degree_fahrenheit"}`), so the object and the JSON text of it
+are the same argument.
 
 Every tool has a `title` ("Find stations" for `stations`) and says in its annotations that it only reads:
 `readOnlyHint` true, `destructiveHint` false and `idempotentHint` true, so a client may run it without asking
@@ -90,15 +96,28 @@ The instructions and the descriptions of the tools are written for agents and ar
 The same two steps serve a network of any `kind` (`observation`, `forecast`, ...), for a place given by coordinates as
 well as by name. The `country` of a provider is the country of the agency that runs it, not the extent of its data, and
 the instructions tell the assistant not to conclude from it that a network cannot serve a place: it looks at the
-network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the scope of every
-network and the extent of each dataset of one) and at
+network's `kind`, its [`extent`](restapi.md#extent) (where its stations are, in `providers`; `coverage` has the extent of each
+dataset of one network) and at
 what `stations` returns near the place. `providers` is the tool for which networks reach a place, as well as for the
 country, licence and credit line of a provider.
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
-does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes
+does not take is refused with the name of the one it takes where the tool had the old name
+(`station was renamed to stations`), and as an unknown argument where it never did. No tool takes
 `debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
+
+Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
+structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
+the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is an embedded resource. The structured
+content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
+bytes, and the licence, the attribution, the note on what wetterdienst did to the
+data and the warnings that the REST API sends in headers for these formats (the same
+in the `_meta` of the result, under `wetterdienst`). The body is not repeated in it. An `html` chart loads plotly.js
+from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
+and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
+the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
+context of the assistant.
 
 ## Text from the providers
 
@@ -117,11 +136,13 @@ create a session at `initialize`, sends no `mcp-session-id` header and has nothi
 earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
 is served as one without. The two requests that belong to a session are answered with a 405, as the specification
 lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
-of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed:
-the long answers are the ones that `format=ndjson` and `csv` stream on the REST API. A tool makes its request to the
+of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed
+(`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
+a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the
 [concurrency](restapi.md#concurrency) of the server like any request. A request that a tool is refused for its size is
-asked again for a window or fewer stations, or made from the library: see
+asked again for a window or fewer stations (for `interpolate` and `summarize`, which name no stations: a shorter
+window or fewer parameters, or a smaller radius when it reaches too many stations), or made from the library: see
 [Getting more than the limit](large-requests.md#from-an-assistant).
 
 ## Versioning

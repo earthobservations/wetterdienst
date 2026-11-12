@@ -29,7 +29,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import Floor, clear_sentinels, join_quality_flags, unpivot_with_raw
+from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import correct_station_positions
@@ -88,8 +88,8 @@ _CARRIED_ONLY_BY = {
     "rrs3c": DwdDmoLeadTime.LONG,
 }
 
-# the elements of the precipitation of a step, which cannot be negative (GH-3263)
-_DMO_PRECIPITATION = ("rr1", "rr3")
+# the elements of the precipitation and the radiation of a step, which cannot be negative (GH-3263)
+_DMO_NON_NEGATIVE = ("rad1h", "rads3", "rr1", "rr3")
 
 # the lead times each product publishes a run for: `icon_eu` publishes the 078 run alone, so none of
 # its parameters is carried by a long run. `discover` reports a parameter's lead times from this and
@@ -482,6 +482,17 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
         )
         msg = f"DWD DMO's {lead_time.value:03d} h run, lead_time='{lead_time.name.lower()}', does not carry {named}"
         raise ParameterNotCarriedError(msg)
+    # and a run a product does not publish at all (`icon_eu` has the short one alone) is refused as well, rather than
+    # met later as `IndexError: Unable to find a 168 h forecast` (HTTP 500)
+    for dataset, _ in group_parameters_by_dataset(parameters):
+        published = _LEAD_TIMES_PUBLISHED.get(dataset.name, ())
+        if published and lead_time not in published:
+            names = ", ".join(_LEAD_TIME_NAMES[time] for time in published)
+            msg = (
+                f"DWD DMO's {dataset.name} publishes no {lead_time.value:03d} h run, "
+                f"lead_time='{lead_time.name.lower()}'; it publishes: {names}"
+            )
+            raise ParameterNotCarriedError(msg)
 
 
 class DwdDmoValues(TimeseriesValues[DatasetModel]):
@@ -532,14 +543,17 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
-        # ICON writes a little below 0 for the precipitation of a step now and then (-0.02 mm; 2769 of 459,732 values
-        # of `RR1` in one run, to -0.10), which is no rain: 0.0, with the number kept as `raw:` (GH-3263). `Rad1h`
-        # and `RadS3` stay as written
-        df = clear_sentinels(df, _DMO_PRECIPITATION, Floor(0.0))
-        # the file also writes `-0.00` (308 of the 3077 negative-looking cells), a negative zero that is not below 0 and
-        # would still print a minus sign. Nothing is below 0 now, so the absolute value only drops that sign (a `+ 0.0`
-        # is folded away by polars)
-        df = df.with_columns(pl.col(column).abs() for column in _DMO_PRECIPITATION if column in df.columns)
+        # ICON writes a little below 0 for the precipitation and the radiation of a step now and then (-0.02 mm; 2769
+        # of 459,732 values of `RR1` in one run, to -0.10; `Rad1h` to -0.77 J/cm2 at night), which is no rain and no
+        # energy: the core sets it to 0.0 and keeps the number as `raw:` (check `floor`, `FLOORS` of `model/judge.py`,
+        # GH-3263, GH-3676).
+        # The file also writes `-0.00` (308 of the 3077 negative-looking cells), a negative zero that is not below 0 and
+        # would still print a minus sign: a zero is written as `0.0`
+        df = df.with_columns(
+            pl.when(pl.col(column).eq(0)).then(pl.lit(0.0)).otherwise(pl.col(column)).alias(column)
+            for column in _DMO_NON_NEGATIVE
+            if column in df.columns
+        )
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says
@@ -665,6 +679,11 @@ class DwdDmoRequest(TimeseriesRequest):
     # per request, not per class: a listing read once should not outlive the settings it was read with
     _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
     _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
+    # whether the caller named a lead time: the request reads the short one where none was named, which is no
+    # asking (`parameter-without-rows` says what was asked for). An argument so that `dataclasses.replace`, which
+    # hands over the lead time the request resolved to, hands this over as well; None, a request made by a caller,
+    # is worked out from the lead time given
+    _lead_time_asked: bool | None = dataclasses.field(default=None, repr=False, compare=False, kw_only=True)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
@@ -806,6 +825,8 @@ class DwdDmoRequest(TimeseriesRequest):
             parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
+        if self._lead_time_asked is None:
+            self._lead_time_asked = self.lead_time is not None
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
         # a datetime names no member of the enumeration, so only a string or a member is looked up
@@ -995,6 +1016,18 @@ class DwdDmoRequest(TimeseriesRequest):
             return None
         return station_ids
 
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Add what the request asks of the run to what it is held to (`parameter-without-rows`)."""
+        narrowed = super()._narrowed_by(dataset)
+        if isinstance(self.issue, dt.datetime):
+            narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
+        if self._lead_time_asked:
+            lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
+            # the other lead time is a hint only where the product publishes a run for it (`icon_eu` has one)
+            other = len(_LEAD_TIMES_PUBLISHED.get(dataset.name, ())) > 1
+            narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`" if other else None))
+        return narrowed
+
     def _all(self) -> pl.LazyFrame:
         """Get all stations from DMO."""
         from typing import cast  # noqa: PLC0415
@@ -1037,11 +1070,13 @@ class DwdDmoRequest(TimeseriesRequest):
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
-        resolutions_and_datasets = {
+        # in the order the request names them (a set would give the stations in the order of the hash seed of the
+        # process, GH-3551)
+        resolutions_and_datasets = dict.fromkeys(
             (parameter.dataset.resolution.name, parameter.dataset.name, parameter.dataset.name_original)
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
-        }
+        )
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns,
         # narrowed to the stations that combination's product actually forecasts for

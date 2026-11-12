@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.178.0"
+version = "0.186.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -108,7 +108,8 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.14.4,<4",
     "certifi>=2026.10.19",  # drops the emSign ECC Root CA - G3 (GHSA-6q48-6c7w-9gw2, GH-3331)
-    "click>=8.2,<9",
+    "click>=8.3.2,<9",  # 8.2.0 breaks completion, 8.3.0 and 8.3.1 bare boolean options (GH-3826)
+    "filelock>=3.30,<5",  # first release that honours fallback_to_soft=False (GH-3485)
     "fsspec[http]>=2026.6.0",
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",
@@ -139,6 +140,12 @@ bufr = [
     # keep out. Inside this repo one lock covers every extra and the `eccodes` extra below would
     # have bound it either way; a consumer installing this extra alone has no such luck
     "eccodes>=1.7.1,<3",
+    # eccodes requires findlibs at any version, and its wheels ask for `eccodeslib` from 2.43 on
+    # (not on Windows). The eckitlib behind it bundles a PROJ that findlibs 0.1.3 and older loaded
+    # globally, so a process that loaded eccodes and then imported pyproj aborted at exit
+    # (ecmwf/eckit#354, GH-2441). 0.1.4 loads it locally. 0.1.5 only puts the global load back on
+    # macOS, which BUFR decoding does not need, so it is not the floor
+    "findlibs>=0.1.4,<1",
     "pdbufr>=0.10.2,<1",
 ]
 cratedb = [
@@ -155,9 +162,11 @@ duckdb = [
 # or not this one is installed -- would have had to build, and would have continued on error if it
 # could not. Raising it only that far is deliberate: `ensure_eccodes` asks for
 # `codes_get_api_version`, which 1.x has, so nothing here needs 2.x and an install pinned to 1.x
-# keeps resolving
+# keeps resolving. `findlibs` is floored here as in `bufr` (see there), so that this extra
+# alone never leaves the abort at exit of GH-2441 reachable
 eccodes = [
     "eccodes>=1.7.1,<3",
+    "findlibs>=0.1.4,<1",
 ]
 excel = [
     "xlsxwriter>=3.0.9,<4",
@@ -202,8 +211,8 @@ pdf = [
     "pypdf>=6.21.2,<7",
 ]
 plotting = [
-    "kaleido>=1.0.0",
-    "plotly>=6.1.1",
+    "kaleido>=1.3.0",
+    "plotly>=6.3.1",
 ]
 postgresql = [
     "pandas>=2.2.2,<4",
@@ -269,7 +278,7 @@ dev = [
     "matplotlib>=3.10,<4",
     # in-memory span and metric readers for the tests of the REST API's OpenTelemetry
     "opentelemetry-sdk>=1.45",
-    "pytest>=9.1",
+    "pytest>=9.2",
     "pytest-cov>=7.1",
     # 16.7 matches `--only-rerun` against the cause chain too, which tests/conftest.py's `_rerun_will_retry` models
     "pytest-rerunfailures>=16.7",
@@ -325,7 +334,10 @@ docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
 # second task that could quietly collect nothing and still go green. `explorer` is excluded as
 # `test:parallel` excludes it -- no job here runs those, and nothing in the tree is marked (GH-2003)
 "test:offline" = "uv run pytest -m 'not (remote or explorer)'"
-test = ["test:parallel", "test:cflakes"]
+# `ignore_fail = "return_non_zero"`: a red parallel run still goes on to the cflake run, and the task
+# exits non-zero at the end. A bare sequence stops at the first red task, and `cflake` tests then never
+# ran in the jobs that run `poe test` (GH-3829). Not `true`, which would turn a red run green
+test = { sequence = ["test:parallel", "test:cflakes"], ignore_fail = "return_non_zero" }
 # For Windows CI
 test-slow = "uv run pytest"
 "coverage:parallel" = "uv run pytest --cov-report xml --cov wetterdienst tests/ --numprocesses=auto -m 'not (explorer or cflake)' --junitxml=junit-parallel.xml"
@@ -361,6 +373,10 @@ coverage = [
 # replacement or a reason; regenerated from the tag `v0.139.0` (`git fetch --tags`) when a parameter of it is renamed,
 # removed or back, and a regeneration changes nothing otherwise
 "renames:baseline" = "uv run python -m tests.metadata.baseline_0_139_0"
+# the parameters of every REST route and the options of every command of release 0.139.0
+# (tests/ui/routes_0_139_0.json), which say which route had which old name and so which route is told one "was renamed";
+# regenerated from the tag, with `cloup`, which that release's command line imports, for the run
+"routes:baseline" = "uv run --with 'cloup==4.0.0' python -m tests.ui.routes_0_139_0"
 "contracts:snapshot" = [
     "openapi:snapshot",
     "cli:snapshot",
@@ -440,6 +456,9 @@ unfixable = ["ERA", "F401", "F841", "T20", "ERA001"]
 # a command-line script that prints its answers, with figures written in the Unicode the models write them in
 ".claude/skills/**/*.py" = ["T20", "EXE001", "RUF001"]
 "examples/*" = ["T20", "INP001"]
+# the command line imports what a command uses inside the command, so that `--help`, `--version` and a shell completion
+# load almost nothing (GH-3809); tests/ui/cli/test_cli_imports.py holds what the module imports
+"src/wetterdienst/ui/cli.py" = ["PLC0415"]
 
 [tool.deptry]
 known_first_party = ["wetterdienst"]
@@ -452,6 +471,9 @@ scikit-learn = "sklearn"
 DEP002 = [
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
+    # a floor only: eccodes imports it, and the floor is what keeps the abort at exit of GH-2441 out
+    # (the `bufr` and `eccodes` extras); wetterdienst never imports it
+    "findlibs",
     "h5netcdf",
     "h5py",
     "influxdb",
@@ -475,20 +497,17 @@ DEP002 = [
     "xradar",
     "zarr"
 ]
-# pyproj is imported only where installed, ahead of eccodes (`util/eccodes.py`, GH-2468), and not
-# needed otherwise: `radarplus` brings it through wradlib and xradar. Missing where it is not
-# installed, transitive where it is.
 # tabula is tabula-py, which only the maintainers' radar-sites generator imports
 # (`provider/dwd/radar/sites.py`): no extra names it, because it needs a Java runtime (GH-2764)
 # mcp_types is where fastmcp takes `ToolAnnotations` from (`ui/mcp.py`), and fastmcp re-exports it
 # nowhere. It comes in transitively through fastmcp (the `mcp` extra; fastmcp-slim requires
 # mcp-types>=2,<3), so it is missing where that extra is not installed and transitive where it is;
 # declaring it would change uv.lock for a package fastmcp already brings.
-DEP001 = ["mcp_types", "pyproj", "tabula"]
-DEP003 = ["mcp_types", "pyproj"]
+DEP001 = ["mcp_types", "tabula"]
+DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -509,7 +528,8 @@ testpaths = ["tests"]
 # xfail_strict = true
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
-# --only-rerun flags in addopts restrict retries to transient network errors.
+# --only-rerun flags in addopts restrict retries to transient network errors, a hung test and a Kaleido image
+# that a loaded runner did not draw in time (GH-3918).
 reruns = 2
 reruns_delay = 5
 

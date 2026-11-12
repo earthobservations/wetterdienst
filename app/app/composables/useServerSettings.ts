@@ -1,5 +1,5 @@
 import type { ServerSettings } from '#shared/types/api'
-import { RETRY_TRANSIENT } from '~/utils/fetch-retry'
+import { API_FETCH } from '~/utils/api-answer'
 
 /** An answer of `GET /api/settings` as the settings it reports, `null` where it is no object. */
 function asServerSettings(settings: unknown): ServerSettings | null {
@@ -17,7 +17,7 @@ function asServerSettings(settings: unknown): ServerSettings | null {
  */
 export function useServerSettings(): Promise<ServerSettings | null> {
   const answer = useState<Promise<ServerSettings | null> | undefined>('server-settings', () => undefined)
-  answer.value ??= $fetch<unknown>('/api/settings', { ...RETRY_TRANSIENT })
+  answer.value ??= $fetch<unknown>('/api/settings', { ...API_FETCH })
     .then(asServerSettings)
     .catch((error: { statusCode?: number }) => {
       if (error?.statusCode !== 404)
@@ -34,7 +34,18 @@ export function useServerSettings(): Promise<ServerSettings | null> {
  * answer is no object.
  */
 export function serverSettingsFor(query: Record<string, string>): Promise<ServerSettings | null> {
-  return $fetch<unknown>('/api/settings', { query, ...RETRY_TRANSIENT })
+  return $fetch<unknown>('/api/settings', { query, ...API_FETCH })
     .then(asServerSettings)
     .catch(() => null)
+}
+
+/**
+ * `useServerSettings`, with whether the server has answered for good: its settings, or a 404 (a backend without the
+ * endpoint, which won't have it later), or an answer that is no object. A failure that is not kept, and is asked again by
+ * the next caller, is not (`answered` is false, `settings` null).
+ */
+export function useServerSettingsAnswer(): Promise<{ settings: ServerSettings | null, answered: boolean }> {
+  // the same state `useServerSettings` keeps its answer in, taken before the wait, where the app is still at hand
+  const kept = useState<Promise<ServerSettings | null> | undefined>('server-settings', () => undefined)
+  return useServerSettings().then(settings => ({ settings, answered: settings !== null || kept.value !== undefined }))
 }

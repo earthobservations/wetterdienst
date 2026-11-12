@@ -18,7 +18,7 @@
 |---------------|--------------------------------------------------------------------------------|
 | name          | data                                                                           |
 | original_name | data                                                                           |
-| description   | 15-minute road weather data of German highway stations                         |
+| description   | Road weather data of the road weather stations on German roads (Glättemeldeanlagen of the road authorities of the Länder), reported in the standard period of 15 minutes                         |
 | access        | [here](https://opendata.dwd.de/weather/weather_reports/road_weather_stations/) |
 
 #### parameters
@@ -53,11 +53,11 @@ not read from the message.
 
 :::{note}
 The `unit` column above is the unit this network **publishes** in, not the one a request returns,
-the parser labelling the BUFR units of what it decodes and converting nothing itself. Six rows
-differ from what comes back under the default targets: {term}`humidity_relative` is published `%` and
-returned as a decimal, so 87 % reads 0.87; the three temperatures read `K` and come back in °C;
+the parser labelling the BUFR units of what it decodes and converting nothing itself. Five rows
+differ from what comes back under the default targets: the three temperatures read `K` and come back in °C;
 {term}`precipitation_intensity` is per second and comes back per hour; and
-{term}`water_film_thickness` is metres and comes back centimetres. The `unit_targets` option
+{term}`water_film_thickness` is metres and comes back millimetres ({term}`humidity_relative` is
+published `%` and comes back in `%`). The `unit_targets` option
 (`WD_TS_UNIT_TARGETS`) decides that other side, not this column.
 
 Where the model spells a unit differently from BUFR the column carries the model's spelling of the
@@ -115,10 +115,14 @@ have to collapse onto `wrtr`'s liquid/solid/unknown, and the freezing and deposi
 glaze, rime, clear ice -- have no home there at all. On a road weather network that is exactly the
 distinction worth keeping.
 
+(dwd-road-quality-flags)=
+
 #### quality_flags
 
-Each reading carries the station's own verdict on the sensor that took it, in the `quality_flags` column
-(`"1"`, `"0"` or null), read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road subset:
+Each reading carries the station's own verdict on the sensor that took it, as the first token of the `quality_flags`
+column (`"1"`, `"0"` or null), read from the `qualityInformationAwsData` flag (BUFR `0 33 005`) that ends every road
+subset. The [plausibility checks](../../../plausibility.md) of this network add their own tokens after it
+(`suspect:stuck`, `rejected:range,raw:0.1`), described below:
 
 | quality_flags | meaning                                                             |
 |---------------|---------------------------------------------------------------------|
@@ -159,14 +163,19 @@ A caller reading this network at face value should expect, at roughly one statio
 - **stuck sensors**, holding one value for a whole day -- one station's second road sensor read
   `-0.0 °C` in all 96 readings of a day while its first ran a normal 17.4 to 33.5 °C.
 
-Wetterdienst removes only what no sensor can have produced, and reports the rest as DWD publishes
-it, leaving a reading's plausibility to the caller -- a road surface really does reach 60 °C in July
-sun, so a threshold that took *out* the nonsense above would take genuine extremes with it. A value
-outside the physical range of its quantity, the `-75.00` of the exact round values among them, is
-**null**, with the number DWD wrote as `raw:198.15` in `quality_flags`, as DMI and RMI null theirs
-(see [special values](../../../special_values.md)). The stuck sensors it **marks**, in the
-`quality_flags` column, which is a different thing: the reading stays exactly as published, and a
-caller who wants the extremes keeps them.
+**The road sensors are raw data.** Wetterdienst removes only what no sensor can have produced, and
+two narrow combinations (below), and reports the rest as DWD publishes it, leaving a reading's
+plausibility to the caller -- a road surface really does reach 60 °C in July sun, so a threshold
+that took *out* the nonsense above would take genuine extremes with it. Do not read a value of this
+network as checked because it came back: a sensor that moves but is wrong, such as a hygrometer
+that reads 10 % for hours in fog, is returned. A value outside the physical range of its quantity (the table of bounds
+every provider is held to, a humidity of 131 % for one) is **null**, with the number DWD wrote as
+`rejected:range,raw:131` in `quality_flags` (the check `range`, hard by default), as DMI and RMI null theirs (see
+[special values](../../../special_values.md)). The `-75.00` of the exact round values lies inside that range and is a
+code of the source, null with `raw:198.15` (below). The stuck sensors it **flags** `suspect:stuck` (the check `stuck`, soft by default), which is a different thing: the reading stays
+exactly as published, and a caller who wants the extremes keeps them. `plausibility={"stuck": "hard"}` nulls them as well, `plausibility={"range": "soft"}` keeps a value outside
+a range. One rule (the section "readings inside every range that
+are no reading" below) nulls a value as well, and keeps the number the same way.
 
 Which of the first bullet's readings are marked depends on the sensor rather than the value: its
 cold outliers are marked where the sensor that took them has stopped, and its warm ones are not
@@ -176,7 +185,9 @@ marked at all, 79.8 °C on a road in September being implausible rather than imp
 
 The first of the two is a sensor that has stopped. Where an air temperature, a dew point or a road
 surface temperature reports the identical value for 24 readings -- six hours at this resolution --
-`quality_flags` becomes `1`. The reading is left exactly as published.
+the reading is flagged `suspect:stuck` (the check `stuck`: soft by default, so the reading is left exactly as
+published; hard, it is null with `rejected:stuck,raw:<value>`). DWD's own flag stays what the station wrote, as the
+first token.
 
 A run ends where the readings stop for more than four times the station's own usual interval, so
 two three-hour plateaus either side of a three-day outage are not a six-hour one. Against the
@@ -201,62 +212,146 @@ That threshold is measured, not chosen. Over a day of five station groups and ar
 per quantity, a working sensor's longest run of one identical value was 14 readings for the air
 temperature, 17 for the dew point and 9 for the road surface; a broken one held its value for 86 to
 96 of the day's 96, every one of them reporting a single distinct value for the whole day. It is
-applied only to those three quantities, because only for those is standing still a fault: the road
-surface condition and the water film sit at `0` for the whole of a dry day, as does the
-precipitation type, the humidity saturates in fog, and the wind falls calm.
+applied to those three quantities and to the precipitation intensity (below), because only for those
+is standing still a fault: the road surface condition and the water film sit at `0` for the whole of
+a dry day, as does the precipitation type, the humidity saturates in fog, and the wind falls calm.
 
 This is also what the exact round values are. `-75.00`, `-30.00` and `-25.00` are not a sentinel to
 be recognised but sensors that have stopped, and matching them by value would be worse than useless
 for two of the three -- -25 °C and -30 °C are both reachable in a German winter.
 
+**A precipitation intensity that never changes** is the same rule with a zero exception (GH-3771).
+{term}`precipitation_intensity` is 0 in every dry quarter hour, so a run of zeros is no fault and is
+never flagged, however long; a run of 24 readings or more of **one value above zero** is, and is
+flagged `suspect:stuck` (hard: null with `rejected:stuck,raw:<value>`, the number in kg m-2 s-1 as
+DWD writes it). Read on 2026-11-03 (generic User-Agent, no credentials, the reader), the 575
+stations that report an intensity in 48 hours split in two:
+
+- 55 stations hold one value in every reading: 53 of group `KO` (`K030`, `K031`, `K050` ... `K921`)
+  write `0.006` (21.6 mm/h) and `B338` and `B773` write `0.0056` (20.16 mm/h), in every reading
+  (192 of 192 for most; `K341` reports only since the morning of 2 November, 83). The `KO` stations report no `precipitation_amount` at all and set a
+  precipitation type in 2 % of their readings; 21.6 mm/h held for 48 hours would be about 1,040 mm. The
+  two others write a `precipitation_amount` of 5.0 mm in every reading too. No DWD document gives
+  either number a meaning, and the data cannot say whether it is a configured default or a failed
+  sensor, so the number is not matched: a shower of 21.6 mm/h is a heavy one and no sensor can be
+  told from it by its value.
+- The other 520 never hold one non-zero value for long: the longest run is 13 readings (3 h 15 min,
+  the lowest step of 0.36 mm/h, P469), 6 stations reach 10 or more, and none ever reads 21.6.
+
+The 24 readings are nearly twice the longest run of rain. The 10-minute precipitation of DWD observation, the
+intensity of its interval in mm per 10 minutes, was read at 148 stations over 400 days (8.2 million
+readings) and has no run of one non-zero amount beyond 10 readings (100 minutes). That series steps in 0.01 mm (0.06 mm/h), six times finer than this gauge's lowest step
+of 0.36 mm/h, and the road figure is 48 hours of one November, so a drizzle at the lowest step for six
+hours or more, not seen yet, would be flagged: that is why the check is soft. The precipitation
+amount of this network is **not** judged this way: the 15-minute amount of group `C` repeats one
+non-zero value for up to 57 readings beside an intensity of 0, because it grows by tenths over hours, so
+a repeat of it is no fault. The `B338` and `B773` amount of 5.0 mm is therefore not flagged, only their
+intensity.
+
+The values come back flagged and unchanged by default, and a flagged value drops out of
+`interpolate`, `summarize`, the climate stripes and `skip_empty`, like every value a check finds
+`suspect`. A run shorter than the window cannot be seen (a request for under six hours), as for the
+temperatures.
+
 Two things the run rule does not catch, and one it cannot:
 
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
-  same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality_flags` should ask for the window it means. The values nulled in the next
+  same reading can come back unflagged from a two-hour request and `suspect:stuck` from a full day's. A caller
+  filtering on `quality_flags` should ask for the window it means. This is why the check is soft by default. The values nulled in the next
   section are the exception, as a range reads a value rather than a run and so needs no window at all.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
-- **the difference from air temperature cannot separate the two.** Over a full day of five groups,
-  stations with no sign of a fault reached 42.0 K above their own air temperature, while E237 --
-  which is certainly broken -- sat between 31.8 and 38.9 K. The broken station is inside the healthy
-  range. There is no threshold here that catches one without condemning the other, which is why this
-  library does not try.
+- **the difference from air temperature cannot separate the two by day.** Over a full day of five
+  groups, stations with no sign of a fault reached 42.0 K above their own air temperature, while
+  E237 -- which is certainly broken -- sat between 31.8 and 38.9 K. The broken station is inside the
+  healthy range. There is no threshold that catches one without condemning the other, which is why
+  this library does not try by day. By night it does, for a surface far above the air (the section
+  "readings inside every range that are no reading" below).
 
 ##### values no reading can hold
 
 A value outside the physical range of its quantity is null whatever window was asked for, with the
-number DWD wrote as the last token of `quality_flags`, `raw:198.15` (GH-3222). Up to 0.163.0 it was
-returned as published and marked `1`. The ranges are those every provider is held to (a humidity to
-130 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
-1 m, the rain of 15 minutes to 300 mm), in DWD's own units; the surface condition and the
-precipitation type are codes, held to none. The temperatures are narrower at the cold end: below
-**-60 °C** a temperature is null. It is the `-75.00` of the exact round values above, and only that
-one.
+number DWD wrote as the last token of `quality_flags`, `rejected:range,raw:131` (the check `range`, GH-3222). Up to
+0.163.0 it was returned as published and marked `1`. The ranges are those every provider is held to (GH-3681: a humidity
+to 100 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
+at least 0, the rain of 15 minutes to 350 mm, the air and the dew point to -90 and -100 °C at the cold end and 60 °C
+at the warm one, a road surface to -90 and 100 °C; the `raw:` number is DWD's own); the surface condition and the
+precipitation type are codes, held to none. A humidity below 1 % is outside the range as well (below). Up to 0.181.0 the network was held to bounds of
+its own, the temperatures among them to **-60 °C** at the cold end, which nulled the `-75.00` of the exact round values
+above, and only that one ([what changed](../../../../usage/migrating.md)); the range is the world's now (-90 °C, -100 °C for the dew point), and the
+`-75.00` is mapped by the reader.
 
 Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
-tracks the air rather than running far beneath it; the line stands 14 K under that record and 29 K
-above the world's, so nothing this network can publish as weather falls below it. The stopped
-sensors of KM do, at `-75.00` °C to the hundredth, for days.
-
-This is what a value-based check is good for and the run rule is not. Measured over one hour of the
-whole network -- 809 stations, 11 505 temperature readings -- the run rule marks nothing at all for
-the two stations sitting at -75 °C, having only five readings where it needs twenty-four; the line
-nulls all ten of their readings. Over twelve hours the run rule marks both stations too. The same
-hour leaves `-30.00` and `-25.00` alone, as it should: those are readings until something other
-than their value says otherwise.
+tracks the air rather than running far beneath it. The stopped sensors of KM write `-75.00` °C to the
+hundredth, for days: 29 K under that record and 14 K above the world's, so inside the range of the table every
+provider is held to. It is a value-based check that is good for it and the run rule is not: measured over one hour of
+the whole network -- 809 stations, 11 505 temperature readings -- the run rule marks nothing at all for the two
+stations sitting at -75 °C, having only five readings where it needs twenty-four, and over twelve hours it marks both.
+So the reader maps it: **a temperature of exactly 198.15 K** in the air or the road surface temperature is null in any
+window, with `raw:198.15` as the last token of `quality_flags` (kelvin as DWD writes it; a code of the source and no
+verdict of a check, so there is no `rejected:` before it). GH-1917 read it in the road surface temperature of KM/H659
+and KM/H438 (2026-09-16); the newest day of files of every group (96 files each, 192 for KM; 101,283 air, 104,511 road surface and 100,431 dew
+point readings, 2026-11-01) held none, nor any temperature below -58 °C, so which of the two the stopped sensors write
+today is not known, and the dew point shows no sign of it and is left alone. The
+same hour leaves `-30.00` and `-25.00` alone, as it should: those are readings until something other than their value
+says otherwise.
 
 No line is drawn at the warm end. A road surface in July sun passes 60 °C, and the 79.8 °C above is
 implausible rather than impossible -- there is no temperature at that end which an honest reading
 cannot reach.
 
+##### readings inside every range that are no reading
+
+One rule nulls a value that is inside every range (GH-3624): it reads the road surface beside the air temperature of
+its minute (the check `consistency`, which reads the air of the same minute from the same dataset and stands aside
+where it has none). A relative humidity under 1 % is outside the range of the table, which the check `range` reads
+(GH-3773). The reading is null in `value` and the number DWD wrote is the last token of
+`quality_flags`, `rejected:range,raw:0.1` or `rejected:consistency,raw:338.75` (the unit of the source: %, K), as for a
+value outside a range; with the check soft the value stays and is flagged `suspect:range` or `suspect:consistency`. Nothing else of the sensors is judged, and there is
+no comparison with neighbouring stations.
+
+- **a relative humidity below 1 %** is no reading (the table of ranges, the same for every provider, holds 1 to 100 %, GH-3773).
+  A hygrometer that has failed writes it for hours
+  while the value varies: P925 gave 0.1 % for 43 readings of a 12 hour window. The run rule does not
+  look at a humidity at all, only at the air, the dew point and the road surface temperature. In the
+  39 hours of every station group read on 2026-10-31 no humidity was below 5 %, so the floor nulled
+  none there. From 1 % up the value is returned as the sensor wrote it, a dry one included.
+- **a road surface temperature more than 20 K above the air temperature of the same minute, with the
+  sun more than 6 degrees below the horizon** (the end of civil twilight, from the station's
+  position and the time) is no reading. By night a road radiates to the air above it and keeps a few
+  kelvin of the day's heat at most. In the same 39 hours, 99 % of the 62,895 night readings of 722
+  stations lay within 8.6 K above the air, and seven stations sat 26 to 81 K above it for most or
+  all of their night (P925, P034, V064, E237, B545, F053 and M080: a surface of 8 to 90 °C beside an
+  air of -29 to 10 °C), 472 readings in all. The highest of the other stations was 19.2 K (M531), so
+  the 20 K line lies in the one gap the sample has, between a road that runs warm and a sensor that
+  reads something else. By day the sun heats a road legitimately, so the rule stands aside, as it
+  does for a surface without an air temperature beside it, with one that is itself outside its range
+  or that DWD's own flag marks suspect, and for a station without a position.
+
+Both numbers are read from that one sample, in late October, and a hot summer night may keep the
+road warmer than it did there: the line is set at more than twice what 99 % of the readings reached,
+to leave that room. What the rules do not do:
+
+- they do not say which sensor is wrong. At M080 it is the *air* temperature that reads -16 to -29
+  °C beside a good surface of 8 to 13 °C, and it is the good surface that is nulled, the air being
+  left as published (it is inside its range). Only an air that DWD's own flag marks suspect is not
+  held against the surface, so an air sensor that has stopped at a plausible value (-25.00 °C) can
+  still null a good surface; the run rule's verdict is not used, as it depends on the window the
+  request asked for and the null would too (the `-75.00` of KM is null itself, and holds nothing to account);
+- they do not catch a surface that is wrong by less than 20 K (E769 sat 6.6 to 8.5 K and M531 14 to
+  19 K above the air for most of their night, which can be a heated road or a sensor that reads
+  high), nor one that is wrong by day, nor a humidity above 1 % that is wrong (P925 read 10 % in
+  that sample);
+- a dew point beside a humidity below 1 % is returned, although it comes from the same probe;
+- the rule on the surface reads the air whether the air is asked for or not.
+
 ##### what a quality flag of `1` means
 
-So a quality flag of `1` means suspect, whether DWD said so or the run rule did. They do not
-have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
-temperature carrying it, where the run length is a threshold fitted to one day -- and the column
-does not distinguish them. The log does, for a caller who turns it up: the run rule writes a line at
-`DEBUG` naming the first five stations it marked -- which neither the CLI nor the REST API prints by
-default. A value nulled for its range carries a `raw:` token after the flag, `1,raw:198.15` where the
-sensor has stopped as well. A `null` flag still means nobody has looked.
+A quality flag of `1` is DWD's verdict (and `0` its absence), and no longer the run rule's: a stopped sensor is the
+check `stuck`, whose token `suspect:stuck` comes after the flag (`0,suspect:stuck`). They do not have the same standing
+-- DWD's bit 7 is verified against the data, with no station within 5 K of its own air temperature carrying it, where
+the run length is a threshold fitted to one day -- and the two tokens let a caller tell them apart. The run rule also
+writes a line at `DEBUG` naming the first five stations it marked, which neither the CLI nor the REST API prints by
+default. A value nulled for its range or by one of the two rules above carries `rejected:<check>,raw:<number>` after the
+flag, `1,rejected:range,raw:0.1`. A `null` flag still means nobody has looked.

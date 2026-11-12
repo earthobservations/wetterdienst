@@ -12,12 +12,21 @@ command line can tell what to answer from the class instead of keeping a list of
     ├── NotFoundError     what the request names does not exist (a `LookupError`)
     ├── ConfigurationError  this installation is not set up to serve it
     ├── UpstreamError     the provider's side failed or sent what the parser does not expect
-    └── ExportRefusedError  a sink will not perform the export it was asked for
+    ├── ExportRefusedError  a sink will not perform the export it was asked for
+    └── ImageTimeoutError   the browser that draws an image did not finish in time (also a `TimeoutError`)
 
 Each class that was an exception of its own before keeps the built-in classes it derived from, so an
 `except ValueError`, `except OSError`, `except FileNotFoundError` or `except IndexError` that caught
 it still does.
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Self
 
 
 class WetterdienstError(Exception):
@@ -210,6 +219,36 @@ class DownloadError(UpstreamError):
         return f"Failed to download {self.url}: {self.reason}"
 
 
+class StationListingIncompleteError(UpstreamError):
+    """Raised when a station is not found while the lookup of the stations went without a listing of the provider.
+
+    `dwd/observation` and `dwd/derived` look the stations up in directories of DWD's server, and go on without one
+    that came back empty or missing, or that lists no description of its stations: the answer is partial, and says so
+    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) or the stripes ask for one station by its
+    id, and have no answer to put the warning in. A station that is not found then may be unknown, or one that only
+    the skipped directory lists: the request is valid, the cause is upstream, and a 404 would say that the station
+    does not exist. So it is this, a 502 over REST, which names the directories.
+
+    `station_id` is the id asked for, `gaps` the directories the lookup went without, each with the reason. Not a
+    `StationNotFoundError`: it is the provider's side that failed, and the same request can succeed once DWD has
+    filled the directory again. Raised only where a station is not found and a directory was skipped.
+    """
+
+    def __init__(self, station_id: str, gaps: dict[str, str]) -> None:
+        """Keep the id and the directories, and name them in the message."""
+        self.station_id = station_id
+        self.gaps = dict(gaps)
+        went_without = " and ".join(f"the directory {directory} ({reason})" for directory, reason in self.gaps.items())
+        super().__init__(
+            f"No station found for {station_id}. The lookup of the stations went without {went_without}, so a station "
+            "that only it lists is not found, and this may be one. Try again later."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the id and the directories, not from the message in `args`, so the error pickles."""
+        return type(self), (self.station_id, self.gaps), self.__dict__
+
+
 class MissingDependencyError(ConfigurationError, ImportError):
     """Raised when something needs an optional dependency that is not installed.
 
@@ -279,6 +318,62 @@ class ImageTooLargeError(RequestError):
             f"The image would be {width:.0f} x {height:.0f} px, and this server renders no side longer than "
             f"{max_side} px."
         )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the size and the limit, not from the message in `args`, so the error pickles."""
+        return type(self), (self.width, self.height, self.max_side), self.__dict__
+
+
+class ImageTimeoutError(WetterdienstError, TimeoutError):
+    """Raised when a chart was not rendered to an image in time, and the browser that draws it was closed (GH-3723).
+
+    Kaleido draws an image in a Chrome of its own. One that is stuck (a start that does not end, a page that is
+    never ready) used to hold the caller for ever. The render has `IMAGE_TIMEOUT` seconds, the start of the browser
+    included, and then the browser is shut down, its processes with it, so that nothing is left behind.
+
+    Neither the caller's mistake nor the provider's: the request was valid, the renderer of this machine did not
+    answer, and the same one can succeed on a retry. The REST API answers it with a 504 of the kind `image-timeout`
+    and the command line with one line, exit 1. A `TimeoutError` too.
+    """
+
+    def __init__(self, timeout: float | None) -> None:
+        """Keep the limit of the render, in seconds; None where a shorter wait of the browser's own ran out first."""
+        self.timeout = timeout
+        limit = "" if timeout is None else f" (the limit is {timeout:g} seconds)"
+        super().__init__(
+            f"The image was not rendered in time{limit}: the browser that draws it did not finish and was closed. "
+            "Try again; if it keeps happening, check that Chrome starts on this machine."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the seconds, not from the message in `args`, so the error pickles."""
+        return type(self), (self.timeout,), self.__dict__
+
+
+class UnknownFormatError(RequestError, KeyError):
+    """Raised when an output format is asked for that nothing here renders, naming it and the ones that are.
+
+    A `RequestError`, so a `ValueError` and what the REST API answers with a 400, and also the `KeyError`
+    that `to_format` and the charts raised before this class, so both `except KeyError` and `except ValueError`
+    still catch it. The alerts result raised a `ValueError`.
+    """
+
+    def __init__(self, fmt: str, supported: Sequence[str]) -> None:
+        """Keep the format that was asked for and the ones that are supported."""
+        self.fmt = fmt
+        self.supported = tuple(supported)
+        super().__init__(f"Unknown output format {fmt!r}: use one of {', '.join(self.supported)}")
+
+    def __str__(self) -> str:
+        """Give the message as it is, where a `KeyError` would give it in quotes."""
+        return Exception.__str__(self)
+
+    def __reduce__(self) -> tuple[type[Self], tuple[str, tuple[str, ...]], dict[str, object]]:
+        """Rebuild from the format and the list, as the message is no argument of the constructor.
+
+        The `__dict__` goes along, which is where a note added to the error (`__notes__`) is kept.
+        """
+        return type(self), (self.fmt, self.supported), self.__dict__
 
 
 class ExportRefusedError(WetterdienstError):

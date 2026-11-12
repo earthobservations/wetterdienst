@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.178.0 until the next release.
+The baselines are those of 0.186.0 until the next release.
 
 ## What counts as breaking
 
@@ -61,7 +61,8 @@ One list for every surface. A change of any of these to something a frozen surfa
 Not breaking, and so possible in a minor release:
 
 - adding an optional argument, parameter, option, command, tool, endpoint, member of an answer, column, environment
-  variable, enum member, exception class below an existing one, provider, network, dataset or parameter;
+  variable, enum member (not of `aggregation` or `timestamp_position`, which are closed), exception class below an
+  existing one, provider, network, dataset or parameter;
 - a new `warnings` code in the `metadata` block and a new problem `type`: a client reads the ones it knows, and the
   `status` of a problem is there for the rest;
 - improving a message, a description, a hint, the text of `--help`, the descriptions and instructions of the MCP
@@ -122,7 +123,10 @@ The frozen surface is the one a script is written against:
 - **the results**, `StationsResult`, `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult` and
   `HistoryResult`: their fields, their public methods and the signatures the [guide](python-api.md#results) shows.
   A result is frozen, built by keyword only, compares by what it holds and is unhashable; what the library keeps for
-  itself (`_df_all`, `_stations_filter`, `_rank`) is private;
+  itself (`_df_all`, `_stations_filter`, `_rank`) is private. The `FormattableResult` protocol is frozen with them:
+  `to_dict`, `to_json` and `to_format`, which each of the five satisfies. The alerts result of `dwd/alerts`
+  (`DwdWeatherAlertResult`) satisfies the protocol today but, like the radar result (which does not), is outside the
+  frozen results: its methods, its fields and what it writes may change in a minor release, announced in the changelog;
 - **the output schemas**: the columns, their dtypes and their order in the frame of the stations (`STATIONS_SCHEMA`),
   of the long and the wide values (`LONG_SCHEMA`, `WIDE_SCHEMA`), and of an interpolated and a summarized result.
   A column of its own that a provider adds to its stations frame is an addition;
@@ -157,9 +161,9 @@ baseline has the names.
 The command line is a client of the same functions as the REST API: it renders a result through the same code, so the
 same request gives the same output, and the options are the parameters of the REST API.
 
-- **Commands and options**: `about` (`auth`, `coverage`, `fields`, `glossary`, `providers`), `alerts`, `cache`,
-  `history`, `info`, `interpolate`, `issues`, `radar`, `restapi`, `stations`, `stripes` (`image`, `stations`),
-  `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+- **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `stripes`
+  (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
@@ -172,9 +176,17 @@ same request gives the same output, and the options are the parameters of the RE
   that cannot be served as phrased. No command has another code, and the three are frozen; a code of its own for an
   upstream failure would be a break. The table is on the [command line page](cli.md#exit-codes), and
   `tests/ui/test_exit_codes.py` holds every explicit exit to the status the REST API answers the same failure with.
-- **The environment**: the `WD_*` variables of the [settings](settings.md).
+- **The log**: `--quiet` (every command that has `--debug`, but `restapi`) writes the errors and the warnings about the
+  answer (those that are also in its `metadata.warnings`) and `Nothing was written to --target.` to stderr, and no
+  progress or other log line, and changes nothing else: stdout and the exit code are those of the command without
+  it, and an error is still written. It is a usage error with `--debug`. See [Logging](cli.md#logging).
+- **Colour**: the command line writes none of its own, and `NO_COLOR` (set, not empty) turns off what Python's
+  traceback and uvicorn's log would. See [Colour](cli.md#colour).
+- **The environment**: the `WD_*` variables of the [settings](settings.md), and `NO_COLOR`.
 
-Not frozen: the prose of `--help` and its examples, the sentences on stderr, and how click lays out its help.
+Not frozen: the prose of `--help` and its examples, the sentences on stderr (which warnings are written, not that
+errors are), how click lays out its help, and shell completion: what it offers is a convenience, built on click's
+own and the registry of providers, and not a contract.
 
 The help snapshot shows a removed option and does not refuse it, so `tests/baselines/test_baselines.py` holds the
 command line to `tests/baselines/cli.baseline.json`: a command, an option or a spelling of one that is gone, a changed
@@ -206,26 +218,39 @@ Frozen:
   `provider.license`, `request`, `counts`, `crs` and `warnings`, and the headers the OpenAPI document declares;
 - the **timestamp**: ISO 8601 in UTC, to the microsecond, with its offset.
 
-`tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed (`uv run poe openapi:snapshot` writes it
-anew), so that every change shows in a diff. `tests/ui/openapi.baseline.json` is the document of the last release, and
-`tests/ui/test_openapi_baseline.py` fails when the served document no longer offers something the baseline did: a
-path, a method, an `operationId`, a parameter and its type, an enum member, a status, a media type, a header, a member
-of an answer and its type, or a request that asks for more. Additions pass. A break that is meant is named in
-`ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with its reason, together with a **Breaking** changelog entry; the
-baseline is refreshed in each release commit and `ACCEPTED_BREAKS` emptied. From 1.0.0 a break of `/api/v1` is not
-made: it is `/api/v2`, and `/api/v1` is served for at least two minor releases after `/api/v2` appears, announced by
-the `Deprecation` and `Sunset` headers (see [Deprecation](restapi.md#deprecation)). The routes, the problem kinds and
-the statuses they are answered with are also held by `tests/ui/test_api_contract.py` and `tests/ui/test_operations.py`.
+`tests/ui/openapi.snapshot.json` is the OpenAPI document as last reviewed, without its `info.version`
+(`uv run poe openapi:snapshot` writes it anew), so that every change shows in a diff, and a release leaves it as it is.
+`tests/ui/openapi.baseline.json` is the document of the last release, and `tests/ui/test_openapi_baseline.py` fails
+when the served document no longer offers something the baseline did: a path, a method, an `operationId`, a parameter
+and its type, an enum member of a parameter or a request body, a status, a media type, a header, a member of an answer
+and its type, or a request that asks for more. Additions pass. A break that is meant is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py` with
+its reason, together with a **Breaking** changelog entry; the baseline is refreshed in each release commit and
+`ACCEPTED_BREAKS` emptied. From 1.0.0 a break of `/api/v1` is not made: it is `/api/v2`, and `/api/v1` is served for
+at least two minor releases after `/api/v2` appears, announced by the `Deprecation` and `Sunset` headers (see
+[Deprecation](restapi.md#deprecation)). The routes, the problem kinds and the statuses they are answered with are also
+held by `tests/ui/test_api_contract.py` and `tests/ui/test_operations.py`.
 
 A request is asked more of when a parameter, or a member of a request body, takes less than it did, and by convention
 that is a break: a changed `default` (what an omitted parameter means), a tighter bound (a larger `minimum`,
 `minLength` or `minItems`, a smaller `maximum`, `maxLength` or `maxItems`, a bound where there was none), a `pattern`
 that was added or changed, and an enum that lost members. `tests/ui/openapi_diff.py` holds it. A looser bound or no
-pattern is an addition and passes.
+pattern is an addition and passes. A response is widened when a union gains an alternative (`array` that becomes
+`array | null`, a member that may now be `null`), and that is a break like any changed type, since a client generated
+from the document must handle the new alternative, where the same alternative of a request is an addition. A response
+is narrowed when a union loses one (`number | null` that becomes `number`), and that is not a break, since a typed
+client already handles the case that no longer comes. An enum of a response that loses a member is no break either,
+where it is one for a request. A response enum that becomes a free string is a break, a type change for a typed client,
+while a new enum member stays allowed in a minor release, also when the document writes it as an alternative of its
+own. The two enums of a parameter's `aggregation` and `timestamp_position` are the exception: they are closed and
+complete at 1.0.0, and a member added to either in an answer after it is a break (`CLOSED_RESPONSE_ENUMS` in
+`tests/ui/openapi_diff.py` holds it).
 
-What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member,
-a problem kind, a warning `code`, a header, a looser bound; the `title`, `detail`, descriptions and examples of the
-document; and the defaults of the server's limits, which `GET /api/version` reports.
+What may change in a minor release: a new route, an optional query parameter, a member of an answer, an enum member
+(not of `aggregation` or `timestamp_position`, which are closed), a problem kind, a warning `code`, a header, a looser
+bound, the `max-age` of the routes that send one ([Caching](restapi.md#caching)); the `title`, `detail`, descriptions
+and examples of the
+document, and its `x-wetterdienst-selection` (the groups of exclusive parameters of an operation, informative: the
+refusal of a request is what is promised, see [The OpenAPI document](restapi.md#the-openapi-document)); and the defaults of the server's limits, which `GET /api/version` reports.
 
 Not yet held by a test: the check against the last release does not compare the formats, descriptions and examples
 of the document, nor the defaults and bounds of an answer; a change of what an answer means (a unit, a statistic)
@@ -294,6 +319,11 @@ whoever reports it. Frozen: a name that was released keeps meaning what it meant
   wrong one is announced as such in a minor release (see [Which release a break takes](#which-release-a-break-takes)).
 - **Timestamps** mean what [Time reference](../data/time_reference.md) says for each provider and resolution; a change
   of the stamp is breaking, and so is a correction of a wrong one, in a minor release.
+- **`aggregation` and `timestamp_position`** of a parameter (`coverage`, the `metadata` block of every answer that has one, and `glossary`, which has the
+  `aggregation` only) say what the value is relative to its interval and where its timestamp sits in it, and `null`
+  means not stated. A
+  `null` that becomes a value is an addition, and a value that changes is a correction, Breaking in a minor release,
+  as a stamp is. The two enums are closed at 1.0.0.
 - **Quality flags** are one string, `quality_flags`, of comma-separated tokens: the source's flag plain, further kinds
   as `kind:code`, the text of a missing value as the last token `raw:<text>`. What a code means is the provider's.
 
@@ -316,20 +346,34 @@ name as kept, and does not know how long ago it was renamed).
 ## Provider metadata, licence and credit line
 
 Every answer says where the data comes from and under what terms (`metadata.provider`, and `GET /api/providers`):
-`license` with `spdx_id`, `name` and `url`, `attribution`, `copyright`, the names and the country of the provider
-(`country_code` is null for a provider of several countries). The members are frozen with the answer's model. The
+`license` with `spdx_id`, `name` and `url`, `attribution`, `copyright`, the names and the country of the
+provider (`country_code` is null for a provider of several countries), and, beside `provider` in the block,
+`processing_note`. The members are frozen with the answer's model. The
 values are what the provider states, taken from its own terms: they change when a provider changes its terms or the
 library reads them more closely, which is a fix and not a break; `spdx_id` is null where the terms have none (ECCC,
-AEMET, IMGW, IPMA), and `license` is null only where a provider states no terms that could be read, which is then
+AEMET, IPMA, NWS), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
-data is the provider's, not wetterdienst's.
+data is the provider's, not wetterdienst's. `processing_note` was added as a member (an addition, after 0.183.0): one fixed text for every
+answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize` and for the
+headers of the climate stripes' image. Its wording may be improved, which is a fix; that an answer carries it is not
+changed. ECCC's `license` and `attribution` changed once, to the licence of the data server it is read from (a
+correction). Every provider's terms are listed on
+[licences and credit lines](../data/provider/licenses.md).
 
 `GET /api/providers` gives each network an `extent` (`scope`, `continents`, `country_codes`, `bbox`: where its stations are,
-see [Extent](restapi.md#extent)) and each dataset narrower than its network one of its own; `GET /api/coverage` gives
-the `scope` of each network and, of one network, the extent of each dataset. They are additive members (added after
-0.175.0). Their values are what the station lists show: they change when a list does (a network that reaches a new
-territory), which is a fix and not a break. `country_codes` is absent from an answer for a national or a country-less
-network, and `extent` from a dataset of `providers` that has its network's.
+see [Extent](restapi.md#extent)); `GET /api/coverage` gives, of one network, the extent of each dataset. They are
+additive members (added after 0.175.0). Their values are what the station lists show: they change when a list does (a
+network that reaches a new territory), which is a fix and not a break. `country_codes` is absent from an answer for a
+national or a country-less network.
+
+Of the members above, `attribution` is the credit line to cite, and `copyright` is the rights holder's notice, shown
+for information (DWD's `attribution` is "Source: Deutscher Wetterdienst", its `copyright` "© Deutscher Wetterdienst
+(DWD), Climate Data Center (CDC)"); the descriptions in the OpenAPI document, the MCP tools and `--help` say so, and
+the values are unchanged. `GET /api/providers` is the overview (who has which network, and whether each is `configured`)
+and `GET /api/coverage` the detail of one network (its resolutions, datasets and parameters, with `provider` and
+`network` required): the resolutions and datasets are not in `providers`, and `coverage` without a provider and network
+is refused with an error that names `providers`, both made before 1.0.0 so that 1.0.0 has this shape (see
+[Migrating](migrating.md#rest-api)).
 
 The date the source states for the data of an answer is `metadata.data_updated_at` (and the
 `X-Wetterdienst-Data-Updated-At` header, `data_updated_at` of the values results and of their `metadata` with

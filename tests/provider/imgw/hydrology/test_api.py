@@ -1,8 +1,16 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 """Tests for the IMGW hydrology API."""
 
+import csv
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -10,7 +18,9 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst.exceptions import DownloadError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyRequest
+from wetterdienst.util.network import File
 
 
 def _expected_station(resolution: str) -> pl.DataFrame:
@@ -28,6 +38,10 @@ def _expected_station(resolution: str) -> pl.DataFrame:
                 "elevation": None,
                 "name": "ŁAGISZA",
                 "region": None,
+                "river": "Przemsza (212)",
+                "river_kilometer": 41.66,
+                "gauge_zero": 260.124,
+                "gauge_zero_datum": None,
             },
         ],
         schema={
@@ -41,6 +55,10 @@ def _expected_station(resolution: str) -> pl.DataFrame:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "river": pl.String,
+            "river_kilometer": pl.Float64,
+            "gauge_zero": pl.Float64,
+            "gauge_zero_datum": pl.String,
         },
         orient="row",
     )
@@ -72,7 +90,7 @@ def test_imgw_hydrology_api_daily() -> None:
                 "dataset": "hydrology",
                 "parameter": "stage",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 164.0,
+                "value": 1.64,
                 "quality_flags": None,
             },
         ],
@@ -134,7 +152,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "dataset": "hydrology",
                 "parameter": "stage_max",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 264.0,
+                "value": 2.64,
                 "quality_flags": None,
             },
             {
@@ -143,7 +161,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "dataset": "hydrology",
                 "parameter": "stage_mean",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 199.0,
+                "value": 1.99,
                 "quality_flags": None,
             },
             {
@@ -152,7 +170,7 @@ def test_imgw_hydrology_api_monthly() -> None:
                 "dataset": "hydrology",
                 "parameter": "stage_min",
                 "timestamp": dt.datetime(2010, 6, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 149.0,
+                "value": 1.49,
                 "quality_flags": None,
             },
         ],
@@ -201,7 +219,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
                 "dataset": "hydrology",
                 "parameter": "stage",
                 "timestamp": dt.datetime(2023, 11, 1, tzinfo=ZoneInfo("UTC")),
-                "value": 113.0,
+                "value": 1.13,
                 "quality_flags": None,
             },
         ],
@@ -235,25 +253,56 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
         assert discharge.get_column("value").to_list() == [expected_max, expected_mean, expected_min]
 
 
+@pytest.mark.remote
+def test_imgw_hydrology_archive_list_of_stations_gives_no_position() -> None:
+    """The archive's list of stations has no position, so a station only in the archive has no row (GH-3611).
+
+    The provider page says so. The day IMGW adds a latitude and longitude to it, this fails, and the stations that
+    are in the archive but not in the station-code list can get a row from it.
+    """
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.metadata.cache import CacheExpiry  # noqa: PLC0415
+    from wetterdienst.util.network import download_file  # noqa: PLC0415
+
+    settings = Settings()
+    file = download_file(
+        url="https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/lista_stacji_hydro.csv",
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    file.raise_if_exception()
+    assert isinstance(file.content, BytesIO)
+    # whatever the encoding, a BOM and a re-encoding of the names are not what this test is about
+    text = file.content.read().decode("cp1250", errors="replace").lstrip("\ufeff")
+    rows = [[field.strip() for field in row] for row in csv.reader(text.splitlines())]
+    # the 9-character code, the name, the river and IMGW's hydro code; no coordinates
+    assert len(rows) > 1000
+    assert {len(row) for row in rows} == {4}
+    assert all(row[0].isdigit() and len(row[0]) == 9 for row in rows)
+    assert all(row[3].isdigit() for row in rows)
+
+
 def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """A download that failed for any reason but a 404 is raised, not dropped as a missing file (GH-2430)."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
-    from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
     from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
-    from wetterdienst.util.network import File  # noqa: PLC0415
 
     missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
     values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
-    monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset: {"unused": CacheExpiry.FIVE_MINUTES})
     dataset = ImgwHydrologyMetadata.daily.hydrology
-    monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing, failed])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing, failed])
     with pytest.raises(DownloadError):
         values._collect_station_parameter_or_dataset("149180020", dataset)  # noqa: SLF001
-    monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing])
+    monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("149180020", dataset).is_empty()  # noqa: SLF001
 
 
@@ -262,14 +311,12 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
 
     The schema of the reader names the columns ``column_1`` and on, which polars 2 no longer does by itself.
     """
-    from io import BytesIO  # noqa: PLC0415
     from types import SimpleNamespace  # noqa: PLC0415
     from zipfile import ZipFile  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
-    from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw import fileindex as imgw_fileindex  # noqa: PLC0415
     from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
-    from wetterdienst.util.network import File  # noqa: PLC0415
 
     # station, name, river, hydrological year, month, day, stage, discharge, water temperature
     csv = "149180020,CHALUPKI,Odra,2023,03,15,141,12.5,9.9\n149180020,CHALUPKI,Odra,2023,03,16,150,13.5,9999\n"
@@ -284,9 +331,9 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
         parameters=[],
         options=SimpleNamespace(drop_nulls_effective=False),
     )
-    monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset: {"unused": CacheExpiry.FIVE_MINUTES})
     monkeypatch.setattr(
-        imgw_hydrology_api,
+        imgw_fileindex,
         "download_files",
         lambda **_kwargs: [File(url="https://example.invalid/codz_2023.zip", content=buffer, status=200)],
     )
@@ -307,7 +354,7 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
 def _hydrology_urls(
     monkeypatch: pytest.MonkeyPatch, dataset_resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
 ) -> list[str]:
-    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    """Run the file selection of ``_get_archives`` on a listing, for a window of UTC instants."""
     from types import SimpleNamespace  # noqa: PLC0415
 
     from wetterdienst import Settings  # noqa: PLC0415
@@ -318,7 +365,7 @@ def _hydrology_urls(
     values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(imgw_hydrology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
     dataset = getattr(ImgwHydrologyMetadata, dataset_resolution).hydrology
-    return values._get_urls(dataset)  # noqa: SLF001
+    return list(values._get_archives(dataset))  # noqa: SLF001
 
 
 def _utc(*args: int) -> dt.datetime:
@@ -385,3 +432,58 @@ def test_imgw_hydrology_a_file_name_without_a_period_is_an_error(monkeypatch: py
     files = ["https://example.invalid/mies_2023.zip", "https://example.invalid/mies_xx.zip"]
     with pytest.raises(ValueError, match=r"mies_xx\.zip"):
         _hydrology_urls(monkeypatch, "monthly", files, _utc(2023, 1, 1), _utc(2023, 2, 1))
+
+
+_STATION_LIST_HEADER = (
+    "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+    "Rzędna zera wodowskazu;Kilometr biegu rzeki\r\n"
+)
+
+
+def _serve_station_list(monkeypatch: pytest.MonkeyPatch, rows: str) -> None:
+    catalogue = _STATION_LIST_HEADER + rows
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.hydrology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+
+def test_imgw_hydrology_station_list_gives_the_river_its_kilometre_and_the_gauge_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the river, its kilometre and the gauge zero of the list are the columns wsv/pegel names (GH-3599).
+
+    The kilometre is measured from the river's mouth and the gauge zero is in metres above sea level, negative on
+    the Baltic coast; the founding year ("Rok założenia") is left out. Where the list leaves a field empty, the
+    column is null, and it states no datum, so `gauge_zero_datum` is null.
+    """
+    _serve_station_list(
+        monkeypatch,
+        "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
+        "791;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
+        "776;154150060;Rościęcino;Parsęta (44);2024;54 06 55;15 36 26;;12.47\r\n"
+        "634;153140010;Świnoujście;Morze Bałtyckie (0);1810;53 54 30;14 15 52;-4.915;0.0\r\n",
+    )
+
+    df = ImgwHydrologyRequest(parameters=[("daily", "hydrology")]).all().df
+
+    assert df.select("station_id", "river", "river_kilometer", "gauge_zero", "gauge_zero_datum").rows() == [
+        ("149180010", "Odra (1)", 713.04, 184.806, None),
+        ("154160150", "Morze Bałtyckie (0)", None, -4.904, None),
+        ("154150060", "Parsęta (44)", 12.47, None, None),
+        ("153140010", "Morze Bałtyckie (0)", 0.0, -4.915, None),
+    ]
+    assert df.schema["river"] == pl.String
+    assert df.schema["river_kilometer"] == pl.Float64
+    assert df.schema["gauge_zero"] == pl.Float64
+    assert df.schema["gauge_zero_datum"] == pl.String
+    assert "founding_year" not in df.columns
+
+
+def test_imgw_hydrology_station_list_reads_what_is_no_number_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a gauge zero or kilometre that is no number is null and does not fail the station list."""
+    _serve_station_list(monkeypatch, "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;brak;713.04\r\n")
+
+    df = ImgwHydrologyRequest(parameters=[("daily", "hydrology")]).all().df
+
+    assert df.select("gauge_zero", "river_kilometer").rows() == [(None, 713.04)]

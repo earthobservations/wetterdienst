@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,7 +27,6 @@ from wetterdienst.util.network import (
 )
 
 if TYPE_CHECKING:
-    import os
     from collections.abc import Iterator
     from pathlib import Path
 
@@ -262,6 +262,8 @@ def _expire(url: str, cache_dir: Path) -> None:
     entries = json.loads(metadata_file.read_text(encoding="utf-8"))
     entries[url]["time"] = 0
     metadata_file.write_text(json.dumps(entries), encoding="utf-8")
+    # the blob as well: a blob written within the expiry is kept whatever its row says (GH-3485)
+    os.utime(metadata_file.parent / entries[url]["fn"], (0, 0))
     filesystem.load_cache()
 
 
@@ -358,6 +360,8 @@ def test_the_sweep_of_expired_copies_takes_their_sidecars(source: ThreadingHTTPS
     entries = json.loads(metadata_file.read_text(encoding="utf-8"))
     entries[url]["time"] = 0
     metadata_file.write_text(json.dumps(entries), encoding="utf-8")
+    # the blob as well: a blob written within the expiry is kept whatever its row says (GH-3485)
+    os.utime(metadata_file.parent / entries[url]["fn"], (0, 0))
     filesystem.load_cache()
 
     # another entry, so that the sweep leaves a row in the file and the dates of the other copy are the ones kept

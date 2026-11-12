@@ -26,6 +26,8 @@ from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
+    import polars as pl
+
     from wetterdienst import Settings
 
 # Readings of flow-m-86400 at station 052d0819-2a32-47df-9b99-c243c9c8235b, as the readings endpoint answers them: the
@@ -276,7 +278,12 @@ def test_ea_reading_quality_word_is_kept_in_quality_flags(
         settings=default_settings,
     )
     df = request.all().values().all().df.sort("timestamp")
-    assert df.select("value", "quality_flags").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
+    # `Suspect` is the source's own verdict, which the check `source` flags (GH-3677); the other words are none
+    assert df.select("value", "quality_flags").rows() == [
+        (0.448, "Good"),
+        (0.359, "Suspect,suspect:source"),
+        (0.304, "Estimated"),
+    ]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
 
@@ -311,8 +318,48 @@ def test_ea_reading_completeness_follows_the_quality_word_in_quality_flags(
         "Good,completeness:Complete",
         "Good,completeness:Incomplete",
         "Missing,completeness:Incomplete",
-        "Suspect",
+        "Suspect,suspect:source",
         "completeness:Complete",
+    ]
+
+
+def test_ea_suspect_reading_is_flagged_by_the_check_source_and_nulled_where_it_is_hard(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that `Suspect`, the one word of the `quality` of a reading that is a verdict, is judged (GH-3677).
+
+    The reference words it as "quality: The quality of this reading: Good, Estimated, Suspect, Unchecked, Missing"
+    (https://environment.data.gov.uk/hydrology/doc/reference#readings-section). The API returns such a reading with its
+    value (2026-11-02: 48 of the 2,000 readings of 2024-01-01 are `Suspect`, `{"value": 0.411, "qcode": "Edited",
+    "quality": "Suspect"}` among them). Soft, the default, keeps the value and flags it; hard nulls it and keeps what
+    the source wrote. `Estimated` and `Unchecked` say no verdict and stay as they are in both modes.
+    """
+    readings = [
+        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Unchecked", "completeness": "Complete"},
+        {"dateTime": "2025-06-11T09:00:00", "value": 0.411, "quality": "Suspect", "completeness": "Complete"},
+        {"dateTime": "2025-06-12T09:00:00", "value": 0.304, "quality": "Estimated", "completeness": "Complete"},
+    ]
+    _serve(monkeypatch, "flow-m-86400", readings)
+
+    def values(plausibility: dict[str, str]) -> pl.DataFrame:
+        request = EAHydrologyRequest(
+            parameters=[("daily", "data", "discharge_mean")],
+            start="2025-06-10",
+            end="2025-06-12",
+            settings=default_settings,
+            options={"drop_nulls": False, "plausibility": plausibility},
+        )
+        return request.all().values().all().df.sort("timestamp")
+
+    assert values({}).select("value", "quality_flags").rows() == [
+        (0.448, "Unchecked,completeness:Complete"),
+        (0.411, "Suspect,completeness:Complete,suspect:source"),
+        (0.304, "Estimated,completeness:Complete"),
+    ]
+    assert values({"source": "hard"}).select("value", "quality_flags").rows() == [
+        (0.448, "Unchecked,completeness:Complete"),
+        (None, "Suspect,completeness:Complete,rejected:source,raw:0.411"),
+        (0.304, "Estimated,completeness:Complete"),
     ]
 
 

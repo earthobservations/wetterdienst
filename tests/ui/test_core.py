@@ -274,16 +274,19 @@ def test_stripes_selection(
     assert _errors(model, values) == errors
 
 
-def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]) -> None:
-    """Serve these annual values, by year, as the one station any stripes request finds."""
+def _stripes_of(
+    monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None], flags: dict[int, str] | None = None
+) -> None:
+    """Serve these annual values, by year, as the one station any stripes request finds, with the flags by year."""
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
 
     frame = pl.DataFrame(
         {
             "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
             "value": list(values.values()),
+            "quality_flags": [(flags or {}).get(year) for year in values],
         },
-        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
+        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64, "quality_flags": pl.String},
     )
     # read with the parameter and options of the real request, which the metadata names the unit by
     real = core._get_stripes_temperature_request()  # noqa: SLF001
@@ -297,7 +300,7 @@ def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]
         options=real.options,
     )
     request = SimpleNamespace(filter_by_station_id=lambda _station: stations)
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
+    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
 
 
 def test_stripes_are_scaled_over_the_years_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -337,6 +340,26 @@ def test_stripes_need_two_years_with_data(
         _get_stripes_data(request)
 
 
+def test_stripes_leave_out_a_value_a_soft_check_flagged_suspect(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A year whose value is flagged `suspect:` is a year without data, whatever the mode of the check (GH-3676).
+
+    The 4021 of 2002 would have set the scale of the whole series; flagged suspect, the colours are scaled over the
+    three years that are left, and the year shows as a gap. The flag of a code (`raw:`) and the station's own are no
+    suspicion.
+    """
+    values = {2000: 1.0, 2001: 2.0, 2002: 4021.0, 2003: 3.0, 2004: 4.0}
+    _stripes_of(monkeypatch, values, {2002: "3,suspect:range", 2000: "3,raw:-999", 2001: "3"})
+    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
+    assert df.get_column("timestamp").dt.year().to_list() == [2000, 2001, 2002, 2003, 2004]
+    assert df.get_column("value").to_list() == [1.0, 2.0, None, 3.0, 4.0]
+    assert df.get_column("value_scaled").to_list() == [1.0, pytest.approx(2 / 3), None, pytest.approx(1 / 3), 0.0]
+    # the control: with no flag the value is a year of the series
+    _stripes_of(monkeypatch, values)
+    assert _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df.get_column(
+        "value"
+    ).to_list() == list(values.values())
+
+
 def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test years all of one value are scaled to 0.5, not divided by a range of zero into NaN."""
     _stripes_of(monkeypatch, {2019: 700.0, 2020: 700.0})
@@ -354,6 +377,38 @@ def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPat
     request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
     df = _get_stripes_data(request).df
     assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
+
+
+def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the colours, scaled over the years, and the order of the years do not change with the unit (GH-3980).
+
+    The values come back in the unit asked for, the series names it, and `value_scaled`, which the colours are
+    taken from, is the same in degree Celsius, degree Fahrenheit and kelvin up to the rounding of the conversion.
+    """
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    celsius = [1.23, 5.5, -2.1, 9.87, 7.0, 3.3, 8.8]
+    _stub_stripes_station(monkeypatch, "temperature", celsius)
+    request = {"kind": "temperature", "station": "01048"}
+
+    default = _get_stripes_data(StripesValuesRequest(**request))
+    fahrenheit = _get_stripes_data(StripesValuesRequest(**request, unit_targets={"temperature": "degree_fahrenheit"}))
+    kelvin = _get_stripes_data(StripesValuesRequest(**request, unit_targets='{"temperature": "degree_kelvin"}'))
+
+    assert (default.series.unit, fahrenheit.series.unit, kelvin.series.unit) == (
+        "degree_celsius",
+        "degree_fahrenheit",
+        "degree_kelvin",
+    )
+    assert default.df.get_column("value").to_list() == pytest.approx(celsius)
+    assert fahrenheit.df.get_column("value").to_list() == pytest.approx([c * 1.8 + 32 for c in celsius], abs=1e-3)
+    for other in (fahrenheit, kelvin):
+        assert other.df.get_column("value_scaled").to_list() == pytest.approx(
+            default.df.get_column("value_scaled").to_list(), abs=1e-3
+        )
+        assert other.df.get_column("timestamp").to_list() == default.df.get_column("timestamp").to_list()
+        # the order of the years, which the colours rank
+        assert other.df.get_column("value").arg_sort().to_list() == default.df.get_column("value").arg_sort().to_list()
 
 
 @pytest.mark.parametrize(
@@ -664,6 +719,8 @@ def test_debug_is_refused_as_removed(
         for old, new in (("station", "stations"), ("parameter", "parameters"), ("period", "periods"))
         # a history request takes no periods, so there the singular is an input it does not know
         if new in model.model_fields
+        # and only a route that had the singular in 0.139.0 was renamed: all three took `parameters` and `periods` then
+        if old in core.old_names_of_route(model.route)
     ],
 )
 def test_a_list_by_its_singular_name_is_refused_naming_the_plural(
@@ -692,17 +749,21 @@ def test_the_one_station_a_request_takes_is_not_a_renamed_list(model: type) -> N
     assert "renamed" not in types
 
 
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [("resolution", "resolutions"), ("dataset", "datasets")],
-)
-def test_coverage_refuses_the_singular_of_its_lists_naming_the_plural(old: str, new: str) -> None:
-    """Test the resolutions and datasets of a coverage are plural, and the singular is refused naming them (GH-2561)."""
+@pytest.mark.parametrize("old", ["resolution", "dataset"])
+def test_coverage_never_had_the_singular_of_its_lists(old: str) -> None:
+    """Test the singular is no rename on `coverage`, which took `resolutions` and `datasets` in 0.139.0 (GH-3869)."""
     with pytest.raises(ValidationError) as error:
         core.CoverageRequest.model_validate({"provider": "dwd", "network": "observation", old: "x"})
-    assert [(e["type"], e["loc"], e["msg"]) for e in error.value.errors(include_url=False)] == [
-        ("renamed", (old,), f"{old} was renamed to {new}")
-    ]
+    assert [(e["type"], e["loc"]) for e in error.value.errors(include_url=False)] == [("extra_forbidden", (old,))]
+
+
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest, HistoryRequest])
+@pytest.mark.parametrize("old", ["parameter", "period"])
+def test_a_route_that_took_the_plural_in_0_139_0_never_had_the_singular(model: type, old: str) -> None:
+    """Test `parameter` and `period` are no old names of the routes that took the plurals already (GH-3869)."""
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**_BASE, "all": True, old: "x"})
+    assert [(e["type"], e["loc"]) for e in error.value.errors(include_url=False)] == [("extra_forbidden", (old,))]
 
 
 # what each class of `exceptions.py` is answered with, by name so that a class added to the module
@@ -716,6 +777,7 @@ _STATUS_OF = {
     "DateRequiredError": 400,
     "DownloadError": 502,
     "ExportRefusedError": 500,
+    "ImageTimeoutError": 504,
     "ImageTooLargeError": 400,
     "InvalidBoundingBoxError": 400,
     "InvalidEnumerationError": 400,
@@ -741,7 +803,9 @@ _STATUS_OF = {
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
+    "StationListingIncompleteError": 502,
     "StationNotFoundError": 404,
+    "UnknownFormatError": 400,
     "UpstreamError": 502,
     "WetterdienstError": 500,
 }

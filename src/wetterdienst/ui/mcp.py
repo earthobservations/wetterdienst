@@ -13,9 +13,14 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - a ``title`` and the annotations (read-only, not destructive, idempotent, open world or not) on every
   tool, which the Claude connectors directory requires and clients use to skip a confirmation (GH-3482),
 - the refusal of an argument a tool does not take, which FastMCP would drop,
+- an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
+  JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
+- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg, webp and pdf of a chart) as
+  content of the tool result: FastMCP answers a text body without structured content, which the output schema of
+  the tool refuses, and fails on a binary one (GH-3464),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
   not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
-- exclusion of the non-data endpoints (index, robots, health, version, settings) so the tool
+- exclusion of the non-data endpoints (index, robots, health, ready, version, settings) so the tool
   list stays focused. The settings a data tool used come back in its own answer with
   ``with_metadata``.
 
@@ -25,7 +30,10 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import TYPE_CHECKING
+from urllib.parse import unquote
 
 from wetterdienst import __version__
 
@@ -44,6 +52,7 @@ if TYPE_CHECKING:
     )
     from fastmcp.tools import ToolResult
     from fastmcp.utilities.openapi import HTTPRoute
+    from httpx2 import AsyncBaseTransport
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Internal ASGI base URL for the in-process httpx2 client that backs the tools.
@@ -74,8 +83,15 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
     """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
 
     async def marked(scope: Scope, receive: Receive, send: Send) -> None:
+        from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        await app(scope, receive, send)
+        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464)
+        token = HTML_PLOTLYJS.set("cdn")
+        try:
+            await app(scope, receive, send)
+        finally:
+            HTML_PLOTLYJS.reset(token)
 
     return marked
 
@@ -93,7 +109,7 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
             parameters="daily/climate_summary/temperature_air_mean_2m",
             stations="01975", periods="recent")
 
-The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `coverage`). Without \
+The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `providers`). Without \
 a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
      stations(provider=<provider>, network=<network>, parameters=<parameters>, latitude=<lat>, longitude=<lon>, rank=3)
 A provider's `country` is its operator's, NOT the extent of its data: never conclude from it that a network \
@@ -115,26 +131,28 @@ plain-language "summary". `history` is different again: it returns a station's *
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
-knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
-does this provider have". `providers` answers what a provider *is* -- the country of its operator (not \
-where its stations are), the licence its data is published under and the credit line to give, and what \
-its networks offer, with the `extent` of each (where its stations are) -- and is the tool for "may I reuse this \
-data" and "which providers' networks reach a place".
+knows nothing about providers or stations, so `coverage` (one network) remains the tool for "which \
+parameters does it have". `providers` answers what a provider *is* -- the country of its operator (not \
+where its stations are), the licence of its data and the credit line to cite \
+(`attribution`, not `copyright`), and its networks with the `extent` of each -- and is the tool for \
+"may I reuse this data" and "which providers' networks reach a place".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
 them or none are configured, and null when that could not be told (treat it as unknown, not as \
-rejected). `coverage` does not check them and has no `valid`: it says whether they are `configured`.
+rejected). `providers` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \
-`coverage` with no arguments to list every provider/network.
+`providers` to list every provider and its networks.
 - parameters: "resolution/dataset" (e.g. "daily/kl") for a whole dataset, or \
 "resolution/dataset/parameter" (e.g. "daily/climate_summary/temperature_air_mean_2m") for a single \
 measurement. Prefer the single-measurement form to keep responses small. Parameter names are \
 snake_case; `coverage(provider="dwd", network="observation", datasets="climate_summary")` lists them. \
 Its answer is keyed by resolution, then `datasets`, then each dataset's `parameters`, and every one \
-of those three levels carries a `description` saying what the source means by it.
+of those three levels carries a `description` saying what the source means by it. `unit` is what `values` \
+return; `unit_source` only if it differs. Each parameter has `aggregation` \
+(its `instant` is a single reading) and `timestamp_position`; `null` means not stated, not a reading.
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
 above it get different answers from the same stations; without it the readings are used as they \
@@ -185,6 +203,7 @@ _EXCLUDE_PATTERNS = (
     r"^/$",
     r"^/robots\.txt$",
     r"^/health$",
+    r"^/ready$",
     r"^/api(/v1)?/version$",
     r"^/api(/v1)?/settings$",
 )
@@ -217,7 +236,7 @@ _TOOL_NAMES = {
 # listing or the values -- or probes it (`auth`, the one call that does so to check the credentials).
 _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "auth": ("Check provider credentials", True),
-    "coverage": ("List available data", False),
+    "coverage": ("List a network's datasets and parameters", False),
     "glossary": ("Look up a parameter", False),
     "providers": ("Describe data providers", False),
     "stations": ("Find stations", True),
@@ -284,6 +303,7 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
         REMOVED_REQUEST_PARAMETERS,
         RENAMED_REQUEST_PARAMETERS,
         join_names,
+        old_names_of_route,
         removed_parameter_message,
     )
 
@@ -299,7 +319,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             if tool is not None:
                 taken = tool.parameters.get("properties", {})
                 unknown = [name for name in arguments if name not in taken]
-                renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken]
+                # a name the tool's route never had is no old name of one it has (`stations` never took `date`)
+                had = old_names_of_route(tool.name)
+                renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken and name in had]
                 refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
                 removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
                 refused += [removed_parameter_message(name) for name in removed]
@@ -313,6 +335,260 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
             return await call_next(context)
 
     return RefuseUnknownArguments()
+
+
+def _require_a_network_for_coverage() -> Middleware:
+    """Build the middleware that tells a `coverage` call without `provider` or `network` what to call instead.
+
+    `coverage` listed every provider and its networks until 1.0.0; that is the tool `providers` now (GH-3996), and
+    the schema of the tool, which has both arguments required, would only say that one is missing.
+    """
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+
+    from wetterdienst.ui.core import coverage_needs_a_network  # noqa: PLC0415
+
+    class RequireANetworkForCoverage(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            if context.message.name == "coverage":
+                arguments = context.message.arguments or {}
+                if not arguments.get("provider") or not arguments.get("network"):
+                    raise ToolError(coverage_needs_a_network("the tool `providers`"))
+            return await call_next(context)
+
+    return RequireANetworkForCoverage()
+
+
+def _is_object(schema: dict[str, Any], definitions: dict[str, Any], seen: frozenset[str] = frozenset()) -> bool:
+    """Tell whether a schema says its value may be an object.
+
+    It is one, or one of the options of its `anyOf`, `oneOf` or `allOf` is, or its `$ref` names one, at any depth.
+    """
+    kind = schema.get("type")
+    if kind == "object" or (isinstance(kind, list) and "object" in kind):
+        return True
+    if (ref := schema.get("$ref")) is not None:
+        name = ref.rsplit("/", 1)[-1]
+        return name not in seen and name in definitions and _is_object(definitions[name], definitions, seen | {name})
+    return any(
+        _is_object(option, definitions, seen) for key in ("anyOf", "oneOf", "allOf") for option in schema.get(key, [])
+    )
+
+
+def _object_arguments(schema: dict[str, Any]) -> set[str]:
+    """Name the arguments of a tool whose schema says they are an object, whether or not they may also be null."""
+    definitions = {**schema.get("$defs", {}), **schema.get("definitions", {})}
+    return {name for name, argument in schema.get("properties", {}).items() if _is_object(argument, definitions)}
+
+
+def _send_objects_as_json(provider: OpenAPIProvider) -> Middleware:
+    """Build the middleware that sends an argument that is an object to the endpoint as its JSON text.
+
+    The endpoint takes a mapping (`unit_targets`, `limits`, the station distances) as one query parameter holding
+    its JSON, and the tool advertises it as an object, which tells a model its shape. FastMCP sends an object as the
+    OpenAPI default says, one query parameter for each key (`?temperature=degree_fahrenheit`), which the endpoint
+    refuses as parameters it does not take, a 422 (GH-3737). The object is made its JSON text before the call. The
+    arguments that are objects are the ones the schema of the tool says so of, so that a mapping a later endpoint
+    takes is covered; a JSON text given as the argument is left as it is.
+    """
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+
+    class SendObjectsAsJson(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            arguments = context.message.arguments or {}
+            # a call without arguments has none to send, and one to no tool is FastMCP's to refuse
+            tool = await provider.get_tool(context.message.name) if arguments else None
+            if tool is not None:
+                objects = _object_arguments(tool.parameters)
+                sent = {
+                    name: json.dumps(value)
+                    for name, value in arguments.items()
+                    if name in objects and isinstance(value, dict)
+                }
+                if sent:
+                    message = context.message.model_copy(update={"arguments": {**arguments, **sent}})
+                    context = context.copy(message=message)
+            return await call_next(context)
+
+    return SendObjectsAsJson()
+
+
+# The key of the JSON that carries an answer which is not JSON from the REST app to the tool result.
+_BODY_KEY = "x-wetterdienst-body"
+# The headers of the REST answer that say whose data it is and what to know about it: for the formats with no body to
+# put the `metadata` block in, they are all of it. Carried in the envelope, and told in the result.
+_REPORTING_HEADERS = (
+    "x-wetterdienst-license",
+    "link",
+    "x-wetterdienst-attribution",
+    "x-wetterdienst-processing",
+    "x-wetterdienst-warnings",
+)
+# The media types that are text though they are not `text/*`.
+_TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
+
+
+def _is_json(media_type: str) -> bool:
+    return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _is_text(media_type: str) -> bool:
+    return media_type.startswith("text/") or media_type in _TEXT_MEDIA_TYPES
+
+
+def _decode(body: bytes, charset: str | None) -> str:
+    """Decode a text body with the charset its media type names, UTF-8 where it names none or one unknown."""
+    try:
+        return body.decode(charset or "utf-8", errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
+
+
+def _carry_bodies_as_json(inner: AsyncBaseTransport) -> AsyncBaseTransport:
+    """Wrap the transport of the tools so that an answer that is not JSON reaches the tool as JSON that holds it.
+
+    FastMCP's tool for a route reads the answer as JSON. A text body it passes on as text content without structured
+    content, which the output schema of the tool refuses ("has an output schema but did not return structured
+    content"), and a binary body it fails to decode. So the body is put in a JSON object,
+    `{_BODY_KEY: {"media_type", "encoding", "body"}}`, which `_return_bodies_as_content` takes apart again into the
+    content blocks of the result (GH-3464). A failure (not a 2xx) is left as it is.
+    """
+    import httpx2  # noqa: PLC0415
+
+    class CarryBodiesAsJson(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+            response = await inner.handle_async_request(request)
+            media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            if not 200 <= response.status_code < 300 or not media_type or _is_json(media_type):
+                return response
+            body = await response.aread()
+            await response.aclose()
+            text = _is_text(media_type)
+            envelope = {
+                _BODY_KEY: {
+                    "media_type": media_type,
+                    "size": len(body),
+                    "headers": {
+                        name: response.headers[name] for name in _REPORTING_HEADERS if name in response.headers
+                    },
+                    "encoding": "text" if text else "base64",
+                    "body": _decode(body, response.charset_encoding)
+                    if text
+                    else base64.b64encode(body).decode("ascii"),
+                }
+            }
+            return httpx2.Response(
+                response.status_code,
+                headers={"content-type": "application/json"},
+                content=json.dumps(envelope).encode("utf-8"),
+                request=request,
+            )
+
+        async def aclose(self) -> None:
+            await inner.aclose()
+
+    return CarryBodiesAsJson()
+
+
+def _report_of(headers: dict[str, str]) -> dict[str, Any]:
+    """Read the licence, credit line, processing note and warnings off the headers of an answer, as text."""
+    report: dict[str, Any] = {}
+    if license_ := headers.get("x-wetterdienst-license"):
+        report["license"] = unquote(license_)
+        if (link := headers.get("link")) and link.startswith("<") and ">" in link:
+            report["license_url"] = link[1 : link.index(">")]
+    if attribution := headers.get("x-wetterdienst-attribution"):
+        report["attribution"] = unquote(attribution)
+    if processing := headers.get("x-wetterdienst-processing"):
+        report["processing_note"] = unquote(processing)
+    if warnings := headers.get("x-wetterdienst-warnings"):
+        report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
+    return report
+
+
+def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) -> str:
+    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result."""
+    sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+    if "license" in report:
+        url = f" ({report['license_url']})" if "license_url" in report else ""
+        sentence += f" Licence: {report['license']}{url}."
+    if "attribution" in report:
+        sentence += f" Attribution: {report['attribution'].rstrip('.')}."
+    if "processing_note" in report:
+        sentence += f" {report['processing_note']}"
+    if "warnings" in report:
+        sentence += f" Warnings: {', '.join(report['warnings'])}."
+    return sentence
+
+
+def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
+    """Find the body `_carry_bodies_as_json` put in the structured content of a tool result, None if there is none."""
+    structured = result.structured_content
+    if not isinstance(structured, dict):
+        return None
+    # wrapped as `result` where the tool has an output schema that says so
+    candidate = structured.get(_BODY_KEY)
+    if candidate is None and isinstance(structured.get("result"), dict):
+        candidate = structured["result"].get(_BODY_KEY)
+    return candidate if isinstance(candidate, dict) else None
+
+
+def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
+    """Build the middleware that makes the body of an answer that is not JSON the content of the tool result.
+
+    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
+    webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
+    the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
+    processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
+    has one admits a string as its `result` (the `str` of the REST route's response model), and the body is not
+    repeated in it. The same, structured, is in the `_meta` of the result under `wetterdienst`.
+    """
+    from fastmcp.server.middleware import Middleware  # noqa: PLC0415
+    from fastmcp.tools import ToolResult  # noqa: PLC0415
+    from mcp_types import BlobResourceContents, EmbeddedResource, ImageContent, TextContent  # noqa: PLC0415
+
+    class ReturnBodiesAsContent(Middleware):
+        async def on_call_tool(
+            self,
+            context: MiddlewareContext[Any],
+            call_next: CallNext[Any, ToolResult],
+        ) -> ToolResult:
+            result = await call_next(context)
+            envelope = _envelope_of(result)
+            if envelope is None:
+                return result
+            media_type, body, size = envelope["media_type"], envelope["body"], envelope["size"]
+            if envelope["encoding"] == "text":
+                block = TextContent(type="text", text=body)
+                kind = "text content"
+            elif media_type.startswith("image/"):
+                block = ImageContent(type="image", data=body, mime_type=media_type)
+                kind = "image content"
+            else:
+                block = EmbeddedResource(
+                    type="resource",
+                    resource=BlobResourceContents(uri="wetterdienst://answer", mime_type=media_type, blob=body),
+                )
+                kind = "an embedded resource"
+            report = _report_of(envelope["headers"])
+            tool = await provider.get_tool(context.message.name)
+            structured = None
+            if tool is not None and tool.output_schema is not None:
+                structured = {"result": _sentence_of(media_type, size, kind, report)}
+            # also where the tool has no output schema to put the sentence in
+            return ToolResult(
+                content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
+            )
+
+    return ReturnBodiesAsContent()
 
 
 def build_mcp_server(rest_app: FastAPI) -> FastMCP:
@@ -342,7 +618,9 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     # tool error then carries the exception's own text -- a path of the server, say -- which the
     # REST API deliberately hides (GH-2767, GH-2984)
     client = httpx2.AsyncClient(
-        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False),
+        transport=_carry_bodies_as_json(
+            httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False)
+        ),
         base_url=_ASGI_BASE_URL,
     )
     provider = OpenAPIProvider(
@@ -370,5 +648,10 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         providers=[provider],
         lifespan=lifespan,
-        middleware=[_refuse_unknown_arguments(provider)],
+        middleware=[
+            _refuse_unknown_arguments(provider),
+            _require_a_network_for_coverage(),
+            _send_objects_as_json(provider),
+            _return_bodies_as_content(provider),
+        ],
     )

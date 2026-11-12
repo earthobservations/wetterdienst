@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 import polars as pl
 import portion
 
+from wetterdienst.exceptions import MetaFileFormatError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
@@ -20,11 +21,16 @@ from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
+from wetterdienst.provider.imgw.fileindex import (
+    archive_expiries,
+    download_archives,
+    keep_files_overlapping,
+    list_files_for_interval,
+)
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.geo import convert_dms_string_to_dd
-from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
@@ -128,6 +134,7 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -170,6 +177,7 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -192,71 +200,85 @@ _ImgwMeteorologyMetadataSpec = {
                         {
                             "name": "cloud_cover_total_mean",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
+                            "timestamp_position": "start",
                             "unit": "one_eighth",
                         },
                         {
                             "name": "humidity_relative_mean",
                             "name_original": "średnia dobowa wilgotność względna",
+                            "timestamp_position": "start",
                             "unit": "percent",
                         },
                         {
                             "name": "precipitation_amount",
                             "name_original": "suma dobowa opadów",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_day",
                             "name_original": "suma opadu dzień",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_night",
                             "name_original": "suma opadu noc",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
                             "name": "pressure_air_site_mean",
                             "name_original": "średnia dobowe ciśnienie na poziomie stacji",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_air_sea_level_mean",
                             "name_original": "średnie dobowe ciśnienie na pozimie morza",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "pressure_vapor_mean",
                             "name_original": "średnia dobowe ciśnienie pary wodnej",
+                            "timestamp_position": "start",
                             "unit": "hectopascal",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "wysokość pokrywy śnieżnej",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "maksymalna temperatura dobowa",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "średnia dobowa temperatura",
+                            "timestamp_position": "start",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_0_05m",
                             "name_original": "temperatura minimalna przy gruncie",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "minimalna temperatura dobowa",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
                             "name": "wind_speed_mean",
                             "name_original": "średnia dobowa prędkość wiatru",
+                            "timestamp_position": "start",
                             "unit": "meter_per_second",
                         },
                     ],
@@ -273,6 +295,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "climate",
                     "name_original": "klimat",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",
@@ -340,6 +363,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "precipitation",
                     "name_original": "opad",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "precipitation_amount",
@@ -357,6 +381,7 @@ _ImgwMeteorologyMetadataSpec = {
                     "name": "synop",
                     "name_original": "synop",
                     "grouped": True,
+                    "timestamp_position": "start",
                     "parameters": [
                         {
                             "name": "cloud_cover_total_mean",
@@ -596,14 +621,17 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
     def _files_ahead(self, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:
         """Name the archives of the station that only it reads, which are those of the daily synop (GH-3454).
 
-        The files of the other datasets are one for each month or year for every station, which the first station to
-        need one downloads, and which the station after it finds in the cache.
+        These are its per-station files of the periods that have ended, and the monthly files of the year under way
+        (GH-3941), which hold every station and which the fetch-ahead fetches once for the walk. The files of the other
+        datasets are one for each month or year for every station, which the first station to need one downloads, and
+        which the station after it finds in the cache.
         """
-        urls: list[str] = []
+        archives: dict[str, CacheExpiry] = {}
         for dataset in datasets:
             if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
-                urls += self._get_urls(dataset, station_id)
-        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES)
+                archives |= self._get_archives(dataset, station_id)
+        # each archive has the expiry the collection downloads it with (GH-3931)
+        return FilesAhead(urls=list(archives), ttl=CacheExpiry.FIVE_MINUTES, ttls=archives)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -614,15 +642,8 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        urls = self._get_urls(parameter_or_dataset, station_id)
-        files = download_files(
-            urls=urls,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
+        # an archive of a period that has ended is kept 12 hours, that of the period under way 5 minutes (GH-3931)
+        files = download_archives(self._get_archives(parameter_or_dataset, station_id), settings)
         # a 404 is a file that is not there, and is dropped; any other failure -- a timeout, a 5xx
         # after the retries -- is an outage, which dropped would read as a station without data
         for file in files:
@@ -777,44 +798,92 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         df = df.select(exp1, exp2)
         return df.unpivot(index=["station_id", "timestamp"], variable_name="parameter", value_name=value_name)
 
-    def _get_urls(self, dataset: DatasetModel, station_id: str) -> list[str]:
-        """Get URLs for the given dataset."""
+    def _get_archives(self, dataset: DatasetModel, station_id: str) -> dict[str, CacheExpiry]:
+        """Get the URL of each archive of the dataset the request reads, with the expiry it is downloaded with.
+
+        The expiry follows the period of the archive (`archive_expiries`), which is read from its name once, by
+        `_file_period`, the expressions that select the archives of the request's window.
+        """
         url = self._endpoint.format(resolution=dataset.resolution.name_original, dataset=dataset.name_original)
         interval = portion.closed(self.sr.start, self.sr.end) if self.sr.start else None
         files = list_files_for_interval(url, self.sr.settings, interval)
         df_files = pl.DataFrame({"url": files})
         df_files = df_files.with_columns(pl.col("url").str.split("/").list.last().alias("file"))
         df_files = df_files.filter(pl.col("file").str.ends_with(".zip"))
+        start, end = _file_period(dataset)
         if dataset.resolution.value == Resolution.DAILY and dataset.name == "synop":
-            # unlike every other IMGW meteorology dataset, synop daily is archived per
-            # station rather than per month: one file per period (year, or decade for
-            # older data) *per station*, e.g. "2024_100_s.zip" for the station whose
-            # 9-digit id ends in "100", not "2024_08_k.zip" for August across all stations
-            station_code = station_id[-3:]
-            df_files = df_files.filter(pl.col("file").str.contains(rf"_{station_code}_"))
-            return df_files.get_column("url").to_list()
-        if interval is not None:
-            parts = pl.col("file").str.split("_")
-            if dataset.resolution.value == Resolution.MONTHLY:
-                # "1951_m_k.zip" covers one year, "1951_1955_m_k.zip" the years from the first to the second
-                first_year = parts.list.first()
-                last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1))
-                start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
-                end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
-            else:
-                # "1951_k.zip" covers one year, "2024_01_k.zip" one month
-                year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
-                month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                one_year = parts.list.len() == 2
-                start = pl.when(one_year).then(year).otherwise(month)
-                end = (
-                    pl.when(one_year)
-                    .then(year.dt.offset_by("1y"))
-                    .otherwise(month.dt.offset_by("1mo"))
-                    .dt.offset_by("-1d")
-                )
+            df_files = _select_synop_archives(df_files, station_id, start, end, interval)
+        elif interval is not None:
             df_files = keep_files_overlapping(df_files, start, end, interval)
-        return df_files.get_column("url").to_list()
+        return archive_expiries(df_files, end)
+
+
+#: the closed periods of the daily synop, one file per station: "2024_100_s.zip" (a year), "1951_1955_100_s.zip"
+_SYNOP_STATION_ARCHIVE = r"^\d{4}(?:_\d{4})?_(?P<code>\d{3})_s\.zip$"
+#: the year under way of the daily synop, one file per month for every station: "2026_10_s.zip" (GH-3941)
+_SYNOP_MONTH_ARCHIVE = r"^\d{4}_\d{2}_s\.zip$"
+
+
+def _select_synop_archives(
+    df_files: pl.DataFrame, station_id: str, start: pl.Expr, end: pl.Expr, interval: portion.Interval | None
+) -> pl.DataFrame:
+    """Keep the archives of the daily synop that hold the station: its own files, and the months of a year without one.
+
+    IMGW archives the daily synop per station for a period that has ended (a year or a decade, ``YYYY_NNN_s.zip``,
+    ``NNN`` the last three digits of the station id), but publishes the year under way per month for every station
+    (``YYYY_MM_s.zip``, one file with all the stations, in the same layout as the per-station ones). The monthly files
+    of a year are replaced by the per-station file when IMGW consolidates the year, and for a while the folder may hold
+    both. The listing decides: a monthly file is read only for a year that no per-station file of the station covers,
+    so that no day is read twice, and the all-station file is not downloaded for nothing. Of those the months the
+    window ``interval`` overlaps are kept (``start`` and ``end`` give the period of a name); the per-station files are
+    all kept, as the folders of the listing are already cut to the window.
+    """
+    code = station_id[-3:]
+    # a name that carries the code is the station's, whether or not its period can be read (it is then kept 5 minutes)
+    station = df_files.filter(pl.col("file").str.contains(f"_{code}_"))
+    monthly = df_files.filter(pl.col("file").str.contains(_SYNOP_MONTH_ARCHIVE))
+    covered: set[int] = set()
+    for name in station.filter(pl.col("file").str.extract(_SYNOP_STATION_ARCHIVE, 1) == code).get_column("file"):
+        years = [int(year) for year in name.split("_")[:2] if len(year) == 4]
+        covered.update(range(years[0], years[-1] + 1))
+    monthly = monthly.filter(~pl.col("file").str.slice(0, 4).cast(pl.Int64).is_in(covered))
+    if interval is not None:
+        monthly = keep_files_overlapping(monthly, start, end, interval).select(monthly.columns)
+    return pl.concat([station, monthly])
+
+
+def _file_period(dataset: DatasetModel) -> tuple[pl.Expr, pl.Expr]:
+    """Give the first and last instant an archive covers, as expressions on the ``file`` column of its name.
+
+    The last instant is 00:00 UTC of the last day the archive covers. A name the expressions cannot read has a null
+    period, which `keep_files_overlapping` refuses and `archive_expiries` keeps five minutes.
+    """
+    parts = pl.col("file").str.split("_")
+    # "2024_01_k.zip" covers one month, "1951_k.zip" one year
+    year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
+    month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
+    if dataset.resolution.value == Resolution.MONTHLY or (
+        dataset.resolution.value == Resolution.DAILY and dataset.name == "synop"
+    ):
+        # "1951_m_k.zip" covers one year, "1951_1955_m_k.zip" the years from the first to the second, and the same
+        # for the per-station daily synop, "2024_100_s.zip" and "1951_1955_100_s.zip"
+        first_year = parts.list.first()
+        last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1, null_on_oob=True))
+        start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
+        end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
+        if dataset.resolution.value == Resolution.MONTHLY:
+            return start, end
+        # but the year under way of the daily synop is one file per month, "2026_10_s.zip" (GH-3941): the one name of
+        # three parts whose second part is two digits, where the station code of a per-station file has three
+        is_month = (parts.list.len() == 3) & (parts.list.get(1, null_on_oob=True).str.len_chars() == 2)
+        return (
+            pl.when(is_month).then(month).otherwise(start),
+            pl.when(is_month).then(month.dt.offset_by("1mo").dt.offset_by("-1d")).otherwise(end),
+        )
+    one_year = parts.list.len() == 2
+    start = pl.when(one_year).then(year).otherwise(month)
+    end = pl.when(one_year).then(year.dt.offset_by("1y")).otherwise(month.dt.offset_by("1mo")).dt.offset_by("-1d")
+    return start, end
 
 
 @dataclass
@@ -832,10 +901,35 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
     )
 
     def _all(self) -> pl.LazyFrame:
-        """Get all available stations."""
+        """Get all available stations: every dataset the whole catalogue, the synop one the synop stations only."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
+        catalogue = self._catalogue(settings)
+        if catalogue.is_empty():
+            return pl.LazyFrame()
+        # `kody_stacji.csv` is one list of the climate, precipitation and synop stations. The synop archives hold the
+        # synop stations alone, so a synop request lists those (GH-3944), and the stations of the other datasets stay
+        # as the list gives them. The core copies a frame without ``resolution`` and ``dataset`` once per dataset, so
+        # the frames are tagged here, as the stations differ.
+        synop_ids: pl.Series | None = None
+        frames = []
+        for resolution, dataset in self._requested_datasets:
+            stations = catalogue
+            if dataset == "synop":
+                if synop_ids is None:
+                    synop_ids = _synop_station_ids(settings)
+                stations = catalogue.filter(pl.col("station_id").is_in(synop_ids.implode()))
+            frames.append(
+                stations.with_columns(
+                    pl.lit(resolution, dtype=pl.String).alias("resolution"),
+                    pl.lit(dataset, dtype=pl.String).alias("dataset"),
+                )
+            )
+        return pl.concat(frames).lazy() if frames else catalogue.lazy()
+
+    def _catalogue(self, settings: Settings) -> pl.DataFrame:
+        """Read `kody_stacji.csv`, the list of the stations with their positions."""
         file = download_file(
             url=self._endpoint,
             cache_dir=settings.cache_dir,
@@ -846,7 +940,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            return pl.LazyFrame()
+            return pl.DataFrame()
         # the list has a single header line: skip it and read every row after it as a station, so
         # that the first station is not taken for the header
         df = pl.read_csv(
@@ -869,13 +963,65 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             "longitude",
             "elevation",
         ]
-        df = df.with_columns(
+        return df.with_columns(
             # the list pads some names with a trailing blank (`RADZIECHOWY `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
+            # the river is trimmed the same way, and a station the list gives none is null, not an empty string
+            pl.col("river").str.strip_chars().replace("", None),
             convert_dms_string_to_dd(pl.col("latitude")),
             convert_dms_string_to_dd(pl.col("longitude")),
             pl.col("elevation").str.replace(" ", ""),
         )
-        # the station list is shared across all datasets: the core tags each row once per requested resolution/dataset
-        return df.lazy()
+
+
+#: IMGW's own list of the stations of its meteorological archives (`Opis.txt`: the station code, the name and the
+#: five-character code), which gives every station once, the synop stations among them. `Opis.txt` also names the
+#: maps of what each station type holds, keyed by that code (`mapa_zawartosci_synop.pdf`, `_klimat.pdf`, `_opad.pdf`)
+_STATION_LIST_URL = (
+    "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/wykaz_stacji.csv"
+)
+#: a row of that list whose five-character code is of at most three digits: the code of a synop station, as the map
+#: `mapa_zawartosci_synop.pdf` documents it (read 2026-11-10, dated 2026-10-06: its 68 codes have three digits and are
+#: all among the 73 of the list; the klimat and opad maps carry four and five), which is the
+#: ``NNN`` of its per-station files in `dobowe/synop` (``"352200375","WARSZAWA","  375"``). The climate and the
+#: precipitation stations carry four and five digits (``"250180460","ADAMOWICE","95414"``), and none had fewer when
+#: the list was read (2026-11-10: 73 synop codes, all different, 59 of them with data in 2026; for the 63 of them
+#: in `kody_stacji.csv` the code is the last three digits of the id, which is how the values find the files) (GH-3944)
+#: Five synop stations have daily synop archives (`dobowe/synop`) and are in no list that gives a position: Zgorzelec
+#: 351150405, Gdańsk-Port Północny 354180140, Bydgoszcz 353170240, Gdańsk-Rębiechowo 354180150 and Żarnowiec 354180131
+#: (GH-3948). `wykaz_stacji.csv` names them with no position, and `mapa_zawartosci_synop.pdf` gives positions that
+#: IMGW calls approximate (to the minute for four) and no elevation, so they stay out of the catalogue. Bydgoszcz,
+#: Gdańsk-Rębiechowo and Gdańsk-Port Północny are listed in `kody_stacji.csv` under newer ids (253180220, 254180090,
+#: 254180260): other station records, not merged by name.
+_SYNOP_ROW = re.compile(r'^"(\d{9})","[^"]*","\s*\d{1,3}\s*"\s*$', re.MULTILINE)
+
+
+def _synop_station_ids(settings: Settings) -> pl.Series:
+    """Give the ids of the stations that report synop, read from IMGW's list of its stations (GH-3944).
+
+    The synop archives hold per-station files for the stations that report synop, which are a small part of the
+    stations of `kody_stacji.csv` (59 of about 800). IMGW documents them by the five-character code of its map
+    `mapa_zawartosci_synop.pdf` (three digits for each of its 68 stations, where the klimat and opad maps carry four
+    and five). The listings of the archives give that three-digit code only, which many stations of the other kinds
+    share (250240010 and 253150010 end in 010): the nine-digit id is what tells them apart, and `wykaz_stacji.csv`
+    gives it with the code. One small file, kept as long as the catalogue, and no directory is listed for it.
+    """
+    file = download_file(
+        url=_STATION_LIST_URL,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    file.raise_if_exception()
+    if isinstance(file.content, Exception):
+        return pl.Series("station_id", [], dtype=pl.String)
+    ids = _SYNOP_ROW.findall(file.content.read().decode("cp1250", errors="replace"))
+    if not ids:
+        # a list that names no synop station is a list that has changed its layout, and read as no stations it would
+        # empty every synop answer without a word
+        msg = f"The IMGW station list {_STATION_LIST_URL} names no synop station: its layout has changed"
+        raise MetaFileFormatError(msg)
+    return pl.Series("station_id", ids, dtype=pl.String)

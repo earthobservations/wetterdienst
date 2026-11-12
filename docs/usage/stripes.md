@@ -15,9 +15,11 @@ The colours are scaled over the years shown: with `start_year` and `end_year`, t
 highest of those years take the two ends of the colour map, so the coolest is blue and the warmest
 red, or the driest brown and the wettest teal. At least two of the years must have data. The CSV of
 `/api/stripes/values` gives each year's `value_scaled`, from 0 for the highest to 1 for the lowest.
-Its JSON names the unit of the `value`s in `series.unit`, e.g. `degree_celsius`. The
-server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it, which a stripes request has no
-parameter for: the target of the quantity where the values are converted, the source's unit where not.
+Its JSON names the unit of the `value`s in `series.unit`, e.g. `degree_celsius`: `degree_celsius` and
+`millimeter` unless the request chooses another with `unit_targets` (see [REST API](#rest-api)), or the
+server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` do, the target of the quantity where the values are converted,
+the source's unit where not. The unit changes the numbers only: the colours are relative to the years shown and are
+the same in any unit.
 
 The feature is exposed via the [command line interface](#command-line-interface) and the
 [REST API](#rest-api). The hosted [web app](https://wetterdienst.eobs.org) also
@@ -62,6 +64,15 @@ The options are `--kind` (required), `--station` or `--name` (with `--name-thres
 `--show-title`, `--show-years`, `--show-data-availability`, `--format` (`png`, `jpg`, `svg` or `pdf`), `--dpi` and
 `--target`; the [command line reference](cli.md) has them with their defaults. The image needs the `plotting` extra.
 
+A `--station` that no station has is a 404 over REST and a usage error on the command line, and so is a `--name`
+that matches nothing. Where the lookup of the stations went without a directory of DWD's server (the stripes list
+their stations from `annual/kl/historical` for the temperature and `annual/more_precip/historical` for the
+precipitation) that came back empty or missing, or lists files and no description of its stations, a station may exist
+and be listed only there. That is a 502 of the REST API whose `detail` names the directory, and exit 1 with the same
+sentence on the command line. An empty or missing directory says nothing of its stations, so any `--station` the
+lookup does not find gets it; a directory with files and no description names its stations in its file names, so only
+an id among them does. Try again later.
+
 ## REST API
 
 When the [REST API](restapi.md) is running, the same functionality is available via three
@@ -79,7 +90,23 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
-are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`.
+are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`. The values are DWD's
+own annual values, the same numbers as `/api/values` gives for the parameter, so the `processing_note` of the block is
+the plain note every answer has. An image has no place for it in itself: the `X-Wetterdienst-Processing` header of
+`image` has it, and adds "The image is drawn from the provider's annual values."
+
+`values` takes `unit_targets`, a JSON mapping of quantity to unit, as `/api/values` does, and refuses an unknown
+quantity or unit with the same 400:
+
+```bash
+# The annual mean temperature in degree Fahrenheit; `series.unit` says `degree_fahrenheit`.
+http localhost:7890/api/stripes/values kind==temperature station==1048 \
+  'unit_targets=={"temperature": "degree_fahrenheit"}'
+```
+
+The MCP tool `stripes_values` takes it as an object (`{"unit_targets": {"temperature": "degree_fahrenheit"}}`). The
+image draws no number or unit, so `image` takes no `unit_targets`, and the command line, which has no command for the
+values, has none either. The precipitation takes `millimeter` or `liter_per_square_meter`.
 
 The `image` endpoint accepts the same rendering options as the CLI (`start_year`,
 `end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`): the command line

@@ -104,7 +104,7 @@
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | mo_nsh | Monthly sum of daily fresh snow. | cm | >=0 |
 | {term}`precipitation_amount` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
-| {term}`snow_depth_sum` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
+| {term}`snow_depth_sum` | mo_sh_s | Monthly sum of daily height of snow pack. | cm·d | >=0 |
 | {term}`precipitation_amount_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena
@@ -115,7 +115,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | weather_phenomena                                                                                                                                                                                                                                                                                  |
 | original name | weather_phenomena                                                                                                                                                                                                                                                                                  |
-| description   | Counts of weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
+| description   | Counts of days with the weather phenomena fog, thunder, storm (strong wind), storm (stormier wind), dew, glaze, graupel and hail for stations of Germany (details missing, parameter descriptions [here](https://opendata.dwd.de/climate_environment/CDC/help/Abkuerzung_neu_Spaltenname_CDC_20171128.xlsx)) |
 | access        | [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/weather_phenomena/)                                                                                                                                                                                    |
 
 #### parameters

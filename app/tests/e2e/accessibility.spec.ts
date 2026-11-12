@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
@@ -59,6 +60,13 @@ const PAGES: Target[] = [
   { page: 'meteogram', path: '/meteogram' },
   { page: 'history', path: '/history' },
   {
+    // the map tool (GH-3650): its chips, its map and its panel with the list of the stations
+    page: 'map',
+    path: '/map',
+    // the list of stations is the panel's, at every width (the count over the map is not there on a phone)
+    ready: async (page) => { await expect(page.getByTestId('map-list')).toBeVisible() },
+  },
+  {
     page: 'widget',
     path: '/widget',
     // the widget has no heading: it says which parameter it lacks
@@ -111,6 +119,13 @@ async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
 }
 
+/** The one station with climate stripes that the map tool's states have within reach of Berlin (the mock's are in the south and west) */
+const STRIPES_NEAR_BERLIN: Handlers = {
+  'stripes/stations': () => ({
+    stations: [{ station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00` }],
+  }),
+}
+
 const STATES: State[] = [
   {
     page: 'explorer',
@@ -135,7 +150,7 @@ const STATES: State[] = [
     state: 'station-map',
     path: EXPLORER,
     reach: async (page, locale) => {
-      await page.getByRole('button', { name: message(locale, 'stationSelection.chooseOnMap') }).click()
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
       await mapWithStations(page)
     },
   },
@@ -177,6 +192,71 @@ const STATES: State[] = [
     },
   },
   {
+    page: 'explorer',
+    state: 'values-limit-refused',
+    path: EXPLORER_WITH_STATION,
+    // the problem of a limit, as the backend answers it: the page words its numbers itself (GH-3457)
+    handlers: {
+      values: () => new ApiFailure(400, 'This request would return about 614,866 rows, more than the 500,000 this server sends as one answer.', {
+        type: 'urn:wetterdienst:problem:limit-exceeded',
+        title: 'Bad Request',
+        status: 400,
+        limit: 'rows',
+        maximum: 500_000,
+        requested: 614_866,
+      }),
+    },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      const notice = page.getByTestId('limit-notice')
+      await expect(notice).toBeVisible()
+      await expect(notice.getByRole('alert')).toBeVisible()
+      await expect(page.getByTestId('limit-apply')).toBeVisible()
+      await expect(page.getByTestId('limit-download')).toBeVisible()
+      // a refusal raises no toast: it is a state of the table, not a failure
+      await expect(page.locator('[data-slot="title"]', { hasText: message(locale, 'dataViewer.fetchErrorToastTitle') })).toHaveCount(0)
+    },
+  },
+  {
+    page: 'explorer',
+    state: 'values-limit-refused-narrow',
+    path: EXPLORER_WITH_STATION,
+    viewport: { width: 320, height: 844 },
+    handlers: {
+      values: () => new ApiFailure(400, 'English', {
+        type: 'urn:wetterdienst:problem:limit-exceeded',
+        title: 'Bad Request',
+        status: 400,
+        limit: 'rows',
+        maximum: 500_000,
+        requested: 614_866,
+      }),
+    },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByTestId('limit-apply')).toBeVisible()
+      // the notice's text and buttons wrap, and none reaches past the screen (1.4.10): the page itself
+      // is wider at 320 px where a station is chosen, which is the explorer's own and no concern of the notice
+      const past = await page.evaluate(() => {
+        const width = document.documentElement.clientWidth
+        const notice = document.querySelector('[data-testid="limit-notice"]')!
+        return [...notice.querySelectorAll('*')].filter(el => el.getBoundingClientRect().right > width + 1).map(el => el.tagName)
+      })
+      expect(past).toEqual([])
+    },
+  },
+  {
+    page: 'explorer',
+    state: 'default-range-note',
+    // twelve stations of hourly data from the 1960s on are millions of rows: the page starts a window that fits
+    path: '/explorer?provider=dwd&network=observation&resolution=hourly&dataset=temperature_air&parameters=temperature_air_mean_2m,humidity&mode=station'
+      + '&stations=00011,00044,00071,00073,00091,00096,00102,00125,00131,00183,00198,00205',
+    reach: async (page) => {
+      await expect(page.getByTestId('default-range-note')).not.toBeEmpty()
+      await expect(page.getByTestId('clear-date-range')).toBeVisible()
+    },
+  },
+  {
     page: 'history',
     state: 'histories-shown',
     path: '/history',
@@ -191,7 +271,10 @@ const STATES: State[] = [
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       // the station's history itself, not the station picker that names it too
-      await expect(page.getByText(`${message(locale, 'history.stationIdPrefix')}: 00011`)).toBeVisible()
+      await expect(page.getByText(`${message(locale, 'history.stationIdPrefix')}${message(locale, 'common.colon')} 00011`)).toBeVisible()
+      // the choosing above scrolled the page to where the toggle of the station picker is half under the sticky header, which
+      // axe reads as a target too small to press (target-size: "partially obscured"); the page as it is opened is at its top
+      await page.evaluate(() => window.scrollTo(0, 0))
     },
   },
   {
@@ -200,18 +283,35 @@ const STATES: State[] = [
     path: '/history',
     // the page is restricted to dwd/observation and says so where the backend has no dwd
     handlers: {
-      coverage: () => ({
-        noaa: {
-          ghcn: {
-            name_short: 'NOAA',
-            country: 'United States Of America',
-            kind: 'observation',
-            url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
-            auth: false,
-            configured: false,
-            date_required: false,
-          },
+      providers: () => ({
+        metadata: {
+          api_version: '1',
+          schema_version: '1',
+          retrieved_at: '2026-10-17T10:00:00.000000+00:00',
+          counts: { providers: 1, networks: 1, parameters: 8 },
+          warnings: [],
         },
+        providers: [{
+          provider: 'noaa',
+          name_short: 'NOAA',
+          name_local: 'National Oceanic and Atmospheric Administration',
+          name_english: 'National Oceanic and Atmospheric Administration',
+          country: 'United States Of America',
+          country_code: 'US',
+          license: null,
+          attribution: null,
+          networks: [{
+            network: 'ghcn',
+            kind: 'observation',
+            extent: { scope: 'global', continents: [], bbox: [-180, -90, 180, 90] },
+            url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
+            copyright: '© NOAA',
+            auth: false,
+            configured: true,
+            date_required: false,
+            parameters: 8,
+          }],
+        }],
       }),
     },
     reach: async (page) => {
@@ -223,7 +323,7 @@ const STATES: State[] = [
     state: 'station-map',
     path: '/stripes',
     reach: async (page, locale) => {
-      await page.getByRole('button', { name: message(locale, 'stripes.chooseOnMap') }).click()
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
       await mapWithStations(page)
     },
   },
@@ -283,6 +383,24 @@ const STATES: State[] = [
     path: '/meteogram?station=01001',
     reach: async (page, locale) => {
       await expect(plotly(page)).toBeVisible()
+      await page.getByRole('radio', { name: message(locale, 'meteogram.chart.viewTable'), exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
+    state: 'table-view-linked',
+    path: '/meteogram?station=01001&view=table',
+    reach: async (page) => {
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'widget',
+    state: 'table-shown',
+    path: '/widget?station=01001',
+    reach: async (page, locale) => {
+      await expect(plotly(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -304,6 +422,15 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByText(message(locale, 'common.stationSearch')).click()
       await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
+    state: 'station-map',
+    path: '/meteogram',
+    reach: async (page, locale) => {
+      await page.getByRole('radio', { name: message(locale, 'stationSelection.modeMap') }).click()
+      await mapWithStations(page)
     },
   },
   {
@@ -342,6 +469,158 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'header.menu'), exact: true }).click()
       await expect(page.getByRole('navigation').last()).toBeVisible()
+    },
+  },
+  {
+    // the reference of the wide header, a disclosure of links (GH-3518)
+    page: 'index',
+    state: 'reference-open',
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.reference'), exact: true }).click()
+      await expect(page.getByRole('link', { name: new RegExp(message(locale, 'nav.glossary')) }).first()).toBeVisible()
+    },
+  },
+  {
+    // the search of the header, a dialog with a list of every place (GH-3518)
+    page: 'index',
+    state: 'search-open',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // the search with a query typed: the pages and providers it matches, and the forecast stations the backend found
+    page: 'index',
+    state: 'search-results',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('ber')
+      // the station is listed twice, as its forecast and as a station on the map (GH-3650): either is the state
+      await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ }).first()).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // Ask the weather (GH-3518): a question open, with its verdict, its bars and the links into the tools
+    page: 'index',
+    state: 'ask-answer-open',
+    path: '/?ask=rain',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
+    // the summer question: bars that hang from a line, the one asked about marked, the table of values opened
+    page: 'index',
+    state: 'ask-summer-values',
+    path: '/?ask=summer',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the search of a place of the questions, with a name typed
+    page: 'index',
+    state: 'ask-place-open',
+    keepFocus: true,
+    path: '/',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await page.getByTestId('place-button').click()
+      await page.getByRole('combobox').fill('ar')
+      await expect(page.getByRole('option').first()).toBeVisible()
+    },
+  },
+  {
+    // the tab bar of the narrow layout, on a tool's page
+    page: 'stripes',
+    state: 'tab-bar',
+    path: '/stripes',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('navigation').getByRole('link', { name: message(locale, 'nav.stripes') })).toHaveAttribute('aria-current', 'page')
+    },
+  },
+  {
+    // a place picked on the map tool: the forecast's day rows, the stripes and the links to the measurements (GH-3650)
+    page: 'map',
+    state: 'station-picked',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
+    reach: async (page) => {
+      await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
+      await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // the layer of the measurements, with the choices of its resolution and dataset
+    page: 'map',
+    state: 'measured-layer',
+    path: '/map?layer=measured',
+    reach: async (page) => {
+      await expect(page.getByTestId('map-count')).toBeVisible()
+      await expect(page.getByTestId('map-resolution')).toBeVisible()
+      await expect(page.getByTestId('map-dataset')).toBeVisible()
+    },
+  },
+  {
+    // the stations that could not be loaded
+    page: 'map',
+    state: 'stations-failed',
+    path: '/map',
+    handlers: { stations: () => new ApiFailure(500, 'The forecast stations are not available') },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-failure')).toBeVisible()
+    },
+  },
+  {
+    // on a phone: the map first and the panel under it as a sheet, with a station picked
+    page: 'map',
+    state: 'phone-station-picked',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    handlers: STRIPES_NEAR_BERLIN,
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
+      await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
+      await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
+    // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
+    page: 'settings',
+    state: 'phone-bar-chooser',
+    path: '/settings#bar',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
+      await page.getByTestId('bar-chooser').locator('li[data-tool="map"] button[data-dir="up"]').click()
+      await expect(page.getByTestId('bar-status')).not.toHaveText('')
+    },
+  },
+  {
+    page: 'settings',
+    state: 'phone-bar-chooser-narrow',
+    path: '/settings#bar',
+    viewport: { width: 320, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('bar-chooser')).toBeVisible()
     },
   },
 ]
@@ -509,9 +788,69 @@ test.describe('keyboard operation', () => {
     await page.keyboard.press('Escape')
     await expect(listbox).toBeHidden()
     // what was chosen is the picker's name now, and the focus is back on it, not lost to the page
-    const chosen = page.getByRole('button', { name: /Donaueschingen/ })
+    // (its chip, a button to remove it, is named "Remove ...")
+    const chosen = page.getByRole('button', { name: /^Donaueschingen/ })
     await expect(chosen).toBeVisible()
     await expect(chosen).toBeFocused()
+  })
+
+  test('the station picker\'s toggle is a radio group moved by the arrow keys, and a click moves the focus into the search or the map (GH-3877)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, EXPLORER, variant)
+    const list = page.getByRole('radio', { name: message('en', 'stationSelection.modeList'), exact: true })
+    const map = page.getByRole('radio', { name: message('en', 'stationSelection.modeMap'), exact: true })
+    const group = page.getByRole('radiogroup', { name: message('en', 'stationSelection.modeLabel') })
+    await expect(group).toBeVisible()
+    await expect(list).toBeChecked()
+
+    // the arrow keys select and keep the focus on the toggle, to walk along it
+    await list.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(map).toBeChecked()
+    await expect(map).toBeFocused()
+    // what the toggle controls is there, and the map is in it
+    const controlled = (await map.getAttribute('aria-controls'))!
+    await expect(page.locator(`[id="${controlled}"] .leaflet-container`)).toBeVisible()
+    await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
+    await page.keyboard.press('ArrowLeft')
+    await expect(list).toBeChecked()
+    await expect(page.locator('.leaflet-container')).toHaveCount(0)
+
+    // a click is a decision to use the mode: the focus goes into it
+    await map.click()
+    await expect(page.locator('.leaflet-container')).toBeFocused()
+    await list.click()
+    await expect(page.getByRole('button', { name: message('en', 'common.stationSearch') })).toBeFocused()
+
+    // the map stands where the toggle left it, and a pick on it is a chip that stays in the list
+    await map.press('Enter')
+    await expect(page.locator('.leaflet-container')).toBeFocused()
+    await page.locator('img.leaflet-marker-icon').first().dispatchEvent('click')
+    const chip = page.locator('[data-station-chip]')
+    await expect(chip).toHaveCount(1)
+    await list.click()
+    await expect(page.locator('[data-station-chip]')).toHaveCount(1)
+    // a chip is a button: Enter takes the station out, and the focus does not fall to the page
+    await page.locator('[data-station-chip]').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('[data-station-chip]')).toHaveCount(0)
+    await expect(list).toBeFocused()
+  })
+
+  test('the station picker\'s mode is remembered for the tool, and the other tools keep their own (GH-3877)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes', variant)
+    const map = page.getByRole('radio', { name: message('en', 'stationSelection.modeMap'), exact: true })
+    await map.click()
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+
+    await page.reload()
+    await expect(map).toBeChecked()
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+
+    // the explorer's picker has been left on the list
+    await open(page, EXPLORER, variant)
+    await expect(page.getByRole('radio', { name: message('en', 'stationSelection.modeList'), exact: true })).toBeChecked()
   })
 
   test('a collapsible opens and closes by Enter and Space, and says so', async ({ page, baseURL }) => {
@@ -551,6 +890,34 @@ test.describe('keyboard operation', () => {
     await page.keyboard.press('Escape')
     await expect(items.first()).toBeHidden()
     await expect(trigger).toBeFocused()
+  })
+
+  test('a link of the footer that the Tab key reaches is not under an error toast (2.4.11)', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!, { values: () => new ApiFailure(422, 'The source does not carry these parameters for this station.') })
+    await open(page, EXPLORER_WITH_STATION, variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    const toast = page.locator('[data-slot="title"]', { hasText: message('en', 'dataViewer.fetchErrorToastTitle') })
+    await expect(toast).toBeVisible()
+    // the toast closes after five seconds: the pointer on it holds it open while the keys are pressed
+    await toast.hover()
+
+    // the link before the last one, and then the key that goes on to it
+    await page.getByRole('link', { name: message('en', 'footer.privacy'), exact: true }).focus()
+    await page.keyboard.press('Tab')
+    const licences = page.getByRole('link', { name: message('en', 'footer.licenses'), exact: true })
+    await expect(licences).toBeFocused()
+
+    // what lies at the middle of the focused link is the link: the page was scrolled clear of the toast
+    const hitsLink = () => licences.evaluate((link) => {
+      const box = link.getBoundingClientRect()
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return hit != null && link.contains(hit)
+    })
+    await expect.poll(hitsLink).toBe(true)
+    const toastBox = (await page.locator('.app-toast-viewport').boundingBox())!
+    const linkBox = (await licences.boundingBox())!
+    // and clear of the toast altogether, not merely not entirely under it
+    expect(linkBox.y + linkBox.height).toBeLessThanOrEqual(toastBox.y)
   })
 
   test('the menu of the narrow layout is a dialog that keeps the focus, and Escape closes it', async ({ page, baseURL }) => {
@@ -660,13 +1027,13 @@ test.describe('chart controls by keyboard', () => {
     await expect(buttons.first()).toBeFocused()
   })
 
-  // what the stripes and the forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
     { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
       await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
       await expect(plotly(page)).toBeVisible()
     } },
-    { page: 'meteogram', path: '/meteogram?station=01001', ready: async (page: Page) => {
+    { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
       await expect(plotly(page)).toBeVisible()
     } },
   ]) {
@@ -706,6 +1073,59 @@ test.describe('chart controls by keyboard', () => {
       await expect(page.getByRole('table')).toHaveCount(0)
     })
   }
+
+  // the forecast's table is a view of its own, chosen by a radio group that the arrow keys move along
+  // (WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)
+  test('the forecast of the meteogram page has its values as a view of its own, chosen and read by keys', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/meteogram?station=01001', variant)
+    await expect(plotly(page)).toBeVisible()
+
+    // the chart is described by a sentence that exists, and there is no table until the view is chosen
+    const figure = page.getByRole('figure')
+    const described = (await figure.getAttribute('aria-describedby'))!
+    await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
+
+    const group = page.getByRole('radiogroup', { name: message('en', 'meteogram.chart.viewLabel'), exact: true })
+    const chart = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewChart'), exact: true })
+    const compact = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewCompact'), exact: true })
+    const tableView = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewTable'), exact: true })
+    await expect(chart).toBeChecked()
+
+    // the group is one stop; the arrow keys choose and move the focus
+    await chart.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(compact).toBeChecked()
+    await expect(compact).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(tableView).toBeChecked()
+    await expect(tableView).toBeFocused()
+    await expect(page).toHaveURL(/[?&]view=table/)
+
+    // the table has no chart over it, and the headers and rows a screen reader reads
+    await expect(page.getByRole('figure')).toHaveCount(0)
+    const table = page.getByRole('table')
+    await expect(table).toBeVisible()
+    await expect(table.getByRole('rowheader').first()).toHaveText(/\S/)
+    expect(await table.getByRole('row').count()).toBeGreaterThan(10)
+
+    // the box that scrolls takes the focus, so that the keys scroll it
+    const region = page.getByRole('region', { name: /^Forecast chart for / })
+    await region.focus()
+    await expect(region).toBeFocused()
+    const before = await region.evaluate(node => node.scrollTop)
+    await page.keyboard.press('PageDown')
+    await expect.poll(() => region.evaluate(node => node.scrollTop)).toBeGreaterThan(before)
+
+    // and back to the chart by keys
+    await tableView.focus()
+    await page.keyboard.press('Home')
+    await expect(chart).toBeChecked()
+    await expect(plotly(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+  })
 
   // Plotly's hover label comes with the pointer and goes with it; Escape takes it away without moving the
   // pointer, until the pointer moves on (WCAG 1.4.13). Hoverable it cannot be, see utils/chart-hover.ts.
@@ -785,7 +1205,9 @@ test.describe('page titles', () => {
   test('a navigation within the app changes the title and announces the page', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/', { mode: 'light', locale: 'en' })
-    await page.getByRole('navigation').first().getByRole('link', { name: message('en', 'nav.glossary') }).click()
+    // the glossary is in the reference of the header, a disclosure (GH-3518)
+    await page.getByRole('navigation').first().getByRole('button', { name: message('en', 'shell.reference') }).click()
+    await page.getByRole('navigation').first().getByRole('link', { name: new RegExp(`^${message('en', 'nav.glossary')}`) }).click()
     await expect(page).toHaveTitle(`${message('en', 'glossary.title')} - Wetterdienst`)
     await expect(page.locator('.nuxt-route-announcer [aria-live]')).toHaveText(`${message('en', 'glossary.title')} - Wetterdienst`)
   })

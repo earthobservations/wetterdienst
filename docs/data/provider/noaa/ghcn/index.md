@@ -11,6 +11,18 @@ The GHCN-Hourly dataset represents the previously existing ISD (Integrated Surfa
 Each station's `wmo_id` is the WMO station number the lists give it, null for the many stations that
 have none.
 
+## Elevation 0.0 is no elevation
+
+GHCN writes `elevation` 0.0 for a station of which it knows no elevation: 54 of the 271 stations
+at 0.0 in the hourly list stand between 150 and 4,329 m (CHM00052940 reads 500.2 to 998 hPa), and
+BRM00083566 of the daily list is inland at about 827 m. The stations frame keeps the 0.0 as GHCN
+writes it, so that a station on a coast at 0.0 m is not lost. Where the elevation is used, 0.0 is
+read as unknown (`ELEVATION_ZERO_IS_UNKNOWN`): the plausibility check `elevation` of the station
+pressure does not judge a station at 0.0, and `interpolate` and `summarize` asked about an elevation
+leave such a station out, as they do a station with no elevation, instead of bringing its readings
+from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
+GH-3708). A station at 12.0 m is a height and is corrected.
+
 ## One reading an hour
 
 The hourly files hold every report of a station, and `hourly` returns one reading for each parameter
@@ -87,6 +99,55 @@ total that source 412 files too is (`precipitation_amount_last_24h`: 2.8 mm at 1
 they are is not known. A caller that needs the precipitation of an hour should leave out the
 readings with `source:412` (`quality_flags` containing `source:412`) and take the `daily`
 resolution for longer spans.
+
+## The source's own verdict (`source`)
+
+The check `source` reads the quality flag NCEI returns with the value and flags the codes its documentation words as a
+failed check, an erroneous or a suspect value.
+
+**Daily.** The first token of `quality_flags` is `QFLAG`, blank (left out) for a value that "did not fail any quality
+assurance check". The [GHCN-Daily readme](https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt) says: "QFLAG1 is the
+quality flag for the first day of the month. There are fourteen possible values: Blank = did not fail any quality
+assurance check", and words the others as follows. All of them are read: `D` failed duplicate check; `G` failed gap check;
+`I` failed internal consistency check; `K` failed streak/frequent-value check; `L` failed check on length of multiday
+period; `M` failed megaconsistency check; `N` failed naught check; `O` failed climatological outlier check; `R` failed
+lagged range check; `S` failed spatial consistency check; `T` failed temporal consistency check; `W` temperature too warm
+for snow; `X` failed bounds check; `Z` flagged as a result of an official Datzilla investigation. The CSV returns such a
+value (the `TMAX` of Central Park of 1869-06-22 is 172, tenths of a degree, with `QFLAG` `I`; read 2026-11-02), and so does
+the reader: `I,source:Z,suspect:source`. (The token `source:Z` is the data source of the value, the SFLAG, and has nothing to
+do with the check of that name, whose token is `suspect:source` or `rejected:source`.)
+
+**Hourly.** The first token is `<element>_Quality_Code`, whose meaning depends on the source of the element (the `source:`
+token), as Table 3 of the [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf)
+lists it. The codes read are the ones it words as a verdict. `Suspect` is the milder level: `hard` flags it
+`suspect:source` and nulls `Erroneous`; so it does for every code of the daily `QFLAG`, which has one level, and of source
+382 but its `R`, "suspect with regard to the times or period of occurrence", which is the milder level.
+
+| `source:` | codes read, as the documentation words them |
+| --- | --- |
+| 313, 314, 315, 322, 335, 343, 344, 346 ("Legacy Codes for Sources 313, 314, 315, 322, 335, 343, 344, 346 include") | suspect level: `2` "Suspect"; `6` "Suspect, data originate from an NCEI data source"; erroneous level: `3` "Erroneous"; `7` "Erroneous, data originate from an NCEI data source" |
+| 220, 221, 222, 223, 347, 348 ("Legacy Codes for Sources: 220, 221, 222, 223, 347, 348 include") | suspect level: `2` "Suspect"; erroneous level: `3` "Erroneous" |
+| 382 ("Legacy Codes for Source 382 for precipitation (as given in C-HPD documentation)") | suspect level: `R` "Indicates data values are suspect with regard to the times or period of occurrence"; erroneous level: `X` "failed global extreme exceedance check"; `N` "failed negative precipitation check"; `Y` "failed state extreme exceedance check (performed on daily totals)"; `K` "failed streak/frequent-value check"; `G` "failed gap check"; `O` "failed climatological outlier check"; `Z` "flagged as a result of an official Datzilla investigation"; `Q` "Indicates value failed an extreme value test (value will be present)" |
+| 345 ("Legacy Codes for Source 345 (for relative humidity and wind speed only)"), for `humidity_relative` and `wind_speed` only | erroneous level: `3` "Error (erroneous data)" |
+| 220, 221, 222, 223, 313, 314, 315, 322, 335, 343, 344, 346, 347, 348 ("For these sources, relative humidity and wet-bulb temperature are not directly measured, but rather derived from other measured variables. These can have the following QC flags"), for `humidity_relative` only | suspect level: `f` "Suspect or Error flags for 1 or more of the input measurements"; erroneous level: `o` "Out of range (relative humidity only - with values < 1 or > 100)" |
+| the same sources, for `temperature_wet_2m` only | suspect level: `f` "Suspect or Error flags for 1 or more of the input measurements" |
+
+The letters `o` and `f` of the derived humidity occur: the file of station `USW00014755`
+(`GHCNh_USW00014755_por.psv`, read 2026-11-02) has 2,479 `f` and 14 `o` of source 223 on `relative_humidity`. They are read
+for those two parameters alone, as the same letters are the integration's own "Odd cluster" and "Frequent value" on the
+temperature, the dew point, both pressures, the wind direction and the wind speed (a check of the dataset's own
+processing, not read).
+
+Not read: the `0`, `1`, `4`, `5` and `9` of those lists (not checked, good, calculated, removed, passed), the `1` of source
+345 ("Issue (field-length overflow)", a fault of the record, no verdict on the value) and its `0` "Good", the letters of the
+integration's own checks (`c` climatological outlier, `s` spike, `l` failed logistical consistency, ... of Table 3: they
+name the check of the dataset's own processing, and `o` and `f` on the six elements it checks), the letters `A`, `P`,
+`U`, `I`, `M`, `R` of the legacy lists that say a value was accepted, replaced, inserted or edited, and `D`, `M` and `A`
+of source 382 (deleted, missing, an accumulation).
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except
+for the milder level (`Suspect`, `R` of source 382 and `f` of a derived humidity), which stays `suspect:source`; the default is `soft`, which keeps the value and writes
+`suspect:source` for both, so interpolation, summaries, climate stripes and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

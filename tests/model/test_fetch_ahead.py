@@ -1,7 +1,9 @@
 """The files of the next stations are fetched while one is parsed (GH-3454), and the answer is the one it was without.
 
 A local server stands in for the upstream: it can delay each file, fail one, and says how many connections it had open
-at once, so that what the fetch-ahead holds itself to is read off the server and not off the code.
+at once, so that what the fetch-ahead holds itself to is read off the server and not off the code. What is counted
+there is a number of requests that wait for the upstream at the same time, which a busy machine does not change, and
+not a number of seconds, which it does.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -60,15 +63,18 @@ class _Handler(BaseHTTPRequestHandler):
             if server.gate is not None and not self.path.startswith("/0/"):
                 server.gate.wait(timeout=20)
             time.sleep(server.delay(self.path))
-            status = server.statuses.get(self.path, 200)
-            body = self.path.removeprefix("/").replace("/", ":").encode() if status == 200 else b"error"
-            self.send_response(status)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         finally:
+            # the wait for the upstream ends here, before the answer is written: a client that has its answer asks the
+            # next, and a handler thread that a busy machine has not yet given the processor again must not still
+            # count as waiting then (a read one after the other would show two at once)
             with server.lock:
                 server.active -= 1
+        status = server.statuses.get(self.path, 200)
+        body = self.path.removeprefix("/").replace("/", ":").encode() if status == 200 else b"error"
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 class _Upstream(ThreadingHTTPServer):
@@ -114,8 +120,21 @@ class _Upstream(ThreadingHTTPServer):
         msg = f"{count} files were not asked for"
         raise AssertionError(msg)
 
-    def settle(self, quiet: float = 0.08) -> None:
-        """Wait until nothing is asked any more and nothing is being answered."""
+    def settle(self, expect: set[int] | None = None, quiet: float = 0.08) -> None:
+        """Wait until the stations in ``expect`` have been asked, then until nothing more is asked or answered.
+
+        The first half waits for what the test asserts, however long a starved thread takes to ask for it (up to the
+        deadline). The second half is a quiet window that confirms nothing *more* is asked: an extra request that
+        comes inside it restarts it, so a busy machine makes the test slower, never wrongly failing. One that comes
+        only after the window has closed (a worker starved for longer) is not seen. Without ``expect`` only
+        the quiet window is waited for, which is for a test that asserts that nothing is asked.
+        """
+        deadline = time.monotonic() + 20
+        while expect is not None and not expect <= self.stations_asked():
+            if time.monotonic() >= deadline:
+                msg = f"the stations {sorted(expect - self.stations_asked())} were not asked for"
+                raise AssertionError(msg)
+            time.sleep(0.01)
         last = -1
         stable_since = time.monotonic()
         deadline = time.monotonic() + 20
@@ -236,7 +255,8 @@ def _values_class(
                 {
                     "timestamp": [row[0] for row in rows],
                     "parameter": ["tmk"] * len(rows),
-                    "value": [float(row[1]) for row in rows],
+                    # a hundredth, so that no station reads a temperature the range check rejects (and is left empty)
+                    "value": [float(row[1]) / 100 for row in rows],
                 },
                 schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
             )
@@ -373,7 +393,7 @@ def test_the_fetch_ahead_ran(upstream: _Upstream, monkeypatch: pytest.MonkeyPatc
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1, 2, 3, 4})
 
     assert upstream.stations_asked() == {0, 1, 2, 3, 4}
     results.close()
@@ -395,8 +415,9 @@ def test_no_more_than_depth_stations_are_ahead_of_the_one_in_hand(
 
     for index in range(stations):
         next(results)
-        upstream.settle()
-        assert upstream.stations_asked() == set(range(min(index + depth, stations - 1) + 1))
+        expected = set(range(min(index + depth, stations - 1) + 1))
+        upstream.settle(expected)
+        assert upstream.stations_asked() == expected
     with pytest.raises(StopIteration):
         next(results)
 
@@ -409,7 +430,7 @@ def test_a_station_that_the_walk_passes_over_takes_no_place_in_the_window(
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 3, 4})
 
     assert upstream.stations_asked() == {0, 3, 4}
     results.close()
@@ -423,7 +444,7 @@ def test_a_ranked_walk_fetches_no_station_beyond_its_rank(
     ranked = reader.sr.request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values()
 
     assert len(list(ranked.query())) == 2
-    upstream.settle()
+    upstream.settle({0, 1})
 
     assert upstream.stations_asked() == {0, 1}
 
@@ -481,7 +502,7 @@ def test_a_failure_after_the_last_station_read_is_not_raised(
 
     results = reader.query()
     first = [next(results) for _ in range(2)]
-    upstream.settle()
+    upstream.settle({4})
 
     assert _station_ids(first) == ["00000", "00001"]
     assert 4 in upstream.stations_asked()
@@ -512,11 +533,11 @@ def test_a_missing_file_is_no_reason_to_stop_fetching_ahead(
 
     results = reader.query()
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1})
     assert upstream.stations_asked() == {0, 1}
     # station 1 has no data and is passed over, so the walk is at station 2 and has fetched the one after it
     assert _station_ids([next(results)]) == ["00002"]
-    upstream.settle()
+    upstream.settle({0, 1, 2, 3})
 
     assert upstream.stations_asked() == {0, 1, 2, 3}
     results.close()
@@ -565,7 +586,8 @@ def test_a_closed_walk_starts_nothing_more_and_leaves_no_thread_and_no_part_of_a
         "/3/0",
         "/4/0",
     ]
-    cached = [path for path in (tmp_path / "cache").rglob("*") if path.is_file()]
+    # the lock file beside each cache directory is no blob (GH-3485)
+    cached = [path for path in (tmp_path / "cache").rglob("*") if path.is_file() and path.suffix != ".lock"]
     assert [path for path in cached if path.suffix == ".tmp"] == []
     blobs = [path for path in cached if path.name not in {"cache", ".last-used"} and path.suffix != ".lm"]
     # the four files of the station in hand, the first file of each of the four after it, each whole
@@ -685,28 +707,35 @@ def test_the_default_depth_is_modest() -> None:
 # 8. what it is for, and what it does not cost
 
 
-def test_the_files_of_many_stations_are_fetched_clearly_faster_than_one_station_after_the_other(
+def test_the_files_of_many_stations_are_fetched_side_by_side_and_not_one_station_after_the_other(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With a latency per file, 24 stations are read in well under the time of one after the other (about 4x).
+    """With a latency per file, 24 stations are waited for side by side, where without it each is waited for alone.
 
-    What is held is the overlap, which the server counts and a busy machine does not change: one connection at a time
-    without it, three or more with it. The clock only has to agree (it is 4 times where nothing else runs; a machine
-    under a load of 90 has made it 1.5): the numbers are the benchmark's, in the pull request.
+    That is what makes it faster, and it is counted by the server and not timed: a busy machine slows each wait and
+    the ratio of the clocks of the two walks with it (4 where nothing else runs, 1.04 at a load of 50, GH-3976), but it
+    does not change how many waits are in hand at the same time. One at a time without the fetch-ahead, three or more
+    with it, and each file asked for once either way: what is fetched ahead is what the walk then reads, not fetched
+    again. The seconds are the benchmark's, in the pull request.
     """
     upstream.delay = lambda _path: 0.05
-    sequential, sequential_overlap = _walk_time(
-        upstream, monkeypatch, tmp_path, depth=0, attempts=2, stations=24, files=1
-    )
-    ahead, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, attempts=3, stations=24, files=1)
+    _, sequential_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=0, attempts=1, stations=24, files=1)
+    sequential_requests = sorted(upstream.requests)
+    upstream.requests.clear()
+    _, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, attempts=1, stations=24, files=1)
 
     assert sequential_overlap == 1
     assert ahead_overlap >= 3
-    assert sequential >= 1.1 * ahead, (sequential, ahead)
+    assert sorted(upstream.requests) == sequential_requests
+    assert len(sequential_requests) == 24
 
 
 def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A read of one station makes no fetch-ahead: no thread, no further request, and no longer."""
+    """A read of one station makes no fetch-ahead: no thread, no further request, and so no longer.
+
+    Counted, not timed (a busy machine moves a clock of 0.15 s by more than any margin): what the read asks for is what
+    it asked for without, and a request that is no more cannot make it slower.
+    """
     upstream.delay = lambda _path: 0.05
     made: list[object] = []
     original = FetchAhead.__init__
@@ -716,16 +745,18 @@ def test_one_station_is_read_as_it_was(upstream: _Upstream, monkeypatch: pytest.
         original(self, **kwargs)  # ty: ignore[invalid-argument-type]
 
     monkeypatch.setattr(FetchAhead, "__init__", counting)
-    timings = {}
+    asked = {}
     for depth in (0, 4):
+        upstream.requests.clear()
         reader = _reader(monkeypatch, tmp_path, stations=1, urls_of=_files(upstream, 3), depth=depth, cache=f"d{depth}")
-        began = time.perf_counter()
         assert len(list(reader.query())) == 1
-        timings[depth] = time.perf_counter() - began
+        upstream.settle()
+        asked[depth] = sorted(upstream.requests)
 
     assert made == []
     assert _fetch_threads() == []
-    assert timings[4] <= 2 * timings[0] + 0.3, timings
+    assert asked[0] == ["/0/0", "/0/1", "/0/2"]
+    assert asked[4] == asked[0]
 
 
 def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
@@ -736,7 +767,7 @@ def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
     off = _reader(monkeypatch, tmp_path, stations=5, urls_of=_files(upstream, 1), depth=0)
     stage = off.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
     assert upstream.stations_asked() == {0}
     stage.close()
 
@@ -745,7 +776,7 @@ def test_it_is_off_where_nothing_is_cached_or_it_is_switched_off(
     uncached.sr.request.settings.cache_disable = True
     stage = uncached.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
     assert upstream.stations_asked() == {0}
     stage.close()
 
@@ -757,7 +788,7 @@ def test_a_provider_without_the_hook_is_read_as_it_was(
     reader = _reader(monkeypatch, tmp_path, stations=5, urls_of=_files(upstream, 1), depth=4, hook=False)
     stage = reader.query()
     next(stage)
-    upstream.settle()
+    upstream.settle({0})
 
     assert upstream.stations_asked() == {0}
     stage.close()
@@ -780,7 +811,7 @@ def test_a_files_ahead_that_raises_is_not_heard_of_until_its_station(
     results = reader.query()
     assert _station_ids([next(results)]) == ["00000"]
     assert _station_ids([next(results)]) == ["00001"]
-    upstream.settle()
+    upstream.settle({0, 1})
     asked_with_the_hook_failed = upstream.stations_asked()
     assert _station_ids(list(results)) == ["00002", "00003"]
 
@@ -807,11 +838,70 @@ def test_a_fetch_that_breaks_is_not_heard_of_and_stops_the_fetching(
     results = reader.query()
     next(results)
     next(results)
-    upstream.settle()
+    upstream.settle({0, 1})
     asked = upstream.stations_asked()
     assert _station_ids(list(results)) == ["00002", "00003"]
 
     assert asked == {0, 1}
+
+
+def test_a_file_is_fetched_with_the_expiry_the_hook_names_it_with(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A settled file is kept longer than one still written to, and is fetched ahead with its own expiry (GH-3929)."""
+    reader = _reader(monkeypatch, tmp_path, stations=3, urls_of=_files(upstream, 2), depth=1)
+    asked: dict[str, CacheExpiry] = {}
+
+    def spy(**kwargs: object) -> object:
+        asked[str(kwargs["url"])] = cast("CacheExpiry", kwargs["ttl"])
+        return download_file(**kwargs)  # ty: ignore[invalid-argument-type]
+
+    def files_ahead(self: object, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:  # noqa: ARG001
+        urls = _files(upstream, 2)(station_id)
+        # the first file of a station is settled, the second is not, and the hook says so for the first only
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls={urls[0]: CacheExpiry.ONE_WEEK})
+
+    monkeypatch.setattr(fetch_ahead, "download_file", spy)
+    monkeypatch.setattr(type(reader), "_files_ahead", files_ahead)
+
+    results = reader.query()
+    next(results)
+    upstream.settle()
+    list(results)
+
+    assert asked
+    assert any(url.endswith("/0") for url in asked)
+    assert {url: ttl for url, ttl in asked.items() if url.endswith("/0")} == {
+        url: CacheExpiry.ONE_WEEK for url in asked if url.endswith("/0")
+    }
+    assert {ttl for url, ttl in asked.items() if url.endswith("/1")} == {CacheExpiry.FIVE_MINUTES}
+
+
+def test_a_file_that_is_not_cached_is_not_fetched_ahead_whatever_the_expiry_of_the_others(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The skip of a file that is not cached is the file's own, as its expiry is (GH-3929)."""
+    reader = _reader(monkeypatch, tmp_path, stations=3, urls_of=_files(upstream, 2), depth=1)
+    asked: set[str] = set()
+
+    def spy(**kwargs: object) -> object:
+        asked.add(str(kwargs["url"]))
+        return download_file(**kwargs)  # ty: ignore[invalid-argument-type]
+
+    def files_ahead(self: object, station_id: str, datasets: Sequence[DatasetModel]) -> FilesAhead:  # noqa: ARG001
+        urls = _files(upstream, 2)(station_id)
+        return FilesAhead(urls=urls, ttl=CacheExpiry.FIVE_MINUTES, ttls={urls[0]: CacheExpiry.NO_CACHE})
+
+    monkeypatch.setattr(fetch_ahead, "download_file", spy)
+    monkeypatch.setattr(type(reader), "_files_ahead", files_ahead)
+
+    results = reader.query()
+    next(results)
+    upstream.settle()
+    list(results)
+
+    assert any(url.endswith("/1") for url in asked)
+    assert not any(url.endswith("/0") for url in asked)
 
 
 def test_a_station_with_many_files_is_read_no_slower_than_without_the_fetch_ahead(
@@ -947,3 +1037,28 @@ def test_a_summary_and_an_interpolation_fetch_nothing_ahead(
     for get_df in (get_summarized_df, get_interpolated_df):
         get_df(request, latitude, longitude)
     assert made == []
+
+
+def test_a_failure_fetched_ahead_neither_silences_nor_makes_the_warning_of_a_parameter_without_rows(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """What the fetching ahead meets is no file the provider let go: the stations count as they would without it."""
+    told = lambda: [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"]  # noqa: E731
+    # the files named beforehand are where a connection is refused, the ones the collection reads are there
+    refused = lambda station_id: [f"{REFUSED}/{int(station_id)}/0"]  # noqa: E731
+    begin_response()
+    reader = _reader(monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=4, named=refused)
+
+    assert len(list(reader.query())) == 4
+    assert told() == []
+
+    # and where the parameter has no row at any station, the warning is told with the stations, not lost
+    for station in range(4):
+        upstream.statuses[f"/{station}/0"] = 404
+    begin_response()
+    reader = _reader(
+        monkeypatch, tmp_path, stations=4, urls_of=_files(upstream, 1), depth=4, named=refused, cache="second"
+    )
+
+    assert list(reader.query()) == []
+    assert [w["stations"] for w in told()] == [["00000", "00001", "00002", "00003"]]

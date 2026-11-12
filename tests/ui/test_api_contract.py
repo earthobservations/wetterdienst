@@ -162,7 +162,10 @@ def test_every_documented_route_is_served_under_the_alias_too(client: TestClient
         assert _without_ids(_untimed(alias.json())) == _without_ids(_untimed(versioned.json())), path
 
 
-@pytest.mark.parametrize("path", ["/version", "/glossary?parameter=temperature_air_mean_2m", "/coverage"])
+@pytest.mark.parametrize(
+    "path",
+    ["/version", "/glossary?parameter=temperature_air_mean_2m", "/coverage?provider=dwd&network=observation"],
+)
 def test_both_prefixes_answer_alike(client: TestClient, path: str) -> None:
     """The alias is not another API: a request gives the same answer under both."""
     versioned, alias = client.get(f"/api/v1{path}"), client.get(f"/api{path}")
@@ -314,7 +317,7 @@ def test_an_unknown_provider_is_a_404_problem(client: TestClient) -> None:
         404,
     )
 
-    assert "coverage" in body["detail"]
+    assert "/api/providers" in body["detail"]
 
 
 def test_a_problem_has_the_members_the_schema_declares(client: TestClient) -> None:
@@ -432,7 +435,7 @@ _READERS = [
     pytest.param("history", "get_stations", {**_SERIES, "stations": "01048"}, id="history"),
     pytest.param("issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
     pytest.param("stripes/values", "_get_stripes_data", _STRIPES, id="stripes-values"),
-    pytest.param("stripes/image", "_plot_stripes", _STRIPES, id="stripes-image"),
+    pytest.param("stripes/image", "_get_stripes_data", _STRIPES, id="stripes-image"),
     pytest.param("stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
 ]
 

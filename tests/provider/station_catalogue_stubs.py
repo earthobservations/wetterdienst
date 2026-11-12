@@ -8,8 +8,8 @@ decimal separator, and the padding too where a comment does not say it was cut. 
 the provider's own reader (`_all()` and the frame handling of `all()`), so a reader that loses a sign or drops a column
 shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
 sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
-`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the NetCDF file of
-`knmi/observation`, which needs a key, written with h5netcdf. A comment also says which fields a stub made up (the
+`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the CSV file of
+the catalogue of `knmi/observation`, which needs a key. A comment also says which fields a stub made up (the
 observations a Hubeau station's resolution is measured from, the file names of `dwd/observation` but two) and which
 it left out. A network whose data files are listed serves the listing or feed beside the catalogue as well
 (`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo`, `chmi/observation`, `meteoswiss/observation`,
@@ -28,15 +28,14 @@ from __future__ import annotations
 import bz2
 import datetime as dt
 import json
-import tempfile
 from dataclasses import dataclass, field
 from io import BytesIO
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
 from tests.provider import station_data_index as data_index
+from tests.provider.metno.frost import catalogue_rows as frost_rows
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, Bbox, has_encoding_damage
 from wetterdienst import Settings
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
@@ -193,6 +192,12 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdRoadRequest, ("15_minutes", "data"))
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -206,6 +211,57 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(ImgwMeteorologyRequest, ("daily", "climate"))
 
 
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
+#
+# The daily synop lists the synop stations only (GH-3944): the rows of `kody_stacji.csv` that `wykaz_stacji.csv`
+# (IMGW's list of the stations of its meteorological archives, served as it is published: cp1250, CRLF, the name and the
+# five-character code quoted) gives a code of at most three digits. The catalogue below is real rows (read 2026-11-10):
+# the synop stations Bielsko-Biała, Warszawa and, closed since 2000, Przemyśl; the climate and precipitation stations
+# Pszczyna, Strzyżów and Starnin, whose ids end in 010 as the ids of two synop stations of the list end in the code of
+# their per-station files (so that a code alone does not tell them apart); and Wrocław 351160425, a station of the
+# catalogue that the archives do not hold (the synop station of the city is 351160424, which the stub leaves out).
+# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published, with a comma inside the quotes of its name and no
+# code of its own, which the reader must leave alone.
+def _imgw_meteorology_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+        "413;250240010;Strzyżów;Bug (266);2001;50 50 24;24 02 08;181\r\n"
+        "588;253150010;Starnin;Rega (42);1961;53 57 57;15 27 24;36\r\n"
+        "736;349190600;Bielsko-Biała;Biała (2114);1947;49 48 24;19 00 08;396\r\n"
+        "743;349220695;PRZEMYŚL;San (22);1946;49 50 02;22 48 36;230\r\n"
+        "761;351160425;WROCŁAW;Odra (1);1956;51 06 49;16 52 54;120\r\n"
+        "774;352200375;Warszawa;Wisła (2);1918;52 09 46;20 57 40;106\r\n"
+    )
+    stations = (
+        '"249180010","PSZCZYNA"," 5409"\r\n'
+        '"250240010","STRZYŻÓW"," 5927"\r\n'
+        '"252200360","GOŁYMIN-OŚRODEK,93668"               \r\n'
+        '"253150010","STARNIN","92143"\r\n'
+        '"349190600","BIELSKO-BIAŁA","  600"\r\n'
+        '"349220695","PRZEMYŚL","  695"\r\n'
+        '"352200375","WARSZAWA","  375"\r\n'
+    )
+    _serve(
+        monkeypatch,
+        imgw_meteorology_api,
+        {"kody_stacji": catalogue.encode("utf8"), "wykaz_stacji": stations.encode("cp1250")},
+    )
+    return _stations(ImgwMeteorologyRequest, ("daily", "synop"))
+
+
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -213,12 +269,14 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "1;149180010;Krzyżanowice;Odra (1);1927;49 59 37;18 17 14;184.806;713.04\r\n"
         "55;149190360;LUDŹMIERZ ;Lepietnica (2141156);1922;49 28 07;19 58 32;596.044;0.27\r\n"
         "58;149190390;LUDŹMIERZ;Wielki Rogoźnik (214116);1924;49 27 34;19 59 12;592.828;0.4\r\n"
+        "791;154160150;Darłowo;Morze Bałtyckie (0);1819;54 26 25;16 22 40;-4.904;\r\n"
+        "792;154160160;Zielnowo;Wieprza (46);2024;54 26 31;16 28 32;;10.23\r\n"
     )
     _serve(monkeypatch, imgw_hydrology_api, {"kody_stacji": catalogue.encode("utf8")})
     return _stations(ImgwHydrologyRequest, ("daily", "hydrology"))
 
 
-def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _chmi_catalogue(monkeypatch: pytest.MonkeyPatch) -> None:
     catalogue = (
         "WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
         "0-20000-0-11406,L3CHEB01,1863-10-01T00:00Z,1919-12-31T23:59Z,Cheb,12.362892,50.076212,458,\n"
@@ -232,11 +290,26 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
         "0-203-0-11566,P2SADS01,1897-01-01T00:00Z,1934-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
         "0-203-0-11566,P2SADS01,1936-01-01T00:00Z,1945-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
+        # active, with files in the monthly and annual directories only (the rows CHMI added on 2026-10-27, GH-3259): no
+        # daily file, so none of the lists of the stub names it, the sub-daily ones included (GH-3623)
+        "0-203-0-10101019002,H4DDHP01,2009-09-01T00:00Z,3999-12-31T23:59Z,Dolní Dvůr  Hanapetrova paseka,"
+        "15.654731,50.676074,875,\n"
+        # the two stations of abroad of the list (GH_ID `Z...`, 2026-10-29), for which the portal has no file: the
+        # reader leaves them out. The daily list is cut by the files and would lose them anyway; the hourly one is
+        # not, so the rules of the catalogue fail on them there if the reader keeps them (GH-3589)
+        "0-20000-0-04030,ZIS04030,2015-01-01T00:00Z,3999-12-31T23:59Z,Reykjavik,-21.903905,64.127653,51,\n"
+        "0-20000-0-89055,ZAR89055,2010-01-01T00:00Z,2020-01-31T23:59Z,Marambio  Base,56.623056,64.233056,196,\n"
     )
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
-    # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
-    # elements the provider does not read (`TPM`, `API30`), and the other directories left out: Sadská, a station
-    # closed in 1945, has no file, which the provider narrows the list by (GH-3259)
+
+
+def _chmi_daily_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve the directories of the daily elements, which cut the daily list and, since GH-3623, the sub-daily ones.
+
+    The files are those of the stations above as listed (2026-10-21), among them elements the provider does not read
+    (`TPM`, `API30`), and the other directories are left out: Sadská, a station closed in 1945, has no file, nor has
+    Dolní Dvůr (GH-3259).
+    """
     base = f"{chmi_api._BASE_URL}/data/daily"  # noqa: SLF001
     files = {
         f"{base}/temperature/": [
@@ -251,7 +324,21 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
     monkeypatch.setattr(data_index, "list_files", list_files)
     monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
+
+
+def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _chmi_catalogue(monkeypatch)
+    _chmi_daily_files(monkeypatch)
     return _stations(ChmiObservationRequest, ("daily", "data"))
+
+
+def _chmi_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the sub-daily lists are cut by the end of the period (2018, when their files begin) and the daily files, not by
+    # their own (GH-3623): Cheb and Javorový stay, Nová Lhota (closed 1980) and Sadská (1945) go, though Nová Lhota
+    # has a daily file, and so does Dolní Dvůr (active, no daily file)
+    _chmi_catalogue(monkeypatch)
+    _chmi_daily_files(monkeypatch)
+    return _stations(ChmiObservationRequest, ("hourly", "data"))
 
 
 def _geosphere(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -419,27 +506,19 @@ def _metoffice(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the list needs a client, so a stub of one is given; the names are those the list pads with a blank (GH-2654),
-    # the rest worded after it (ids with their `SN` prefix, the stamps as ISO text, the position as lon, lat)
-    def source(station_id: str, name: str, county: str, lon: float, lat: float, masl: int) -> dict[str, Any]:
-        return {
-            "id": station_id,
-            "name": name,
-            "validFrom": "2000-01-01T00:00:00.000Z",
-            "geometry": {"@type": "Point", "coordinates": [lon, lat]},
-            "county": county,
-            "countryCode": "NO",
-            "masl": masl,
-        }
-
-    catalogue = {
-        "data": [
-            source("SN18700", "OSLO - BLINDERN", "OSLO", 10.72, 59.94, 94),
-            source("SN46380", "KVANNDALEN ", "VESTLAND", 6.62, 60.88, 388),
-            source("SN46530", "VIVASSDALEN ", "VESTLAND", 6.4, 61.02, 54),
-        ]
-    }
-    _serve(monkeypatch, frost_api, {"sources/v0.jsonld": json.dumps(catalogue).encode("utf8")})
+    # the list needs a client, so a stub of one is given. The two requests of the catalogue are served with the rows of
+    # the real answers of 2026-11-07, cut to the stations that show a rule (`catalogue_rows.py`): the sources, which
+    # list the closed stations too (names padded with a blank, GH-2654; ids with their `SN` prefix; the stamps as ISO
+    # text; the position as lon, lat), and the declared series of every station, which the start and the end are read
+    # from (GH-3847, GH-3864)
+    _serve(
+        monkeypatch,
+        frost_api,
+        {
+            "sources/v0.jsonld": json.dumps(frost_rows.SOURCES).encode("utf8"),
+            "availableTimeSeries/v0.jsonld": json.dumps(frost_rows.SERIES).encode("utf8"),
+        },
+    )
     request = MetnoFrostRequest(
         parameters=[("hourly", "data")],
         settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
@@ -461,6 +540,14 @@ GHCN_NO_POSITION = Accepted(
     where=lambda row: (
         (row["name"] or "").startswith(("BOGUS ", "NAME AND LOC")) or (row["station_id"] or "").startswith("RUU71-")
     ),
+)
+# the rigs, ships and gliders of Frost's list (GH-2655)
+FROST_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "52 of the 4179 SensorSystem sources (2026-11-07, closed ones included) have no geometry and no position in any "
+    "other field: ships, rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), which move; "
+    "they stay in the list and no search picks them (GH-2655)",
+    where=lambda row: row["latitude"] is None and row["longitude"] is None,
 )
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
@@ -1316,7 +1403,9 @@ def _smhi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(SmhiObservationRequest, ("hourly", "data"))
 
 
-def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def hubeau_request(monkeypatch: pytest.MonkeyPatch) -> HubeauRequest:
+    """Serve the stub referential to the Hub'Eau reader, and give the request for the 5 minute stations."""
+
     # the referential of stations and the one of sites (2026-10-15), of which these are the stations of the Seine at
     # Paris (two stations of one site, with one position), the Garonne at La Reole, one without an altitude and a
     # system of altitude, and Goyaves in Guadeloupe (overseas); the observations, which a station's resolution is
@@ -1324,6 +1413,8 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # stations the referential lists with latitude and longitude swapped (Anor, Planioles, Le Tech: longitude 50.0,
     # 44.6 and 42.4, latitude 4.1, 2.0 and 2.6, which are points in Africa and the Indian Ocean), one in Mayotte, whose
     # position is right with a longitude of 45 degrees and a latitude of -12.8, and the Blavet, listed in Algeria
+    # (latitude 35.1, longitude 0.84), all as the referential wrote them: the reader puts the first three right and
+    # gives the last no position
     def station(
         site: str,
         station_id: str,
@@ -1410,25 +1501,44 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "observations_tr": json.dumps({"data": observations}).encode("utf8"),
     }
     _serve(monkeypatch, hubeau_api, bodies)
-    return _stations(HubeauRequest, ("5_minutes", "data"))
+    return HubeauRequest(parameters=[("5_minutes", "data")], settings=Settings(cache_disable=True))
+
+
+def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    return hubeau_request(monkeypatch).all().df
 
 
 HUBEAU_BLAVET = Accepted(
-    "coordinates_outside_country",
+    "coordinates_missing",
     "the referential lists the Blavet at Neulliac (Morbihan) at latitude 35.1 and longitude 0.84, in Algeria; it is "
-    "no swapped pair (swapped it is in Kenya, in no area of France either), so the reader leaves it as the source "
-    "writes it (GH-3468)",
+    "no swapped pair (swapped it is in Kenya, in no area of France either), so the reader gives it no position and "
+    "the answer says so in a warning (GH-3468)",
     where=lambda row: row["station_id"] == "J543211003",
+)
+# known from the live referential of 2026-10-28 only, so it is held by the live test and not by the stub: 25 stations
+# (L040061201, L041000101, ...) are in service with an opening of 2026-11-01 and no closing. Only an opening within
+# `HUBEAU_OPENING_SOON` of the time of the check is excused, so that a date of 2062 typed for 2026 still fails
+HUBEAU_OPENING_SOON = dt.timedelta(days=60)
+HUBEAU_NOT_OPENED = Accepted(
+    "date_in_the_future",
+    "the referential lists stations that are in service with an opening on a date to come (25 stations of the "
+    "L series on 2026-10-28, opening on 2026-11-01), which the library passes on as the source gives it",
+    where=lambda row: (
+        row["end_timestamp"] is None
+        and row["start_timestamp"] is not None
+        and row["start_timestamp"] <= dt.datetime.now(dt.UTC) + HUBEAU_OPENING_SOON
+    ),
 )
 HUBEAU_EXPECTED = {
     # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales
     "H000000201": {"latitude": 49.989435, "longitude": 4.099322},
     "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
     "Y021401101": {"latitude": 42.4174, "longitude": 2.557169},
-    # and the stations it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in
-    # the Atlantic off the Gironde), and the Blavet, which is in no area either way
+    # the station it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in the
+    # Atlantic off the Gironde)
     "3013000101": {"latitude": -12.800646373, "longitude": 45.205680635},
-    "J543211003": {"latitude": 35.108562837, "longitude": 0.840483401},
+    # and the one it gave no position, the Blavet, which is in no area either way
+    "J543211003": {"latitude": None, "longitude": None},
 }
 
 
@@ -1463,12 +1573,15 @@ def _wsv(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     celle = {
         "equidistance": 15,
         "gaugeZero": {"value": 31.82, "unit": "m. ü. NN"},
-        "characteristicValues": [{"shortname": key, "value": value} for key, value in values],
+        "characteristicValues": [{"shortname": key, "value": value, "unit": "cm"} for key, value in values],
     }
     korneuburg = {
         "equidistance": 15,
         "gaugeZero": {"value": 159.87, "unit": "m ü. A."},
-        "characteristicValues": [{"shortname": "RNW", "value": 191.0}, {"shortname": "HSW", "value": 549.0}],
+        "characteristicValues": [
+            {"shortname": "RNW", "value": 191.0, "unit": "cm"},
+            {"shortname": "HSW", "value": 549.0, "unit": "cm"},
+        ],
     }
     bare = {"equidistance": 10, "gaugeZero": None, "characteristicValues": []}
     catalogue = [
@@ -1501,46 +1614,24 @@ def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 # the station id of `knmi/observation` is the WMO number at the end of the WSI, the height keeps its sign
 KNMI_EXPECTED: dict[str, dict[str, Any]] = {
-    "06209": {"wigos_id": "0-20000-0-06209", "name": "IJmond", "latitude": 52.465, "longitude": 4.518},
-    "06260": {"wigos_id": "0-20000-0-06260", "name": "De Bilt", "latitude": 52.1, "longitude": 5.18, "elevation": 1.9},
-    "06344": {"name": "Rotterdam Airport", "elevation": -4.3},
-    "06392": {"name": "Horst", "latitude": 51.486836, "longitude": 6.056189},
+    "06209": {"wigos_id": "0-20000-0-06209", "name": "IJmond", "latitude": 52.4636, "longitude": 4.5175},
+    "06210": {"wigos_id": "0-20000-0-06210", "name": "VALKENBURG VK", "elevation": -0.2},
+    "06260": {"wigos_id": "0-20000-0-06260", "name": "De Bilt", "latitude": 52.0989, "longitude": 5.1797},
+    "06344": {"name": "Rotterdam Airport", "elevation": -5.14},
+    "06392": {"wigos_id": "0-528-0-06392", "name": "Horst", "latitude": 51.4869, "longitude": 6.0561},
 }
 
 
 def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the list is the station axis of the latest NetCDF file of a resolution, which needs the API key, so the file is
-    # written with h5netcdf in the shape the reader reads (stations keyed by WSI, `stationname`, `lat`, `lon`,
-    # `height`) and served in place of the download. The rows are those of the key-less station table that
-    # `daggegevens.knmi.nl` prints above its data (2026-10-15, `stns=ALL`: the first two stations, De Bilt, Rotterdam
-    # Airport at a height of -4.3 m, and Horst with a position of six decimals): the legacy
-    # number 260 of De Bilt is the 06260 of its WSI. The names and positions of the NetCDF files themselves could not
-    # be read without a key
-    import pytest  # noqa: PLC0415
+    # the list is the catalogue of the stations of KNMI, one CSV file that the Open Data API serves with the key of the
+    # observations, so the file is served in place of the download. The rows are those of the real file (the dataset
+    # `waarneemstations_csv`, `csv_knmi_nl_20260615.csv`, read 2026-11-11): IJmond, Valkenburg (closed in 2016, whose
+    # data the files hold and that no latest file lists), De Bilt, Rotterdam Airport at a height of -5.14 m and Horst,
+    # a WSI of the issuer 528. The number 260 of the legacy export is the 06260 of the WSI
+    from tests.provider.knmi.observation.catalogue import catalogue_csv  # noqa: PLC0415
 
-    h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
-    h5py = pytest.importorskip("h5py", reason="h5py not installed")
-    stations = [
-        ("0-20000-0-06209", "IJmond", 52.465, 4.518, 0.0),
-        ("0-20000-0-06210", "VALKENBURG VK", 52.171, 4.430, -0.2),
-        ("0-20000-0-06260", "De Bilt", 52.100, 5.180, 1.9),
-        ("0-20000-0-06344", "Rotterdam Airport", 51.962, 4.447, -4.3),
-        ("0-20000-0-06392", "Horst", 51.486836, 6.056189, 21.88),
-    ]
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "stations.nc"
-        with h5netcdf.File(path, "w") as file:
-            file.dimensions = {"station": len(stations)}
-            string_dtype = h5py.string_dtype()
-            station = file.create_variable("station", ("station",), dtype=string_dtype)
-            station[:] = [wsi for wsi, *_ in stations]
-            stationname = file.create_variable("stationname", ("station",), dtype=string_dtype)
-            stationname[:] = [name for _, name, *_ in stations]
-            for column, index in {"lat": 2, "lon": 3, "height": 4}.items():
-                variable = file.create_variable(column, ("station",), dtype="f8")
-                variable[:] = [row[index] for row in stations]
-        payload = path.read_bytes()
-    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "latest.nc")
+    payload = catalogue_csv("06209", "06210", "06260", "06344", "06392")
+    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "csv_knmi_nl_20260615.csv")
     monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args: payload)
     request = KnmiObservationRequest(
         parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"knmi": "stub"})
@@ -1605,6 +1696,17 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(MeteoFranceSynopRequest, ("subdaily", "data"))
 
 
+# the start and the end the reader must give each station of Frost's stub (GH-3847, GH-3864): the rules are in the
+# docstring of `catalogue_rows.py`, and no rule of the catalogue can tell a span read wrongly from one that is only
+# another
+FROST_EXPECTED: dict[str, dict[str, Any]] = {
+    station_id: {
+        "start_timestamp": dt.datetime.fromisoformat(start).replace(tzinfo=dt.UTC),
+        "end_timestamp": None if end is None else dt.datetime.fromisoformat(end).replace(tzinfo=dt.UTC),
+    }
+    for station_id, (start, end) in frost_rows.EXPECTED.items()
+}
+
 STUBS = [
     Stub("aemet/observation daily/data", _aemet),
     Stub("dmi/observation daily/data", _dmi),
@@ -1642,7 +1744,7 @@ STUBS = [
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
     Stub("knmi/observation daily/data", _knmi, expected=KNMI_EXPECTED),
-    Stub("metno/frost hourly/data", _metno_frost),
+    Stub("metno/frost hourly/data", _metno_frost, (FROST_NO_POSITION,), expected=FROST_EXPECTED),
     Stub("metoffice/observation daily/rain", _metoffice),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
     Stub(
@@ -1656,9 +1758,18 @@ STUBS = [
         _chmi,
         (CHMI_NAME,),
     ),
+    Stub("chmi/observation hourly/data", _chmi_hourly),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
     Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
     Stub("imgw/meteorology daily/climate", _imgw_meteorology),
+    Stub(
+        "imgw/meteorology daily/synop",
+        _imgw_meteorology_synop,
+        expected={
+            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0},
+            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611},
+        },
+    ),
 ]

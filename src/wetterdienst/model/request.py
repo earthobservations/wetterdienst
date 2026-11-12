@@ -6,17 +6,19 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import math
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from measurement.measures import Distance
-from measurement.utils import guess
 
 from wetterdienst.exceptions import (
+    DateRequiredError,
     InvalidBoundingBoxError,
     InvalidParameterError,
     InvalidTimeIntervalError,
@@ -26,16 +28,20 @@ from wetterdienst.exceptions import (
     NoParametersFoundError,
     NoPeriodsFoundError,
     ProviderContractError,
+    RequestError,
     ReversedTimeIntervalError,
+    StationListingIncompleteError,
     StationNotFoundError,
 )
-from wetterdienst.io.export import ExportMixin
+from wetterdienst.io.sql_filter import filter_by_sql
 from wetterdienst.metadata.parameter_table import INTERPOLATABLE_PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.listing_gap import ListingGap  # noqa: TC001, a return annotation of the hook below
 from wetterdienst.model.metadata import (
     CoverageDataset,
+    CoverageParameter,
     CoverageResolution,
     DatasetModel,
     ExtentDict,
@@ -45,6 +51,7 @@ from wetterdienst.model.metadata import (
     check_on_unknown,
     group_parameters_by_dataset,
     parse_parameters,
+    requested_by_kind,
 )
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -59,18 +66,21 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import newest, parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.geo import require_location_in_range
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
+    from wetterdienst.core.util import StationPlacement
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -151,6 +161,51 @@ _BOUND_FORMS = (
 # an iterable of either: ["historical", "recent"] or {Period.HISTORICAL, Period.RECENT}
 _PERIOD_TYPE_SINGULAR = str | Period
 _PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
+
+
+def require_window(parameters: Iterable[ParameterModel], start: dt.datetime | None, end: dt.datetime | None) -> None:
+    """Refuse the datasets that are read by a window when the request has none (GH-3562).
+
+    A dataset marked `date_required` is asked for by a window. Asked for values without one the library used to answer
+    an empty frame, or whatever slice the provider chose, which a caller could not tell from a source that has
+    nothing. This is the one check for the library (`TimeseriesValues`) and for the REST API, the
+    command line and MCP (`_get_stations_request`), which word the same refusal in terms of their `timestamp`.
+    Listing the stations of such a dataset needs no window and does not come here.
+
+    Raises:
+        DateRequiredError: when a dataset of the parameters is `date_required` and `start` or `end` is missing. It names
+            the datasets and what to pass.
+
+    """
+    if start is not None and end is not None:
+        return
+    names = list(
+        dict.fromkeys(
+            f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+            for parameter in parameters
+            if parameter.dataset.date_required
+        )
+    )
+    if not names:
+        return
+    subject = f"The dataset {names[0]} needs" if len(names) == 1 else f"The datasets {', '.join(names)} need"
+    msg = (
+        f"{subject} a window (`date_required`). "
+        "Pass 'start' and 'end' to the request (a bound given alone is the whole day, month or year it names)."
+    )
+    raise DateRequiredError(msg)
+
+
+def _require_finite_elevation(elevation: float | None) -> None:
+    """Refuse an elevation that is NaN or infinite: it would be written into the point's name and the z of its position.
+
+    Raises:
+        RequestError: where the elevation is not a finite number of metres. Leave it out for the readings as they come.
+
+    """
+    if elevation is not None and not math.isfinite(elevation):
+        msg = f"elevation must be a finite number of metres above sea level, got {elevation}; leave it out to use none"
+        raise RequestError(msg)
 
 
 def _format_periods(periods: Iterable[Period]) -> str:
@@ -321,6 +376,34 @@ def shape_stations_frame(
     return df.select(expressions)
 
 
+# set while `all()` builds the list that a filter selects among: that list is not an answer, so it tells nothing
+_SELECTING: ContextVar[bool] = ContextVar("wetterdienst_selecting", default=False)
+#: set (`answer_cut_to_window`) while the stations of an answer that is cut to the window of the request are selected:
+#: by the user interfaces for a stations listing (`ui.core.limit_stations_to_window`) and the values of the stations
+#: (`ui.core.get_stations`), and by `interpolate` and `summarize` while they rank theirs. A warning about a station
+#: that the answer would have in it, or have to leave out of a search by place, is then told only for the stations
+#: that survive the cut (`TimeseriesRequest._within_answer_window`); outside it, as in a library `all()` or filter,
+#: nothing is cut to a window
+ANSWER_WINDOW: ContextVar[bool] = ContextVar("wetterdienst_answer_window", default=False)
+
+
+@contextmanager
+def answer_cut_to_window() -> Iterator[None]:
+    """Say, while the stations of an answer are selected, that the answer is cut to the window of the request.
+
+    Stations a provider lists without a position are warned about where the answer holds them or a search by place had
+    to leave them out (`TimeseriesRequest._warn_unplaced`); for an answer cut to the window, only the stations that
+    survive the cut count. A stations listing, the values of stations and an interpolation or a summary are cut
+    that way: the user interfaces select their stations in this context (`ui.core.get_stations`), and
+    `interpolate` and `summarize` rank theirs in it.
+    """
+    token = ANSWER_WINDOW.set(True)
+    try:
+        yield
+    finally:
+        ANSWER_WINDOW.reset(token)
+
+
 @dataclass
 class TimeseriesRequest:
     """Core class for timeseries information of a source."""
@@ -356,6 +439,19 @@ class TimeseriesRequest:
     # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
     # by raising. The library sets none (`core.util.hold_stations_in_reach`)
     _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
+    # Not an argument: the periods a request asked for by name when that narrowed what it reads (`_selects_by_period`),
+    # which `parameter-without-rows` says it was held to; empty where none was asked for or all were
+    _periods_narrowed: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: the periods the request would have read had it not been given any (`_resolve_periods(None)`:
+    # those the window reaches), which `periods` is judged against, set where `_periods_narrowed` is
+    _periods_inferred: frozenset[Period] = field(default=frozenset(), init=False, repr=False, compare=False)
+    # Not an argument: which of the parameters were asked for as a whole dataset (`(resolution, dataset)`) and which by
+    # their name (`(resolution, dataset, name_original)`), as `requested_by_kind` reads it in `__post_init__`. The
+    # flat `parameters` has lost that, and `parameter-without-rows` is told of a parameter by its name only
+    _requested_whole: frozenset[tuple[str, str]] = field(default=frozenset(), init=False, repr=False, compare=False)
+    _requested_named: frozenset[tuple[str, str, str]] = field(
+        default=frozenset(), init=False, repr=False, compare=False
+    )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -400,6 +496,8 @@ class TimeseriesRequest:
                 error = InvalidParameterError(msg)
                 error.resolved = True
                 raise error from None
+        if self.parameters:
+            self._requested_whole, self._requested_named = requested_by_kind(requested, self.metadata)
         if not self.parameters:
             # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
             # wrong with it, but they are only visible to whoever configured logging, so name the
@@ -408,7 +506,16 @@ class TimeseriesRequest:
             raise NoParametersFoundError(msg)
         # Has to follow the parameters, which say which datasets -- and so which periods -- were
         # asked for, and the timestamps, which a provider may derive the periods from
+        asked_for_periods = bool(self.periods)
         self.periods = self._resolve_periods(self.periods)
+        self._note_narrowing_periods(asked_for_periods=asked_for_periods)
+
+    def _note_narrowing_periods(self, *, asked_for_periods: bool) -> None:
+        """Note the periods asked for if they leave some out, and the ones the window would have read without them."""
+        periods = cast("set[Period]", self.periods)
+        if asked_for_periods and self._selects_by_period and periods != self.published_periods:
+            self._periods_narrowed = frozenset(periods)
+            self._periods_inferred = frozenset(self._resolve_periods(None))
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
@@ -445,6 +552,21 @@ class TimeseriesRequest:
         no such release, or has not measured it, gets. A provider that reads per period and has one overrides it.
         """
         return None
+
+    def _narrowed_by(self, dataset: DatasetModel) -> list[tuple[str, str | None]]:
+        """Name what the request asked for that holds back some of the source for a dataset: a phrase and a hint.
+
+        What `parameter-without-rows` says the answer is of, so that a caller knows another period may hold the values:
+        the periods asked for where they leave out one the dataset publishes. The hint is what to ask instead, None
+        where there is none. A request with a run or a lead time adds its own.
+        """
+        published = set(dataset.periods)
+        asked = set(self._periods_narrowed) & published
+        # narrowed only where the window would have read a period that was left out: asking for `recent` for a
+        # window that only `recent` holds changes nothing, and `try without periods` would answer the same
+        if asked and (set(self._periods_inferred) & published) - asked:
+            return [(f"the periods asked for ({_format_periods(asked)})", "try without `periods`")]
+        return []
 
     @classmethod
     def available_periods(cls) -> set[Period]:
@@ -653,11 +775,14 @@ class TimeseriesRequest:
              "parameters": [{"name": ..., "name_original": ..., "unit_type": ..., "unit": ...,
              "description": ...}]}}}}
 
-        `unit` is the unit the source publishes in, which is not always the unit a request answers
-        with: a value is converted to its type's target unless the option `convert_units` is off, so
-        `dwd/road` reports `degree_kelvin` here and answers in °C, and `millimeter_per_second` here
-        and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
-        side.
+        `unit` is the unit the values come back in for a caller who passes no options: the target of the
+        `unit_type` in the unit converter `values` and `glossary` build from the environment
+        (`WD_TS_UNIT_TARGETS`, `WD_TS_CONVERT_UNITS`), so `dwd/road` reports `degree_celsius` and
+        `millimeter_per_hour`. `unit_source` is the unit the provider publishes the parameter in
+        (`degree_kelvin`, `millimeter_per_second`), which the values come in with `convert_units` off. It is
+        there only where it differs from `unit`: absent means the same, which keeps the answer from repeating
+        itself for the parameters nothing converts. A `unit_targets` a caller passes to `values` is not followed,
+        this taking no options.
 
         Names are matched by either name of a resolution or dataset, in any case.
 
@@ -713,6 +838,33 @@ class TimeseriesRequest:
                 )
                 msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
                 raise MetadataNotFoundError(msg)
+        # the unit the values come back in for a caller who passes no options: the converter `values` and `glossary`
+        # build, with the targets of the environment, so that the three cannot differ. With `convert_units` off the
+        # values keep the source's unit
+        options = resolve_options(None)
+        converter = UnitConverter()
+        converter.update_targets(options.unit_targets)
+
+        def described(parameter: ParameterModel) -> CoverageParameter:
+            unit = converter.targets[parameter.unit_type].name if options.convert_units else parameter.unit
+            entry: CoverageParameter = {
+                "name": parameter.name,
+                "name_original": parameter.name_original,
+                "unit_type": parameter.unit_type,
+                "unit": unit,
+                # the source's own words for its own field, where we have them; the canonical,
+                # provider-independent sentence lives in the glossary
+                "description": parameter.description,
+                # null is "not stated", never a reading: the provider's own declaration where the name states no
+                # statistic, and the position of the parameter or else of its dataset (GH-3134)
+                "aggregation": parameter.effective_aggregation,
+                "timestamp_position": parameter.effective_timestamp_position,
+            }
+            # only where it says something: absent is the same as `unit`, as most are (GH-3537)
+            if parameter.unit != unit:
+                entry["unit_source"] = parameter.unit
+            return entry
+
         data: dict[str, CoverageResolution] = {}
         for resolution in selected:
             described_datasets: dict[str, CoverageDataset] = {}
@@ -724,18 +876,7 @@ class TimeseriesRequest:
                 extent = dataset.extent if dataset.extent is not None else cls.metadata.extent
                 described_datasets[dataset.name] = {
                     "description": dataset.description,
-                    "parameters": [
-                        {
-                            "name": parameter.name,
-                            "name_original": parameter.name_original,
-                            "unit_type": parameter.unit_type,
-                            "unit": parameter.unit,
-                            # the source's own words for its own field, where we have them; the
-                            # canonical, provider-independent sentence lives in the glossary
-                            "description": parameter.description,
-                        }
-                        for parameter in dataset
-                    ],
+                    "parameters": [described(parameter) for parameter in dataset],
                     "extent": cast("ExtentDict", extent.model_dump(mode="json")),
                 }
             if not described_datasets:
@@ -795,6 +936,42 @@ class TimeseriesRequest:
 
         """
 
+    def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
+        """Tell, with `warn_response`, which of the stations a provider lists without a position it got wrong.
+
+        A provider whose source writes a position that cannot be (and cannot be corrected) hands the station on
+        without one, and overrides this to say so (`eaufrance/hubeau`, the code ``position-unplaced``). The core calls
+        it where the warning concerns the answer: with the stations an answer holds (`all()`, `filter_by_station_id`,
+        `filter_by_name`, `filter_by_sql`), and with all the request's stations for a search by place
+        (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, and so `interpolate` and `summarize`), which can
+        never answer with a station that has no position. The list a filter selects among
+        (`_stations_to_select_among`) tells nothing. An override tells only the stations it lists without a position
+        that are among those of `df`; this one tells nothing, and costs nothing.
+
+        Args:
+            df: the stations of the answer, or all of the request's stations for a search by place
+            named: the caller named the stations (by id, name or SQL): they are told whatever the window of the answer
+                does to them. Otherwise, for the whole list and a search by place, an override cuts `df` to the
+                window of the answer first (`_within_answer_window`), as only the stations that survive it would be in
+                the answer
+
+        """
+
+    def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Cut the stations to those that would be in the answer when it is cut to the window of the request.
+
+        Only while the answer is cut to the window (`ANSWER_WINDOW`: a stations listing, the values of stations, an
+        estimate); a library `all()` or filter cuts nothing to it, so `df` is returned as it is there.
+        """
+        if not ANSWER_WINDOW.get():
+            return df
+        return limit_to_window(
+            df,
+            cast("dt.datetime | None", self.start),
+            cast("dt.datetime | None", self.end),
+            cast("Options", self.options).station_window_end_buffer,
+        )
+
     def all(self) -> StationsResult:
         """Get all stations.
 
@@ -813,12 +990,59 @@ class TimeseriesRequest:
         df = add_resolution_and_dataset(df, self._requested_datasets, provider=type(self).__name__)
         df = shape_stations_frame(df, columns=self._base_columns, provider=type(self).__name__)
 
+        if not _SELECTING.get():
+            self._warn_unplaced(df, named=False)
         return StationsResult(
             request=self,
             df=df,
             _df_all=df,
             _stations_filter=StationsFilter.ALL,
         )
+
+    def _lookup_gaps(self) -> dict[str, ListingGap]:
+        """Name the listings of the provider that the last lookup of the stations went without, with what they can say.
+
+        `dwd/observation` and `dwd/derived` look the stations up in directories and skip one that came back empty or
+        missing, or that lists no description (`file-skipped`): a station that only it lists is not in the answer. They
+        record them in `_all`, by directory, with the reason and the stations the directory can still name (the files of
+        a directory with no description carry their ids; an empty or missing one names none). Empty where the lookup
+        went without nothing, which is every other provider and every lookup that read all.
+        """
+        return dict(getattr(self, "_gaps_of_lookup", {}))
+
+    def _gaps_that_may_list(self, station_id: str) -> dict[str, str]:
+        """Give the directories the last lookup went without that a station may be listed in, with the reason.
+
+        A station asked for by its id and not found is perhaps one that only a skipped directory lists:
+        `_get_position_by_station_id` and the stripes raise `StationListingIncompleteError`, not `StationNotFoundError`.
+        Every skipped directory may hold it where it can name no station (an empty or missing one); one whose files
+        name their stations only where the id is among them. Empty where nothing says it may be there: the station is
+        unknown, and the usual 404.
+        """
+        station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
+        return {directory: gap.reason for directory, gap in self._lookup_gaps().items() if gap.may_list(station_id)}
+
+    def _stations_to_select_among(self) -> pl.DataFrame:
+        """Build the stations of the request that a filter or an estimate selects among.
+
+        The same list as `all()`, which tells a caller what it holds: this one is not the answer, so it tells nothing
+        (`_SELECTING`) and the filter tells what concerns its own answer.
+        """
+        token = _SELECTING.set(True)
+        try:
+            return self.all().df
+        finally:
+            _SELECTING.reset(token)
+
+    def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
+        """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
+
+        All of them, whatever the window: a provider whose `end_timestamp` is exact, which never says a station still
+        reporting has ended, narrows them to the stations with a record in the window (`limit_to_window`), so that a
+        station that closed before it is neither counted nor asked for. Where the end lags a station that is still
+        reporting, as most indexes do, a station is kept for the walk to ask and skip.
+        """
+        return df_all
 
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """Filter stations by station_id.
@@ -833,7 +1057,7 @@ class TimeseriesRequest:
             StationsResult: Filtered stations, in catalogue order.
 
         """
-        df = self.all().df
+        df = self._stations_to_select_among()
 
         station_id_series = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
 
@@ -851,6 +1075,8 @@ class TimeseriesRequest:
                 f"No station with station_id {', '.join(map(str, unknown))} for the requested parameters and "
                 f"periods of {type(self).__name__}.",
             )
+
+        self._warn_unplaced(df_station_id, named=True)
 
         return StationsResult(
             request=self,
@@ -918,7 +1144,7 @@ class TimeseriesRequest:
         # frame was obtained (a frame the window has been applied to already is left as it is)
         # (`start` and `end` are datetimes once the request is built: `convert_timestamps`)
         df_all = limit_to_window(
-            self.all().df if df_all is None else df_all,
+            self._stations_to_select_among() if df_all is None else df_all,
             cast("dt.datetime | None", self.start),
             cast("dt.datetime | None", self.end),
             cast("Options", self.options).station_window_end_buffer,
@@ -956,6 +1182,7 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for name {name}")
+        self._warn_unplaced(df, named=True)
 
         return StationsResult(
             request=self,
@@ -977,7 +1204,8 @@ class TimeseriesRequest:
         Rank is defined by distance to the requested point. The resulting
         ``StationsResult.df`` holds **all** stations with a position sorted by
         distance, not just ``rank`` rows; a station without a latitude or longitude
-        has no distance and is left out. Because we cannot know upfront which
+        has no distance and is left out (a provider whose end timestamps are exact may cut the list to the stations
+        with a record in the window first, see ``_stations_to_search``). Because we cannot know upfront which
         stations actually carry data for the request, the ``rank`` limit is applied
         lazily while collecting values. Value collection walks the distance-sorted
         stations and stops once ``rank`` stations that returned anything have been
@@ -990,13 +1218,16 @@ class TimeseriesRequest:
         too little of it, as ``skip_threshold`` and ``skip_criteria`` define.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             rank: Number of stations requested.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
                 where left out.
 
         Returns:
             StationsResult: Stations sorted by distance (see note above on ``rank``).
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         from wetterdienst.util.geo import derive_nearest_neighbours  # noqa: PLC0415
@@ -1005,10 +1236,11 @@ class TimeseriesRequest:
         if rank <= 0:
             msg = "'rank' has to be at least 1."
             raise ValueError(msg)
-        # setup spatial parameters
-        q_lat, q_lon = latlon
-        if df_all is None:
-            df_all = self.all().df
+        # setup spatial parameters; a point off the globe is refused before the station list is built, as
+        # `summarize` does, and not ranked by the distances its wrapped coordinates have (GH-3717)
+        q_lat, q_lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(q_lat, q_lon)
+        df_all = self._stations_to_search(self._stations_to_select_among() if df_all is None else df_all)
         latitudes = df_all.get_column("latitude").to_arrow()
         longitudes = df_all.get_column("longitude").to_arrow()
         distances = derive_nearest_neighbours(
@@ -1021,9 +1253,12 @@ class TimeseriesRequest:
         # sorts first, ahead of the nearest station: it is left out, as `filter_by_distance` and
         # `filter_by_bbox` leave it out (GH-2380)
         df = df_all.with_columns(pl.lit(pl.Series(distances, dtype=pl.Float64)).alias("distance"))
-        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"])
+        located = df.filter(pl.col("distance").is_not_null()).sort(by=["distance", "station_id"], maintain_order=True)
         if located.is_empty() and not df.is_empty():
             log.info("None of the stations has a position to be ranked by")
+        # a search by place can never answer with a station that has no position: the ones the source got wrong
+        # are told, among all of the stations it searched
+        self._warn_unplaced(df_all, named=False)
         df = located
         return StationsResult(
             request=self,
@@ -1044,7 +1279,7 @@ class TimeseriesRequest:
         """Filter stations by distance.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees.
             distance: Maximum distance to the requested point.
             unit: Unit of the distance.
             df_all: This request's own ``all().df``, for a caller that has it already; built here
@@ -1052,6 +1287,9 @@ class TimeseriesRequest:
 
         Returns:
             StationsResult: Filtered stations.
+
+        Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
 
         """
         distance = float(distance)
@@ -1062,6 +1300,11 @@ class TimeseriesRequest:
             raise ValueError(msg)
 
         unit = unit.strip()
+
+        # imported here: `measurement` imports sympy, which is 0.14 s of the 0.5 s a `values` command takes to start,
+        # and only a request by distance reads it (GH-3809)
+        from measurement.measures import Distance  # noqa: PLC0415
+        from measurement.utils import guess  # noqa: PLC0415
 
         distance_in_km = guess(distance, unit, [Distance]).km
 
@@ -1104,7 +1347,7 @@ class TimeseriesRequest:
             msg = "bbox bottom border should be smaller then top"
             raise InvalidBoundingBoxError(msg)
 
-        df_all = self.all().df
+        df_all = self._stations_to_search(self._stations_to_select_among())
 
         df = df_all.filter(
             pl.col("latitude").is_between(bottom, top, closed="both")
@@ -1113,6 +1356,8 @@ class TimeseriesRequest:
 
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
+        # as `filter_by_rank` does: a station with no position is in no box
+        self._warn_unplaced(df_all, named=False)
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 
@@ -1126,12 +1371,13 @@ class TimeseriesRequest:
             StationsResult: Filtered stations.
 
         """
-        df_all = self.all().df
+        df_all = self._stations_to_select_among()
         # the same filter a result runs, rather than a second copy of it naming the two timestamp
         # columns a stations frame happens to have and calling whatever comes back UTC
-        df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
+        df = filter_by_sql(df_all, sql)
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
+        self._warn_unplaced(df, named=True)
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
@@ -1153,6 +1399,7 @@ class TimeseriesRequest:
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
+            RequestError: Where the elevation is NaN or infinite.
 
         """
         return self._interpolate(latlon, elevation)
@@ -1169,6 +1416,9 @@ class TimeseriesRequest:
         The core ranks the stations near the point and the result names the stations taken, both off
         this one frame, so that the provider builds its station list once.
         """
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
+
+        _require_finite_elevation(elevation)
         # scipy, shapely and utm are imported by the module, so a missing one surfaces from this
         interpolate = import_optional("wetterdienst.core.interpolate", "Interpolation", extra="interpolation")
         get_interpolated_df, place_in_utm = interpolate.get_interpolated_df, interpolate.place_in_utm
@@ -1191,11 +1441,20 @@ class TimeseriesRequest:
         # a point UTM cannot place is refused before the station list is built, as the core does
         place_in_utm(lat, lon)
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        df_interpolated = self._as_asked(
-            get_interpolated_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        placements: dict[str, StationPlacement] = {}
+        with answer_cut_to_window():
+            interpolated = get_interpolated_df(
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
+            )
+        df_interpolated = self._as_asked(interpolated)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -1211,11 +1470,15 @@ class TimeseriesRequest:
             ),
             INTERPOLATED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
-            .explode("station_id", empty_as_null=True)
-            .unique(),
-            on="station_id",
+        df_stations = with_placement(
+            df_all.join(
+                other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
+                .explode("station_id", empty_as_null=True)
+                .unique(),
+                on="station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,
@@ -1252,7 +1515,8 @@ class TimeseriesRequest:
                 station listed at 0.0, 0.0 or named BOGUS.
 
         """
-        df_all = self.all().df
+        _require_finite_elevation(elevation)
+        df_all = self._stations_to_select_among()
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._interpolate(
             (latitude, longitude),
@@ -1266,7 +1530,8 @@ class TimeseriesRequest:
         Summarize means we take any available data of the closest station as representative for the timestamp.
 
         Args:
-            latlon: Latitude and longitude for the requested point.
+            latlon: Latitude and longitude for the requested point, within -90..90 and -180..180 degrees as on
+                the REST API; the poles are allowed, since the nearest station is picked with no projection.
             elevation: Elevation of the requested point in metres above sea level. Given, a reading of a quantity that
                 falls with height is brought from the station's altitude to this one -- which
                 matters more here than in an interpolation, one station's reading standing for the
@@ -1276,9 +1541,12 @@ class TimeseriesRequest:
             SummarizedValuesResult: Summarized values.
 
         Raises:
+            LocationOutOfRangeError: Where the latitude or the longitude is outside that range, or is NaN.
             NoStationsWithElevationError: Where an elevation is asked about and leaving out the
                 stations whose elevation the provider does not report leaves nothing that can answer
                 it. A few providers report no elevation for any station.
+            RequestError: Where the elevation is NaN or infinite.
+            LocationOutOfRangeError: Where the latitude or longitude is NaN or infinite.
 
         """
         return self._summarize(latlon, elevation)
@@ -1296,6 +1564,11 @@ class TimeseriesRequest:
         this one frame, so that the provider builds its station list once.
         """
         from wetterdienst.core.summarize import get_summarized_df  # noqa: PLC0415
+        from wetterdienst.core.util import with_placement  # noqa: PLC0415
+
+        lat, lon = float(latlon[0]), float(latlon[1])
+        require_location_in_range(lat, lon)
+        _require_finite_elevation(elevation)
 
         if not self.start:
             msg = "start and end are required for summarization"
@@ -1310,14 +1583,21 @@ class TimeseriesRequest:
         ):
             log.warning("Summary might be slow for high resolutions due to mass of data")
 
-        lat, lon = latlon
-        lat, lon = float(lat), float(lon)
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         data_updated: dict[str, dt.datetime] = {}
-        summarized_values = self._as_asked(
-            get_summarized_df(self._for_estimating(), lat, lon, elevation, df_all=df_all, data_updated=data_updated)
-        )
+        placements: dict[str, StationPlacement] = {}
+        with answer_cut_to_window():
+            summarized = get_summarized_df(
+                self._for_estimating(),
+                lat,
+                lon,
+                elevation,
+                df_all=df_all,
+                data_updated=data_updated,
+                placements=placements,
+            )
+        summarized_values = self._as_asked(summarized)
         # the elevation belongs in the name: two elevations at one point are two different
         # answers, and sharing an id would merge them wherever the id is what identifies a series
         point = (
@@ -1331,10 +1611,14 @@ class TimeseriesRequest:
             ),
             SUMMARIZED_SCHEMA,
         )
-        df_stations = df_all.join(
-            other=summarized_values.select(pl.col("taken_station_id")).unique(),
-            left_on="station_id",
-            right_on="taken_station_id",
+        df_stations = with_placement(
+            df_all.join(
+                other=summarized_values.select(pl.col("taken_station_id")).unique(),
+                left_on="station_id",
+                right_on="taken_station_id",
+                maintain_order="left",
+            ),
+            placements,
         )
         stations_result = StationsResult(
             request=self,
@@ -1366,10 +1650,11 @@ class TimeseriesRequest:
                 here, so the reading as it came is asked for by coordinates: pass the station's
                 own to `summarize`.
             LocationOutOfRangeError: Where the station has no position, as `interpolate_by_station_id`
-                says.
+                says, or one outside -90..90 and -180..180 degrees, as `summarize` says.
 
         """
-        df_all = self.all().df
+        _require_finite_elevation(elevation)
+        df_all = self._stations_to_select_among()
         latitude, longitude, station_elevation = self._get_position_by_station_id(station_id, df_all=df_all)
         return self._summarize(
             (latitude, longitude),
@@ -1409,7 +1694,7 @@ class TimeseriesRequest:
             name = (
                 pl.when(
                     pl.col("resolution").eq(parameter.dataset.resolution.name),
-                    pl.col("dataset").eq(parameter.dataset.name),
+                    pl.col("dataset").eq(parameter.dataset.name.lower()),
                     pl.col("parameter").eq(parameter.name),
                 )
                 .then(pl.lit(parameter.name_original))
@@ -1444,25 +1729,39 @@ class TimeseriesRequest:
         lists can disagree: NOAA GHCN's hourly list gives no elevation for hundreds of the stations
         its daily list does. The coordinates are the first row's that has both, and the elevation
         the first one known across those rows, so whether either is known does not depend on which
-        resolution the parameters named first.
+        resolution the parameters named first. An elevation of 0.0 is none where the network lists it for a
+        station it knows no elevation of (`ELEVATION_ZERO_IS_UNKNOWN`), so such a station is asked about without one.
 
         Raises:
             StationNotFoundError: Where the station is not listed.
+            StationListingIncompleteError: Where it is not listed and the lookup of the stations went without a listing
+                the station may be in (`dwd/observation`, `dwd/derived`: a directory that came back empty or missing,
+                or that lists no description), so that it is not known to be unknown.
             LocationOutOfRangeError: Where no row of the station gives both a latitude and a longitude.
 
         """
         station_id = self._parse_station_id(pl.Series(values=to_list(station_id)))[0]
         if df_all is None:
-            df_all = self.all().df
+            df_all = self._stations_to_select_among()
         stations = df_all.filter(pl.col("station_id").eq(station_id))
         if stations.is_empty():
+            if gaps := self._gaps_that_may_list(station_id):
+                # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
+                raise StationListingIncompleteError(station_id, gaps)
             msg = f"no station found for {station_id}"
             raise StationNotFoundError(msg)
         located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
+        from wetterdienst.core.util import zero_elevation_is_unknown  # noqa: PLC0415
+
+        known = pl.col("elevation").is_not_null()
+        if zero_elevation_is_unknown(self):
+            # a network that lists 0.0 for a station of which it knows no elevation names no elevation to
+            # answer at, as the stations an estimate is made from have none (GH-3708)
+            known &= pl.col("elevation").ne(0.0)
         lat, lon, elevation = stations.select(
             pl.col("latitude").filter(located).first(),
             pl.col("longitude").filter(located).first(),
-            pl.col("elevation").drop_nulls().first(),
+            pl.col("elevation").filter(known).first(),
         ).row(0)
         if lat is None or lon is None:
             # a postcode of DWD derived's climate_correction_factor, or a NOAA GHCN hourly station

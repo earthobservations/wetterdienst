@@ -18,7 +18,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.ui.test_restapi import _OBSERVATION, _stub_result, _stub_stream, _values_result_of_shape
+from tests.ui.test_restapi import (
+    _OBSERVATION,
+    _stub_result,
+    _stub_stream,
+    _stub_stripes_station,
+    _values_result_of_shape,
+)
 from wetterdienst.ui import restapi
 from wetterdienst.ui.middleware import RequestContextMiddleware
 from wetterdienst.ui.problems import problem_headers
@@ -64,7 +70,7 @@ def _once(response: Any, name: str = _NOSNIFF) -> list[str]:  # noqa: ANN401
         ("/api/v1/version", 200),
         ("/api/providers", 200),
         ("/api/glossary", 200),
-        ("/api/coverage", 200),
+        ("/api/coverage?provider=dwd&network=observation", 200),
         # the errors, each from a handler of its own: an unknown path, a route's 404 and a 422
         ("/nowhere", 404),
         ("/api/nowhere", 404),
@@ -111,6 +117,7 @@ def test_a_stream_that_fails_late_still_answers_nosniff(client: TestClient, monk
 
 
 @pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_stripes_image_answers_nosniff_in_every_image_format(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
 ) -> None:
@@ -120,7 +127,8 @@ def test_stripes_image_answers_nosniff_in_every_image_format(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
 
     assert response.status_code == 200
@@ -279,6 +287,7 @@ def test_the_index_has_a_policy_and_needs_nothing_it_forbids(client: TestClient)
     assert "url(" not in response.text
 
 
+@pytest.mark.usefixtures("figure_draws_itself")
 def test_stripes_svg_has_the_policy_and_the_other_images_none(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -288,7 +297,8 @@ def test_stripes_svg_has_the_policy_and_the_other_images_none(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     policies = {}
     for fmt in ("png", "jpg", "svg", "pdf"):
         response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
@@ -306,7 +316,7 @@ def test_stripes_svg_has_the_policy_and_the_other_images_none(
 def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every route that renders an image goes through the one answer: the SVG of it has the policy, the PNG none."""
     _stub_result(monkeypatch, "/api/values")
-    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", lambda *_args, **_kwargs: b"<svg/>")
+    monkeypatch.setattr("wetterdienst.io.export._draw", lambda *_args, **_kwargs: b"<svg/>")
 
     svg = client.get("/api/values", params={**_VALUES, "format": "svg"})
     png = client.get("/api/values", params={**_VALUES, "format": "png"})

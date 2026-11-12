@@ -49,11 +49,14 @@ describe('unit type labels', () => {
     'degree_day',
     'degree_hour',
     'dimensionless',
+    'duration',
     'energy_per_area',
     'fraction',
+    'length_day',
     'length_long',
     'length_medium',
     'length_short',
+    'length_tiny',
     'mass_per_volume',
     'power_per_area',
     'precipitation',
@@ -62,6 +65,7 @@ describe('unit type labels', () => {
     'significant_weather',
     'speed',
     'temperature',
+    'temperature_difference',
     'time',
     'turbidity',
     'volume',
@@ -205,9 +209,9 @@ describe('glossary label parity', () => {
 
     for (const [key, label] of Object.entries(labels)) {
       // singular as well as plural: a parameter added upstream as `..._flag` names a flag no less,
-      // and being exempt for its ending is the shape of the miss this exists for. The bare
-      // `quality` key is the quantity rather than a flag -- "Quality", "Qualität"
-      if (!/_flags?$/.test(key) && !key.startsWith('quality_'))
+      // and being exempt for its ending is the shape of the miss this exists for. The quality marks of the
+      // sources (`quality`, `quality_wind`, ...) are not in the glossary any more (GH-3876)
+      if (!/_flags?$/.test(key))
         continue
       expect(
         stems.some(stem => label.toLowerCase().includes(stem)),
@@ -232,19 +236,5 @@ describe('glossary label parity', () => {
         `${locale} ${record} are largely the english ones`,
       ).toBeLessThan(0.5)
     }
-  })
-})
-
-describe('the unit targets hint (GH-2395)', () => {
-  // Each Unit Targets select starts at, and can be put back to, a "Default (<unit>)" choice, so a
-  // hint telling the reader to leave a select empty describes a control that is never empty. The
-  // hint names that choice instead, in the words the choice itself shows, set in quotes.
-  const quotes = '"“”„«»'
-
-  it.each(locales)('names the select\'s Default choice in %s', (locale) => {
-    const explorer = load(locale).explorer as Record<string, string>
-    const choice = explorer.unitDefault!.replace(/\s*\(\{unit\}\)$/, '')
-    const escaped = choice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    expect(explorer.unitTargetsHint).toMatch(new RegExp(`[${quotes}]\\s?${escaped}\\s?[${quotes}]`))
   })
 })

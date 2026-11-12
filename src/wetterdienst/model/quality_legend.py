@@ -58,6 +58,46 @@ def _codes(**codes: str) -> list[QualityCode]:
 
 _MESQL = "https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html"
 
+_CHECKS = (
+    "`range` (a number outside the physical range of its parameter), `elevation` (a station pressure the elevation "
+    "does not allow), `stuck` (a sensor that held one value, or was dead, over a period), `consistency` (a reading the "
+    "reading of another parameter of the same file contradicts), `floor` (a model value a little below the floor of "
+    "its quantity), `limits` (a number outside the bounds the caller set for its parameter), `source` (a value the "
+    "source itself marks as erroneous or doubtful in its own quality flag), `step` (a change between two "
+    "consecutive readings, or a jump away and back, beyond what the weather does) and `relations` (two readings of "
+    "one file that contradict each other, a maximum below the mean or a dew point above the air temperature, both "
+    "flagged, or a day of sunshine longer than the day)"
+)
+
+#: the token of a value a plausibility check found implausible and left as it was, in the mode `soft` (GH-3676)
+SUSPECT = QualityKind(
+    kind="suspect",
+    written="suspect:<check>",
+    meaning="The value is kept, and a plausibility check in the mode `soft` (on a forecast network every check but "
+    "`floor` and `limits` is; the suspect level of a source's own verdict, GHCNh `Suspect` and 382 `R`, CHMI "
+    "`Suspect`, MADIS `Questioned`, GHCNh `f`, is flagged `source` in the mode `hard` too) finds it implausible: "
+    "one of "
+    + _CHECKS
+    + ", several joined with `+` (`suspect:range+stuck`). The checks and their modes are the `plausibility` option "
+    "of the request; the defaults of `stuck`, `step`, `source` and `relations` are soft. No `raw` token of its own: "
+    "the value is "
+    "the number the source wrote (beside `rejected:floor` it is the floor, 0.0). Interpolation and summary leave such "
+    "a value out.",
+)
+
+#: the token of a value a plausibility check rejected, in the mode `hard`, written before `raw` (GH-3676)
+REJECTED = QualityKind(
+    kind="rejected",
+    written="rejected:<check>",
+    meaning="The value is null (the floor of its quantity for `floor`), because a plausibility check in the mode "
+    "`hard` rejected the number the source wrote, which `raw` holds: one of "
+    + _CHECKS
+    + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
+    "source, which has `raw` alone. A forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) never has one but for "
+    "`floor` and `limits`: its other checks are soft whatever the mode, so a value is flagged `suspect:<check>` and "
+    "not nulled.",
+)
+
 #: the last token of any network that maps a missing-value marker or an impossible number to null
 RAW = QualityKind(
     kind="raw",
@@ -65,8 +105,9 @@ RAW = QualityKind(
     meaning="The value is null, or the value the source documents the marker to mean (no snow as 0), because the "
     "source wrote a missing-value marker or a number no sensor can have produced; this is what the source wrote in "
     "its place, as it wrote it ('-999', '99.9', '---', '4021'). Also the floor of the quantity (0.0) where a model "
-    "wrote a little below it (DWD DMO precipitation), the number as short as it goes ('-0.1' for '-0.10'). Always "
-    "the last token.",
+    "wrote a little below it (DWD DMO precipitation and radiation), the number as short as it goes ('-0.1' for "
+    "'-0.10'). After `rejected:<check>` it is the number a check in the mode `hard` rejected, the bounds you set "
+    "(`limits`) included. Always the last token.",
 )
 
 
@@ -87,7 +128,7 @@ _DWD_QN = _plain(
 
 #: every network by `provider/network`; the order is that of the column
 LEGENDS: dict[str, list[QualityKind]] = {
-    "aemet/observation": [RAW],
+    "aemet/observation": [SUSPECT, REJECTED, RAW],
     "chmi/observation": [
         _plain(
             "The QUALITY code of the daily and sub-daily files, as CHMI's metadata/meta4.csv lists it, written as the "
@@ -121,6 +162,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The FLAG_INTERRUPTED of an aggregate file: the value is computed although daily values of the period "
             "are missing, so the series was interrupted. Read off the files, as `repeat`.",
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
     "dmi/observation": [
         _plain(
@@ -131,39 +175,65 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "validity",
             "<true|false>",
             "DMI's validity of the record: whether the climatologists consider the value valid. `false` is "
-            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the value is "
-            "returned as published, so a caller can drop it by this token.",
+            "'generally not correct' by DMI's own words, mostly for Greenland and rarely for Denmark; the check "
+            "`source` flags the value `suspect:source` (soft, the default) or nulls it as `rejected:source` (hard).",
             codes=_codes(true="Considered valid", false="Considered not valid"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "dwd/observation": [
         _DWD_QN,
         _kind(
             "zone",
-            "<mez|woz>",
+            "<mez|mez-1973-75|mez-local-mean-time|woz>",
             "The time zone the source stamped the row in, where it is not UTC. `mez`: the stamp was MEZ (UTC+1, the "
-            "eMD archive of East German stations up to 1991) and is shifted to UTC. `woz`: the stamp is the hour of "
-            "the station's local true solar time, which is no whole hour from UTC, and is returned as written. Rows "
-            "stamped in UTC carry no token.",
-            codes=_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC", woz="Stamp in local true solar time, unshifted"),
+            "eMD archive of East German stations up to 1991, and the months of the plain MEZ periods that comparisons "
+            "with NOAA ISD and a diurnal-phase test find in MEZ) and is shifted to UTC. `mez-1973-75`: the same "
+            "shift for the batch of 1973-01 to 1975-12 at 13 stations, of which 8 are about 0.4 h later than "
+            "the clock explains (the analog recorder's lag, which stays as in every other analog year). "
+            "`mez-local-mean-time`: the stamp of an East German `MEZ (MD)` period was in mean local time (UTC plus the "
+            "longitude over 15, 0.6 to 0.9 h, in 1952 to 1961 and at Potsdam 1973-01 to 1975-05); it is shifted by "
+            "the same hour as `mez` and so is still 0.2 to 0.5 h early, which an hourly grid cannot correct. `woz`: "
+            "the stamp is the hour of the station's local true solar time, which is no whole hour from UTC, and is "
+            "returned as written. Rows stamped in UTC carry no token.",
+            codes=[
+                *_codes(mez="Stamp shifted from MEZ (UTC+1) to UTC"),
+                QualityCode(
+                    code="mez-1973-75",
+                    meaning="Stamp shifted from MEZ (UTC+1) to UTC; the analog recorder's lag of about 0.4 h "
+                    "remains at 8 stations",
+                ),
+                QualityCode(
+                    code="mez-local-mean-time",
+                    meaning="Stamp shifted by 1 h from mean local time (UTC + 0.6 to 0.9 h): still 0.2 to 0.5 h early",
+                ),
+                *_codes(woz="Stamp in local true solar time, unshifted"),
+            ],
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "dwd/derived": [_DWD_QN, RAW],
-    "dwd/mosmix": [RAW],
-    "dwd/dmo": [RAW],
+    "dwd/derived": [_DWD_QN, SUSPECT, REJECTED, RAW],
+    "dwd/mosmix": [SUSPECT, RAW],
+    "dwd/dmo": [SUSPECT, REJECTED, RAW],
     "dwd/road": [
         _plain(
-            "The verdict on the reading, derived by the library from the station's quality flag word and from "
-            "whether the sensor has stopped: `1` suspect, `0` checked and not suspect. No token where it is "
-            "unknown (an unchecked or missing flag); that is told apart from a reading found sound.",
+            "The verdict on the reading, derived by the library from the station's quality flag word: `1` suspect, "
+            "`0` checked and not suspect. No token where it is unknown (an unchecked or missing flag); that is told "
+            "apart from a reading found sound. A sensor that has stopped is no part of it: the 198.15 K it writes for "
+            "days is null with `raw:198.15`, and a sensor that holds any other value is the check `stuck`, "
+            "`suspect:stuck`.",
             codes=_codes(c_0="Checked, not suspect", c_1="Suspect"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "dwd/swsmos": [RAW],
-    "dwd/poi": [RAW],
+    "dwd/swsmos": [SUSPECT, RAW],
+    "dwd/poi": [SUSPECT, REJECTED, RAW],
     "dwd/phenology": [
         _plain(
             "DWD's Qualitaetsniveau of the phase report, as DWD writes it.",
@@ -173,6 +243,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 c_10="Checked and corrected",
             ),
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
     "ea/hydrology": [
         _plain(
@@ -199,13 +272,17 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "eccc/observation": [
         _plain(
             "ECCC's own flag letter of the value in the hourly and daily files (`M` missing, `E` estimated, `T` "
-            "trace, ...), verbatim. The monthly files have none.",
+            "trace, ...), verbatim. The monthly files have none: the `I` of a monthly value is not ECCC's letter "
+            "but wetterdienst's, derived from the collection's counts of valid days by the rule of ECCC's Notes 25 "
+            "and 26 (incomplete month).",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "fmi/observation": [RAW],
-    "geosphere/observation": [RAW],
-    "imgw/hydrology": [RAW],
+    "fmi/observation": [SUSPECT, REJECTED, RAW],
+    "geosphere/observation": [SUSPECT, REJECTED, RAW],
+    "imgw/hydrology": [SUSPECT, REJECTED, RAW],
     "imgw/meteorology": [
         _plain(
             "IMGW's status column of the value, from the file's *_format.txt, verbatim; blank (null) where the value "
@@ -218,21 +295,38 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 "phenomenon: returned as 0 mm (daily precipitation); assigned by the library",
             ),
         ),
+        SUSPECT,
+        REJECTED,
+        RAW,
     ],
-    "ipma/observation": [RAW],
-    "knmi/observation": [RAW],
-    "lhmt/observation": [],
+    "ipma/observation": [SUSPECT, REJECTED, RAW],
+    "knmi/observation": [SUSPECT, REJECTED, RAW],
+    "lhmt/observation": [SUSPECT, REJECTED, RAW],
     "meteofrance/observation": [
         _plain(
             "Météo-France's validation code of the value, verbatim; null where the source leaves it blank.",
             codes=_codes(c_9="Filtered", c_0="Protected", c_1="Validated", c_2="Doubtful"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "meteofrance/synop": [RAW],
-    "meteoswiss/observation": [RAW],
+    "meteofrance/synop": [SUSPECT, REJECTED, RAW],
+    "meteoswiss/observation": [SUSPECT, REJECTED, RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
+        _kind(
+            "completeness",
+            "Incomplete",
+            "The monthly or annual value of a window that had not closed when the request was served (the "
+            "current month or year: the calendar one closes at its end, the `PT6H` sum at 06 UTC and the `PT18H` "
+            "extremes at 18 UTC of its last day): it is the period so far, partial, and may still change. Frost "
+            "marks no such value, so this library does. A value of a closed window has no token, which is no claim "
+            "that it is final; a daily value of an open window is not returned at all (`window-not-closed`).",
+            codes=_codes(Incomplete="Based on a window that had not closed"),
+        ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "metoffice/observation": [
@@ -242,6 +336,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "aspect of the quality, so a larger number is not worse.",
             documentation=_MESQL,
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "noaa/ghcn": [
@@ -249,7 +345,9 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The quality flag of the source: for the daily data a letter naming the check the value failed, blank "
             "(left out) where it failed none; for the hourly data the quality code of the element, which is read in "
             "the list of the element's source (`source:`), as the codes differ by source. The value is returned "
-            "as the file gives it, suspect or erroneous too.",
+            "as the file gives it, suspect or erroneous too; the check `source` judges the codes that the readme and "
+            "Table 3 word as a verdict (`suspect:source`, or `rejected:source` in the mode `hard` for the erroneous "
+            "level).",
         ),
         _kind(
             "measurement",
@@ -263,6 +361,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "The source flag: which source or network the value comes from, for the daily data NOAA's SFLAG, for the "
             "hourly data the source code that says which list the quality code is read in.",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "nws/observation": [
@@ -282,6 +382,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             ),
             documentation="https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml",
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "rmi/observation": [
@@ -289,6 +391,8 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "Whether the source validated the parameter, derived from RMI's qc_flags map.",
             codes=_codes(c_1="Validated", c_0="Not validated"),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
     "smhi/observation": [
@@ -300,10 +404,24 @@ LEGENDS: dict[str, list[QualityKind]] = {
                 Y="Misstänkta eller aggregerade värden: suspect or aggregated values",
             ),
         ),
+        SUSPECT,
+        REJECTED,
         RAW,
     ],
-    "wsv/pegel": [],
+    "wsv/pegel": [SUSPECT, REJECTED, RAW],
 }
+
+
+def _with_the_tokens_of_limits(legend: list[QualityKind]) -> list[QualityKind]:
+    """Add the kinds `suspect`, `rejected` and `raw` where a network's legend has not, as the last ones, `raw` the last.
+
+    The bounds a caller sets (`Options.limits`) judge any network, so any network can write them (GH-3687).
+    """
+    kept = [kind for kind in legend if kind not in (SUSPECT, REJECTED, RAW)]
+    return [*kept, SUSPECT, REJECTED, RAW]
+
+
+LEGENDS = {network: _with_the_tokens_of_limits(legend) for network, legend in LEGENDS.items()}
 
 
 def quality_legend(provider: str, network: str) -> list[QualityKind]:

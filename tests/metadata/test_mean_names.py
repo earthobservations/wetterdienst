@@ -31,6 +31,7 @@ MEAN_NAMED = (
     "radiation_global_intensity",
     "radiation_sky_long_wave_intensity",
     "radiation_sky_short_wave_diffuse_intensity",
+    "radiation_sky_short_wave_direct_perpendicular_intensity",
     "snow_depth",
     "visibility",
     "wind_direction",
@@ -40,7 +41,12 @@ MEAN_NAMED = (
 # a family of quantities by the start of the plain name: one per ground cover, soil type and layer
 MEAN_NAMED_PREFIXES = ("soil_moisture_",)
 # quantities of which every row states a mean, so that no plain name is left
-_NO_PLAIN_ROW = {"radiation_sky_long_wave_intensity"}
+_NO_PLAIN_ROW = {
+    "radiation_global_intensity",
+    "radiation_sky_long_wave_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
+    "radiation_sky_short_wave_direct_perpendicular_intensity",
+}
 
 _MEAN_IN_THE_FIELD_NAME = re.compile(r"mittel|średni|media\b|moyen|gemiddeld|medel", re.IGNORECASE)
 
@@ -50,10 +56,25 @@ _PLAIN_ON_PURPOSE = {
     # is right for the merged dataset (GH-3010)
     ("DwdRoadMetadata", "15_minutes", "data", "windSpeed"),
     ("DwdRoadMetadata", "15_minutes", "data", "windDirection"),
+    # the glossary says "the one-, two- or ten-minute period ending at the time of observation", so no one window
+    # fits the column (GH-2837); its direction states two minutes and is named for them
+    ("EcccObservationMetadata", "hourly", "data", "wind_speed"),
+    # DMI's field is called `mean_cloud_cover` at every resolution, but its calculation table gives the hourly one as
+    # "derived directly", from the `cloud_cover` of metObs "at minute 0", a reading, and the mean from the day on
+    # ("average of the underlying hourly values"), which `cloud_cover_total_mean` names (GH-3622)
+    ("DmiObservationMetadata", "hourly", "data", "mean_cloud_cover"),
 }
 # a provider whose "average" is not evidence yet: PEGELONLINE publishes raw data at the equidistance of each station and
 # the audit of GH-2614 doubts the descriptions, so its rows wait for WSV's confirmation (GH-3151)
 _NOT_EVIDENCE = {"WsvPegelMetadata"}
+# rows named a mean whose description says only "mean sea level pressure", where "mean sea level" is a datum and no
+# statistic: the dataset pages of KNMI say that its daily observations are aggregated to monthly intervals (and the
+# monthly ones to annual intervals), and the daily `PG` is "calculated as a mean of the 24 pressure values of that day",
+# so the period value is a mean (GH-4006)
+_MEAN_BY_AGGREGATION = {
+    ("KnmiObservationMetadata", "monthly", "data", "PG"),
+    ("KnmiObservationMetadata", "annual", "data", "PG"),
+}
 
 
 def _quantity(name: str) -> str:
@@ -102,7 +123,9 @@ def test_a_mean_name_needs_a_source_that_states_a_mean() -> None:
     wrong = [
         f"{metadata} {resolution}/{dataset}/{name} [{original}]: named a mean, but the source states none"
         for metadata, resolution, dataset, name, original, states in _rows()
-        if _quantity(name) != name and not states
+        if _quantity(name) != name
+        and not states
+        and (metadata, resolution, dataset, original) not in _MEAN_BY_AGGREGATION
     ]
     assert not wrong, "\n".join(wrong)
 

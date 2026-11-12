@@ -9,16 +9,16 @@ const selectedLanguage = computed({
 })
 
 const themeOptions = computed(() => [
-  { value: 'system', label: t('settings.themeSystem'), icon: 'i-lucide-monitor' },
-  { value: 'light', label: t('settings.themeLight'), icon: 'i-lucide-sun' },
-  { value: 'dark', label: t('settings.themeDark'), icon: 'i-lucide-moon' },
+  { value: 'system', label: t('settings.themeSystem'), icon: 'i-ph-monitor' },
+  { value: 'light', label: t('settings.themeLight'), icon: 'i-ph-sun' },
+  { value: 'dark', label: t('settings.themeDark'), icon: 'i-ph-moon' },
 ])
 </script>
 
 <template>
   <UPopover>
     <UButton
-      icon="i-lucide-settings-2"
+      icon="i-ph-gear-six"
       color="neutral"
       variant="ghost"
       :aria-label="t('common.settings')"
@@ -45,7 +45,7 @@ const themeOptions = computed(() => [
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
             {{ t('settings.theme') }}
           </div>
-          <UFieldGroup class="w-full">
+          <UFieldGroup role="group" :aria-label="t('settings.theme')" class="w-full">
             <UButton
               v-for="opt in themeOptions"
               :key="opt.value"
@@ -55,6 +55,7 @@ const themeOptions = computed(() => [
               class="flex-1 justify-center"
               :aria-label="opt.label"
               :variant="colorMode.preference === opt.value ? 'solid' : 'ghost'"
+              :aria-pressed="colorMode.preference === opt.value"
               @click="colorMode.preference = opt.value"
             />
           </UFieldGroup>
@@ -65,12 +66,12 @@ const themeOptions = computed(() => [
         <UButton
           to="/settings"
           :label="t('settings.title')"
-          icon="i-lucide-sliders-horizontal"
+          icon="i-ph-sliders-horizontal"
           color="neutral"
           variant="ghost"
           size="sm"
           block
-          trailing-icon="i-lucide-chevron-right"
+          trailing-icon="i-ph-caret-right"
         />
       </div>
     </template>

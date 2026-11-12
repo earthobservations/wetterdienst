@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettings } from '~/composables/useSettings'
 import SettingsPage from '~/pages/settings.vue'
 
@@ -8,7 +8,7 @@ describe('settings Page', () => {
   // the settings (the ones after it are the slower for each page left behind), so a test unmounts
   // what it mounted.
   const mounted: { unmount: () => void }[] = []
-  async function mountPage(options?: { attachTo: HTMLElement }) {
+  async function mountPage(options?: { attachTo?: HTMLElement, route?: string }) {
     const wrapper = await mountSuspended(SettingsPage, options)
     mounted.push(wrapper)
     return wrapper
@@ -105,6 +105,26 @@ describe('settings Page', () => {
     expect(vm.colorMode.preference).toBe('light')
   })
 
+  it('tells which theme is chosen: aria-pressed is true on that button alone, in a group named Appearance (GH-3969)', async () => {
+    const wrapper = await mountPage({ attachTo: document.body })
+    const vm = wrapper.vm as any
+    const group = wrapper.find('[role="group"][aria-label="Appearance"]')
+    expect(group.exists()).toBe(true)
+    const pressed = () => Object.fromEntries(group.findAll('button').map(button => [button.text(), button.attributes('aria-pressed')]))
+    expect(Object.keys(pressed())).toEqual(['System', 'Light', 'Dark'])
+
+    for (const [preference, label] of [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as const) {
+      vm.colorMode.preference = preference
+      await wrapper.vm.$nextTick()
+      expect(pressed(), preference).toEqual({ System: 'false', Light: 'false', Dark: 'false', [label]: 'true' })
+    }
+
+    // pressing a button moves the state with it
+    await group.findAll('button').find(button => button.text() === 'Light')!.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(pressed()).toEqual({ System: 'false', Light: 'true', Dark: 'false' })
+  })
+
   it('clicking the friendly-labels switch toggles the setting', async () => {
     const wrapper = await mountPage({ attachTo: document.body })
     const vm = wrapper.vm as any
@@ -131,5 +151,43 @@ describe('settings Page', () => {
     await wrapper.vm.$nextTick()
 
     expect(vm.settings.friendlyLabels).toBe(true)
+  })
+
+  // the phone bar's tools (GH-3846)
+  it('has the chooser of the phone bar\'s tools, a card the Menu\'s sheet links to (`#bar`)', async () => {
+    const wrapper = await mountPage()
+    const card = wrapper.find('#bar')
+    expect(card.exists()).toBe(true)
+    expect(card.find('h2').text()).toBe('Arrange tools')
+    expect(card.find('[data-testid="bar-chooser"]').exists()).toBe(true)
+  })
+
+  it('takes the focus to the heading of the chooser when it is opened by the link to `#bar`', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#bar' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
+  })
+
+  it('leaves the focus alone on the page without the link', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings' })
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).not.toBe(wrapper.find('#bar h2').element)
+  })
+
+  it('puts the phone bar back with the rest when the settings are reset', async () => {
+    const wrapper = await mountPage()
+    const vm = wrapper.vm as any
+    vm.settings.tabBar = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    await wrapper.vm.$nextTick()
+    vm.reset()
+    await wrapper.vm.$nextTick()
+    expect(vm.settings.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+  })
+
+  it('takes the focus to the heading when the address changes to `#bar` on the page it is already on', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings' })
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).not.toBe(wrapper.find('#bar h2').element)
+    await useRouter().push('/settings#bar')
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
   })
 })

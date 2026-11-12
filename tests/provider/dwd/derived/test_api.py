@@ -714,7 +714,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 8, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 103.0,
+            "value": 1.03,
             "quality_flags": "503",
         },
         {
@@ -723,7 +723,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 9, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 114.0,
+            "value": 1.14,
             "quality_flags": "503",
         },
         {
@@ -732,7 +732,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 10, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 74.0,
+            "value": 0.74,
             "quality_flags": "503",
         },
         {
@@ -741,7 +741,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 11, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 42.0,
+            "value": 0.42,
             "quality_flags": "503",
         },
         {
@@ -750,7 +750,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 12, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 26.0,
+            "value": 0.26,
             "quality_flags": "503",
         },
         {
@@ -759,7 +759,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
             "dataset": "radiation_global",
             "parameter": "radiation_global",
             "timestamp": datetime.datetime(2024, 5, 5, 13, 0, tzinfo=ZoneInfo(key="UTC")),
-            "value": 84.0,
+            "value": 0.84,
             "quality_flags": "503",
         },
     ]
@@ -1370,7 +1370,7 @@ def test_dwd_derived_period_precedence_does_not_depend_on_the_order_of_the_perio
     monkeypatch.setattr(
         dwd_derived_api,
         "download_climate_derived_data",
-        lambda files, _settings: [
+        lambda files, _settings, _period=None: [
             File(url=url, content=BytesIO(_OVERLAPPING_PERIOD_FILES[url].encode("latin-1")), status=200)
             for url in files
         ],

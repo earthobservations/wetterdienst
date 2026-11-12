@@ -4,14 +4,25 @@
 
 from __future__ import annotations
 
-import json
 import math
 import typing
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
 from enum import Enum
 from functools import update_wrapper
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    NotRequired,
+    Protocol,
+    Self,
+    TypeVar,
+    cast,
+    runtime_checkable,
+)
 
 import polars as pl
 from pydantic import ConfigDict, with_config
@@ -19,17 +30,24 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
+from wetterdienst.exceptions import UnknownFormatError
 from wetterdienst.io.export import (
     _DEFAULT_IMAGE_HEIGHT,
     _DEFAULT_IMAGE_WIDTH,
     ExportMixin,
     check_image_size,
+    figure_to_html,
+    render_data_format,
+    render_image,
     require_kaleido,
 )
+from wetterdienst.io.formats import names_of, renders_with_kaleido
+from wetterdienst.model.processing_note import processing_note
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.json_util import dumps_json, json_indent
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
@@ -40,7 +58,7 @@ if TYPE_CHECKING:
 
     from wetterdienst import Settings
     from wetterdienst.model.history import History, TimeseriesHistory
-    from wetterdienst.model.metadata import LicenseModel, ParameterModel
+    from wetterdienst.model.metadata import LicenseModel, ParameterModel, ProviderTerms
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -101,6 +119,9 @@ class _Metadata(TypedDict):
     #: when the source says the data was last updated, in UTC, in the library's timestamp format; null where it
     #: states none, for a list of stations and for a history (GH-2567)
     data_updated_at: str | None
+    #: what wetterdienst did to the data: reshaped, units converted, and for an interpolation and a summary, that the
+    #: values were selected or calculated from the readings (GH-2567)
+    processing_note: str
 
 
 # Extra keys are allowed so the schema admits the station columns a provider adds to the core ones,
@@ -120,6 +141,14 @@ class _Station(TypedDict):
     elevation: float | None
     name: str | None
     region: str | None
+
+
+class _EstimateStation(_Station):
+    """A station an interpolation or a summary was made from: the station, and where it stands against the point."""
+
+    distance: float
+    # null where no elevation was asked about, or the station has none
+    elevation_difference: float | None
 
 
 class _StationsDictBody(TypedDict):
@@ -212,10 +241,18 @@ def describe_producer() -> _Producer:
     }
 
 
-def describe_provider(terms: _ProviderTerms, data_updated_at: datetime | None = None) -> _Metadata:
+def describe_provider(
+    terms: _ProviderTerms | ProviderTerms,
+    data_updated_at: datetime | None = None,
+    *,
+    derived: bool = False,
+    image: bool = False,
+) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
-    And `data_updated_at`, the date the source states for the data, where the answer has one (GH-2567).
+    And `data_updated_at`, the date the source states for the data, where the answer has one, and the
+    `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
+    and `image` for an image drawn from them (GH-2567).
     """
     return {
         "provider": {
@@ -229,6 +266,7 @@ def describe_provider(terms: _ProviderTerms, data_updated_at: datetime | None = 
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
+        "processing_note": processing_note(derived=derived, image=image),
     }
 
 
@@ -297,16 +335,24 @@ def _factory_method(func: _MethodT) -> _MethodT:
     return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
 
 
-def _metadata_of(stations: StationsResult, data_updated_at: datetime | None = None) -> _Metadata:
+def _metadata_of(
+    stations: StationsResult, data_updated_at: datetime | None = None, *, derived: bool = False
+) -> _Metadata:
     """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
 
-    It is the ``{"provider": {...}, "producer": {...}, "data_updated_at": ...}`` block of the dictionary, JSON and
-    GeoJSON formats, the shape the REST API and the command line answer with. The provider's part is
-    ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's DOI, and
-    ``data_updated_at`` is the date the source states for the data (the result's own, null where there is none). A
-    caller who wants the provider's metadata as an object reads ``stations.request.metadata``.
+    It is the ``{"provider": {...}, "producer": {...}, "data_updated_at": ..., "processing_note": ...}`` block of the
+    dictionary, JSON and GeoJSON formats, the shape the REST API and the command line answer with. The provider's
+    part is ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's
+    DOI, and ``data_updated_at`` is the date the source states for the data (the result's own, null where there is
+    none). A caller who wants the provider's metadata as an object reads ``stations.request.metadata``. ``derived`` is
+    for the values of an interpolation or a summary, which the block's ``processing_note`` then says are calculated.
     """
-    return describe_provider(stations.request.metadata, data_updated_at)
+    return describe_provider(stations.request.metadata, data_updated_at, derived=derived)
+
+
+def _is_finite(value: float | None) -> bool:
+    """Tell whether a coordinate is a number JSON has: not null, not NaN, not an infinity."""
+    return value is not None and math.isfinite(value)
 
 
 def _same(left: object, right: object) -> bool:
@@ -384,6 +430,16 @@ def _fit_map_view(
     if north > south:
         zooms.append(math.log2(_MAP_FILL * height * 2 * math.pi / (_MAP_WORLD_PIXELS * (north - south))))
     return center, max(0.0, min(zooms))
+
+
+def _station_rows(df: pl.DataFrame) -> list[_Station]:
+    """Write a stations frame as the rows of a `stations` block, its timestamps as text.
+
+    The one place that writes them: a listing of stations and the `stations` block of a values result, which
+    reads its frame off `df_stations`, give the same row for the same station.
+    """
+    # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
+    return cast("list[_Station]", timestamps_to_string(df, ["start_timestamp", "end_timestamp"]).to_dicts())
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -478,9 +534,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             Dictionary with station information.
 
         """
-        df = timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"])
-        # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
-        stations = cast("list[_Station]", df.to_dicts())
+        stations = _station_rows(self.df)
         if with_metadata:
             return {"metadata": _metadata_of(self), "stations": stations}
         return {"stations": stations}
@@ -496,11 +550,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             JSON string with station information.
 
         """
-        if indent is True:
-            indent = 4
-        elif indent is False:
-            indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata), indent=indent)
+        return dumps_json(self.to_dict(with_metadata=with_metadata), indent=json_indent(indent))
 
     def _ogc_extra_columns(self) -> list[str]:
         """Name the station columns a provider declares beyond the core ones, such as WSV's gauge_zero.
@@ -526,9 +576,10 @@ class StationsResult(_EqualByFields, ExportMixin):
         # longitude, such as a postcode of DWD derived's climate_correction_factor, has no position
         # at all, and RFC 7946 3.2 writes such an unlocated feature with a null geometry.
         geometry: _OgcFeatureGeometry | None = None
-        if station["longitude"] is not None and station["latitude"] is not None:
+        # A NaN or an infinity is no number of a position either: JSON has none, and it would be written as null
+        if _is_finite(station["longitude"]) and _is_finite(station["latitude"]):
             coordinates = [station["longitude"], station["latitude"]]
-            if station["elevation"] is not None:
+            if _is_finite(station["elevation"]):
                 coordinates.append(station["elevation"])
             geometry = {"type": "Point", "coordinates": coordinates}
         return {
@@ -649,18 +700,17 @@ class StationsResult(_EqualByFields, ExportMixin):
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = figure_to_html(fig)
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
             if (width or height) and not self.df.is_empty():
                 # the zoom of `to_plot` fits the default size: a picture of another size is fitted again
                 center, zoom = self._map_view(width or _DEFAULT_IMAGE_WIDTH, height or _DEFAULT_IMAGE_HEIGHT)
                 fig.update_layout(map={"center": center, "zoom": zoom})
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 
@@ -736,6 +786,19 @@ class _ValuesDict(_ValuesDictBody):
 _ValuesResultT = TypeVar("_ValuesResultT", bound="_ValuesResult[Any, Any]")
 
 
+def _cut_to_stations(result: _ValuesResultT, taken: pl.Series) -> _ValuesResultT:
+    """Give the estimate with only the stations of its stations list that `taken` names, as they were first chosen.
+
+    A station is listed once for each dataset it was asked about, and stays listed under all of them while any of its
+    rows is left, as the list was made of the ids of the rows and nothing else (`TimeseriesRequest.interpolate`).
+    """
+    stations = result.stations
+    return replace(
+        result,
+        stations=replace(stations, df=stations.df.filter(pl.col("station_id").is_in(taken.drop_nulls().implode()))),
+    )
+
+
 def _undated_if_empty(result: _ValuesResultT) -> _ValuesResultT:
     """Give the result with no `data_updated_at` where it has no rows left: one of no rows is of no file."""
     return replace(result, data_updated_at=None) if result.df.is_empty() else result
@@ -763,19 +826,53 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     #: what was read, UTC. Null where the source states none; never the time the answer was made, which is
     #: `retrieved_at` of the answer's `metadata` block, and null for a result with no rows left (GH-2567)
     data_updated_at: datetime | None = None
+    #: whether the values are calculated by wetterdienst from readings (interpolation, summary) and not read: the
+    #: `processing_note` of the answer's `metadata` block then says so (GH-2567)
+    _derived: ClassVar[bool] = False
 
     @property
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values come from, one row per resolution, dataset and station.
 
-        Only the stations that returned values: a request for the stations nearest a point lists
-        every station with a position, and the walk stops at the ones with data. Read off the values,
-        so that a `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations
-        that are left. An interpolated or summarized result names the stations it was made from.
+        Only the stations, and the datasets of them, that have rows: a request for the stations nearest a point
+        lists every station with a position, and the walk stops at the ones with data; a station that returned
+        rows of one dataset and none of another has the row of the first only. Read off the values, so that a
+        `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left. A row
+        of nulls is a row. An interpolated or summarized result names the stations it was made from.
+
+        A series is matched to the rows of the stations frame by resolution, dataset and station, compared as
+        text. A station of the stations frame with a row is always listed, by at least one of its rows:
+
+        - a wide row of a resolution that merged several datasets has no dataset (`TimeseriesValues._widen_df`)
+          and stands for each dataset row of that resolution and station;
+        - a series that the stations frame does not hold for its station (a dataset it is not listed for, which
+          the collection does not produce, as it reads the datasets off that frame) stands for every row of the
+          station;
+        - a frame without the three key columns is matched on the station alone.
         """
+        stations = self.stations.df
         if "station_id" not in self.df.columns:
-            return self.stations.df.clear()
-        return self.stations.df.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
+            return stations.clear()
+        keys = ["resolution", "dataset", "station_id"]
+        if not (set(keys) <= set(self.df.columns) and set(keys) <= set(stations.columns)):
+            return stations.filter(
+                pl.col("station_id").cast(pl.String).is_in(self.df.get_column("station_id").cast(pl.String).implode())
+            )
+        # compared as text, whatever the frames hold the keys as (a null column, a categorical, an enum)
+        text = [pl.col(key).cast(pl.String) for key in keys]
+        held = stations.select(text).with_row_index("row")
+        series = self.df.select(text).unique()
+        unmatched = series.join(held.drop("row"), on=keys, how="anti")
+        merged = unmatched.filter(pl.col("dataset").is_null() & pl.col("resolution").is_not_null())
+        unplaced = unmatched.join(merged, on=keys, how="anti", nulls_equal=True)
+        rows = pl.concat(
+            [
+                held.join(series, on=keys, how="semi"),
+                held.join(merged.select("resolution", "station_id"), on=["resolution", "station_id"], how="semi"),
+                held.join(unplaced.select("station_id"), on="station_id", how="semi"),
+            ]
+        ).get_column("row")
+        return stations.filter(pl.int_range(pl.len()).is_in(rows.implode()))
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:
@@ -789,13 +886,25 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         return cast("_RowsT", timestamps_to_string(df, ["timestamp"]).to_dicts())
 
     def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _DictT:
-        """Format values as dictionary."""
+        """Format values as dictionary.
+
+        Args:
+            with_metadata: whether to include the `metadata` block
+            with_stations: whether to include the `stations` block: `df_stations`, the stations that have a row
+                in this result, one row per resolution, dataset and station. A station of the request that
+                returned nothing, or whose rows `filtered_by_date` or `filtered_by_sql` cut away, is not in it,
+                and the block is an empty list where no row is left. The stations of the request are `stations.df`.
+
+        Returns:
+            Dictionary with the optional `metadata` and `stations` blocks and the `values`.
+
+        """
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
-            data["metadata"] = _metadata_of(self.stations, self.data_updated_at)
+            data["metadata"] = _metadata_of(self.stations, self.data_updated_at, derived=self._derived)
         if with_stations:
-            data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
+            data["stations"] = _station_rows(self.df_stations)
         data["values"] = self._to_dict(self.df)
         return cast("_DictT", data)
 
@@ -807,11 +916,9 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         indent: int | bool | None = 4,
     ) -> str:
         """Format values as JSON."""
-        if indent is True:
-            indent = 4
-        elif indent is False:
-            indent = None
-        return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
+        return dumps_json(
+            self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=json_indent(indent)
+        )
 
     def _unit_symbols(self) -> dict[str, str]:
         """Map every parameter a frame can carry to the symbol its values are written in.
@@ -861,7 +968,7 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         the second, and a date carrying a time (``"2020-05-01T12"``) names one instant and is
         matched exactly. See :func:`wetterdienst.model.util.filter_by_date`.
         """
-        return _undated_if_empty(replace(self, df=filter_by_date(self.df, date=date)))
+        return _undated_if_empty(replace(self, df=filter_by_date(self.df, date=date))._with_stations_of_rows())  # noqa: SLF001
 
     def filtered_by_sql(self, sql: str) -> Self:
         """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
@@ -869,7 +976,15 @@ class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
         This result is left as it is. The date the source states for the data is kept, and is none where no row is
         left: a result of no rows is of no file.
         """
-        return _undated_if_empty(super().filtered_by_sql(sql))
+        return _undated_if_empty(super().filtered_by_sql(sql)._with_stations_of_rows())  # noqa: SLF001
+
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result with the stations of the rows it holds: this one, which lists them from its values already.
+
+        An interpolated or a summarized result lists the stations its rows were made from, so a result cut down to
+        some of them lists only the stations of what is left.
+        """
+        return self
 
 
 class _ValuesOgcFeature(TypedDict):
@@ -964,7 +1079,10 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             )
         collection: _ValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1109,15 +1227,127 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = figure_to_html(fig)
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
+
+
+# One history as the `History` model of `model/history.py` dumps it, with its timestamps written as text
+# (`_written_timestamps`). The records are the models' fields one for one, with `valid_from` and `valid_to` as `str`;
+# `tests/model/test_history_dict.py` holds each to its model, so a field added there fails until it is added here.
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryStationName(TypedDict):
+    """One name of a station, for the period it held."""
+
+    station_id: str
+    station_name: str
+    valid_from: str
+    valid_to: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryOperatorName(TypedDict):
+    """One name of a station's operator, for the period it held."""
+
+    station_id: str
+    operator_name: str
+    valid_from: str
+    valid_to: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryNames(TypedDict):
+    """The names of a station and of its operator."""
+
+    station: list[_HistoryStationName]
+    operator: list[_HistoryOperatorName]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryParameter(TypedDict):
+    """How a parameter was measured at a station, for a period."""
+
+    station_id: str
+    valid_from: str
+    valid_to: str
+    station_name: str
+    parameter: str
+    description: str | None
+    unit: str | None
+    data_source: str | None
+    extra_info: str | None
+    special: str | None
+    literature: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryDevice(TypedDict):
+    """A device of a station, for the period it was in use."""
+
+    device_type: str | None
+    station_id: str
+    station_name: str | None
+    longitude: float | None
+    latitude: float | None
+    station_elevation: float | None
+    device_height: float | None
+    valid_from: str
+    valid_to: str
+    method: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryGeography(TypedDict):
+    """Where a station was, for a period."""
+
+    station_id: str
+    station_elevation: float | None
+    latitude: float | None
+    longitude: float | None
+    valid_from: str
+    valid_to: str | None
+    station_name: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryMissing(TypedDict):
+    """A summary of the missing data of a parameter, or one period of it: the two have the same fields."""
+
+    station_id: str
+    station_name: str | None
+    parameter: str
+    valid_from: str
+    valid_to: str
+    missing_count: int | None
+    description: str | None
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryMissingData(TypedDict):
+    """The summaries of a station's missing data, and the periods it is missing for."""
+
+    summary: list[_HistoryMissing]
+    periods: list[_HistoryMissing]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class _HistoryEntry(TypedDict):
+    """The history of one station and dataset: who it is of, and the sections asked for (all where none were)."""
+
+    station_id: str
+    # null for a provider whose history covers the station as a whole
+    resolution: str | None
+    dataset: str | None
+    name: NotRequired[_HistoryNames]
+    parameter: NotRequired[list[_HistoryParameter]]
+    device: NotRequired[list[_HistoryDevice]]
+    geography: NotRequired[list[_HistoryGeography]]
+    missing_data: NotRequired[_HistoryMissingData]
 
 
 class _HistoryDict(TypedDict):
@@ -1126,7 +1356,7 @@ class _HistoryDict(TypedDict):
     metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
-    histories: list[dict[str, typing.Any]]
+    histories: list[_HistoryEntry]
 
 
 # `station_id`, `resolution` and `dataset` say which station and dataset a history belongs to; they are
@@ -1191,14 +1421,10 @@ def history_to_json(
     indent: int | bool | None = 4,
 ) -> str:
     """Format station histories as JSON, as `history_to_dict` has them."""
-    if indent is True:
-        indent = 4
-    elif indent is False:
-        indent = None
     data = history_to_dict(
         stations, histories, with_metadata=with_metadata, with_stations=with_stations, sections=sections
     )
-    return json.dumps(data, indent=indent)
+    return dumps_json(data, indent=json_indent(indent))
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -1253,6 +1479,27 @@ class HistoryResult(_EqualByFields):
             indent=indent,
         )
 
+    def to_format(self, fmt: str, **kwargs: Any) -> str:  # noqa: ANN401
+        """Format the history in the format asked for, which is JSON: the only format a history has.
+
+        Like `to_format` of the other results, it takes the one set of arguments a caller builds for every format and
+        gives `to_json` those it takes (`with_metadata`, `with_stations`, `sections`, `indent`).
+
+        Args:
+            fmt: The format, `json` in any case
+            **kwargs: Arguments for `to_json`, of which it is given those it takes
+
+        Returns:
+            The history as JSON, as `to_json` has it.
+
+        Raises:
+            UnknownFormatError: `fmt` is not `json`; a history is no table, so there is no CSV. It is a `KeyError` and
+                a `ValueError`.
+            TypeError: An argument that is the name of none of the arguments any format takes, and not `sections`.
+
+        """
+        return render_data_format(self, fmt, kwargs, only=("json",), also=("sections",))
+
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):
     """Type definition for OGC feature properties of interpolated or summarized values."""
@@ -1277,7 +1524,7 @@ class _InterpolatedValuesItemDict(TypedDict):
 class _InterpolatedValuesDictBody(TypedDict):
     """The members of `_InterpolatedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1293,7 +1540,7 @@ class _InterpolatedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_InterpolatedValuesItemDict]
 
 
@@ -1320,6 +1567,8 @@ class _InterpolatedValuesOgcFeatureCollection(_InterpolatedValuesOgcFeatureColle
 class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], _InterpolatedValuesDict]):
     """Result class for interpolated values."""
 
+    _derived: ClassVar[bool] = True
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
@@ -1329,6 +1578,12 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values were interpolated from, which `stations` is already cut down to."""
         return self.stations.df
+
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result listing the stations that some row left names, after a cut of the rows."""
+        if "taken_station_ids" not in self.df.columns:
+            return self
+        return _cut_to_stations(self, self.df.get_column("taken_station_ids").explode())
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
         """Format interpolated values as OGC feature collection."""
@@ -1356,12 +1611,15 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1443,14 +1701,13 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = figure_to_html(fig)
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
 
 
@@ -1470,7 +1727,7 @@ class _SummarizedValuesItemDict(TypedDict):
 class _SummarizedValuesDictBody(TypedDict):
     """The members of `_SummarizedValuesDict` other than `metadata`."""
 
-    stations: NotRequired[list[_Station]]
+    stations: NotRequired[list[_EstimateStation]]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1486,7 +1743,7 @@ class _SummarizedValuesOgcFeature(TypedDict):
     type: Literal["Feature"]
     properties: _InterpolatedOrSummarizedOgcFeatureProperties
     geometry: _OgcFeatureGeometry
-    stations: list[_Station]
+    stations: list[_EstimateStation]
     values: list[_SummarizedValuesItemDict]
 
 
@@ -1513,6 +1770,8 @@ class _SummarizedValuesOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectio
 class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _SummarizedValuesDict]):
     """Calculate summary of stations and parameters."""
 
+    _derived: ClassVar[bool] = True
+
     stations: StationsResult
     df: pl.DataFrame
     latlon: tuple[float, float]
@@ -1522,6 +1781,12 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
     def df_stations(self) -> pl.DataFrame:
         """Get the stations the values were summarized from, which `stations` is already cut down to."""
         return self.stations.df
+
+    def _with_stations_of_rows(self) -> Self:
+        """Give the result listing the stations that some row left names, after a cut of the rows."""
+        if "taken_station_id" not in self.df.columns:
+            return self
+        return _cut_to_stations(self, self.df.get_column("taken_station_id"))
 
     def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
         """Export summarized values as OGC feature collection."""
@@ -1549,12 +1814,15 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
                 if self.elevation is None
                 else [longitude, latitude, self.elevation],
             },
-            "stations": self.stations.to_dict(with_metadata=False)["stations"],
+            "stations": cast("list[_EstimateStation]", self.stations.to_dict(with_metadata=False)["stations"]),
             "values": self.to_dict(with_metadata=False, with_stations=False)["values"],
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": _metadata_of(self.stations, self.data_updated_at), "data": collection}
+            return {
+                "metadata": _metadata_of(self.stations, self.data_updated_at, derived=self._derived),
+                "data": collection,
+            }
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1635,15 +1903,38 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         """
         fig = self.to_plot()
         if fmt == "html":
-            img = fig.to_html()
-        elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
+            img = figure_to_html(fig)
+        elif renders_with_kaleido(fmt):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
-            img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
+            img = render_image(fig, fmt, width=width, height=height, scale=scale)
         else:
-            msg = f"Invalid format: {fmt}"
-            raise KeyError(msg)
+            raise UnknownFormatError(fmt, names_of("chart"))
         return img
+
+
+@runtime_checkable
+class FormattableResult(Protocol):
+    """What the results have in common: their data as a dictionary, as JSON and in a format asked for by name (GH-3449).
+
+    `StationsResult`, `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult`, `HistoryResult` and the
+    `DwdWeatherAlertResult` of `dwd/alerts` satisfy it without inheriting from it, so a function that writes whatever
+    a request answered annotates its argument with it. Only these three methods are common to all of them: a history
+    has no `to_csv` and an alerts result no `to_target`, and `to_format` raises `UnknownFormatError` for a format
+    the result does not have. `isinstance(result, FormattableResult)` tells whether an object has the three methods.
+    """
+
+    def to_dict(self, *, with_metadata: bool = False) -> Mapping[str, object]:
+        """Give the data as a dictionary, with the `metadata` block where `with_metadata` asks for it."""
+        ...
+
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
+        """Give the data as JSON; `indent` is a number of spaces, `True` is 4, `False` or `None` is one line."""
+        ...
+
+    def to_format(self, fmt: str, **kwargs: Any) -> str | bytes:  # noqa: ANN401
+        """Give the data in the format named by `fmt`, in any case, with the arguments the format takes."""
+        ...
 
 
 # The dictionaries the results return, under names a caller can import to annotate a function that takes
@@ -1661,6 +1952,7 @@ SummarizedValuesOgcFeatureCollection = _SummarizedValuesOgcFeatureCollection
 HistoryDict = _HistoryDict
 
 __all__ = [
+    "FormattableResult",
     "HistoryDict",
     "HistoryResult",
     "InterpolatedValuesDict",

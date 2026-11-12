@@ -77,9 +77,11 @@ class ProblemKind(StrEnum):
     NOT_CONFIGURED = "not-configured"
     UPSTREAM_FAILED = "upstream-failed"
     SERVER_BUSY = "server-busy"
+    NOT_READY = "not-ready"
     UPSTREAM_UNREACHABLE = "upstream-unreachable"
     UPSTREAM_TIMEOUT = "upstream-timeout"
     REQUEST_TIMEOUT = "request-timeout"
+    IMAGE_TIMEOUT = "image-timeout"
     INTERNAL_ERROR = "internal-error"
 
 
@@ -147,6 +149,12 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         "The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request "
         "was not started; retry it after `Retry-After`.",
     ),
+    ProblemKind.NOT_READY: ProblemSpec(
+        503,
+        "The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor "
+        "the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. "
+        "`checks` names what failed.",
+    ),
     ProblemKind.UPSTREAM_UNREACHABLE: ProblemSpec(
         503, "The server could not reach the data provider (no connection). The request was valid; retry it."
     ),
@@ -157,6 +165,11 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         504,
         "The server did not answer within its request timeout. Narrow the request, or retry it: what the server "
         "had fetched is cached.",
+    ),
+    ProblemKind.IMAGE_TIMEOUT: ProblemSpec(
+        504,
+        "The browser that draws a chart as an image did not finish in time and was closed. The request was valid; "
+        "retry it. Whoever runs the server should look at Chrome if it keeps happening.",
     ),
     ProblemKind.INTERNAL_ERROR: ProblemSpec(500, "The server's own error, a defect. The cause is in the server log."),
 }
@@ -206,11 +219,17 @@ class ProblemError(HTTPException):
         *,
         extra: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        tool_detail: str | None = None,
     ) -> None:
-        """Raise a problem of `kind` (the one `status_code` stands for if none), with `extra` as members."""
+        """Raise a problem of `kind` (the one `status_code` stands for if none), with `extra` as members.
+
+        `tool_detail` is the `detail` for an MCP tool's request, where the advice of `detail` does not hold: the text
+        an assistant is told, which is all of the problem it gets.
+        """
         super().__init__(status_code=status_code, detail=detail, headers=dict(headers) if headers else None)
         self.kind = kind or default_kind(status_code)
         self.extra = dict(extra or {})
+        self.tool_detail = tool_detail
 
 
 def kind_of(exc: StarletteHTTPException) -> ProblemKind:

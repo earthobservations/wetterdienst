@@ -49,6 +49,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rr",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
@@ -179,6 +180,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rr",
+                            "timestamp_position": "end",
                             "unit": "millimeter",
                         },
                         {
@@ -290,6 +292,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "precipitation_amount",
                             "name_original": "rr",
+                            "timestamp_position": "start",
                             "unit": "millimeter",
                         },
                         {
@@ -305,11 +308,13 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "radiation_global",
                             "name_original": "cglo_j",
+                            "timestamp_position": "start",
                             "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "snow_depth",
                             "name_original": "sh",
+                            "timestamp_position": "instant",
                             "unit": "centimeter",
                         },
                         {
@@ -325,11 +330,13 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "so_h",
+                            "timestamp_position": "start",
                             "unit": "hour",
                         },
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "tlmax",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
@@ -340,6 +347,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "temperature_air_min_2m",
                             "name_original": "tlmin",
+                            "timestamp_position": "end",
                             "unit": "degree_celsius",
                         },
                         {
@@ -350,6 +358,7 @@ _GeosphereObservationMetadataSpec = {
                         {
                             "name": "wind_gust_max",
                             "name_original": "ffx",
+                            "timestamp_position": "start",
                             "unit": "meter_per_second",
                         },
                         {

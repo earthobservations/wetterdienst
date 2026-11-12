@@ -76,7 +76,7 @@ def test_help_of_every_command_is_exit_0(path: tuple[str, ...]) -> None:
     assert _run(*path, "--help").exit_code == 0
 
 
-@pytest.mark.parametrize("args", [("--version",), ("-v",), ("cache",), ("info",), ("about", "glossary", "--limit=1")])
+@pytest.mark.parametrize("args", [("--version",), ("-v",), ("cache",), ("info",), ("glossary", "--limit=1")])
 def test_a_command_that_answers_is_exit_0(args: tuple[str, ...]) -> None:
     """A command that has what it is asked for exits 0."""
     result = _run(*args)
@@ -148,7 +148,7 @@ def test_ctrl_c_is_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
     "args",
     [
         pytest.param((), id="no-command"),
-        pytest.param(("about",), id="no-subcommand"),
+        pytest.param(("about",), id="about-moved"),
         pytest.param(("stripes",), id="no-stripes-command"),
         pytest.param(("nope",), id="unknown-command"),
         pytest.param(("stations", "--nope"), id="unknown-option"),

@@ -92,7 +92,8 @@ the same distance, then the earlier), quantity by quantity, so two quantities of
 two rows (GH-3480):
 
 - filled: `temperature_air_2m`, `temperature_dew_point_2m`, `humidity_relative`,
-  `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility`, `wind_speed_mean_last_2min`,
+  `pressure_air_site_reduced`, `pressure_air_sea_level`, `visibility_mean_last_10min`,
+  `wind_speed_mean_last_2min`,
   `wind_direction_mean_last_2min`, `precipitation_amount_since_last_routine_report`,
   `precipitation_amount_last_3h` and `precipitation_amount_last_6h`;
 - not filled: `wind_gust_max_last_10min` and `temperature_wind_chill`. A METAR leaves the gust out
@@ -144,11 +145,38 @@ How to read the values of the kept report:
   6-hour amount of the 23:53 METAR, the 00Z one, is the value of 00:00, though the report of 00:05
   is nearer to it and is the one kept; no other hour holds it), see
   [Gaps of the kept observation](#gaps-of-the-kept-observation);
-- all other parameters are readings at the report's time.
+- all other parameters are readings at the report's time. The ASOS User's Guide says of two of them
+  that they are averages ending then: the temperature and the dew point are its 5-minute average
+  (sec. 3.1), and the visibility its running 10-minute harmonic mean of the 1-minute values (sec.
+  4.2.3), reported in statute miles and capped at 10 SM (GH-3136).
 
 The endpoint answers at most 500 observations per request, about 40 hours, and the provider does
 not read the next page, so a longer window returns the latest 40 hours only, the oldest of them
 decided on a partial hour (GH-2994).
+
+## The source's own verdict (`source`)
+
+Every quantity carries MADIS's QC data descriptor as `qualityControl`, the plain flag of `quality_flags` (`V`, `Z`, ...).
+The NWS API words it as "For values in observation records, the quality control flag from the MADIS system. The
+definitions of these flags can be found at https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml"
+([`QuantitativeValue.qualityControl`](https://api.weather.gov/openapi.json), read 2026-11-02), and the
+[MADIS surface QC notes](https://madis.ncep.noaa.gov/madis_sfc_qc_notes.shtml) (read 2026-11-02) give the values: "X -
+Rejected/erroneous, failed level 1", "Q - Questioned, passed level 1, failed 2 or 3" ("level 1 = validity, level 2 =
+internal consistency, temporal consistency, statistical spatial consistency checks, level 3 = spatial consistency
+check") and, as a person's intervention, "B - Subjective bad" (the reject list: "observations ... that will be labeled as
+bad, regardless of the outcome of the QC checks"). The check `source` reads these three. `Q` "Questioned" is the milder
+level, so `hard` nulls `X` and `B` and only flags `Q` as `Q,suspect:source`. Not read: `Z` "Preliminary, no QC", `C`
+"Coarse pass, passed level 1", `S` "Screened, passed levels 1 and 2", `V` "Verified, passed levels 1, 2, and 3", `G`
+"Subjective good" and `T` ("Virtual temperature could not be calculated, air temperature passing all QC checks has been
+returned").
+
+The API returns these flags rarely: of 124,272 quantities in the latest 500 observations of 20 large stations
+(2026-11-02) 78,582 were `V`, 34,883 `Z`, 10,570 `C`, 237 `S` and none `X`, `Q` or `B`, so the test of the mapping is a
+row written as MADIS words it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except `Q`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes
+leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ```{toctree}
 :hidden:

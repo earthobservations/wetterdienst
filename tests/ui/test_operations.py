@@ -633,6 +633,12 @@ def test_a_geo_answer_of_too_many_rows_is_refused(client: TestClient, monkeypatc
         assert short.json()["detail"] == "the estimate was reached", endpoint
         assert long.json()["type"] == "urn:wetterdienst:problem:limit-exceeded", endpoint
         assert (long.json()["limit"], long.json()["maximum"]) == ("rows", 100)
+        assert long.json()["requested"] > 100
+        # these routes name no stations and offer no stream: only the window and the parameters help (GH-3576)
+        detail = long.json()["detail"]
+        assert detail.endswith("Ask for a shorter `timestamp` window or fewer `parameters`."), endpoint
+        for advice in ("stations", "ndjson", "csv", "format"):
+            assert advice not in detail, endpoint
 
 
 def test_a_stations_listing_is_held_to_the_row_limit(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -684,6 +690,53 @@ def test_ndjson_is_the_metadata_the_rows_and_the_end(client: TestClient, monkeyp
     assert rows[0] == {**expected[0], "station_id": "01048"}
     assert [row["station_id"] for row in rows[len(expected) :]] == ["01049"] * len(expected)
     assert lines[-1] == {"end": {"counts": {"stations": 2, "rows": len(rows)}, "warnings": []}}
+
+
+def _read_strictly(text: str) -> Any:  # noqa: ANN401
+    """Read JSON as RFC 8259 has it: `NaN` and `Infinity` are refused, as `JSON.parse` refuses them."""
+
+    def refuse(constant: str) -> None:
+        msg = f"{constant} is not JSON"
+        raise ValueError(msg)
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def _result_with_non_finite_values() -> ValuesResult:
+    result = _values_result_of_shape("long")
+    numbers = [float("nan"), float("inf"), -float("inf")][: result.df.height]
+    return replace(result, df=result.df.with_columns(pl.Series("value", numbers, dtype=pl.Float64)))
+
+
+def test_ndjson_rows_write_null_for_what_is_not_a_finite_number(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rows of a stream were `NaN` and `Infinity`, which a strict parser refuses; polars writes `null` (GH-3679)."""
+    result = _result_with_non_finite_values()
+    _stub_stream(monkeypatch, [_chunk_of(result, "01048")])
+
+    response = client.get("/api/v1/values", params={**_VALUES, "format": "ndjson"})
+
+    assert response.status_code == 200
+    rows = [_read_strictly(line) for line in response.text.splitlines()][1:-1]
+    assert [row["value"] for row in rows] == [None] * 2
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "ndjson"])
+def test_the_json_answers_write_null_for_what_is_not_a_finite_number(fmt: str) -> None:
+    """`render`, which the command line and the REST API answer with, writes no bare `NaN` or `Infinity` (GH-3679)."""
+    result = _result_with_non_finite_values()
+    request = restapi.ValuesRequest(**_VALUES, format=fmt)
+
+    text = render(result, request, ValuesSettings, Options())
+
+    if fmt == "ndjson":
+        values = [_read_strictly(line)["value"] for line in text.splitlines()[1:-1]]
+    else:
+        written = _read_strictly(text)
+        # a feature holds its values nested; the strict read is what fails for them
+        values = [row["value"] for row in written["values"]] if fmt == "json" else [None] * 2
+    assert values == [None] * 2
 
 
 def test_ndjson_of_values_is_what_the_command_line_writes(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1121,7 +1174,7 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "2")
     release, begun, _ended = _blocking_values(monkeypatch)
 
-    async def run() -> tuple[list[Any], Any, Any, Any]:
+    async def run() -> tuple[list[Any], Any, Any, Any, Any]:
         async with _async_client() as client:
             first = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(2)]
             # a request that is answered before then was refused or failed: its status says so below
@@ -1130,14 +1183,15 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
                 "handler of the two requests being served",
             )
             busy = await client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "busy-1"})
-            # what is not counted is served: the health check, the index
+            # what is not counted is served: the health check, the readiness check, the index
             health = await client.get("/health")
+            ready = await client.get("/ready")
             index = await client.get("/")
             release.set()
-            return await asyncio.gather(*first), busy, health, index
+            return await asyncio.gather(*first), busy, health, index, ready
 
     try:
-        served, busy, health, index = asyncio.run(run())
+        served, busy, health, index, ready = asyncio.run(run())
     finally:
         release.set()
 
@@ -1146,7 +1200,7 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     assert busy.json()["request_id"] == "busy-1"
     assert busy.headers["Retry-After"] == "30"
     assert "2 requests" in busy.json()["detail"]
-    assert (health.status_code, index.status_code) == (200, 200)
+    assert (health.status_code, index.status_code, ready.status_code) == (200, 200, 200)
     assert [response.status_code for response in served] == [400, 400]
 
 
@@ -1303,7 +1357,7 @@ def test_the_allowed_hosts_are_a_comma_separated_setting(monkeypatch: pytest.Mon
 
 
 def test_a_host_that_is_not_listed_is_a_400_problem(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A rebinding page reaches the server with its own name in `Host`; every route refuses it, but the health check."""
+    """A rebinding page reaches the server with its own name in `Host`; every route refuses it, but the two probes."""
     monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
 
     for path in ("/api/version", "/api/v1/version", "/api/v1/coverage", "/", "/robots.txt", "/mcp/v1"):
@@ -1317,6 +1371,7 @@ def test_a_host_that_is_not_listed_is_a_400_problem(client: TestClient, monkeypa
     for host in ("localhost", "localhost:7890", "LOCALHOST:3000", "127.0.0.1:7890", "[::1]:7890"):
         assert client.get("/api/version", headers={"Host": host}).status_code == 200, host
     assert client.get("/health", headers={"Host": "service.internal"}).status_code == 200
+    assert client.get("/ready", headers={"Host": "service.internal"}).status_code == 200
 
 
 def test_an_unlisted_host_is_refused_before_anything_is_fetched(

@@ -10,19 +10,16 @@ test.describe('Home Page', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Check for navigation links
-    const explorerLink = page.getByRole('link', { name: /explorer/i })
-    // Exact, not /api/i: the home page's developer row links to the backend's Swagger UI as
-    // "REST API", which a loose match picks up alongside the nav entry and fails on strict mode.
-    const apiLink = page.getByRole('link', { name: 'API', exact: true })
-
-    await expect(explorerLink).toBeVisible()
-    await expect(apiLink).toBeVisible()
+    // the tools are tabs of the header; the API is in its reference, a disclosure (GH-3518)
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: /explorer/i })).toBeVisible()
+    await nav.getByRole('button', { name: 'Reference', exact: true }).click()
+    await expect(nav.getByRole('link', { name: /^API/ })).toBeVisible()
   })
 
   // The weather services are the backend's (`/api/providers`), so for a moment there are none to show: the
   // block holds its place with placeholders. What is under the card must not move by more than a row of chips
-  // when the answer comes (a row is a chip of 30px and a gap of 8), however wide the window is.
+  // when the answer comes (a row is a chip of 34px and a gap of 8), however wide the window is.
   for (const width of [1280, 768, 375]) {
     test(`keeps the weather services block about as tall before the backend answers as after, at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
@@ -30,7 +27,7 @@ test.describe('Home Page', () => {
       const held = new Promise<void>((resolve) => {
         release = resolve
       })
-      await page.route('**/api/providers', async (route) => {
+      await page.route(/\/api\/providers(\?|$)/, async (route) => {
         await held
         await route.continue()
       })
@@ -43,7 +40,7 @@ test.describe('Home Page', () => {
       await expect(page.getByTestId('home-providers')).toBeVisible({ timeout: 30_000 })
       const after = (await card.boundingBox())!.height
 
-      expect(Math.abs(after - before), `the card was ${before}px tall before and ${after}px after`).toBeLessThanOrEqual(38)
+      expect(Math.abs(after - before), `the card was ${before}px tall before and ${after}px after`).toBeLessThanOrEqual(42)
     })
   }
 
@@ -71,7 +68,7 @@ test.describe('API Documentation Page', () => {
     await page.goto('/api')
     await page.waitForLoadState('networkidle')
 
-    const endpoints = ['coverage', 'stations', 'values', 'interpolate', 'summarize']
+    const endpoints = ['providers', 'coverage', 'stations', 'values', 'interpolate', 'summarize']
 
     for (const endpoint of endpoints) {
       await expect(page.getByText(endpoint, { exact: false }).first()).toBeVisible()
@@ -91,7 +88,7 @@ test.describe('Explorer Page', () => {
   test('should navigate to explorer page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('link', { name: /explorer/i }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /explorer/i }).click()
 
     await expect(page).toHaveURL(/\/explorer/)
   })
@@ -100,7 +97,7 @@ test.describe('Explorer Page', () => {
     await page.goto('/explorer')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByText(/Select Parameters/i).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Data', exact: true })).toBeVisible()
   })
 
   test('should have provider dropdown', async ({ page }) => {
@@ -144,7 +141,9 @@ test.describe('Providers Page', () => {
   test('should be reachable from the navigation', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('navigation').getByRole('link', { name: 'Providers', exact: true }).click()
+    // the providers are in the header's reference, a disclosure (GH-3518)
+    await page.getByRole('navigation').getByRole('button', { name: 'Reference', exact: true }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /^Providers/ }).click()
 
     await expect(page).toHaveURL(/\/providers$/)
     await expect(page.getByRole('heading', { name: 'Providers', level: 1 })).toBeVisible()
@@ -190,7 +189,7 @@ test.describe('Providers Page', () => {
     await page.getByRole('link', { name: 'Open in the explorer' }).first().click()
 
     await expect(page).toHaveURL(/\/explorer\?provider=dwd&network=/)
-    await expect(page.getByText(/Select Parameters/i).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Data', exact: true })).toBeVisible()
   })
 
   test('should say so for a provider there is none of', async ({ page }) => {
@@ -316,7 +315,7 @@ test.describe('Forecast (Meteogram) Page', () => {
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByRole('heading', { name: /Weather forecast/i }).first()).toBeVisible()
-    await expect(page.getByText(/Search for a station above/i)).toBeVisible()
+    await expect(page.getByTestId('tool-placeholder')).toBeVisible()
   })
 
   test('should load a forecast when a station is picked via the URL', async ({ page }) => {
@@ -325,7 +324,7 @@ test.describe('Forecast (Meteogram) Page', () => {
 
     // Either the chart loads or a definitive error/no-data state is shown --
     // never the empty "search for a station" hint.
-    await expect(page.getByText(/Search for a station above/i)).not.toBeVisible()
+    await expect(page.getByTestId('tool-placeholder')).not.toBeVisible()
     await expect(page.getByText('JAN MAYEN', { exact: true })).toBeVisible()
   })
 })

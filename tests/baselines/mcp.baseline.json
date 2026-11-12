@@ -67,24 +67,10 @@
       "type": "object",
       "properties": {
         "provider": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "string"
         },
         "network": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "string"
         },
         "resolutions": {
           "anyOf": [
@@ -117,7 +103,10 @@
           "default": false
         }
       },
-      "required": []
+      "required": [
+        "provider",
+        "network"
+      ]
     },
     "glossary": {
       "type": "object",
@@ -143,11 +132,14 @@
                 "degree_day",
                 "degree_hour",
                 "dimensionless",
+                "duration",
                 "energy_per_area",
                 "fraction",
+                "length_day",
                 "length_long",
                 "length_medium",
                 "length_short",
+                "length_tiny",
                 "mass_per_volume",
                 "power_per_area",
                 "precipitation",
@@ -156,6 +148,7 @@
                 "significant_weather",
                 "speed",
                 "temperature",
+                "temperature_difference",
                 "time",
                 "turbidity",
                 "volume",
@@ -1027,6 +1020,19 @@
         "pretty": {
           "type": "boolean",
           "default": false
+        },
+        "unit_targets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1622,6 +1628,129 @@
               "type": "null"
             }
           ]
+        },
+        "plausibility": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "soft",
+                "hard"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plausibility_range": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_elevation": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_stuck": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "plausibility_consistency": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_floor": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_limits": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "hard"
+        },
+        "plausibility_source": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "plausibility_step": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "plausibility_relations": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "hard"
+          ],
+          "default": "soft"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1631,5 +1760,5 @@
       ]
     }
   },
-  "x-release": "0.178.0"
+  "x-release": "0.186.0"
 }

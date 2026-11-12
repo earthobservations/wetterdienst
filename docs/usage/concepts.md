@@ -20,7 +20,7 @@ the command line, in the REST API, in the MCP tools and in the app.
 A parameter is written `resolution/dataset/parameter` (`daily/climate_summary/temperature_air_mean_2m`), or
 `resolution/dataset` for every parameter of a dataset (`daily/climate_summary`, or `daily/kl` with the original name
 of the dataset). Which there are, per provider, is under [Data](../data/index.md); what a canonical name means and its
-unit is in the [glossary](../data/parameters.md), and `coverage` lists them for a network. Every provider is reached
+unit is in the [glossary](../data/parameters.md), and `coverage` lists them for one network. Every provider is reached
 the same way, and a parameter has one unit whichever provider reports it, see [Units](units.md).
 
 ## From a request to values
@@ -69,5 +69,6 @@ see [Troubleshooting](troubleshooting.md).
 
 The library downloads from the providers' own open-data servers when you ask, and keeps what it downloaded in a
 [cache](python-api.md#caching). It holds no data of its own. The terms the data is published under differ per provider
-and are part of every answer of the REST API (`metadata.provider.license` and `attribution`); the
-[provider pages](../data/index.md) give them.
+and are part of every answer of the REST API (`metadata.provider.license` and `attribution`),
+with a `processing_note` that says wetterdienst reshaped the data and converted its units; they are listed on
+[licences and credit lines](../data/provider/licenses.md), and the [provider pages](../data/index.md) give them.

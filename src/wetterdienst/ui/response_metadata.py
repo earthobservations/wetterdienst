@@ -7,8 +7,8 @@ used (the licence and the credit line of the provider), what was asked as the li
 parameters that `daily/kl` meant, the periods, the window, the stations selected), when it was
 retrieved, what it is missing but did not fail on (`warnings`), how much of it there is (`counts`), the
 reference system of its positions (`crs`), and the versions of the API and of this shape. The block is
-always there; `with_metadata` only adds the heavier parts, the unit of every parameter and what
-`quality_flags` holds.
+always there; `with_metadata` only adds the heavier parts, the unit, the `aggregation` and the
+`timestamp_position` of every parameter and what `quality_flags` holds.
 
 Outside JSON the same information goes into headers (`response_headers`): a CSV or an image has no place
 in its body for it. This module imports no web framework, so the command line can use it without the
@@ -23,8 +23,9 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.metadata.period import Period
-from wetterdienst.model.metadata import is_quality_flag
+from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
 from wetterdienst.model.quality_legend import QualityKind, quality_legend
 from wetterdienst.model.result import (
     StationsFilter,
@@ -52,7 +53,7 @@ if TYPE_CHECKING:
         IssuesRequest,
         StationsRequest,
         StripesData,
-        StripesValuesRequest,
+        StripesRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -70,8 +71,11 @@ _QUALITY_FLAGS_DESCRIPTION = (
     "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the "
     "source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a "
     "provider publishes beside it (for instance `measurement:T`), `zone:` where the source's timestamps were "
-    "shifted to UTC, and, always last, `raw:` where a value was a missing-value marker or a number no sensor "
-    "can have produced and is returned as null, with the text the source wrote in its place."
+    "shifted to UTC, `suspect:<check>` where a plausibility check in the mode `soft` found the value implausible "
+    "and left it (the suspect level of `source` is flagged in either mode), and, always last, `raw:` where a value "
+    "was a missing-value marker or a number no sensor can "
+    "have produced and is returned as null, with the text the source wrote in its place; a number a check in the "
+    "mode `hard` rejected (the bounds you set included) has `rejected:<check>` before it."
 )
 
 
@@ -146,6 +150,15 @@ class ParameterInfo(BaseModel):
     unit: str = Field(
         description="The symbol of the unit of the values: the target of the quantity where `convert_units` is "
         "on, else the unit the source publishes.",
+    )
+    aggregation: Aggregation | None = Field(
+        description="What the value is relative to its interval: the name's, else the provider's declaration "
+        "where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not "
+        "stated, which is not a reading.",
+    )
+    timestamp_position: TimestampPosition | None = Field(
+        description="Where the timestamp sits in the row's interval: `instant` (when the value was observed), "
+        "`start`, `end` or `middle` of it. Null: not stated.",
     )
 
 
@@ -229,9 +242,17 @@ class ResponseMetadata(BaseModel):
     )
     provider: _Provider = Field(
         description="Who published the data, under which licence (`license`, null where the provider states "
-        "none) and with which credit line (`attribution`).",
+        "none) and with which credit line: `attribution` is the credit line to cite, `copyright` the rights holder's "
+        "notice, shown for information.",
     )
     producer: _Producer
+    processing_note: str = Field(
+        description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
+        "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
+        "or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn "
+        "from the provider's annual values. The same text for every provider and licence, so that a licence that asks "
+        "for changes to be indicated has them said; no legal advice.",
+    )
     request: ResolvedRequest
     counts: Counts
     crs: Crs
@@ -306,7 +327,11 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **_metadata_of(stations, None if isinstance(result, StationsResult) else result.data_updated_at),
+        **_metadata_of(
+            stations,
+            None if isinstance(result, StationsResult) else result.data_updated_at,
+            derived=not isinstance(result, StationsResult) and result._derived,  # noqa: SLF001
+        ),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),
@@ -336,6 +361,8 @@ def result_metadata(
                 description=p.description,
                 quantity=p.unit_type,
                 unit=_unit_symbol(p, options, converter),
+                aggregation=p.effective_aggregation,
+                timestamp_position=p.effective_timestamp_position,
             )
             for p in parameters
         ]
@@ -382,16 +409,18 @@ def _block_without_result(
     stations: int,
     rows: int,
     data_updated_at: dt.datetime | None = None,
+    image: bool = False,
 ) -> ResponseMetadata:
     """Build the block of an answer that is made from no stations result: the provider's terms and the request.
 
-    The date the source states for the data is the caller's to give, for an answer that has one (the warnings).
+    The date the source states for the data is the caller's to give, for an answer that has one (the warnings), and
+    so is whether the answer is an `image` drawn from the values (the climate stripes' image).
     """
     return ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **describe_provider(_provider_terms(api), data_updated_at),
+        **describe_provider(_provider_terms(api), data_updated_at, image=image),
         request=request,
         counts=Counts(stations=stations, rows=rows),
         crs=Crs(),
@@ -417,8 +446,12 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
     )
 
 
-def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> ResponseMetadata:
-    """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
+def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool = False) -> ResponseMetadata:
+    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values.
+
+    The values are DWD's own annual values, so the block has the plain note; `image` is for the headers of the image,
+    which add that it is drawn from them.
+    """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     stripes = data.series
@@ -439,6 +472,7 @@ def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> Respon
         ),
         stations=1,
         rows=data.df.height,
+        image=image,
     )
 
 
@@ -491,6 +525,7 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         headers["Link"] = f'<{license_["url"]}>; rel="license"'
     if provider["attribution"]:
         headers["X-Wetterdienst-Attribution"] = _header_text(provider["attribution"])
+    headers["X-Wetterdienst-Processing"] = _header_text(metadata.processing_note)
     if metadata.warnings:
         headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
     return headers

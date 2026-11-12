@@ -46,7 +46,7 @@ _DAILY_PARAMETERS = [
     {"name": "pressure_air_site_mean", "name_original": "P", **_PRESSURE},
     {"name": "wind_speed_mean", "name_original": "F", **_WIND_SPEED},
     {"name": "wind_speed_max", "name_original": "Fmax", **_WIND_SPEED},
-    {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter"},
+    {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter", "aggregation": "instant"},
     {"name": "sunshine_duration", "name_original": "SSV", "unit": "hour"},
 ]
 
@@ -90,7 +90,9 @@ LAST_YEAR: dict[str, dict[str, tuple[int, str]]] = {
 }
 
 
-def _resolution(name: str, parameters: list[dict], *, date_required: bool) -> dict:
+def _resolution(
+    name: str, parameters: list[dict], *, date_required: bool, timestamp_position: str | None = None
+) -> dict:
     return {
         "name": name,
         "name_original": name,
@@ -101,6 +103,7 @@ def _resolution(name: str, parameters: list[dict], *, date_required: bool) -> di
                 "name": DATASET_NAME_DEFAULT,
                 "name_original": DATASET_NAME_DEFAULT,
                 "grouped": True,
+                "timestamp_position": timestamp_position,
                 "parameters": parameters,
             },
         ],
@@ -132,8 +135,8 @@ _ChmiObservationMetadataSpec = {
         _resolution("10_minutes", _MINUTE_10_PARAMETERS, date_required=True),
         _resolution("hourly", _HOURLY_PARAMETERS, date_required=True),
         _resolution("daily", _DAILY_PARAMETERS, date_required=False),
-        _resolution("monthly", _PERIOD_CLIMATE_PARAMETERS, date_required=False),
-        _resolution("annual", _PERIOD_CLIMATE_PARAMETERS, date_required=False),
+        _resolution("monthly", _PERIOD_CLIMATE_PARAMETERS, date_required=False, timestamp_position="start"),
+        _resolution("annual", _PERIOD_CLIMATE_PARAMETERS, date_required=False, timestamp_position="start"),
     ],
 }
 ChmiObservationMetadata = build_metadata_model(_ChmiObservationMetadataSpec, "ChmiObservationMetadata")

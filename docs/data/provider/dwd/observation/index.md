@@ -115,12 +115,9 @@ of which only `rs_05` and `rs_ind_05` are available in the `recent` and `now` pe
 | Stratus         | 7      |
 | Cumulus         | 8      |
 | Cumulonimbus    | 9      |
-| Automated       | -1     |
 
-Note that `-1` means two different things in the hourly cloud datasets, depending on the column. In
-the cloud *type* codes above it is DWD's value for an automated observation, and it is returned as
-`-1`. In the cloud *cover* fields it is not a type but an absence, and it is not returned at all —
-see below.
+DWD's descriptions of the dataset name no cloud type codes and only `-999` as a missing value. The files write `-1` in the
+type fields as well, and wetterdienst returns it as null; see below.
 
 ### Obscured sky
 
@@ -130,7 +127,7 @@ SYNOP's N = 9. It says that no amount could be given, rather than giving one, so
 returns it as null.
 
 Left as it stands it would be read as −1 eighths and converted like any other cloud cover, so a
-default request would report −0.125 of the sky covered.
+default request would report −12.5 % of the sky covered.
 
 DWD's own dataset description documents only `-999` as a missing value and says nothing about `-1`,
 so the reading is from the data: across station 00003's hourly record `-1` stands in 1.2% of
@@ -138,6 +135,13 @@ observations, and fog codes (`ww` 40 to 49) accompany 69.1% of those against 0.8
 `45` and `47`, "fog, sky invisible", most of all. If you need to tell an obscured sky from a plain
 gap in the record, the **hourly weather_phenomena** dataset still carries the weather code for that
 hour.
+
+The cloud *type* fields — `cloud_type_layer1` to `cloud_type_layer4` (`v_sN_cs`) — write the same
+`-1`, and it is returned as null too, with the text DWD wrote kept as `raw:-1` in `quality_flags`.
+It is not a type of cloud and DWD documents no such code: in the hours of stations 00433, 01420,
+02014 and 03921 (all periods, read 2026-11-03) that have a type of `-1` in the first layer, 2,633 of
+2,641 have an obscured first layer beside it. Before this was read as null, these docs called it
+"Automated", which no DWD description says.
 
 ### Measurement method indicators
 
@@ -199,8 +203,8 @@ minutes, its monthly mean tracing the equation of time about a 54.7 minute longi
 | May | 57.6 min |
 | November | 69.1 min |
 
-Being a time, it follows the `time` unit target like any other duration, so it arrives in seconds
-unless you ask for something else.
+Being a time and not a duration of sunshine or rain, it follows the `time` unit target (not `duration`, which is in
+hours), so it arrives in seconds unless you ask for something else.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -332,6 +336,46 @@ Quality level (column header: ``QN``):
     2- Controlled with individually defined criteria
     3- ROUTINE automatic control and correction with QUALIMET
 ```
+
+## Plausibility checks
+
+Five [checks](../../../plausibility.md) judge values of this network. `range` (hard by default): the one table of
+bounds of every provider, such as a wind speed below 0 or above 115 m/s, and a station pressure outside 300 to 1100 hPa or
+a sea level pressure outside 850 to 1100 hPa. `elevation` (hard): a `pressure_air_site`, `pressure_air_site_mean`,
+`_min` or `_max` that the standard atmosphere does not allow at the elevation of the station in the station list, from 870/1013.25 of it
+(143 hPa below at sea level) to 75 hPa above it (`rejected:elevation,raw:1093.3`: the hourly `pressure` of 00433, 48 m,
+where 1007.5 hPa are expected). Three of the 19 readings of 00433 and 03032 beyond 75 hPa of the standard atmosphere (909.5, 910.1 and 908.5 hPa) lie between the
+margins and stay, for the check `step`, which flags them. `stuck` (**soft** by default):
+a run of consecutive readings of one value as long as the table of [the limit of a run](../../../plausibility.md#the-limit-of-a-run)
+says for the parameter, the resolution and the step the series is written at: of `pressure_air_site` and
+`pressure_air_site_mean` 72 hourly readings (5 days; 36 readings at 10 minutes, a limit the research for GH-3681 derives
+and no source publishes), the constant a station without a barometer writes; and, since GH-3681, of the air temperature,
+the dew point and the mean wind speed of the hourly and 10-minute datasets (24 hourly readings of a temperature at tenths
+of a degree, 40 at whole degrees, the years until 1981 of the hourly `moisture` and `dew_point`; 144 at 10 minutes) and of
+the daily climate summary (5 days of a temperature or a pressure, the rain above 1 mm, the gust, the snow depth); the
+value is kept and flagged `suspect:stuck`, and null with `rejected:stuck,raw:997.3` where the check is hard
+(`plausibility={"stuck": "hard"}`). The relative humidity and the wind direction are not judged: no source gives a
+limit, and DWD's hold one value for hundreds of hours in the weather. `step` (**soft** by default): a reading that differs
+from the one before it by more than the table of [the limits of a jump](../../../plausibility.md#the-limits-of-a-jump-step)
+says (the later reading is flagged), or that jumps away from both neighbours and back (the middle one), for the air
+temperature and the dew point (hourly and 10 minutes: a spike of 8 K, a step of 20 K; daily: a spike of 25 K), the
+`pressure_air_site`, `pressure_air_site_mean` and sea level pressure (60 hPa) and the mean wind speed (a spike of 10 m/s,
+a step of 15 m/s). The relative humidity, the gusts and the soil temperature are not judged: their limits would flag
+fog, thunderstorms and the sun. The first reading of a series is never flagged, and a null or a missing hour between two
+readings leaves them unjudged. `relations` (**soft** by default): two readings of one dataset that contradict each other, **both** flagged
+`suspect:relations` ([the table](../../../plausibility.md#the-relations-of-one-row-relations)): in `climate_summary` the
+daily maximum is not below the mean nor the mean below the minimum of the air temperature, and the daily gust is not
+below the mean wind; the dew point is at most 0.2 K above the air temperature in the hourly `dew_point` and `moisture`
+and the 10-minute `temperature_air`; the 10-minute `temperature_extreme` has the maximum at 2 m and at 5 cm not below the
+minimum, and `wind_extreme` the highest rolling mean not below the lowest; and the sunshine of a `climate_summary`
+day, an hour (`sun`, `solar`) or 10 minutes is at most the longest day length at the station, and 5 % more, at its
+elevation. A relation across two datasets (the hourly gust of `wind_extreme` and the mean of `wind`) is not judged. In
+the 10 stations' whole histories it flags 398 hourly dew points, 925 at 10 minutes, 42 maxima at 2 m below the minimum, 2 gusts
+below the mean and 1 sunshine, none of the daily temperatures. The run of `stuck` is judged in the series of the periods read, the historical archive before the recent file, so a
+station whose historical file is constant and whose recent one is not is flagged for the stretch that is; a gap of more
+than four times the interval ends a run. The `-999` of every dataset and the other codes of the files are no check: they
+are null with `raw:` alone. The datasets each check covers are in the [table of the plausibility
+page](../../../plausibility.md#where-each-check-runs).
 
 ```{toctree}
 :hidden:

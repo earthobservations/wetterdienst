@@ -16,7 +16,7 @@ CHMI data is provided as open data through the [CHMI open data portal](https://o
 (CHMI's FAQ, a page that is no longer online). The portal's listing itself says
 nothing; the national open data catalogue (data.gov.cz) names the licence and the author, "Český hydrometeorologický
 ústav", for each dataset. CHMI gives no credit line of its own: name the author, link the licence and say if you
-changed the data.
+changed the data. The pages read (the portal's listing, 2026-11-06) state no terms on requests or access.
 
 ## Update date
 

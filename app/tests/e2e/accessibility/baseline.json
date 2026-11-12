@@ -1,10 +1,5 @@
 {
   "standard": "WCAG 2.2 AA",
   "axe": "4.13.0",
-  "entries": [
-    { "rule": "aria-hidden-focus", "page": "explorer", "state": "values-error", "impact": "serious", "variants": ["dark/de", "light/en"] },
-    { "rule": "aria-required-children", "page": "explorer", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
-    { "rule": "aria-required-children", "page": "meteogram", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
-    { "rule": "scrollable-region-focusable", "page": "explorer", "state": "station-menu-open", "impact": "serious", "variants": ["dark/de", "light/en"] }
-  ]
+  "entries": []
 }

@@ -40,7 +40,7 @@ for (const { name, languages, cookie, shown } of visits) {
       if (cookie)
         await context.addCookies([{ name: COOKIE, value: cookie, url: baseURL! }])
       await page.goto('/')
-      await expect(page.getByText(tagline(shown), { exact: true })).toBeVisible()
+      await expect(page.getByRole('main').getByText(tagline(shown), { exact: true })).toBeVisible()
     })
   })
 }
@@ -60,6 +60,6 @@ test.describe('picking a language', () => {
     expect(cookies.find(c => c.name === COOKIE)?.value).toBe('de')
 
     await page.goto('/')
-    await expect(page.getByText(tagline('de'), { exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByText(tagline('de'), { exact: true })).toBeVisible()
   })
 })

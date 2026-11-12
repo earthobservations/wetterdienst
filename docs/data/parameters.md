@@ -13,7 +13,10 @@ thing everywhere. Those names, and the unit type each of them implies, live in a
 different quantities depending on who reported it.
 
 The glossary below lists them all. The provider pages link into it, so from any provider's parameter table you can jump
-to what the parameter actually is.
+to what the parameter actually is. The quality marks some sources publish with their readings (`quality`,
+`quality_wind`, ...) are no parameters, so the glossary of the REST API, the CLI and the MCP server does not list them
+and the entries below only name them for the provider tables to link to: they come back in the `quality_flags` column of
+the values, which [Quality flags](quality-flags.md) explains.
 
 ## Metadata Model
 
@@ -61,8 +64,9 @@ reads a few centimetres below its zero (MeteoSwiss' gauge at station PLF reads -
 What the library does enforce is another thing and is not this column. A source writes a missing value as a number
 outside every range (`-999`); the provider's reader maps it to null and keeps the text the source wrote in the
 `quality_flags` of the reading (`raw:-999`). Where a source also has values no instrument can produce (4021 degrees
-for a daily maximum), its reader nulls those too, with a range per provider and resolution that is generous, since it
-is there to catch a sentinel and not a record. Both are told in [Quality flags](quality-flags.md).
+for a daily maximum), the values core nulls those too, against one table of ranges that is the same for every provider and depends on
+the resolution where the bound grows with the span, generous since it is there to catch a defect and not a record
+([plausibility](plausibility.md)). Both are told in [Quality flags](quality-flags.md).
 
 ## The statistic in a name
 
@@ -88,11 +92,37 @@ the source does not state. `tests/metadata/test_mean_names.py` holds the rule to
 field name. The rule was applied to temperature first (GH-2651, GH-2657) and to the other quantities with GH-3151;
 the renames of that change are listed below.
 
+A plain name says nothing about the statistic, so a provider may state it for a row where its source does (GH-3134).
+`instant` is a single reading, not a statistic over a window: a mean over at most 5 minutes counts as one, as the
+1-minute means of FMI, KNMI and DWD's urban stations do (GH-2660). The description of the row says when the reading
+was taken (at 06:00 UTC, at midday), and the `timestamp_position` of the dataset, where it is `instant`, that it is at
+the timestamp. A row whose source states nothing, or only where the timestamp sits (a forecast step, a report time),
+declares none (null: not stated). A name that states a statistic (`_mean`, `_max`, `count_`) cannot be overridden by a provider.
+
 A name that was renamed is refused with the new name in the message (`'wind_speed' was renamed to
 'wind_speed_mean' in this dataset`), and the plain name stays where the source states no mean. The old names of a
 request, of the `parameter` column, of the wide column names and of `Options(geo_station_distance=...)` are the
 ones to change: a distance given for `wind_speed` applies to the rows that are still plain `wind_speed` and not to
 `wind_speed_mean`.
+
+### Aggregation and timestamp position in the answers
+
+`coverage` gives every parameter an `aggregation` and a `timestamp_position`, and the `metadata` block of every answer
+that has one gives them in `metadata.parameters` (with `with_metadata`); `glossary` gives
+the `aggregation` of the name only, since it knows no dataset, and `coverage` has the one of each provider. Both are
+always there, and **`null` means the source does not state it**: not a reading, not a mean. The `aggregation` is the
+name's value where the name states a statistic, else what the provider declares for the row, and says alone what the
+value is. The `timestamp_position` says where the timestamp sits in the row's interval, whatever the value is.
+
+```{aggregation-definitions}
+```
+
+```{timestamp-position-definitions}
+```
+
+The position of a parameter is its own where its dataset's parameters differ, else its dataset's; it is read from
+[Time reference](time_reference.md), which keeps the evidence. The two sets are closed from 1.0.0: a member is not added
+to either after that. The definitions above are the ones of the code, rendered at the docs build.
 
 ### Renamed for the rule
 
@@ -192,7 +222,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | `cloud_cover_total_sunrise_to_sunset` | `cloud_cover_total_mean_sunrise_to_sunset` | 1 |
 | `cloud_cover_total_sunrise_to_sunset_manual` | `cloud_cover_total_mean_sunrise_to_sunset_manual` | 1 |
 | `humidity_relative` | `humidity_relative_mean` | 26 |
-| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 14 |
+| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 15 |
 | `pressure_air_site` | `pressure_air_site_mean` | 11 |
 | `pressure_vapor` | `pressure_vapor_mean` | 11 |
 | `visibility` | `visibility_mean` | 2 |
@@ -243,6 +273,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | knmi/observation | 10_minutes/data | `vv` | `visibility` | `visibility_mean` |
 | knmi/observation | daily/data | `NG` | `cloud_cover_total` | `cloud_cover_total_mean` |
 | knmi/observation | daily/data | `UG` | `humidity_relative` | `humidity_relative_mean` |
+| knmi/observation | daily/data | `PG` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
 | meteofrance/observation | daily/others | `UM` | `humidity_relative` | `humidity_relative_mean` |
 | meteofrance/observation | daily/others | `PMERM` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
 | meteofrance/observation | daily/others | `TSVM` | `pressure_vapor` | `pressure_vapor_mean` |
@@ -347,6 +378,32 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | rmi/observation | hourly/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
 
 
+#### DWD POI and NWS: a mean the source gives in other words
+
+Two sources state a mean without the word, and had kept the plain name (GH-3134, unreleased):
+
+- DWD POI's three irradiances of the preceding hour, `global_radiation_last_hour` ("Globalstrahlung (letzte Stunde)"),
+  `diffuse_solar_radiation_last_hour` ("Diffuse Strahlung (letzte Stunde)") and `direct_solar_radiation_last_hour`
+  ("Direkte Strahlung (letzte Stunde)"), in W/m2. DWD gives the energy of the hour (J/cm2 in the 10-minute data) and
+  the column is that energy over the 3600 s of the hour: the global and the diffuse one equal the 10-minute J/cm2 of
+  the hour times 10000 over 3600 within 0.9 W/m2 at 250 of 250 hourly values of 10 stations. An energy over the
+  seconds of the hour is the hour's mean power, so the three take `_mean` like every other irradiance of a stated
+  mean. DWD itself does not use the word.
+- NWS's `visibility`: the ASOS User's Guide, 4.2.2, "ASOS computes a running 10-minute harmonic mean once per minute"
+  of the 1-minute visibilities. It is a mean over a window shorter than the hourly row, so it keeps the window
+  (`_mean_last_10min`) as the wind of the same dataset does, and the plain `visibility` stays where a source states
+  no statistic.
+
+| network | resolution/dataset | field | old name | new name |
+| --- | --- | --- | --- | --- |
+| dwd/poi | hourly/data | `global_radiation_last_hour` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| dwd/poi | hourly/data | `diffuse_solar_radiation_last_hour` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` |
+| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_perpendicular_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity_mean` |
+| nws/observation | hourly/data | `visibility` | `visibility` | `visibility_mean_last_10min` |
+
+Values and units are unchanged. A request for an old POI name is refused with the new one named. `visibility` is also
+the field name of the NWS API, so a request for it still selects the row, and the values come back under the new name.
+
 ### Renamed for what the number is
 
 GH-2614 asked of each row whether its name says what the source's number is, and not only its statistic. Four names
@@ -368,7 +425,7 @@ The two DMO names are net balances, positive downward into the surface. Read off
 50 J/cm² (never more than 0.95), which is the share the surface absorbs, and 99.7 % of the 182,714 values of `RadL3` are
 negative, down to -3,573 kJ/m², because the surface emits more long-wave radiation than the sky returns. The unit of
 each stays as it was declared, `rads3` in J/cm² and `radl3` in kJ/m², which differ inside one file; with the default
-unit targets both come back in J/cm². The 10-minute and hourly `tsmin` of Geosphere stay
+unit targets both come back in MJ/m². The 10-minute and hourly `tsmin` of Geosphere stay
 `temperature_air_min_0_05m`: they are the minimum of their interval.
 
 #### The road stations and IPMA
@@ -477,7 +534,7 @@ normal everywhere else (`sunshine_duration_normal`), so the perpendicular plane 
 
 | network | resolution/dataset | field | old name | new name | what the number is |
 | --- | --- | --- | --- | --- | --- |
-| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | "Direkte Strahlung (letzte Stunde)", W/m2, on a plane perpendicular to the sun's rays |
+| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity_mean` (`..._intensity` until GH-3134) | "Direkte Strahlung (letzte Stunde)", W/m2, on a plane perpendicular to the sun's rays |
 
 Values and units are unchanged, and a request for the old name is refused with the new one named. To get the component
 on a horizontal surface, multiply the values by the cosine of the solar zenith angle.

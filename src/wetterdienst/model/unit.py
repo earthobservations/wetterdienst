@@ -36,7 +36,8 @@ class UnitConverter:
 
     def __init__(self) -> None:
         """Initialize the unit converter."""
-        # we use those multiple times for length_short, length_medium and length_long
+        # we use those multiple times for length_tiny, length_short, length_medium and length_long, which differ
+        # only in their default target
         _length = [
             Unit("millimeter", "mm"),
             Unit("centimeter", "cm"),
@@ -53,6 +54,14 @@ class UnitConverter:
             Unit("gram_per_liter", "g/l"),
             Unit("gram_per_cubic_meter", "g/m³"),
             Unit("kilogram_per_cubic_meter", "kg/m³"),
+        ]
+        # a span of time, used for both duration and time, which differ only in their default target: the
+        # length of time something lasted (sunshine, precipitation, a wet leaf) is conventionally given in hours,
+        # a period or an offset (a wave period, the offset of solar time) in seconds
+        _time = [
+            Unit("second", "s"),
+            Unit("minute", "min"),
+            Unit("hour", "h"),
         ]
         # dict of unit types and their possible units
         self.units: dict[str, list[Unit]] = {
@@ -73,10 +82,15 @@ class UnitConverter:
             "dimensionless": [
                 Unit("dimensionless", "-"),
             ],
+            # how long something lasted, summed over an interval: sunshine, precipitation, a wet leaf. Hours is
+            # WMO's unit for sunshine and what the sources of daily and longer values mostly write; `time` stays
+            # in seconds for a wave period and an offset
+            "duration": _time,
             "energy_per_area": [
                 Unit("joule_per_square_centimeter", "J/cm²"),
                 Unit("joule_per_square_meter", "J/m²"),
                 Unit("kilojoule_per_square_meter", "kJ/m²"),
+                Unit("megajoule_per_square_meter", "MJ/m²"),
             ],
             "fraction": [
                 Unit("decimal", "-"),
@@ -88,6 +102,13 @@ class UnitConverter:
                 Unit("watt_per_square_meter", "W/m²"),
                 Unit("kilowatt_per_square_meter", "kW/m²"),
             ],
+            # a depth times a number of days, such as the sum of the daily snow depths of a month. It is no
+            # length: cm·d are the unit of the sum and are held in the one unit, whatever the length types are
+            # asked for, as `temperature_difference` is in kelvin: the one unit it has is its only target
+            "length_day": [
+                Unit("centimeter_day", "cm·d"),
+            ],
+            "length_tiny": _length,
             "length_short": _length,
             "length_medium": _length,
             "length_long": _length,
@@ -122,11 +143,15 @@ class UnitConverter:
                 Unit("degree_kelvin", "K"),
                 Unit("degree_fahrenheit", "°F"),
             ],
-            "time": [
-                Unit("second", "s"),
-                Unit("minute", "min"),
-                Unit("hour", "h"),
+            # a difference of two temperatures, such as the expected error of a forecast temperature. It has
+            # no offset to convert by (2 K of error is 2 degrees Celsius of error, not -271.15) and is held in
+            # the kelvin the sources write it in, whatever `temperature` is asked for: the one unit it has is
+            # its only target, as `dimensionless` has. It shares the name `degree_kelvin` with the reading,
+            # which is no clash with a single unit, as no conversion is looked up between them
+            "temperature_difference": [
+                Unit("degree_kelvin", "K"),
             ],
+            "time": _time,
             "turbidity": [
                 Unit("nephelometric_turbidity", "NTU"),
             ],
@@ -168,20 +193,29 @@ class UnitConverter:
             # µS/cm is the convention in hydrology and water quality, and what the sources publish
             "conductivity": self.units["conductivity"][0],
             "dimensionless": self.units["dimensionless"][0],
-            "energy_per_area": self.units["energy_per_area"][0],
+            # a sum of radiation reads from 0 to ~1 MJ/m² in 10 minutes and ~3,600 in a year, which J/cm²
+            # (DWD's unit) turns into 0 to 100 and ~360,000
+            "energy_per_area": self.units["energy_per_area"][3],
             # W/m² is what every source publishes irradiance in, and what WMO specifies
             "power_per_area": self.units["power_per_area"][1],
+            "length_day": self.units["length_day"][0],
+            # a film of water on a road is a few tenths of a millimetre
+            "length_tiny": self.units["length_tiny"][0],
             "length_short": self.units["length_short"][1],
             "length_medium": self.units["length_medium"][2],
             "length_long": self.units["length_long"][3],
-            "fraction": self.units["fraction"][0],
+            # percent is what every source writes humidity, probabilities and soil moisture in (and cloud cover
+            # for most): no value is off by 100 against the source's documentation
+            "fraction": self.units["fraction"][1],
             "precipitation": self.units["precipitation"][0],
             "precipitation_intensity": self.units["precipitation_intensity"][0],
             "pressure": self.units["pressure"][1],
             "significant_weather": self.units["significant_weather"][0],
             "speed": self.units["speed"][0],
             "temperature": self.units["temperature"][0],
+            "temperature_difference": self.units["temperature_difference"][0],
             "time": self.units["time"][0],
+            "duration": self.units["duration"][2],
             "turbidity": self.units["turbidity"][0],
             "volume": self.units["volume"][0],
             "volume_per_time": self.units["volume_per_time"][1],
@@ -248,6 +282,13 @@ class UnitConverter:
             ("joule_per_square_meter", "kilojoule_per_square_meter"): lambda x: x / 1000,
             ("kilojoule_per_square_meter", "joule_per_square_centimeter"): lambda x: x / 10,
             ("kilojoule_per_square_meter", "joule_per_square_meter"): lambda x: x * 1000,
+            # 1 MJ/m² is 100 J/cm², 1,000 kJ/m² and 1,000,000 J/m²
+            ("joule_per_square_centimeter", "megajoule_per_square_meter"): lambda x: x / 100,
+            ("joule_per_square_meter", "megajoule_per_square_meter"): lambda x: x / 1_000_000,
+            ("kilojoule_per_square_meter", "megajoule_per_square_meter"): lambda x: x / 1000,
+            ("megajoule_per_square_meter", "joule_per_square_centimeter"): lambda x: x * 100,
+            ("megajoule_per_square_meter", "joule_per_square_meter"): lambda x: x * 1_000_000,
+            ("megajoule_per_square_meter", "kilojoule_per_square_meter"): lambda x: x * 1000,
             # (energy/time) power_per_area
             ("watt_per_square_centimeter", "watt_per_square_meter"): lambda x: x * 10000,
             ("watt_per_square_centimeter", "kilowatt_per_square_meter"): lambda x: x * 10,
@@ -330,7 +371,7 @@ class UnitConverter:
             ("degree_celsius", "degree_fahrenheit"): lambda x: x * 9 / 5 + 32,
             ("degree_fahrenheit", "degree_kelvin"): lambda x: (x - 32) * 5 / 9 + 273.15,
             ("degree_fahrenheit", "degree_celsius"): lambda x: (x - 32) * 5 / 9,
-            # time
+            # time and duration
             ("second", "minute"): lambda x: x / 60,
             ("second", "hour"): lambda x: x / 3600,
             ("minute", "second"): lambda x: x * 60,
@@ -444,6 +485,10 @@ class UnitConverter:
         except KeyError as e:
             msg = f"Conversion from {unit} to {unit_target} not supported"
             raise ValueError(msg) from e
+
+    def lambda_between(self, unit: str, unit_target: str) -> Callable[[Any], Any]:
+        """Get the lambda function for converting from one unit to another, by their names."""
+        return self._get_lambda(unit, unit_target)
 
     def get_lambda(self, unit: str, unit_type: str) -> Callable[[Any], Any]:
         """Get the lambda function for converting between units."""

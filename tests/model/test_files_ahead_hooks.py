@@ -17,6 +17,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Settings
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
@@ -25,6 +26,8 @@ from wetterdienst.provider.dwd.derived import download as derived_download
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as observation_api
 from wetterdienst.provider.dwd.observation import download as observation_download
+from wetterdienst.provider.dwd.observation.fileindex import EmptyListingError
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
@@ -32,12 +35,12 @@ from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
-    from wetterdienst.metadata.cache import CacheExpiry
     from wetterdienst.metadata.period import Period
     from wetterdienst.model.values import TimeseriesValues
 
 UTC = dt.UTC
 STATION = "00001"
+_EMPTY_DIRECTORY = "https://x/historical/"
 
 
 def _settings() -> Settings:
@@ -92,7 +95,10 @@ def test_dwd_observation_names_the_archives_it_downloads(
 
     assert downloaded, "the collection downloaded nothing"
     assert list(named.urls) == [url for url, _ in downloaded]
-    assert {ttl for _, ttl in downloaded} == {named.ttl}
+    # each file is named with the expiry it is downloaded with, which follows its period (GH-3929)
+    assert [named.ttl_of(url) for url in named.urls] == [ttl for _, ttl in downloaded]
+    assert {ttl for url, ttl in downloaded if "historical" in url} == {CacheExpiry.ONE_WEEK}
+    assert {ttl for url, ttl in downloaded if "recent" in url} == {CacheExpiry.FIVE_MINUTES}
 
 
 def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dataset(
@@ -123,8 +129,76 @@ def test_dwd_derived_names_the_archives_it_downloads_and_none_of_a_technical_dat
 
     assert downloaded, "the collection downloaded nothing"
     assert list(named.urls) == [url for url, _ in downloaded]
-    assert {ttl for _, ttl in downloaded} == {named.ttl}
+    # each file is named with the expiry it is downloaded with, which follows its period (GH-3929)
+    assert [named.ttl_of(url) for url in named.urls] == [ttl for _, ttl in downloaded]
+    assert {ttl for url, ttl in downloaded if "historical" in url} == {CacheExpiry.ONE_WEEK}
+    assert {ttl for url, ttl in downloaded if "recent" in url} == {CacheExpiry.FIVE_MINUTES}
     assert list(technical.urls) == []
+
+
+def test_dwd_observation_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A period whose directory is empty (GH-3819) has no files to name, and the other periods are still named.
+
+    The hook raised the `EmptyListingError` the collection skips, which stopped the fetch-ahead of the whole walk.
+    """
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset_: object, period: Period, *_: object) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(observation_api, "create_file_list_for_climate_observations", file_list)
+    monkeypatch.setattr(observation_download, "download_files", download_files)
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "temperature_air_mean_2m")],
+        periods=["historical", "recent"],
+        settings=_settings(),
+    )
+    values = stations_result(request, "daily", "climate_summary", STATION).values()
+    model = request.metadata["daily"]["climate_summary"]
+
+    values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
+
+
+def test_dwd_derived_skips_a_directory_that_came_back_empty_as_its_collection_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same for `dwd/derived`: the empty period has no files to name, the other one is named."""
+    downloaded: list[str] = []
+
+    def file_list(station_id: str, dataset: object, period: Period, settings: Settings) -> pl.Series:  # noqa: ARG001
+        if period.value == "historical":
+            raise EmptyListingError(_EMPTY_DIRECTORY)
+        return pl.Series([f"https://x/{station_id}/{period.value}.zip"])
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        downloaded.extend(urls)
+        return []
+
+    monkeypatch.setattr(derived_api, "create_file_list_for_climate_derived", file_list)
+    monkeypatch.setattr(derived_download, "download_files", download_files)
+    request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], settings=_settings())
+    values = stations_result(request, "hourly", "radiation_global", STATION).values()
+    model = request.metadata["hourly"]["radiation_global"]
+
+    monkeypatch.setattr(derived_api, "parse_climate_derived_data", lambda *_: pl.LazyFrame({"timestamp": []}))
+    with contextlib.suppress(Exception):
+        values._collect_station_parameter_or_dataset(STATION, model)  # noqa: SLF001
+    named = values._files_ahead(STATION, [model])  # noqa: SLF001
+
+    assert downloaded == [f"https://x/{STATION}/recent.zip"]
+    assert list(named.urls) == downloaded
 
 
 @pytest.mark.parametrize(
@@ -157,7 +231,7 @@ def test_chmi_names_the_files_of_each_element_and_month_it_downloads(
 
     assert len(asked) > 1
     assert list(named.urls) == asked
-    assert set(expiries) == {named.ttl}
+    assert [named.ttl_of(url) for url in named.urls] == expiries
 
 
 def test_chmi_names_only_the_elements_that_were_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -185,6 +259,7 @@ def test_chmi_names_only_the_elements_that_were_asked_for(monkeypatch: pytest.Mo
     assert list(named.urls) == asked
 
 
+@pytest.mark.usefixtures("window_not_required")
 def test_chmi_names_no_sub_daily_file_where_the_window_is_open() -> None:
     """The month files are addressed by the window, and a request without one has none to name."""
     request = ChmiObservationRequest(parameters=[("hourly", "data")], settings=_settings())
@@ -194,32 +269,102 @@ def test_chmi_names_no_sub_daily_file_where_the_window_is_open() -> None:
 
 
 @pytest.mark.parametrize(
-    ("resolution", "dataset", "per_station"), [("daily", "synop", True), ("monthly", "synop", False)]
+    ("resolution", "dataset", "per_station", "listing"),
+    [
+        # the per-station archives, of years and of the decades of the older data, and one of another station
+        (
+            "daily",
+            "synop",
+            True,
+            ["1951_1955_010_s.zip", "2020_010_s.zip", "2024_010_s.zip", "2024_020_s.zip"],
+        ),
+        ("monthly", "synop", False, ["1951_m_s.zip", "2020_m_s.zip", "2024_m_s.zip"]),
+    ],
 )
 def test_imgw_names_only_the_archives_that_one_station_reads(
-    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, *, per_station: bool
+    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, listing: list[str], *, per_station: bool
 ) -> None:
-    """The daily synop is archived per station; the files of the other datasets are those of every station."""
+    """The daily synop is archived per station; the files of the other datasets are those of every station.
+
+    Each archive is named with the expiry the collection downloads it with, which follows its period (GH-3931): the
+    years that are over for 12 hours, the year that is under way for 5 minutes. The clock is set to the middle of 2024
+    so that the listing holds both, with the names of years that are over.
+    """
     downloaded: list[str] = []
     expiries: list[CacheExpiry] = []
 
     def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
         downloaded.extend(urls)
-        expiries.append(ttl)
-        return []
+        expiries.extend([ttl] * len(urls))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
 
-    monkeypatch.setattr(imgw_api, "download_files", download_files)
-    monkeypatch.setattr(imgw_api.ImgwMeteorologyValues, "_get_urls", lambda *args: [f"https://x/{args[-1]}.zip"])
-    request = ImgwMeteorologyRequest(parameters=[(resolution, dataset)], settings=_settings())
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2024, 6, 1, tzinfo=UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
+    request = ImgwMeteorologyRequest(
+        parameters=[(resolution, dataset)], start="2020-01-01", end="2024-12-31", settings=_settings()
+    )
     values: TimeseriesValues = stations_result(request, resolution, dataset, "249180010").values()
     model = request.metadata[resolution][dataset]
 
     values._collect_station_parameter_or_dataset("249180010", model)  # noqa: SLF001
     named = values._files_ahead("249180010", [model])  # noqa: SLF001
 
-    assert downloaded == ["https://x/249180010.zip"]
+    # the other station's archive is not downloaded, nor is the file of 1951 that lies outside the window of the monthly
+    expected = [name for name in listing if "_020_" not in name and (per_station or not name.startswith("1951"))]
+    assert downloaded == [f"https://x/{name}" for name in expected]
     assert list(named.urls) == (downloaded if per_station else [])
-    assert expiries == [named.ttl]
+    # a hook names each URL with the expiry the collection downloads it with, URL by URL
+    assert [named.ttl_of(url) for url in named.urls] == (expiries if per_station else [])
+    assert set(expiries) == {CacheExpiry.TWELVE_HOURS, CacheExpiry.FIVE_MINUTES}
+
+
+def test_imgw_names_the_monthly_archives_of_the_year_under_way_and_the_files_of_the_station(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The daily synop of the year under way is one file per month for every station, which the hook names (GH-3941).
+
+    The listing holds the per-station files of the years that are over (and of a year whose months are still there:
+    the per-station file is read for it alone), the months of 2026 and a file of another station. A window from
+    March 2025 to the start of September 2026 takes the months of 2026 it overlaps, each with the expiry the
+    collection downloads it with, and the hook names the same URLs.
+    """
+    downloaded: list[str] = []
+    expiries: dict[str, CacheExpiry] = {}
+
+    def download_files(urls: list[str], ttl: CacheExpiry, **_: object) -> list[File]:
+        downloaded.extend(urls)
+        expiries.update(dict.fromkeys(urls, ttl))
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    # the folders the window does not reach (2024) are not listed
+    listing = [
+        "2025_010_s.zip",
+        "2025_020_s.zip",
+        *(f"2025_{month:02d}_s.zip" for month in range(1, 13)),
+        *(f"2026_{month:02d}_s.zip" for month in range(1, 11)),
+    ]
+    monkeypatch.setattr(imgw_fileindex, "download_files", download_files)
+    monkeypatch.setattr(imgw_fileindex, "_now", lambda: dt.datetime(2026, 9, 2, tzinfo=UTC))
+    monkeypatch.setattr(imgw_api, "list_files_for_interval", lambda *_, **__: [f"https://x/{name}" for name in listing])
+    request = ImgwMeteorologyRequest(
+        parameters=[("daily", "synop")], start="2025-03-01", end="2026-09-01", settings=_settings()
+    )
+    values: TimeseriesValues = stations_result(request, "daily", "synop", "249180010").values()
+    model = request.metadata["daily"]["synop"]
+
+    values._collect_station_parameter_or_dataset("249180010", model)  # noqa: SLF001
+    named = values._files_ahead("249180010", [model])  # noqa: SLF001
+
+    # 2025 is the station's file (its months are not downloaded, nor is the file of the other station), and of 2026 the
+    # months up to the one the window ends in
+    expected = ["2025_010_s.zip", *(f"2026_{month:02d}_s.zip" for month in range(1, 10))]
+    assert downloaded == [f"https://x/{name}" for name in expected]
+    assert list(named.urls) == downloaded
+    assert {url: named.ttl_of(url) for url in named.urls} == expiries
+    # the months that are over are kept 12 hours, the month under way 5 minutes
+    assert expiries["https://x/2026_08_s.zip"] == CacheExpiry.TWELVE_HOURS
+    assert expiries["https://x/2026_09_s.zip"] == CacheExpiry.FIVE_MINUTES
 
 
 @pytest.mark.parametrize(
@@ -266,7 +411,13 @@ def test_smhi_names_the_series_of_each_parameter_and_period_it_downloads(
     # the collection reads a speed twice when it is asked for beside its direction: the cache holds it once
     assert list(named.urls) == list(dict.fromkeys(asked))
     assert len(named.urls) == per_parameter
-    assert set(expiries) == {named.ttl}
+    # a series the collection asks for twice is asked for with one expiry, the one the hook names it with
+    assert [named.ttl_of(url) for url in asked] == expiries
+    # the corrected archive is final by name and kept a week, the latest months are still written to (GH-3929)
+    assert {url: named.ttl_of(url) for url in named.urls if "/corrected-archive/" in url} == {
+        url: CacheExpiry.ONE_WEEK for url in named.urls if "/corrected-archive/" in url
+    }
+    assert {named.ttl_of(url) for url in named.urls if "/corrected-archive/" not in url} == {CacheExpiry.FIVE_MINUTES}
     assert all("/station/188790/period/" in url for url in named.urls)
 
 

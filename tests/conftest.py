@@ -3,21 +3,24 @@
 """Fixtures for tests."""
 
 import errno
+import faulthandler
 import ipaddress
 import os
 import platform
 import re
+import signal
 import socket
 import ssl
 import sys
 import threading
 import time
+import traceback
 import warnings
 from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from urllib.parse import urlsplit
 
 import pytest
@@ -25,6 +28,7 @@ from aiohttp import ClientResponseError, ClientSSLError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.processing_note import PROCESSING_NOTE
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
@@ -45,6 +49,7 @@ RESPONSE_METADATA_ALWAYS = frozenset(
         "data_updated_at",
         "provider",
         "producer",
+        "processing_note",
         "request",
         "counts",
         "crs",
@@ -53,6 +58,12 @@ RESPONSE_METADATA_ALWAYS = frozenset(
 )
 #: the members `with_metadata` adds to the block
 RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})
+#: ECCC's credit line: the second sentence is the one section 3 of its data server licence says "you must use" where
+#: no statement is specified, the first is the licence's example of attributing the originator
+ECCC_ATTRIBUTION = (
+    "Data Source: Environment and Climate Change Canada. Contains information licenced under the Data Server "
+    "End-use Licence of Environment and Climate Change Canada."
+)
 
 
 def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool = False) -> None:
@@ -69,7 +80,7 @@ def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool
 def is_no_such_option(output: str, option: str) -> bool:
     """Say whether click's output refuses an option it does not have, in the words of any click the floor allows.
 
-    click 8.2.0 says `No such option: --x`, the releases after it `No such option '--x'`.
+    click before 8.4 says `No such option: --x`, from 8.4 on `No such option '--x'`.
     """
     return f"No such option '{option}'" in output or f"No such option: {option}" in output
 
@@ -609,7 +620,7 @@ def _draw_a_figure() -> None:
 def _kaleido_server_of(kaleido: Any) -> Any:  # noqa: ANN401
     """Give the global server of an imported `kaleido` module, None where this release has none to reach.
 
-    kaleido 1.0.0, the lowest the `plotting` extra allows, has no `start_sync_server`, and the server object of
+    kaleido 1.0.0, below the floor of the `plotting` extra now, has no `start_sync_server`, and the server object of
     the releases that have one is a private attribute (`_global_server`): a release that lacks any part of what
     `_serve_kaleido` calls is not given a server, and its tests render as they did before GH-3250.
     """
@@ -649,7 +660,7 @@ def _serve_kaleido() -> Generator[None]:
     import plotly.io as pio  # noqa: PLC0415 -- only the image tests need it
 
     # what plotly would hand a one-shot render (the request header of the map tiles); None is kaleido's default
-    # (the older plotly, 6.1.1 among them, has no `headers` default)
+    # (an older plotly has no `headers` default)
     kaleido.start_sync_server(
         headers=getattr(pio.defaults, "headers", None),
         plotlyjs=getattr(pio.defaults, "plotlyjs", None),
@@ -715,8 +726,8 @@ def _kaleido_server() -> Generator[None]:
     any timed request, and the images after it are drawn by the Chrome that is up. The request timeout, which
     other tests hold the REST API to, is left as it is.
 
-    Where kaleido, plotly or Chrome are not there, a release of kaleido has no server to start (1.0.0, which the
-    lowest-versions job installs), or a first figure fails, nothing is started and the image tests find out for
+    Where kaleido, plotly or Chrome are not there, a release of kaleido has no server to start (1.0.0, which an old
+    floor allowed), or a first figure fails, nothing is started and the image tests find out for
     themselves as they did before. A server that dies or does not come up while it starts fails the tests with
     that said, rather than leaving each of them waiting on a server that never answers.
 
@@ -741,6 +752,116 @@ def _kaleido_for_image_tests(request: pytest.FixtureRequest) -> Generator[None]:
     with warnings.catch_warnings():
         # plotly hands kaleido its `kopts` (request headers), which a running server says it ignores
         warnings.filterwarnings("ignore", message="The kopts argument is ignored", category=UserWarning)
+        yield
+
+
+@pytest.fixture
+def figure_draws_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Have `render_image` ask the figure for its image, so a test can stand in a figure or stub `to_image` (GH-3723).
+
+    `render_image` hands a plotly figure to Kaleido itself, to put a clock on the whole of the render, and starts a
+    Chrome for it. A test that is about what happens to the image, not about drawing it, gives a figure of its own
+    that answers `to_image`, or replaces `Figure.to_image`, and uses this to have that answer reach the caller.
+    """
+    from wetterdienst.io import export  # noqa: PLC0415 -- the `plotting` extra is not needed to collect tests
+
+    def draw(fig: Any, fmt: str, width: int | None, height: int | None, scale: float | None, _timeout: float) -> Any:  # noqa: ANN401
+        return fig.to_image(format=fmt, width=width, height=height, scale=scale)
+
+    monkeypatch.setattr(export, "_draw", draw)
+
+
+#: how long an offline test may run before it is failed as hung, in seconds: the slowest take about a minute, and
+#: the image tests, which start a Chrome each, about 75 s with a dozen of them at once on a loaded machine. Short
+#: enough that the two reruns of a hung test (`--only-rerun HungTestError`) end before the 27 minutes of GH-3723
+_HANG_TIMEOUT = 300
+#: how long after that a process that did not take the interruption is ended, in seconds
+_HANG_BACKSTOP = 60
+
+#: the stderr of the process as it was before pytest captured it, which is where the stacks of a hang can be read;
+#: None before `pytest_configure`
+_REAL_STDERR: TextIO | None = None
+
+
+def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
+    """Keep the stderr of the process, which a test's output capture takes over from the first test on."""
+    global _REAL_STDERR  # noqa: PLW0603 -- one per process, set once
+    try:
+        _REAL_STDERR = open(os.dup(2), "w", encoding="utf-8", closefd=True)  # noqa: PTH123, SIM115
+    except OSError:  # no stderr to keep: the stacks then go where the capture sends them
+        _REAL_STDERR = None
+
+
+class HungTestError(Exception):
+    """Say that a test did not end within `_HANG_TIMEOUT`."""
+
+
+def _stacks_of_all_threads() -> str:
+    """Write down where every thread of the process is, which is what a hang is diagnosed from."""
+    names = {thread.ident: thread.name for thread in threading.enumerate()}
+    return "\n".join(
+        f"Thread {names.get(ident, '?')!r}:\n{''.join(traceback.format_stack(frame))}"
+        for ident, frame in sys._current_frames().items()  # noqa: SLF001 -- the only way to see another thread
+    )
+
+
+def _end_the_process_after(seconds: float) -> None:
+    """Arm the end of the process, with the stacks of all threads on the real stderr, in `seconds`."""
+    if _REAL_STDERR is None:
+        faulthandler.dump_traceback_later(seconds, exit=True)
+    else:
+        faulthandler.dump_traceback_later(seconds, exit=True, file=_REAL_STDERR)
+
+
+@contextmanager
+def _fail_if_hung(seconds: float) -> Generator[None]:
+    """Fail the test inside as hung, with the stacks of all threads, once it has run for `seconds`.
+
+    An offline test that does not end holds a whole run: on 2026-11-01 one image test of `test_surface_parity`
+    sat at 99 % CPU in an xdist worker for 27 minutes (GH-3723), until the worker was killed, and the landing queue
+    waited for it. Where `SIGALRM` exists (not on Windows) a test that waits in Python code, or in a call that a
+    signal interrupts, is failed with the stacks and the worker goes on with the next test. A test that is inside
+    native code (a loop of polars, say) or in a call that retries on a signal is not reached by that, and nor is any
+    test on Windows: the process is ended then (`_HANG_BACKSTOP` seconds later, on Windows at `seconds`), with the
+    stacks on its stderr. That ends a serial run, and an xdist worker, which xdist reports as crashed while running
+    this test and replaces.
+
+    It does not nest: the one inside re-arms the timer it found with what was left, not less the time it ran, and
+    ends the one backstop `faulthandler` has. Only the tests of the watchdog itself nest it.
+    """
+    if hasattr(signal, "setitimer") and threading.current_thread() is threading.main_thread():
+
+        def interrupt(_signum: int, _frame: object) -> None:
+            message = f"the test did not end within {seconds:g} seconds.\n{_stacks_of_all_threads()}"
+            raise HungTestError(message)
+
+        previous = signal.signal(signal.SIGALRM, interrupt)
+        earlier_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+        _end_the_process_after(seconds + _HANG_BACKSTOP)
+        try:
+            yield
+        finally:
+            faulthandler.cancel_dump_traceback_later()
+            signal.setitimer(signal.ITIMER_REAL, *earlier_timer)
+            signal.signal(signal.SIGALRM, previous)
+    else:
+        _end_the_process_after(seconds)
+        try:
+            yield
+        finally:
+            faulthandler.cancel_dump_traceback_later()
+
+
+@pytest.fixture(autouse=True)
+def _offline_test_ends(request: pytest.FixtureRequest) -> Generator[None]:
+    """Fail an offline test that has not ended after `_HANG_TIMEOUT` seconds, see `_fail_if_hung`.
+
+    Not the tests marked `remote`, `slow` or `explorer`, which wait on a network or a browser for as long as they take.
+    """
+    if any(request.node.get_closest_marker(name) for name in ("remote", "slow", "explorer")):
+        yield
+        return
+    with _fail_if_hung(_HANG_TIMEOUT):
         yield
 
 
@@ -820,6 +941,17 @@ def _block_network(request: pytest.FixtureRequest) -> Generator[None]:
 def default_settings() -> Settings:
     """Provide default settings."""
     return Settings()
+
+
+@pytest.fixture
+def window_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a reader be built for a request that names no window, for a dataset that is read by one (GH-3562).
+
+    `TimeseriesValues` refuses such a request, so the code a provider keeps for it -- the first row of a collection
+    asked for, an open end, a URL without a window -- cannot be reached through the library. A test that holds that
+    code to what it did takes this fixture; it goes with the code.
+    """
+    monkeypatch.setattr("wetterdienst.model.values.require_window", lambda *_args, **_kwargs: None)
 
 
 @pytest.fixture
@@ -903,6 +1035,7 @@ def metadata() -> dict:
             "url": "https://opendata.dwd.de/climate_environment/CDC/",
         },
         "data_updated_at": None,
+        "processing_note": PROCESSING_NOTE,
     }
 
 

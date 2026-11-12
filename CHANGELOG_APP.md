@@ -16,6 +16,431 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" shows only its
+  button at first. After a press, with a position found, the box "Remember my position in this
+  browser" and its note appear under it; once a position is stored, a compact "Stored" control
+  beside the button replaces them, and opens the position and "Forget my position". On the map the
+  option is also on the station card that a press picked. Nothing new is kept in the browser, and
+  the note's text is unchanged; the privacy policy (en, de) says where the box and "Forget my
+  position" are now, and no longer offers to untick the box (GH-4011)
+- `[Translations]` French calls the app's settings "Réglages" (it was "Paramètres", the word for the
+  measured parameters on the same pages), and Dutch calls the legal notice "Juridische informatie"
+  instead of "Colofon" (GH-2610)
+
+### Fixed
+
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` After "Forget my position", ticking
+  "Remember my position in this browser" again showed the box ticked while nothing was stored, and
+  "Forget my position" did not come back. The box is now offered only while a position is in hand,
+  so ticking it always stores that position, and "Forget" puts the focus back on the button
+  (GH-4010)
+- `[Forecast]` The run picker writes a run's date and time as the page's language does
+  ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every
+  language (GH-2610)
+- `[Translations]` French sets its no-break space before the colon that follows a label, in the
+  chart hover texts, the Explorer, the data viewer, the interpolation panel, the history page, the
+  climate stripes and the legal page; the station map's screen-reader description says "map" in
+  the page's language, not in English (GH-2610)
+- `[Translations]` Review of the strings added since the second pass and of the glossary labels:
+  typos, wrong prepositions and cases, texts that dropped what English says, and words spelt two
+  ways in one catalog are corrected in French ("De 1950 à 2020" for the stripes' range), Italian,
+  Spanish, Polish, Czech, Danish, German, Luxembourgish and Low German; what needs a native
+  speaker is listed in `app/i18n/TERMS.md` (GH-2610)
+
+## [0.47.0] - 2026-11-11
+
+### Added
+
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" in the four station
+  pickers, the map's panel and Ask the weather: on a press only, never on load, it takes your
+  position, rounds it to about 1 km and picks the nearest station with its distance (the `stations`
+  request ranked by it; the stripes use the list at hand). The map centres on and marks the
+  position; "here" in the questions becomes that station. The position stays in the page's memory,
+  and in this browser (`wd-location`) only if you tick "Remember my position in this browser". A
+  refusal, also one the browser already holds, says how to allow it in a live region; the search
+  stays the way in. The page's `Permissions-Policy` now allows geolocation for itself (the
+  module's default blocked it) (GH-3651)
+
+### Changed
+
+- `[Providers, Explorer, History, API]` The page of a provider lists the resolutions and datasets
+  of a network when its "Show resolutions and datasets" button is opened, asking the backend for
+  that network alone (its list of providers no longer carries them). The Explorer and History read
+  the providers and networks from that list, and the API page names `providers` beside `coverage`.
+  The question "Where can I download hourly temperatures?" asks for the coverage of the
+  measurement networks four at a time, once for the visit, not again for each place tried. The
+  button of each network names it for a screen reader. Needs the backend of the same release
+  (GH-3996)
+- `[Climate stripes, Map]` The numbers of the stripes follow the unit settings: the page and the map's
+  panel ask for the unit the Settings page chooses for temperature or precipitation, and the sentence,
+  the table and now the hover texts say the unit the answer names (`°F`, `K`, `l/m²`); the colours
+  are relative and do not change with it. Needs a backend that takes `unit_targets` on
+  `/api/stripes/values`; an older one refuses it with a 422 (GH-3980)
+- `[Forecast, Widget, Map, Home]` The forecast, its widget, the forecast in the map's panel and the
+  questions of the home page follow the unit settings, where they asked in fixed units: they ask for
+  the units the Settings page chooses (and for the values as the source has them if conversion is
+  off) and write the unit the answer reports for each parameter (`with_metadata`) in the axes, hover
+  texts, tables, day rows and sentences, in all eleven languages. Rain or snow, the weather of a
+  day, the wind barbs and the verdicts of the questions are judged in millimetres, degrees Celsius
+  and metres per second, so they are the same in every unit; the temperature panel marks the
+  freezing point in °F and K, and the maximum gust is no longer also given in km/h. A change of a
+  unit it shows fetches the forecast again. The widget takes the units from the settings of the
+  browser it runs in (the server's on a first visit), not from its address (GH-3980)
+- `[Explorer/History/Stripes/Meteogram]` The four tools pick a station the same way: a toggle
+  "List | Map" (the search field, or the map in the same place, with "Center on selected stations"
+  next to its zoom buttons) and the picked stations as chips under it in both modes; a station
+  picked in one shows in the other. Each tool remembers its mode in this browser
+  (`wd-station-picker`, named in the privacy policy), the chips are buttons that remove a station by
+  keyboard too, and a map marker that Tab reaches is scrolled into the window (GH-3877)
+- `[Explorer, Forecast, Climate stripes, History, Map]` On a wide window the "About" panel of a tool
+  opens under its button, right-aligned and at the width of text, so that the two read as one
+  control (it opened at the left edge, up to 750 px from the button at 2,450 px). On a phone it is
+  still the full width under the title (GH-3872)
+- `[Forecast, Explorer, Climate stripes, Station history]` Before there is a result, all four tools
+  show the same placeholder: a dashed frame with the tool's own mark and one sentence that names
+  both ways in, searching for a station or picking one on the map, and no longer says "above".
+  Climate stripes and Station history show their result card only once there is something in it;
+  a Station history query that finds nothing says "No history was found for the selected stations."
+  The setup cards are titled by what they hold: "Data" (was "Select parameters"), "Station" (was
+  "Data source") on Forecast and History, "Station and period" on Climate stripes and "Place and
+  period" on Explorer, in all eleven languages (GH-3850)
+- `[Explorer, Settings]` The Explorer's own "General settings" (readable names, convert to SI, unit
+  targets) are gone: its requests send the plain-language labels, the conversion and the units of
+  the Settings page, which were stored there and used by nothing, so a change there reaches the next
+  request. The Explorer shows them in one line with a link to the page. A first visit starts the
+  settings from the server's (`GET /api/settings`, tried again at the next load if it failed), kept
+  from then on; Reset goes back to them. The defaults for power per area (W/m²), conductivity
+  (µS/cm), fraction (percent) and energy per area (MJ/m²) are the backend's: a stored W/cm², S/m,
+  decimal or J/cm² is read as the default. A link copied now carries no names or units (the
+  recipient's settings apply); one of an earlier version keeps its choice only where it differs from
+  the recipient's, until "Use my app settings" (GH-3878)
+- `[App]` Nuxt UI's own texts (the table pager's "First page", "Last page" and so on, the label of
+  the notifications, the number fields' description for a screen reader) are in the language of
+  the page in all eleven languages (they were English in all but German; Hamburg German uses the
+  German ones, Luxembourgish its own) (GH-3955)
+- `[Forecast, Explorer, Climate stripes]` The charts are at most 820 px wide and centred in their
+  column (the Explorer's faceted ones 760 px, the widget's not capped). The Forecast's tick labels
+  (were 9 px, 7 px in the compact view), axis titles (9 px) and day names (10 px, 8 px) and the
+  stripes' "Data availability" (11 px) are 12 px (the day names 10 px where days are narrow, the
+  titles 10 px in the compact view; a long title is broken in two lines, and the time labels are
+  spaced out on a phone), so that they print legibly: on A4 with 1 in margins the smallest text of
+  each chart is 6.2 pt (from a 1100 px window it was 5.2 pt for the Explorer, 4.8 pt for the
+  stripes and 3.9 pt for the Forecast) (GH-3558)
+- `[App]` The weather of the forecast's day cards and of the map panel's day rows is drawn as an
+  icon in the app's icon set (sun, cloud, rain, snow, fog, wind, thunderstorm, and so on), in the
+  text colour of the card, where an emoji of the system's font was drawn, which looked different on
+  every system. The words a screen reader reads are the same (GH-3527)
+- `[Glossary]` The labels of the means of DWD POI and NWS follow the renamed parameters, in all
+  eleven languages: `radiation_sky_short_wave_direct_perpendicular_intensity_mean` replaces
+  `radiation_sky_short_wave_direct_perpendicular_intensity`, `visibility_mean_last_10min` is new,
+  and the plain `radiation_global_intensity` and `radiation_sky_short_wave_diffuse_intensity` are
+  gone (GH-3134). Needs the backend that serves the new names: release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+- `[App]` Nuxt UI is 4.12.0 (Reka UI 2.11.0). The station picker's list is announced by a screen
+  reader as a list of options, with the search field outside it, where it held a non-option child;
+  the error toasts no longer leave two hidden but focusable proxies in the page. The buttons of
+  the table's pager are labelled in German ("Letzte Seite") and English ("Last page") as the page
+  is, where they were English in every language; the other languages follow in GH-3955 (GH-3950)
+
+### Fixed
+
+- `[Map]` On the measuring layer the stations that have stopped are drawn as hollow dots, with a
+  legend, and when the station picked is not the nearest the panel says why (the nearest that
+  still reports, and the closer one that has stopped, with its distance and last year) and offers
+  the closer one; it also says whether the place is a click, the centre of the map or a station's
+  position, and the screen-reader announcement carries the reason (GH-3875)
+- `[Layout]` At 320 px the Italian and French stripes and history pages, and the Spanish settings
+  page, no longer scroll sideways: the "About" and "Reset to defaults" buttons wrap their label,
+  and the unit selects of the settings fill the card, in every language, with the full unit name
+  shown in the field and in its list. The theme buttons share the row and show no icon below 384 px
+  (GH-3845, GH-3858)
+- `[Explorer]` At 320 px the page no longer scrolls sideways once parameters and a station are
+  chosen: the start and end dates stack, the columns, copy and download controls wrap, below 640 px
+  the pager keeps the current page between the first and the last and wraps, and the mode and
+  lead-time buttons stack where their row does not fit the card (also beside the result on a wide
+  window), in every language (GH-3985)
+- `[Explorer, Settings menu]` The Explorer's mode (Station, Interpolation, Summary), forecast-run
+  and source buttons, the shape and skip-criterion buttons of its settings, and the theme buttons
+  of the settings menu in the header tell a screen reader which one is chosen (pressed), each in a
+  group with a name, where the chosen one was shown by the fill alone (GH-3989)
+- `[Home]` The bar charts of the answers (summers, hours, days) write their lowest value beside
+  the lowest bar and not beside the year labels, and a 0 at the line the bars hang from. The labels
+  under the bars are by year (1970, 1980, 1990, not every n-th bar of a series with gaps), the one
+  asked about is always written and none touches another, on a phone included (GH-3893)
+- `[Settings]` The theme buttons (System, Light, Dark) tell a screen reader which one is chosen
+  (pressed), in a group named "Appearance", where the chosen theme was shown by the fill alone
+  (GH-3969)
+- `[Climate stripes]` In a narrow window (a phone) the stripes' title is broken into lines (a long
+  station name after its hyphens) instead of being cut off at the edges, and the source line is on a
+  row of its own below the years instead of over them (GH-3961)
+- `[All pages]` An answer of the API that is a web page (a `NUXT_API_BASE` that points at another
+  site, a proxy's error page) or JSON without the list the page reads is a failure shown in the
+  page's error card, where it read as no data ("no stations" on the map, an empty table or
+  forecast). The app's own `/api` proxy answers such a page with a 502 problem (GH-3841)
+- `[Print]` Printed with Chrome's default, without "Background graphics", the pages keep their
+  icons, the white labels of solid buttons, selected chips and map layers, the tool tiles and the
+  on/off state of the settings' switches, which came out blank or white on white. The start page's
+  navy band is white with an outline and black text on paper (GH-3960)
+- `[Print]` A page printed from the dark theme comes out as the light page: text in the pale greys
+  and blue of the night on white paper (the muted text, links and buttons, the tiles of the start
+  page and the glossary) is dark now, as in light mode (GH-3558)
+- `[Forecast]` A panel toggle of the Meteogram that is on draws the filled icon and one that is off
+  the outline, so the state does not rest on colour alone, and each toggle has an accessible name,
+  not only a tooltip (GH-3951)
+- `[All pages]` The icons and spinners in the primary colour (page headings, loading spinners,
+  hints) are the logo's blue (shade 600, 4.9:1 on white) by day, where they were the lighter shade
+  500 (3.5:1); at night they are unchanged (GH-3952)
+- `[Forecast]` The day cards and the day rows of the map's panel start at today: a stub of
+  yesterday, with the minimum and maximum of its last hours, is no longer listed above it. A last
+  day is marked "partial" with the hours it has where a run ends within the days shown (a run of
+  240 hours runs past the seven rows, and then none is marked), so that its minimum and maximum are
+  not read as a whole day's. A page that stays open moves its Today on at the station's midnight,
+  and a forecast with no day from today on says there is no data (GH-3840)
+- `[Forecast]` Picking another station while a run is selected asks for the values once, not
+  twice, and the answer of an earlier request no longer replaces that of a later pick: the chart
+  and the run list show what was picked last. A link to `/meteogram` without a station, such as
+  the tab bar's, ends a station lookup of the header's search that is still under way (GH-3732)
+- `[Navigation]` On a phone, the dialogs (the search, the place dialog of "Ask the weather", the
+  Menu's sheet) hold the page behind them themselves: a finger dragged on the backdrop, on a part
+  of the dialog that does not scroll, or on past the end of its list does not move the page, where
+  that rested on the body's `overflow: hidden` alone. Pinch zoom stays (GH-3761)
+- `[Explorer]` The window offered for a refused date range that reaches past today ends today at
+  the latest: "Show only the newest data (...)" no longer fills in dates that have no readings yet
+  and answers empty. The rows it names are those of the part up to today, and where that part fits
+  the limit by itself it is the window. A range with no readings up to today says so.
+  Forecasts are unchanged: their range is not ended at today (GH-3740)
+
+- `[Forecast]` The icons of the Meteogram's panel toggles and of its summary line (wind, cloud
+  cover and pressure were 2.4:1, 2.6:1 and 2.0:1 on white, and the pressure toggle that is on 2.7:1)
+  take the label colours of the charts: 4.6:1 or more on the toolbar, light and dark, and 3.9:1 at
+  the least on a toggle that is on. A toggle tells a screen reader whether it is on
+  (`aria-pressed`). The edge of the card of today is blue-600 by day (blue-400 before, 2.6:1) and
+  blue-400 at night (blue-800 before, 1.8:1; now 6.0:1) (GH-3642)
+- `[Explorer]` The warning icon beside a parameter that is not selected is red-600 by day and
+  red-400 at night, where it was red-500 (3.8:1) (GH-3642)
+- `[History]` The error text is red-400 at night, where it was red-600 (3.3:1) (GH-3642)
+- `[Widget]` The widget page has a main landmark around its content, where it had none: a screen
+  reader can jump to it, and Lighthouse's accessibility score of the page is 100, not 98
+  (GH-2559)
+- `[Navigation]` The Menu's sheet on a phone and the tabs of the header from 64 rem follow the order
+  you chose in the settings, where both kept the fixed order of the tools. The sheet lists the four
+  tools of the bar first, each with a short line in the bar's blue, then the tools that are only in
+  the Menu with a shorter, fainter one, and says "in the bar" or "only in the Menu" to a screen
+  reader; the chooser's dashed line has the bar's blue. The settings card is titled "Arrange tools"
+  at every width, and from 64 rem it is one list in the order of the header, with no preview of a bar
+  and no Menu. The start page, the footer and the search keep the fixed order. All eleven locales; all
+  but `en` and `de` not read by a native speaker (GH-3934, GH-3936)
+- `[Glossary]` The soil temperatures of a surface cover are labelled "Maximum soil temperature, bare
+  ground (5 cm)", "..., grass", "..., sod" and so on, in all eleven languages, where they said
+  "under bare ground" (de "unter unbewachsenem Boden") (GH-3614)
+- `[Glossary]` The soil temperatures of loamy sand and loamy silt are labelled "Soil temperature,
+  loamy sand (5 cm)" and "..., loamy silt (5 cm)" in all eleven languages, where they said "under
+  loamy sand" (GH-3899)
+
+## [0.46.0] - 2026-11-08
+
+### Added
+
+- `[Navigation]` On a phone you choose which four tools are in the tab bar, and in which order:
+  "Customise the bar", a link in the Menu's sheet and a card of the Settings, a list with a line
+  between the four of the bar and the tools that are only in the Menu, and a preview of the bar that
+  follows it. Drag a tool by its handle, or press the arrow buttons of its row, which do the same by
+  keyboard and screen reader and say what moved. Forecast, Explorer, Stripes and History stay the
+  default. The choice stays in the browser with the settings, and the privacy policy says so; a
+  stored one that names a tool that is gone, or too few, is repaired. All eleven locales; all but
+  `en` machine-made, none read by a native speaker (GH-3846)
+
+### Changed
+
+- `[Navigation]` On a phone the Menu's tab is marked as the page you are on for every page that is
+  in its sheet and has no tab of its own: a tool that is not in your bar, Providers, Glossary, API,
+  About, Support and Settings, where it was the Map only. A tool in your bar marks its own tab; the
+  home page and the legal notices mark nothing (GH-3851)
+
+### Fixed
+
+- `[Settings]` In a browser that refuses access to its storage (the setting that blocks it) the
+  Explorer, Stripes, History, Map, Glossary and Settings pages showed an error page. They open now;
+  the settings hold for the visit and are the defaults at the next (GH-3846)
+
+## [0.45.0] - 2026-11-07
+
+### Added
+
+- `[Map]` A fifth tool, the station map (`/map`, violet tile): DWD's forecast stations or measuring
+  stations (by resolution and dataset) as dots, with a panel (a sheet under the map on a phone) that
+  finds a station by name or number. Pick a station or any point for its forecast, its climate
+  stripes, and links to its measurements in the Explorer and its history, chosen already. The
+  station offered is the nearest within 100 km, one that still reports (its end within 90 days of
+  its list's newest) before a closed one (shown with its years); a click on a dot is that station.
+  Layers keep the place, not the number. The address holds the map; the search (Ctrl/Cmd K) opens
+  it on a station, not yet a town (GH-3650, GH-3791). All eleven locales; all but `en`
+  machine-made, none read by a native speaker. The app of this release is paired with the backend
+  0.184.0, which it was run against, so release the backend first
+
+### Changed
+
+- `[Navigation]` On a phone the tab bar stays as it was, four tools and the Menu, and the map is in
+  the Menu's sheet (which lists all five tools); the Menu's tab is marked while you are on the map.
+  The header of a wide screen shows all five tools (GH-3650)
+
+## [0.44.0] - 2026-11-03
+
+### Added
+
+- `[Glossary]` The new unit types `duration` (how long sunshine, precipitation or a wet leaf
+  lasted), `length_day` (the sum of daily snow depths, in cm·d) and `length_tiny` (a film of water
+  on a road) have their labels in the unit filter, in all eleven languages. The type `time`, which
+  is now the wave period and the offset of solar time only, is labelled "Time" where it was
+  "Duration". Needs the backend that serves them: the app of this release is paired with the
+  backend 0.183.0, the least it is run with, so release the backend first. The Low German and
+  Luxembourgish labels are not reviewed by a native speaker (GH-3702, GH-3747)
+
+### Changed
+
+- `[Glossary]`, `[Explorer]` The numbers the backend returns change with its new default units
+  (GH-3702): sunshine, the duration of precipitation and of a wet leaf in hours (not seconds), a
+  sum of radiation in MJ/m² (not J/cm²), a humidity, a cloud cover or a probability in percent
+  (87 for 87 %, not 0.87), water levels and wave heights in metres (not centimetres) and a film of
+  water on a road in millimetres. The Explorer's "Length (medium)" unit target now moves the water
+  levels; "Length (short)" is snow, ice and frozen ground only. The forecast keeps the cloud cover
+  it asks for as a decimal, so it reads as before. Needs the backend that serves them
+- `[Settings]` A first visit shows the backend's new defaults in the unit choices: "Fraction /
+  coverage" is percent, "Energy per area" MJ/m² (a new choice), and "Duration" is a row of its own
+  in hours; "Time" keeps seconds. What the page stored on an earlier visit is kept, and none of
+  these choices is applied to a request yet (GH-3702)
+
+## [0.43.0] - 2026-11-02
+
+### Added
+
+- `[Explorer]` A request the server refuses over its limits (`limit-exceeded`: too many rows for
+  one answer, too many stations) is a state of the table in the page's language, with the numbers
+  as the language writes them and what the selection holds, in place of the server's English
+  text and a red error. For the rows it offers the newest window that fits (about 90 % of the
+  limit, rounded down to days, months or years for the resolution) as one button that fills the
+  date range and asks again, and the whole request as a streamed CSV download (`format=csv`,
+  for which the server allows more rows). All eleven locales; pl, cs, lb and de-hh are not natively
+  reviewed. The table area that takes the focus after "Show only the newest data" is a group named
+  "Data". The app of this release is paired with the backend 0.182.0, the least it is run with:
+  release the backend first (GH-3457, GH-3722)
+- `[Explorer]` A station selection whose whole record is over about 90 % of what the server
+  sends as one answer starts with the newest window that fits in the date range, with a note
+  under the fields that says so, where the range was empty (the server's limits come from
+  `GET /api/version`). "Clear date range" empties it and keeps it empty (`range=all` in the link)
+  and moves the focus to the date fields as a group; the note is announced when the first
+  station is chosen. Dates you type, apply or share in a link are never replaced (GH-3457,
+  GH-3722)
+- `[Home]` "Ask the weather": four suggestions under the tools ("Will it rain in Kiel tomorrow?",
+  "Was last summer hotter than usual here?", "How windy was it on 26 December?", "Where can I
+  download hourly temperatures?") that are answered on the page from live data (the MOSMIX
+  forecast, DWD's monthly means and daily readings, the providers' coverage), each with the
+  verdict, the numbers, the chart that backs it and a link into the tool that holds the data,
+  already filled in. The place is a DWD station the reader can change; the open question and the
+  place are in the link. Nothing is fetched until a question is picked, but for the look-up of a
+  place a link names. The privacy notice lists the station kept in the browser (`wd-place`)
+  (GH-3518)
+
+### Changed
+
+- `[Explorer]` For the values of stations, a date range that is required (1, 5 and 10 minute data)
+  is started with the newest window of at most 100,000 values, which the form accepts, where it
+  used to be the whole span of the stations' records, which it refused. Dates you have edited are
+  no longer replaced when you choose other stations (GH-3457)
+- `[Design]` A new look: the four tools (forecast, explorer, climate stripes, station history)
+  are tabs in the header and, on a phone, in a tab bar at the foot of the screen; providers,
+  glossary and API are under "Reference", and a search on every page (Ctrl+K) goes to any page,
+  a station's forecast or a provider, or sets the theme or the language. Every page has the same
+  margins and a left-aligned title, the tools put their settings beside the result on wide
+  screens, and the app has its own fonts (Atkinson Hyperlegible) and icons (Phosphor), in the
+  logo's colours. Charts print at paper width (GH-3518)
+
+## [0.42.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Five parameters of `dmi/observation` have labels in all eleven languages (Part of
+  GH-3622): snow cover, leaf wetness duration, air temperature at grass height, mean vapour
+  pressure deficit and the soil temperature at 30 cm. Needs the backend that serves them (0.181.0):
+  release the backend first. The Low German and Luxembourgish labels are not reviewed by a native
+  speaker
+- `[Glossary]` The new unit type `temperature_difference` (the expected errors of `dwd/mosmix`
+  temperatures, in K) has its label in the unit filter, in all eleven languages ("Temperature
+  difference"). Needs the backend that serves it (0.181.0): release the backend first. The
+  Low German and Luxembourgish labels are not reviewed by a native speaker (GH-3688)
+
+## [0.41.0] - 2026-11-01
+
+### Added
+
+- `[Glossary]` Ten parameters of `dmi/observation` have labels in all eleven languages (GH-3622):
+  the days with a mean cloud cover above 80 % or below 20 %, with snow cover, with a minimum below
+  -10 degrees C and with a strong wind (four thresholds), and the highest and lowest air pressure at
+  sea level. Needs the backend that serves them (0.180.0): release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
+## [0.40.0] - 2026-10-31
+
+### Changed
+
+- `[Meteogram]` The forecast's table of values is a view of its own, no longer a "Show as table"
+  button below the chart: one control in the toolbar chooses Chart, Compact or Table (it replaces
+  the Compact button; the arrow keys move along it). The table is as wide as the page, keeps its
+  header and time column in view while it scrolls, and is not cut at a short height. The view is
+  in the URL as `?view=chart|compact|table` and remembered in the browser as `meteogram.view`;
+  `compact=true` links still open the compact view, and an old `meteogram.compact` is taken over
+  once. The widget is unchanged (GH-3406)
+
+### Security
+
+- `[Dependencies]` `vue-i18n` and `@intlify/*` are 11.4.16, out of the range of
+  GHSA-83rm-6c8r-g728 (`escapeParameter` and `srcdoc`) and its low sibling. The app does not
+  set `escapeParameter`, so the shipped app was not affected (GH-3636)
+
+### Fixed
+
+- `[Explorer/Stripes/Meteogram]` The charts follow the colour scheme: in dark mode the paper, text,
+  grid, zero line and hover label are the page's dark (the Explorer's and the stripes' were white,
+  the Forecast's a grey of its own), and they change with the scheme without a reload; a zoomed
+  chart stays zoomed. The series and the stripes' own colours are the data and do not change. A
+  chart that is saved (download menu or the modebar's camera) or printed is always the light one.
+  The focus ring of a chart's buttons is the page's own, as Plotly's black one is 1.2:1 on the dark
+  chart (GH-3528)
+- `[Meteogram/Stripes]` The text that names a series reads on the page: the Forecast's y-axis titles
+  and tick labels (cyan, blue, red and lime were 2.0:1 to 3.8:1 on white), its weekend day labels,
+  and the stripes' "data availability" label are darker steps of the same hue in the light mode, 4.5:1
+  or more in both. The Forecast's temperature zero line is the muted text colour, no longer a wash
+  of 1.4:1 (GH-3618)
+- `[Widget]` A widget opened with `?theme=dark` (or `light`) no longer changes the scheme the app
+  shows afterwards: the scheme is the widget's alone, and the app's saved choice is left as it was
+  (GH-3619)
+- `[Explorer/Stripes/Meteogram]` The charts no longer stay in memory after they are gone: the
+  Explorer and the stripes purge their Plotly charts where the page is left, and the Explorer also
+  where a chart is replaced by the table or by the facets (the Meteogram's purge never ran). Each
+  kept a window listener (GH-3619)
+- `[Explorer/Stripes/Meteogram]` The charts speak the language of the page: the modebar's buttons
+  ("Zoom", "Pan", "Reset axes") and the months of the Explorer's date axis were English on a German
+  page. French, Spanish, Italian, Czech and German (also for Luxembourgish and Hamburg's) have
+  Plotly's own button names, Dutch some; Polish and Danish have none and stay English. A switch of
+  the language redraws the charts, and a saved image has the page's month and weekday names. The
+  stripes keep showing the chart while a language loads. New dependency `plotly.js-locales`
+  (GH-3625)
+- `[Meteogram]` The compact view no longer makes the page scroll sideways on a narrow screen
+  (320 px), where the weather words of its day cards lay outside the box that scrolls (GH-3406)
+- `[Translations]` Parameter labels now say what the English ones say: the maximum wind gust was
+  just "a gust" in six languages, the fresh snow depth lost "depth" in nine, cooling degree days
+  and hours were "cooling days and hours" in Dutch and Danish, Italian loamy sand was "sabbia
+  limosa" (silty sand), soil temperatures under bare ground dropped "of the soil" in French,
+  Spanish and Italian, the Spanish minimum temperature 5 cm above the ground read as a soil
+  temperature, and Spanish and Italian had two words for the sunshine duration. Open terms:
+  `app/i18n/TERMS.md` (GH-2610)
+- `[Accessibility]` A toast, an error of the Explorer for one, no longer hides the link of the
+  footer that the Tab key has reached ("Third-party licences" under it at 1280x720): while a toast
+  is shown the page has room for it at its foot and scrolls a focused element clear of it
+  (WCAG 2.4.11) (GH-3575)
+
 ## [0.39.0] - 2026-10-28
 
 ### Security
@@ -1663,7 +2088,15 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...HEAD
+[0.47.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...app-v0.47.0
+[0.46.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...app-v0.46.0
+[0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
+[0.44.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.43.0...app-v0.44.0
+[0.43.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.42.0...app-v0.43.0
+[0.42.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.41.0...app-v0.42.0
+[0.41.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.40.0...app-v0.41.0
+[0.40.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.39.0...app-v0.40.0
 [0.39.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.38.0...app-v0.39.0
 [0.38.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.37.0...app-v0.38.0
 [0.37.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...app-v0.37.0

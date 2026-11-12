@@ -4,11 +4,22 @@ import { defineConfig, devices } from '@playwright/test'
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
 
+// the specs that print pages to a PDF (the sizes of the charts' text; the icons and labels of a print without
+// background graphics): they run in Chromium, the others in Firefox
+const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
+
+// the spec of the dialogs on a phone: a touch drag as touch events of Chromium's input (CDP `Input.dispatchTouchEvent`),
+// which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7
+const TOUCH_SPECS = /dialog-touch-scroll\.spec\.ts$/
+
+// The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
+// A project's own `testIgnore` replaces the top-level one, so every project carries this list.
+const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']
+
 export default defineConfig({
   testDir: './tests/e2e',
-  // The accessibility scan (84 page loads, ten minutes and more) runs on request, not with the rest:
-  // `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md)
-  testIgnore: process.env.A11Y === '1' ? undefined : '**/accessibility.spec.ts',
+  testIgnore: A11Y_IGNORE,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -23,22 +34,26 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  projects: [
-    process.env.E2E_BROWSER === 'chrome'
-      // for a machine where Playwright's Firefox does not start: the system's Chrome (its layout
-      // differs from Firefox's, so the accessibility baseline is only of Firefox on Linux)
-      ? { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }
-      : { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    // Uncomment to test in multiple browsers:
-    // {
-    //   name: 'chromium',
-    //   use: { ...devices['Desktop Chrome'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-  ],
+  projects: process.env.E2E_BROWSER === 'chrome'
+    // for a machine where Playwright's Firefox does not start: the system's Chrome (its layout
+    // differs from Firefox's, so the accessibility baseline is only of Firefox on Linux); it runs the
+    // print spec as well
+    ? [
+        { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' }, testIgnore: [...A11Y_IGNORE, TOUCH_SPECS] },
+        { name: 'chromium-touch', use: { ...devices['Pixel 7'], channel: 'chrome' }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
+      ]
+    : [
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC, TOUCH_SPECS] },
+        // the print spec measures a PDF, and `page.pdf` is Chromium's alone
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC, testIgnore: A11Y_IGNORE },
+        // the dialogs on a phone, by touch
+        { name: 'chromium-touch', use: { ...devices['Pixel 7'] }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
+        // Uncomment to test in multiple browsers:
+        // {
+        //   name: 'webkit',
+        //   use: { ...devices['Desktop Safari'] },
+        // },
+      ],
 
   webServer: {
     // In CI, test against the real production build (catches bundling/build

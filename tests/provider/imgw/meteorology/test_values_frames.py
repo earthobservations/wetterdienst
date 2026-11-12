@@ -1,5 +1,11 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
+# IMGW-PIB data (CC BY-NC-ND 4.0), which the MIT licence of this repository does not cover; see
+# docs/data/provider/data-use.md. Its credit, § 5 ust. 3 and 4 of its terms:
+#   „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowy Instytut Badawczy"
+#   „Dane Instytutu Meteorologii i Gospodarki Wodnej –  # noqa: RUF003
+#   Państwowego Instytutu Badawczego zostały przetworzone"
 """The frames the core hands out for IMGW meteorology, collected through the provider's own reader (GH-2627).
 
 No offline test collected values of this network: its tests read the files (`_parse_file`, `_parse_csv`) and the
@@ -20,6 +26,7 @@ import polars as pl
 
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.provider.imgw import fileindex as imgw_fileindex
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.util.network import File
@@ -80,7 +87,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, name: str, files: dict[str, str]) ->
     url = f"https://example.invalid/{name}"
     monkeypatch.setattr(imgw_meteorology_api, "list_files_for_interval", lambda *args, **kwargs: [url])  # noqa: ARG005
     monkeypatch.setattr(
-        imgw_meteorology_api,
+        imgw_fileindex,
         "download_files",
         lambda *args, **kwargs: [File(url=url, content=BytesIO(archive.getvalue()), status=200)],  # noqa: ARG005
     )
@@ -145,7 +152,7 @@ def test_imgw_meteorology_daily_climate_comes_out_as_the_long_form(monkeypatch: 
     _assert_the_long_form(df, resolution="daily", dataset="climate", station_id="250190390")
     assert df["timestamp"].unique().to_list() == [dt.datetime(2024, 4, 1, tzinfo=UTC)]
     by_parameter = dict(zip(df["parameter"], df["value"], strict=True))
-    assert by_parameter["humidity_relative_mean"] == 0.605
+    assert by_parameter["humidity_relative_mean"] == 60.5
     assert by_parameter["temperature_air_max_2m"] == 26.4
 
 

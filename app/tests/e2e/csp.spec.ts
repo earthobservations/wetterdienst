@@ -171,7 +171,7 @@ test.describe('the station map', () => {
     })
     await mockBackend(page, baseURL!)
     await page.goto('/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station')
-    await page.getByRole('button', { name: 'Choose on the map' }).click()
+    await page.getByRole('radio', { name: 'Map' }).click()
 
     const origin = new URL(baseURL!).origin
     const drawn = async (selector: string) => {

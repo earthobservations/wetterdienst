@@ -10,7 +10,7 @@ no authentication is required.
 The provider queries the `climateData` `stationValue` collection, which returns every
 available parameter for a station/resolution/date-range in a single request.
 
-Hourly aggregates are aligned to UTC and labelled by the start of the hour. Daily, monthly
+Hourly aggregates are aligned to UTC and labelled by the start of the hour (the 12 and 24 hour values and the readings at minute 0 by the end of it, see below). Daily, monthly
 and annual aggregates use *local civil* period boundaries (e.g. a Danish day runs from local
 midnight to local midnight); the provider labels each such aggregate by its civil calendar
 date at UTC midnight. The requested date range is widened internally by a day on each side so
@@ -24,18 +24,195 @@ climatologists) or `none` (not controlled), followed by `validity:true` or `vali
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is
 generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqqortoormiit has daily
 precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
-library returns those values as they are and leaves it to the caller to filter on the flag, with one
-exception: a value outside the generous physical range of its parameter (60 degrees of air
-temperature; for precipitation 600 mm in an hour, 500 mm in a day, 1,500 mm in a month and 4,000 mm
-in a year, the last three where DMI validated 183.5, 641.8 and 3,291.3 mm at most; the largest amounts of a day or
-of half an hour, `precipitation_amount_max` and `precipitation_amount_max_30min`, 500 mm) is null and
-keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,raw:17802`. So the
-monthly 17,802 mm of 04339 for 2011-10 and 3,229.9 mm for 2012-10, its daily 1978 and 989 mm of 2011
-and its yearly 9,574.3 mm (2014) and 6,026.5 mm (2015) are nulled. Its yearly 3,253.4 mm of 2012, the
-sum of that 3,229.9 mm and two months, is below the bound and is not: station 04390 has a year of
-3,291.3 mm that DMI validated, so no range separates the two, and only `validity:false` tells. The
+library returns those values, flags them `suspect:source` (the check `source`, soft by default, see
+[below](#the-sources-own-verdict-source)) and leaves it to the caller to filter on the flag or to set the check `hard`, which
+nulls them, with one more exception that is null whatever the mode of `source`: a value outside the generous physical range of its parameter, the check `range`, hard by default, which is
+the one table of bounds of every provider (air temperature -90 to 60 °C; for precipitation 350 mm in an
+hour, 1,850 mm in a day, 10,000 mm in a month and 30,000 mm in a year, the records of the WMO rounded outward (the month: Bureau of Meteorology), where DMI
+validated 183.5, 641.8 and 3,291.3 mm at most; the largest amounts of a day or of half an hour, `precipitation_amount_max`
+and `precipitation_amount_max_30min`, 1,850 and 350 mm) is null and
+keeps what DMI wrote as the last token of `quality_flags`, `manual,validity:false,rejected:range,raw:17802` (the verdicts
+of `range` and `source` on one value are one token, `rejected:range` alone, as the value is null). With
+`plausibility={"range": "soft"}` the value is kept and flagged `manual,validity:false,suspect:range+source`
+([plausibility checks](../../../plausibility.md)). So the
+monthly 17,802 mm of 04339 for 2011-10 and its daily 1978 mm of 2011 are nulled. Its daily 989 mm of 2011, its monthly
+3,229.9 mm of 2012-10, its yearly 9,574.3 mm (2014), 6,026.5 mm (2015) and 3,253.4 mm (2012, the
+sum of that 3,229.9 mm and two months) are below the bounds and are not nulled by `range`: station 04390 has a year of
+3,291.3 mm that DMI validated, so no range separates the two, and only `validity:false` tells, which the check `source`
+reads: each is kept as `manual,validity:false,suspect:source`, and null as `rejected:source,raw:<text>` in `hard`. The
 long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
+
+DMI's `-0.1` in `precipitation_amount` and the largest amounts of a day or of half an hour is not an
+amount but a code: "traces of precipitation, less than 0.1 kg/m2" ([DMI's climate data
+documentation](https://www.dmi.dk/friedata/dokumentation/climate-data), "Precipitation Codes"). It is
+read as `0.0` and keeps the text as the last token of `quality_flags`, `manual,validity:true,raw:-0.1`,
+as the trace of KNMI, AEMET and Meteo-France's synop does.
+
+DMI sums that code as `-0.1`: its monthly and annual `precipitation_amount` is the sum of the daily values with each
+trace counted as `-0.1`, so such a total is 0.1 mm lower for every trace day in it. Station 22375, the one station
+found with the code, has nine trace days in 2001 (checked on 2026-10-30 against the daily values of all stations for
+1998 to 2004 and for January and July of the odd years from 1991 to 2025). Its June has three and a total of 44.7 mm,
+which is the sum of the days with the traces as `-0.1`, against 45.0 mm with them as `0.0`. The other four months and
+the year agree the same way: July 42.0 mm (42.1 with the trace as `0.0`), August 74.1 (74.2), September 139.6 (139.9),
+October 43.5 (43.6) and the year 657.6 (658.5). The library returns the totals as DMI publishes them and
+the daily trace as `0.0`, so the sum of the daily values it returns is 0.1 mm above DMI's total for each trace day
+in it.
+
+The heating degree days are two fields at DMI, by country, and one parameter here, `heating_degree_day`:
+`acc_heating_degree_days_17` (17 °C minus the daily mean temperature; "graddage - Danmark") at the stations of
+Denmark and `acc_heating_degree_days_19` (19 °C; "graddage - Grønland") at those of Greenland. No station has both
+(checked on 2026-10-31 for all stations in the days of 2024-01-10 to 2024-01-12 and the months and years of 2022 and
+2023), so the base of a value is that of the country of its station and the two are not comparable.
+
+The summer days (`no_summer_days`) and tropical nights (`no_tropical_nights`) are counted by DMI "more than" 25 °C of
+the highest and 20 °C of the lowest temperature of the day, where `count_days_summer` and `count_days_tropical_night`
+count from the threshold. DMI's monthly counts are those of its daily values above the threshold in all 157 months
+it published for 2010 to 2023 (of 168) at each of 06180, 06070 and 06041, and differ from the days at or above it in
+5, 13 and 1 of them for the summer days and in 0, 1 and 1 for the tropical nights (a day at exactly 25.0 or 20.0 °C is not counted). Both are
+published for the stations of Denmark and, the summer days only, for those of Greenland.
+
+The highest and lowest pressure of a day (`pressure_air_sea_level_max` and `_min`) are the highest and lowest of the
+hourly values of `mean_pressure`, which is reduced to mean sea level, and those of a month and a year the highest and
+lowest of the daily values. DMI publishes them for 45 stations (38 in Greenland, 7 from 06007 to 06014), not at the hour
+and not for the stations of Denmark proper.
+
+The global radiation of a day, a month and a year (`mean_radiation`) is the energy summed over the span, which DMI
+publishes in MJ/m² ("for all other time resolutions the unit is MJ/m^2"; the sum of the underlying hourly values times
+3600 / 10^6). The library returns it as `radiation_global` in the unit asked for (MJ/m² by default, DMI's own
+number). A clear June day in Denmark brings 15 to 30 MJ/m² (25.4 MJ/m² at 06041 on 2023-06-22, which the 24 hourly
+means of that day add up to). The hour stays `radiation_global_intensity_mean`
+in W/m². A day above 60 MJ/m², a month above 1,860 and a year above 22,000 are read as null: 04339 has days of 135 to 284
+MJ/m² in the polar night of January 2021 that DMI marks valid.
+
+The counts of days are `count_days_*` with the threshold of DMI's own definition (its calculation table, read on
+2026-10-31), each held to the daily records DMI publishes. The cold days are those with a minimum temperature "less
+than -10 °C" (`count_days_temperature_air_min_2m_lt_minus_10c`). The windy, stormy, storm and hurricane days
+(`no_windy_days`, `no_stormy_days`, `no_days_w_storm`, `no_days_w_hurricane`) are the days on which the highest
+10-minute mean wind speed (`max_wind_speed_10min`) was "greater or equal to" 10.8, 20.8, 24.5 and 28.5 m/s
+(`count_days_wind_speed_rolling_mean_max_ge_10_8mps` and so on); the parameter list of the documentation says "mean
+wind speed", but the counts fit the 10-minute maximum (the daily mean wind speed in 2 of 60 months at 06180, the
+maximum in 59, and `>` in 27). The clear and cloudy days are those with a mean cloud cover "less than 20%" and
+"greater than 80%" (`count_days_cloud_cover_total_mean_lt_20pct` and `_gt_80pct`), a day of exactly 20 % being no
+clear day and one of exactly 80 % no cloudy day; DMI publishes them for every day as 1 or 0. The days with snow cover
+are those with a snow depth "greater than 0" and a snow cover "greater than 50" percent
+(`count_days_snow_cover_gt_50pct`, published for 2011 to 2015 only).
+
+DMI also publishes the mean vapour pressure from the day on (`pressure_vapor_mean`), the greatest snow depth of a
+month and a year (`snow_depth_max`; a 999.0 of September 2020 at 24043 and 31259 is no depth and is null), the highest
+and lowest temperature and the precipitation of the last 12 and 24 hours (`temperature_air_max_2m_last_12h`,
+`temperature_air_min_2m_last_12h`, `precipitation_amount_last_12h` and `_24h`) and the soil temperature at 10 cm
+(`temperature_soil_mean_0_1m`). The 12 hour values are reports of 06:00 and 18:00 UTC (the temperatures also of 12:00
+and 00:00 UTC for a few stations), the 24 hour values of 00:00, 06:00, 12:00 and 18:00 UTC, and they are stamped at
+the end of their window, the report time: DMI's `from` is the start of the last hour of the window (17:00 for the
+18:00 report), where the other values of the hour are stamped by their `from`, the readings at minute 0 apart.
+
+Five more parameters are served (read on 2026-11-01). `temp_grass`
+(`temperature_air_mean_grass_height`) is the air temperature at grass height, "5-20 cm over terrain", `temp_soil_30`
+(`temperature_soil_mean_0_3m`) the soil temperature at 30 cm, `leaf_moisture` (`leaf_wetness_duration`; "leave
+moisture", in Danish bladfugt) the minutes with a wet leaf and `vapour_pressure_deficit_mean`
+(`vapor_pressure_deficit_mean`, in kPa; it comes back in hPa by default) the vapour pressure deficit, calculated from
+the hourly mean temperature and mean relative humidity. DMI publishes these four by the hour and the day and not by the
+month or the year. The hourly `temp_soil_30` is not served: DMI names no source for it ("N/A" in its calculation
+table; the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
+hourly values within a day", so the hour waits for DMI's answer.
+
+The mean wind direction at minute 0 is `mean_wind_dir_min0` (`wind_direction_mean_last_10min`, hourly only, 47
+stations: 40 of Greenland and 7 of the Faroe Islands in the station list of 2026-11-02), beside `mean_wind_dir`, the
+mean of the hour. DMI's record of `from` 00:00 and `to` 01:00 holds the 10 minute value of 01:00 UTC (at 04220 on
+2025-11-21 the records of 00:00, 03:00, 04:00 and 05:00 hold 208, 133, 181 and 171, the 10-minute `wind_dir` of metObs
+at 01:00, 04:00, 05:00 and 06:00 UTC), so it is the mean of the 10 minutes before the end of the hour and is stamped
+by `to`, like the 12 and 24 hour values. DMI codes a calm wind as 0 and writes north as 360 and sometimes as 0, and the
+climate data gives no wind speed for that minute, so a 0 means "calm or north". It is returned as DMI writes it and
+not nulled: the rule that nulls the 0 of `mean_wind_dir` needs the mean wind speed of the same record, which is
+no speed at that minute. At 04220 (Aasiaat), 56 of the 1000 records of 2025-11-20 to 2026-01-01 are 0; the mean wind
+speed of the record is 0 in 35 of them and above 0 (up to 2.0 m/s) in 21.
+
+The hourly cloud cover (`mean_cloud_cover`, `cloud_cover_total`, the metObs `cloud_cover` "at minute 0", given by
+part of the stations) is stamped by `to` as well: the record of `from` 11:00 and `to` 12:00 at 04250 on 2024-06-03 holds
+10, the metObs reading of 12:00 UTC (the reading of 11:00 is 60). Against metObs at 18 Greenland stations (up to
+30 days each of March, July and November 2025), the value of a record is the reading at its `to` in 10,287 of the 10,559 hours in which
+the readings at `from` and `to` differ, and the reading at its `from` in 135. Before this stamp the hourly cloud cover
+was dated an hour too early.
+
+The hourly pressure (`mean_pressure`, `pressure_air_sea_level_mean`) is of two kinds, and the station's country in
+the station list decides. In Denmark (`DNK`) it is "the average of the 6 underlying values within the hour": at 4 days
+of November 2025 it equals the mean of the 10-minute `pressure_at_sea` of metObs stamped H+10 to H+60 in 97 of 97 hours
+at most of the 60 stations with an hourly pressure (82 to 97 at most of the others; at 06070 and 06193 the
+climate pressure is a steady offset from metObs's `pressure_at_sea` and matches in no or few hours), so the start of the record, `from`, is the
+start of the hour it is the mean of, and it is stamped by `from`. In Greenland (`GRL`) and the Faroe Islands (`FRO`) it
+is "pressure_at_sea at minute 0", the reading at the end of the record, and is stamped by `to`, like the wind direction
+and the cloud cover at minute 0: against metObs at 39 stations of both (8 days each of July and November 2025), the
+value is the reading at the `to` of the record in 13,862 of 13,862 hours (in 1,206 of them the reading at `from` is
+the same); 06009 (4 days of November 2025) has 96 of 96 at `to`. At 04250 (Nuuk) on 2025-11-01 the records of `from` 01:00, 02:00 and
+03:00 hold 1004.9, 1004.5 and 1004.0, the metObs readings of 02:00, 03:00 and 04:00 UTC (the readings of 01:00, 02:00
+and 03:00 are 1005.2, 1004.9 and 1004.5). Before this stamp the pressure of Greenland and the Faroe Islands was dated
+an hour too early; the name `pressure_air_sea_level_mean` is the same for all three, though it is a reading there.
+
+In Greenland the hourly `mean_temp`, `mean_relative_hum`, `mean_wind_dir` and `max_wind_speed_3sec` are, by DMI's
+calculation table, the value of the past hour or alternatively the one at minute 0 (`temp_mean_past1h` or `temp_dry`
+at minute 0, `humidity_past1h` or `humidity`, `wind_dir_past1h` or `wind_dir`, `wind_gust_always_past1h`, the highest
+gust of the hour, or `wind_max` at minute 0). Which of the two a record holds depends on the station and at some stations on the hour, and the record
+carries nothing that tells them apart (`qcStatus`, `validity` and the times are the same kinds). Against metObs, in
+8 days each of July and November 2025 the temperature of 16 stations (among them 04203, 04208, 04214, 04228 and 04312) is the
+`temp_dry` of the `to` of the record in all of 386 hours, that of 20 stations (among them 04205, 04211 and 04250)
+the `temp_mean_past1h` stamped `to`, and at 04221 261 of 386 hours are the mean and 155 the reading. The
+humidity, the wind direction and the gust split the same way, by other sets of stations. They are served as DMI gives
+them and stamped by `from`, so a reading at minute 0 lies an hour after its stamp (a value of the hour does not): a
+value may lie up to one hour from its stamp, and the library does not tell the two apart (this would need a second
+request to metObs for each station).
+
+DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
+by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
+holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
+the deficit -10 to 200 hPa, the temperatures those of their families), so what lies outside is null with
+`rejected:range` and the number kept as `raw:`; values that cannot be real and lie inside are among what it returns.
+The examples are not a list. Leaf wetness: the daily `leaf_moisture` is a sum although DMI's calculation table says
+"average of all hourly values within a day", as 1332.0 at 06135 on 2025-06-10 and 364.0 on the 12th, which no mean of
+minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, show, so it is the minutes of the day, 0 to 1440;
+some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is within the span and 5 % more; negative
+days down to -799.0 at 06041 on 2023-03-05 and at three more stations in the first quarter of 2023, which are null)
+and so are some hours (62.0 at 06019 on 2022-05-24, which stays; -33.0 at 06041 on 2023-03-05, which is null). Grass
+temperature: -48.0 °C by the hour at 06056 in July 2022 and 50.9 °C by the day at 06065 in 2013, both inside the range
+and returned. Vapour pressure deficit, written to one decimal: some hours and days are slightly negative and marked
+`validity:true` (-0.3 kPa at 06193 on 2025-07-25, -0.1 at 06169 on 2024-12-26), which the bound of -10 hPa leaves.
+
+The snow cover (`snow_cover`) is the share of the ground covered by snow, observed by hand once a day like the snow
+depth, so a day is 06:00 to 06:00 UTC and is labelled by the date it begins. DMI writes whole percent, "derived
+directly, but codes are changed to %": all 62,399 values of 91 stations from 2011-01-01 to 2015-11-21 are 0 to 100, with
+0, 25, 50, 75 and 100 the commonest (1,382 of 25 %, 997 of 50 %, 1,231 of 75 %, 4,696 of 100 %), and a 99 is a value
+and no code, as 98 is. DMI publishes no snow cover from 2015-11-22 on and none by the month or the year, and the hours
+of 15 January of each year from 2005 to 2026 hold none.
+
+## Parameters DMI lists that are not served
+
+DMI's station list names four parameters that the library does not serve (maintainer decision of 2026-11-08, GH-3762):
+
+- `no_days_fog` ("No. of days with fog (vis. < 1 km)"), `no_days_thunder` and `no_days_snowfall` are held only as
+  climate normals: 130, 130 and 117 records of `timeResolution` `30years`, 1961-1990, for 10, 10 and 9 stations, all
+  in Greenland. The service holds no value of any of them at `hour`, `day`, `month` or `year` (read live and key-less
+  on 2026-11-08). The library has no 30-year-normal resolution, and a normal is no time series, so they are not
+  served.
+- `mean_absolute_humidity` states no statistic and no interval (a mean, a reading at minute 0, over an hour or a day),
+  so the library cannot say what a value is and does not serve it. DMI holds it only as 13 records of
+  `30years` (1961-1990) for one station, none at `hour`, `day`, `month` or `year` (same day).
+
+## The source's own verdict (`source`)
+
+The check `source` reads `validity`, the token `validity:false` of `quality_flags`. DMI's [climate data API
+documentation](https://www.dmi.dk/friedata/dokumentation/apis/climate-data-api-1) words the property of a `stationValue` as
+"properties.validity: Boolean. Whether or not the value is considered valid by the climatologists. Invalid data is
+generally not correct", and its [climate data page](https://www.dmi.dk/friedata/dokumentation/climate-data) says of
+Greenland and the Faroe Islands: "Identified erroneous data will be labeled as excluded (see validity property)". The
+`qcStatus` (`manual` or `none`) says whether a climatologist controlled the value and is no verdict, so it is not read.
+DMI returns `validity:false` for a value of any resolution (read 2026-11-02: the daily `mean_wind_dir` of the day in
+progress at the Faroe and Greenland stations 06014, 06009, 04390, 04208 and 04203, with `qcStatus` `none`), so a
+`suspect:source` is no sign of a gross error: it is DMI's own flag, and the daily wind speeds of 30 to 76 m/s and gusts of 60 to
+114 m/s of 06013 and 04341 that the library has met all carry it.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

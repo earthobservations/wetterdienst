@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<{
     dataset?: string
     parameters?: string[]
     dateRequired?: boolean
+    kind?: NetworkKind
   }
   showParameters?: boolean
   /** When set, restricts the provider select to this single value (e.g. Explorer is DWD-observation-only). */
@@ -35,19 +36,26 @@ const parameters = ref<string[]>([])
 // Track if we're in initialization phase to skip reset watchers
 const isInitializing = ref(true)
 
-// fetch coverage data
+// fetch the providers and their networks (`GET /api/providers`, the answer the providers pages share by its key)
 //
 // Deliberately not awaited. A top-level `await` makes this component's setup async, and with
 // `ssr: false` the nearest Suspense boundary is the page itself -- so the Explorer rendered
 // nothing at all, not even its own headings, until the backend had answered this request. The
 // selects render empty-and-loading instead, and `initializeFromProps()` waits for the answer.
-const { data: coverage, status: coverageStatus } = useFetch<CoverageResponse>('/api/coverage')
+const { data: providerList, status: coverageStatus } = useProviders()
+// The networks as the selects read them, by provider and then network. What a network has (its
+// resolutions, datasets and parameters) is the coverage of that network, asked for when one is chosen.
+const coverage = computed<Record<string, Record<string, ProviderNetwork>> | null>(() => {
+  if (!providerList.value)
+    return null
+  return Object.fromEntries(providerList.value.providers.map(p => [p.provider, Object.fromEntries(p.networks.map(n => [n.network, n]))]))
+})
 // Nothing derived from `coverage` means anything until the request has settled: an empty answer
 // and an answer that has not arrived yet are indistinguishable in the data, but not to a reader.
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
 const coveragePending = computed(() => !coverageSettled.value)
 
-// Whether the backend accepts the credentials of a network is not part of the coverage answer: it
+// Whether the backend accepts the credentials of a network is not part of the list of networks: it
 // is a request to the provider, which a list of every provider must not wait for (GH-2564). It is
 // asked per network, after the list is on screen, and only a network whose answer is "rejected"
 // leaves the selects. Until it answers, and where it cannot (`null`, an error), the network is
@@ -61,7 +69,7 @@ const networkKey = (providerName: string, networkName: string) => `${providerNam
 // coverage is a 404. Only a check that says the credentials are rejected hides a network that has
 // them (GH-2641).
 const TIMESERIES_KINDS: ReadonlyArray<NetworkKind | undefined> = ['observation', 'forecast', 'derived']
-function isAvailable(providerName: string, networkName: string, n: Pick<CoverageNetworkInfo, 'auth' | 'configured'> & { kind?: NetworkKind }) {
+function isAvailable(providerName: string, networkName: string, n: Pick<ProviderNetwork, 'auth' | 'configured'> & { kind?: NetworkKind }) {
   // a missing `kind` is an answer that does not carry it, as the mocks of the tests do
   if (n.kind !== undefined && !TIMESERIES_KINDS.includes(n.kind))
     return false
@@ -103,6 +111,7 @@ async function checkCredentials(providerName: string, networkName: string) {
       query: { provider: providerName, network: networkName },
       retry: 0,
       signal: credentialChecks.signal,
+      ...API_ANSWER,
     })
     if (answer.valid === false)
       rejectedNetworks.value = { ...rejectedNetworks.value, [networkKey(providerName, networkName)]: true }
@@ -171,6 +180,7 @@ const { data: providerNetworkCoverage, pending: networkCoveragePending, refresh:
     })),
     immediate: false,
     watch: false,
+    ...API_ANSWER,
   },
 )
 
@@ -221,6 +231,13 @@ const datasetDescription = computed<string>(() => {
     return ''
   const resolutionData = providerNetworkCoverage.value[resolution.value as Resolution]
   return resolutionData?.datasets[dataset.value]?.description ?? ''
+})
+
+// what the network serves (a forecast's readings lie ahead of today), where the coverage says
+const networkKind = computed<NetworkKind | undefined>(() => {
+  if (!coverage.value || !provider.value || !network.value)
+    return undefined
+  return coverage.value[provider.value]?.[network.value]?.kind
 })
 
 const dateRequired = computed<boolean>(() => {
@@ -421,10 +438,11 @@ function emitUpdate() {
     dataset: dataset.value,
     parameters: parameters.value,
     dateRequired: dateRequired.value,
+    kind: networkKind.value,
   })
 }
 
-watch([provider, network, resolution, dataset, parameters, dateRequired], () => {
+watch([provider, network, resolution, dataset, parameters, dateRequired, networkKind], () => {
   if (isInitializing.value)
     return
   emitUpdate()
@@ -435,7 +453,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
   <UCard>
     <template #header>
       <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-database" class="text-primary-500 shrink-0" />
+        <UIcon name="i-ph-database" class="text-primary-600 dark:text-primary-500 shrink-0" />
         <h2 class="text-lg font-bold">
           {{ t('parameterSelection.title') }}
         </h2>
@@ -448,7 +466,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       color="error"
       variant="subtle"
       :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       class="mx-6 mt-4"
     />
     <UAlert
@@ -456,7 +474,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
       color="error"
       variant="subtle"
       :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
-      icon="i-lucide-alert-circle"
+      icon="i-ph-warning-circle"
       class="mx-6 mt-4"
     />
     <UContainer class="flex flex-col gap-4">
@@ -487,7 +505,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
             size="xs"
             variant="ghost"
             color="neutral"
-            icon="i-lucide-check-check"
+            icon="i-ph-checks"
             @click="selectAllParameters"
           >
             {{ t('common.all') }}
@@ -497,7 +515,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired], () => 
             size="xs"
             variant="ghost"
             color="neutral"
-            icon="i-lucide-x"
+            icon="i-ph-x"
             @click="clearParameters"
           >
             {{ t('parameterSelection.clear') }}

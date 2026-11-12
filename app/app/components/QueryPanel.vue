@@ -536,7 +536,7 @@ onUnmounted(async () => {
     <div v-if="!isQueryMode" class="mb-4">
       <UButton
         :label="t('query.enable')"
-        icon="i-lucide-database"
+        icon="i-ph-database"
         color="neutral"
         variant="soft"
         size="sm"
@@ -554,7 +554,7 @@ onUnmounted(async () => {
           <div class="flex gap-2">
             <UButton
               :label="t('query.run')"
-              icon="i-heroicons-play"
+              icon="i-ph-play"
               color="primary"
               size="sm"
               :disabled="isExecuting || !query.trim() || !!syntaxError"
@@ -563,7 +563,7 @@ onUnmounted(async () => {
             />
             <UButton
               :label="t('query.cancel')"
-              icon="i-heroicons-x-mark"
+              icon="i-ph-x"
               color="neutral"
               variant="ghost"
               size="sm"
@@ -585,7 +585,7 @@ onUnmounted(async () => {
               :class="syntaxError ? 'border-red-500 dark:border-red-400' : ''"
             />
             <div v-if="isValidating" class="absolute top-2 right-2">
-              <UIcon name="i-heroicons-arrow-path" class="animate-spin text-gray-500 dark:text-gray-400" />
+              <UIcon name="i-ph-arrows-clockwise" class="animate-spin text-gray-500 dark:text-gray-400" />
             </div>
           </div>
 
@@ -594,7 +594,7 @@ onUnmounted(async () => {
             v-if="syntaxError"
             color="error"
             variant="soft"
-            icon="i-heroicons-exclamation-triangle"
+            icon="i-ph-warning"
             :title="t('query.syntaxError')"
             :description="syntaxError"
           />
@@ -641,33 +641,33 @@ onUnmounted(async () => {
         <!-- Error Message -->
         <UAlert
           v-if="error"
-          icon="i-heroicons-exclamation-triangle"
+          icon="i-ph-warning"
           color="error"
           variant="soft"
           :title="error"
-          :close-button="{ icon: 'i-heroicons-x-mark-20-solid', color: 'neutral', variant: 'link' }"
+          :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
           @close="error = null"
         />
 
         <!-- Warning Message -->
         <UAlert
           v-if="warning"
-          icon="i-heroicons-exclamation-circle"
+          icon="i-ph-warning-circle"
           color="warning"
           variant="soft"
           :title="warning"
-          :close-button="{ icon: 'i-heroicons-x-mark-20-solid', color: 'neutral', variant: 'link' }"
+          :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
           @close="warning = null"
         />
 
         <!-- Column Validation Message -->
         <UAlert
           v-if="columnValidationMessage"
-          icon="i-heroicons-information-circle"
+          icon="i-ph-info"
           color="info"
           variant="soft"
           :title="columnValidationMessage"
-          :close-button="{ icon: 'i-heroicons-x-mark-20-solid', color: 'neutral', variant: 'link' }"
+          :close-button="{ icon: 'i-ph-x', color: 'neutral', variant: 'link' }"
           @close="columnValidationMessage = null"
         />
 

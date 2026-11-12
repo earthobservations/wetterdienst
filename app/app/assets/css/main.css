@@ -1,66 +1,311 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
-   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
-
-/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
-   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
-   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
-   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
-   that a placeholder does not read stronger than a description. */
-:root {
-  --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
-  --ui-text-muted: var(--ui-text-dimmed);
+/* A printed page is the light one (GH-3558): the `dark:` utilities (pale text, a dark fill) stand on the screen
+   only, so a page printed from the dark theme is not pale grey on white paper. Nuxt UI's own definition, which is
+   `&:where(.dark, .dark *)` in every medium, is replaced by this one; the tokens of `.dark` are put back to the
+   light ones by the print rule below. */
+@custom-variant dark {
+  @media not print {
+    &:where(.dark, .dark *) {
+      @slot;
+    }
+  }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Four tiles, one frame (GH-3518)
+
+   The logo is four rounded tiles: a sun (yellow), rain (blue), wind (teal) and a thermometer (coral) on navy. The
+   app's tools each take one tile as their mark: the forecast the sun, the explorer the rain, the station
+   history the wind and the climate stripes the thermometer (`app/utils/sections.ts`); the map, the fifth tool, has
+   a violet of its own (GH-3650). Those five colours appear
+   only there, as tiles, so that a colour always says which tool a page is; everything else is navy ink on paper,
+   with the logo's blue as the one colour of action (links, the primary button, the focus ring).
+
+   Every page sits in one frame (`.frame`): the same widest measure and the same gutters, so the left edge of the
+   logo, of each page's title and of the footer is one line on every page.
+   --------------------------------------------------------------------------------------------------------------- */
+
+/* The typefaces: Atkinson Hyperlegible Next for the text and Atkinson Hyperlegible Mono for codes, ids and
+   numbers that are compared digit by digit (Braille Institute, SIL Open Font License 1.1). Drawn for readers with
+   low vision: 0/O, 1/l/I and 5/S cannot be taken for one another, which is what station ids and parameter codes
+   are made of. The files are the app's own (`modules/fonts.ts`, `/_typefaces/`), and the shell asks for the Latin body
+   face before the app has run (nuxt.config.ts), so the text is laid out once. Until a face has come, the text is
+   set in a local Arial scaled to the same width and line (`Atkinson Fallback`, measured from both fonts' tables),
+   so that the swap moves nothing. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/_typefaces/atkinson-hyperlegible-next-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/_typefaces/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/_typefaces/atkinson-hyperlegible-mono-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/_typefaces/atkinson-hyperlegible-mono-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Arial at the width and the vertical metrics of Atkinson Hyperlegible Next: a pangram with the app's long words
+   is 43.30 em in Arial and 43.15 em in Atkinson (99.7 %); Atkinson's ascent and descent are 984 and 316 of 1000,
+   with no line gap */
+@font-face {
+  font-family: "Atkinson Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 99.7%;
+  ascent-override: 98.7%;
+  descent-override: 31.7%;
+  line-gap-override: 0%;
+}
+
+@theme static {
+  --font-sans: "Atkinson Hyperlegible Next", "Atkinson Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* The colour of action: the logo's blue (#2E6FD1) is shade 600; the scale around it is the same hue in OKLCH. */
+  --color-brand-50: #f1f7ff;
+  --color-brand-100: #e1eeff;
+  --color-brand-200: #c3dcff;
+  --color-brand-300: #9ac3ff;
+  --color-brand-400: #6da5fb;
+  --color-brand-500: #4a89ea;
+  --color-brand-600: #2e6fd1;
+  --color-brand-700: #2358a8;
+  --color-brand-800: #1a4587;
+  --color-brand-900: #163668;
+  --color-brand-950: #0d2345;
+
+  /* The neutrals: grey with the logo's navy in it, ending at the logo's dark navy (#0B1A33). */
+  --color-ink-50: #f6f7fa;
+  --color-ink-100: #eceff5;
+  --color-ink-200: #dae0e9;
+  --color-ink-300: #bcc5d3;
+  --color-ink-400: #9da9bc;
+  --color-ink-500: #5f6b7f;
+  --color-ink-600: #4c596e;
+  --color-ink-700: #37445a;
+  --color-ink-800: #1e2b42;
+  --color-ink-900: #101e35;
+  --color-ink-950: #0b1a33;
+
+  /* The pages' own `gray-*` classes are the same neutrals, so that one grey runs through the app */
+  --color-gray-50: var(--color-ink-50);
+  --color-gray-100: var(--color-ink-100);
+  --color-gray-200: var(--color-ink-200);
+  --color-gray-300: var(--color-ink-300);
+  --color-gray-400: var(--color-ink-400);
+  --color-gray-500: var(--color-ink-500);
+  --color-gray-600: var(--color-ink-600);
+  --color-gray-700: var(--color-ink-700);
+  --color-gray-800: var(--color-ink-800);
+  --color-gray-900: var(--color-ink-900);
+  --color-gray-950: var(--color-ink-950);
+
+  /* The four tiles of the logo, and the colour of the glyph on each (the logo's own pairs, with navy on the teal,
+     where white is 2.6:1). Only ever a tile's fill: as text, the yellow and the teal are under 3:1 on white. */
+  --color-tile-sun: #ffc93c;
+  --color-tile-rain: #2e6fd1;
+  --color-tile-wind: #2bb3a3;
+  --color-tile-heat: #f0543c;
+  --color-tile-navy: #17335f;
+  /* The fifth tile, the map's (GH-3650): a violet, hue 262, in the widest gap of the colour wheel between the rain's
+     blue (217) and the thermometer's coral (7), and far from the four for red-green colour blindness too. By day it
+     is violet-600 with a white glyph (5.7:1; 5.3:1 against the paper, 5.7:1 against a card); at night that fill would
+     be 2.8:1 against a card, so the tile takes a lighter violet with the navy glyph the sun and the wind have (5.3:1;
+     4.8:1 against a card). Held to those ratios by `tests/unit/button-contrast.test.ts`. */
+  --color-tile-map: #7c3aed;
+  --color-tile-map-night: #9a79f8;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Tokens of the components (Nuxt UI), light ---------------------------------------------------------------- */
+/* (`.light` as well as :root: a probe element with that class, which asks what a light chart looks like in a dark
+   page (utils/chart-theme.ts), takes Nuxt UI's tokens from its own class, not from :root) */
+:root,
+.light {
+  /* the page behind the cards: paper; the cards, menus and fields: white */
+  --app-canvas: var(--color-ink-50);
+  --ui-bg: #ffffff;
+  --ui-bg-muted: var(--color-ink-50);
+  --ui-bg-elevated: var(--color-ink-100);
+  --ui-bg-accented: var(--color-ink-200);
+  --ui-bg-inverted: var(--color-ink-950);
+
+  /* Text. Body text is ink-800 (14.2:1 on white), headings the logo's navy (17.4:1). Muted text is ink-600
+     (7.1:1), and dimmed text (placeholders, hints) ink-500: 5.4:1 on white, 5.0:1 on the paper and 4.7:1 on a
+     hovered field (ink-100), so it clears 4.5:1 wherever it stands. */
+  --ui-text-dimmed: var(--color-ink-500);
+  --ui-text-muted: var(--color-ink-600);
+  --ui-text-toned: var(--color-ink-700);
+  --ui-text: var(--color-ink-800);
+  --ui-text-highlighted: var(--color-ink-950);
+  --ui-text-inverted: #ffffff;
+
+  /* Hairlines are ink-200. The edge of what takes input (a field, a checkbox, a switch) is `border-accented`,
+     #828DA1: 3.3:1 on white and 3.1:1 on the paper, the 3:1 a component's boundary needs (WCAG 1.4.11). */
+  --ui-border: var(--color-ink-200);
+  --ui-border-muted: var(--color-ink-200);
+  --ui-border-accented: #828da1;
+  --ui-border-inverted: var(--color-ink-950);
+
+  /* The primary fill is the logo's blue: white on it is 4.9:1; hovered it darkens to shade 700 (6.9:1),
+     app.config.ts. Text in the primary colour is shade 700: 6.9:1 on white, 5.9:1 on its own soft tint. */
+  --ui-primary: var(--color-brand-600);
+
+  --ui-radius: 0.375rem;
+  --ui-container: 84rem;
+
+  /* The focus ring of a keyboard user (WCAG 2.4.7, 1.4.11): shade 700, 6.9:1 on white and 6.5:1 on the paper. */
+  --app-focus-ring: var(--color-brand-700);
+  /* the bar under the tab of the page one is on: navy, as the logo's ground */
+  --app-current: var(--color-tile-navy);
+  /* The two lines that say which tools are in the phone's tab bar (GH-3934): a short line at the left of a tool in the
+     Menu's sheet, and the dashed line between the two lists of the chooser. The bar's tools: shade 700, the menu-only
+     tools: a lighter shade 500. 1.4.11 asks 3:1 against the ground: white (the sheet and the card) 6.9:1 and 3.5:1,
+     and still 6.0:1 and 3.0:1 on the hovered link (ink-100). Held to it by `tests/unit/button-contrast.test.ts`. */
+  --app-mark-bar: var(--color-brand-700);
+  --app-mark-menu: var(--color-brand-500);
+
+  /* The frame of every page (and of the header and the footer): the widest measure of a tool and the gutters at
+     its sides. The gutters grow with the window from 1 rem to 2.5 rem; the measure of text is narrower. */
+  --frame-max: 84rem;
+  --frame-gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
+  --measure: 46rem;
+  --header-height: 4rem;
+  /* the tab bar of the narrow layout, and the space the page keeps free under it */
+  --tabbar-height: 0rem;
+
+  color-scheme: light;
+}
+
+/* ---- Dark: the logo's navy is the night sky -------------------------------------------------------------------- */
 .dark {
-  --ui-text-dimmed: var(--ui-color-neutral-400);
+  --app-canvas: var(--color-ink-950);
+  --ui-bg: #12233f;
+  --ui-bg-muted: #10203a;
+  --ui-bg-elevated: #1a2d4d;
+  --ui-bg-accented: #243a5e;
+  --ui-bg-inverted: #ffffff;
+
+  /* body text #DCE3EE (12.2:1 on a card), muted and dimmed ink-400 (6.2:1 on a card, 4.8:1 on the accented fill) */
+  --ui-text-dimmed: var(--color-ink-400);
+  --ui-text-muted: var(--color-ink-400);
+  --ui-text-toned: var(--color-ink-300);
+  --ui-text: #dce3ee;
+  --ui-text-highlighted: #ffffff;
+  --ui-text-inverted: var(--color-ink-950);
+
+  --ui-border: #22375a;
+  --ui-border-muted: #1d3150;
+  /* 3.1:1 on a card */
+  --ui-border-accented: #5a6f92;
+  --ui-border-inverted: #ffffff;
+
+  /* shade 400: navy on it is 7.0:1; hovered it lightens to shade 300 (9.6:1) */
+  --ui-primary: var(--color-brand-400);
+
+  /* shade 300, 9.6:1 on the night */
+  --app-focus-ring: var(--color-brand-300);
+  /* the sun rises at night: the bar under the current tab is the logo's yellow (10.2:1 on a card) */
+  --app-current: var(--color-tile-sun);
+  /* the same two lines at night: shade 300 (8.7:1 on the sheet's #12233f, 7.6:1 on the hovered link) and the lighter,
+     which at night is the less bright one, shade 500 (4.5:1 and 4.0:1) */
+  --app-mark-bar: var(--color-brand-300);
+  --app-mark-menu: var(--color-brand-500);
+
+  color-scheme: dark;
 }
 
-/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
-   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
-   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
-   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
-   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
-   that the hover and active colours of a link button still win. */
+@layer base {
+  html {
+    /* a focused control that the sticky header or the tab bar would cover is scrolled clear of them (WCAG 2.4.11) */
+    scroll-padding-top: calc(var(--header-height) + 1rem);
+    scroll-padding-bottom: calc(var(--tabbar-height) + 1rem);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--app-canvas);
+    color: var(--ui-text);
+    font-family: var(--font-sans);
+    font-feature-settings: "kern";
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    /* a word longer than its line (a Dutch or German compound at 320 px) breaks rather than pushes the page sideways */
+    overflow-wrap: break-word;
+  }
+  /* Station ids, codes and the numbers of a table keep their digits in columns */
+  code,
+  kbd,
+  samp,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: normal;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--ui-text-highlighted);
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-brand-400) 35%, transparent);
+  }
+}
+
+/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons, badges,
+   alerts). In light mode the primary shade that is the fill (600, 4.9:1 on white) is too light for text on a tint:
+   text takes shade 700, and a hovered link shade 800 (darker is what "hovered" means for text on white,
+   GH-2991). Error text takes shade 700 (Nuxt UI's 500 is 3.8:1 on white). In the utilities layer and with no extra
+   specificity, so that the hover and active colours of a link button still win. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
-    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+    color: var(--color-brand-700);
   }
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
-  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
-     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
-     "hovered" means for text on white (GH-2991). */
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
-    color: var(--ui-color-primary-800);
+    color: var(--color-brand-800);
+  }
+  /* and lighter at night: shade 400 faded to 75 % over a card is under 4.5:1, shade 300 is 9.2:1 */
+  :where(.dark) .hover\:text-primary\/75:hover {
+    color: var(--color-brand-300);
   }
 }
 
-/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
-   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
-   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
-   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
-   brand's, is not touched. */
-:root {
-  --app-text-on-primary: #0f172b;
-}
-
-/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
-   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
-   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
-   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
-   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
-   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
-   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
-:root {
-  --app-focus-ring: var(--ui-color-primary-700);
-}
-.dark {
-  --app-focus-ring: var(--ui-color-primary-400);
-}
+/* ---- Focus ------------------------------------------------------------------------------------------------------
+   One solid 2 px outline for everything that takes the focus by keyboard (WCAG 2.4.7, 1.4.11), offset from the
+   control so that it is seen against the page and not against the control's own fill. Not in a layer, so that it
+   wins over the utilities of the components. Not for what takes the focus without being a control (a dialog, a
+   chart, a scroll area: tabindex -1). */
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
@@ -68,12 +313,674 @@
 /* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
 .leaflet-container:focus-visible,
 .leaflet-container :focus-visible:not([tabindex="-1"]) {
-  outline-color: var(--ui-color-primary-700);
+  outline-color: var(--color-brand-700);
+}
+/* the ring of the map itself lies outside it, on the card: at night that is dark, where shade 700 is 2.3:1; shade 500
+   is 4.5:1 there (the markers' rings lie on the tiles, and keep shade 700) */
+.dark .leaflet-container:focus-visible {
+  outline-color: var(--color-brand-500);
 }
 
-/* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
-   Plotly layers multiple <svg class="main-svg"> that must overlap;
-   Tailwind's `svg { display: block }` causes them to stack vertically. */
+/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+   utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
+   a Nuxt UI token, and those switch with .dark (and .light, for the probe that asks what a light chart
+   is, as a saved or printed one is), so nothing is redefined for .dark here. The series and the stripes'
+   palette are data, not chrome, and are not in this list. Measured on the Explorer's drawn chart, light
+   and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
+   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
+   hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
+   themed chrome (the Explorer, the stripes, the Forecast's hour labels and zero line). The text that
+   names a series (the Forecast's axis titles and tick labels, its weekend day labels, the stripes'
+   availability label) is the series' hue at 4.5:1 or more (`SERIES_LABEL` in utils/chart-theme.ts,
+   GH-3618). tests/e2e/chart-theme.spec.ts holds the ratios of the drawn charts. */
+:root,
+.light,
+.dark {
+  --app-chart-paper: var(--ui-bg);
+  --app-chart-plot: var(--ui-bg);
+  --app-chart-text: var(--ui-text);
+  --app-chart-text-strong: var(--ui-text-highlighted);
+  --app-chart-text-muted: var(--ui-text-muted);
+  --app-chart-grid: var(--ui-border-accented);
+  --app-chart-axis: var(--ui-text-muted);
+  --app-chart-zeroline: var(--ui-text-muted);
+  --app-chart-hover-bg: var(--ui-bg-elevated);
+  --app-chart-hover-border: var(--ui-border-accented);
+  --app-chart-hover-text: var(--ui-text);
+  --app-chart-modebar: var(--ui-text-muted);
+  --app-chart-modebar-active: var(--app-focus-ring);
+}
+
+/* The width of a Plotly chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
+   wider it is drawn on the screen the smaller its type comes out on the sheet. At 820 px the Explorer's 12 px tick
+   labels print at 6.3 pt on A4 with 1 in margins (5.2 pt from a window with a 980 px column, uncapped). The chart
+   stays in the middle of its column. A chart in a box of its own (the Explorer's facets: 34 px of padding and border)
+   is narrower (760 px, `--app-chart-max-width`: the print is scaled to the box, which is 34 px narrower, so a width of
+   820 - 34 prints at 6.1 pt), so that it prints as large as the others. The widget's chart
+   is not capped (it fills its frame). The sizes are measured
+   in a printed PDF by tests/e2e/chart-print.spec.ts. */
+.app-chart {
+  width: 100%;
+  max-width: var(--app-chart-max-width, 820px);
+  margin-inline: auto;
+}
+
+/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
+   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
+   than Plotly's own rule, which is injected after this sheet. */
+.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
+/* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
+   unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
+   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
+   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
+   drawn light is left as it was drawn, with its series colours and its own marks. */
+@media print {
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
+    background: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
+    fill: transparent !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
+  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
+    fill: black !important;
+  }
+  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
+    filter: invert(1);
+  }
+  .js-plotly-plot .modebar-container {
+    display: none !important;
+  }
+}
+
+/* ---- The frame of every page ----------------------------------------------------------------------------------- */
+.frame {
+  width: 100%;
+  max-width: calc(var(--frame-max) + 2 * var(--frame-gutter));
+  margin-inline: auto;
+  padding-inline: var(--frame-gutter);
+}
+
+/* The link that takes a keyboard user past the header to the page (WCAG 2.4.1): out of sight until it has the
+   focus, then a button-like chip over the header's left edge */
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.5rem;
+  left: var(--frame-gutter);
+  transform: translateY(-200%);
+  padding: 0.625rem 1rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg-inverted);
+  color: var(--ui-text-inverted);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.skip-link:focus-visible,
+.skip-link:focus {
+  transform: none;
+}
+
+/* ---- The shell: header, tab bar, footer -------------------------------------------------------------------------- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--header-height);
+  border-bottom: 1px solid var(--ui-border);
+  background: color-mix(in oklab, var(--ui-bg) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+.dark .app-header {
+  background: color-mix(in oklab, var(--app-canvas) 92%, transparent);
+}
+
+/* A tab of the header: the tool's tile and name. The tab of the page one is on is bolder, and carries a bar on the
+   header's lower edge (navy by day, the sun by night). The bold name takes no more room than the plain one, so the
+   tabs do not move when the page changes: the bold width is reserved by an invisible copy (`data-text`). */
+/* five tools and the reference in the header: a tab is a little narrower below 90 rem than above it, so that the longer
+   languages (Italian and French, GH-3650) still fit at 1024 and 1280 px, where the header holds the search's word too */
+.nav-tab {
+  --nav-tab-pad: 0.5rem;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  height: 2.5rem;
+  padding-inline: var(--nav-tab-pad);
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-toned);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+@media (min-width: 90rem) {
+  .nav-tab {
+    --nav-tab-pad: 0.625rem;
+    gap: 0.5rem;
+  }
+}
+.nav-tab:hover {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.nav-tab[aria-current="page"],
+.nav-tab[data-current] {
+  color: var(--ui-text-highlighted);
+  font-weight: 700;
+}
+.nav-tab[aria-current="page"]::after,
+.nav-tab[data-current]::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--nav-tab-pad);
+  bottom: calc((var(--header-height) - 2.5rem) / -2 - 1px);
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--app-current);
+}
+.nav-label {
+  display: inline-flex;
+  flex-direction: column;
+}
+.nav-label::after {
+  content: attr(data-text);
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 700;
+  user-select: none;
+  pointer-events: none;
+}
+
+.brand:hover .wordmark {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* The tab bar of the narrow layout, fixed to the foot of the window; the page keeps its height free */
+@media (width < 64rem) {
+  :root {
+    --tabbar-height: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+.app-tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  height: var(--tabbar-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--ui-border);
+  background: color-mix(in oklab, var(--ui-bg) 94%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+.dark .app-tabbar {
+  background: color-mix(in oklab, var(--app-canvas) 94%, transparent);
+}
+.tabbar-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem 0.125rem 0.25rem;
+  color: var(--ui-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+}
+.tabbar-label {
+  /* a long name (Klimatické pruhy, Paski klimatyczne) takes two lines, broken where the language breaks words */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.tabbar-item[aria-current="page"],
+.tabbar-item[aria-current="true"] {
+  color: var(--ui-text-highlighted);
+}
+.tabbar-item[aria-current="page"]::before,
+.tabbar-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  inset-inline: 22%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--app-current);
+}
+.tabbar-item:hover {
+  color: var(--ui-text-highlighted);
+}
+/* Too low a window for two fixed bars (a phone on its side, a desktop window at 400 % zoom: WCAG 1.4.10): the header
+   scrolls away with the page, and the tab bar stands under it, in the order the keyboard already reaches them. */
+@media (max-height: 30rem) {
+  :root {
+    --header-height: 3.5rem;
+    --tabbar-height: 0rem;
+  }
+  .app-header {
+    position: static;
+  }
+  .app-tabbar {
+    position: static;
+    height: auto;
+    border-top: 0;
+    border-bottom: 1px solid var(--ui-border);
+  }
+  .tabbar-item {
+    padding-block: 0.375rem;
+  }
+}
+
+/* The page between the header and the footer: as tall as the window allows, so a short page keeps the footer at
+   the foot, and clear of the tab bar */
+.app-main {
+  min-height: calc(100dvh - var(--header-height));
+  padding-bottom: var(--tabbar-height);
+}
+.app-footer {
+  padding-bottom: var(--tabbar-height);
+}
+
+/* The links of the narrow layout's menu sheet */
+.sheet-link {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: calc(var(--ui-radius) * 2.5);
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+}
+.sheet-link:hover,
+.sheet-link[aria-current="page"] {
+  background: var(--ui-bg-elevated);
+}
+.sheet-link[aria-current="page"] {
+  box-shadow: inset 3px 0 0 var(--app-current);
+}
+
+/* The line at the left of a tool in the sheet: its group, in the bar's colour or the lighter one of the tools that are
+   only in the Menu (GH-3934). Beside the tile and clear of the bar under the current link (3 px at the edge). */
+.sheet-tool {
+  position: relative;
+}
+.tool-mark {
+  position: absolute;
+  inset-inline-start: 0.3125rem;
+  top: 50%;
+  width: 3px;
+  height: 1.25rem;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--app-mark-bar);
+}
+/* a shorter line as well as a lighter one, so that the groups differ by shape and not by colour alone (WCAG 1.4.1) */
+.sheet-tool[data-group="menu"] .tool-mark {
+  height: 0.75rem;
+  background: var(--app-mark-menu);
+}
+
+/* The chooser of the phone bar's tools (settings page, GH-3846): the preview is the bar as it is drawn on a phone, the
+   rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
+.bar-sticky {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 5;
+  margin-inline: -0.25rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+  /* an edge of its own: what passes under it (a row's border, a line of text) does not read as part of it */
+  border-bottom: 1px solid var(--ui-border-accented);
+  background: var(--ui-bg);
+  box-shadow: 0 0.5rem 0.5rem -0.375rem color-mix(in oklab, var(--ui-text-highlighted) 12%, transparent);
+}
+/* a focused button is scrolled clear of what stands over it (WCAG 2.4.11): the header and this preview */
+.bar-move,
+.bar-reset {
+  scroll-margin-top: calc(var(--header-height) + 9rem);
+}
+/* too low a window: the header is not fixed, and a preview that stood on would cover half of what is left */
+@media (max-height: 30rem) {
+  .bar-sticky {
+    position: static;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+  .bar-move,
+  .bar-reset {
+    scroll-margin-top: 0;
+  }
+}
+.bar-preview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 4.25rem;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg);
+}
+.dark .bar-preview {
+  background: var(--app-canvas);
+}
+.bar-preview-item[data-moving] {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+/* On a phone the preview is as wide as the window, as the bar it shows is: in the card it is 64 px narrower, and the
+   names of the tools that fit the bar (Pronóstico, Explorador) would break in it. It reaches out of the card's padding and
+   the page's gutter, and has no sides, like the bar; the caption and the line under it keep the card's inset. */
+@media (width < 40rem) {
+  .bar-sticky {
+    margin-inline: calc(-1rem - var(--frame-gutter));
+    padding-inline: 0;
+  }
+  .bar-sticky > :not(.bar-preview) {
+    padding-inline: calc(1rem + var(--frame-gutter));
+  }
+  .bar-preview {
+    border-inline: 0;
+    border-radius: 0;
+  }
+}
+.bar-line {
+  padding-top: 1rem;
+  border-top: 2px dashed var(--app-mark-bar);
+}
+.bar-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.5rem;
+  padding-inline: 0.25rem 0.5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg-elevated);
+}
+.bar-row[data-dragging] {
+  opacity: 0.55;
+}
+/* where the dragged tool will land: a bar on the edge of the row it comes to stand at */
+.bar-row[data-drop]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-current);
+}
+.bar-row[data-drop="before"]::before {
+  top: -6px;
+}
+.bar-row[data-drop="after"]::before {
+  bottom: -6px;
+}
+.bar-handle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 2.5rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  color: var(--ui-text-muted);
+  cursor: grab;
+  /* only here: a finger anywhere else scrolls the sheet and the page */
+  touch-action: none;
+  user-select: none;
+}
+.bar-dragging,
+.bar-dragging .bar-handle {
+  cursor: grabbing;
+}
+.bar-dragging {
+  user-select: none;
+}
+.bar-move {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  /* the muted text colour: 3:1 or more on the row's raised background, light and dark (1.4.11; button-contrast.test.ts) */
+  border: 1px solid var(--ui-text-muted);
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+}
+.bar-move:hover {
+  background: var(--ui-bg-accented);
+}
+/* at the end of the list: stays a stop, so that the focus of a button pressed to the end is not lost */
+.bar-move[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.bar-move[aria-disabled="true"]:hover {
+  background: var(--ui-bg);
+}
+
+.footer-heading {
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.footer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.footer-link {
+  color: var(--ui-text-toned);
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color 150ms;
+}
+.footer-link:hover {
+  color: var(--ui-text-highlighted);
+  text-decoration-color: currentColor;
+}
+
+/* ---- The head of a page ---------------------------------------------------------------------------------------- */
+.page-header {
+  padding-block: 2rem 1.75rem;
+}
+@media (min-width: 48rem) {
+  .page-header {
+    padding-block: 2.75rem 2.25rem;
+  }
+}
+.page-eyebrow {
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.page-title {
+  font-size: clamp(1.875rem, 1.4rem + 1.6vw, 2.625rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+.page-lede {
+  margin-top: 0.625rem;
+  max-width: var(--measure);
+  font-size: 1.125rem;
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+  hyphens: auto;
+}
+/* The panel of a tool's "About" button: under the header row, at the measure of text and flush with the right
+   edge of the row, where the button is, so that on a wide window the two read as one control (GH-3872). Where the
+   window is narrower than the measure it is the full width of the frame, under the title, as on a phone. */
+.page-about {
+  margin-top: 1.5rem;
+  margin-left: auto;
+  max-width: var(--measure);
+  padding: 1.25rem 1.5rem;
+  border-radius: calc(var(--ui-radius) * 3);
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+}
+/* The body of a page that is read rather than worked in: one column at the measure of text, at the frame's edge */
+.page-body {
+  padding-bottom: 4rem;
+}
+.page-body > * + * {
+  margin-top: 1.5rem;
+}
+.page-body[data-width="read"] {
+  max-width: var(--measure);
+}
+.page-body[data-width="medium"] {
+  max-width: 60rem;
+}
+
+/* ---- The tiles ----------------------------------------------------------------------------------------------------
+   A tool's mark: a rounded square in its colour with a glyph in the logo's pairing. The radius is the logo's
+   (58 of 184, 31.5 %). The tile is a picture of the tool's name, which is always written beside it, so it is hidden
+   from assistive technology and needs no contrast of its own; in forced colours it is an outlined square. */
+.tile {
+  --tile-size: 1.75rem;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  border-radius: calc(var(--tile-size) * 0.315);
+  background: var(--tile-fill, var(--color-tile-navy));
+  color: var(--tile-glyph, #ffffff);
+}
+.tile > * {
+  width: 62%;
+  height: 62%;
+}
+.tile-sun {
+  --tile-fill: var(--color-tile-sun);
+  --tile-glyph: var(--color-ink-950);
+}
+.tile-rain {
+  --tile-fill: var(--color-tile-rain);
+  --tile-glyph: #ffffff;
+}
+.tile-wind {
+  --tile-fill: var(--color-tile-wind);
+  --tile-glyph: var(--color-ink-950);
+}
+.tile-heat {
+  --tile-fill: var(--color-tile-heat);
+  --tile-glyph: #ffffff;
+}
+.tile-map {
+  --tile-fill: var(--color-tile-map);
+  --tile-glyph: #ffffff;
+}
+.dark .tile-map {
+  --tile-fill: var(--color-tile-map-night);
+  --tile-glyph: var(--color-ink-950);
+}
+.tile-navy {
+  --tile-fill: var(--color-tile-navy);
+  --tile-glyph: #ffffff;
+}
+.dark .tile-navy {
+  --tile-fill: #2a4778;
+}
+
+/* ---- Forced colours (Windows contrast themes) --------------------------------------------------------------------
+   The system's colours replace the app's: backgrounds go, borders and text stay. What the design draws as a fill
+   gets an edge of its own, so that it does not vanish: the tiles, the current tab's bar and the skip link. Icons are
+   drawn in the text colour (`currentColor`), so an icon-only button keeps its icon. */
+@media (forced-colors: active) {
+  .tile {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+  .skip-link {
+    border: 2px solid ButtonText;
+  }
+  /* the lines of the Menu's sheet are fills: drawn in the system's colours, the bar's in the text colour, the shorter
+     line of the tools that are only in the Menu in the grey one */
+  .tool-mark {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .sheet-tool[data-group="menu"] .tool-mark {
+    background: GrayText;
+  }
+  [aria-current="page"],
+  [aria-current="true"],
+  [data-current] {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.3em;
+  }
+  :focus-visible:not([tabindex="-1"]) {
+    outline-color: Highlight;
+  }
+  /* Iconify draws an icon as a mask over its own background, and forced colours replace that background with the
+     page's: the icon vanishes, and an icon-only button is an empty box. The icon keeps its background and paints it
+     in the colour its parent's text is forced to (ButtonText in a button, LinkText in a link, HighlightText in a
+     selected option), not in a colour of its own (`text-primary`), which forced colours would not have replaced. */
+  .iconify {
+    forced-color-adjust: none;
+    color: inherit !important;
+    background-color: currentColor !important;
+  }
+}
+
+/* ---- Motion -------------------------------------------------------------------------------------------------------
+   Movement is short (150 to 250 ms) and only says where something came from: a menu opens from its button, a
+   sheet rises from the tab bar. With reduced motion asked for, nothing moves or fades; a spinner still turns, as
+   it is the only sign that something is under way. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* ---- Plotly -------------------------------------------------------------------------------------------------------
+   Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout. Plotly layers multiple <svg class="main-svg">
+   that must overlap; Tailwind's `svg { display: block }` causes them to stack vertically. */
 .svg-container > .main-svg {
   position: absolute !important;
   top: 0 !important;
@@ -125,5 +1032,140 @@
   }
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
+  }
+}
+
+/* ---- Print ------------------------------------------------------------------------------------------------------
+   A printed page is the page's content in light colours: no header, tab bar, footer, skip link or buttons that
+   only work on a screen. The charts are redrawn at the width of the paper before printing
+   (`plugins/chart-print.client.ts`); a chart, a card and a table row are not cut across two sheets. */
+@media print {
+  :root,
+  .dark {
+    --app-canvas: #ffffff;
+    --ui-bg: #ffffff;
+    --ui-bg-muted: #ffffff;
+    --ui-bg-elevated: var(--color-ink-50);
+    --ui-bg-accented: var(--color-ink-100);
+    --ui-text-dimmed: var(--color-ink-600);
+    --ui-text-muted: var(--color-ink-600);
+    --ui-text-toned: var(--color-ink-700);
+    --ui-text: #000000;
+    --ui-text-highlighted: #000000;
+    --ui-text-inverted: #ffffff;
+    --ui-bg-inverted: var(--color-ink-950);
+    --ui-border: var(--color-ink-300);
+    --ui-border-muted: var(--color-ink-200);
+    --ui-border-accented: var(--color-ink-400);
+    --ui-border-inverted: var(--color-ink-950);
+    --ui-primary: var(--color-brand-600);
+    /* Nuxt UI's colours of text and fills are shade 500 by day and 400 at night */
+    --ui-secondary: var(--ui-color-secondary-500);
+    --ui-success: var(--ui-color-success-500);
+    --ui-info: var(--ui-color-info-500);
+    --ui-warning: var(--ui-color-warning-500);
+    --ui-error: var(--ui-color-error-500);
+    --app-focus-ring: var(--color-brand-700);
+    --app-current: var(--color-tile-navy);
+    --app-mark-bar: var(--color-brand-700);
+    --app-mark-menu: var(--color-brand-500);
+    color-scheme: light;
+  }
+  /* the tiles of the light page (the night's tiles are lighter) */
+  .dark .tile-map {
+    --tile-fill: var(--color-tile-map);
+    --tile-glyph: #ffffff;
+  }
+  .dark .tile-navy {
+    --tile-fill: var(--color-tile-navy);
+  }
+  /* the primary and error text of the light page (shade 700: the rule that sets it does not stand under .dark) */
+  .dark .text-primary {
+    color: var(--color-brand-700);
+  }
+  .dark .text-error {
+    color: var(--ui-color-error-700);
+  }
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000;
+  }
+  [data-print="hide"],
+  .skip-link,
+  .modebar-container,
+  .leaflet-control-container {
+    display: none !important;
+  }
+  .frame {
+    max-width: none;
+    padding-inline: 0;
+  }
+  /* the workbench of a tool is one column on paper */
+  [data-layout="workbench"] {
+    display: block !important;
+  }
+  [data-layout="workbench"] > * {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .js-plotly-plot,
+  figure,
+  tr,
+  [data-print="keep"] {
+    break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  /* Chrome prints without "Background graphics" unless the person ticks it, and then leaves out every background,
+     which takes from the page what is drawn as one (GH-3960): an icon is a mask over a background colour
+     (@nuxt/icon, `.iconify`), so it prints as nothing; a label that is white on a solid fill (`text-inverted`: the
+     solid button, badge and checkmark of Nuxt UI) and a tool's tile (a white or navy glyph on its colour) print as
+     white on white. These are small marks, so they keep their fill (`exact`). The one large dark area, the band of
+     the start page, does not: it is white with an outline in print (pages/index.vue), which costs no ink.
+     The app's own white-on-fill controls are the pressed chip of a question (AskTheWeather) and the layer shown on
+     the map (map.vue); a switch is its fills only (track and thumb), so without them it is not on the page. */
+  .iconify,
+  .tile,
+  [class~="text-inverted"],
+  .ask-chip[aria-pressed="true"],
+  .map-segment[aria-pressed="true"],
+  [role="switch"],
+  [role="switch"] > * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    word-break: break-all;
+  }
+  nav a[href^="http"]::after,
+  [data-print="no-urls"] a::after {
+    content: none;
+  }
+}
+
+/* What the toasts cover at the bottom of the window (useToastInset, GH-3575; 0px with none): the page grows
+   by it, and a focused element scrolls clear of it, so a link of the footer that the Tab key reaches is not
+   under a toast (WCAG 2.4.11 Focus Not Obscured). Unlayered, so it wins over the layered rule of the base: the
+   scroll padding is the larger of that (the tab bar and a rem) and the toasts. */
+html {
+  scroll-padding-bottom: max(calc(var(--tabbar-height) + 1rem), var(--app-toast-inset, 0px));
+}
+body {
+  padding-bottom: var(--app-toast-inset, 0px);
+}
+
+/* Where the tab bar is (narrow layout), the toasts stand above it, not over it: a fixed tab cannot scroll clear of
+   a toast, and a focused one under it is not seen (WCAG 2.4.11). Unlayered, so it wins over the toaster's own
+   `bottom-4`; `--tabbar-height` is 0 where the bar scrolls with the page. */
+@media (width < 64rem) {
+  .app-toast-viewport {
+    bottom: calc(var(--tabbar-height) + 1rem);
   }
 }

@@ -1,6 +1,5 @@
 import type { Page, Route } from '@playwright/test'
 import type {
-  CoverageResponse,
   GlossaryEntry,
   HistoryResponse,
   ProviderNetworkCoverageResponse,
@@ -8,6 +7,7 @@ import type {
   Station,
   StripesStation,
   StripesValuesResponse,
+  UnitType,
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
@@ -29,32 +29,12 @@ export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 /** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
 export type Handlers = Record<string, Handler>
 
-/** What a handler returns to answer with an error instead of a body */
+/** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
-  constructor(readonly status: number, readonly detail: string) {}
+  constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
 }
 
-const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
-
-const PROVIDERS: CoverageResponse = {
-  dwd: {
-    observation: { ...DWD, kind: 'observation', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
-    mosmix: { ...DWD, kind: 'forecast', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
-  },
-  noaa: {
-    ghcn: {
-      name_short: 'NOAA',
-      country: 'United States Of America',
-      kind: 'observation',
-      url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
-      auth: false,
-      configured: false,
-      date_required: false,
-    },
-  },
-}
-
-function parameter(name: string, name_original: string, unit_type: string, unit: string, description: string) {
+function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
   return { name, name_original, unit_type, unit, description }
 }
 
@@ -87,20 +67,26 @@ const OBSERVATION_COVERAGE = {
   },
 } satisfies ProviderNetworkCoverageResponse
 
+/**
+ * The end of a station that is running, as the REST API gives one: the day of its last value, two days ago, and no
+ * `null` (the map tool takes a station with no end for one whose status is not known)
+ */
+const RUNNING_END = new Date(Date.now() - 2 * 86_400_000).toISOString().replace(/T.*$/, 'T00:00:00+00:00')
+
 /** Daily climate summary of the stations the explorer, the history and the maps are shown with */
 export const STATIONS: Station[] = [
-  { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.9737, longitude: 8.5205, elevation: 680, start_timestamp: '1980-09-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00044', name: 'Großenkneten', region: 'Niedersachsen', latitude: 52.9336, longitude: 8.2370, elevation: 44, start_timestamp: '1971-03-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00071', name: 'Albstadt-Badkap', region: 'Baden-Württemberg', latitude: 48.2156, longitude: 8.9784, elevation: 759, start_timestamp: '1986-11-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00073', name: 'Aldersbach-Kriestorf', region: 'Bayern', latitude: 48.6159, longitude: 13.0506, elevation: 340, start_timestamp: '1964-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00091', name: 'Alfhausen', region: 'Niedersachsen', latitude: 52.4853, longitude: 7.9126, elevation: 65, start_timestamp: '1993-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00096', name: 'Neuhaus am Rennweg', region: 'Thüringen', latitude: 50.5063, longitude: 11.1283, elevation: 840, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00102', name: 'Leuchtturm Alte Weser', region: 'Niedersachsen', latitude: 53.8633, longitude: 8.1275, elevation: 3, start_timestamp: '1997-01-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00125', name: 'Andechs-Rothenfeld', region: 'Bayern', latitude: 47.9794, longitude: 11.1888, elevation: 680, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, elevation: 54, start_timestamp: '1991-03-01T00:00:00+00:00', end_timestamp: null },
-  { station_id: '00183', name: 'Arkona', region: 'Mecklenburg-Vorpommern', latitude: 54.6791, longitude: 13.4343, elevation: 42, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: null },
+  { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.9737, longitude: 8.5205, elevation: 680, start_timestamp: '1980-09-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00044', name: 'Großenkneten', region: 'Niedersachsen', latitude: 52.9336, longitude: 8.2370, elevation: 44, start_timestamp: '1971-03-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00071', name: 'Albstadt-Badkap', region: 'Baden-Württemberg', latitude: 48.2156, longitude: 8.9784, elevation: 759, start_timestamp: '1986-11-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00073', name: 'Aldersbach-Kriestorf', region: 'Bayern', latitude: 48.6159, longitude: 13.0506, elevation: 340, start_timestamp: '1964-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00091', name: 'Alfhausen', region: 'Niedersachsen', latitude: 52.4853, longitude: 7.9126, elevation: 65, start_timestamp: '1993-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00096', name: 'Neuhaus am Rennweg', region: 'Thüringen', latitude: 50.5063, longitude: 11.1283, elevation: 840, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00102', name: 'Leuchtturm Alte Weser', region: 'Niedersachsen', latitude: 53.8633, longitude: 8.1275, elevation: 3, start_timestamp: '1997-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00125', name: 'Andechs-Rothenfeld', region: 'Bayern', latitude: 47.9794, longitude: 11.1888, elevation: 680, start_timestamp: '2004-12-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00131', name: 'Angermünde', region: 'Brandenburg', latitude: 53.0301, longitude: 13.9951, elevation: 54, start_timestamp: '1991-03-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00183', name: 'Arkona', region: 'Mecklenburg-Vorpommern', latitude: 54.6791, longitude: 13.4343, elevation: 42, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
   { station_id: '00198', name: 'Artern', region: 'Thüringen', latitude: 51.3745, longitude: 11.2915, elevation: 164, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: '2018-12-31T00:00:00+00:00' },
-  { station_id: '00205', name: 'Aue', region: 'Sachsen', latitude: 50.5919, longitude: 12.7095, elevation: 450, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: null },
+  { station_id: '00205', name: 'Aue', region: 'Sachsen', latitude: 50.5919, longitude: 12.7095, elevation: 450, start_timestamp: '1991-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
 ]
 
 const MOSMIX_STATION: Station = {
@@ -123,21 +109,26 @@ const MOSMIX_STATIONS: Station[] = [
 
 const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => ({
   station_id: station.station_id,
-  name: station.name as string,
-  region: station.region as string,
-  latitude: station.latitude as number,
-  longitude: station.longitude as number,
+  name: station.name,
+  region: station.region,
+  latitude: station.latitude,
+  longitude: station.longitude,
+  elevation: station.elevation,
   start_timestamp: '1950-01-01T00:00:00+00:00',
-  end_timestamp: null,
+  // an annual list ends with the last year, as the real one does
+  end_timestamp: `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00`,
 }))
 
-/** `GET /api/providers`: DWD with a licence, a credit line, a network with resolutions and a standalone one, and AEMET with a key and no terms */
+/**
+ * `GET /api/providers`: DWD with a licence, a credit line, two networks with stations and a standalone one, and AEMET with a
+ * key (which this server has not) and no terms. The Explorer's selects read it: it offers what is configured
+ */
 const PROVIDER_LIST: ProvidersResponse = {
   metadata: {
     api_version: '1',
     schema_version: '1',
     retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-    counts: { providers: 2, networks: 3 },
+    counts: { providers: 2, networks: 4, parameters: 24 },
     warnings: [],
   },
   providers: [
@@ -157,9 +148,19 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.dwd.de/climate_environment/CDC/',
           copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 12,
-          resolutions: [{ name: 'daily', datasets: [{ name: 'climate_summary', parameters: 8 }] }],
+        },
+        {
+          network: 'mosmix',
+          kind: 'forecast',
+          url: 'https://opendata.dwd.de/weather/local_forecasts/mos/',
+          copyright: '© Deutscher Wetterdienst (DWD), MOSMIX',
+          auth: false,
+          configured: true,
+          date_required: false,
+          parameters: 6,
         },
         {
           network: 'radar',
@@ -167,9 +168,9 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.dwd.de/weather/radar/',
           copyright: '© Deutscher Wetterdienst (DWD), radar products',
           auth: false,
+          configured: true,
           date_required: false,
           parameters: 0,
-          resolutions: [],
         },
       ],
     },
@@ -189,9 +190,9 @@ const PROVIDER_LIST: ProvidersResponse = {
           url: 'https://opendata.aemet.es/',
           copyright: '© AEMET',
           auth: true,
+          configured: false,
           date_required: true,
           parameters: 6,
-          resolutions: [{ name: 'daily', datasets: [{ name: 'data', parameters: 6 }] }],
         },
       ],
     },
@@ -244,10 +245,10 @@ function observationValues(url: URL): Value[] {
   return values
 }
 
-/** Three days of hourly MOSMIX values from this hour on, for each series the meteogram draws */
-function forecastValues(url: URL): Value[] {
+/** Three days of hourly MOSMIX values from the hour of `now` on, for each series the meteogram draws */
+function forecastValues(url: URL, now: Date): Value[] {
   const station_id = url.searchParams.get('stations') ?? MOSMIX_STATION.station_id
-  const start = new Date()
+  const start = new Date(now)
   start.setUTCMinutes(0, 0, 0)
   const series: Record<string, (hour: number) => number> = {
     temperature_air_2m: hour => 8 + 5 * Math.sin((hour - 9) / 24 * 2 * Math.PI),
@@ -282,7 +283,6 @@ function forecastValues(url: URL): Value[] {
 function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
-    metadata: {},
     series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
     values: Array.from({ length: 70 }, (_, index) => ({
       timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
@@ -317,14 +317,14 @@ const HISTORY: HistoryResponse = {
 }
 
 /** The answers a state starts from: a backend with the DWD observation data and nothing else wrong */
-export function defaultHandlers(): Handlers {
+export function defaultHandlers(now: Date = new Date()): Handlers {
   return {
-    'version': () => ({ version: '0.0.0-accessibility', mcp_enabled: false }),
-    'coverage': (url) => {
-      if (!url.searchParams.get('provider'))
-        return PROVIDERS
-      return OBSERVATION_COVERAGE
-    },
+    'version': () => ({
+      version: '0.0.0-accessibility',
+      mcp_enabled: false,
+      limits: { max_stations: 100, max_rows: 500_000, max_stream_rows: 10_000_000, timeout: 60, max_concurrent: 32 },
+    }),
+    'coverage': () => OBSERVATION_COVERAGE,
     'auth': url => ({ provider: url.searchParams.get('provider'), network: url.searchParams.get('network'), auth: false, configured: false, valid: true }),
     // a server that does not report its settings: the app takes wetterdienst's own
     'settings': () => new ApiFailure(404, 'Not Found'),
@@ -333,9 +333,13 @@ export function defaultHandlers(): Handlers {
       const all = mosmix ? MOSMIX_STATIONS : STATIONS
       // a list is comma-separated, and the key given more than once is read as the same list
       const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
+      // a place by its name: the backend answers its best five matches, here the ones whose name holds the text
+      const name = url.searchParams.get('name')?.toLowerCase()
+      if (name)
+        return { stations: all.filter(station => station.name?.toLowerCase().includes(name)).slice(0, 5) }
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
-    'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url) : observationValues(url) }),
+    'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }),
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,
@@ -368,12 +372,18 @@ const QUIET_MS = 300
  * every request to another host with a transparent pixel (images) or a refusal (anything else).
  * `override` replaces handlers of the default set, per `/api/<path>`.
  */
-export async function mockBackend(page: Page, baseURL: string, override: Handlers = {}): Promise<Backend> {
+export async function mockBackend(
+  page: Page,
+  baseURL: string,
+  override: Handlers = {},
+  /** The instant the forecast starts at: the one the page's clock is set to, if the test sets it (default: the real now) */
+  now: Date = new Date(),
+): Promise<Backend> {
   const origin = new URL(baseURL).origin
   let inFlight = 0
   let lastAnswer = Date.now()
   const backend: Backend = {
-    handlers: { ...defaultHandlers(), ...override },
+    handlers: { ...defaultHandlers(now), ...override },
     unanswered: [],
     idle: async () => {
       const busy = () => inFlight > 0 || Date.now() - lastAnswer < QUIET_MS
@@ -396,7 +406,7 @@ export async function mockBackend(page: Page, baseURL: string, override: Handler
         }
         const body = await handler(url, route)
         if (body instanceof ApiFailure)
-          await route.fulfill({ status: body.status, json: { detail: body.detail } })
+          await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
         else
           await route.fulfill({ status: 200, json: body })
       }

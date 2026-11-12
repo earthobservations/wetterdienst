@@ -26,6 +26,10 @@ export interface BaselineEntry {
   /** The most severe impact axe gave one of the elements */
   impact: string
   variants: string[]
+  /** The upstream issue that tracks the cause (a URL), or null where there is none; `tests/unit/a11y-baseline.test.ts` holds that it is stated */
+  issue?: string | null
+  /** Why the entry is not fixed in the app, and whose it is */
+  reason?: string
 }
 
 export interface Baseline {

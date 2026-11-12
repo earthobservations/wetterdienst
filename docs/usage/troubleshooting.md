@@ -9,12 +9,13 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | --- | --- | --- |
 | `InvalidParameterError`, exit 2, 400 `request-refused` | the request is understood and cannot be served as phrased | read the message, it names the entry and the close match |
 | 422 `invalid-parameters` | a query parameter is unknown or malformed | `errors` names each; check the spelling and the [vocabulary](restapi.md#one-vocabulary) |
-| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist | look it up with `coverage` or `about coverage` |
+| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look up providers and networks with `providers`, and resolutions and datasets with `coverage` of the network |
 | `MissingDependencyError`, 501 `dependency-missing` | an extra is not installed | install the extra the message names, see [Installation](quickstart.md#installation) |
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
 | `DownloadError`, 502 `upstream-failed`, 504 `upstream-timeout` | the provider answered badly or too late | the same |
 | 400 `limit-exceeded`, 504 `request-timeout` | the REST API or MCP server holds a request to its limits | see [Limits](#limits-and-timeouts) |
+| `ImageTimeoutError`, exit 1, 504 `image-timeout` | the browser that draws an image did not finish within 120 seconds and was closed | try again; if it keeps happening, check that Chrome starts on this machine, see [Other things that go wrong](#other-things-that-go-wrong) |
 | 503 `server-busy` | the server works on as many requests as it is set to | wait the `Retry-After` and ask again, see [Limits](#limits-and-timeouts) |
 | 400 `host-not-allowed` or `origin-not-allowed` | the server answers only to the `Host` names it lists (`WD_RESTAPI_ALLOWED_HOSTS`) | reach it by a name it lists, or add yours, see [Allowed hosts](restapi.md#allowed-hosts) |
 | 429 `rate-limited` | the web app limits what a client may count against it | wait the `Retry-After`, see [Web app](app.md#rate-limit) |
@@ -34,11 +35,72 @@ The usual reasons:
   out with a warning (`unknown-station` in the `metadata` of the REST answer, a log line in Python), and when none
   is left the result is empty. Ask `stations` with the same `parameters` first: it lists only the stations that have
   them.
+- **The source has nothing of the parameter.** A station can have no values of an element at all, or none in the
+  window (Los Angeles has no `TX` or `TN` in MOSMIX, Paris no `tx24` in the synop reports). The answer says so
+  with a `parameter-without-rows` warning that names the parameter and the stations: the source has none for them.
+  Leave the parameter out, or ask for another station or window. Where the warning says it is of the periods asked
+  for, `periods` may be what left the values out. A station whose file the provider let go (a refused download, a
+  maintenance page) is not named: its values may be missing for that, which a later request may clear.
+- **Dates are left out because they are of another series.** The answer carries an `other-window-left-out` warning
+  (`metno/frost` daily and monthly precipitation, daily maximum and minimum temperature, daily and monthly mean temperature): the source holds values for
+  those dates, in its other series (18-18 UTC for the precipitation, the calendar day for the temperature extremes, 06-06 UTC for the mean temperature),
+  and the parameter is the 06-06 UTC (the 18-18 UTC, the calendar-day) series, so the dates have no row rather than a value of another
+  window. The source is not
+  missing them, and the answer is not partial for a failure: do not try again.
+- **Values are left out, or marked incomplete, because their window has not closed.** The answer carries a
+  `window-not-closed` warning (`metno/frost`: the daily maximum and minimum temperature until 18 UTC of the date, the
+  precipitation sum until 06 UTC, the mean and every other daily element until the end of the date; the monthly values
+  until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
+  of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
+  The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
+  daily value, or end the window before the current month; the answer is not partial for a failure. `interpolate` and
+  `summarize` cannot carry the mark, so they leave the monthly and annual value of an open window out too and tell it as
+  a cause of their `source-data-left-out` warning (below).
+- **A station you named has no rows while others do.** A `station-without-rows` warning lists the ids of `stations`
+  that returned nothing in the window, in the order of the answer: the source holds no values of them there (the
+  message names the `periods`, run or lead time that narrowed the request, which may hold them; a station whose dates
+  were left out for another series is `other-window-left-out`'s, not named here), or, in the long shape
+  with `drop_nulls` on, all were null and left out (`drop_nulls=false` shows them; the wide shape keeps them already,
+  and the message does not offer the reason there). Ask `stations` for them without `timestamp` to see the span of
+  their record. It is told for a list of ids only, not for a point, box, name or `rank`, and not where every station
+  is empty.
+- **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
+  the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
+  would not parse): their values may be missing from an answer that is otherwise whole. The message names the cause
+  and advises by it: try again later for a failed download, a withdrawn file, an error page or an empty body, or an empty directory;
+  for a refused download or a file that would not parse a retry gets the same, so report it to the provider. Only the
+  providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
+  `dwd/dmo` do not), so an answer without the warning is not proof that every file was read. For a file of
+  `dwd/observation` or `dwd/derived` that DWD renamed (a 404 of a listed file) the retry is worth it at once: the
+  listing of the directory is dropped, so the next request finds the file under its new name.
+  A `file-skipped` of `dwd/observation` or `dwd/derived` that names a directory and no station says that DWD's
+  server listed it empty or not at all, or (`dwd/observation`) that it lists files and no description of its
+  stations: the stations only it lists are not in the answer (a stations list, values or a history), and a later
+  request finds them once DWD has filled it again.
+- **An estimate says that source data was left out.** The answer of `interpolate` or `summarize` carries one
+  `source-data-left-out` warning with the number of the stations it read that lost something, and the causes: a file
+  the provider could not use (a refused download, a maintenance page, a file that would not parse, a directory found
+  empty), whose values may be missing from the estimate (the message names the cause and advises as `file-skipped`
+  does: try again later for a download, a page or a directory that may be back; for a refused download or a file that
+  would not parse, a retry gets the same, so report it); dates of another series of the source (`metno/frost`, as
+  `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
+  again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
+  `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
+  again then, or end the window before the current period); and values a hard plausibility check rejected, which the
+  estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
+  `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.
+- **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
+  directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
+  with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
+  404 for the same station means every directory was listed and none has it, or the directory that was skipped lists
+  files and names the stations of its files, and this is not one.
 - **A name matched nothing.** A name is matched fuzzily with a threshold (`name_threshold`, 0.8 by default); lower it
   or look at the best matches (`rank`).
 - **Nulls were dropped.** The long shape drops rows without a value by default (`drop_nulls`); a reading the source
-  marks as missing is null with the source's text in `quality_flags` (`raw:-999`). `drop_nulls=False` shows them.
-- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning).
+  marks as missing is null with the source's text in `quality_flags` (`raw:-999`), and a calm wind direction is null
+  with `raw:0` (`calm-wind-direction` warning). `drop_nulls=False` shows them.
+- **A station was skipped** for having too little data, if `skip_empty` is on (`station-skipped` warning), with
+  `drop_nulls` on or off.
 
 The `warnings` of the `metadata` block say what a partial answer is missing, see
 [response metadata](restapi.md#response-metadata).
@@ -57,8 +119,8 @@ AEMET, KNMI, MET Norway Frost and the Met Office (CEDA) need a key or an account
 
 `CredentialMissingError` says the setting to change. `CredentialRejectedError` says the provider answered 401 or 403
 to the one you gave: it has expired (the Met Office token lives three days), was mistyped, or was revoked. Whether a
-network accepts the credentials the process holds is one call: `wetterdienst about auth --provider=aemet
---network=observation`, `GET /api/auth`, the MCP tool `auth`, or `Wetterdienst.is_valid(...)`; `coverage` says only
+network accepts the credentials the process holds is one call: `wetterdienst auth --provider=aemet
+--network=observation`, `GET /api/auth`, the MCP tool `auth`, or `Wetterdienst.is_valid(...)`; `providers` says only
 whether they are `configured`. `valid` is `null` where the provider could not be asked in time: treat it as unknown.
 
 Against the REST API or the MCP server the credentials are the server's, not yours: a 501 `credential-missing` or
@@ -92,7 +154,7 @@ request cannot take the server down; the answer names the limit and its value:
 | `limit` | Default | What to do |
 | --- | --- | --- |
 | `stations` | 100 stations of a `values` or `history` request | name fewer stations, a smaller `rank`, `distance` or bounding box, and ask again for the rest |
-| `rows` | 500,000 rows of an answer sent as one body | narrow the `timestamp` or the parameters, or use `format=ndjson` or `format=csv`, which stream |
+| `rows` | 500,000 rows of an answer sent as one body | narrow the `timestamp` or the parameters. Over REST, `values` and `stations` can also use `format=ndjson` or `format=csv`, which stream; `interpolate`, `summarize` and the MCP tools cannot, and take a shorter window or fewer parameters |
 | `stream_rows` | 10,000,000 rows of a streamed answer | narrow it, or run the library or the CLI, which have no limit |
 
 `GET /api/version` reports the limits of an instance (`limits`), and a client can size its request before it is
@@ -110,6 +172,10 @@ the answer, see [Concurrency](restapi.md#concurrency).
 - **`403 sql-disabled`**: the server does not enable the `sql` and `sql_values` filters (`WD_RESTAPI_SQL=true` does).
   In the library and the command line they work.
 - **`400 image-too-large`**: a chart longer than 8192 px on a side; lower `width`, `height` or `scale`.
+- **`ImageTimeoutError`, exit 1, `504 image-timeout`**: Chrome, which Kaleido starts for every image, did not finish
+  within 120 seconds and was closed with its processes. A retry usually works. If it keeps happening, start Chrome
+  by hand on that machine (a sandbox, a missing library or a full disk keep it from starting), and see
+  [Image size](restapi.md#image-size) for what the server does about a stuck one.
 - **Stale or odd results from the cache.** `wetterdienst cache` prints the cache directory; delete it, or set
   `WD_CACHE_DISABLE=true` to run without it. A cache directory that cannot be written (a Docker volume that root
   filled) does not fail a request: wetterdienst warns once and keeps a cache in a temporary directory, see

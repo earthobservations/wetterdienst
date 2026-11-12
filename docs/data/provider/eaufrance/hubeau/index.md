@@ -17,6 +17,28 @@ is required.
 A station's `end_timestamp` is the closing date the referential gives it, and null where it gives
 none. Only stations in service are listed, and none of them had a closing date on 2026-10-07.
 
+The referential writes the position of some stations wrongly: on 2026-10-28, 54 metropolitan
+stations with latitude and longitude swapped (Anor at latitude 4.10 and longitude 49.99, a point
+near Somalia) and the Blavet (`J543211003`) at 35.1 N, 0.84 E, in Algeria. A position that lies in
+none of metropolitan France, Guadeloupe and Martinique, Guyane, Reunion and Mayotte is swapped
+back when the swapped one lies in one of them, so that Anor is at 50.0 N, 4.1 E; no station
+overseas is moved. One that no swap puts right is listed with a null `latitude` and `longitude`,
+and the answer carries the warning `position-unplaced`, which names the station and the position
+the referential wrote as `raw:<latitude>,<longitude>`. It is there when the station is in the answer
+(selected by id, name or SQL, or the whole list) and when a search by place (a rank, a distance, a
+bounding box, an interpolation or a summary) had to leave it out, which every search by place of a
+resolution that lists the station does, whether or not the place is near where the source put it;
+a request for other stations, or for a resolution that does not list it, does not carry it. An
+answer for a window (`timestamp`), whether a stations listing, the values of stations or an
+interpolation or a summary, tells it for the whole list and for a search by place only if the
+station has a record in the window, as it would otherwise not be in the answer; a station named
+by id or SQL is told whatever the window does to it, and a name is matched among the stations with
+a record in the window like any other. In the Python library `all()` and the filters by id, SQL,
+rank, distance and bounding box tell it whatever the `start` and `end` of the request, as they cut
+nothing to them; a name is matched among the stations with a record in the window there too, and
+`interpolate` and `summarize` cut to it as the command line and REST do. The warning is also a log line there, once
+for the process.
+
 A site publishes no altitude for about a quarter of the stations, and a few publish 0 or a value
 no ground in France lies at (-999 m, or 12 km and more); their `elevation` is null. The altitude
 of the gauge's zero, the datum a stage is read from, is listed separately as `gauge_zero`, and the
@@ -39,6 +61,22 @@ measured and is listed under no resolution until it transmits again, which is th
 of the thousand-odd gauges the referential still marks as in service. And a station transmitting
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
 correctly by its interval even though its timestamps do not land on the wall-clock hour.
+
+## The source's own verdict (`source`)
+
+Every observation carries a `code_qualification_obs`, the plain flag of `quality_flags`. The
+[API documentation](https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs) (read 2026-11-02) words it as
+"Qualification de la donnée d'observation hydrométrique. 7 valeurs possibles : 0, 4, 8, 12, 16, 20, 30 (Neutre, Faible,
+Forte, Douteuse, Non qualifiée, Bonne, Estimée)" and points to the Sandre nomenclature 515, which words `12` as
+"Valeur douteuse". The check `source` reads `12` "Douteuse". Not read: `0` "Neutre", `4` "Faible" and `8` "Forte" (the
+Sandre's "Valeur inconnue" with its direction, no verdict on a measured value), `16` "Non qualifiée" (no control),
+`20` "Bonne" and `30` "Valeur estimée". The code is the only one that says a value is doubtful, and it is common: of the
+first 20,000 rows of the real time observations of 2026-11-02 (the last day, all stations) 17,830 were `16` and 2,170 `12`,
+so in `hard` mode a doubtful value of the rolling 30 days is null.
+
+With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
+`soft`, which keeps the value and writes `12,suspect:source`, so interpolation, summaries and climate stripes leave it
+out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ```{toctree}
 :hidden:

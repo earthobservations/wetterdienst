@@ -9,7 +9,7 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar, cast
 
 from pydantic import (
     BaseModel,
@@ -32,7 +32,7 @@ from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
 from wetterdienst.metadata.aliases import find_alias, use_alias
-from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.metadata.parameter_table import PARAMETERS, Aggregation
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
@@ -76,6 +76,33 @@ Continent = Literal["africa", "antarctica", "asia", "europe", "north_america", "
 #: how far a network reaches: `global` (stations on at least five continents), `national` (one country, with its
 #: territories) or `regional` (everything between: one or several countries or continents); see `Extent`
 ExtentScope = Literal["global", "national", "regional"]
+
+#: where a timestamp sits in the interval of its row: `instant` (when the value was observed), `start`, `end` or
+#: `middle` (the start, end or middle of the interval; for a date stamp, the interval begins or ends on that date).
+#: What the value is, a reading or an aggregate, is its `aggregation`. Not stated is None, never one of these, and a
+#: dataset whose parameters differ declares None and a value on each parameter (`ParameterModel.timestamp_position`).
+#: The page `docs/data/time_reference.md` keeps the evidence and `tests/test_docs.py` holds the two together (GH-3134).
+TimestampPosition = Literal["instant", "start", "end", "middle"]
+
+#: one line per member, written once: the docs build renders them into the table of `docs/data/parameters.md`
+#: (`docs/_ext/parameter_glossary.py`), and `tests/ui/test_aggregation_surfaces.py` holds the keys to
+#: `TimestampPosition`. The two read the dict; the descriptions of the fields in the answers are short and say the same
+TIMESTAMP_POSITION_DEFINITIONS: dict[TimestampPosition, str] = {
+    "instant": "The timestamp is when the value was observed.",
+    "start": (
+        "The timestamp is the start of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states. A stamp the library builds itself (the first day "
+        "of a month, a year or a reference year) is `start`."
+    ),
+    "end": (
+        "The timestamp is the end of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
+    ),
+    "middle": (
+        "The timestamp is the middle of the row's interval. What the value is is its `aggregation`; when a single "
+        "reading in the interval was taken, its description states."
+    ),
+}
 
 #: the box of the Earth, `[west, south, east, north]`, which the bbox of a global network is
 WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
@@ -142,13 +169,44 @@ class ExtentDict(TypedDict):
 
 @with_config(ConfigDict(extra="forbid"))
 class CoverageParameter(TypedDict):
-    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+    """A parameter of a dataset, with the unit its values come back in and, where it differs, the provider's.
+
+    `unit` is the unit of the values for a caller who passes no options: the target of the `unit_type`, the one
+    `glossary` gives (`degree_celsius` for a temperature, `percent` for a percentage), under the
+    environment's `unit_targets` and `convert_units`. A `unit_targets` a caller passes to `values` is not
+    followed: `coverage` takes no options. `unit_source` is the unit the provider publishes the parameter in
+    (`degree_kelvin`, `one_eighth`), which the values come in with `convert_units` off. Absent: the same as `unit`.
+    """
 
     name: str
     name_original: str
     unit_type: UnitType
     unit: str
+    unit_source: NotRequired[
+        Annotated[
+            str,
+            Field(
+                description="The unit the provider publishes the parameter in, which the values come in with "
+                "`convert_units` off. Absent: the same as `unit`.",
+            ),
+        ]
+    ]
     description: str | None
+    aggregation: Annotated[
+        Aggregation | None,
+        Field(
+            description="What the value is relative to its interval: the name's, else the provider's declaration "
+            "where the source states it (`mean`, `max`, `sum`, ...; `instant` is a single reading). Null: not "
+            "stated, which is not a reading.",
+        ),
+    ]
+    timestamp_position: Annotated[
+        TimestampPosition | None,
+        Field(
+            description="Where the timestamp sits in the row's interval: `instant` (when the value was observed), "
+            "`start`, `end` or `middle` of it. Null: not stated.",
+        ),
+    ]
     # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
     lead_times: NotRequired[list[Literal["short", "long"]]]
 
@@ -356,8 +414,9 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
 
 
 def is_quality_flag(parameter: ParameterModel) -> bool:
-    """Say whether a parameter is a quality flag of the source: `quality` or a `quality_*` of the canonical table."""
-    return parameter.name.startswith("quality")
+    """Say whether a parameter is a quality flag of the source, which the canonical table marks (`quality_flag`)."""
+    canonical = PARAMETERS.get(parameter.name)
+    return canonical is not None and canonical.quality_flag
 
 
 class ParameterModel(BaseModel):  # noqa: PLW1641
@@ -375,6 +434,16 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
     name_original: str
     unit: str
     description: str | None = None
+    #: where this parameter's stamp sits in the row's interval, for a dataset whose parameters differ; None
+    #: for a parameter that has the position of its dataset (see `effective_timestamp_position`)
+    timestamp_position: TimestampPosition | None = None
+    #: what this value is relative to its interval, declared only where the canonical name states none (a plain name:
+    #: `temperature_air_2m`) and the source says it: `instant` is a single reading, not a statistic over a window (a
+    #: mean over at most 5 minutes counts as one, GH-2660). The description of the row says when it was taken, and the
+    #: `timestamp_position`, where it is `instant`, that it is at the stamp. None for a name the table decides (a
+    #: provider cannot override `_mean`), and for a source that states nothing; read it through `effective_aggregation`.
+    #: `tests/metadata/test_aggregation_declared.py` holds both (GH-3134)
+    aggregation: Aggregation | None = None
     # the back-reference its dataset sets once it holds this parameter, so it is None until then; typing
     # it optional would put a None check in front of every read of `parameter.dataset`
     dataset: SkipValidation[DatasetModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
@@ -399,6 +468,27 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
             msg = f"'{self.name}' is not a canonical parameter name"
             raise KeyError(msg) from None
 
+    @property
+    def effective_timestamp_position(self) -> TimestampPosition | None:
+        """Where the stamp of this parameter sits in its interval: its own declaration, else its dataset's.
+
+        A dataset has a position only where its page row states it for every parameter, so a parameter under a dataset
+        value always has that position or its own override, and None means not stated. A dataset with a parameter the
+        row does not cover is mixed and declares None (`tests/test_docs.py`), so there is no way, and no need, to
+        say "not stated" under a value.
+        """
+        return self.timestamp_position or self.dataset.timestamp_position
+
+    @property
+    def effective_aggregation(self) -> Aggregation | None:
+        """What the value is relative to its interval: the canonical value of its name, else its own declaration.
+
+        A name the table decides (`_mean`, `_max`, `count_`, ...) always has the canonical value, since a declaration on
+        such a name is refused by the tests; a plain name has the provider's declaration where the source states a
+        statistic or a reading, and None where it states nothing ("not stated", not "a reading").
+        """
+        return PARAMETERS[self.name].aggregation or self.aggregation
+
     def __eq__(self, other: object) -> bool:
         """Compare two parameters."""
         if not isinstance(other, ParameterModel):
@@ -409,6 +499,8 @@ class ParameterModel(BaseModel):  # noqa: PLW1641
             # unit_type is derived from name, so comparing it would be redundant
             and self.unit == other.unit
             and self.description == other.description
+            and self.timestamp_position == other.timestamp_position
+            and self.aggregation == other.aggregation
             # don't compare the dataset object itself because it'd be circular
             and self.dataset.name == other.dataset.name
             and self.dataset.resolution.name == other.dataset.resolution.name
@@ -527,6 +619,9 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     description: str | None = None
     date_required: bool
     parameters: list[ParameterModel]
+    #: where the stamp of every parameter sits in the row's interval, null where that is not stated or the
+    #: parameters differ (they then declare it themselves); declared here once, held to `docs/data/time_reference.md`
+    timestamp_position: TimestampPosition | None = None
     #: where the stations of the dataset are where that is less than the network's (`dwd/dmo` is global, its `icon_eu`
     #: dataset is Europe): null for a dataset that has the extent of its network (GH-3456)
     extent: Extent | SkipJsonSchema[None] = None
@@ -549,6 +644,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             and self.grouped == other.grouped
             and self.periods == other.periods
             and self.description == other.description
+            and self.timestamp_position == other.timestamp_position
             and self.parameters == other.parameters
             # don't compare the resolution object itself because it'd be circular
             and self.resolution.name == other.resolution.name
@@ -744,7 +840,7 @@ OGL_UK_3_0 = LicenseModel(
 ETALAB_2_0 = LicenseModel(
     spdx_id="etalab-2.0",
     name="Etalab Open License 2.0",
-    url="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
+    url="https://www.data.gouv.fr/pages/legal/licences/etalab-2-0",
 )
 
 
@@ -1034,6 +1130,21 @@ class ParameterSearch:
         parameter = parts[2] if len(parts) == 3 else None
         return ParameterSearch(parts[0], parts[1], parameter)
 
+    def matches(self, parameter: ParameterModel) -> bool:
+        """Tell whether a parameter is the one this search names, by any of the names each part is addressed by.
+
+        The same names a request finds a parameter by (`search_parameter`): the canonical and the source's own, in any
+        casing, and the name of the `Resolution` member for a resolution. A search that names no parameter (a whole
+        dataset) matches none.
+        """
+        dataset = parameter.dataset
+        return (
+            self.parameter is not None
+            and self.resolution in _names(dataset.resolution)
+            and self.dataset in _names(dataset)
+            and self.parameter in _names(parameter)
+        )
+
     def concat(self) -> str:
         """Concatenate resolution, dataset and parameter with '/'."""
         return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))
@@ -1108,6 +1219,56 @@ def parse_parameters(
     for problem in problems:
         log.warning(problem)
     return parameters_found
+
+
+def requested_by_kind(
+    parameters: _PARAMETER_TYPE, metadata: MetadataModel
+) -> tuple[frozenset[tuple[str, str]], frozenset[tuple[str, str, str]]]:
+    """Tell which of what was asked for was a whole dataset and which a parameter by its name.
+
+    A request for ``hourly/large`` is read as every parameter of the dataset, which ``parse_parameters`` returns as
+    such: the flat list has lost that the caller named none of them. This keeps it, for what an answer says of a
+    parameter nobody named (``parameter-without-rows``). Returns the ``(resolution, dataset)`` of each entry that was a
+    dataset and the ``(resolution, dataset, name_original)`` of each that was a parameter, which one of a dataset also
+    asked for whole stays. An entry that does not resolve is left out: ``parse_parameters`` has said what is wrong with
+    it.
+    """
+    whole: set[tuple[str, str]] = set()
+    named: set[tuple[str, str, str]] = set()
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        for parameter in found:
+            key = (parameter.dataset.resolution.name, parameter.dataset.name)
+            if search.parameter is None:
+                whole.add(key)
+            else:
+                named.add((*key, parameter.name_original))
+    return frozenset(whole), frozenset(named)
+
+
+def whole_datasets_kept(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[DatasetModel | ParameterModel]:
+    """Resolve what was asked for as `parse_parameters` does, but keep an entry that was a dataset as that dataset.
+
+    For a caller that hands the result to a request, which reads a ``DatasetModel`` as every parameter of the dataset
+    and so gives the same parameters, and knows from it that none of them was named (`requested_by_kind`).
+    """
+    kept: list[DatasetModel | ParameterModel] = []
+    for entry in _entries(parameters):
+        try:
+            search = ParameterSearch.parse(entry)
+            found = metadata.search_parameter(search)
+        except (ValueError, KeyError):
+            continue
+        if search.parameter is None:
+            if found:
+                kept.append(found[0].dataset)
+        else:
+            kept.extend(found)
+    return kept
 
 
 def group_parameters_by_dataset(

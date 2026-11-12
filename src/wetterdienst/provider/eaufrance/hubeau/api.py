@@ -8,7 +8,7 @@ import datetime as dt
 import json
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import TYPE_CHECKING, ClassVar
 from zoneinfo import ZoneInfo
@@ -27,6 +27,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file, fetchable_link
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -225,6 +226,17 @@ def _in_an_area(latitude: pl.Expr, longitude: pl.Expr) -> pl.Expr:
     )
 
 
+# the warnings already logged by this process, by their text: the answer of every request that concerns an unplaced
+# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_steps` does
+_reported_unplaced: set[str] = set()
+
+#: the code of the warning that names the stations whose position the referential writes in no area of France, also
+#: swapped, and which are listed without one (GH-3468)
+POSITION_UNPLACED = "position-unplaced"
+# how many stations that warning names; the others are counted
+_UNPLACED_LISTED = 10
+
+
 def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
     """Swap latitude and longitude of the stations the referential lists with the two the wrong way round.
 
@@ -232,11 +244,15 @@ def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
     round (54 of 4,200 on 2026-10-26, such as H000000201 at latitude 4.10 and longitude 49.99, a point near Somalia),
     and a swapped pair is a valid position, so it is told by where it lies: a position is swapped when it is in none of
     ``_AREAS`` and swapped is in one. A position in an area is never touched, so no station overseas is, and one that
-    is in none either way is left as it is (J543211003, the Blavet, is listed at latitude 35.1 and longitude 0.84, in
-    Algeria, which is no swap).
+    is in none either way is left as it is for `_null_unplaced_positions` (J543211003, the Blavet, is listed at
+    latitude 35.1 and longitude 0.84, in Algeria, which is no swap).
+
+    A station frame has no column for a note on a row (`quality_flags` belongs to a reading), so what the source wrote
+    is kept in the debug line that names the stations swapped, as `raw:<latitude>,<longitude>` after the id, as the
+    GHCN table of the lost longitude sign keeps the position its list gave.
 
     Args:
-        df: stations with ``latitude`` and ``longitude`` columns
+        df: stations with ``station_id``, ``latitude`` and ``longitude`` columns
 
     Returns:
         the stations with the pair swapped where the rule says so, in the same order
@@ -247,14 +263,103 @@ def _swap_misplaced_positions(df: pl.DataFrame) -> pl.DataFrame:
         latitude.is_not_null() & longitude.is_not_null() & ~_in_an_area(latitude, longitude)
         & _in_an_area(longitude, latitude)
     )  # fmt: skip
-    count = df.select(swap.sum()).item()
-    if not count:
+    swapped = df.filter(swap)
+    if swapped.is_empty():
         return df
-    log.debug(f"Hubeau: swapped latitude and longitude of {count} stations whose position is in no area of France")
+    # the ids only: the referential wrote each pair the other way round from the one returned
+    swapped_ids = ", ".join(swapped.get_column("station_id").to_list())
+    log.debug(
+        f"Hubeau: swapped latitude and longitude of {swapped.height} stations whose position is in no area of "
+        f"France: {swapped_ids}"
+    )
     return df.with_columns(
         pl.when(swap).then(longitude).otherwise(latitude).alias("latitude"),
         pl.when(swap).then(latitude).otherwise(longitude).alias("longitude"),
     )
+
+
+def _null_unplaced_positions(df: pl.DataFrame) -> tuple[pl.DataFrame, dict[str, str]]:
+    """Give no position to the stations whose position is in no area of France, swapped or not (GH-3468).
+
+    A position that is in none of ``_AREAS`` once `_swap_misplaced_positions` has run is the source's error and no
+    swap puts it right: J543211003, the Blavet in Morbihan, is listed in Algeria and swapped it is in Kenya. The
+    station stays in the list with a null latitude and longitude, so that no search by place picks it. What the
+    referential wrote is kept for `HubeauRequest._warn_unplaced`, which tells it where it concerns an answer. A
+    station that has no position to begin with is not one of these.
+
+    Args:
+        df: stations with ``station_id``, ``latitude`` and ``longitude`` columns
+
+    Returns:
+        the stations, the unplaced with a null ``latitude`` and ``longitude``, in the same order; and for each
+        unplaced station its id and what the referential wrote, as ``raw:<latitude>,<longitude>``
+
+    """
+    latitude, longitude = pl.col("latitude"), pl.col("longitude")
+    unplaced = latitude.is_not_null() & longitude.is_not_null() & ~_in_an_area(latitude, longitude)
+    rows = df.filter(unplaced)
+    if rows.is_empty():
+        return df, {}
+    written = {row["station_id"]: f"raw:{row['latitude']},{row['longitude']}" for row in rows.iter_rows(named=True)}
+    return (
+        df.with_columns(
+            pl.when(unplaced).then(None).otherwise(latitude).alias("latitude"),
+            pl.when(unplaced).then(None).otherwise(longitude).alias("longitude"),
+        ),
+        written,
+    )
+
+
+def _unplaced_message(written: dict[str, str]) -> str:
+    """Say which stations are listed without a position, and what the referential wrote for them."""
+    count = len(written)
+    one = count == 1
+    named = ", ".join(f"{station_id} {text}" for station_id, text in list(written.items())[:_UNPLACED_LISTED])
+    more = f" and {count - _UNPLACED_LISTED} more" if count > _UNPLACED_LISTED else ""
+    return (
+        f"Hub'Eau lists {'a station' if one else f'{count} stations'} at a position in none of metropolitan "
+        f"France, Guadeloupe, Martinique, Guyane, Reunion and Mayotte, also with latitude and longitude swapped: "
+        f"{'its' if one else 'their'} latitude and longitude are null, so no search by place finds "
+        f"{'it' if one else 'them'}. The referential wrote {named}{more}."
+    )
+
+
+def _referential_stations(rows: list[dict]) -> tuple[pl.DataFrame, dict[str, str]]:
+    """Make the frame of the referential's stations, with a position the source got wrong put right or taken away.
+
+    Returns:
+        the stations under the names of the stations frame, one row for each station of the referential (the
+        resolution a station transmits at is not in it), with `_swap_misplaced_positions` and then
+        `_null_unplaced_positions` applied; and what that wrote of the stations it left without a position
+
+    """
+    df = pl.from_dicts(
+        rows,
+        schema={
+            "code_station": pl.String,
+            "code_site": pl.String,
+            "libelle_station": pl.String,
+            "longitude_station": pl.Float64,
+            "latitude_station": pl.Float64,
+            "altitude_ref_alti_station": pl.Float64,
+            "code_systeme_alti_site": pl.Int64,
+            "libelle_departement": pl.String,
+            "date_ouverture_station": pl.String,
+            "date_fermeture_station": pl.String,
+        },
+    ).rename(
+        mapping={
+            "code_station": "station_id",
+            "libelle_station": "name",
+            "longitude_station": "longitude",
+            "latitude_station": "latitude",
+            "altitude_ref_alti_station": "gauge_zero",
+            "libelle_departement": "region",
+            "date_ouverture_station": "start_timestamp",
+            "date_fermeture_station": "end_timestamp",
+        },
+    )
+    return _null_unplaced_positions(_swap_misplaced_positions(df))
 
 
 def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int) -> list[dict]:
@@ -381,6 +486,7 @@ _HubeauMetadataSpec = {
                     "name": DATASET_NAME_DEFAULT,
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": False,
+                    "timestamp_position": "instant",
                     "parameters": _PARAMETERS,
                 },
             ],
@@ -389,6 +495,28 @@ _HubeauMetadataSpec = {
     ],
 }
 HubeauMetadata = build_metadata_model(_HubeauMetadataSpec, "HubeauMetadata")
+
+
+#: the length in minutes of the steps the end of the window is rounded down to, the expiry of the answers: the URLs
+#: of the pages are the same for as long as they are cached, so a repeated request within it is served from the cache
+#: (GH-3929)
+_WINDOW_MINUTES = CacheExpiry.FIVE_MINUTES.value // 60
+
+
+def _now() -> dt.datetime:
+    """Give the time the window is taken from (a seam for a test, which pins it)."""
+    return dt.datetime.now(ZoneInfo("UTC"))
+
+
+def _window_end(now: dt.datetime) -> dt.datetime:
+    """Give the end of the window of the last 30 days: ``now`` in UTC, rounded down to the start of its five minutes.
+
+    Five minutes and not one: the answers are cached for five minutes, and a URL that changes every minute would miss
+    the cache four times of five. It costs the window the last minutes the station may have reported, which a cache of
+    five minutes would have hidden for as long. The result carries no time zone, as the API's parameters have none.
+    """
+    utc = now.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    return utc.replace(minute=utc.minute - utc.minute % _WINDOW_MINUTES, second=0, microsecond=0)
 
 
 class HubeauValues(TimeseriesValues[ParameterModel]):
@@ -409,8 +537,11 @@ class HubeauValues(TimeseriesValues[ParameterModel]):
         measures stage, and a station whose discharge arrives more often would hold more. The
         chunks are therefore sized to a page and the pages are followed, so an underestimate costs
         another request rather than the records past the first page.
+
+        The window ends at the start of the current five minutes (`_window_end`), so that the URLs of the pages do
+        not change within the five minutes the answers are cached for (GH-3929).
         """
-        end = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+        end = _window_end(_now())
         start = end - dt.timedelta(days=30)
         delta = end - start
         data_delta = dt.timedelta(minutes=_RESOLUTION_TO_STEP[parameter.dataset.resolution.name])
@@ -470,6 +601,11 @@ class HubeauRequest(TimeseriesRequest):
 
     _endpoint = _STATIONS_ENDPOINT
 
+    # the stations the last `_all` left without a position, with what the referential wrote of it (`_warn_unplaced`).
+    # `_all` fills it in place, so the shallow copy of the request that `interpolate` and `summarize` read their values
+    # through shares it, whether the copy is made before or after `_all` runs
+    _unplaced_positions: dict[str, str] = field(default_factory=dict, init=False, repr=False, compare=False)
+
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
     # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
@@ -480,6 +616,28 @@ class HubeauRequest(TimeseriesRequest):
         "gauge_zero",
         "gauge_zero_datum",
     )
+
+    def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
+        """Tell, once for the answer, which of the stations are listed without a position (GH-3468).
+
+        The core asks where the warning concerns the answer: for the stations it holds, or for every station when a
+        search by place had to leave them out. For the whole list and a search by place, an answer cut to the window
+        of the request tells only the stations that survive the cut; one named by id or SQL is told whatever the
+        window does to it. The warning is recorded for the answer of every request it concerns and logged once by the
+        process, as the next ones would repeat it.
+        """
+        if not self._unplaced_positions:
+            return
+        if not named:
+            df = self._within_answer_window(df)
+        wanted = set(df.get_column("station_id"))
+        written = {station_id: text for station_id, text in self._unplaced_positions.items() if station_id in wanted}
+        if not written:
+            return
+        message = _unplaced_message(written)
+        first = message not in _reported_unplaced
+        _reported_unplaced.add(message)
+        warn_response(log, POSITION_UNPLACED, message, level=logging.WARNING if first else logging.DEBUG)
 
     def _observation_dates(self, url: str) -> pl.DataFrame:
         """Read the timestamps one observations query carries.
@@ -610,34 +768,9 @@ class HubeauRequest(TimeseriesRequest):
         rows = _paged_rows(self._endpoint, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
         if not rows:
             return pl.LazyFrame()
-        df_raw = pl.from_dicts(
-            rows,
-            schema={
-                "code_station": pl.String,
-                "code_site": pl.String,
-                "libelle_station": pl.String,
-                "longitude_station": pl.Float64,
-                "latitude_station": pl.Float64,
-                "altitude_ref_alti_station": pl.Float64,
-                "code_systeme_alti_site": pl.Int64,
-                "libelle_departement": pl.String,
-                "date_ouverture_station": pl.String,
-                "date_fermeture_station": pl.String,
-            },
-        )
-        df_raw = df_raw.rename(
-            mapping={
-                "code_station": "station_id",
-                "libelle_station": "name",
-                "longitude_station": "longitude",
-                "latitude_station": "latitude",
-                "altitude_ref_alti_station": "gauge_zero",
-                "libelle_departement": "region",
-                "date_ouverture_station": "start_timestamp",
-                "date_fermeture_station": "end_timestamp",
-            },
-        )
-        df_raw = _swap_misplaced_positions(df_raw)
+        df_raw, unplaced = _referential_stations(rows)
+        self._unplaced_positions.clear()
+        self._unplaced_positions.update(unplaced)
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
             .replace_strict(_SYSTEME_ALTI_LABELS, default=pl.col("code_systeme_alti_site").cast(pl.String))
@@ -652,8 +785,8 @@ class HubeauRequest(TimeseriesRequest):
         # listed under no resolution: naming an interval for it would be a guess, and the join
         # below drops it. It returns to the list as soon as it transmits again.
         steps = self._station_steps(df_raw.get_column("station_id").to_list())
-        df = df_raw.join(steps, on="station_id", how="inner")
-        df = df.join(self._site_elevations(), on="code_site", how="left")
+        df = df_raw.join(steps, on="station_id", how="inner", maintain_order="left")
+        df = df.join(self._site_elevations(), on="code_site", how="left", maintain_order="left")
         df = df.with_columns(
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),

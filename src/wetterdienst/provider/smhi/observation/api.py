@@ -22,7 +22,8 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
 from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
-from wetterdienst.util.network import as_outage, download_file, download_files
+from wetterdienst.util.network import as_outage, download_file, download_files, skip_cause_of_failure
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -71,6 +72,14 @@ _CLOUD_COVER_PARAMETER = "16"
 
 #: the expiry the series are downloaded with: the data is rolling, so it is short
 _SERIES_TTL = CacheExpiry.FIVE_MINUTES
+#: the expiry of the `corrected-archive`, the quality-controlled series up to a few months ago: final by name, so a
+#: week (GH-3929); `latest-months` is still under quality control and stays at `_SERIES_TTL`
+_CORRECTED_ARCHIVE_TTL = CacheExpiry.ONE_WEEK
+
+
+def _series_ttl(period: str) -> CacheExpiry:
+    """Give the expiry the series of one period is downloaded with."""
+    return _CORRECTED_ARCHIVE_TTL if period == "corrected-archive" else _SERIES_TTL
 
 
 def _series_names(name_original: str) -> tuple[str, ...]:
@@ -122,6 +131,7 @@ class SmhiObservationValues(TimeseriesValues):
         has its speed fetched for nothing, as the collection does not go on to it.
         """
         urls: dict[str, None] = {}
+        ttls: dict[str, CacheExpiry] = {}
         for dataset, parameters in group_parameters_by_dataset(
             cast("Iterable[ParameterModel]", self.sr.request.parameters)
         ):
@@ -129,8 +139,10 @@ class SmhiObservationValues(TimeseriesValues):
                 continue
             for parameter in parameters:
                 for name in _series_names(parameter.name_original):
-                    urls.update(dict.fromkeys(_series_urls(station_id, name, dataset.resolution.value).values()))
-        return FilesAhead(urls=list(urls), ttl=_SERIES_TTL)
+                    for period, url in _series_urls(station_id, name, dataset.resolution.value).items():
+                        urls[url] = None
+                        ttls[url] = _series_ttl(period)
+        return FilesAhead(urls=list(urls), ttl=_SERIES_TTL, ttls=ttls)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -190,7 +202,7 @@ class SmhiObservationValues(TimeseriesValues):
         """Read the series of one parameter of a station, of every period, one row per timestamp as SMHI writes it."""
         frames = []
         for period, url in _series_urls(station_id, name_original, resolution).items():
-            payload = _fetch(url, settings)
+            payload = _fetch(url, settings, _series_ttl(period))
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
                 # parameter -- routine, since not every SMHI station measures everything. A failed
@@ -203,6 +215,7 @@ class SmhiObservationValues(TimeseriesValues):
                 if isinstance(failure, (NoInternetError, DownloadError)):
                     raise failure
                 if not isinstance(payload, FileNotFoundError):
+                    note_skipped_download(skip_cause_of_failure(payload))
                     log.warning(
                         f"Failed to fetch SMHI parameter {name_original} for station {station_id}: {payload}",
                     )
@@ -212,6 +225,7 @@ class SmhiObservationValues(TimeseriesValues):
             except Exception as exc:  # noqa: BLE001
                 # a single malformed CSV block shouldn't abort the whole (multi-station,
                 # multi-parameter) query -- skip it and keep going.
+                note_skipped_download(SkipCause.UNPARSEABLE)
                 log.warning(
                     f"Failed to parse SMHI CSV for parameter {name_original} "
                     f"station {station_id} period {period}: {exc}",
@@ -297,7 +311,7 @@ class SmhiObservationRequest(TimeseriesRequest):
             # the lists of two parameters may type a column differently (a whole-number height as integer), which
             # the core makes the declared type of once
             pl.concat(frames, how="vertical_relaxed")
-            .group_by("station_id")
+            .group_by("station_id", maintain_order=True)
             .agg(
                 pl.col("resolution").first(),
                 pl.col("dataset").first(),

@@ -228,8 +228,8 @@ def test_lhmt_observation_values() -> None:
     assert value_at("wind_speed", 12) == pytest.approx(4.7)
     assert value_at("wind_direction", 12) == pytest.approx(261.0)
     assert value_at("pressure_air_sea_level", 12) == pytest.approx(1007.4)
-    # humidity is converted from percent to the default decimal target (52 % -> 0.52)
-    assert value_at("humidity_relative", 12) == pytest.approx(0.52)
+    # humidity is in percent, the default target, as the source writes it
+    assert value_at("humidity_relative", 12) == pytest.approx(52.0)
 
 
 _STATIONS_JSON = (
@@ -367,9 +367,12 @@ def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.Mon
 
 
 def _hourly_day_json(day: dt.date) -> bytes:
-    """Build the 24 hourly observations of one UTC day, each reading the hour it is stamped with."""
+    """Build the 24 hourly observations of one UTC day, each reading a quarter degree for every hour it is stamped with.
+
+    The series falls back to 0.0 at midnight by 5.75 K, which is no jump of the check `step`; 23.0 to 0.0 was one.
+    """
     observations = ", ".join(
-        f'{{"observationTimeUtc": "{day.isoformat()} {hour:02d}:00:00", "airTemperature": {hour}.0}}'
+        f'{{"observationTimeUtc": "{day.isoformat()} {hour:02d}:00:00", "airTemperature": {hour / 4}}}'
         for hour in range(24)
     )
     return f'{{"station": {{"code": "vilniaus-ams"}}, "observations": [{observations}]}}'.encode()

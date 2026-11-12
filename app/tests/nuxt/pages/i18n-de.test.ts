@@ -11,6 +11,7 @@ import SettingsPage from '~/pages/settings.vue'
 import StripesPage from '~/pages/stripes.vue'
 import SupportPage from '~/pages/support.vue'
 import WidgetPage from '~/pages/widget.vue'
+import { networksAnswer } from '../fixtures/providers'
 
 // German is the app's defaultLocale (nuxt.config.ts) and what most users see
 // without an explicit language preference -- every page must render it, not
@@ -61,13 +62,13 @@ describe('german (de) locale rendering', () => {
   })
 
   it('renders the explorer page in German', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
     const wrapper = await mountSuspended(ExplorerPage)
     expect(wrapper.text()).toContain('Stationen und Messdaten interaktiv erkunden')
   })
 
   it('renders the history page in German', async () => {
-    registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} } }))
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
     const wrapper = await mountSuspended(HistoryPage)
     expect(wrapper.text()).toContain('Stationsverlauf')
     expect(wrapper.text()).toContain('Bitte zuerst Auflösung und Datensatz wählen')

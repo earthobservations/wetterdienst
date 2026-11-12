@@ -17,9 +17,11 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
 from wetterdienst.model.metadata import DatasetModel
-from wetterdienst.model.quality_flags import raw_column
+from wetterdienst.model.quality_flags import join_quality_flags, raw_column
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
-from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
+from wetterdienst.provider.dwd.observation.parser import (
+    parse_climate_observations_data,
+)
 from wetterdienst.util.network import File
 
 
@@ -210,6 +212,239 @@ def test_parse_dwd_data_encodes_true_local_time_offset() -> None:
     assert df.get_column("mess_datum_woz").to_list() == ["40", "70"]
 
 
+SOLAR_HEADER = "STATIONS_ID;MESS_DATUM;QN_592;ATMO_LBERG;FD_LBERG;FG_LBERG;SD_LBERG;ZENIT;MESS_DATUM_WOZ;eor\n"
+
+# Frankfurt/Main (01420), 2022-08-17, as DWD wrote it: the rows 1091 to 1107 of
+# produkt_st_stunde_20220508_20260930_01420.txt. The minute that ends the hour falls from :30 to :29 at 13:29, so that
+# 12:30 and 13:29 are both nearest to 13:00 (GH-3938)
+FRANKFURT_2022_08_17 = """\
+       1420;2022081709:30;    1;  144.0;   42.0;   43.0;   0;    47.70;2022081710:00;eor
+       1420;2022081710:30;    1;  142.0;  109.0;  111.0;   0;    41.02;2022081711:00;eor
+       1420;2022081711:30;    1;  144.0;   80.0;   87.0;   2;    37.19;2022081712:00;eor
+       1420;2022081712:30;    1;  139.0;  136.0;  218.0;  39;    37.21;2022081713:00;eor
+       1420;2022081713:29;    1;  142.0;  112.0;  182.0;  48;    41.06;2022081714:00;eor
+       1420;2022081714:29;    1;  141.0;  110.0;  209.0;  54;    47.75;2022081715:00;eor
+       1420;2022081715:29;    1;  136.0;   61.0;  180.0;  60;    56.17;2022081716:00;eor
+       1420;2022081716:29;    1;  136.0;   41.0;  140.0;  60;    65.47;2022081717:00;eor
+       1420;2022081717:29;    1;  142.0;   47.0;   72.0;  60;    75.09;2022081718:00;eor
+       1420;2022081718:29;    1;  140.0;   18.0;   24.0;  52;    84.61;2022081719:00;eor
+       1420;2022081719:29;    1;  139.0;    1.0;    1.0;   0;    93.66;2022081720:00;eor
+       1420;2022081720:29;    1;  138.0;    0.0;    0.0;   0;   101.86;2022081721:00;eor
+       1420;2022081721:29;    1;  133.0;    0.0;    0.0;   0;   108.73;2022081722:00;eor
+       1420;2022081722:29;    1;  136.0;    0.0;    0.0;   0;   113.76;2022081723:00;eor
+       1420;2022081723:29;    1;  137.0;    0.0;    0.0;   0;   116.45;2022081800:00;eor
+       1420;2022081801:29;    1;  140.0;    0.0;    0.0;   0;   113.80;2022081802:00;eor
+       1420;2022081802:29;    1;  140.0;    0.0;    0.0;   0;   108.79;2022081803:00;eor
+"""
+
+# Hamburg-Fuhlsbuettel (01975), 2005-03-11: the rows 1662 to 1682 of produkt_st_stunde_20050101_20260930_01975.txt. The
+# minute is :30 until 13:30 and :29 from 14:29, so that 13:30 and 14:29 are both nearest to 14:00. The minute crosses
+# :30 in the same way in January or March of every year of this file, 22 times, and DWD's Frankfurt file does it 7 times
+HAMBURG_2005_03_11 = """\
+       1975;2005031104:30;    1;  116.0;    0.0;    0.0;   0;   106.16;2005031105:00;eor
+       1975;2005031105:30;    1;  116.0;    0.0;    0.0;   0;    97.40;2005031106:00;eor
+       1975;2005031106:30;    1;  117.0;    0.0;    0.0;   0;    88.52;2005031107:00;eor
+       1975;2005031107:30;    1;  117.0;    2.0;    3.0;   0;    79.91;2005031108:00;eor
+       1975;2005031108:30;    1;  117.0;    8.0;    8.0;   0;    71.98;2005031109:00;eor
+       1975;2005031109:30;    1;  116.0;   14.0;   14.0;   0;    65.24;2005031110:00;eor
+       1975;2005031110:30;    1;  117.0;   17.0;   17.0;   0;    60.25;2005031111:00;eor
+       1975;2005031111:30;    1;  118.0;   14.0;   14.0;   0;    57.56;2005031112:00;eor
+       1975;2005031112:30;    1;  119.0;   16.0;   16.0;   0;    57.54;2005031113:00;eor
+       1975;2005031113:30;    1;  119.0;   21.0;   21.0;   0;    60.20;2005031114:00;eor
+       1975;2005031114:29;    1;  114.0;   45.0;   46.0;   4;    65.17;2005031115:00;eor
+       1975;2005031115:29;    1;   99.0;   50.0;   69.0;  28;    71.88;2005031116:00;eor
+       1975;2005031116:29;    1;  102.0;   34.0;   45.0;  23;    79.78;2005031117:00;eor
+       1975;2005031117:29;    1;  111.0;    8.0;    8.0;   0;    88.37;2005031118:00;eor
+       1975;2005031118:29;    1;  109.0;    0.0;    0.0;   0;    97.23;2005031119:00;eor
+       1975;2005031119:29;    1;  109.0;    0.0;    0.0;   0;   105.96;2005031120:00;eor
+       1975;2005031120:29;    1;  111.0;    0.0;    0.0;   0;   114.11;2005031121:00;eor
+       1975;2005031121:29;    1;  110.0;    0.0;    0.0;   0;   121.17;2005031122:00;eor
+       1975;2005031122:29;    1;  103.0;    0.0;    0.0;   0;   126.48;2005031123:00;eor
+       1975;2005031123:29;    1;   98.0;    0.0;    0.0;   0;   129.37;2005031200:00;eor
+       1975;2005031200:29;    1;  109.0;    0.0;    0.0;   0;   129.35;2005031201:00;eor
+"""
+
+
+def _parse_solar(rows: str, window: tuple[dt.datetime | None, dt.datetime | None] | None = None) -> pl.DataFrame:
+    """Parse the rows of a station's hourly solar file, as the library does, for the window of a request."""
+    file = File(
+        url="https://example.invalid/solar.zip", content=BytesIO((SOLAR_HEADER + rows).encode("utf8")), status=200
+    )
+    return parse_climate_observations_data(
+        files=[file], dataset=DwdObservationMetadata.hourly.solar, period=Period.HISTORICAL, window=window
+    ).collect()
+
+
+def _solar_rows(stamps: list[str], station: str = "1420") -> str:
+    """Write rows of the file for the raw stamps (`YYYYMMDDHH:MM`), the global radiation of each being its number.
+
+    MESS_DATUM_WOZ is the whole hour after the raw stamp, as in DWD's files.
+    """
+    lines = []
+    for number, stamp in enumerate(stamps, 1):
+        woz = dt.datetime.strptime(stamp, "%Y%m%d%H:%M").replace(minute=0) + dt.timedelta(hours=1)  # noqa: DTZ007
+        lines.append(
+            f"{station:>11};{stamp};    1;  100.0;    0.0;{number:>7}.0;   0;    50.00;{woz:%Y%m%d%H:%M};eor\n"
+        )
+    return "".join(lines)
+
+
+def _solar_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Give the warnings the hourly solar parse logged."""
+    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+
+
+def test_solar_hourly_keeps_the_row_nearer_the_hour_of_two_that_round_to_it(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 12:30 and 13:29 of Frankfurt, which both round to 13:00, leave the nearer row, and a warning (GH-3938).
+
+    13:29 (182 J/cm2) is 29 min from 13:00 and 12:30 (218 J/cm2) is 30 min from it. Before, one of the two was dropped
+    by the merge of the periods without a word, whichever it happened to keep. Every other row keeps the hour it was
+    stamped before.
+    """
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(FRANKFURT_2022_08_17)
+    assert df.height == 16
+    assert df.get_column("timestamp").is_unique().all()
+    assert df.get_column("timestamp").dt.hour().to_list() == [10, 11, 12, *range(13, 24), 1, 2]
+    served = dict(
+        zip(df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("timestamp").to_list(), strict=True)
+    )
+    assert 218.0 not in served
+    assert served[182.0] == dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))
+    (warning,) = _solar_warnings(caplog)
+    for text in (
+        "station 1420",
+        "2022081712:30",
+        "2022081713:29",
+        "2022-08-17 13:00 UTC",
+        "FG_LBERG=218.0",
+        "SD_LBERG=39",
+    ):
+        assert text in warning
+
+
+def test_solar_hourly_keeps_the_nearer_row_at_hamburg(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that 13:30 and 14:29 of Hamburg, which both round to 14:00, leave 14:29 and name 13:30 (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(HAMBURG_2005_03_11)
+    assert df.height == 20
+    assert df.get_column("timestamp").is_unique().all()
+    assert 21.0 not in df.get_column("fg_lberg").cast(pl.Float64).to_list()
+    (warning,) = _solar_warnings(caplog)
+    assert "2005031113:30" in warning
+    assert "FG_LBERG=21.0" in warning
+
+
+def test_solar_hourly_keeps_the_earlier_row_of_a_tie(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that of two rows as near the hour, the earlier raw end is kept and the warning says so (GH-3938).
+
+    12:40 and 13:20 are both 20 min from 13:00.
+    """
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:40", "2022081713:20"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0]
+    assert df.get_column("timestamp").to_list() == [dt.datetime(2022, 8, 17, 13, tzinfo=ZoneInfo("UTC"))]
+    (warning,) = _solar_warnings(caplog)
+    assert "MESS_DATUM 2022081713:20 -> 2022-08-17 13:00 UTC, as near as 2022081712:40 (20 min)" in warning
+    assert "which is earlier and is kept" in warning
+    assert "FG_LBERG=2.0" in warning
+
+
+def test_solar_hourly_counts_a_repeated_raw_stamp_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a raw stamp that a station lists twice is one source hour: one row, and no warning (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(["2022081712:22", "2022081712:22", "2022081713:22"]))
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [1.0, 3.0]
+    assert df.get_column("timestamp").dt.hour().to_list() == [12, 13]
+    assert _solar_warnings(caplog) == []
+
+
+def test_solar_hourly_rounds_rows_that_do_not_collide_to_the_nearest_hour(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that rows that no other row shares an hour with are rounded as they were, :30 up (GH-3938)."""
+    stamps = ["2022081700:22", "2022081701:41", "2022081702:30", "2022081705:59"]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(stamps))
+    assert df.get_column("timestamp").dt.hour().to_list() == [0, 2, 3, 6]
+    assert _solar_warnings(caplog) == []
+
+
+UTC = ZoneInfo("UTC")
+
+
+def _two_collisions_in_two_years() -> str:
+    """Give the rows of a station that has one collision in 2022 and one in 2023, 12:30 and 13:29 each time."""
+    return _solar_rows(["2022081712:30", "2022081713:29", "2023081712:30", "2023081713:29"])
+
+
+def test_solar_hourly_warns_only_for_the_collisions_in_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a collision in a year that the request does not ask for is no warning (GH-3938).
+
+    The file holds the station's whole record, so a request for 2023 would else repeat the warnings for the years
+    before. Both rows are served as for any window: the window decides what is said, not what is dropped.
+    """
+    with caplog.at_level(logging.DEBUG):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2023, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2023081712:30" in warning
+    assert "2022081712:30" not in warning
+    assert "1 source hour(s)" in warning
+    assert any("2022081712:30" in record.getMessage() and record.levelno == logging.DEBUG for record in caplog.records)
+
+
+def test_solar_hourly_names_the_collisions_of_a_window_in_one_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two collisions in the window give one warning for the station that names both (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(
+            _two_collisions_in_two_years(), (dt.datetime(2022, 1, 1, tzinfo=UTC), dt.datetime(2023, 12, 31, tzinfo=UTC))
+        )
+    assert df.height == 2
+    (warning,) = _solar_warnings(caplog)
+    assert "2 source hour(s)" in warning
+    assert "2022081712:30" in warning
+    assert "2023081712:30" in warning
+
+
+def test_solar_hourly_says_nothing_of_collisions_outside_the_window(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a window that holds no collision hour gives no warning at all (GH-3938)."""
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_two_collisions_in_two_years(), (dt.datetime(2024, 1, 1, tzinfo=UTC), None))
+    assert df.height == 2
+    assert _solar_warnings(caplog) == []
+
+
+def test_solar_hourly_keeps_the_true_local_time_of_the_kept_row() -> None:
+    """Test that `true_local_time_offset` is the minutes from the kept row's raw stamp to MESS_DATUM_WOZ (GH-3938).
+
+    13:29 to 14:00 WOZ is 31 min, 60 minus the raw minute; the dropped 12:30 row's 30 is not served.
+    """
+    df = _parse_solar(FRANKFURT_2022_08_17)
+    offsets = dict(
+        zip(
+            df.get_column("fg_lberg").cast(pl.Float64).to_list(), df.get_column("mess_datum_woz").to_list(), strict=True
+        )
+    )
+    assert offsets[182.0] == "31"
+    assert df.get_column("mess_datum_woz").cast(pl.Int64).to_list() == [30] * 3 + [31] * 13
+
+
+def test_solar_hourly_decides_the_hours_of_each_station_apart(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that two stations in one file do not take each other's hours, and each is named in its own warning."""
+    stamps = ["2022081712:30", "2022081713:29"]
+    with caplog.at_level(logging.WARNING):
+        df = _parse_solar(_solar_rows(stamps, "1420") + _solar_rows(stamps, "1975"))
+    assert df.height == 2
+    assert sorted(df.get_column("station_id").to_list()) == ["1420", "1975"]
+    assert df.get_column("fg_lberg").cast(pl.Float64).to_list() == [2.0, 2.0]
+    warnings = _solar_warnings(caplog)
+    assert len(warnings) == 2
+    assert {"1420", "1975"} == {
+        station for station in ("1420", "1975") if any(f"station {station}" in w for w in warnings)
+    }
+
+
 def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptureFixture) -> None:
     """Test that a true local time that no longer parses is reported rather than quietly nulled.
 
@@ -233,12 +468,13 @@ def test_parse_dwd_data_reports_unknown_true_local_time(caplog: pytest.LogCaptur
 
 
 def test_parse_dwd_data_drops_obscured_sky_cloud_cover() -> None:
-    """Test that -1 in the hourly cloud cover fields becomes null, while cloud type keeps its -1.
+    """Test that -1 in the hourly cloud cover and cloud type fields becomes null.
 
     DWD writes -1 where the sky could not be seen at all, SYNOP's N = 9. It is a statement that no
     amount could be given, not an amount: left alone it is read as -1 eighths and converts to
-    -0.125 of the sky. `v_sN_cs` beside it is a cloud *type* code where -1 is DWD's own value for
-    an automated observation, so that one has to survive.
+    -0.125 of the sky. `v_sN_cs` beside it writes the same -1 for a cloud *type*, which no DWD
+    description names and which sits beside an obscured cover in 2,633 of 2,641 hours (GH-3772), so
+    that one is null too, with the text DWD wrote kept in `v_s1_cs__raw`.
     """
     payload = (
         "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;eor\n"
@@ -253,8 +489,40 @@ def test_parse_dwd_data_drops_obscured_sky_cloud_cover() -> None:
     ).collect()
     assert df.get_column("v_n").to_list() == [None, "7"]
     assert df.get_column("v_s1_ns").to_list() == [None, "4"]
-    # the cloud type code keeps it: -1 is what DWD writes for an automated observation
-    assert df.get_column("v_s1_cs").to_list() == ["-1", "6"]
+    assert df.get_column("v_s1_cs").to_list() == [None, "6"]
+    assert df.get_column("v_s1_cs__raw").to_list() == ["-1", None]
+
+
+def test_parse_dwd_data_nulls_the_cloud_type_minus_one_beside_a_layer_that_was_seen() -> None:
+    """Test that the cloud type -1 is null in every layer, also where the cover beside it is an amount (GH-3772).
+
+    The rows are 2003-03-23 09:00 of station 02014 (stundenwerte_CS_02014_19490101_20251231_hist.zip, read
+    2026-11-03), one of the 8 of 2,641 hours with a type of -1 beside a first layer that was seen, and the hour
+    before it. The -1 in the second layer of the later row is made up (the file has none there). The text DWD wrote
+    stays in `<column>__raw`; the letters `V_S1_CSA` beside the type are dropped.
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_8; V_N;V_N_I;V_S1_CS;V_S1_CSA;V_S1_HHS;V_S1_NS;V_S2_CS;V_S2_CSA;V_S2_HHS;V_S2_NS;"
+        "V_S3_CS;V_S3_CSA;V_S3_HHS;V_S3_NS;V_S4_CS;V_S4_CSA;V_S4_HHS;V_S4_NS;eor\n"
+        "       2014;2003032308;    1;   1;   P;   0;  CI;  7500;   1;-999;-999;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+        "       2014;2003032309;    1;   1;   P;  -1;  -1;  7500;   1;  -1;  -1;  -999;-999;"
+        "-999;-999;  -999;-999;-999;-999;  -999;-999;eor\n"
+    )
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.cloud_type,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("v_s1_cs").to_list() == ["0", None]
+    assert df.get_column("v_s1_cs__raw").to_list() == [None, "-1"]
+    # the second layer is held to it too
+    assert df.get_column("v_s2_cs").to_list() == [None, None]
+    assert df.get_column("v_s2_cs__raw").to_list() == ["-999", "-1"]
+    # the cover beside a seen layer is an amount and stays
+    assert df.get_column("v_s1_ns").to_list() == ["1", "1"]
+    assert "v_s1_csa" not in df.columns
 
 
 def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCaptureFixture) -> None:
@@ -282,12 +550,12 @@ def test_parse_dwd_data_reports_unknown_measurement_method(caplog: pytest.LogCap
 
 
 def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None:
-    """Test that -1 in `WW` becomes null, while the same -1 in the cloud type code `v_s1_cs` stays.
+    """Test that -1 in `WW` becomes null, for the dataset's own column only.
 
     Station 01869 writes -1 for every hour whose present weather was not reported and says so in
     `WW_Text` beside it (stundenwerte_WW_01869_akt.zip, 2025-04-09 00:00). It is no weather, so
-    it must not be counted, maxed or averaged as one. In `v_s1_cs` of the hourly cloud type, -1 is
-    DWD's own value for an automated observation.
+    it must not be counted, maxed or averaged as one. The rule is the dataset's: the `WW` of the
+    hourly cloud type file is not touched by it.
     """
     payload = (
         "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
@@ -316,7 +584,7 @@ def test_parse_dwd_hourly_weather_phenomena_nulls_weather_not_reported() -> None
         dataset=DwdObservationMetadata.hourly.cloud_type,
         period=Period.HISTORICAL,
     ).collect()
-    assert df.get_column("v_s1_cs").to_list() == ["-1"]
+    assert df.get_column("v_s1_cs").to_list() == [None]
     # the rule is the dataset's: the same column name elsewhere is not its business
     assert df.get_column("ww").to_list() == ["-1"]
 
@@ -325,7 +593,13 @@ MOISTURE_COLUMNS = ("absf_std", "vp_std", "tf_std", "rf_std", "td_std")
 MOISTURE_HEADER = "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
 
 
+def _written(df: pl.DataFrame, column: str) -> list[str | None]:
+    """Write the text the parser kept beside a column as `join_quality_flags` writes it into `quality_flags`."""
+    return df.select(join_quality_flags(raw=pl.col(raw_column(column)))).get_column("quality_flags").to_list()
+
+
 def _parse_moisture(rows: str, period: Period = Period.RECENT) -> pl.DataFrame:
+    """Parse a hourly moisture file: the parser decodes its codes and judges nothing."""
     file = File(url="", content=BytesIO((MOISTURE_HEADER + rows).encode("utf8")), status=200)
     return parse_climate_observations_data(
         files=[file],
@@ -372,9 +646,12 @@ def test_parse_dwd_hourly_moisture_historical_row_and_documented_sentinel() -> N
 
 def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     """Test that -99.9 is only a missing value in the five columns of this dataset, not a blanket rule."""
-    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -99.9;  95.0;  -1.2;eor\n")
-    assert df.get_column("p_std").to_list() == ["-99.9"]
+    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  995.9;  -99.9;  95.0;  -1.2;eor\n")
+    assert df.get_column("p_std").to_list() == ["995.9"]
     assert df.get_column("tt_std").to_list() == ["-99.9"]
+    # a -99.9 in `P_STD` is no missing value of this rule: the reader leaves it to the core, which judges it by range
+    df = _parse_moisture("14006;2025010501;    3;   3.2;   4.8;  -1.6;  -99.9;  -0.1;  95.0;  -1.2;eor\n")
+    assert df.get_column("p_std").to_list() == ["-99.9"]
     # the same column names under another dataset are not this dataset's rule
     other = File(
         url="",
@@ -407,49 +684,11 @@ def _moisture_file(rows: str) -> File:
 
 
 def _raw_pressure(df: pl.DataFrame) -> list[str | None]:
-    return df.get_column(raw_column("p_std")).to_list()
-
-
-def test_parse_dwd_hourly_moisture_nulls_a_pressure_that_is_one_value_in_the_file() -> None:
-    """Test that a P_STD that is one value in a file of 500 readings is null, the text it was written as kept.
-
-    stundenwerte_TF_14072_akt.zip (12844 rows) and 760 more of the 1314 files of DWD hold a single value, the
-    station's, in every row; DWD's sheet calls the column "Stundenwerte Luftdruck" and says nothing of it (GH-2699).
-    """
-    df = _parse_moisture(_moisture_rows(["997.3"] * 500, "14072"))
-    assert df.height == 500
-    assert df.get_column("p_std").null_count() == 500
-    assert _raw_pressure(df) == ["997.3"] * 500
-    # the columns beside it are readings
-    assert df.get_column("tt_std").null_count() == 0
-    assert df.get_column("rf_std").null_count() == 0
-
-
-def test_parse_dwd_hourly_moisture_pressure_constant_is_a_number_not_a_text() -> None:
-    """Test that 997.3 and 997.30 are one value, and that the text written is the one kept."""
-    df = _parse_moisture(_moisture_rows(["997.3"] * 250 + ["997.30"] * 250))
-    assert df.get_column("p_std").null_count() == 500
-    assert _raw_pressure(df) == ["997.3"] * 250 + ["997.30"] * 250
-
-
-def test_parse_dwd_hourly_moisture_nulls_a_constant_that_changed_once() -> None:
-    """Test that 953.1 and then 954.8 (station 00142, from 2026-10-13) is a constant of two values, each kept as text.
-
-    55 of the 1314 files of DWD hold two values, all of stations without a barometer list; the fewest values of any
-    file with a barometer, with 500 or more readings, is 47 (GH-3139).
-    """
-    stepped = ["953.1"] * 250 + ["954.8"] * 250
-    df = _parse_moisture(_moisture_rows(stepped, "142"))
-    assert df.get_column("p_std").null_count() == 500
-    assert _raw_pressure(df) == stepped
-    # three values are the limit, still a station's constant
-    three = ["977.1"] * 200 + ["977.6"] * 200 + ["977.9"] * 100
-    df = _parse_moisture(_moisture_rows(three))
-    assert df.get_column("p_std").null_count() == 500
-    assert _raw_pressure(df) == three
-    # a constant that went back and forth is the same values
-    flipped = ["977.1"] * 100 + ["977.6"] * 100 + ["977.1"] * 300
-    assert _parse_moisture(_moisture_rows(flipped)).get_column("p_std").null_count() == 500
+    """Give the text of the pressure the parser kept, without the `rejected:stuck` the stuck rule writes before it."""
+    return [
+        flags.removeprefix("rejected:stuck,").removeprefix("raw:") if flags is not None else None
+        for flags in _written(df, "p_std")
+    ]
 
 
 def test_parse_dwd_hourly_moisture_keeps_a_pressure_that_moves_or_is_short() -> None:
@@ -467,41 +706,6 @@ def test_parse_dwd_hourly_moisture_keeps_a_pressure_that_moves_or_is_short() -> 
         df = _parse_moisture(_moisture_rows(short))
         assert df.get_column("p_std").to_list() == short
         assert _raw_pressure(df) == [None] * 499
-
-
-def test_parse_dwd_hourly_moisture_pressure_constant_counts_readings_not_rows() -> None:
-    """Test that a missing -999 is no reading, no value, and keeps the text the sentinel rule wrote."""
-    rows = _moisture_rows(["997.3"] * 499 + ["-999"] * 10)
-    df = _parse_moisture(rows)
-    # 499 readings
-    assert df.get_column("p_std").to_list() == ["997.3"] * 499 + [None] * 10
-    assert _raw_pressure(df) == [None] * 499 + ["-999"] * 10
-    # 500 readings: the constant goes, the sentinel stays what it was
-    df = _parse_moisture(_moisture_rows(["997.3"] * 500 + ["-999"] * 10))
-    assert df.get_column("p_std").null_count() == 510
-    assert _raw_pressure(df) == ["997.3"] * 500 + ["-999"] * 10
-
-
-def test_parse_dwd_hourly_moisture_pressure_constant_is_judged_per_file() -> None:
-    """Test that the files put together are judged one by one: a constant file does not null a moving one."""
-    constant = _moisture_file(_moisture_rows(["997.3"] * 500))
-    moving = _moisture_file(_moisture_rows([f"{990 + hour % 100 / 10:.1f}" for hour in range(500)]))
-    df = parse_climate_observations_data(
-        files=[constant, moving],
-        dataset=DwdObservationMetadata.hourly.moisture,
-        period=Period.HISTORICAL,
-    ).collect()
-    assert df.get_column("p_std").null_count() == 500
-    assert df.get_column("p_std").head(500).null_count() == 500
-    assert df.get_column("p_std").tail(500).null_count() == 0
-    # and a value a moving file holds once is not made a constant by the other file's value
-    same = _moisture_file(_moisture_rows(["997.3"] * 100 + [f"{990 + hour % 100 / 10:.1f}" for hour in range(400)]))
-    df = parse_climate_observations_data(
-        files=[constant, same],
-        dataset=DwdObservationMetadata.hourly.moisture,
-        period=Period.HISTORICAL,
-    ).collect()
-    assert df.get_column("p_std").tail(500).null_count() == 0
 
 
 def test_parse_dwd_hourly_moisture_pressure_constant_rule_is_per_dataset() -> None:
@@ -883,3 +1087,8 @@ def test_parse_dwd_daily_precipitation_form_keeps_every_code_the_files_hold(
     codes = df.get_column(column).to_list()
     assert codes == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", None]
     assert {int(code) for code in codes if code is not None} == _documented_codes("daily.md", column)
+
+
+def _parse(dataset: DatasetModel, payload: str, period: Period = Period.RECENT) -> pl.DataFrame:
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    return parse_climate_observations_data(files=[file], dataset=dataset, period=period).collect()

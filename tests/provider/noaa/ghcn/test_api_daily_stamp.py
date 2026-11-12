@@ -129,12 +129,76 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
     assert "quality_flag" not in df.columns
     assert df.select("parameter", "quality_flags").rows() == [
         ("precipitation_amount", "source:0"),
-        ("precipitation_amount", "X,measurement:T,source:0"),
+        ("precipitation_amount", "X,measurement:T,source:0,suspect:source"),
         ("precipitation_amount", None),
         ("temperature_air_max_2m", "source:0"),
-        ("temperature_air_max_2m", "G,source:7"),
+        ("temperature_air_max_2m", "G,source:7,suspect:source"),
         ("temperature_air_max_2m", "measurement:H,source:S"),
     ]
+
+
+# The fourteen letters of QFLAG that the readme words as a failed check (`model/source_flags.py`), each on a day of a
+# station file as NOAA writes it. The values are the ones of the live file of USW00094728 (read 2026-11-02): the TMAX of
+# 1869-06-22 is 172 tenths with QFLAG `I`, and the file returns it, flagged, with the days that failed no check.
+_QFLAG_LETTERS = "DGIKLMNORSTWXZ"
+
+
+def _flagged_by_letter() -> bytes:
+    rows = ['"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","TMAX","TMAX_ATTRIBUTES"']
+    for day, letter in enumerate(_QFLAG_LETTERS, start=1):
+        rows.append(
+            f'"USW00094728","2000-01-{day:02d}","40.77898","-73.96925","42.7","NY CITY, NY US","  172",",{letter},Z"'
+        )
+    rows.append('"USW00094728","2000-01-15","40.77898","-73.96925","42.7","NY CITY, NY US","  100",",,0"')
+    return ("\n".join(rows) + "\n").encode("utf8")
+
+
+@pytest.mark.parametrize("mode", ["soft", "hard"])
+def test_ghcn_daily_every_letter_of_qflag_is_the_verdict_of_the_check_source(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Test that a value whose QFLAG is one of the fourteen letters of a failed check is judged (GH-3677).
+
+    "QFLAG1 is the quality flag for the first day of the month. There are fourteen possible values: Blank = did not
+    fail any quality assurance check, D = failed duplicate check, G = failed gap check, I = failed internal consistency
+    check, K = failed streak/frequent-value check, L = failed check on length of multiday period, M = failed
+    megaconsistency check, N = failed naught check, O = failed climatological outlier check, R = failed lagged range
+    check, S = failed spatial consistency check, T = failed temporal consistency check, W = temperature too warm for
+    snow, X = failed bounds check, Z = flagged as a result of an official Datzilla investigation"
+    (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt). The default, soft, keeps the value and writes
+    `suspect:source`; hard nulls it and keeps the number as `rejected:source,raw:17.2`, the tenths of a degree the file
+    writes (`  172`) as the reader hands them over, in degrees.
+    """
+    serve(
+        monkeypatch,
+        api,
+        {
+            "ghcnd-stations": _STATIONS.encode("utf8"),
+            "ghcnd-inventory": _INVENTORY.encode("utf8"),
+            "access/USW00094728": _flagged_by_letter(),
+        },
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "temperature_air_max_2m")],
+        start="2000-01-01",
+        end="2000-01-15",
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False, plausibility={"source": mode}),
+    ).filter_by_station_id("USW00094728")
+    df = request.values().all().df.sort("timestamp")
+    flags = df.get_column("quality_flags").to_list()
+    values = df.get_column("value").to_list()
+    assert len(flags) == len(_QFLAG_LETTERS) + 1
+    for letter, flag, value in zip(_QFLAG_LETTERS, flags, values, strict=False):
+        if mode == "soft":
+            assert flag == f"{letter},source:Z,suspect:source", letter
+            assert value == pytest.approx(17.2), letter
+        else:
+            assert flag == f"{letter},source:Z,rejected:source,raw:17.2", letter
+            assert value is None, letter
+    # the day that failed no check is as it was in both modes
+    assert flags[-1] == "source:0"
+    assert values[-1] == pytest.approx(10.0)
 
 
 def test_ghcn_daily_a_value_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:

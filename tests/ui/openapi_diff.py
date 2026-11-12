@@ -25,9 +25,19 @@ does, and when a parameter or a member of a request body takes **less** than it 
 - a `pattern` that was added or changed (which of two patterns is the tighter cannot be told);
 - an enum that dropped members, or one where there was none.
 
+A response may not become **more** than it was either: a client generated from the document handles each alternative
+of a union and no other, so a new alternative of a response (`array` that is now `array | null`, a member that may now
+be `null`) is a finding, where the same widening of what a request takes is an addition (GH-3869). A response that
+becomes **less** than it was is none: a typed client already handles the alternative that no longer comes (`number |
+null` that is now `number`; GH-3889). An enum that is now a free string is a finding, a type change for a typed client;
+a new enum member is not, except for the two enums that are closed (`CLOSED_RESPONSE_ENUMS`), and nor is a new
+alternative that is only a constant or enum of a type the response already had (`{"const": "c"}` beside a string
+enum), where one of another type (`{"const": null}`) is a new alternative (GH-3889). An enum that lost members is a
+break of a request and none of a response (GH-3889).
+
 Everything else is additive and passes: a new path, operation, optional parameter, member, status, enum member or
-media type, and a looser bound or no pattern. The by-convention rule of the compatibility policy is that a tighter
-default or bound is a break, and this is what holds it.
+media type, a new alternative of what a request takes, and a looser bound or no pattern. The by-convention rule of the
+compatibility policy is that a tighter default or bound is a break, and this is what holds it.
 
 Not compared: titles, descriptions, examples and formats, which describe more than they promise, the defaults and
 bounds of an answer, and what an answer means. A change of meaning is in the changelog, and the contract tests of the
@@ -40,6 +50,11 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
+#: the members of an answer whose enum is closed at 1.0.0 (GH-3134, decision of 2026-11-09): a new member of it in a
+#: response is a break, where a new member of any other response enum passes. They are a parameter's `aggregation`
+#: and `timestamp_position` (`coverage`, `glossary`, the `metadata` block).
+CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
 ACCEPTED_BREAKS: dict[str, str] = {}
@@ -226,16 +241,24 @@ def _schema(
         if pair in seen:
             return []
         seen |= {pair}
+    raw_old, raw_new = old_node, new_node
     old_node, new_node = old.resolve(old_node), new.resolve(new_node)
     old_alternatives = old_node.get("anyOf") or old_node.get("oneOf")
     new_alternatives = new_node.get("anyOf") or new_node.get("oneOf")
     found = _default(where, old_node, new_node) if asked else []
     if old_alternatives or new_alternatives:
         return found + _union(
-            old, new, where, old_alternatives or [old_node], new_alternatives or [new_node], asked=asked, seen=seen
+            old, new, where, old_alternatives or [raw_old], new_alternatives or [raw_new], asked=asked, seen=seen
         )
-    old_type, new_type = old_node.get("type"), new_node.get("type")
-    if old_type is not None and new_type is not None and _as_set(old_type) != _as_set(new_type):
+    old_type, new_type = _type_of(old_node), _type_of(new_node)
+    # a response whose types are fewer now (`["number", "null"]` that is `"number"`) is narrowed, not changed
+    narrowed = (
+        not asked
+        and old_type is not None
+        and new_type is not None
+        and _as_set(new_type) < _as_set(old_type) | ({"integer"} if "number" in _as_set(old_type) else set())
+    )
+    if old_type is not None and new_type is not None and _as_set(old_type) != _as_set(new_type) and not narrowed:
         return [*found, f"{where}: type changed from {old_type} to {new_type}"]
     found += _members(where, old_node, new_node, asked=asked)
     found += _object(old, new, where, old_node, new_node, asked=asked, seen=seen)
@@ -254,25 +277,104 @@ def _union(
     asked: bool,
     seen: frozenset[tuple[str, str]],
 ) -> list[str]:
-    """Find each alternative that was offered and is not any more; the others of a union are additions."""
+    """Find each alternative that was offered and is not any more in a request, and each that is new in a response.
+
+    A request that may now be one more thing is a looser request, an addition, and one that may be one thing less is
+    narrowed. A response is the other way round: one that may now be one more thing (`array` that may be `null`, a
+    string that may be an object) is a break, since a client generated from the document types the answer by its
+    alternatives and must now handle the new one (GH-3869); one that may be one thing less (`number | null` that is
+    `number`) is none, since the client handles the case that no longer comes (GH-3889). What changed of an
+    alternative that is still there is a finding of either.
+    """
     found = []
+    told: set[int] = set()
     for alternative in old_alternatives:
         results = [_schema(old, new, where, alternative, c, asked=asked, seen=seen) for c in new_alternatives]
         if not all(results):
             continue
         # an alternative that has a single counterpart of its type says what changed of it
-        old_type = _as_set(old.resolve(alternative).get("type", ""))
+        old_type = _as_set(_type_of(old.resolve(alternative)) or "")
         same_type = [
-            result
-            for candidate, result in zip(new_alternatives, results, strict=True)
-            if old_type == _as_set(new.resolve(candidate).get("type", ""))
+            (index, result)
+            for index, (candidate, result) in enumerate(zip(new_alternatives, results, strict=True))
+            if old_type == _as_set(_type_of(new.resolve(candidate)) or "")
         ]
-        found += (
-            same_type[0]
-            if len(same_type) == 1
-            else [f"{where}: {_label(alternative)} is no longer one of the alternatives"]
-        )
+        if not asked and _alternative_is_gone(old, new, alternative, old_alternatives, new_alternatives, seen):
+            continue
+        if len(same_type) == 1:
+            told.add(same_type[0][0])
+            found += same_type[0][1]
+        else:
+            found.append(f"{where}: {_label(alternative)} is no longer one of the alternatives")
+    if not asked:
+        # a counterpart that was told as the change of an alternative (an enum that is a free string now) is not new
+        found += [
+            f"{where}: {_label(candidate)} was added to the alternatives of the answer"
+            for index, candidate in enumerate(new_alternatives)
+            if index not in told
+            and all(
+                _schema(old, new, where, alternative, candidate, asked=False, seen=seen)
+                for alternative in old_alternatives
+            )
+        ]
     return found
+
+
+def _alternative_is_gone(
+    old: _Document,
+    new: _Document,
+    alternative: dict[str, Any],
+    old_alternatives: list[dict[str, Any]],
+    new_alternatives: list[dict[str, Any]],
+    seen: frozenset[tuple[str, str]],
+) -> bool:
+    """Say whether a response alternative that nothing of the new union accepts has been taken away, not changed.
+
+    It is gone where the new union has fewer alternatives of its type than the old one (no one of its type, or one of
+    several objects), and none of those it has says something else of a member they share: a changed alternative is
+    told by its counterpart, a removed one is not a finding. Which of two objects was changed and which was dropped
+    cannot be told in general, as a counterpart may be a match of another alternative that was also changed; the
+    shared members are what is compared, so that a member that has another type now is found and a member the
+    counterpart does not have is not.
+    """
+    old_type = _as_set(_type_of(old.resolve(alternative)) or "")
+    before = sum(old_type == _as_set(_type_of(old.resolve(a)) or "") for a in old_alternatives)
+    counterparts = [c for c in new_alternatives if old_type == _as_set(_type_of(new.resolve(c)) or "")]
+    if len(counterparts) >= before:
+        return False
+    properties = old.resolve(alternative).get("properties", {})
+    for candidate in counterparts:
+        shared = properties.keys() & new.resolve(candidate).get("properties", {}).keys()
+        if any(
+            _schema(old, new, "", properties[name], new.resolve(candidate)["properties"][name], asked=False, seen=seen)
+            for name in shared
+        ):
+            return False
+    return True
+
+
+def _type_of(node: dict[str, Any]) -> Any:  # noqa: ANN401
+    """Give the `type` of a schema, or for an enum or a constant without one the types of its values, or None.
+
+    `{"const": null}` is a `null` and `{"enum": ["c"]}` a `string`: beside a string enum the first makes the answer
+    nullable, a break, and the second is the enum gaining a member, which is none (GH-3889).
+    """
+    if "type" in node:
+        return node["type"]
+    members = node.get("enum", [node["const"]] if "const" in node else [])
+    types = sorted({_json_type(member) for member in members})
+    return types[0] if len(types) == 1 else (types or None)
+
+
+def _json_type(value: Any) -> str:  # noqa: ANN401
+    """Give the JSON Schema type of a value of an enum or a constant."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    return {float: "number", str: "string", list: "array", dict: "object"}[type(value)]
 
 
 def _members(where: str, old_node: dict[str, Any], new_node: dict[str, Any], *, asked: bool) -> list[str]:
@@ -280,10 +382,19 @@ def _members(where: str, old_node: dict[str, Any], new_node: dict[str, Any], *, 
     found = []
     old_members = _enum(old_node)
     new_members = _enum(new_node)
-    if old_members and new_members and (gone := sorted(old_members - new_members)):
+    if asked and old_members and new_members and (gone := sorted(old_members - new_members)):
         found.append(f"{where}: enum members {', '.join(gone)} were removed")
     elif asked and not old_members and new_members:
         found.append(f"{where}: now takes only the enum members {', '.join(sorted(new_members))}")
+    elif not asked and old_members and not new_members:
+        found.append(f"{where}: the enum members {', '.join(sorted(old_members))} became a free {_label(new_node)}")
+    if (
+        not asked
+        and old_members
+        and where.rsplit(".", 1)[-1] in CLOSED_RESPONSE_ENUMS
+        and (added := sorted(new_members - old_members))
+    ):
+        found.append(f"{where}: the closed enum gained the members {', '.join(added)}")
     if asked:
         found += _bounds(where, old_node, new_node)
         found += _pattern(where, old_node, new_node)

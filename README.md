@@ -53,8 +53,8 @@ you need is what tells us what to build next. Hand in an issue or a PR.
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
   endpoint, so LLM agents can query the data as tools
-- A web app with a map-based explorer, forecasts, climate stripes, a glossary and an overview of the
-  providers, at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
+- A web app with a map-based explorer, a station map, forecasts, climate stripes, a glossary and an
+  overview of the providers, at [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 
 ## Setup
 
@@ -69,12 +69,6 @@ Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `
 `knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
 Check the installation with `wetterdienst --help`. On conda-forge the extras are packages of their own,
 such as `wetterdienst-with-interpolation`.
-
-On Linux, a process that imports ecCodes (`bufr` or `eccodes` extra) itself, before wetterdienst
-does, and then imports `pyproj` (which `radarplus` brings) can crash at exit
-([ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354)). See
-[known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html#crash-at-exit-with-eccodes-and-pyproj-on-linux)
-for the workaround.
 
 Prefer Docker? The image ships with most of the extras:
 
@@ -309,9 +303,10 @@ reaching back centuries where the service keeps them. Every provider is reached 
 parameter means the same thing whichever service reports it: `temperature_air_mean_2m` is the mean
 air temperature at 2 m, converted to the same unit, everywhere.
 
-Licenses and usage requirements differ per provider, so check the
-[data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) chapter before you publish
-anything built on them. It also lists every dataset and parameter per provider.
+Licenses and usage requirements differ per provider: see the table of
+[licences and credit lines](https://wetterdienst.readthedocs.io/en/latest/data/provider/licenses.html) before you publish
+anything built on them. The [data](https://wetterdienst.readthedocs.io/en/latest/data/index.html) chapter also lists
+every dataset and parameter per provider.
 
 
 ## Where to start

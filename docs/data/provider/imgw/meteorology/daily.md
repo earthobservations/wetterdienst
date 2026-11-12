@@ -18,7 +18,7 @@
 |---------------|------------------------------------------------------------------------------------------------------------|
 | name          | climate                                                                                                    |
 | original name | klimat                                                                                                     |
-| description   | historical daily climate data                                                                              |
+| description   | Daily data of the climatological stations (klimat)                                                                              |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/klimat/) |
 
 #### parameters
@@ -43,7 +43,7 @@
 |---------------|----------------------------------------------------------------------------------------------------------|
 | name          | precipitation                                                                                            |
 | original name | opad                                                                                                     |
-| description   | historical daily precipitation data                                                                      |
+| description   | Daily data of the precipitation stations (opad)                                                                      |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/opad/) |
 
 #### parameters
@@ -62,7 +62,7 @@
 |---------------|-----------------------------------------------------------------------------------------------------------|
 | name          | synop                                                                                                     |
 | original name | synop                                                                                                     |
-| description   | historical daily synop data                                                                               |
+| description   | Daily data of the synoptic stations (synop)                                                                               |
 | access        | [here](https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/dobowe/synop/) |
 
 #### parameters

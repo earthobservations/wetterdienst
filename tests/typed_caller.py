@@ -12,7 +12,7 @@ which mypy and pyright do not, so those two are held up by the wheel listing in 
 
 from __future__ import annotations
 
-from typing import Any, Literal, assert_type
+from typing import Literal, assert_type
 
 import polars as pl
 
@@ -33,6 +33,7 @@ from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution, DatasetModel, MetadataModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    FormattableResult,
     HistoryDict,
     InterpolatedValuesDict,
     InterpolatedValuesOgcFeatureCollection,
@@ -49,7 +50,7 @@ from wetterdienst.model.result import (
     ValuesResult,
 )
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest, DwdWeatherAlertResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
@@ -156,7 +157,9 @@ for chunk in values_request.query():
 # history
 assert_type(stations.history(), TimeseriesHistory)
 assert_type(stations.history().to_json(), str)
-assert_type(stations.history().to_dict()["histories"], list[dict[str, Any]])
+# a history is typed as the OpenAPI document describes it: the station it is of, and the sections that were asked for
+assert_type(stations.history().to_dict()["histories"][0]["station_id"], str)
+assert_type(stations.history().to_dict()["histories"][0]["resolution"], str | None)
 assert_type(stations.history().to_dict(), HistoryDict)
 
 # a point between stations
@@ -171,6 +174,31 @@ assert_type(summarized, SummarizedValuesResult)
 assert_type(summarized.to_dict()["values"][0]["distance"], float | None)
 assert_type(summarized.to_dict(), SummarizedValuesDict)
 assert_type(summarized.to_ogc_feature_collection(), SummarizedValuesOgcFeatureCollection)
+
+
+# every result satisfies the protocol, so one function writes whatever a request answered (GH-3449)
+def write(result: FormattableResult) -> str | bytes:
+    """Write a result as a caller's own function would, whatever kind of result it is."""
+    result.to_dict(with_metadata=True)
+    result.to_json(with_metadata=True, indent=2)
+    return result.to_format("json", with_metadata=True, indent=2)
+
+
+write(stations)
+write(values)
+write(interpolated)
+write(summarized)
+for history_result in stations.history().query():
+    write(history_result)
+    assert_type(history_result.to_format("json"), str)
+
+
+def write_alerts(alerts: DwdWeatherAlertResult) -> None:
+    """Write the result of the warnings, which satisfies the protocol too and indents by flag, number or not."""
+    write(alerts)
+    assert_type(alerts.to_format("GeoJSON", with_metadata=True, indent=2), str)
+    assert_type(alerts.to_json(True), str)  # noqa: FBT003
+
 
 # a forecast, whose request takes an issue
 mosmix = DwdMosmixRequest(parameters="hourly/small", issue="latest")
@@ -207,3 +235,11 @@ except (ConfigurationError, UpstreamError) as error:
     assert_type(error, ConfigurationError | UpstreamError)
 except WetterdienstError as error:
     assert_type(error, WetterdienstError)
+
+
+# a name the package does not have is an error where it is written: the package reads `Options` and `Settings` lazily at
+# run time (GH-3809) and must not tell a checker, through a module `__getattr__`, that every name exists
+import wetterdienst  # noqa: E402
+from wetterdienst import Setings  # noqa: E402, F401  # ty: ignore[unresolved-import]
+
+wetterdienst.nope  # noqa: B018  # ty: ignore[unresolved-attribute]

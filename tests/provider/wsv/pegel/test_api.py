@@ -13,6 +13,10 @@ from wetterdienst.provider.wsv.pegel import WsvPegelRequest
 from wetterdienst.provider.wsv.pegel.api import _SOURCE_UNIT_FACTORS
 from wetterdienst.util.network import File
 
+# WSV is read by a window (`date_required`), and the reader refuses a request without one (GH-3562); the readings these
+# tests serve are of no date in particular
+WINDOW = {"start": "2000-01-01", "end": "2100-01-01"}
+
 
 def test_wsv_source_unit_factors_are_identity_for_the_declared_unit() -> None:
     """Test that every scaled parameter leaves the unit it is declared in untouched.
@@ -62,12 +66,13 @@ def test_wsv_source_unit_factors_convert_the_other_units_correctly() -> None:
 
 
 @pytest.mark.remote
-def test_wsv_wave_height_comes_back_in_centimetres() -> None:
+def test_wsv_wave_height_comes_back_in_metres() -> None:
     """Test that wave height is returned in one unit regardless of what the station publishes.
 
     Pegelonline publishes significant wave height in m at MELLUMPLATE and cm at LT ALTE WESER. The
     metadata declares centimetre, so the metre station used to come back around 100x too small --
-    0.07-1.32 next to 12.66-280.6 for the same quantity, both labelled cm.
+    0.07-1.32 next to 12.66-280.6 for the same quantity, both labelled cm. The default unit is metres now
+    (GH-3702), so the same figures read 0.0007-0.0132 next to 0.1266-2.806 if that were wrong.
 
     Asked of each station's own values rather than by comparing the two. Comparing them assumed the
     same sea at both, and they do not carry the same window: MELLUMPLATE had 98 readings over 1.6
@@ -77,20 +82,20 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     (GH-1968).
 
     The bounds separate the two readings of the same number rather than describe the sea. A median
-    of 9.5 cm at MELLUMPLATE is 0.095 in metres, so the threshold sits at 1, near the geometric
-    middle of the hundredfold this exists to catch; the ceiling catches the same mistake inverted,
-    centimetres read as metres, which would put that station's median in the thousands. No sea state
-    moves a median across either.
+    of 9.5 cm at MELLUMPLATE is 0.095 m, and read as centimetres it would be 0.00095, so the threshold
+    sits at 0.01, near the geometric middle of the hundredfold this exists to catch; the ceiling
+    catches the same mistake inverted, centimetres read as metres, which would put that station's
+    median in the thousands. No sea state moves a median across either.
     """
-    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")])
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")], **WINDOW)
     df = request.all().values().all().df.drop_nulls("value")
     assert not df.is_empty(), "no wave height data at any station"
     # every station offering the parameter, so a station added or dropped upstream is covered
     # without naming ids here; one that stops publishing drops out rather than failing this
     medians = df.group_by("station_id").agg(pl.col("value").median().alias("median"))
     for row in medians.iter_rows(named=True):
-        assert 1 <= row["median"] <= 2000, (
-            f"{row['station_id']}: median wave height {row['median']} is not a figure in centimetres"
+        assert 0.01 <= row["median"] <= 20, (
+            f"{row['station_id']}: median wave height {row['median']} is not a figure in metres"
         )
 
 
@@ -101,7 +106,13 @@ def test_wsv_wave_period_is_seconds() -> None:
     It was declared with a `wave_period` unit whose symbol was `1/s`, a frequency, and the source
     publishes seconds at one station and hundredths of a second at another.
     """
-    df = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")]).all().values().all().df.drop_nulls("value")
+    df = (
+        WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")], **WINDOW)
+        .all()
+        .values()
+        .all()
+        .df.drop_nulls("value")
+    )
     assert not df.is_empty(), "no wave period data at any station"
     # asked of every station offering the parameter rather than of two named ones, so that a station
     # upstream stops publishing -- MELLUMPLATE's wave height has been stale for days -- without
@@ -117,10 +128,11 @@ def test_wsv_wave_period_is_seconds() -> None:
 def test_wsv_flow_direction_is_a_bearing() -> None:
     """Test that the direction of the water current is reported in degrees.
 
-    Pegelonline gives `R` the unit `MGN`, degrees relative to magnetic north, which had been read
-    as a magnetic quantity and declared as magnetic field strength in A/m.
+    Pegelonline gives `R` the unit `MGN`, which WSV confirmed to mean degrees from magnetic north (0 to 359),
+    the direction the current flows towards. It had been read as a magnetic quantity and declared as
+    magnetic field strength in A/m.
     """
-    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")]).all().values().all().df
+    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")], **WINDOW).all().values().all().df
     series = df.get_column("value").drop_nulls()
     assert not series.is_empty()
     assert series.min() >= 0
@@ -129,17 +141,18 @@ def test_wsv_flow_direction_is_a_bearing() -> None:
 
 @pytest.mark.remote
 def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
-    """Test that gauges publishing water level in metres are scaled to centimetres.
+    """Test that gauges publishing water level in metres are scaled to the unit of the reader, then to metres.
 
     Most gauges publish cm above gauge zero, but 67 series have no gauge zero and publish metres above
     sea level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
+    The default unit is metres now (GH-3702): 56.5 m, and 5650 would be centimetres left unconverted.
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
-    stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")]).filter_by_station_id("27800090")
+    stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")], **WINDOW).filter_by_station_id("27800090")
     series = stations.values().all().df.get_column("value").drop_nulls()
     assert not series.is_empty()
-    # metres above sea level for this canal gauge, so thousands of centimetres rather than tens
-    assert series.mean() > 1000
+    # metres above sea level for this canal gauge: tens of metres, where thousands would be centimetres
+    assert 10 < series.mean() < 200
 
 
 @pytest.mark.remote
@@ -152,6 +165,7 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
     """
     request = WsvPegelRequest(
         parameters=[("1_minute", "data", p) for p in ("wave_period", "flow_direction", "wave_height_significant")],
+        **WINDOW,
     )
     df = request.filter_by_station_id("9460041").values().all().df
     # flow_direction has no data at this station while the other two do, which is the whole point:
@@ -177,7 +191,7 @@ def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monke
 
     # deliberately not `.all()`: that eagerly downloads the 1.2 MB station listing, which would
     # make this a network test in all but the marker
-    request = WsvPegelRequest(parameters=[("1_minute", "data", "stage")])
+    request = WsvPegelRequest(parameters=[("1_minute", "data", "stage")], **WINDOW)
     values = WsvPegelValues(
         sr=StationsResult(
             request=request,
@@ -309,7 +323,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
         for resolution in ("15_minutes", "hourly")
         for parameter in ("stage", "temperature_air")
     ]
-    request = WsvPegelRequest(parameters=parameters).filter_by_station_id("10091008")
+    request = WsvPegelRequest(parameters=parameters, **WINDOW).filter_by_station_id("10091008")
     assert set(request.df.get_column("resolution")) == {"15_minutes", "hourly"}
     df = request.values().all().df
     served = {
@@ -373,7 +387,7 @@ def test_wsv_unmapped_equidistance_is_not_served_under_a_neighbouring_resolution
     from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
     from wetterdienst.provider.wsv.pegel.api import TimeseriesMeta, WsvPegelValues  # noqa: PLC0415
 
-    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")])
+    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW)
     values = WsvPegelValues(
         sr=StationsResult(
             request=request,
@@ -493,7 +507,7 @@ def test_wsv_a_timeseries_between_measurements_returns_no_data(monkeypatch: pyte
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert values.df.is_empty()
 
 
@@ -606,7 +620,7 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     _stub_values_download(monkeypatch, FSTimeoutError(), 408)
 
     with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
@@ -614,7 +628,7 @@ def test_wsv_a_values_download_that_is_missing_returns_no_data(monkeypatch: pyte
     """Test that a 404 still gives an empty frame rather than an error."""
     _stub_values_download(monkeypatch, FileNotFoundError("gone"), 404)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
     assert values.df.is_empty()
 
 
@@ -623,7 +637,7 @@ def test_wsv_a_values_download_that_is_offline_raises(monkeypatch: pytest.Monkey
     _stub_values_download(monkeypatch, NoInternetError("offline"), 503)
 
     with pytest.raises(NoInternetError):
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
 
 
 def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -662,8 +676,8 @@ def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monke
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
-    assert values.df.sort("timestamp").get_column("value").to_list() == [150.0, 250.0]
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW).all().values().all()
+    assert values.df.sort("timestamp").get_column("value").to_list() == [1.5, 2.5]
 
 
 def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:
@@ -746,12 +760,12 @@ def test_wsv_visibility_and_reservoir_volume_come_back_as_published(monkeypatch:
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    sight = WsvPegelRequest(parameters=[("1_minute", "data", "visibility")]).all().values().all().df
+    sight = WsvPegelRequest(parameters=[("1_minute", "data", "visibility")], **WINDOW).all().values().all().df
     assert sight.get_column("station_id").unique().to_list() == ["sight"]
     assert sight.get_column("parameter").unique().to_list() == ["visibility"]
     assert sight.sort("timestamp").get_column("value").to_list() == [19963.0, 921.9]
 
-    volume = WsvPegelRequest(parameters=[("15_minutes", "data", "volume_reservoir")]).all().values().all().df
+    volume = WsvPegelRequest(parameters=[("15_minutes", "data", "volume_reservoir")], **WINDOW).all().values().all().df
     assert volume.get_column("station_id").unique().to_list() == ["dam"]
     assert volume.get_column("parameter").unique().to_list() == ["volume_reservoir"]
     assert volume.get_column("value").to_list() == [10831274.0, 10831274.0]
@@ -759,3 +773,58 @@ def test_wsv_visibility_and_reservoir_volume_come_back_as_published(monkeypatch:
     # a station is listed at the interval of the series and at no other
     assert WsvPegelRequest(parameters=[("15_minutes", "data", "visibility")]).all().df.is_empty()
     assert WsvPegelRequest(parameters=[("1_minute", "data", "volume_reservoir")]).all().df.is_empty()
+
+
+def test_wsv_characteristic_levels_come_back_in_metres_beside_the_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The characteristic levels of a station are in metres, the unit of `stage`, each from its own unit (GH-3752).
+
+    Pegelonline lists them in the unit the value carries: `cm` at CELLE (MHW 412, HSW 310, as in the listing of
+    2026-11-02), `m` for the `OBW` and `UBW` of a gauge in metres above sea level, which are no column. A value
+    without a unit, or in one the reader does not know, is null, not a number of the wrong size.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    def _station(number: str, characteristic_values: list[dict]) -> dict:
+        return {
+            "number": number,
+            "shortname": number,
+            "km": 1.0,
+            "latitude": 50.0,
+            "longitude": 10.0,
+            "water": {"shortname": "TEST"},
+            "timeseries": [
+                {"shortname": "W", "equidistance": 15, "unit": "cm", "characteristicValues": characteristic_values}
+            ],
+        }
+
+    in_cm = [
+        {"shortname": "MHW", "value": 412.0, "unit": "cm"},
+        {"shortname": "HSW", "value": 310.0, "unit": "cm"},
+        {"shortname": "MNW", "value": 117.0, "unit": "cm"},
+    ]
+    other = [
+        {"shortname": "MHW", "value": 4.12, "unit": "m"},
+        {"shortname": "HSW", "value": 310.0},
+        {"shortname": "MNW", "value": 117.0, "unit": "ft"},
+    ]
+    listing = json.dumps([_station("cm", in_cm), _station("other", other)]).encode()
+    measurements = json.dumps([{"timestamp": "2025-06-10T10:00:00+02:00", "value": 150}]).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        content = measurements if url.endswith("measurements.json") else listing
+        return File(url=url, content=BytesIO(content), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")], **WINDOW)
+    stations = request.all().df.sort("station_id")
+    assert stations.select("station_id", "mhw", "hsw", "mnw", "m_i").rows() == [
+        ("cm", 4.12, 3.1, 1.17, None),
+        ("other", 4.12, None, None, None),
+    ]
+    # the stage of the gauge is in the same unit: 150 cm is 1.5 m, below the 4.12 m of the mean high water
+    stage = request.filter_by_station_id("cm").values().all().df.get_column("value").to_list()
+    assert stage == [1.5]
