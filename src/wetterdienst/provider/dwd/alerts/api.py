@@ -411,31 +411,55 @@ class DwdWeatherAlertRequest:
         """Tell whether the request names a place (a point, a name, or both), `False` for the whole snapshot."""
         return self.latitude is not None or self.name is not None
 
-    def _none_for_place(self, others: int) -> str:
+    def _none_for_place(self, alerts: list[dict[str, Any]]) -> str:
         """Say that no warning is for the place, in the words of what was asked: a point, a name, or both.
 
-        A point that no polygon contains is that nothing in force covers it. A name that matches no area is not: the
-        names are DWD's German ones, so `Munich` matches none while `München` does, and a place without a warning is not
-        listed, so the message does not say that nothing is in force. `others` is the number of warnings of the
-        snapshot, none of them for the place.
+        `alerts` are the warnings of the snapshot, none of them for the place. A snapshot without one is a true
+        all-clear, said so. A point that no polygon contains is that nothing in force covers it, except for the warnings
+        with no polygon (the sea, in the community product), which a point cannot find and a name or the district
+        product can. A name that matches no area is not an all-clear: the names are DWD's German ones, so `Munich`
+        matches none while `München` does. With both, each is counted for itself, as it is no warning that has both.
         """
-        held = f"{others} are for other places" if others else "it holds none"
         point = f"the point {self.latitude}, {self.longitude}"
-        names = (
-            "the names are DWD's German ones ('München', not 'Munich') and a place without a warning is in none, "
-            "so check the spelling, or ask by point"
+        asked = {
+            (True, False): point,
+            (False, True): f"an area named {self.name!r}",
+            (True, True): f"{point} and an area named {self.name!r}",
+        }[(self.latitude is not None, self.name is not None)]
+        if not alerts:
+            return f"No warning is in force anywhere (the snapshot holds none), so none is for {asked}."
+        others = f"{len(alerts)} are for other places"
+        without_polygon = sum(not alert.get("geometry") for alert in alerts)
+        sea = ""
+        if without_polygon and self.latitude is not None:
+            community = self.granularity is DwdWeatherAlertGranularity.COMMUNITY
+            ask = "by name" + (", or with granularity=district" if community else "")
+            sea = (
+                f" {without_polygon} of them have no polygon (the sea), which a point cannot find: ask for them {ask}."
+            )
+        german = (
+            "The names are DWD's German ones ('München', not 'Munich') and a place without a warning is in none, so "
+            "check the spelling, or ask by point."
         )
         if self.name is None:
+            covers = "no warning with a polygon covers it" if without_polygon else "nothing in force covers it"
             return (
-                f"No warning of the snapshot has an area that contains {point} ({held}). That is the answer, not an "
-                "error: nothing in force covers it."
+                f"No warning of the snapshot has an area that contains {point} ({others}). That is the answer, not an "
+                f"error: {covers}.{sea}"
             )
         if self.latitude is None:
-            return f"No warning in force lists an area named {self.name!r} ({held}): {names}."
-        return (
-            f"No warning of the snapshot has an area that contains {point} and is named {self.name!r} ({held}). "
-            f"Either nothing in force covers the point, or the name matches no area: {names}."
+            return f"No warning in force lists an area named {self.name!r} ({others}). {german}"
+        by_point = sum(is_for_place(alert, latitude=self.latitude, longitude=self.longitude) for alert in alerts)
+        by_name = sum(is_for_place(alert, name=self.name) for alert in alerts)
+
+        def count(n: int, one: str, many: str) -> str:
+            return f"{n} warning {one}" if n == 1 else f"{n} warnings {many}"
+
+        told = (
+            f"{count(by_point, 'contains the point', 'contain the point')} and "
+            f"{count(by_name, 'lists the name', 'list the name')}, but none does both ({len(alerts)} in the snapshot)."
         )
+        return f"No warning of the snapshot is for {asked}: {told}{sea}" + ("" if by_name else f" {german}")
 
     @staticmethod
     def _parse_granularity(granularity: str | DwdWeatherAlertGranularity) -> DwdWeatherAlertGranularity:
@@ -604,7 +628,7 @@ class DwdWeatherAlertRequest:
             if is_for_place(alert, latitude=self.latitude, longitude=self.longitude, name=self.name)
         ]
         if not kept:
-            message = self._none_for_place(len(alerts))
+            message = self._none_for_place(alerts)
             warn_response(log, NO_ALERTS_FOR_PLACE, message, level=logging.INFO)
         return kept
 

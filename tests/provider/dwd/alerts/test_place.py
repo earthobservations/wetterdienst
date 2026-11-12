@@ -302,7 +302,7 @@ def test_no_warning_for_a_place_is_told_as_an_answer(monkeypatch: pytest.MonkeyP
     assert "3 are for other places" in warning["message"]
     assert "not an error" in warning["message"]
     # a point says what it is, and nothing of names
-    assert "name" not in warning["message"]
+    assert "named" not in warning["message"]
     assert "German" not in warning["message"]
 
 
@@ -313,7 +313,8 @@ def test_a_place_in_a_snapshot_without_warnings_says_so(monkeypatch: pytest.Monk
     DwdWeatherAlertRequest(name="Kiel").query()
     (warning,) = recorded_warnings()
     assert "'Kiel'" in warning["message"]
-    assert "it holds none" in warning["message"]
+    assert "No warning is in force anywhere" in warning["message"]
+    assert "spelling" not in warning["message"]
 
 
 def test_a_name_that_matches_nothing_is_not_told_as_an_all_clear(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -330,15 +331,94 @@ def test_a_name_that_matches_nothing_is_not_told_as_an_all_clear(monkeypatch: py
     assert "ask by point" in message
 
 
-def test_a_point_and_a_name_that_match_nothing_are_told_as_both(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With both, the message names the point and the name, and that either may be why."""
+def test_a_point_and_a_name_that_no_warning_has_together_are_counted_each(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The point of Kiel is in one warning and the name Norderney in another: none has both, and the message says so."""
     serve_snapshot(monkeypatch, *SNAPSHOT)
     begin_response()
-    DwdWeatherAlertRequest(latitude=KIEL[0], longitude=KIEL[1], name="Munich").query()
+    result = DwdWeatherAlertRequest(latitude=KIEL[0], longitude=KIEL[1], name="Norderney").query()
+    assert result.df.is_empty()
     (warning,) = recorded_warnings()
-    assert "the point 54.3233, 10.1228" in warning["message"]
-    assert "'Munich'" in warning["message"]
-    assert "either nothing in force covers the point, or the name matches no area" in warning["message"].lower()
+    message = warning["message"]
+    assert (
+        "1 warning contains the point and 1 warning lists the name, but none does both (3 in the snapshot)" in message
+    )
+    assert "German" not in message  # the name was found: the spelling is not the matter
+
+
+def test_a_point_and_a_name_that_match_nothing_each_are_told_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neither the point nor the name has a warning: 0 and 0, and the name is told to be German."""
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL, CAP_COMMUNITY_NORDERNEY)
+    begin_response()
+    DwdWeatherAlertRequest(latitude=MUNICH[0], longitude=MUNICH[1], name="Munich").query()
+    (warning,) = recorded_warnings()
+    assert "0 warnings contain the point and 0 warnings list the name, but none does both" in warning["message"]
+    assert "German" in warning["message"]
+
+
+def test_a_point_at_sea_is_told_of_the_warnings_without_a_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The community product has no polygon for the sea: a point there finds none, and the message says what does."""
+    serve_snapshot(monkeypatch, *SNAPSHOT)
+    begin_response()
+    assert DwdWeatherAlertRequest(latitude=53.9, longitude=7.0).query().df.is_empty()
+    (warning,) = recorded_warnings()
+    message = warning["message"]
+    assert "1 of them have no polygon (the sea)" in message
+    assert "ask for them by name, or with granularity=district" in message
+    assert "nothing in force covers it" not in message
+
+
+def test_the_district_product_is_not_sent_to_the_district_product(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A warning with no polygon in the district product is asked for by name, not by the granularity it is in."""
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_SEA)
+    begin_response()
+    DwdWeatherAlertRequest(granularity="district", latitude=53.9, longitude=7.0).query()
+    (warning,) = recorded_warnings()
+    assert "ask for them by name." in warning["message"]
+    assert "granularity=district" not in warning["message"]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"name": "Munich"}, id="name"),
+        pytest.param({"latitude": MUNICH[0], "longitude": MUNICH[1], "name": "Munich"}, id="both"),
+    ],
+)
+def test_nothing_is_added_about_the_sea_for_a_name(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, float | str]
+) -> None:
+    """The clause is for a request by point; and none where every warning has a polygon."""
+    serve_snapshot(monkeypatch, *SNAPSHOT)
+    begin_response()
+    DwdWeatherAlertRequest(**kwargs).query()
+    (warning,) = recorded_warnings()
+    assert ("no polygon" in warning["message"]) is ("latitude" in kwargs)
+    begin_response()
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL, CAP_COMMUNITY_NORDERNEY)
+    DwdWeatherAlertRequest(latitude=MUNICH[0], longitude=MUNICH[1]).query()
+    (warning,) = recorded_warnings()
+    assert "no polygon" not in warning["message"]
+    assert "nothing in force covers it" in warning["message"]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"latitude": MUNICH[0], "longitude": MUNICH[1]}, id="point"),
+        pytest.param({"name": "Munich"}, id="name"),
+        pytest.param({"latitude": MUNICH[0], "longitude": MUNICH[1], "name": "Munich"}, id="both"),
+    ],
+)
+def test_an_empty_snapshot_is_a_true_all_clear_for_every_criterion(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, float | str]
+) -> None:
+    """With no warning in force anywhere, the message says so, and not that the spelling may be wrong."""
+    serve_snapshot(monkeypatch)
+    begin_response()
+    DwdWeatherAlertRequest(**kwargs).query()
+    (warning,) = recorded_warnings()
+    assert warning["message"].startswith("No warning is in force anywhere (the snapshot holds none)")
+    assert "spelling" not in warning["message"]
 
 
 def test_a_name_is_matched_whatever_the_unicode_form_of_an_umlaut() -> None:

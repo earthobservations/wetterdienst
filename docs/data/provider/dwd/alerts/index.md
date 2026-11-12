@@ -50,11 +50,18 @@ Three things to know about what a place finds:
   in, in the `geometry` of the answer too.
 
 A place without a warning is **an answer, not a failure**: the REST API answers 200 with `"alerts": []`, `counts.rows`
-of 0 and a `no-alerts-for-place` warning in `metadata.warnings`, whose message says what was asked and how many warnings
-of the snapshot are for other places, in the words of what was asked: for a point that no polygon contains, for a name that
-no area carries (which does not say that nothing is in force there) or both. Its code is in the `X-Wetterdienst-Warnings`
-header of a CSV answer, which has no block, and the text in the `metadata` of the command line's JSON. Nothing is told for a request without a place, nor for a
-place with a warning. Its `data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
+of 0 and a `no-alerts-for-place` warning in `metadata.warnings`. Its message says what was asked and how many warnings
+of the snapshot are for other places, in the words of what was asked:
+
+- for a point that no polygon contains, that nothing in force covers it and, where the snapshot holds warnings with no
+  polygon (the sea, in the community product), how many, and that a name or `granularity=district` finds them;
+- for a name that no area carries, which does not say that nothing is in force there (the names are German);
+- for both, how many warnings contain the point and how many list the name, none being both;
+- for a snapshot without any warning, that no warning is in force anywhere: the one true all-clear.
+
+Its code is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has no block, and the text in the `metadata`
+of the command line's JSON. Nothing is told for a request without a place, nor for a place with a warning. Its
+`data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
 
 Measured on 2026-11-12, against the live community snapshot of 16 warnings (JSON, characters): the whole snapshot is
 114,240, Kiel 13,260 (one warning), Norderney 19,628 (two) and Munich 1,701 (none, the reason).

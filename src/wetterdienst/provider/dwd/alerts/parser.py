@@ -128,8 +128,10 @@ def _attach_holes(polygons: list[list[list[float]]], holes: list[list[list[float
 
     A hole belongs to the polygon that has most of its vertices (an edge counts), so that the hole of a district that
     surrounds an enclave (the Baden-Baden hole of Kreis Rastatt, with a polygon of its own in the hole) is not taken by
-    that polygon, and a hole that touches its exterior is not lost to a vertex that rounds to the outside. A hole in
-    none of the polygons is left out.
+    that polygon, and a hole that touches its exterior is not lost to a vertex that rounds to the outside (its first
+    vertex, in the sea east of Rügen). A hole in none of the polygons is left out. A tie, which no real message has
+    (the polygons of an area do not overlap, so a hole lies in one), goes to the first polygon, so the geometry does
+    not depend on anything but the message.
     """
     rings: list[list[list[list[float]]]] = [[polygon] for polygon in polygons]
     for hole in holes:

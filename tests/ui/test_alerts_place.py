@@ -234,3 +234,46 @@ def test_rest_the_date_of_the_data_is_that_of_the_whole_snapshot(client: TestCli
     assert data["metadata"]["data_updated_at"] == "2026-11-12T08:44:00.000000+00:00"
     csv = client.get("/api/alerts", params={**params, "format": "csv"})
     assert csv.headers["x-wetterdienst-data-updated-at"] == "2026-11-12T08:44:00.000000+00:00"
+
+
+def _message(response_json: dict) -> str:
+    (warning,) = response_json["metadata"]["warnings"]
+    assert warning["code"] == "no-alerts-for-place"
+    return warning["message"]
+
+
+def test_rest_a_point_and_a_name_of_two_warnings_are_counted_each(client: TestClient) -> None:
+    """The point of Kiel is in one warning and Norderney is in another: none has both, and the message counts each."""
+    response = client.get("/api/alerts", params={**KIEL, "name": "Norderney"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["alerts"] == []
+    assert "1 warning contains the point and 1 warning lists the name, but none does both" in _message(data)
+
+
+def test_rest_a_point_at_sea_is_told_of_the_warnings_without_a_polygon(client: TestClient) -> None:
+    """53.9 N 7.0 E is in the North Sea, where the community product has a warning with no polygon."""
+    data = client.get("/api/alerts", params={"latitude": 53.9, "longitude": 7.0}).json()
+    assert data["alerts"] == []
+    message = _message(data)
+    assert "have no polygon (the sea)" in message
+    assert "ask for them by name, or with granularity=district" in message
+
+
+def test_rest_a_name_at_sea_finds_what_a_point_does_not(client: TestClient) -> None:
+    """The name of the sea area is found, so no warning is told."""
+    data = client.get("/api/alerts", params={"name": "Ostfriesische Küste"}).json()
+    assert len(data["alerts"]) == 1
+    assert data["metadata"]["warnings"] == []
+
+
+@pytest.mark.parametrize("params", [MUNICH, {"name": "Munich"}, {**MUNICH, "name": "Munich"}])
+def test_rest_a_place_in_an_empty_snapshot_is_a_true_all_clear(monkeypatch: pytest.MonkeyPatch, params: dict) -> None:
+    """No warning is in force anywhere: told so, for a point, a name and both, and the header of a CSV has the code."""
+    serve_snapshot(monkeypatch)
+    api = TestClient(restapi.app)
+    data = api.get("/api/alerts", params=params).json()
+    assert _message(data).startswith("No warning is in force anywhere (the snapshot holds none)")
+    assert "spelling" not in _message(data)
+    csv = api.get("/api/alerts", params={**params, "format": "csv"})
+    assert csv.headers["x-wetterdienst-warnings"] == "no-alerts-for-place"
