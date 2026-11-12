@@ -9,9 +9,9 @@ requests to the live providers.
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
 something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. **Current reference** (the file Y of
-Part 8 unless you are given another): the strategy-3 comparison run of #4028, a secret gist,
-<https://gist.github.com/gutzbenj/cc65036fe00cdf51dec83c987d42db64>, made with the server at label `eca7ed7f4`, which becomes `main`
-when #4028 lands. **Update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
+Part 8 unless you are given another): the strategy-4 comparison run of #4030, a secret gist,
+<https://gist.github.com/gutzbenj/c1e6f5f10d6716da4355230204a0cae3>, made with the server at label `11d3c1419`, which becomes `main`
+when #4030 lands. **Update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
 writes nothing into the repository. **Until pull request #3544 is merged the benchmark exists only on its branch
 `feat/mcp-benchmark-skill`, not on `main`**: a checkout of `main` does not have this file; Part 2.1 says how to get it.
 
@@ -521,6 +521,21 @@ repeat); and **at the end with the `compare` verdict** (8.7). `large` is the las
 the comment at the end, with the `compare` verdict, is also the comment of the `large` tier. Do not promise a cadence of runs:
 batches of nine do not land on multiples of 27.
 
+**A change that depends on the time of day** (a forecast: the hour an answer starts at, the model run it reads, a window that ends at
+the run) is only compared fairly if both sides read the same hours, and the two files are made hours apart. **Record and compare the
+call times and the model runs of both sides**, from `calls[].retrieved_at` (else the transcript's `answered_at`) and `data_updated_at`:
+
+```bash
+. "$BENCH/env.sh"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" times "$BASELINE" "$BENCH/mcpbench-results-change.json"
+```
+
+It prints, per side, the span of call times (UTC) of the forecast runs and the model runs they read (`--runs` lists every run,
+`--kind all` every case), then the distance of the two sides and whether they **share a model run and were called within 2 hours** of
+each other. **Say in the comment whether the hours are comparable** (the line `comparable hours: yes/NO` of the output, with its
+numbers); when they are not, an answer that depends on the hour differs by the hour and not by the change, and the forecast cases
+are read with that in mind.
+
 **8.7 Compare.** When `todo` is empty:
 
 ```bash
@@ -530,7 +545,8 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" compare "$BASELINE" "$BENCH/m
 cat "$BENCH/compare.txt"
 ```
 
-Exit 0 prints, per tier, the verdict of the four rates (`NO WORSE`, `WORSE` or `INCONCLUSIVE`), the sizes before and after, the
+Exit 0 prints, per tier (**`large` before `small`**: it lists the tiers in alphabetical order, while the runs and the comments go
+`small` first: say the tier in every line you quote), the verdict of the four rates (`NO WORSE`, `WORSE` or `INCONCLUSIVE`), the sizes before and after, the
 cases that moved and the ones left out. **Exit 4 means it refused** (the logic version, the defaults, the prompt, the deferral of the
 tools, two sides that cannot be told apart, other `repeats`, more than 3 % invalid or missing runs in a tier, a record still marked
 `needs_judging`): the first lines say why; put the reason in the final comment, and do not edit a results file to get past it
@@ -558,6 +574,11 @@ wait for it; nothing is edited before):
 - **`observation-paris-last-week`: drop the forbidden rule `wide-long-window`.** The maintainer decided on 2026-11-12 to drop it with
   the next case changes: a change that keeps a wide answer small makes it obsolete. Until then it is judged as written.
 
+- **Forecast timing: a figure stamped at the current hour of the call counts as valid.** Decided on 2026-11-12, to apply at the next
+  re-baseline: since #4030 an MCP forecast answer **starts at the current hour on purpose**, so the first row is stamped at (not
+  after) the call, and the rule that a forecast figure must belong to a timestamp after the subject's call (`future_only`, and
+  `span`'s `past_only`) then fails a right answer. Until the re-baseline the rule is judged as written; note it in the comment when a
+  run quotes the current hour's row.
 - **Add a case that calls `stripes_stations`.** No case does today. Decided on 2026-11-12, to be added at the next re-baseline,
   not before.
 - **Add a case in which `interpolate` or `summarize` grows large**, for example a year of daily values, so that a strategy that
@@ -709,7 +730,13 @@ read from the stations the subject itself got listed, not from a call of yours).
      says so: pass `--called-at <ISO time>`, the timestamp of that tool call in the transcript (`<stem>.jsonl`, the `timestamp` of the
      `user` record that holds the result). What a figure without a stated hour
      belongs to stays yours.
-     Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
+     Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day. **For a forecast `values`
+     call the digest prints** the note that the answer starts at the current hour (the warning `forecast-from-now`, or the sentence
+     `Forecast:` before the rows of a CSV), the **model run** (`data_updated_at`, or `not in the answer`) and the **call time**
+     (`retrieved_at`, else the transcript's timestamp of the result), so you need no script of your own to see which hours the
+     model was given and when. **A figure stamped at the current hour of the call** (the first row of such an answer) is `past_only`
+     for `span`, and **is judged as written, as failing**, until the case changes (see "Pending case changes"); say in the comment
+     when a run quotes the current hour's row.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
      lists accepted spellings.
    - `ground_truth_subset`: every name the answer gives is in your call's result. `ground_truth_set`: the answer
@@ -924,7 +951,10 @@ if any is. A case whose own rate fell by 40 points or more is printed with its c
 Each decision has a one-sided error of 2.5 %, so about 10 % per tier that one of the four is wrong in the same direction;
 the per-case Fisher tests are **hints** only (little power at 5 runs). The format rate is left out, with a line saying so,
 when either file has no run of a case that asks for the format.
-Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
+**A tier can be INCONCLUSIVE although a rate did not move at all** (the same 19/20 on both sides): a few runs cannot show a margin of
+10 points (40 runs a side cannot at a pass rate of 80 %), and the power note prints how many would. `compare` says it next to the
+verdict, `(unchanged: k/n on both sides; ... too few to show a margin of 10%)`; **say so plainly in the comment**: unchanged, not
+proven equal. Not finding a difference is not "no worse": at a pass rate of 90 % it takes about 140 runs per side to show a margin of
 10 points (`required_runs`, printed for each rate, the largest decides), and the default full run is 27 cases, 135 runs a side per tier at 5 repeats, 270 in all
 (`needs_key` cases are skipped by default, so London is not in it), about enough at 90 % and not enough at 80 %. Steps, tool-result characters, context
 tokens at the first request, total and output tokens, and the calls whose result was saved to a file are printed as the

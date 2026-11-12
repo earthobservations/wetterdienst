@@ -13,6 +13,7 @@ are compared on the same arithmetic.
                                                                      the next N runs of `todo`, P at a time (at most 3)
     bench.py regex-facts A.json                                      the regex facts and forbidden answers of a run
     bench.py span --analysis A.json --values V.json [--hours 48]     the span a forecast fact allows
+    bench.py times FILE [FILE2] [--kind forecast|all]                when the forecast calls were made, per side
     bench.py meta FILE                                               what a results file was made with
     bench.py digest A.json [--heads N]                               what the judge reads of one analysis
     bench.py judge --results FILE --analysis A.json --is-answer yes|no --facts ok|fail
@@ -100,6 +101,10 @@ TRUNCATED_RE = re.compile(r'"code"\s*:\s*"answer-truncated"|The answer was cut t
 #: the note of a cut answer: a JSON string that starts with this sentence (in a warning with rows, or at the head of the
 #: first resolution's `description` of a `coverage` answer), up to the closing quote
 TRUNCATED_NOTE_RE = re.compile(r'The answer was cut to stay within [\d,]+ characters(?:[^"\\]|\\.)*')
+#: a forecast answer that starts at the current hour says so: a warning `forecast-from-now` in the JSON, or the sentence
+#: `Forecast: ...` before the rows of a CSV
+FORECAST_JSON_RE = re.compile(r'"code"\s*:\s*"forecast-from-now"\s*,\s*"message"\s*:\s*"((?:[^"\\]|\\.)*)"')
+FORECAST_CSV_RE = re.compile(r"Forecast: ((?:(?!\\n|\n).)*)")
 #: Claude Code 2.1.311 answers a large result of a tool with this notice and a preview of its first 2 KB, and no count
 #: of characters: `<persisted-output>\nOutput too large (57.2KB). Full output saved to: ...\n\nPreview (first 2KB):`
 SPILL_PERSISTED_RE = re.compile(r"^\s*<persisted-output>\s*Output too large \(([\d.,]+)\s*([KMG]?B)\)")
@@ -452,6 +457,12 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                             call["truncated"] = True
                             note = TRUNCATED_NOTE_RE.search(text)
                             call["truncated_note"] = note.group(0).replace('\\"', '"')[:700] if note else None
+                        if call["tool"] == "values":
+                            found = FORECAST_JSON_RE.search(text)
+                            if found:
+                                call["forecast_note"] = found.group(1).replace('\\"', '"')
+                            elif found := FORECAST_CSV_RE.search(text):
+                                call["forecast_note"] = found.group(1).strip()
                         meta = result_metadata(text)
                         call["data_updated_at"] = meta.get("data_updated_at")
                         call["retrieved_at"] = meta.get("retrieved_at")
@@ -819,6 +830,8 @@ def _non_inferiority(label: str, k1: int, n1: int, k2: int, n2: int, margin: flo
             " (dropped: the whole interval is below zero but not beyond the margin: likely worse, "
             "more runs would decide)"
         )
+    if verdict == "inconclusive" and (k1, n1) == (k2, n2):
+        note = f" (unchanged: {k1}/{n1} on both sides; {n1} runs a side are too few to show a margin of {margin:.0%})"
     text = (
         f"{label} {k1}/{n1} -> {k2}/{n2}: difference {diff:+.1%} (95 % interval {low:+.1%} to {high:+.1%}) "
         f"-> {verdict}{note}"
@@ -2503,6 +2516,96 @@ def init_results(
     return results
 
 
+def run_times(results: dict[str, Any], kind: str | None = "forecast") -> list[dict[str, Any]]:
+    """List, for the runs of a results file (those of cases of `kind`, or all), when their first `values` call was made.
+
+    `called_at` is the `retrieved_at` of that call's result (else the transcript's timestamp of it, `answered_at`) and
+    `model_run` its `data_updated_at`: the two a forecast depends on, the hour of the day and the run of the model.
+    """
+    kinds = {c["id"]: c["kind"] for c in load_cases()["cases"]}
+    found = []
+    for run in results["runs"]:
+        if kind and kinds.get(run["case"]) != kind:
+            continue
+        call = next((c for c in run.get("calls") or [] if c.get("tool") == "values" and c.get("ok")), None)
+        if call is None:
+            continue
+        found.append(
+            {
+                "case": run["case"],
+                "tier": run["tier"],
+                "repeat": run.get("repeat"),
+                "called_at": _timestamp(call.get("retrieved_at") or call.get("answered_at") or ""),
+                "model_run": call.get("data_updated_at"),
+            }
+        )
+    return found
+
+
+def _side_times(name: str, rows: list[dict[str, Any]], *, listing: bool) -> tuple[list[str], dict[str, Any]]:
+    """Describe one side: its call window, its model runs, optionally every run."""
+    stamps = sorted(r["called_at"] for r in rows if r["called_at"])
+    runs = Counter(str(r["model_run"]) for r in rows if r["model_run"])
+    lines = [f"{name}: {len(rows)} runs with a values call, {len(stamps)} with a call time"]
+    if stamps:
+        lines.append(
+            f"  call times (UTC): {stamps[0].strftime('%Y-%m-%d %H:%MZ')} to {stamps[-1].strftime('%Y-%m-%d %H:%MZ')}"
+        )
+    lines.append(
+        "  model runs (data_updated_at): " + (", ".join(f"{k} ({n} runs)" for k, n in sorted(runs.items())) or "none")
+    )
+    if listing:
+        for r in rows:
+            called = r["called_at"].strftime("%H:%MZ") if r["called_at"] else "?"
+            lines.append(
+                f"    {r['case']} [{r['tier']}] repeat {r['repeat']}: called {called}, "
+                f"model run {r['model_run'] or '?'}"
+            )
+    return lines, {"stamps": stamps, "runs": set(runs)}
+
+
+def times_report(
+    files: list[tuple[str, dict[str, Any]]], kind: str | None = "forecast", *, listing: bool = False
+) -> str:
+    """Print when each side's forecast calls were made and which model runs they read, and say if the hours compare.
+
+    A change that depends on the time of day (an answer that starts at the current hour, a window that ends at the model
+    run) is only compared fairly if both sides read the same hours: this is what the comment should say.
+    """
+    lines: list[str] = []
+    sides = []
+    for name, results in files:
+        side_lines, side = _side_times(name, run_times(results, kind), listing=listing)
+        lines.extend(side_lines)
+        sides.append(side)
+    if len(sides) == 2:
+        (a, b) = sides
+        if a["stamps"] and b["stamps"]:
+            apart = (
+                abs((b["stamps"][len(b["stamps"]) // 2] - a["stamps"][len(a["stamps"]) // 2]).total_seconds()) / 3600
+            )
+            overlap = a["stamps"][0] <= b["stamps"][-1] and b["stamps"][0] <= a["stamps"][-1]
+            same_run = bool(a["runs"] & b["runs"])
+            lines.append(
+                f"the sides: call times {apart:.1f} h apart (median to median), the windows "
+                f"{'overlap' if overlap else 'do not overlap'}, model runs {'shared' if same_run else 'not shared'}"
+            )
+            lines.append(
+                "comparable hours: "
+                + (
+                    f"yes, the same model run was read, and the call times are within {SAME_HOURS:g} h of each other"
+                    if same_run and apart <= SAME_HOURS
+                    else "NO, say so in the comment: the sides read other hours or another model run, so an answer "
+                    "that depends on the hour (the current hour, the end of a window) is not the same on both"
+                )
+            )
+        else:
+            lines.append(
+                "comparable hours: unknown, a side has no call time (no retrieved_at and no transcript timestamp)"
+            )
+    return "\n".join(lines)
+
+
 def like_options(previous: dict[str, Any]) -> dict[str, Any]:
     """Read from a results file's `meta` what a run that is to be compared with it must be made with.
 
@@ -2641,6 +2744,8 @@ def trial(
     return code
 
 
+#: two sides whose forecast calls were made this many hours apart (median to median) read about the same hours
+SAME_HOURS = 2.0
 #: at most this many tested agents at once: more than three is more than a laptop takes
 MAX_PARALLEL = 3
 
@@ -2767,6 +2872,14 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
             f"{', cut by the server' if c.get('truncated') else ''}, {c['result_chars']} characters"
             f"{', retrieved_at ' + str(c['retrieved_at']) if c.get('retrieved_at') else ''}"
         )
+        if c.get("forecast_note"):
+            when = c.get("retrieved_at") or c.get("answered_at")
+            source = "retrieved_at" if c.get("retrieved_at") else "timestamp of the transcript"
+            lines.append(f"    forecast note: {c['forecast_note']}")
+            lines.append(
+                f"    model run (data_updated_at): {c.get('data_updated_at') or 'not in the answer'}; "
+                f"call time: {when or 'unknown'} ({source})"
+            )
         if c.get("truncated"):
             lines.append(f"    cut note: {c.get('truncated_note') or '(the note was not found in the answer)'}")
             after = c.get("after_cut")
@@ -3191,6 +3304,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         action="store_true",
         help="start although runs of an earlier batch are not judged yet (they are made, and paid for, again)",
     )
+    p_times = sub.add_parser("times")
+    p_times.add_argument("files", nargs="+", type=Path, help="one results file, or two to compare their hours")
+    p_times.add_argument("--kind", default="forecast", help="the kind of case (default forecast; `all` for every case)")
+    p_times.add_argument("--runs", action="store_true", help="list every run")
     p_meta = sub.add_parser("meta")
     p_meta.add_argument("results", type=Path, help="a results file: what it was made with (to build the other side)")
     p_regex = sub.add_parser("regex-facts")
@@ -3343,6 +3460,13 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             print(json.dumps(span_for_run(args), indent=1, ensure_ascii=False))
         except (OSError, ValueError, KeyError, TypeError) as error:
             sys.stderr.write(f"span: {error}\n")
+            return 2
+    elif args.command == "times":
+        try:
+            loaded = [(f.name, json.loads(f.read_text(encoding="utf-8"))) for f in args.files[:2]]
+            print(times_report(loaded, None if args.kind == "all" else args.kind, listing=args.runs))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            sys.stderr.write(f"times: {error}\n")
             return 2
     elif args.command == "meta":
         try:

@@ -5593,3 +5593,150 @@ def test_span_falls_back_on_the_transcript_time_of_the_call_when_the_answer_has_
     assert (neither["called_at_from"], neither["called_at"], "timing" in neither["figures"][0]) == (None, None, False)
     assert "no `retrieved_at` nor a transcript timestamp" in neither["timing_note"]
     assert (override["called_at_from"], override["figures"][0]["timing"]) == ("--called-at", "after")
+
+
+# ------------------------------------------------ forecast notes, the hours of both sides, unchanged INCONCLUSIVE
+
+
+FORECAST_JSON = (
+    '{"result":{"metadata":{"retrieved_at":"2026-11-12T19:05:00+00:00","data_updated_at":"2026-11-12T16:00:00+00:00",'
+    '"warnings":[{"code":"forecast-from-now","message":"The answer starts at the current hour '
+    "(2026-11-12T19:00:00+00:00): "
+    "the 3 earlier timestamps (3 rows) of the model run are left out. For them, ask again with "
+    '`timestamp=2026-11-12T16:00:00+00:00/2026-11-12T18:00:00+00:00`."}]},"values":[]}}'
+)
+FORECAST_CSV_NOTE = (
+    "The answer starts at the current hour (2026-11-12T20:00:00+00:00): the 4 earlier timestamps (4 rows) of the "
+    "model run "
+    "are left out. For them, ask again with `timestamp=2026-11-12T16:00:00+00:00/2026-11-12T19:00:00+00:00`."
+)
+
+
+@pytest.mark.parametrize("newline", ["\\n", "\n"])
+def test_the_forecast_note_of_a_values_call_is_kept_from_the_json_and_from_a_csv(tmp_path: Path, newline: str) -> None:
+    """The warning of a JSON answer and the `Forecast:` sentence of a CSV (its newline written out or real) are read."""
+    csv = f"Warnings: forecast-from-now. Forecast: {FORECAST_CSV_NOTE}{newline}{newline}station_id,value{newline}1,2"
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("values", "a", provider="dwd"),
+            _result("a", FORECAST_JSON),
+            _use("values", "b", provider="dwd", format="csv"),
+            _stamped(_result("b", csv), "2026-11-12T20:05:00.000Z"),
+            _use("stations", "c"),
+            _result("c", "Forecast: not a values call"),
+        ),
+        PREFIX,
+    )
+
+    json_call, csv_call, other = run["calls"]
+    assert json_call["forecast_note"].startswith("The answer starts at the current hour (2026-11-12T19:00:00+00:00)")
+    assert json_call["forecast_note"].endswith("2026-11-12T18:00:00+00:00`.")
+    assert (json_call["data_updated_at"], json_call["retrieved_at"]) == (
+        "2026-11-12T16:00:00+00:00",
+        "2026-11-12T19:05:00+00:00",
+    )
+    assert csv_call["forecast_note"] == FORECAST_CSV_NOTE
+    assert csv_call["answered_at"] == "2026-11-12T20:05:00.000Z"
+    assert "forecast_note" not in other
+
+
+def test_the_digest_shows_the_forecast_note_the_model_run_and_the_call_time(tmp_path: Path) -> None:
+    """The judge sees the note, the model run and when the call was made, with the source of that time."""
+    csv = f"Forecast: {FORECAST_CSV_NOTE}\\n\\nstation_id,value"
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("values", "a", provider="dwd"),
+            _result("a", FORECAST_JSON),
+            _use("values", "b", provider="dwd", format="csv"),
+            _stamped(_result("b", csv), "2026-11-12T20:05:00.000Z"),
+        ),
+        PREFIX,
+    )
+    analysis = {
+        **run,
+        "case": "forecast-tokyo",
+        "tier": "small",
+        "repeat": 1,
+        "max_steps": 6,
+        "mechanical_pass": True,
+        "checkpoints": {"k": 1, "n": 1},
+        "violations": [],
+        "format_violation": None,
+        "mechanical_facts": {},
+        "answer": "x",
+    }
+    path = tmp_path / "f.analysis.json"
+    path.write_text(json.dumps(analysis), encoding="utf-8")
+
+    text = bench.digest_run(path)
+
+    assert "forecast note: The answer starts at the current hour (2026-11-12T19:00:00+00:00)" in text
+    assert (
+        "model run (data_updated_at): 2026-11-12T16:00:00+00:00; call time: 2026-11-12T19:05:00+00:00 (retrieved_at)"
+        in text
+    )
+    assert (
+        "model run (data_updated_at): not in the answer; "
+        "call time: 2026-11-12T20:05:00.000Z (timestamp of the transcript)" in text
+    )
+
+
+def _forecast_side(called: list[str], model_runs: list[str], case: str = "forecast-tokyo") -> dict[str, Any]:
+    """Make a results file with one forecast run per call time."""
+    runs = [
+        {
+            "case": case,
+            "tier": "small",
+            "repeat": i + 1,
+            "calls": [{"tool": "values", "ok": True, "retrieved_at": stamp, "data_updated_at": model_run}],
+        }
+        for i, (stamp, model_run) in enumerate(zip(called, model_runs, strict=True))
+    ]
+    runs.append({"case": "licence-dwd", "tier": "small", "repeat": 1, "calls": [{"tool": "values", "ok": True}]})
+    return {"meta": {}, "runs": runs}
+
+
+def test_times_tell_when_each_side_called_and_whether_the_hours_compare(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Call times and model runs per side; the verdict says if the same run was read within the same hours."""
+    base = _forecast_side(["2026-11-12T10:00:00+00:00", "2026-11-12T10:20:00+00:00"], ["2026-11-12T09:00:00+00:00"] * 2)
+    near = _forecast_side(["2026-11-12T10:30:00+00:00"], ["2026-11-12T09:00:00+00:00"])
+    far = _forecast_side(["2026-11-12T19:00:00+00:00"], ["2026-11-12T16:00:00+00:00"])
+    nothing = {"meta": {}, "runs": [{"case": "forecast-tokyo", "tier": "small", "repeat": 1, "calls": []}]}
+
+    same = bench.times_report([("base", base), ("near", near)])
+    other = bench.times_report([("base", base), ("far", far)])
+    alone = bench.times_report([("base", base)], listing=True)
+
+    assert "base: 2 runs with a values call, 2 with a call time" in same
+    assert "call times (UTC): 2026-11-12 10:00Z to 2026-11-12 10:20Z" in same
+    assert "model runs (data_updated_at): 2026-11-12T09:00:00+00:00 (2 runs)" in same
+    assert "comparable hours: yes, the same model run was read, and the call times are within 2 h" in same
+    assert "the windows do not overlap, model runs not shared" in other
+    assert "comparable hours: NO, say so in the comment" in other
+    assert "forecast-tokyo [small] repeat 2: called 10:20Z, model run 2026-11-12T09:00:00+00:00" in alone
+    assert "licence-dwd" not in alone
+    assert "licence-dwd" in bench.times_report([("base", base)], kind=None, listing=True)
+    assert "comparable hours: unknown" in bench.times_report([("base", base), ("none", nothing)])
+    files = []
+    for name, data in (("a.json", base), ("b.json", far)):
+        (tmp_path / name).write_text(json.dumps(data), encoding="utf-8")
+        files.append(str(tmp_path / name))
+    assert bench.main(["times", *files]) == 0
+    assert "comparable hours: NO" in capsys.readouterr().out
+    assert bench.main(["times", str(tmp_path / "missing.json")]) == 2
+
+
+def test_an_inconclusive_rate_that_did_not_move_says_so() -> None:
+    """20 runs a side cannot show a 10-point margin: the same 19/20 is inconclusive and is said to be unchanged."""
+    verdict, text = bench._non_inferiority("passed", 19, 20, 19, 20, 0.10)  # noqa: SLF001
+    moved, moved_text = bench._non_inferiority("passed", 19, 20, 18, 20, 0.10)  # noqa: SLF001
+
+    assert verdict == "inconclusive"
+    assert "(unchanged: 19/20 on both sides; 20 runs a side are too few to show a margin of 10%)" in text
+    assert moved == "inconclusive"
+    assert "unchanged" not in moved_text
+    assert "unchanged" not in bench._non_inferiority("passed", 40, 40, 40, 40, 0.10)[1]  # noqa: SLF001
