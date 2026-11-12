@@ -778,6 +778,8 @@
     "privacyLink": "Więcej w polityce prywatności",
     "remembered": "Zapamiętana lokalizacja: {position}",
     "forget": "Zapomnij moją lokalizację",
+    "stored": "Zapisana",
+    "storedLabel": "Zapisana: moja lokalizacja w tej przeglądarce",
     "denied": "Twoja przeglądarka blokuje lokalizację dla tej witryny. Aby na nią zezwolić, otwórz ustawienia witryny w przeglądarce, ustaw Lokalizację na Zezwalaj i naciśnij przycisk jeszcze raz. Wyszukiwanie nadal działa.",
     "unsupported": "Ta przeglądarka nie potrafi ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",
     "unavailable": "Nie udało się ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",

@@ -80,6 +80,12 @@ watch(() => route.query.place, async (id) => {
 // nearest to it (the stations request, ranked by the position) as the place, for this visit only unless the reader ticked
 // "remember". The address then names no other place; the position itself is in no address.
 const { remember } = useMyLocation()
+// "Remember" is ticked after the press (GH-4011), when the place the position made is already in hand, for this visit:
+// it is kept in the browser with the position, as it would have been had the box been ticked before
+watch(remember, (on) => {
+  if (on && place.value.fromPosition)
+    setPlace(place.value)
+})
 const locating = ref(false)
 const locatedText = ref('')
 const locateProblem = ref('')

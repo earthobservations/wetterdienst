@@ -778,6 +778,8 @@
     "privacyLink": "Más en la política de privacidad",
     "remembered": "Ubicación recordada: {position}",
     "forget": "Olvidar mi ubicación",
+    "stored": "Guardada",
+    "storedLabel": "Guardada: mi ubicación en este navegador",
     "denied": "Tu navegador bloquea la ubicación para este sitio. Para permitirla, abre los ajustes del sitio en tu navegador, pon Ubicación en Permitir y vuelve a pulsar el botón. La búsqueda sigue funcionando.",
     "unsupported": "Este navegador no puede determinar tu ubicación. Usa la búsqueda en su lugar.",
     "unavailable": "No se pudo encontrar tu ubicación. Usa la búsqueda en su lugar.",
