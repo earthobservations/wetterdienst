@@ -18,7 +18,7 @@ UTC = dt.UTC
 @pytest.mark.parametrize(
     ("request_class", "parameters", "auth", "setting"),
     [
-        (KnmiObservationRequest, [("daily", "data", "temperature_air_mean_2m")], "knmi", "WD_AUTH__KNMI"),
+        (KnmiObservationRequest, [("daily", "data", "temperature_air_mean_2m")], "knmi_edr", "WD_AUTH__KNMI_EDR"),
         (AemetObservationRequest, [("daily", "data", "temperature_air_mean_2m")], "aemet", "WD_AUTH__AEMET"),
         (MetnoFrostRequest, [("hourly", "data", "temperature_air_2m")], "metno_frost", "WD_AUTH__METNO_FROST"),
     ],

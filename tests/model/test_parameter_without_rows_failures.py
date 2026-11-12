@@ -13,6 +13,7 @@ the answer of the source.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
@@ -27,22 +28,21 @@ from tests.provider.dwd.road.test_api import _stub_downloads, _stub_stations
 from tests.provider.fmi.observation.test_values_frames import _EXCEPTION_REPORT, _collection
 from tests.provider.fmi.observation.test_values_frames import _serve as _serve_fmi
 from tests.provider.fmi.observation.test_values_frames import _values as _fmi_values
-from tests.provider.knmi.observation.test_api import _daily_values, _serve_knmi
 from tests.provider.metno.frost.test_values_failures import _failed as _frost_answer
 from tests.provider.metno.frost.test_values_failures import _values as _frost_values
 from tests.provider.smhi.observation.test_api_download_failure import _STATION
 from tests.provider.smhi.observation.test_api_download_failure import _request as _smhi_request
 from tests.provider.value_stubs import stations_result
+from wetterdienst import Settings
 from wetterdienst.provider.aemet.observation import api as aemet_api
+from wetterdienst.provider.knmi.observation import KnmiObservationRequest
+from wetterdienst.provider.knmi.observation import edr as knmi_edr
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File, _failed_file
 from wetterdienst.util.response_warnings import SkipCause, begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
-
-    from wetterdienst import Settings
 
 CODE = "parameter-without-rows"
 
@@ -205,17 +205,25 @@ def test_road_weather_tells_of_files_that_hold_nothing(monkeypatch: pytest.Monke
     assert [warning["stations"] for warning in _told()] == [["A006"]]
 
 
-# KNMI: a timestamp that is not there
+# KNMI: a range the EDR API has no data for
 
 
-def test_knmi_values_say_nothing_of_a_timestamp_that_is_not_there(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """A file KNMI answers for with a 404 is a moment it does not have, which the provider skips and warns of."""
-    _serve_knmi(monkeypatch, tmp_path, FileNotFoundError("not published"))
+def test_knmi_values_say_nothing_of_a_range_the_api_has_no_data_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 404 of the EDR API is no data in the chunk: no `file-skipped`, the station has no values (GH-3928)."""
+    monkeypatch.setattr(
+        knmi_edr, "fetch", lambda url, _settings, _ttl: File(url=url, content=FileNotFoundError("no data"), status=404)
+    )
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start=dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
+        end=dt.datetime(2024, 1, 2, tzinfo=dt.UTC),
+        settings=Settings(cache_disable=True, auth={"knmi_edr": "stub"}),
+    )
     begin_response()
-    assert _daily_values(days=2).is_empty()
-    assert _told() == []
+    assert stations_result(request, "daily", "data", "06260", wigos_id="0-20000-0-06260").values().all().df.is_empty()
+    told = _told()
+    assert [warning["code"] for warning in told] == [CODE]
+    assert "file-skipped" not in {warning["code"] for warning in told}
 
 
 # SMHI: a parameter file that was refused

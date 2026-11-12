@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """KNMI (Netherlands) observation metadata.
 
-name_original holds the raw KNMI NetCDF variable name (e.g. "T", "RH"), used directly
-to select the variable within each downloaded file.
+name_original holds KNMI's own name of the parameter (e.g. "T", "RH"), which is what the EDR API is asked for as
+`parameter-name` and answers under.
 """
 
 from __future__ import annotations
@@ -12,12 +12,13 @@ from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_m
 
 
 def _validated_period_parameters() -> list[dict]:
-    """Declare the variables of the monthly and the annual validated files, which are the same.
+    """Declare the variables of the monthly and the annual validated collections, which are the same.
 
-    A file holds every station for one month or one year. The variables, units and descriptions are read from real
-    files (monthly 202609 and annual 2024, GH-4006) and mirror the daily file's names, so the 'Monthly ...' /
-    'Annual ...' descriptions of the files state the statistic: TG is the mean of the daily mean temperatures, TN and
-    TX the extremes of the period, RH, DR, SQ and Q sums. A variable of the files that has no canonical name is left
+    The variables, units and descriptions were read from the real monthly and annual files of the Open Data API (202609
+    and 2024, GH-4006), which the EDR API serves under the same names, and mirror the daily collection's names, so the
+    'Monthly ...' / 'Annual ...' descriptions state the statistic: TG is the mean of the daily mean temperatures, TN and
+    TX the extremes of the period, RH, DR, SQ and Q sums. A variable of the collections that has no canonical name is
+    left
     out, which `docs/data/provider/knmi/observation/monthly.md` lists with the reason.
     """
     return [
@@ -62,7 +63,7 @@ _KnmiObservationMetadataSpec = {
         "scope": "national",
         "continents": ["europe", "north_america"],
         "country_codes": ["NL"],
-        # the stations of KNMI's catalogue (77 in the file of 2026-06-15, read 2026-11-11) are in the Netherlands, on
+        # the stations of KNMI's list (77, read 2026-11-12) are in the Netherlands, on
         # the platforms of the North Sea, north to A12-CPP (55.40 N), and on the Caribbean Netherlands (WMO block 78:
         # Bonaire 12.13 N, 68.28 W; Saba and Sint Eustatius at 17.5 N, 63 W). The box is wider than the list, west to
         # 70.5 so that Aruba (70.0 W) is in it if KNMI ever lists it

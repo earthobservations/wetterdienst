@@ -26,8 +26,9 @@ What the requests of the library do, whichever provider they go to:
   listing three times, after a reset, a timeout, a `5xx` or a handshake the server fumbled, and a download also once
   more after a `404` (a file index can be read before the file it names is published). A certificate that does not
   verify and a `429 Too Many Requests` are not asked again, and the answer comes back to you as it is. Two providers
-  add a loop of their own: AEMET and KNMI ask up to three times in all, waiting 2 seconds to start with and 15 at most,
-  and they do retry a `429` (and any status but `400`, `401`, `403` and `404`).
+  add a loop of their own: AEMET and KNMI ask up to three times in all, waiting 2 seconds to start with and 15 at most. AEMET retries a
+  `429` (and any status but `400`, `401`, `403` and `404`); KNMI's EDR API is asked once for a `404` (no data, a request of
+  its quota) and retries a reset or a `5xx`, not a `400`, `401`, `403`, `404`, `413`, `422` or `429`.
 - **It fetches ahead for five networks**, `dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology` and `smhi`
   (of four providers), where one station is one set of files: while it parses one station it downloads the files of the
   next four (`fetch_ahead`, at most eight, and no more than eight connections to one host for all the reads of a
@@ -140,7 +141,7 @@ without an account. What that means for the data:
 
 ## Keys and credentials
 
-Four providers need a key or an account: AEMET (API key), KNMI (API key), the Met Office's MIDAS Open (a CEDA account,
+Four providers need a key or an account: AEMET (API key), KNMI (EDR API key), the Met Office's MIDAS Open (a CEDA account,
 from which the library mints a token valid for three days) and MET Norway's Frost (a client ID). What each states about
 sharing the key and about serving others with it, quoted at the License section of the provider:
 
@@ -167,7 +168,7 @@ with the terms of its provider.
 | `tests/provider/dwd/radar/files/` | nine real radar files of 2026-10-20 to 22, the smallest of their product (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 550,338 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
 | `tests/provider/dmi/observation/` | four JSON files of DMI readings and parameter lists (hourly, daily, monthly and annual values), 85 kB | DMI, CC BY 4.0, "© DMI (Danish Meteorological Institute)" |
-| `tests/provider/knmi/observation/files/` | three real KNMI NetCDF files, a month of 2026-09 and of 1901-01 and a year (2024), cut to one to three stations with every variable and attribute kept, 168,399 bytes | KNMI, CC BY 4.0, "© KNMI" |
+| `tests/provider/knmi/observation/files/` | five real answers of KNMI's EDR API (De Bilt and Schiphol, a day to a year of each resolution) cut to the variables the provider maps, and the rows the Open Data files route made of them before GH-3928, 10 CSV files, 247 kB | KNMI, CC BY 4.0, "© KNMI" |
 | `tests/provider/noaa/ghcn/` | two CSV files of GHCN-Daily elements, 1.3 kB | NOAA NCEI, CC0 1.0 |
 | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` and the inline text of the tests of each provider | rows of the real station lists and of real values, a few per network, in the provider's own format; some rows are edited (below) | the licence and credit line of that provider on [licences and credit lines](licenses.md) |
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |

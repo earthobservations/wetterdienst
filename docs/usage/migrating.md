@@ -35,6 +35,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | `click` 8.2.0 to 8.3.1 | `click>=8.3.2`: on 8.2.0 `--provider` and `--network` complete nothing or the wrong candidates, on 8.3.0 and 8.3.1 every boolean option without a value (`--all`, `--pretty`, `--debug`, `--quiet`) is refused; upgrade click where an older one is pinned | 0.184.0, GH-3826 |
 | `bufr` and `eccodes` extras with `findlibs` 0.1.3 or older, on Linux | `findlibs>=0.1.4`: the older ones loaded the PROJ bundled with `eccodes` 2.43+ globally, so a process that loaded `eccodes` and then imported `pyproj` aborted at exit (status 134 or 139) | 0.184.0, GH-2441 |
 | `.env` read in the locale's encoding | read as UTF-8; a `.env` in a Windows code page with a non-ASCII value raises `UnicodeDecodeError` on `Settings()`: save it as UTF-8 | 0.147.0, GH-2568 |
+| the `knmi` extra (`knmi/observation` read NetCDF files) | the extra is gone: KNMI is read from its EDR API, which needs no package. `wetterdienst[radar]` and `[export]` still install `h5netcdf`; drop `knmi` from the extras you ask for | unreleased, GH-3928 |
 | `fsspec_client_kwargs` (or `WD_FSSPEC_CLIENT_KWARGS`) replaced the defaults | it is merged into them, `headers` one level deep; give `"timeout": None` for aiohttp's own timeout, a `User-Agent` of your own to replace ours | 0.140.0, GH-2269 |
 
 ## Python API
@@ -85,6 +86,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | `geo_station_distance_resolution_factors={"6_hour": ...}`, `Resolution` `6_hour` | `{"6_hours": ...}`; the value is `6_hours`, as `10_minutes` is (`metno/frost`) | 0.155.0, GH-2641, GH-2561 |
 | a `ts_geo_station_distance` override keyed by an old `_mean_` name | the row takes the default radius: key the override by the new name | 0.145.0, GH-2651, GH-2657, GH-2660 |
 | `ts_skip_threshold` above 1 or 0 was accepted and skipped every station | refused: such a `WD_TS_SKIP_THRESHOLD` fails every `Settings()`; `/api/values` answers a `skip_threshold` of 0 with a 422 | 0.140.0, GH-2334 |
+| the key of KNMI's Open Data API, `Settings(auth={"knmi": ...})` or its environment variable | ignored with one warning that names `WD_AUTH__KNMI_EDR`; a `knmi/observation` request with no EDR key says the old key no longer works (`CredentialMissingError`), and the API refuses an Open Data key with a 403 (`CredentialRejectedError`). Register an EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`) in its place; the quota is 1,000 requests an hour, and a query that takes more is refused with a `RequestError` (REST 400) that gives the count | unreleased, GH-3928 |
 | the REST API and MCP accepted `sql` and `sql_values` | a 403 unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
 
 ### Export targets

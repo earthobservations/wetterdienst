@@ -1479,7 +1479,7 @@ def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverag
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
     msg = (
-        "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+        "Reading radar HDF5 requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[radar]"
     )
 
     def resolve(*_args: object) -> None:

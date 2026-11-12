@@ -26,7 +26,8 @@ from wetterdienst.util.extras import (
         ("utm", ["interpolation"]),
         ("plotly", ["plotting"]),
         ("fastapi", ["restapi"]),
-        ("h5py", ["knmi", "radar"]),
+        ("h5py", ["radar"]),
+        ("h5netcdf", ["export", "radar"]),
         # modules named otherwise than their distribution, with nothing installed to say so (GH-2663)
         ("MySQLdb", ["mysql"]),
         ("influxdb_client_3", ["influxdb"]),
@@ -45,22 +46,22 @@ def test_extras_are_read_out_of_the_installed_metadata(module_name: str, expecte
 def test_the_message_names_the_extra_the_caller_belongs_to() -> None:
     """Where several extras install a package, the caller's own is the one worth naming.
 
-    `h5py` comes with both `knmi` and `radar`, and telling someone reading radar files to install
-    the KNMI extra is true and no help.
+    `h5netcdf` comes with both `export` and `radar`, and telling someone reading radar files to install
+    the export extra is true and no help.
     """
-    message = missing_dependency_message("Reading radar HDF5", "h5py", extra="radar")
+    message = missing_dependency_message("Reading radar HDF5", "h5netcdf", extra="radar")
 
     assert message == (
-        "Reading radar HDF5 requires h5py, which is not installed. Install it with: pip install wetterdienst[radar]"
+        "Reading radar HDF5 requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[radar]"
     )
 
 
 def test_an_extra_the_metadata_does_not_know_is_not_repeated_back() -> None:
     """A hint that no longer matches the metadata falls back to what is there, not to a wrong name."""
-    message = missing_dependency_message("Something", "h5py", extra="renamed-since")
+    message = missing_dependency_message("Something", "h5netcdf", extra="renamed-since")
 
     assert "wetterdienst[renamed-since]" not in message
-    assert "wetterdienst[knmi] or pip install wetterdienst[radar]" in message
+    assert "wetterdienst[export] or pip install wetterdienst[radar]" in message
 
 
 def test_a_package_of_no_extra_gets_no_install_line() -> None:

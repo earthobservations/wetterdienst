@@ -55,7 +55,7 @@ The arguments are overruled in the above order meaning:
 
 As from the environment, only the `WD_` variables that name a setting are read from `.env`. Its
 other keys, such as another program's, or a `WD_` key that names no setting, such as the misspelt
-`WD_CACHE_DIABLE`, are ignored. A key within a setting, such as `WD_AUTH__KNMI`, is read as part of
+`WD_CACHE_DIABLE`, are ignored. A key within a setting, such as `WD_AUTH__KNMI_EDR`, is read as part of
 that setting. A keyword to `Settings(...)` that names no setting is refused, the removed `ts_*` settings apart.
 
 The following settings are available:
@@ -67,7 +67,7 @@ The following settings are available:
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | User-Agent header, timeout 30      |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 | fetch_ahead          | the stations after the one a read is at whose files are fetched into the cache while it is parsed, for `dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology` and `smhi`, at most 8: up to that many more connections to the host beside those of the station in hand, and no more than 8 per host for all the reads of a process together (the downloads of the stations in hand are not counted). 0 fetches one station after the other; the cache must be on, and `interpolate` and `summarize` do not fetch ahead. A missing or failed file is asked for twice, ahead and at its turn, and an outage can show up later, by up to twice the client timeout | 4 |
-| auth                 | credentials of the providers that need them, each from its own variable, `WD_AUTH__AEMET`, `WD_AUTH__KNMI`, `WD_AUTH__METNO_FROST` or `WD_AUTH__CEDA`; held as secrets and not printed (see the provider pages) | none |
+| auth                 | credentials of the providers that need them, each from its own variable, `WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR` (the key of KNMI's EDR API, not of its Open Data API, which is refused), `WD_AUTH__METNO_FROST` or `WD_AUTH__CEDA`; held as secrets and not printed (see the provider pages) | none |
 | restapi_sql          | let REST API and MCP clients filter with `sql` / `sql_values` (refused with a 403 otherwise); the clause runs in DuckDB on the server, see [REST API](restapi.md#sql-filters) | False |
 | restapi_max_stations | the most stations one `values` or `history` request of the REST API and the MCP tools may read (for `interpolate` and `summarize`, the most with a record in the window within the radius of the request), else a 400; 0 for no limit, see [Limits](restapi.md#limits) | 100 |
 | restapi_max_rows     | the most rows (estimated) of an answer the REST API sends as one body, else a 400; 0 for no limit | 500000 |
