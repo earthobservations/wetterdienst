@@ -32,8 +32,9 @@ writes nothing into the repository. **Until pull request #3544 is merged the ben
 | results file | `$BENCH/mcpbench-results-smoke.json` | `$BENCH/mcpbench-results-baseline.json` |
 
 A tested model is stopped after 300 s and after 0.50 USD (`MCPBENCH_TIMEOUT`, `MCPBENCH_MAX_USD`), so a run costs at most
-0.50 USD and the smoke run at most 27 USD, the baseline at most 135 USD; the real cost is far lower (one Haiku run of the
-glossary case cost 0.7 cent), and the report prints it. Do **not** start the baseline after a smoke run, or the smoke run
+0.50 USD and the smoke run at most 27 USD, the baseline at most 135 USD. The real cost is far lower: a Haiku run costs about
+0.005 USD, a Sonnet run about 0.06 USD on average (0.03 to 0.24), and the whole baseline of 270 runs cost about 8.3 USD for the
+tested models (measured on 2026-11-12; the judge's own tokens are not included). The report prints the cost. Do **not** start the baseline after a smoke run, or the smoke run
 after a baseline, unless your instruction asked for it: report and stop.
 
 ## Rules for the whole run
@@ -66,7 +67,7 @@ Check each; if one fails, stop and ask (Part 7).
 | `gh`, authenticated | `gh auth status` | logged in to github.com with the scopes `repo` and `gist` |
 | the issue | `gh issue view 3546 -R earthobservations/wetterdienst --json state -q .state` | `OPEN` |
 | `git`, `uv`, `curl`, `lsof` | `uv --version` | present |
-| Python 3.13 for the server | `uv python find 3.13` | a path. The server runs on **3.13** (`UV_PYTHON=3.13`): the free-threaded 3.14 fails to build polars. |
+| Python 3.13 for the server | `uv python find 3.13` | a path (it may be the Python of a repository's `.venv`: that is fine). The server runs on **3.13** (`UV_PYTHON=3.13`): the free-threaded 3.14 fails to build polars. |
 | a checkout of the repository to start from | `git rev-parse --show-toplevel` | a path; it need not have `benchmarks/mcp` (a checkout of `main` has not, until #3544 is merged): 2.1 makes the copy of the benchmark you use, `$REPO` |
 | the port | `lsof -nP -iTCP:7891 -sTCP:LISTEN` | **no output**: if something listens on 7891, it is not yours: stop and ask |
 
@@ -209,12 +210,13 @@ first tested model runs**.
 ## Part 3. Run the cases
 
 One command makes the next runs of the file, at most 3 at a time, and prints for each the verdict of the counting, the calls
-and the answer (it also leaves that text in `$BENCH/runs/<case>-<tier>-<repeat>.trial.txt`, the transcript as `.jsonl`,
-and the analysis as `.analysis.json` next to it):
+and the answer (it also leaves that text in `<dir>/<case>-<tier>-<repeat>.trial.txt`, the transcript as `.jsonl`,
+and the analysis as `.analysis.json` next to it). Give each results file **its own directory** (`$BENCH/runs-smoke`,
+`$BENCH/runs-baseline`):
 
 ```bash
 . "$BENCH/env.sh"
-python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" batch --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs" --limit 9 --parallel 3
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" batch --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs-smoke" --limit 9 --parallel 3
 ```
 
 Run it in the background (`run_in_background`) and wait for its end: nine runs take a few minutes, at most `timeout` per run.
@@ -227,11 +229,23 @@ post progress as you go. For each run the command does the following, so you nee
   answer** (exit 3) as an *invalid* run; neither needs your judgement (both are counted by `report`);
 - every other run waits for your judgement (Part 4).
 
+**Judge every run of a batch before you start the next `batch`, and never let the two overlap.** A run that was made and is
+not judged yet is still in `todo`, so the next `batch` would make it again and pay for it twice. `batch` therefore **refuses to
+start** (exit 2, with the names of the runs) while runs of its directory wait for the judge; judge them, or, to make them again
+on purpose, pass `--allow-unjudged`.
+
+**You may judge from a condensed digest.** The printed text of `batch` is already one: the counting's verdict, the calls (tool,
+arguments, ok, size), the answer and its `RESULT:` lines. To print it again, or to see the first characters of each call's result
+next to it, run `bench.py digest "$BENCH/runs-smoke/<case>-<tier>-<repeat>.analysis.json"` (`--heads 300` adds 300 characters
+of each result). Open the full transcript (`<case>-<tier>-<repeat>.jsonl`) only where a case needs it: the `no_measurements` fact
+(is a figure of the answer in a tool result?), a spilled call, or a fact that a digest cannot settle.
+
 **Resume after an interruption.** Nothing is lost: each judged run is in the results file the moment `judge` returns
 (`add-run` writes through a temporary file and takes a lock), so you stop and start at any time. Run `bench.py todo` to see
 what is left: a run with a valid record, a failed one (a timeout, a budget stop) included, is not listed again; a run
-with no record, or only an invalid one, is. A run that was started and not judged (an `.analysis.json` with no record) is made again by
-`batch` (it is in `todo`): look in `$BENCH/runs` first, and judge those analyses instead of paying for them twice. `judge` and `add-run` are
+with no record, or only an invalid one, is. A run that was started and not judged (an `.analysis.json` with no record) is in
+`todo` too, and `batch` refuses to start while there is one: look in the directory first, and judge those analyses instead of
+paying for them twice. `judge` and `add-run` are
 **idempotent only in the sense that they refuse**: a second `judge` of a run that has a valid record exits 2 ("would replace a
 valid run") and changes nothing. To replace a record deliberately, pass `--replace-valid` (to `judge`) and say why in the next
 comment. Never edit the results file by hand.
@@ -257,7 +271,7 @@ the units, the placeholders, what an invented number is) are under "Judging rule
 
 ```bash
 . "$BENCH/env.sh"
-python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" judge --results "$BENCH/mcpbench-results-smoke.json" --analysis "$BENCH/runs/<case>-<tier>-<repeat>.analysis.json" --is-answer yes --facts ok --fact meaning=ok --fact unit=ok --note "<what is worth remembering, or empty>"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" judge --results "$BENCH/mcpbench-results-smoke.json" --analysis "$BENCH/runs-smoke/<case>-<tier>-<repeat>.analysis.json" --is-answer yes --facts ok --fact meaning=ok --fact unit=ok --note "<what is worth remembering, or empty>"
 ```
 
 `judge` computes `passed` (`mechanical_pass` and `is_answer`: never your word alone), drops the large `result_head` of each
@@ -339,7 +353,7 @@ names. These failures are known; the first column is what you see, the second wh
 | `batch` or `trial`: `the MCP server at ... does not answer`, exit 3, runs recorded as `invalid` | the server is down. Look at `$BENCH/server.log`, check `/health`. If it died, start it again once with the same command (2.2) and the same cache, continue (`todo` lists the invalid runs again), and say so in the next comment. If it dies a second time, stop and ask |
 | a run `timed out` (exit 124, recorded as `failed`, `failure: timeout`) | a result of the model, not an error: it counts against the pass rate and is not repeated. The first repeat of a case reads a cold cache and may be slow; many timeouts in a row point to a slow provider or a loaded machine: say so in the next comment |
 | `end: error_max_budget_usd` in an analysis | the tested model reached 0.50 USD: a failed headline (`is_answer` no); say so in the report |
-| `spilled` calls (a result larger than Claude Code allows is saved to a file the tested model cannot open), or `spill_unrecognised` | a real finding about a tool's answer size, not a fault of the benchmark: report it as it is. `spill_unrecognised` (a short result that mentions a saved file in other words) means the notice changed: say so; do not fix `bench.py` |
+| `spilled` calls (a result larger than Claude Code allows is saved to a file the tested model cannot open), or `spill_unrecognised` | a real finding about a tool's answer size, not a fault of the benchmark: report it as it is. `spill_unrecognised` (a short result that mentions a saved file in other words than the two notices of "The tested model") means the notice changed again: say so; do not fix `bench.py` |
 | `invalid_reason: the server 'wetterdienst' was 'failed'` / `offered no tool` / `the transcript has no init record` | the tested `claude` did not start or did not connect: check `claude --version`, the server, the transcript's last lines; a few in a row: stop and ask |
 | `judge` or `add-run` exits 2 | read the message: it names what the file refuses (the label, version, model, prompt or date of the run differ from the file's; a missing field; a valid run that would be replaced). Fix the cause; **never** `--replace-valid` to get past it without a reason |
 | `init` refuses | a bad argument, or the file exists: read it; never delete a results file to make `init` work |
@@ -379,13 +393,21 @@ with none of its tools, or that has no init record, is **`invalid`**: it is left
 `report`, and `compare` refuses a file with more than 3 % of them. A timeout is a *failed* run, not an invalid one, so that a
 strategy that makes the model slower shows up as a failure and does not disappear.
 
-**Results above the limit of Claude Code are saved to a file** the subject cannot open (it has no Read tool): the
-transcript holds a notice (`result (358,696 characters) exceeds maximum allowed tokens ... saved to ...`), measured on the
-full stations list of DWD. 31,000 characters came through whole; the limit lies between that and 358,000. `bench.py` reads
-the real size out of the notice (`result_chars`, `spilled_calls`), so the size metrics are true; the call is `spilled` and `ok: false` whatever `is_error` says, and a run whose answer
-depended on such a result failed to read it, which is what happened to it. `report` and `compare` print the spilled
-calls; a short result that talks of a saved file in other words is counted as `spill_unrecognised` and **warned about** in the
-report: the notice is not a documented format, and a change of it would otherwise make the sizes look small.
+**Results above the limit of Claude Code are saved to a file** the subject cannot open (it has no Read tool). The transcript
+holds a notice instead, in one of two forms (both seen with Claude Code 2.1.311, 2026-11-12):
+
+- `Error: result (358,696 characters) exceeds maximum allowed tokens. Output has been saved to ...`, the error of a result over
+  the token limit (measured on the full stations list of DWD: 31,000 characters came through whole);
+- `<persisted-output>` / `Output too large (57.2KB). Full output saved to: ...` / `Preview (first 2KB):` and the first 2 KB
+  of the result, which is no error and has **no count of characters**: it is a size with a unit (B, KB, MB), and a result of
+  about 58,000 characters (the `noaa/ghcn` `coverage`) was saved this way while one of 40,700 came through whole.
+
+`bench.py` reads the size out of either notice (`result_chars`, `spilled_calls`): the characters of the first, and the size of
+the second times 1024 per unit, an estimate a little above the characters when the text is not ASCII. So the size metrics are true
+to within the rounding of the notice, and the call is `spilled` and `ok: false` whatever `is_error` says. A run whose answer
+depended on such a result failed to read it (the 2 KB preview is no answer), which is what happened to it. `report` and `compare`
+print the spilled calls; a short result that talks of a saved file in other words (neither form) is counted as `spill_unrecognised`
+and **warned about** in the report: the notice is not a documented format, and a change of it would otherwise make the sizes look small.
 
 **What the benchmark cannot see: the `outputSchema`.** The server's `tools/list` is about 260,000 characters, of which
 about 210,000 were `outputSchema`, 39,000 `inputSchema` and 10,000 descriptions (`bench.py tools-size`, measured 2026-10-28,
@@ -474,8 +496,10 @@ ordinary phrases. Anything else, such as the year the records begin read from me
 
 **Units.** `values` answers in CSV (long and wide) and in the default JSON carry **no unit** (GH-3546): it is in
 `metadata.parameters[].unit` of a JSON answer with `with_metadata=true` (which CSV ignores), in `glossary` and in
-`coverage`. A model that does not look it up may state 0.84 for 84 % humidity as "0.84 %", seconds as minutes, or
-degrees Celsius as kelvin, and a change that makes the default answer compact (CSV or columnar) must still hand the
+`coverage`. A model that does not look it up may state a number with the wrong unit: the reference returns the daily mean humidity of
+Hamburg-Fuhlsbüttel on 2026-10-16 as `84.04` with the unit `%` today (the source and the library hold the fraction 0.8404, and
+the fact accepts a fraction or a percent, each with its own unit), so `0.84 %` or `84.04 fraction` is wrong by a factor of 100;
+sunshine comes back as `4.117 h` (14821.2 s), and `4.117 min` is wrong; degrees Celsius may be read as kelvin; and a change that makes the default answer compact (CSV or columnar) must still hand the
 unit over. The cases of kind `units` (`init --cases kind:units`, 8 cases) require the answer to state the unit, and the right
 one. For a `unit` fact the judge reads the value **and** its unit from the *reference*'s `values` with
 `with_metadata=true`, and the glossary as a cross-check (`cross_check`), never from the server under test alone, and runs

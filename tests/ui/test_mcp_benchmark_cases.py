@@ -168,8 +168,40 @@ REGEX_TESTS = (
     (
         "unanswerable-berlin-1500",
         "says-no-data",
-        ["The server has no data for that date.", "That is before any instrumental records."],
-        ["It was a cold and snowy winter."],
+        [
+            "The server has no data for that date.",
+            "That is before any instrumental records.",
+            # the wordings of correct answers of the baseline of 2026-11-12 (5 of 10 had failed the old patterns)
+            "I could not answer this. The search returned no stations and no rows.",
+            "I couldn't answer this. The DWD network has no Berlin station with daily data for 1 January 1500.",
+            "I couldn't find any weather data for Berlin on 1 January 1500.",
+            "The data this server offers doesn't go back that far, so I have no weather figures for that date.",
+            "The DWD search with that date returned no stations, and the earliest Berlin station starts in 1876.",
+            "A station search for Berlin with a record covering 1500-01-01 returned zero stations.",
+            "The station search for that date returned 0 stations and 0 rows.",
+            "DWD's station records do not reach back to 1500, so there is no weather reading to report.",
+            "DWD's station records are modern and do not reach back five centuries.",
+            "I could not answer this from the wetterdienst tools.",
+        ],
+        [
+            "It was a cold and snowy winter.",
+            "Berlin was around -3 per the chronicles, and the Spree froze over.",
+            "The winter of 1500 was harsh across northern Germany; heavy snow fell in January.",
+        ],
+    ),
+    (
+        "unanswerable-berlin-1500",
+        "records-from-memory",
+        [
+            "DWD's instrumental records only reach back to the 1700s and 1800s.",
+            "Stations began in the 1870s.",
+            "Records start in the 1800s.",
+        ],
+        [
+            "The earliest Berlin station, Berlin-Dahlem, starts in 1876.",
+            "No instrumental records exist for the 1500s.",
+            "There is no data for 1 January 1500.",
+        ],
     ),
     (
         "observation-vienna-yesterday",

@@ -9,8 +9,9 @@ are compared on the same arithmetic.
     bench.py todo --results FILE                                     the runs of the file that are still to do
     bench.py trial --results FILE --case ID --tier T --repeat N --dir DIR
                                                                      prompt, run and analyze one run
-    bench.py batch --results FILE --dir DIR [--limit N] [--parallel P]
+    bench.py batch --results FILE --dir DIR [--limit N] [--parallel P] [--allow-unjudged]
                                                                      the next N runs of `todo`, P at a time (at most 3)
+    bench.py digest A.json [--heads N]                               what the judge reads of one analysis
     bench.py judge --results FILE --analysis A.json --is-answer yes|no --facts ok|fail
                                                                      the verdict of the judge on one run, into the file
     bench.py prompt <case-id> --today YYYY-MM-DD                     the prompt of the tested agent
@@ -80,7 +81,7 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 16
+LOGIC_VERSION = 17
 #: the tools the prompt names (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's)
 PROMPT_TOOLS = (
     "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, stripes_image, "
@@ -89,6 +90,11 @@ PROMPT_TOOLS = (
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
+#: Claude Code 2.1.311 answers a large result of a tool with this notice and a preview of its first 2 KB, and no count
+#: of characters: `<persisted-output>\nOutput too large (57.2KB). Full output saved to: ...\n\nPreview (first 2KB):`
+SPILL_PERSISTED_RE = re.compile(r"^\s*<persisted-output>\s*Output too large \(([\d.,]+)\s*([KMG]?B)\)")
+#: the size units of that notice, in bytes (1024 each): a result is mostly ASCII, so bytes stand for characters
+SPILL_UNITS = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3}
 #: a short tool result that talks of a file it was saved to, in words bench.py does not know: reported, not trusted
 SPILL_HINT = re.compile(r"saved|too large|exceeds", re.IGNORECASE)
 SPILL_FILE = re.compile(r"/tool-results/|\.(?:txt|json)\b", re.IGNORECASE)
@@ -311,6 +317,22 @@ def listed_stations(text: str) -> list[dict[str, Any]]:
     ]
 
 
+def spilled_chars(text: str) -> int | None:
+    """Tell the size in characters of a result Claude Code saved to a file, from the notice it answered with, or None.
+
+    The older notice gives the characters (`result (358,696 characters) exceeds maximum allowed`). The newer one
+    (`<persisted-output>`, seen with 2.1.311) gives a rounded size in bytes with a unit (`Output too large (57.2KB)`),
+    which is converted with 1024 per unit: an estimate, a little above the characters of a result with non-ASCII text.
+    """
+    old = SPILL_RE.match(text)
+    if old:
+        return int(old.group(1).replace(",", ""))
+    new = SPILL_PERSISTED_RE.match(text)
+    if new:
+        return round(float(new.group(1).replace(",", "")) * SPILL_UNITS[new.group(2)])
+    return None
+
+
 def invalid_reason(servers: list[dict[str, Any]] | None, listed: list[str], prefix: str) -> str | None:
     """Say why a run says nothing about the model: the server was not connected or offered no tool.
 
@@ -406,13 +428,13 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                         call["result_chars"] = len(text)
                         call["result_head"] = text[:1500]
                         call["ok"] = not block.get("is_error", False)
-                        spill = SPILL_RE.match(text)
-                        if spill:
+                        spill = spilled_chars(text)
+                        if spill is not None:
                             # the result is in a file the tested agent cannot open: the notice is what it got, and the
                             # call read nothing, whatever `is_error` says
                             call["spilled"] = True
                             call["ok"] = False
-                            call["result_chars"] = int(spill.group(1).replace(",", ""))
+                            call["result_chars"] = spill
                         elif len(text) < 2500 and SPILL_HINT.search(text) and SPILL_FILE.search(text):
                             call["spill_unrecognised"] = True
                         meta = result_metadata(text)
@@ -2514,6 +2536,26 @@ def trial(
 MAX_PARALLEL = 3
 
 
+def unjudged_runs(results: dict[str, Any], directory: Path) -> list[str]:
+    """List the runs of a directory that were made and analyzed but have no record in the results file yet.
+
+    A run waits for the judge as `<case>-<tier>-<repeat>.analysis.json` in the directory; once `judge` has put its
+    record in the file (any record, an invalid run included) it no longer waits. Only the runs of the file are counted.
+    """
+    recorded = {(r["case"], r["tier"], r.get("repeat")) for r in results["runs"]}
+    wanted = {(c, t) for c in results["meta"]["case_hashes"] for t in results["meta"]["models"]}
+    waiting = []
+    for path in sorted(directory.glob("*.analysis.json")) if directory.is_dir() else []:
+        try:
+            found = json.loads(path.read_text(encoding="utf-8"))
+            key = (found["case"], found["tier"], found["repeat"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if key[:2] in wanted and key not in recorded:
+            waiting.append(path.name.removesuffix(".analysis.json"))
+    return waiting
+
+
 def batch(
     results_path: Path,
     directory: Path,
@@ -2522,17 +2564,31 @@ def batch(
     parallel: int,
     timeout: float,
     max_usd: float,
+    allow_unjudged: bool = False,
 ) -> int:
     """Make the next `limit` runs `todo` lists, `parallel` at a time, and print what came of each as it finishes.
 
     The runs are the first of the file's `todo`, in its order (a tier, then a case, then its repeats). Each is a
     `trial`; the exit code is 0 if all of them gave an analysis for the judge or were recorded as failed or invalid
     runs, 2 if one was refused.
+
+    It **refuses to start** (exit 2) while runs of an earlier batch wait for the judge (`unjudged_runs`): such a run is
+    in `todo` and a new batch would pay for it again, and judging a batch while the next one runs is how that happens.
+    Judge them first; `allow_unjudged` (`--allow-unjudged`) makes the runs again on purpose.
     """
     if not 1 <= parallel <= MAX_PARALLEL:
         sys.stderr.write(f"batch: parallel is 1 to {MAX_PARALLEL}\n")
         return 2
-    runs = todo_runs(json.loads(results_path.read_text(encoding="utf-8")))[: max(limit, 0)]
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    waiting = unjudged_runs(results, directory)
+    if waiting and not allow_unjudged:
+        sys.stderr.write(
+            f"batch: {len(waiting)} runs of an earlier batch are not judged yet and would be made (and paid for) "
+            f"again: {', '.join(waiting[:6])}{', ...' if len(waiting) > 6 else ''}. Judge each with `judge` "
+            f"(its analysis is in {directory}) before the next batch, or pass --allow-unjudged to make them again.\n"
+        )
+        return 2
+    runs = todo_runs(results)[: max(limit, 0)]
     if not runs:
         print("batch: nothing to do")
         return 0
@@ -2559,8 +2615,12 @@ def batch(
     return 2 if 2 in codes else 0
 
 
-def _trial_summary(analysis: dict[str, Any]) -> str:
-    """Say what a run did for the judge to read: the verdict of the counting, the calls, the answer."""
+def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
+    """Say what a run did for the judge to read: the verdict of the counting, the calls, the answer.
+
+    `heads` adds the first characters of each call's result (the analysis keeps 1500), for a judge that must check a
+    figure of the answer; the `RESULT:` and `TABLE-UNIT:` lines of the answer are listed apart.
+    """
     lines = [
         (
             f"{analysis['steps']} steps of {analysis['max_steps']}; mechanical_pass {analysis['mechanical_pass']}; "
@@ -2570,15 +2630,29 @@ def _trial_summary(analysis: dict[str, Any]) -> str:
             f"cost {round(analysis['cost_usd'] or 0, 4)} USD"
         )
     ]
-    lines.extend(
-        f"  call {c['n']}: {c['tool']} {json.dumps(c['arguments'], ensure_ascii=False)[:300]} -> "
-        f"{'ok' if c['ok'] else 'FAILED'}, {c['result_chars']} characters"
-        for c in analysis["calls"]
-    )
+    for c in analysis["calls"]:
+        lines.append(
+            f"  call {c['n']}: {c['tool']} {json.dumps(c['arguments'], ensure_ascii=False)[:300]} -> "
+            f"{'ok' if c['ok'] else 'FAILED'}{', spilled' if c.get('spilled') else ''}, {c['result_chars']} characters"
+        )
+        if heads > 0 and c.get("result_head"):
+            lines.append(f"    result: {c['result_head'][:heads]!r}")
     if analysis["mechanical_facts"]:
         lines.append(f"  mechanical facts: {json.dumps(analysis['mechanical_facts'], ensure_ascii=False)}")
     lines.append(f"  answer: {analysis['answer'][:4000]}")
+    marked = [
+        line.strip()
+        for line in analysis["answer"].splitlines()
+        if re.match(r"\s*(?:[*_`>#\-]\s*)*(?:RESULT|TABLE-UNIT)\b", line, re.IGNORECASE)
+    ]
+    lines.extend(f"  line: {line}" for line in marked)
     return "\n".join(lines)
+
+
+def digest_run(analysis_path: Path, heads: int = 0) -> str:
+    """Condense the analysis of a run (`<case>-<tier>-<repeat>.analysis.json`) into what the judge reads."""
+    found = json.loads(analysis_path.read_text(encoding="utf-8"))
+    return f"{found['case']} [{found['tier']}] repeat {found['repeat']}: {_trial_summary(found, heads)}"
 
 
 def judge_run(
@@ -2649,6 +2723,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_batch.add_argument("--parallel", type=int, default=MAX_PARALLEL, help=f"at once, at most {MAX_PARALLEL}")
     p_batch.add_argument("--timeout", type=float, default=float(os.environ.get("MCPBENCH_TIMEOUT", "300")))
     p_batch.add_argument("--max-usd", type=float, default=float(os.environ.get("MCPBENCH_MAX_USD", "0.50")))
+    p_batch.add_argument(
+        "--allow-unjudged",
+        action="store_true",
+        help="start although runs of an earlier batch are not judged yet (they are made, and paid for, again)",
+    )
+    p_digest = sub.add_parser("digest")
+    p_digest.add_argument("analysis", type=Path, help="the `.analysis.json` of a run")
+    p_digest.add_argument("--heads", type=int, default=0, help="also the first N characters of each call's result")
     p_judge = sub.add_parser("judge")
     p_judge.add_argument("--results", type=Path, required=True)
     p_judge.add_argument("--analysis", type=Path, required=True)
@@ -2761,7 +2843,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             parallel=args.parallel,
             timeout=args.timeout,
             max_usd=args.max_usd,
+            allow_unjudged=args.allow_unjudged,
         )
+    elif args.command == "digest":
+        try:
+            print(digest_run(args.analysis, args.heads))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            sys.stderr.write(f"digest: {error}\n")
+            return 2
     elif args.command == "judge":
         try:
             facts = dict(item.split("=", 1) for item in args.fact)

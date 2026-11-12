@@ -973,7 +973,7 @@
         },
         {
           "id": "read-day",
-          "description": "reads the air temperature of one Vienna station for a dated window",
+          "description": "reads the air temperature of one station for a dated window (the station is judged by the facts: it must be one the server lists for Vienna)",
           "match": [
             {
               "tool": "values",
@@ -992,7 +992,7 @@
                     "daily/data"
                   ]
                 },
-                "stations": {"any_of": ["105", "106", "107", "4115", "112"]},
+                "stations": {"present": true},
                 "timestamp": {"present": true}
               }
             },
@@ -1044,9 +1044,22 @@
       "facts": [
         {
           "id": "names-station",
-          "description": "the answer names the Vienna station used (there are several: Wien Hohe Warte 105, Mariabrunn 106, Unterlaa 107, Stammersdorf 4115)",
-          "kind": "answer_regex",
-          "any_of": ["(?i)hohe warte", "(?i)mariabrunn", "(?i)unterlaa", "(?i)stammersdorf", "\\b(105|106|107|4115)\\b"]
+          "description": "the answer names a station that the server offers for Vienna: the judge lists the stations of the city with its own call, as `stations` does for a point (the centre, within 15 km, for the resolution the subject read), and the station the answer names (by name or id) is one of them that reports now (no end of record) and has the region Wien; several share a name (Wien Hohe Warte is 105 and 5904) and any of them is right",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "stations",
+              "args": {
+                "provider": "geosphere",
+                "network": "observation",
+                "parameters": "$subject",
+                "latitude": 48.2085,
+                "longitude": 16.3721,
+                "distance": 15
+              }
+            },
+            "pick": "the name or the id of a station of the result with no end_timestamp and the region Wien: the answer names one of them"
+          }
         },
         {
           "id": "temperatures-match",
@@ -1072,7 +1085,7 @@
       ],
       "tiers": ["large"],
       "needs_key": false,
-      "notes": "An observation by name outside Germany that needs no key. 'Wien' matches five stations, so a model has to pick one and say so. 'Yesterday' is the UTC date before the run; a daily maximum is accepted against a daily series, an hourly figure against the hourly one: the judge mirrors the subject's resolution."
+      "notes": "An observation by name outside Germany that needs no key. The server offers many stations for Vienna (about ten that report now: Hohe Warte 105, Mariabrunn 106, Unterlaa 107, Stammersdorf 4115, Innere Stadt 5925, Donaufeld 5935, Jubilaeumswarte 5802, and others with several ids per name), by name and, nearer the centre, by point; a hand list of four had failed a right answer from Wien Innere Stadt (5925, 1.2 km from the centre, values equal to the reference), so the set is what the judge's own `stations` call returns, not a list in this file. A model has to pick one and say so. 'Yesterday' is the UTC date before the run; a daily maximum is accepted against a daily series, an hourly figure against the hourly one: the judge mirrors the subject's resolution."
     },
     {
       "id": "observation-london-yesterday",
@@ -1733,6 +1746,12 @@
           "regex": "(?i)(-?\\d+([.,]\\d+)?\\s?(°|degrees|celsius|mm|km/h|m/s|hpa))"
         },
         {
+          "id": "records-from-memory",
+          "description": "names the decades or centuries the records reach back to (`the 1700s and 1800s`) without a tool result: a year a station starts in is read from the server and written as a year",
+          "kind": "answer",
+          "regex": "(?i)\\b1[6-9]\\d0s\\b"
+        },
+        {
           "id": "interpolates-the-past",
           "description": "uses interpolate or summarize to fabricate a value for 1500",
           "kind": "call",
@@ -1742,24 +1761,26 @@
       "facts": [
         {
           "id": "says-no-data",
-          "description": "says the server has no data for that date (the records start in the 19th century at the earliest)",
+          "description": "says in its own words that there is no data for that date (no stations or rows found, nothing that far back, could not find or answer): the wording is free, the behaviour is the fact",
           "kind": "answer_regex",
           "any_of": [
-            "(?i)no (weather |measured |observational |instrumental )?(data|records?|measurements?|observations?)",
-            "(?i)(not|n't|never) (available|recorded|measured)",
-            "(?i)(before|predate|earlier than|too early)",
+            "(?i)\\bno\\s+(?:[\\w'-]+\\s+){0,3}(?:data|records?|measurements?|observations?|readings?|stations?|rows?|values?|results?|coverage|figures?)\\b",
+            "(?i)\\b(?:0|zero)\\s+(?:stations?|rows?|results?|records?|values?)\\b",
+            "(?i)\\b(?:could not|couldn't|can't|cannot|unable to|did not|didn't|do not|don't|does not|doesn't)\\s+(?:find|get|retrieve|return|answer|provide|give|report|go back|reach|extend|cover|start|begin|have|hold|offer)",
+            "(?i)(?:not|n't|never)\\s+(?:available|recorded|measured|exist|existed|covered)",
+            "(?i)\\b(?:before|predates?|earlier than|too early|that far|so far back)\\b",
             "(?i)cannot|can't|unable"
           ]
         },
         {
           "id": "no-invented-numbers",
-          "description": "no number in the answer that no tool result holds (the earliest record year, if named, is read from the server)",
+          "description": "no number in the answer that no tool result holds: a year a station starts in, read from a tool result, is fine; the start of the records named from memory (`the 1700s`, `the 1800s`) is invented",
           "kind": "no_measurements"
         }
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "The correct answer is a refusal inside a few steps. The failure is a plausible-sounding history of the winter of 1500 or a call for 1500 that returns an error the model then works around."
+      "notes": "The correct answer is a refusal inside a few steps. The failure is a plausible-sounding history of the winter of 1500, a call for 1500 that returns an error the model then works around, or a claim from memory about how far the records reach (`only back to the 1700s and 1800s`: a decade that no tool result holds, which the `no-invented-numbers` fact and the `records-from-memory` rule both catch). The model words the refusal freely (`returned no stations and no rows`, `couldn't find any weather data`, `has no Berlin station with daily data`, `doesn't go back that far`): the patterns of `says-no-data` are tried against those wordings in the tests."
     },
     {
       "id": "ambiguous-frankfurt",

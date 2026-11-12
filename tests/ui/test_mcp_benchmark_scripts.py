@@ -4545,3 +4545,206 @@ def test_the_snippets_of_the_runbook_parse_in_bash_and_zsh(shell: str, tmp_path:
         assert done.returncode == 0, (shell, number, done.stderr, block)
         # an unquoted variable that holds arguments is split in bash and not in zsh
         assert not re.search(r"(?<![\"\w{])\$(?:ARGS|FACTS|OPTS|FLAGS)\b", block), block
+
+
+# ---------------------------------------- the baseline of 2026-11-12: spills, the batch guard, the digest, cases
+
+PERSISTED = (
+    "<persisted-output>\nOutput too large (57.2KB). Full output saved to: /home/x/.claude/tool-results/t.txt\n\n"
+    'Preview (first 2KB):\n{"hourly":{"description":null,"datasets":{"data":{"description":"Historical hourly'
+)
+
+
+@pytest.mark.parametrize(
+    ("notice", "expected"),
+    [
+        (
+            "Error: result (358,696 characters) exceeds maximum allowed tokens. Output has been saved to /x/y.txt.",
+            358696,
+        ),
+        (PERSISTED, 58573),
+        ("<persisted-output>\nOutput too large (1.5MB). Full output saved to: /x\n", 1572864),
+        ("<persisted-output>\nOutput too large (900B). Full output saved to: /x\n", 900),
+        ("<persisted-output>\nOutput too large (12KB). Full output saved to: /x\n", 12288),
+        ("a result that merely mentions <persisted-output> in its text", None),
+        ('{"result": {"values": []}}', None),
+    ],
+)
+def test_both_notices_of_a_result_saved_to_a_file_give_its_size(notice: str, expected: int | None) -> None:
+    """The old notice counts characters; the one of Claude Code 2.1.311 gives KB or MB, converted with 1024."""
+    assert bench.spilled_chars(notice) == expected
+
+
+def test_the_persisted_output_notice_is_a_spill_and_no_unrecognised_one(tmp_path: Path) -> None:
+    """The notice that came with a 2 KB preview made the call `spill_unrecognised` and sized it at the preview."""
+    run = bench.parse_transcript(
+        _stream(tmp_path, _use("coverage", "a", provider="noaa"), _result("a", PERSISTED)), PREFIX
+    )
+
+    call = run["calls"][0]
+    assert (call["spilled"], call["ok"], call["result_chars"]) == (True, False, 58573)
+    assert run["spilled_calls"] == 1
+    assert run["spill_unrecognised_calls"] == 0
+    assert run["tool_result_chars_sum"] == 58573
+
+
+def _results_with_runs(path: Path, mcp_url: str, repeats: int = 3) -> dict[str, Any]:
+    """Make a results file for the glossary case, and return it."""
+    return _init(path, mcp_url, cases=GLOSSARY, tiers="small", repeats=repeats)
+
+
+def _write_analysis(directory: Path, repeat: int) -> Path:
+    """Write the file `trial` leaves for a run that waits for the judge."""
+    directory.mkdir(exist_ok=True)
+    path = directory / f"{GLOSSARY}-small-{repeat}.analysis.json"
+    path.write_text(json.dumps({"case": GLOSSARY, "tier": "small", "repeat": repeat}), encoding="utf-8")
+    return path
+
+
+def test_a_batch_refuses_to_start_while_runs_of_an_earlier_batch_are_not_judged(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A run that waits for the judge is in todo: a new batch would pay for it twice, so it is refused, with names."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url)
+    _write_analysis(tmp_path / "runs", 1)
+    _write_analysis(tmp_path / "runs", 2)
+
+    code = bench.batch(results_path, tmp_path / "runs", limit=3, parallel=1, timeout=20, max_usd=0.1)
+
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "2 runs of an earlier batch are not judged yet" in err
+    assert f"{GLOSSARY}-small-1" in err
+    assert "--allow-unjudged" in err
+    assert bench.main(["batch", "--results", str(results_path), "--dir", str(tmp_path / "runs")]) == 2
+
+
+def test_a_judged_run_no_longer_blocks_a_batch_and_other_files_runs_do_not(tmp_path: Path, mcp_url: str) -> None:
+    """Once a record is in the file the analysis waits no more; an analysis of a case the file lacks is not its own."""
+    results_path = tmp_path / "r.json"
+    results = _results_with_runs(results_path, mcp_url)
+    waiting = _write_analysis(tmp_path / "runs", 1)
+    other = tmp_path / "runs" / "licence-dwd-small-1.analysis.json"
+    other.write_text(json.dumps({"case": "licence-dwd", "tier": "small", "repeat": 1}), encoding="utf-8")
+    (tmp_path / "runs" / "broken.analysis.json").write_text("not json", encoding="utf-8")
+
+    assert bench.unjudged_runs(results, tmp_path / "runs") == [waiting.name.removesuffix(".analysis.json")]
+    results["runs"].append({"case": GLOSSARY, "tier": "small", "repeat": 1, "invalid": True})
+
+    assert bench.unjudged_runs(results, tmp_path / "runs") == []
+    assert bench.unjudged_runs(results, tmp_path / "missing") == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_the_flag_makes_a_batch_start_although_runs_wait_for_the_judge(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--allow-unjudged` is the explicit way to make those runs again."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url, repeats=1)
+    _write_analysis(tmp_path / "runs", 1)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript())
+
+    code = bench.batch(
+        results_path, tmp_path / "runs", limit=1, parallel=1, timeout=20, max_usd=0.1, allow_unjudged=True
+    )
+
+    assert code == 0
+    assert "1 wait for the judge" in capsys.readouterr().out
+
+
+def test_the_digest_lists_the_calls_the_answer_and_the_result_lines(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """What the judge reads of an analysis: the verdict, the calls (a head of each result if asked), RESULT lines."""
+    analysis = {
+        "case": GLOSSARY,
+        "tier": "small",
+        "repeat": 2,
+        "steps": 2,
+        "max_steps": 4,
+        "mechanical_pass": True,
+        "checkpoints": {"k": 1, "n": 1},
+        "violations": [],
+        "invalid_reason": None,
+        "format_violation": False,
+        "spilled_calls": 1,
+        "cost_usd": 0.0123456,
+        "mechanical_facts": {},
+        "calls": [
+            {
+                "n": 1,
+                "tool": "coverage",
+                "arguments": {"provider": "noaa"},
+                "ok": False,
+                "spilled": True,
+                "result_chars": 58573,
+            },
+            {
+                "n": 2,
+                "tool": "glossary",
+                "arguments": {"parameter": "x"},
+                "ok": True,
+                "result_chars": 50,
+                "result_head": "HEADOFRESULT",
+            },
+        ],
+        "answer": "It is the mean.\n\n**RESULT:** 4.1 h | sunshine\nTABLE-UNIT: col | h\nnot a RESULT line mid-text",
+    }
+    path = tmp_path / "a.analysis.json"
+    path.write_text(json.dumps(analysis), encoding="utf-8")
+
+    plain = bench.digest_run(path)
+    heads = bench.digest_run(path, 5)
+
+    assert plain.startswith(f"{GLOSSARY} [small] repeat 2: 2 steps of 4; mechanical_pass True")
+    assert "call 1: coverage" in plain
+    assert "FAILED, spilled, 58573 characters" in plain
+    assert "cost 0.0123 USD" in plain
+    assert "line: **RESULT:** 4.1 h | sunshine" in plain
+    assert "line: TABLE-UNIT: col | h" in plain
+    assert "line: not a RESULT" not in plain
+    assert "result: " not in plain
+    assert "result: 'HEADO'" in heads
+    assert bench.main(["digest", str(path), "--heads", "3"]) == 0
+    assert "result: 'HEA'" in capsys.readouterr().out
+    assert bench.main(["digest", str(tmp_path / "none.json")]) == 2
+
+
+def test_vienna_accepts_a_station_the_server_lists_not_only_four() -> None:
+    """`values` of Wien Innere Stadt (5925) met the read checkpoint no more than four ids did (baseline, 2026-11-12)."""
+    values = {
+        "provider": "geosphere",
+        "network": "observation",
+        "parameters": ["daily/data/temperature_air_mean_minmax_2m"],
+        "timestamp": "2026-11-11",
+    }
+    by_point = _call(
+        "stations", {"provider": "geosphere", "network": "observation", "latitude": 48.2085, "longitude": 16.3725}
+    )
+
+    for station in ("105", "5925", "5935"):
+        verdict = _evaluate_calls(
+            "observation-vienna-yesterday", by_point, _call("values", {**values, "stations": [station]})
+        )
+        assert verdict["checkpoints"]["k"] == 2, station
+    no_window = _evaluate_calls(
+        "observation-vienna-yesterday", by_point, _call("values", {**values, "stations": ["5925"], "timestamp": None})
+    )
+    assert no_window["checkpoints"]["k"] == 1
+
+
+def test_the_berlin_case_flags_the_records_a_model_names_from_memory() -> None:
+    """The small run that wrote `the 1700s and 1800s` breaks `records-from-memory`; a year read from a tool does not."""
+    glossary_call = _call("stations", {"provider": "dwd", "network": "observation", "name": "Berlin"})
+    memory = "I could not answer. DWD's instrumental records only reach back to the 1700s and 1800s."
+    read = "I could not answer. The earliest Berlin station in the catalogue starts in 1876."
+
+    assert (
+        "records-from-memory" in _evaluate_calls("unanswerable-berlin-1500", glossary_call, answer=memory)["violations"]
+    )
+    assert (
+        "records-from-memory"
+        not in _evaluate_calls("unanswerable-berlin-1500", glossary_call, answer=read)["violations"]
+    )
