@@ -1,6 +1,9 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The size budget of an MCP tool's `values` and `stations` answer (GH-4022).
+"""The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
+
+The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations and
+`coverage` (which is no rows but nested: `fit_coverage`).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
 instead of handing it over (Claude Code does, whatever its tokens). Two calls spilled in the transcripts: a forecast
@@ -8,6 +11,12 @@ with no window (90,000 characters and more) and a listing of every station in a 
 limit of the REST API fires for them. So a tool's answer of `values` or `stations` is cut to `ANSWER_BUDGET`
 characters, and says it was, in a warning of its `metadata` block (`answer-truncated`) that names what is left out and
 the `timestamp` window to ask for it. Nothing is refused: the answer keeps what fits.
+
+The answers of `interpolate` and `summarize` are series of timestamps as those of `values` are, and are cut the same
+way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). The stripes' stations
+are a list of stations as those of `stations` are, with no way to select (`fit_stations`; the note tells how to
+name a place instead). A `with_metadata` block that is more than the budget on its own is left out of an answer that
+is cut or that would be without it, and of one of a rank, a distance or a name.
 
 Only a tool's request is cut (`ui.mcp.is_tool_request`). The REST API, the command line and the library answer all of
 it: the app lists every station of a network, and a script reads a whole series.
@@ -27,17 +36,22 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from wetterdienst.model.result import StationsFilter
+from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.ui.core import StripesStationsRequest
 from wetterdienst.ui.mcp import structured_size
-from wetterdienst.ui.response_metadata import response_headers, response_metadata
+from wetterdienst.ui.response_metadata import response_headers, response_metadata, result_metadata
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
-    from wetterdienst.model.result import StationsResult, ValuesResult
-    from wetterdienst.ui.core import StationsRequest, ValuesRequest
+    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
+    from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
     from wetterdienst.ui.response_metadata import ResponseMetadata
+
+    _SeriesResult = ValuesResult | InterpolatedValuesResult | SummarizedValuesResult
+    _SeriesRequest = ValuesRequest | InterpolationRequest | SummaryRequest
+    _ListRequest = StationsRequest | StripesStationsRequest
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +88,7 @@ def _text(content: str | bytes) -> str:
     return content if isinstance(content, str) else content.decode("utf-8")
 
 
-def answer_size(content: str | bytes, request: StationsRequest | ValuesRequest, metadata: ResponseMetadata) -> int:
+def answer_size(content: str | bytes, request: _ListRequest | _SeriesRequest, metadata: ResponseMetadata) -> int:
     """Count the characters a client receives of an answer in `request.format`, the sentence of a CSV included."""
     text = _text(content)
     if request.format in _MEDIA_TYPES:
@@ -119,22 +133,44 @@ def _start_is_nearer_now(first: dt.datetime, last: dt.datetime) -> bool:
     return abs(first - now) <= abs(last - now)
 
 
+def _block(result: StationsResult | _SeriesResult, request: _ListRequest | _SeriesRequest) -> ResponseMetadata:
+    """Build the `metadata` block of the answer to `request`: the climate stripes' request names no provider, DWD's."""
+    if isinstance(request, StripesStationsRequest):
+        return result_metadata(result, provider="dwd", network="observation", heavy=False)
+    return response_metadata(result, request)
+
+
 def _noted(
-    result: StationsResult | ValuesResult, request: StationsRequest | ValuesRequest, note: str
+    result: StationsResult | _SeriesResult, request: _ListRequest | _SeriesRequest, note: str
 ) -> ResponseMetadata:
     """Build the `metadata` block of a cut answer: its own counts, and the note beside the warnings the walk raised."""
-    metadata = response_metadata(result, request)
+    metadata = _block(result, request)
     warning = ResponseWarning(code=ANSWER_TRUNCATED, message=note)
     return metadata.model_copy(update={"warnings": [*metadata.warnings, warning]})
 
 
-def _wide_csv_hint(request: StationsRequest | ValuesRequest) -> bool:
+def _has_shape(request: _ListRequest | _SeriesRequest) -> bool:
+    """Tell whether the request can ask for the wide shape: `values` can, `interpolate` and `summarize` cannot."""
+    return hasattr(request, "shape")
+
+
+def _wide_csv_hint(request: _ListRequest | _SeriesRequest) -> bool:
     """Tell whether `format=csv` with `shape=wide` is still something to suggest: not where the request is that."""
-    return not (request.format == "csv" and getattr(request, "shape", None) == "wide")
+    return _has_shape(request) and not (request.format == "csv" and getattr(request, "shape", None) == "wide")
 
 
-def _narrowing(request: StationsRequest | ValuesRequest) -> str:
-    """Write the ways to get less in one answer, leaving out the one the request already took."""
+def _narrowing(request: _ListRequest | _SeriesRequest) -> str:
+    """Write the ways to get less in one answer, leaving out the one the request already took.
+
+    An estimate (`interpolate`, `summarize`) has no wide shape, and its CSV is about half the size of its JSON.
+    """
+    if not _has_shape(request):
+        if request.format == "csv":
+            return "To get less at a time, narrow the `timestamp` window or ask for fewer parameters."
+        return (
+            "To get less at a time, narrow the `timestamp` window, ask for fewer parameters, or use `format=csv`, "
+            "which is about half the size."
+        )
     if _wide_csv_hint(request):
         return (
             "To get less at a time, narrow the `timestamp` window, ask for fewer parameters, or use `format=csv` "
@@ -160,7 +196,7 @@ def _block_left_out(characters: int) -> str:
 
 def _values_note(
     *,
-    request: ValuesRequest,
+    request: _SeriesRequest,
     kept: int,
     total: int,
     stamps: list[dt.datetime],
@@ -223,14 +259,19 @@ def _values_note(
 
 
 def _made(
-    result: StationsResult | ValuesResult,
-    request: StationsRequest | ValuesRequest,
+    result: StationsResult | _SeriesResult,
+    request: _ListRequest | _SeriesRequest,
     frame: pl.DataFrame,
     note: str,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
 ) -> _Attempt:
-    """Make the answer for `frame` of `result`, with `note` in its warnings, and count what a client receives."""
+    """Make the answer for `frame` of `result`, with `note` in its warnings, and count what a client receives.
+
+    An estimate lists the stations its rows were made from, so one cut down lists those of the rows that are left.
+    """
     cut = replace(result, df=frame)
+    if not isinstance(cut, StationsResult):
+        cut = cut._with_stations_of_rows()  # noqa: SLF001
     metadata = _noted(cut, request, note)
     content = render(cut, metadata, request)
     return _Attempt(content, metadata, answer_size(content, request, metadata), note)
@@ -242,8 +283,8 @@ def _lean(request: Any) -> Any:  # noqa: ANN401
 
 
 def _without_block(
-    result: StationsResult | ValuesResult,
-    request: StationsRequest | ValuesRequest,
+    result: StationsResult | _SeriesResult,
+    request: _ListRequest | _SeriesRequest,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
     fit: Callable[[Any, int, str], _Attempt],
 ) -> tuple[_Attempt, Any] | None:
@@ -255,7 +296,7 @@ def _without_block(
     the note of what was left out) and, where it fits the budget now, given back with that request. None where the
     request has no block, or where leaving it out does not help either, which `fit_*` then tells as it is.
     """
-    if not request.with_metadata:
+    if not getattr(request, "with_metadata", False):
         return None
     empty = result.df.head(0)
     lean = _lean(request)
@@ -267,8 +308,8 @@ def _without_block(
 
 
 def _fit_values(
-    result: ValuesResult,
-    request: ValuesRequest,
+    result: _SeriesResult,
+    request: _SeriesRequest,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
     size: int,
     *,
@@ -322,13 +363,16 @@ def _fit_values(
 
 
 def fit_values(
-    result: ValuesResult,
-    request: ValuesRequest,
+    result: _SeriesResult,
+    request: _SeriesRequest,
     content: str | bytes,
     metadata: ResponseMetadata,
-    render: Callable[[ValuesResult, ResponseMetadata, ValuesRequest], str | bytes],
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
 ) -> tuple[str | bytes, ResponseMetadata]:
-    """Cut the answer of a `values` tool call to the budget at a timestamp, and say so; unchanged where it fits.
+    """Cut the answer of a `values`, `interpolate` or `summarize` tool call to the budget at a timestamp; say so.
+
+    The answer is unchanged where it fits. The `timestamp` of an estimate is required, so the start of its window is
+    the part that is kept and the note's next window continues it.
 
     Without a `timestamp` from the caller the end nearest to now is kept: the start of a forecast, the latest part of
     a record. With one, its start is kept, so that the next window of the note continues it. At least one whole
@@ -359,24 +403,37 @@ def fit_values(
         chosen = _fit_values(result, asked, render, chosen.size, lead="", honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
     log.info(
-        f"Cut a values answer of {result.df.height} rows to {chosen.metadata.counts.rows} to stay within the budget."
+        f"Cut a {request.route} answer of {result.df.height} rows to {chosen.metadata.counts.rows} to stay within the "
+        "budget."
     )
     return chosen.content, chosen.metadata
 
 
-def _stations_note(*, count: int, total: int, lead: str, honest: bool) -> str:
-    """Write the note of a `stations` answer cut to its first `count` of `total` stations."""
+def _stations_note(*, request: _ListRequest, count: int, total: int, lead: str, honest: bool) -> str:
+    """Write the note of a stations answer cut to its first `count` of `total` stations.
+
+    The list of the climate stripes' stations has no selection to narrow with: a place goes to the stripes' tools as
+    a `name`, which they match themselves, and `stations` finds a station near a point.
+    """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
+    first = f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
+    if isinstance(request, StripesStationsRequest):
+        only_active = "" if request.active else " `active=true` lists only the stations that still report."
+        return (
+            f"{first}station id, not by place). {total:,} stations have data for the {request.kind} stripes. To get "
+            "one station, give the station's name (often its town's) as `name` to `stripes_values` or "
+            "`stripes_image`, which match it themselves, or find a station with `stations` (`name`, or latitude, "
+            f"longitude and `rank`).{only_active}"
+        )
     return (
-        f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
-        f"station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow with "
-        "latitude, longitude and `rank` or `distance`, or `name`."
+        f"{first}station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow "
+        "with latitude, longitude and `rank` or `distance`, or `name`."
     )
 
 
 def _fit_stations(
     result: StationsResult,
-    request: StationsRequest,
+    request: _ListRequest,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
     size: int,
     *,
@@ -391,7 +448,7 @@ def _fit_stations(
 
     def fits(count: int) -> bool:
         cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
-        note = _stations_note(count=count, total=count_all, lead=lead, honest=honest)
+        note = _stations_note(request=request, count=count, total=count_all, lead=lead, honest=honest)
         tried[count] = _made(result, request, cut, note, render)
         return tried[count].size <= ANSWER_BUDGET
 
@@ -400,26 +457,54 @@ def _fit_stations(
     return tried[best if best is not None else 1]
 
 
+def _leave_block_out(
+    result: StationsResult,
+    request: _ListRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+) -> tuple[str | bytes, ResponseMetadata] | None:
+    """Give a few stations' answer again without its `with_metadata` block, where only that makes it fit the budget.
+
+    A rank, a distance or a name asks for a few stations, so the rows are never cut; the block (the units and the
+    quality legend of every dataset asked for) can be tens of thousands of characters on its own. None where there is
+    no block to leave out, or where the answer is over the budget without it as well.
+    """
+    dropped = _without_block(
+        result, request, render, lambda lean, _, lead: _made(result, lean, result.df, lead, render)
+    )
+    if dropped is None:
+        return None
+    chosen, _ = dropped
+    record_response_warning(ANSWER_TRUNCATED, chosen.note)
+    log.info(
+        f"Left the with_metadata block out of a stations answer of {result.df.height} rows to stay within the budget."
+    )
+    return chosen.content, chosen.metadata
+
+
 def fit_stations(
     result: StationsResult,
-    request: StationsRequest,
+    request: _ListRequest,
     content: str | bytes,
     metadata: ResponseMetadata,
-    render: Callable[[StationsResult, ResponseMetadata, StationsRequest], str | bytes],
+    render: Callable[[StationsResult, ResponseMetadata, Any], str | bytes],
 ) -> tuple[str | bytes, ResponseMetadata]:
-    """Cut the answer of a `stations` tool call to the budget, keeping the first stations; unchanged where it fits.
+    """Cut the answer of a `stations` or `stripes_stations` tool call to the budget, keeping the first stations.
 
-    A rank, a distance or a name asks for a few stations and is left as it is. Otherwise (all stations, a bounding
-    box, `sql`, ids) the stations that fit are kept, in list order, and the note says how many match and what narrows
-    them. Where even one station is over the budget with the `with_metadata` block and fits without it, the block is
-    left out, and the note says so. `render` writes the answer for a cut result, its block and the request; `content`
-    and `metadata` are the whole answer.
+    The answer is unchanged where it fits. A rank, a distance or a name asks for a few stations, and so does one
+    station: their rows are left as they are (only a `with_metadata` block that is over the budget on its own is left
+    out, with a note). Otherwise (all stations, a bounding box, `sql`, ids, the stripes' list) the stations that fit
+    are kept, in list order, and the note says how many match and what narrows them. Where even one station is over
+    the budget with the `with_metadata` block and fits without it, the block is left out, and the note says so.
+    `render` writes the answer for a cut result, its block and the request; `content` and `metadata` are the whole
+    answer.
     """
-    if request.format not in BUDGETED_FORMATS or result._stations_filter in _SMALL_SELECTIONS:  # noqa: SLF001
+    if request.format not in BUDGETED_FORMATS:
         return content, metadata
     size = answer_size(content, request, metadata)
-    if size <= ANSWER_BUDGET or result.df.get_column("station_id").n_unique() < 2:
+    if size <= ANSWER_BUDGET:
         return content, metadata
+    if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
+        return _leave_block_out(result, request, render) or (content, metadata)
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
     if chosen.size > ANSWER_BUDGET and (
@@ -439,3 +524,185 @@ def fit_stations(
         "to stay within the budget."
     )
     return chosen.content, chosen.metadata
+
+
+# --- coverage -----------------------------------------------------------------------------------------------------
+
+
+def coverage_size(coverage: Mapping[str, Any]) -> int:
+    """Count the characters a client receives of a `coverage` answer: its compact JSON, the structured content."""
+    return len(json.dumps(coverage, separators=(",", ":"), ensure_ascii=False))
+
+
+def _without_descriptions(coverage: Mapping[str, Any]) -> dict[str, Any]:
+    """Give the coverage with the `description` of every parameter null: the shape stays, the long text goes."""
+    return {
+        resolution: {
+            **body,
+            "datasets": {
+                name: {
+                    **dataset,
+                    "parameters": [{**parameter, "description": None} for parameter in dataset["parameters"]],
+                }
+                for name, dataset in body["datasets"].items()
+            },
+        }
+        for resolution, body in coverage.items()
+    }
+
+
+def _datasets_of(coverage: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """List the `(resolution, dataset)` of a coverage in the order the network has them."""
+    return [(resolution, name) for resolution, body in coverage.items() for name in body["datasets"]]
+
+
+def _first_datasets(coverage: Mapping[str, Any], keep: list[tuple[str, str]]) -> dict[str, Any]:
+    """Give the coverage with the datasets of `keep` only; a resolution left with none stays, with no datasets."""
+    wanted = set(keep)
+    return {
+        resolution: {**body, "datasets": {n: d for n, d in body["datasets"].items() if (resolution, n) in wanted}}
+        for resolution, body in coverage.items()
+    }
+
+
+def _noted_coverage(coverage: Mapping[str, Any], note: str) -> dict[str, Any]:
+    """Put the note in the `description` of the first resolution, the one place the shape of the answer has for text.
+
+    The answer is keyed by resolution, has no `metadata` block, and its schema forbids a key beside the resolutions,
+    so the note cannot go where it goes in the other tools' answers. The note is in what is counted.
+    """
+    first = next(iter(coverage))
+    original = coverage[first]["description"]
+    return {**coverage, first: {**coverage[first], "description": f"{note}\n\n{original}" if original else note}}
+
+
+def _too_big_alone(coverage: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """List the datasets whose answer for `datasets=<name>` and `resolutions=<resolution>` is over the budget.
+
+    That is the answer a caller gets by following the advice of the note, so where it is over the budget no advice to
+    ask for the dataset can give its descriptions: they do not fit in one answer.
+    """
+    return [
+        (resolution, name)
+        for resolution, body in coverage.items()
+        for name, dataset in body["datasets"].items()
+        if coverage_size({resolution: {**body, "datasets": {name: dataset}}}) > ANSWER_BUDGET
+    ]
+
+
+def _ask_for_a_dataset(big: list[tuple[str, str]], *, the_rest: bool) -> str:
+    """Write how to get the full detail of one dataset, and which datasets it cannot be had of."""
+    text = "Ask for one dataset with `datasets=<name>` and `resolutions=<resolution>` for its full detail" + (
+        " (or with `resolutions=` alone for a resolution)" if the_rest else ""
+    )
+    if not big:
+        return f"{text}."
+    names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in big)
+    which = "its" if len(big) == 1 else "their"
+    each = "" if len(big) == 1 else " each"
+    return (
+        f"{text}, but not of {names}: the descriptions of {which} parameters are{each} more than that on their own. "
+        "`glossary` says what a parameter means."
+    )
+
+
+def _coverage_note(
+    *,
+    left: list[tuple[str, str]],
+    total: int,
+    big: list[tuple[str, str]],
+    parameters: int = 0,
+    within: tuple[str, int, int] | None = None,
+    honest: bool = False,
+) -> str:
+    """Write the note of a `coverage` answer whose parameter descriptions are left out, and whose datasets may be cut.
+
+    `left` are the datasets left out, `total` those of the network (of the filter asked) and `big` those that alone,
+    with their descriptions, are over the budget, which asking for the dataset cannot give either. `parameters` is the
+    number of those of the one dataset that the answer is, `within` the dataset that alone was more than the budget
+    without them, with the parameters returned of it and the number it has.
+    """
+    text = f"{_head(honest=honest)}the `description` of each parameter is left out (null)"
+    if within is not None:
+        name, kept, count = within
+        returned = "only its first parameter is" if kept == 1 else f"only its first {kept:,} parameters are"
+        text += (
+            f"; the dataset `{name}` alone is more than that, and {returned} returned, of {count:,}: the others are "
+            "not available through this tool"
+        )
+    if left:
+        names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in left)
+        kept_count = total - len(left)
+        text += (
+            f"; {kept_count:,} of {total:,} datasets {'is' if kept_count == 1 else 'are'} returned, whole and in the "
+            f"order of the network. The {len(left):,} left out {'is' if len(left) == 1 else 'are'}: {names}. "
+        )
+        return text + _ask_for_a_dataset(big, the_rest=True)
+    if within is not None:
+        return f"{text}. `glossary` says what a parameter means."
+    if total == 1:
+        # asking for the one dataset again would answer the same
+        return (
+            f"{text}: the descriptions of its {parameters:,} parameters together are more than that. `glossary` says "
+            "what a parameter means."
+        )
+    return f"{text}. {_ask_for_a_dataset(big, the_rest=False)}"
+
+
+def fit_coverage(coverage: Mapping[str, Any]) -> tuple[Mapping[str, Any], str | None]:
+    """Cut a `coverage` tool answer to the budget in steps, each only where the one before is still over it (GH-4024).
+
+    1. The answer as it is, where it fits. 2. The `description` of each parameter null (the long text of a
+    parameter is most of a big network), and the note says to ask `datasets=<name>` for the detail of one dataset,
+    unless that answer is over the budget too (the answer is that one dataset already, or it alone is over it): the
+    note then says so and points to `glossary`. 3. Whole datasets in the order of the network, as many as fit, and the
+    note names those left out and how to ask for them. 4. Where the first dataset alone is more than the budget, the
+    first of its parameters that fit, and the note says how many and that the others are not available. The shape is
+    that of the REST answer: the keys are the same, a `description` is null, a resolution may have no datasets.
+    Returns the answer and its note, None where nothing was cut; the note is in the first resolution's `description`
+    and counts toward the size.
+    """
+    size = coverage_size(coverage)
+    if size <= ANSWER_BUDGET or not coverage:
+        return coverage, None
+    lean = _without_descriptions(coverage)
+    datasets = _datasets_of(lean)
+    total = len(datasets)
+    big = _too_big_alone(coverage)
+    only = len(lean[datasets[0][0]]["datasets"][datasets[0][1]]["parameters"]) if total == 1 else 0
+    note = _coverage_note(left=[], total=total, big=big, parameters=only)
+    if coverage_size(noted := _noted_coverage(lean, note)) <= ANSWER_BUDGET:
+        return noted, note
+    cut: dict[int, tuple[dict[str, Any], str]] = {}
+
+    def fits(count: int) -> bool:
+        text = _coverage_note(left=datasets[count:], total=total, big=big)
+        cut[count] = (_noted_coverage(_first_datasets(lean, datasets[:count]), text), text)
+        return coverage_size(cut[count][0]) <= ANSWER_BUDGET
+
+    best = _largest(1, total - 1, fits, max(1, total * ANSWER_BUDGET // size)) if total > 1 else None
+    if best is not None:
+        return cut[best]
+    # the first dataset alone is more than the budget: keep the first of its parameters that fit
+    resolution, name = datasets[0]
+    parameters = lean[resolution]["datasets"][name]["parameters"]
+    partial: dict[int, tuple[dict[str, Any], str]] = {}
+
+    def fits_parameters(count: int, *, honest: bool = False) -> bool:
+        text = _coverage_note(
+            left=datasets[1:],
+            total=total,
+            big=big,
+            within=(f"{resolution}/{name}", count, len(parameters)),
+            honest=honest,
+        )
+        first = _first_datasets(lean, datasets[:1])
+        first[resolution]["datasets"][name] = {**first[resolution]["datasets"][name], "parameters": parameters[:count]}
+        partial[count] = (_noted_coverage(first, text), text)
+        return coverage_size(partial[count][0]) <= ANSWER_BUDGET
+
+    kept = _largest(1, max(1, len(parameters) - 1), fits_parameters, max(1, len(parameters) * ANSWER_BUDGET // size))
+    if kept is None:
+        kept = 1
+        fits_parameters(kept, honest=True)
+    return partial[kept]

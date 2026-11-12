@@ -46,6 +46,14 @@ Types of changes:
   given, and the note names the next window. `stations` without `rank`, `distance` or `name` keeps
   the first stations and says how many match. Ask for a `timestamp` window, or use the REST API or
   the library for everything; REST, command line and Python are unchanged (GH-4022)
+- **Breaking** (MCP clients): the 40,000-character cut now holds for `interpolate`, `summarize`,
+  `stripes_stations` and `coverage`. `interpolate` and `summarize` keep whole timestamps from the
+  start of their `timestamp` window; `stripes_stations` keeps the first stations and says to give
+  the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block over the
+  budget alone is left out, also of a `rank`, `distance`, `name` or one station. `coverage` sends
+  the parameters' `description` as null, then whole datasets in order; its note, at the start of
+  the first resolution's `description`, names the datasets left out and how to ask for them.
+  REST, command line and Python are unchanged (GH-4024)
 
 ### Fixed
 

@@ -66,7 +66,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
-from wetterdienst.ui.budget import fit_stations, fit_values
+from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -1691,6 +1691,10 @@ def coverage(
         datasets=request.datasets,
     )
 
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note in its first `description`
+        # (GH-4024); a JSON answer reaches the client as its body alone, so no header would
+        cov, _ = fit_coverage(cov)
     return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
 
 
@@ -2512,6 +2516,17 @@ def interpolate(
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render(
+                cut, asked, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2554,6 +2569,17 @@ def summarize(
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render(
+                cut, asked, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2565,6 +2591,7 @@ def summarize(
 )
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
     begin_response()
@@ -2580,7 +2607,17 @@ def stripes_stations(
         # so a failure here is the server's or the data source's, whatever its type
         raise _logged_server_error(e, "get stripes stations") from e
     metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
-    return _answer(render_stripes_stations(stations, request, metadata), request.format, metadata)
+    content = render_stripes_stations(stations, request, metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_stations(
+            stations,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render_stripes_stations(cut, asked, block),
+        )
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])

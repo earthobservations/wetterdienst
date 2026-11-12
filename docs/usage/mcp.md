@@ -123,10 +123,11 @@ context of the assistant.
 ## The size of an answer
 
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
-a file instead of handing it over (it counts characters, not tokens). So the answer of `values` and `stations` is held
-to **40,000 characters** of what the client receives, in `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as
-the client gets it, `metadata` and `with_metadata` included, and for `csv` and `ndjson` the sentence of the tool, which
-carries the licence and the note below, and the body. A chart is not counted. The budget is a constant of the server
+a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
+`interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
+`json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
+included, and for `csv` and `ndjson` the sentence of the tool, which carries the licence and the note below, and the
+body. A chart is not counted. The budget is a constant of the server
 and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
@@ -136,11 +137,29 @@ An answer over the budget is cut, not refused, and says so:
   a forecast, the latest part of a `recent` or `historical` record. With a `timestamp` it keeps the start of the window,
   so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
   window can split a timestamp: ask for fewer parameters or stations.
+- **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
+  required, so it is always the start of the window that is kept and the next window continues it. They have no
+  `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
 - **`stations`** with `rank`, `distance` or `name` is never cut: they ask for a few stations. Otherwise (`all`, a bounding
   box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it.
+- **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
+  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
+  station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
+  stripes 640,000.
+- **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
+  characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
+  where the one before is still over: the answer as it is; the `description` of every parameter null (everything else
+  stays); whole datasets in the order of the network, as many as fit; and, where the first dataset alone is more than
+  the budget, its first parameters, the others not being available through the tool. The note names the datasets that
+  were left out as `resolution/dataset` and says how to ask for one: `datasets=<name>` with `resolutions=<resolution>`
+  gives its full detail. Where a dataset alone is over the budget with its descriptions (noaa/ghcn `daily/data`, 210
+  parameters), no request can give them, so the note does not offer one and names `glossary` for what a parameter
+  means. The answer keeps its shape. It has no `metadata` block and takes no key beside the resolutions, so the note is
+  the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
+  carries it. `providers` is not cut: it is 20,000 characters for all providers together.
 
-The note is a warning, `answer-truncated`, in `metadata.warnings` (and in the `X-Wetterdienst-Warnings` header). It
+The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings` (and in the `X-Wetterdienst-Warnings` header). It
 gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool
 accepts, ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters,
 and `format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no
@@ -148,7 +167,9 @@ block, it is the `X-Wetterdienst-Truncated` header too and a sentence of the too
 the body. `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
-that `coverage` and `glossary` give the units.
+that `coverage` and `glossary` give the units. The same holds for a `rank`, a `distance`, a `name` or a single station,
+whose rows are never cut: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is left out of them, and nothing
+else is.
 
 The instructions and the description of `values` recommend a `timestamp` window, so an assistant that follows them
 asks for a day or a week and is not cut. A forecast of ten days of three parameters in the long JSON is about 100,000
