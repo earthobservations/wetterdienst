@@ -95,10 +95,11 @@ branch may be gone: `gh pr view 3544 -R earthobservations/wetterdienst --json st
 README is not the one in `$BENCH/repo/benchmarks/mcp/README.md` (you were started from another copy), read that one and follow it.
 **`git fetch` can fail transiently (`Connection refused`): retry it once after 10 s; if it fails again, stop and ask.**
 
-Then the variables, in one file (`LABEL` and `SERVER_VERSION` are added in 2.2):
+Then the variables, in one file, **from the same checkout you started in** (`START` is that checkout; `LABEL` and
+`SERVER_VERSION` are added in 2.2):
 
 ```bash
-printf 'export REPO="%s"\nexport BENCH="%s"\nexport UV_PYTHON=3.13\nexport WD_CACHE_DIR="%s"\nexport URL=http://127.0.0.1:7891/mcp/v1\n' "$BENCH/repo" "$BENCH" "$HOME/.cache/wetterdienst-mcpbench" > "$BENCH/env.sh"
+printf 'export START="%s"\nexport REPO="%s"\nexport BENCH="%s"\nexport UV_PYTHON=3.13\nexport WD_CACHE_DIR="%s"\nexport URL=http://127.0.0.1:7891/mcp/v1\n' "$(pwd)" "$BENCH/repo" "$BENCH" "$HOME/.cache/wetterdienst-mcpbench" > "$BENCH/env.sh"
 cat "$BENCH/env.sh"
 ```
 
@@ -188,11 +189,18 @@ in the judge. Two choices:
   | `stripes_image` | `stripes image ...` (a picture: the cases do not judge it) |
   | `stripes_values` | **no command** (there is no `stripes values`). Read the series the server reads, `_get_stripes_data` in `ui/core.py`: DWD observation, period `historical`, **temperature** `annual/climate_summary/temperature_air_mean_2m`, **precipitation** `annual/precipitation_more/precipitation_amount`, with `values` and take the year (or years) the case asks for |
 
-  Examples, tried on 2026-11-12:
+  Examples (every option is held to the `--help` of its command by a test; note that `coverage`, `providers` and `history` have no
+  `--format` or only `json`, and `stripes stations` takes `--kind`):
 
   ```bash
   "$REFCLI" glossary --parameter temperature_air_mean_2m --limit 3 2>>"$BENCH/ref.err"
   "$REFCLI" providers --provider dwd 2>>"$BENCH/ref.err"
+  "$REFCLI" coverage --provider dwd --network observation --resolutions daily --datasets climate_summary 2>>"$BENCH/ref.err"
+  "$REFCLI" stations --provider dwd --network observation --parameters daily/climate_summary --name Kiel --format csv 2>>"$BENCH/ref.err"
+  "$REFCLI" stations --provider geosphere --network observation --parameters daily/data --latitude 48.2085 --longitude 16.3721 --distance 15 --format csv 2>>"$BENCH/ref.err"
+  "$REFCLI" summarize --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --timestamp 2025-12-26 --latitude 53.9 --longitude 10.7 2>>"$BENCH/ref.err"
+  "$REFCLI" history --provider dwd --network observation --parameters daily/climate_summary --stations 02564 --sections name,geography 2>>"$BENCH/ref.err"
+  "$REFCLI" alerts --granularity community --language en 2>>"$BENCH/ref.err"
   "$REFCLI" values --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 02564 --with-metadata true --format json 2>>"$BENCH/ref.err"
   "$REFCLI" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>>"$BENCH/ref.err"
   ```
@@ -343,10 +351,11 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
    models (`small` = haiku, `large` = sonnet or opus; the resolved ids come with the report); the cases (`all`: 27, no key
    case) and the repeats; the number of runs; the reference; the judge model (you); the results file name. Link the
    runbook at the SHA of your checkout.
-2. **Intermediate comments** as the run progresses: **after each tier is done** (the whole `small` tier, then the whole
-   `large` tier: Part 3 says why the order is fixed), and in between **whenever a batch brought something that has to be told**
+2. **Intermediate comments** as the run progresses: **after each tier is done**, posted **once the last run of the tier is
+   judged** (the whole `small` tier first, then the whole `large` tier: Part 3 says why the order is fixed). `large` is the last
+   tier, so its comment **is the final comment** (3): post one, not two. In between, **whenever a batch brought something that has to be told**
    (a failed, invalid or spilled run, a server restart, a case that fails on every repeat, a refused `judge`). Batches of nine do
-   not land on multiples of 27, so do not promise a fixed cadence; say how many runs are judged of the total. Each has: how many runs are judged of the total; the table of
+   not land on multiples of 27, so do not promise a fixed cadence. Each has: how many runs are judged of the total; the table of
    `bench.py report` so far (paste it as is); the failed runs (timeouts), the **invalid** runs (no server) and the **spilled**
    calls, with the case and tier of each; the runs you judged `drift` or could not judge; anything surprising (a case
    that every repeat of a tier fails, a sudden rise in steps or cost, a server restart, a violation by a tool that is not
@@ -376,10 +385,19 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
 1. Stop the server **by its PID**: `kill "$(cat "$BENCH/server.pid")"` (the background task then ends with exit code 144: that is the signal), then `lsof -nP -iTCP:7891 -sTCP:LISTEN` shows nothing.
    Stop the background task that started it too (the Bash tool's task list). Check no other process of yours is still running
    (`bench.py batch`, `claude -p`), and wait for it if one is.
-2. Remove the worktrees from the repository you started in (the server's venv is in `$SERVER_DIR`):
-   `git worktree remove --force "$SERVER_DIR"`, `git worktree remove --force "$BENCH/repo"`, and, in a comparison,
-   `git worktree remove --force "$BENCH/wd-ref"`, then `git worktree prune`. The scratch directory (prompts, transcripts, the results file) **stays**: it is the
-   record behind the comments. Say where it is in your last message.
+2. Remove the worktrees with git **of the checkout you started in** (`$START`), not of `$REPO`: `$REPO` is itself one of the
+   worktrees being removed (the server's venv is in `$SERVER_DIR`; `wd-ref` exists in a comparison only):
+
+   ```bash
+   . "$BENCH/env.sh"
+   git -C "$START" worktree remove --force "$SERVER_DIR"
+   git -C "$START" worktree remove --force "$BENCH/wd-ref"
+   git -C "$START" worktree remove --force "$BENCH/repo"
+   git -C "$START" worktree prune
+   ```
+
+   (`git worktree remove` of a worktree that is not there is an error you can ignore.) The scratch directory (prompts, transcripts,
+   the results file) **stays**: it is the record behind the comments. Say where it is in your last message.
 3. Check what a run may have left in `~/.claude/projects`: `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" cleanup`
    removes the project directories that tested models left (it takes only those older than 10 minutes, and only
    `mcpbench-subject` ones).
@@ -472,11 +490,12 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpben
 same rules (judge each batch before the next; the order is the `small` tier then the `large` tier).
 
 **8.6 Comments on #3546**, all through `gh` as Part 5: **at the start** (the branch and its SHA, the baseline file with its label,
-version and date, the models, the cases and repeats, the reference and its commit, the runbook SHA); **after each tier** (the
-`small` tier complete, then the `large` tier: `bench.py report` of the new file so far, the failed, invalid and spilled runs, and
-what is surprising); **whenever something has to be told** in between (a server restart, a refused `judge`, a case that fails on
-every repeat); and **at the end with the `compare` verdict** (8.7). Do not promise a cadence of runs: batches of nine do not land
-on multiples of 27.
+version and date, the models, the cases and repeats, the reference and its commit, the runbook SHA); **once the
+last run of the `small` tier is judged** (`bench.py report` of the new file so far, the failed, invalid and spilled runs, and what
+is surprising); **whenever something has to be told** in between (a server restart, a refused `judge`, a case that fails on every
+repeat); and **at the end with the `compare` verdict** (8.7). `large` is the last tier, so there is no separate comment for it:
+the comment at the end, with the `compare` verdict, is also the comment of the `large` tier. Do not promise a cadence of runs:
+batches of nine do not land on multiples of 27.
 
 **8.7 Compare.** When `todo` is empty:
 
@@ -495,7 +514,8 @@ tools, two sides that cannot be told apart, other `repeats`, more than 3 % inval
 60,000 characters), the `report` table, the failure modes that happened, the cost and the time, and the **secret gist of the
 new results file** (Part 5), named `mcpbench-results-change-<branch>-<sha>-<date>.json`, next to the link of the baseline's gist.
 
-**8.8 Finish** as Part 6; stop the one server by its PID and remove `wd-change`, `wd-ref` and `repo`.
+**8.8 Finish** as Part 6: stop the one server by its PID and remove `wd-change` (`$SERVER_DIR`), `wd-ref` and `repo` with
+`git -C "$START"`, as there.
 
 ## Known false failures of the reference baseline
 
@@ -590,13 +610,26 @@ read from the stations the subject itself got listed, not from a call of yours).
 1. **`is_answer`**: the final answer answers the question. A refusal, a request for clarification or a hand-off is
    none (for `unanswerable`, saying there is no data is the answer). `passed = mechanical_pass and is_answer`:
    a run with no tool call never passes, even if it is right from memory, and a run that skipped the first
-   checkpoint never passes.
+   checkpoint never passes. **A hedge is no refusal.** An answer that says "I could not confirm ..." is an answer when it
+   still **names the result the question asks for** and says what it rests on (the networks it found, the extents it read):
+   the caveat about what it did not check (`Météo-France: not confirmed`, `I did not query DMO`) is honest and costs nothing.
+   It is **no answer** when the hedge covers the whole result: it names nothing as the answer, or says it cannot tell which
+   (`I could not confirm which providers have data`), or concludes the opposite of what the case allows. This is the rule of
+   `providers-brazil`, whose case wants the networks that serve Brazil: an answer that names NOAA `ghcn` or DWD `mosmix` and
+   says that it did not confirm the rest is an answer (`--is-answer yes`). **Whether the facts hold is then decided by their own
+   rules, not by the hedge**: `names-global-network` is a regex on the answer, and `network-serves-brazil` needs a `stations`
+   result in the subject's own transcript that listed a station near a Brazilian city. A model that names the right network
+   from the `providers` extents only, with no such `stations` result, is honest (`is_answer` yes) and its `network-serves-brazil`
+   fact fails: it has no evidence in its transcript. A hedge that claims more than the transcript shows (`confirmed with station
+   lookups` when none was made) is an invented claim: the facts fail.
 2. **`facts_ok`** (the field of the record; the option of `judge` is `--facts ok` when every fact holds against your own
    ground truth, `--facts fail` when any does not: nothing else is accepted, and `--is-answer` is `yes` or `no`): every fact of
    the case, against ground truth **you** obtain with your own calls (not steps of the tested agent). Read the ground truth from the `reference`, never from the subject's own answers or the server
    under test alone, so that a change that rounds or drops a value cannot reproduce itself in the judge. Never copy a
    number from the case file: `expected` there only lets you say that the source has drifted.
-   - `answer_regex`: the answer matches one of `any_of`.
+   - `answer_regex`: the answer matches one of `any_of`. **`bench.py regex-facts "$BENCH/runs-smoke/<stem>.analysis.json"` does it
+     for you**: for every `answer_regex` fact whether it matched and with what, for every forbidden rule of kind `answer` whether it
+     hit, the accepted spellings of a `ground_truth_text` fact that the answer has, and the facts that still need your own call.
    - `ground_truth_value`: make the call, pick what `pick` says, and the number in the answer is within `tolerance`.
    - `ground_truth_span`: every figure the answer gives lies in `[min - margin, max + margin]` of the series your call
      returns and inside `sanity`; with `future_only` (the three `forecast-*` cases), it must belong to timestamps after the
@@ -605,6 +638,13 @@ read from the stations the subject itself got listed, not from a call of yours).
      own `values` call for the same station and source with `periods=future`, read for **the next 48 hours counted from your
      call**, and the span is its minimum and maximum widened by the case's `margin` (4 K for a forecast) and kept inside
      `sanity`. A figure the answer ties to a time at or before the subject's call (an observation, an hour already past) fails.
+     **`bench.py span` computes the span**: save your `values` call as JSON (`"$REFCLI" values ... --format json 2>>"$BENCH/ref.err" > "$BENCH/v.json"`)
+     and run `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" span --analysis "$BENCH/runs-smoke/<stem>.analysis.json" --values "$BENCH/v.json"`
+     (`--values -` reads standard input; `--hours 48`, `--now <ISO time of your call>` and `--window all` are options). It takes the rows
+     after your call and up to 48 hours later for a forecast, all rows for an observation fact, widens the min and max by the fact's margin,
+     keeps them in `sanity`, and says for each `RESULT:` figure of the answer (converted to °C from °F or K) whether it is in the span;
+     a figure in another unit is `null`, not judged. It cannot tell the time a figure belongs to: that and `retrieved_at` of the
+     subject's call (the digest prints it) stay yours.
      Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
      lists accepted spellings.
@@ -649,7 +689,11 @@ precision shown), or it is derived from such numbers (a minimum, maximum, mean, 
 a unit conversion). Exempt: numbers of the question (a year, a date, "2 m"), dates and times that the answer takes
 from the question's window or from timestamps in the results, station ids and counts of things the answer says
 it looked at ("two stations"), identifiers of licences and versions (CC-BY-4.0, 2.0), and the number words of
-ordinary phrases. Anything else, such as the year the records begin read from memory, is invented.
+ordinary phrases. Anything else, such as the year the records begin read from memory, is invented. **A period counts like
+a number, whatever its form**: `the 1700s`, `the 19th century`, `since the 1800s`, `for centuries`, `about 150 years of records`, a
+`before the 20th century`. If no tool result supports it, the answer fails `no-invented-numbers` (a station's start year read
+from the result, as `starts in 1876`, is supported). The mechanical rule `records-from-memory` of the Berlin case catches only a
+decade written as `1700s`; the judge applies this rule to every other form, and the case's regex is not changed for it.
 
 **Units.** `values` answers in CSV (long and wide) and in the default JSON carry **no unit** (GH-3546): it is in
 `metadata.parameters[].unit` of a JSON answer with `with_metadata=true` (which CSV ignores), in `glossary` and in

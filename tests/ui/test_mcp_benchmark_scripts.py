@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import http.server
 import importlib.util
+import io
 import json
 import math
 import os
@@ -5046,3 +5047,153 @@ def test_unit_from_an_analysis_refuses_what_it_cannot_judge(
 
     assert bench.main(["unit", "--analysis", str(path), "--truth", "1", *extra]) == 2
     assert message in capsys.readouterr().err
+
+
+# --------------------------------------------- judging helpers: regex facts, the span of a forecast, CLI examples
+
+
+def _analysis_file(tmp_path: Path, case: str, answer: str, name: str = "a.analysis.json") -> Path:
+    """Write the part of an analysis that the judging helpers read."""
+    path = tmp_path / name
+    path.write_text(json.dumps({"case": case, "tier": "small", "repeat": 1, "answer": answer}), encoding="utf-8")
+    return path
+
+
+def test_regex_facts_say_which_pattern_matched_and_which_forbidden_rule_hit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The judge no longer greps by hand: `answer_regex` facts, forbidden answers, and what still needs its own call."""
+    right = _analysis_file(tmp_path, "providers-brazil", "NOAA GHCN and DWD MOSMIX have stations near Brasilia.")
+    none = _analysis_file(tmp_path, "providers-brazil", "No provider has data for Brazil.", "b.analysis.json")
+
+    assert bench.main(["regex-facts", str(right)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["facts"] == [{"id": "names-global-network", "ok": True, "matched": "MOSMIX"}]
+    assert [(f["id"], f["hit"]) for f in out["forbidden"]] == [("concludes-none", False)]
+    assert out["needs_your_call"] == [{"id": "network-serves-brazil", "kind": "network_serves_place"}]
+    assert bench.main(["regex-facts", str(none)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["facts"][0]["ok"] is False
+    assert out["forbidden"][0] == {"id": "concludes-none", "hit": True, "matched": "No provider has"}
+
+
+@pytest.mark.parametrize(
+    ("answer", "says", "memory"),
+    [
+        ("The search returned no stations and no rows.", True, False),
+        ("I couldn't find any weather data for Berlin.", True, False),
+        ("The records only reach back to the 1700s and 1800s.", False, True),
+        ("It was a cold and snowy winter.", False, False),
+    ],
+)
+def test_regex_facts_of_the_berlin_case(answer: str, *, says: bool, memory: bool) -> None:
+    """The baseline's wordings pass `says-no-data`; `the 1700s` hits `records-from-memory`; a story hits neither."""
+    case = bench.find_case(bench.load_cases(), "unanswerable-berlin-1500")
+
+    found = bench.regex_facts(case, answer)
+
+    assert next(f for f in found["facts"] if f["id"] == "says-no-data")["ok"] is says
+    assert next(f for f in found["forbidden"] if f["id"] == "records-from-memory")["hit"] is memory
+
+
+NOW = "2026-11-12T12:00:00+00:00"
+
+
+def _rows(*pairs: tuple[str, float | None]) -> list[dict[str, Any]]:
+    """Build the rows of a `values` call."""
+    return [{"station_id": "47662", "timestamp": stamp, "value": value} for stamp, value in pairs]
+
+
+def test_the_forecast_span_reads_the_next_48_hours_and_widens_by_the_margin() -> None:
+    """Past hours and hours beyond 48 are out; 4 K is added each side; F and K are converted, m/s is not."""
+    case = bench.find_case(bench.load_cases(), "forecast-tokyo")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+    rows = _rows(
+        ("2026-11-12T06:00:00+00:00", 30.0),  # past: not a forecast hour
+        ("2026-11-12T13:00:00+00:00", 10.0),
+        ("2026-11-13T12:00:00+00:00", 16.5),
+        ("2026-11-14T12:00:00+00:00", 14.0),  # exactly 48 h after: in
+        ("2026-11-14T13:00:00+00:00", -5.0),  # beyond 48 h: out
+        ("2026-11-13T00:00:00+00:00", None),
+    )
+    answer = (
+        "RESULT: 12 °C | tomorrow\nRESULT: 53.6 °F | tomorrow in F\nRESULT: 285.15 K | tomorrow in K\n"
+        "RESULT: 25 °C | far too warm\nRESULT: 3 m/s | wind"
+    )
+
+    found = bench.span_of_values(fact, rows, answer=answer, now=bench._timestamp(NOW))  # noqa: SLF001
+
+    assert (found["window"], found["values_used"], found["min"], found["max"]) == ("future", 3, 10.0, 16.5)
+    assert found["span"] == [6.0, 20.5]
+    assert [f["in_span"] for f in found["figures"]] == [True, True, True, False, None]
+    assert [f["celsius"] for f in found["figures"]][:3] == [12.0, 12.0, 12.0]
+
+
+def test_a_span_without_a_forecast_window_takes_every_row_and_stays_inside_sanity() -> None:
+    """An observation fact (`window=all`) reads the whole series, margin 1 K, and the span never leaves `sanity`."""
+    case = bench.find_case(bench.load_cases(), "observation-paris-last-week")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-match")
+    rows = [{"value": v} for v in (-29.5, 4.0, 11.0)]
+
+    found = bench.span_of_values(fact, rows)
+
+    assert (found["window"], found["margin"], found["span"]) == ("all", 1.0, [-30, 12.0])
+    with pytest.raises(ValueError, match="no value of the call lies in the window"):
+        bench.span_of_values({**fact, "future_only": True}, rows, now=bench._timestamp(NOW))  # noqa: SLF001
+
+
+def test_the_span_command_reads_the_analysis_and_the_values_call(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`span --analysis A --values V --now T` for a forecast: from a file or stdin (`-`); errors exit 2."""
+    analysis = _analysis_file(tmp_path, "forecast-tokyo", "RESULT: 12 °C | tomorrow")
+    values = tmp_path / "v.json"
+    payload = {
+        "metadata": {},
+        "values": _rows(("2026-11-13T12:00:00+00:00", 11.0), ("2026-11-13T18:00:00+00:00", 13.0)),
+    }
+    values.write_text(json.dumps(payload), encoding="utf-8")
+    base = ["span", "--analysis", str(analysis), "--now", NOW]
+
+    assert bench.main([*base, "--values", str(values)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert (out["case"], out["fact"], out["span"], out["figures"][0]["in_span"]) == (
+        "forecast-tokyo",
+        "temperatures-plausible",
+        [7.0, 17.0],
+        True,
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload["values"])))
+    assert bench.main([*base, "--values", "-"]) == 0
+    assert json.loads(capsys.readouterr().out)["values_used"] == 2
+    assert bench.main([*base, "--values", str(values), "--hours", "1"]) == 2
+    assert "no value of the call lies in the window" in capsys.readouterr().err
+    assert bench.main([*base, "--values", str(values), "--fact", "nope"]) == 2
+    assert "has no such span fact" in capsys.readouterr().err
+    assert bench.main(["span", "--analysis", str(analysis), "--values", str(values), "--now", "soon"]) == 2
+    assert "--now is no ISO 8601 time" in capsys.readouterr().err
+    values.write_text('{"nothing": 1}', encoding="utf-8")
+    assert bench.main([*base, "--values", str(values)]) == 2
+    assert "holds no list of values" in capsys.readouterr().err
+
+
+def test_the_reference_commands_of_the_runbook_use_options_the_command_line_has() -> None:
+    """Every `"$REFCLI" <command> --option` line of the README is held to the `--help` of that command."""
+    pytest.importorskip("click")
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+
+    text = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
+    lines = re.findall(r'^\s*"\$REFCLI" (.+)$', text, re.MULTILINE)
+    commands = {line.split(" --")[0].split()[0] for line in lines}
+
+    assert {"glossary", "providers", "coverage", "stations", "values", "history", "summarize", "alerts"} <= commands
+    for line in lines:
+        words = line.split(" --")[0].split()
+        group = [w for w in words if not w.startswith("-")]
+        options = re.findall(r"(?<!\S)(--[a-z][a-z-]*)", line.replace("2>>", ""))
+        helped = CliRunner().invoke(cli, [*group, "--help"])
+        assert helped.exit_code == 0, (line, helped.output)
+        for option in options:
+            assert option in helped.output, (line, option)

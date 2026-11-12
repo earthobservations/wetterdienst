@@ -11,6 +11,8 @@ are compared on the same arithmetic.
                                                                      prompt, run and analyze one run
     bench.py batch --results FILE --dir DIR [--limit N] [--parallel P] [--allow-unjudged]
                                                                      the next N runs of `todo`, P at a time (at most 3)
+    bench.py regex-facts A.json                                      the regex facts and forbidden answers of a run
+    bench.py span --analysis A.json --values V.json [--hours 48]     the span a forecast fact allows
     bench.py meta FILE                                               what a results file was made with
     bench.py digest A.json [--heads N]                               what the judge reads of one analysis
     bench.py judge --results FILE --analysis A.json --is-answer yes|no --facts ok|fail
@@ -2815,6 +2817,146 @@ def init_choices(args: argparse.Namespace) -> dict[str, Any]:
     return chosen
 
 
+def regex_facts(case: dict[str, Any], answer: str) -> dict[str, Any]:
+    """Try the regex facts and the forbidden answer rules of a case against an answer: what a judge would grep for.
+
+    `facts` are the `answer_regex` facts (`ok` when one of their patterns matches, with the first that did); `forbidden`
+    the rules of kind `answer` (`hit` when the regex matches, with the text); `hints` the accepted spellings of a
+    `ground_truth_text` fact; `needs_your_call` every other fact, judged against ground truth you read yourself.
+    """
+    facts, hints, other = [], [], []
+    for fact in case["facts"]:
+        if fact["kind"] == "answer_regex":
+            hit = next((m for pattern in fact["any_of"] if (m := re.search(pattern, answer))), None)
+            facts.append({"id": fact["id"], "ok": hit is not None, "matched": hit.group(0) if hit else None})
+        else:
+            other.append({"id": fact["id"], "kind": fact["kind"]})
+            if fact.get("answer_matches_any_of"):
+                found = [x for x in fact["answer_matches_any_of"] if re.search(x, answer)]
+                hints.append({"id": fact["id"], "accepted_spellings_found": found})
+    forbidden = []
+    for rule in case.get("forbidden", []):
+        if rule["kind"] == "answer":
+            hit = re.search(rule["regex"], answer)
+            forbidden.append({"id": rule["id"], "hit": hit is not None, "matched": hit.group(0) if hit else None})
+    return {"facts": facts, "forbidden": forbidden, "hints": hints, "needs_your_call": other}
+
+
+def _to_celsius(value: float, unit: str) -> float | None:
+    """Convert a temperature written with a unit to degrees Celsius, or None when the unit is not a temperature."""
+    wanted = _norm_unit(unit)
+    if wanted in {"c", "\u00b0c", "degc", "degree_celsius", "degrees celsius", "degree celsius", "celsius"}:
+        return value
+    if wanted in {"f", "\u00b0f", "fahrenheit", "degrees fahrenheit", "degree_fahrenheit"}:
+        return (value - 32) / 1.8
+    if wanted in {"k", "kelvin"}:
+        return value - 273.15
+    return None
+
+
+def _timestamp(text: str) -> dt.datetime | None:
+    """Read an ISO 8601 timestamp (UTC if it has no offset), or None."""
+    try:
+        moment = dt.datetime.fromisoformat(str(text).replace("Z", "+00:00"))  # noqa: FURB162 - python 3.9 has no `Z`
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+def span_of_values(
+    fact: dict[str, Any],
+    rows: list[dict[str, Any]],
+    *,
+    answer: str = "",
+    now: dt.datetime | None = None,
+    hours: float = 48,
+    window: str | None = None,
+) -> dict[str, Any]:
+    """Give the span a `ground_truth_span` fact allows, from the rows of the judge's own `values` call.
+
+    For a fact with `future_only` (the forecasts) the rows are those after `now` and up to `hours` hours later (the
+    judge's next 48 hours); otherwise all of them (`window="all"` forces that). The span is the lowest and highest value
+    widened by the fact's `margin` and kept inside its `sanity`. Each `RESULT:` figure of the answer in a temperature
+    unit is converted to degrees Celsius and said to be inside it or not; a figure in another unit is `None`.
+    """
+    margin = float(fact.get("margin", fact.get("tolerance", 0)))
+    low_limit, high_limit = fact.get("sanity", [-math.inf, math.inf])
+    window = window or ("future" if fact.get("future_only") else "all")
+    moment = now or dt.datetime.now(UTC)
+    chosen = []
+    for row in rows:
+        value = row.get("value")
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        stamp = _timestamp(row.get("timestamp", ""))
+        if window == "future" and (stamp is None or not moment < stamp <= moment + dt.timedelta(hours=hours)):
+            continue
+        chosen.append(float(value))
+    if not chosen:
+        msg = (
+            f"no value of the call lies in the window ({window}, {hours:g} h after {moment.isoformat()}): read it again"
+        )
+        raise ValueError(msg)
+    low, high = max(min(chosen) - margin, low_limit), min(max(chosen) + margin, high_limit)
+    figures = []
+    for line in format_lines(answer)[0]:
+        number = _number(line["figure"])[0]
+        celsius = _to_celsius(number, line["unit"])
+        figures.append(
+            {
+                "figure": line["figure"],
+                "unit": line["unit"],
+                "what": line["what"],
+                "celsius": None if celsius is None else round(celsius, 2),
+                "in_span": None if celsius is None else low <= celsius <= high,
+            }
+        )
+    return {
+        "window": window,
+        "after": moment.isoformat() if window == "future" else None,
+        "values_used": len(chosen),
+        "min": min(chosen),
+        "max": max(chosen),
+        "margin": margin,
+        "sanity": [low_limit, high_limit],
+        "span": [round(low, 2), round(high, 2)],
+        "figures": figures,
+    }
+
+
+def _rows_of(payload: Any) -> list[dict[str, Any]]:  # noqa: ANN401
+    """Take the rows out of the JSON of a `values` call: a list, or an object with `values` (or `result.values`)."""
+    if isinstance(payload, dict):
+        payload = payload.get("values", (payload.get("result") or {}).get("values"))
+    if not isinstance(payload, list):
+        msg = "the JSON of the call holds no list of values (expected a list or an object with `values`)"
+        raise ValueError(msg)  # noqa: TRY004
+    return [row for row in payload if isinstance(row, dict)]
+
+
+def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run `span_of_values` for the arguments of `bench.py span`: the case and the answer from the analysis."""
+    analysis = json.loads(args.analysis.read_text(encoding="utf-8"))
+    case = find_case(load_cases(args.cases), analysis["case"])
+    spans = [f for f in case["facts"] if f["kind"] == "ground_truth_span"]
+    fact = (
+        next((f for f in spans if f["id"] == args.fact), None) if args.fact else (spans[0] if len(spans) == 1 else None)
+    )
+    if fact is None:
+        known = ", ".join(f["id"] for f in spans) or "none"
+        msg = f"{case['id']} has no such span fact (its span facts: {known})"
+        raise ValueError(msg)
+    text = sys.stdin.read() if str(args.values) == "-" else args.values.read_text(encoding="utf-8")
+    now = _timestamp(args.now) if args.now else None
+    if args.now and now is None:
+        msg = f"--now is no ISO 8601 time: {args.now!r}"
+        raise ValueError(msg)
+    found = span_of_values(
+        fact, _rows_of(json.loads(text)), answer=analysis["answer"], now=now, hours=args.hours, window=args.window
+    )
+    return {"case": case["id"], "fact": fact["id"], **found}
+
+
 def unit_for_run(args: argparse.Namespace) -> dict[str, Any]:
     """Run the unit fact of a case against an answer, from the arguments of `bench.py unit`.
 
@@ -2893,6 +3035,15 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     )
     p_meta = sub.add_parser("meta")
     p_meta.add_argument("results", type=Path, help="a results file: what it was made with (to build the other side)")
+    p_regex = sub.add_parser("regex-facts")
+    p_regex.add_argument("analysis", type=Path, help="the `.analysis.json` of a run")
+    p_span = sub.add_parser("span")
+    p_span.add_argument("--analysis", type=Path, required=True, help="the `.analysis.json` of a run")
+    p_span.add_argument("--values", type=Path, required=True, help="the JSON of your `values` call (a file, or `-`)")
+    p_span.add_argument("--fact", help="the span fact (default: the case's only one)")
+    p_span.add_argument("--hours", type=float, default=48, help="a forecast: how many hours after now are read")
+    p_span.add_argument("--now", help="the time your call was made (ISO 8601, UTC; default: now)")
+    p_span.add_argument("--window", choices=("future", "all"), help="`future` (default for a forecast) or `all` rows")
     p_digest = sub.add_parser("digest")
     p_digest.add_argument("analysis", type=Path, help="the `.analysis.json` of a run")
     p_digest.add_argument("--heads", type=int, default=0, help="also the first N characters of each call's result")
@@ -2960,7 +3111,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             p.add_argument(
                 "--same-server", action="store_true", help="compare two runs of one server (no label needed)"
             )
-    for p in (p_prompt, p_analyze, p_unit, sub.add_parser("hashes")):
+    for p in (p_prompt, p_analyze, p_unit, p_regex, p_span, sub.add_parser("hashes")):
         p.add_argument("--cases", type=Path, default=CASES_PATH)
     args = parser.parse_args(argv)
     if args.command == "init":
@@ -3015,6 +3166,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             max_usd=args.max_usd,
             allow_unjudged=args.allow_unjudged,
         )
+    elif args.command == "regex-facts":
+        try:
+            found = json.loads(args.analysis.read_text(encoding="utf-8"))
+            case = find_case(load_cases(args.cases), found["case"])
+            print(json.dumps({"case": case["id"], **regex_facts(case, found["answer"])}, indent=1, ensure_ascii=False))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            sys.stderr.write(f"regex-facts: {error}\n")
+            return 2
+    elif args.command == "span":
+        try:
+            print(json.dumps(span_for_run(args), indent=1, ensure_ascii=False))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            sys.stderr.write(f"span: {error}\n")
+            return 2
     elif args.command == "meta":
         try:
             print(json.dumps(describe_meta(json.loads(args.results.read_text(encoding="utf-8"))), indent=1))
