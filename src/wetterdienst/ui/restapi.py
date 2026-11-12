@@ -66,6 +66,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
+from wetterdienst.ui.budget import fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -2060,6 +2061,15 @@ def stations(
     if streamed:
         return _stream_stations(stations_, request, metadata)
     content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_stations(
+            stations_,
+            request,
+            content,
+            metadata,
+            lambda cut, block: render_stations(cut, request, max_side=_MAX_IMAGE_SIDE, metadata=block),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2151,6 +2161,15 @@ def values(
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block: render(cut, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block),
+        )
 
     return _answer(content, request.format, metadata)
 
