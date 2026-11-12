@@ -5,12 +5,13 @@ Standard library only; run it as `python3 -I bench.py <command>`. The orchestrat
 reading (is it an answer, are the facts right); everything that can be counted is counted here, so that two runs
 are compared on the same arithmetic.
 
-    bench.py init --results FILE --server URL --label SHA ...        a new results file: its `meta`, no runs yet
+    bench.py init --results FILE --server URL --label SHA ... [--like OLD]  a new results file: its `meta`, no runs yet
     bench.py todo --results FILE [--dir DIR]                         the runs still to do (`unjudged`: awaiting `judge`)
     bench.py trial --results FILE --case ID --tier T --repeat N --dir DIR
                                                                      prompt, run and analyze one run
     bench.py batch --results FILE --dir DIR [--limit N] [--parallel P] [--allow-unjudged]
                                                                      the next N runs of `todo`, P at a time (at most 3)
+    bench.py meta FILE                                               what a results file was made with
     bench.py digest A.json [--heads N]                               what the judge reads of one analysis
     bench.py judge --results FILE --analysis A.json --is-answer yes|no --facts ok|fail
                                                                      the verdict of the judge on one run, into the file
@@ -2411,6 +2412,7 @@ def init_results(
     hashed = hashes(data)
     meta = {
         "date": today,
+        "created_at": dt.datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "models": {t: (large if t == "large" else data["tiers"][t]) for t in names},
         "judge_model": judge_model,
         "server": server,
@@ -2433,6 +2435,46 @@ def init_results(
     results = {"meta": meta, "runs": []}
     _write_atomic(path, json.dumps(results, indent=1, ensure_ascii=False))
     return results
+
+
+def like_options(previous: dict[str, Any]) -> dict[str, Any]:
+    """Read from a results file's `meta` what a run that is to be compared with it must be made with.
+
+    The cases, the tiers, the model of the large tier, the repeats and the reference: a comparison holds both files to
+    the same selection, and `init --like FILE` takes it from the baseline so that nobody types it again.
+    """
+    meta = previous["meta"]
+    return {
+        "cases": ",".join(meta["case_hashes"]),
+        "tiers": ",".join(meta["models"]),
+        "large": meta["models"].get("large", "sonnet"),
+        "repeats": int(meta["repeats"]),
+        "reference": meta.get("reference"),
+        "reference_version": meta.get("reference_version"),
+    }
+
+
+def describe_meta(results: dict[str, Any]) -> dict[str, Any]:
+    """Give the part of a results file's `meta` that tells what it was made with, for whoever builds the other side."""
+    meta = results["meta"]
+    keys = (
+        "date",
+        "created_at",
+        "label",
+        "server",
+        "server_version",
+        "reference",
+        "reference_version",
+        "claude_version",
+        "judge_model",
+        "models",
+        "repeats",
+        "cases_file",
+        "defaults",
+        "prompt",
+        "logic",
+    )
+    return {**{k: meta.get(k) for k in keys}, "cases": list(meta.get("case_hashes", {})), "runs": len(results["runs"])}
 
 
 def todo_runs(results: dict[str, Any]) -> list[tuple[str, str, int, str]]:
@@ -2626,6 +2668,15 @@ def batch(
     return 2 if 2 in codes else 0
 
 
+def marked_lines(answer: str) -> list[str]:
+    """List the `RESULT:` and `TABLE-UNIT:` lines of an answer (a bullet, bold or a quote before them is allowed)."""
+    return [
+        line.strip()
+        for line in answer.splitlines()
+        if re.match(r"\s*(?:[*_`>#\-]\s*)*(?:RESULT|TABLE-UNIT)\b", line, re.IGNORECASE)
+    ]
+
+
 def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
     """Say what a run did for the judge to read: the verdict of the counting, the calls, the answer.
 
@@ -2652,12 +2703,7 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
     if analysis["mechanical_facts"]:
         lines.append(f"  mechanical facts: {json.dumps(analysis['mechanical_facts'], ensure_ascii=False)}")
     lines.append(f"  answer: {analysis['answer'][:4000]}")
-    marked = [
-        line.strip()
-        for line in analysis["answer"].splitlines()
-        if re.match(r"\s*(?:[*_`>#\-]\s*)*(?:RESULT|TABLE-UNIT)\b", line, re.IGNORECASE)
-    ]
-    lines.extend(f"  line: {line}" for line in marked)
+    lines.extend(f"  line: {line}" for line in marked_lines(analysis["answer"]))
     return "\n".join(lines)
 
 
@@ -2735,6 +2781,75 @@ def judge_run(
 # --------------------------------------------------------------------------------------------------------- cli
 
 
+def init_choices(args: argparse.Namespace) -> dict[str, Any]:
+    """Settle what `bench.py init` makes the file with: the defaults, then `--like` a results file, then the options."""
+    chosen = {
+        "cases": "all",
+        "tiers": "small,large",
+        "large": "sonnet",
+        "repeats": 1,
+        "reference_version": None,
+    }
+    if args.like:
+        previous = json.loads(args.like.read_text(encoding="utf-8"))
+        chosen.update(like_options(previous))
+        now = hashes(load_cases())["cases"]
+        moved = [c for c, h in previous["meta"]["case_hashes"].items() if now.get(c) != h]
+        if moved:
+            sys.stderr.write(
+                f"init: note: {len(moved)} cases of {args.like} are not what this cases.json has (changed or "
+                f"gone: {', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}): `compare` leaves them out\n"
+            )
+    given = {
+        "cases": args.cases,
+        "tiers": args.tiers,
+        "large": args.large,
+        "repeats": args.repeats,
+        "reference": args.reference,
+        "reference_version": args.reference_version,
+    }
+    chosen.update({k: v for k, v in given.items() if v is not None})
+    if not chosen.get("reference"):
+        msg = "--reference is needed (`python` or a tool prefix), unless --like gives one"
+        raise ValueError(msg)
+    return chosen
+
+
+def unit_for_run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the unit fact of a case against an answer, from the arguments of `bench.py unit`.
+
+    With `--analysis` the case and the answer are the run's own (`--case` and `--answer` may still be given), so
+    the judge hands over only its truth and the unit it came in; the `RESULT:` and `TABLE-UNIT:` lines read are printed.
+    """
+    analysis = json.loads(args.analysis.read_text(encoding="utf-8")) if args.analysis else None
+    case_id = args.case or (analysis or {}).get("case")
+    answer = args.answer if args.answer is not None else (analysis or {}).get("answer")
+    if not case_id or answer is None:
+        msg = "give --analysis (a run's analysis), or --case and --answer"
+        raise ValueError(msg)
+    if analysis and args.case and args.case != analysis.get("case"):
+        msg = f"--case {args.case} is not the case of the analysis ({analysis.get('case')})"
+        raise ValueError(msg)
+    case = find_case(load_cases(args.cases), case_id)
+    units = [f for f in case["facts"] if f["kind"] == "unit"]
+    if args.fact:
+        fact = next((f for f in case["facts"] if f["id"] == args.fact), None)
+    else:
+        fact = units[0] if len(units) == 1 else None
+    if fact is None or fact["kind"] != "unit":
+        known = ", ".join(f["id"] for f in units) or "none"
+        msg = f"{case_id} has no such unit fact (its unit facts: {known}): only the units-* cases have one"
+        raise ValueError(msg)
+    truth = truth_in_case_unit(fact, args.truth)
+    return {
+        "case": case_id,
+        "fact": fact["id"],
+        **unit_check(answer, fact, truth),
+        "truth_used": truth,
+        "answer_lines": marked_lines(answer),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:  # noqa: C901
     """Run one command."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -2743,11 +2858,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_init.add_argument("--results", type=Path, required=True)
     p_init.add_argument("--server", required=True, help="the MCP URL of the server under test")
     p_init.add_argument("--label", required=True, help="the SHA of the checkout it serves (+dirty if it has changes)")
-    p_init.add_argument("--cases", default="all", help="`all`, `kind:<kind>` or ids separated by commas")
-    p_init.add_argument("--tiers", default="small,large")
-    p_init.add_argument("--large", default="sonnet", choices=("sonnet", "opus"))
-    p_init.add_argument("--repeats", type=int, default=1)
-    p_init.add_argument("--reference", required=True, help="where the judge reads ground truth: `python` or a prefix")
+    p_init.add_argument("--like", type=Path, help="a results file to be compared with: its selection and reference")
+    p_init.add_argument("--cases", help="`all` (default), `kind:<kind>` or ids separated by commas")
+    p_init.add_argument("--tiers", help="small,large (default)")
+    p_init.add_argument("--large", choices=("sonnet", "opus"), help="sonnet (default) or opus")
+    p_init.add_argument("--repeats", type=int, help="1 (default)")
+    p_init.add_argument("--reference", help="where the judge reads ground truth: `python` or a prefix")
     p_init.add_argument("--reference-version")
     p_init.add_argument("--judge-model", required=True, help="the model that judges, as it names itself")
     p_init.add_argument("--today", default=dt.datetime.now(UTC).date().isoformat(), help="UTC date, YYYY-MM-DD")
@@ -2775,6 +2891,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         action="store_true",
         help="start although runs of an earlier batch are not judged yet (they are made, and paid for, again)",
     )
+    p_meta = sub.add_parser("meta")
+    p_meta.add_argument("results", type=Path, help="a results file: what it was made with (to build the other side)")
     p_digest = sub.add_parser("digest")
     p_digest.add_argument("analysis", type=Path, help="the `.analysis.json` of a run")
     p_digest.add_argument("--heads", type=int, default=0, help="also the first N characters of each call's result")
@@ -2824,15 +2942,16 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         "--label", help="what tells this side apart when two servers report one version: the SHA of the checkout"
     )
     p_unit = sub.add_parser("unit")
-    p_unit.add_argument("--case", required=True)
-    p_unit.add_argument("--fact", required=True)
+    p_unit.add_argument("--analysis", type=Path, help="the `.analysis.json` of a run: its case and its answer")
+    p_unit.add_argument("--case")
+    p_unit.add_argument("--fact", help="the fact (default: the case's only `unit` fact)")
     p_unit.add_argument(
         "--truth",
         nargs="+",
         required=True,
         help="the value, or the min and max of a span, then optionally their unit (`4.117 h`): converted to the fact's",
     )
-    p_unit.add_argument("--answer", required=True)
+    p_unit.add_argument("--answer", help="the answer to check (default: the answer of --analysis)")
     for name in ("report", "compare"):
         p = sub.add_parser(name)
         p.add_argument("files", nargs="+", type=Path)
@@ -2846,20 +2965,16 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     args = parser.parse_args(argv)
     if args.command == "init":
         try:
+            chosen = init_choices(args)
             results = init_results(
                 args.results,
                 server=args.server,
                 label=args.label,
-                cases=args.cases,
-                tiers=args.tiers,
-                large=args.large,
-                repeats=args.repeats,
-                reference=args.reference,
-                reference_version=args.reference_version,
                 judge_model=args.judge_model,
                 today=args.today,
+                **chosen,
             )
-        except (ValueError, OSError, RuntimeError) as error:
+        except (ValueError, OSError, RuntimeError, KeyError) as error:
             sys.stderr.write(f"init: {error}\n")
             return 2
         meta = results["meta"]
@@ -2900,6 +3015,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             max_usd=args.max_usd,
             allow_unjudged=args.allow_unjudged,
         )
+    elif args.command == "meta":
+        try:
+            print(json.dumps(describe_meta(json.loads(args.results.read_text(encoding="utf-8"))), indent=1))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            sys.stderr.write(f"meta: {error}\n")
+            return 2
     elif args.command == "digest":
         try:
             print(digest_run(args.analysis, args.heads))
@@ -2970,14 +3091,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         )
         print(json.dumps(record, indent=1, ensure_ascii=False))
     elif args.command == "unit":
-        case = find_case(load_cases(args.cases), args.case)
-        fact = next(f for f in case["facts"] if f["id"] == args.fact)
         try:
-            truth = truth_in_case_unit(fact, args.truth)
-        except ValueError as error:
+            print(json.dumps(unit_for_run(args), indent=1, ensure_ascii=False))
+        except (ValueError, OSError, KeyError, TypeError) as error:
             sys.stderr.write(f"unit: {error}\n")
             return 2
-        print(json.dumps({**unit_check(args.answer, fact, truth), "truth_used": truth}, indent=1, ensure_ascii=False))
     elif args.command == "hashes":
         print(json.dumps(hashes(load_cases(args.cases)), indent=1))
     elif args.command == "report":

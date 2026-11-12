@@ -4914,3 +4914,135 @@ def test_the_digest_shows_when_a_call_was_answered(tmp_path: Path) -> None:
     )
 
     assert "5 characters, retrieved_at 2026-11-12T09:34:05+00:00" in bench.digest_run(path)
+
+
+# ------------------------------------------------ a comparison: init --like, meta, created_at, unit from an analysis
+
+
+def test_init_records_when_it_ran_and_like_takes_the_selection_of_a_baseline(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--like OLD` copies selection and reference, options still override; `created_at` is UTC."""
+    old = tmp_path / "old.json"
+    first = _init(
+        old,
+        mcp_url,
+        cases=f"{GLOSSARY},licence-dwd",
+        tiers="small",
+        repeats=4,
+        reference="python",
+        reference_version="0.1",
+    )
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", first["meta"]["created_at"])
+    base = ["init", "--like", str(old), "--server", mcp_url, "--judge-model", "m", "--today", "2026-11-13"]
+
+    assert bench.main([*base, "--results", str(tmp_path / "new.json"), "--label", "branchsha"]) == 0
+
+    new = json.loads((tmp_path / "new.json").read_text(encoding="utf-8"))["meta"]
+    assert list(new["case_hashes"]) == [GLOSSARY, "licence-dwd"]
+    assert (new["models"], new["repeats"], new["reference"], new["reference_version"]) == (
+        {"small": "haiku"},
+        4,
+        "python",
+        "0.1",
+    )
+    assert (new["label"], new["date"]) == ("branchsha", "2026-11-13")
+    assert "8 runs" in capsys.readouterr().out
+    assert (
+        bench.main(
+            [*base, "--results", str(tmp_path / "n2.json"), "--label", "b", "--repeats", "2", "--cases", GLOSSARY]
+        )
+        == 0
+    )
+    other = json.loads((tmp_path / "n2.json").read_text(encoding="utf-8"))["meta"]
+    assert (list(other["case_hashes"]), other["repeats"], other["models"]) == ([GLOSSARY], 2, {"small": "haiku"})
+
+
+def test_init_like_says_which_cases_changed_and_still_needs_a_reference_otherwise(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A baseline case whose hash changed is named; without `--like` a reference is needed."""
+    old = tmp_path / "old.json"
+    _init(old, mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
+    results = json.loads(old.read_text(encoding="utf-8"))
+    results["meta"]["case_hashes"][GLOSSARY] = "0000"
+    old.write_text(json.dumps(results), encoding="utf-8")
+    base = ["init", "--server", mcp_url, "--label", "b", "--judge-model", "m", "--today", "2026-11-13"]
+
+    assert bench.main([*base, "--like", str(old), "--results", str(tmp_path / "n.json")]) == 0
+    assert f"note: 1 cases of {old} are not what this cases.json has" in capsys.readouterr().err
+    assert bench.main([*base, "--results", str(tmp_path / "m.json")]) == 2
+    assert "--reference is needed" in capsys.readouterr().err
+    assert bench.main([*base, "--like", str(tmp_path / "missing.json"), "--results", str(tmp_path / "k.json")]) == 2
+
+
+def test_meta_tells_what_a_results_file_was_made_with(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """To build the other side of a comparison: the server commit (label), the reference, the selection."""
+    old = tmp_path / "old.json"
+    _init(old, mcp_url, label="d18a37368", cases=GLOSSARY, tiers="small", repeats=2, reference_version="0.186.0")
+
+    assert bench.main(["meta", str(old)]) == 0
+
+    out = json.loads(capsys.readouterr().out)
+    assert (out["label"], out["reference"], out["reference_version"], out["repeats"]) == (
+        "d18a37368",
+        "python",
+        "0.186.0",
+        2,
+    )
+    assert (out["cases"], out["models"], out["runs"], out["logic"]) == (
+        [GLOSSARY],
+        {"small": "haiku"},
+        0,
+        bench.LOGIC_VERSION,
+    )
+    assert out["created_at"]
+    assert bench.main(["meta", str(tmp_path / "none.json")]) == 2
+
+
+def test_unit_reads_the_case_and_the_answer_from_the_analysis(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The judge hands over only its truth and the unit it came in; the RESULT lines read are printed."""
+    path = tmp_path / "s.analysis.json"
+    answer = "It shone 4.117 hours.\n\nRESULT: 4.117 h | sunshine duration\nTABLE-UNIT: col | h"
+    path.write_text(json.dumps({"case": "units-sunshine-seconds", "answer": answer}), encoding="utf-8")
+
+    assert bench.main(["unit", "--analysis", str(path), "--truth", "4.117", "h"]) == 0
+
+    out = json.loads(capsys.readouterr().out)
+    assert (out["ok"], out["case"], out["fact"]) == (True, "units-sunshine-seconds", "value-with-its-unit")
+    assert out["answer_lines"] == ["RESULT: 4.117 h | sunshine duration", "TABLE-UNIT: col | h"]
+    assert out["truth_used"]["value"] == pytest.approx(14821.2, rel=1e-3)
+    wrong = tmp_path / "w.analysis.json"
+    wrong.write_text(
+        json.dumps({"case": "units-sunshine-seconds", "answer": "RESULT: 4.117 min | sun"}), encoding="utf-8"
+    )
+    assert bench.main(["unit", "--analysis", str(wrong), "--truth", "4.117", "h"]) == 0
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+@pytest.mark.parametrize(
+    ("analysis", "extra", "message"),
+    [
+        ({"case": GLOSSARY, "answer": "x"}, [], "has no such unit fact"),
+        (
+            {"case": "units-sunshine-seconds", "answer": "x"},
+            ["--case", "units-kiel-celsius"],
+            "is not the case of the analysis",
+        ),
+        ({"case": "units-sunshine-seconds", "answer": "x"}, ["--fact", "nope"], "has no such unit fact"),
+        ({"case": "units-sunshine-seconds"}, [], "give --analysis"),
+    ],
+)
+def test_unit_from_an_analysis_refuses_what_it_cannot_judge(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], analysis: dict[str, Any], extra: list[str], message: str
+) -> None:
+    """A case with no unit fact (only the units-* cases have one), a case that is not the run's, no answer: exit 2."""
+    path = tmp_path / "a.analysis.json"
+    path.write_text(json.dumps(analysis), encoding="utf-8")
+
+    assert bench.main(["unit", "--analysis", str(path), "--truth", "1", *extra]) == 2
+    assert message in capsys.readouterr().err

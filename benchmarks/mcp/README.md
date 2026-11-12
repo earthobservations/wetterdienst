@@ -8,7 +8,7 @@ requests to the live providers.
 
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
-something is unclear or breaks. Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
+something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
 writes nothing into the repository. **Until pull request #3544 is merged the benchmark exists only on its branch
 `feat/mcp-benchmark-skill`, not on `main`**: a checkout of `main` does not have this file; Part 2.1 says how to get it.
 
@@ -65,7 +65,7 @@ Check each; if one fails, stop and ask (Part 7).
 | --- | --- | --- |
 | the `claude` CLI | `claude --version` | `2.1.311` or newer. The flags `run_subject.sh` passes were checked against the `claude --help` of 2.1.311: `--tools ""`, `--strict-mcp-config`, `--mcp-config`, `--allowedTools`, `--disable-slash-commands`, `--setting-sources ""`, `--no-session-persistence`, `--max-budget-usd`, `--output-format stream-json --verbose`. An older version, or a flag missing from `claude --help`, is a stop. |
 | `python3` | `python3 --version` | 3.9 or newer (the Mac's own is enough: `bench.py` uses the standard library only and is run as `python3 -I`) |
-| `gh`, authenticated | `gh auth status` | logged in to github.com with the scopes `repo` and `gist` |
+| `gh`, authenticated | `gh auth status` | logged in to github.com with the scopes `repo` and `gist`. **During a short connection outage `gh auth status` can report the token as invalid: wait a minute and retry before you conclude anything** (the same for `git fetch` and `curl` failures: retry once, then stop and ask) |
 | the issue | `gh issue view 3546 -R earthobservations/wetterdienst --json state -q .state` | `OPEN` |
 | `git`, `uv`, `curl`, `lsof` | `uv --version` | present |
 | Python 3.13 for the server | `uv python find 3.13` | a path (it may be the Python of a repository's `.venv`: that is fine). The server runs on **3.13** (`UV_PYTHON=3.13`): the free-threaded 3.14 fails to build polars. |
@@ -102,36 +102,49 @@ printf 'export REPO="%s"\nexport BENCH="%s"\nexport UV_PYTHON=3.13\nexport WD_CA
 cat "$BENCH/env.sh"
 ```
 
+**The date.** It is the UTC date at the start (in the name of `$BENCH`), and `init` writes it into the results file:
+`meta.date` is the date of the prompts (the judge's "today") and `meta.created_at` the UTC time `init` ran; the gist file name
+carries it too (Part 5). Nothing depends on the clock after `init`: a run that goes on past midnight UTC keeps `meta.date`.
+
 If `$BENCH` exists already (an earlier run of the same day), **do not reuse it blindly**: read what is in it, and either go
 on with the results file in it (Part 3 resumes) or ask. `WD_CACHE_DIR` is the cache of the server under test, its own, so
 that two sides of a comparison share one cache and the maintainer's other caches are untouched.
 
-**2.2 The server under test: a local server of current `main`, in a git worktree outside the repository checkout.**
+**2.2 The server under test, in a git worktree outside the repository checkout.** For the **smoke run and the baseline** it is a
+local server of current `main` (`wd-main`); for a **comparison** it is the branch under test (`wd-change`, with a reference of its
+own: Part 8 gives the values and every step). Name them once; this is the smoke run and the baseline:
 
 ```bash
 . "$BENCH/env.sh"
-git -C "$REPO" fetch origin main
-git -C "$REPO" worktree add --detach "$BENCH/wd-main" origin/main
-git -C "$BENCH/wd-main" rev-parse HEAD
-git -C "$BENCH/wd-main" status --porcelain
+printf 'export SERVER_DIR="%s"\nexport SERVER_REF="%s"\nexport REFCLI="%s"\n' "$BENCH/wd-main" "origin/main" "$BENCH/wd-main/.venv/bin/wetterdienst" >> "$BENCH/env.sh"
+```
+
+`SERVER_DIR` is the worktree of the server, `SERVER_REF` what it is made from, `REFCLI` the command line of the reference (2.3).
+
+```bash
+. "$BENCH/env.sh"
+git -C "$REPO" fetch origin
+git -C "$REPO" worktree add --detach "$SERVER_DIR" "$SERVER_REF"
+git -C "$SERVER_DIR" rev-parse HEAD
+git -C "$SERVER_DIR" status --porcelain
 ```
 
 `git fetch` can fail transiently (`Connection refused`): **retry it once after 10 s; if it fails again, stop and ask.** The
-worktree must be clean (no output from `status`). The SHA is the **label** of the run (add `+dirty` if `status` is not empty,
-which it must not be); keep it in `env.sh` with the version of `main` once the server answers: Install, one command (a few minutes, about 800 MB;
-if it fails on macOS, run the extras one at a time):
+worktree must be clean (no output from `status`). Its SHA is the **label** of the run (add `+dirty` if `status` is not empty,
+which it must not be); it goes into `env.sh` with the version once the server answers. Install, one command (a few minutes,
+about 800 MB; if it fails on macOS, run the extras one at a time):
 
 ```bash
 . "$BENCH/env.sh"
-cd "$BENCH/wd-main" && uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
+cd "$SERVER_DIR" && uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
 ```
 
 Start it **in the background** (the Bash tool's `run_in_background`, or `nohup ... &` with the output in
-`$BENCH/server.log`). The command, from `$BENCH/wd-main`, with `WD_CACHE_DIR` exported:
+`$BENCH/server.log`). The command, from `$SERVER_DIR`, with `WD_CACHE_DIR` exported:
 
 ```bash
 . "$BENCH/env.sh"
-cd "$BENCH/wd-main" && exec .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
+cd "$SERVER_DIR" && exec .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
 ```
 
 Wait for it (about 10 s), then check and record what you need:
@@ -141,13 +154,13 @@ Wait for it (about 10 s), then check and record what you need:
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do curl -fsS http://127.0.0.1:7891/health && break; sleep 2; done
 curl -fsS http://127.0.0.1:7891/api/version
 lsof -nP -t -iTCP:7891 -sTCP:LISTEN > "$BENCH/server.pid" && cat "$BENCH/server.pid"
-printf 'export LABEL="%s"\nexport SERVER_VERSION="%s"\n' "$(git -C "$BENCH/wd-main" rev-parse --short HEAD)" "$(curl -fsS http://127.0.0.1:7891/api/version | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')" >> "$BENCH/env.sh"
+printf 'export LABEL="%s"\nexport SERVER_VERSION="%s"\n' "$(git -C "$SERVER_DIR" rev-parse --short HEAD)" "$(curl -fsS http://127.0.0.1:7891/api/version | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')" >> "$BENCH/env.sh"
 . "$BENCH/env.sh"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" probe "$URL" --label "$LABEL"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" tools-size --server "$URL"
 ```
 
-`/health` answers `{"status":"OK"}`, `/api/version` the version of `main` (for example `0.186.0`), `probe` says
+`/health` answers `{"status":"OK"}`, `/api/version` the version of the checkout (for example `0.186.0` for `main`), `probe` says
 `"tools": 14`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
 Note the SHA (`$LABEL`), the version (`$SERVER_VERSION`), and the `tools-size` table (it is the cost of `tools/list` on the wire, which the tested model's
 context does not show: see "What the benchmark cannot see"). A server that does not answer ends the run here, before a model
@@ -157,9 +170,14 @@ is paid for.
 model's own answers or from the server under test alone, so that a change that rounds or drops a value cannot reproduce itself
 in the judge. Two choices:
 
-- **`python` (the default, and the one to use unless told otherwise):** the command line and the library of the **same
-  checkout** as the server, `"$BENCH/wd-main/.venv/bin/wetterdienst"`. It does not go through the MCP layer. Append
-  `2>/dev/null` (the log goes to stderr). Its commands, tool by tool (checked against `--help` on 2026-11-12; a command's
+- **`python` (the default, and the one to use unless told otherwise):** the command line and the library of a checkout of the
+  repository, `"$REFCLI"`. For the smoke run and the baseline it is the **same checkout** as the server (`wd-main`). **In a
+  comparison it is not the branch under test but a checkout at the commit the baseline's own server ran** (`wd-ref`, Part 8.3), so
+  the ground truth does not move with the change, or with `main` having moved since the baseline. It does not go through the MCP
+  layer. Keep its stderr in a file (`2>>"$BENCH/ref.err"`: the log goes there, and so does the reason when a call fails; read it
+  with `tail "$BENCH/ref.err"`). **On a cold cache the first call sometimes prints nothing, or an empty file, and works on the
+  retry: empty output means retry (once or twice), never "no data"**; only an answer that says it has no rows or stations is no
+  data. Its commands, tool by tool (checked against `--help` on 2026-11-12; a command's
   flags are the tool's arguments in kebab case, `--with-metadata true`, `--periods`, `--stations`, `--timestamp`, with a few extra
   ones such as `--start`/`--end`; `--help` lists them):
 
@@ -173,21 +191,22 @@ in the judge. Two choices:
   Examples, tried on 2026-11-12:
 
   ```bash
-  "$BENCH/wd-main/.venv/bin/wetterdienst" glossary --parameter temperature_air_mean_2m --limit 3 2>/dev/null
-  "$BENCH/wd-main/.venv/bin/wetterdienst" providers --provider dwd 2>/dev/null
-  "$BENCH/wd-main/.venv/bin/wetterdienst" values --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 02564 --with-metadata true --format json 2>/dev/null
-  "$BENCH/wd-main/.venv/bin/wetterdienst" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>/dev/null
+  "$REFCLI" glossary --parameter temperature_air_mean_2m --limit 3 2>>"$BENCH/ref.err"
+  "$REFCLI" providers --provider dwd 2>>"$BENCH/ref.err"
+  "$REFCLI" values --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 02564 --with-metadata true --format json 2>>"$BENCH/ref.err"
+  "$REFCLI" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>>"$BENCH/ref.err"
   ```
 
   The last one is the `stripes_values` truth of Potsdam for 1991 (8.91 on 2026-11-12). The library is the other way
-  (`"$BENCH/wd-main/.venv/bin/python" -I -c "from wetterdienst import Wetterdienst; ..."`, with
+  (the `python` next to `$REFCLI`, `-I -c "from wetterdienst import Wetterdienst; ..."`, with
   `Wetterdienst.resolve(provider, network)(parameters=..., periods=...).filter_by_station_id(...).values().all().df`). The
   `python` reference is independent of the MCP layer, not of the library.
 - **The hosted connector** (the tools `mcp__claude_ai_wetterdienst__*` of the released server): only if your instruction
   names it **and** your session lists those tools (a fresh session on this machine has none unless one is configured). The
   hosted server is the released version, which may name or return things differently from `main`; say so in the report.
 
-Pass what you chose as `--reference` in 2.4 (`python` or `hosted`) and its version as `--reference-version`.
+Pass what you chose as `--reference` in 2.4 (`python` or `hosted`) and its version as `--reference-version` (in a comparison
+`init --like` takes both from the baseline).
 
 **2.4 The results file.** `bench.py init` writes it with its `meta` (server URL, version and label, the models of the tiers,
 the repeats, the hashes of the cases, the defaults, the prompt and the counting, the version of `claude`, the size of
@@ -198,7 +217,8 @@ the repeats, the hashes of the cases, the defaults, the prompt and the counting,
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpbench-results-smoke.json" --server "$URL" --label "$LABEL" --cases all --tiers small,large --large sonnet --repeats 1 --reference python --reference-version "$SERVER_VERSION" --judge-model "<your own model id>" --today "$(date -u +%F)"
 ```
 
-For the **baseline**: the same with `--results "$BENCH/mcpbench-results-baseline.json"` and `--repeats 5`. `--large opus` only if
+For the **baseline**: the same with `--results "$BENCH/mcpbench-results-baseline.json"` and `--repeats 5`. For a **comparison**
+`init --like "$BASELINE"` takes the selection from the baseline (Part 8.4). `--large opus` only if
 told. The command prints the number of runs (54 or 270); `bench.py todo --results FILE` lists them
 (`case tier repeat model`), and what it still lists is what is still to do. `init` never overwrites a file. The date it
 records (`--today`) is the date of the prompts, and **the judge's "yesterday" is that date minus one day**, even if the run
@@ -323,8 +343,10 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
    models (`small` = haiku, `large` = sonnet or opus; the resolved ids come with the report); the cases (`all`: 27, no key
    case) and the repeats; the number of runs; the reference; the judge model (you); the results file name. Link the
    runbook at the SHA of your checkout.
-2. **Intermediate comments** as the run progresses: after each tier is done, and in any case about every 25 judged runs
-   (the baseline: each 27 runs, a tier of 135 has five of them). Each has: how many runs are judged of the total; the table of
+2. **Intermediate comments** as the run progresses: **after each tier is done** (the whole `small` tier, then the whole
+   `large` tier: Part 3 says why the order is fixed), and in between **whenever a batch brought something that has to be told**
+   (a failed, invalid or spilled run, a server restart, a case that fails on every repeat, a refused `judge`). Batches of nine do
+   not land on multiples of 27, so do not promise a fixed cadence; say how many runs are judged of the total. Each has: how many runs are judged of the total; the table of
    `bench.py report` so far (paste it as is); the failed runs (timeouts), the **invalid** runs (no server) and the **spilled**
    calls, with the case and tier of each; the runs you judged `drift` or could not judge; anything surprising (a case
    that every repeat of a tier fails, a sudden rise in steps or cost, a server restart, a violation by a tool that is not
@@ -354,8 +376,9 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
 1. Stop the server **by its PID**: `kill "$(cat "$BENCH/server.pid")"` (the background task then ends with exit code 144: that is the signal), then `lsof -nP -iTCP:7891 -sTCP:LISTEN` shows nothing.
    Stop the background task that started it too (the Bash tool's task list). Check no other process of yours is still running
    (`bench.py batch`, `claude -p`), and wait for it if one is.
-2. Remove the two worktrees from the repository you started in (the server's venv is in the first):
-   `git worktree remove --force "$BENCH/wd-main"`, `git worktree remove --force "$BENCH/repo"`, then `git worktree prune`. The scratch directory (prompts, transcripts, the results file) **stays**: it is the
+2. Remove the worktrees from the repository you started in (the server's venv is in `$SERVER_DIR`):
+   `git worktree remove --force "$SERVER_DIR"`, `git worktree remove --force "$BENCH/repo"`, and, in a comparison,
+   `git worktree remove --force "$BENCH/wd-ref"`, then `git worktree prune`. The scratch directory (prompts, transcripts, the results file) **stays**: it is the
    record behind the comments. Say where it is in your last message.
 3. Check what a run may have left in `~/.claude/projects`: `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" cleanup`
    removes the project directories that tested models left (it takes only those older than 10 minutes, and only
@@ -384,8 +407,95 @@ names. These failures are known; the first column is what you see, the second wh
 | `uv sync` fails to build polars | the Python is 3.14 (free-threaded): `UV_PYTHON=3.13` |
 | the machine is loaded (the fans, load average) or the disk is nearly full | run with `--parallel 2` or `1`, or stop and ask; never more than 3 |
 | port 7891 is in use at the start | not yours: ask; do not pick another port without saying, the label and the comment name the server |
+| `gh auth status` says the token is invalid, or `gh`, `git fetch` or `curl` fail with a connection error | a short outage can look like this: **wait a minute and retry** before concluding anything; if it lasts, stop and ask |
 | `gh` fails to post or create the gist | keep the comment in `$BENCH/comment-<n>.md`, retry once, then stop and report; the results file is safe in `$BENCH` |
 | anything not listed here | stop and ask |
+
+## Part 8. A comparison: a branch against a baseline
+
+Told *"run a comparison of branch X against baseline file Y"*, do Parts 1 to 6 as for a named run, with the changes below,
+and then `compare`. The two sides are made in the same environment, with the same limits, cache, cases, tiers and repeats; the
+baseline is **not run again**: its results are the file Y. One server runs, on port 7891 (nothing listens on another port).
+
+**8.1 Read the baseline.** Y is a path, or a gist: `gh gist view <id> --filename <name> --raw > "$BENCH/baseline.json"`
+(`gh gist view <id>` lists the files). Then:
+
+```bash
+. "$BENCH/env.sh"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" meta "$BASELINE"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" hashes
+```
+
+`meta` prints what the baseline was made with: **`label`, the commit its server ran** (for example `d18a37368`, the reference's
+build), its `server_version`, `reference` and `reference_version`, `models`, `repeats`, the case list, `prompt`, `logic`,
+`claude_version`, the date. `hashes` prints the `logic`, `prompt` and `defaults` of your `$REPO`: if they differ from the
+baseline's, `compare` will refuse (exit 4), so **stop and ask before you pay for the runs**; a different `cases_file` only means
+that some cases changed (`compare` leaves those out and lists them). A different `claude_version` is allowed: say it in the report.
+
+**8.2 The server is the branch.** Do 2.1, and set the three names of 2.2 for the change (`SERVER_REF` is `origin/<X>` for a
+branch, or the SHA alone for a commit):
+
+```bash
+. "$BENCH/env.sh"
+printf 'export SERVER_DIR="%s"\nexport SERVER_REF="%s"\nexport REFCLI="%s"\nexport BASELINE="%s"\n' "$BENCH/wd-change" "origin/<X>" "$BENCH/wd-ref/.venv/bin/wetterdienst" "$BENCH/baseline.json" >> "$BENCH/env.sh"
+```
+
+Then the rest of 2.2 unchanged: fetch, the worktree `wd-change`, `uv sync`, start on 127.0.0.1:7891, health, `server.pid`, probe.
+**`$LABEL` is the SHA of the branch's head** (`+dirty` never: the worktree is clean), so the two files carry different labels and
+`compare` can tell them apart even when both report one version.
+
+**8.3 The reference is the baseline's own commit.** The judge reads the true answers from a `python` checkout at **the commit the
+baseline's server ran** (`label` of 8.1), not from the branch (a change that rounds or drops a value would reproduce itself in
+the judge) and not from `main` as it is today (it may have moved since the baseline, and the ground truth must not move):
+
+```bash
+. "$BENCH/env.sh"
+git -C "$REPO" worktree add --detach "$BENCH/wd-ref" "<the label of 8.1>"
+cd "$BENCH/wd-ref" && uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
+"$REFCLI" --version
+```
+
+If git does not know the commit, `git -C "$REPO" fetch origin` (the 2.2 retry rule) and try again; a label that ends in `+dirty`
+or a commit that is still not found is a stop. `$REFCLI` is the command of 2.3. The `reference_version` of the baseline is what
+`init --like` records, so that `compare` finds both sides read from the same version.
+
+**8.4 The results file, like the baseline.** `init --like` copies the cases, the tiers, the large model, the repeats, the
+reference and its version from the baseline, so that nobody types them again and the two selections cannot differ (options
+still override: do not use them in a comparison). It tells you on stderr if the hash of a case is not the baseline's:
+
+```bash
+. "$BENCH/env.sh"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpbench-results-change.json" --like "$BASELINE" --server "$URL" --label "$LABEL" --judge-model "<your own model id>" --today "$(date -u +%F)"
+```
+
+**8.5 Run and judge** as Parts 3 and 4, for `--results "$BENCH/mcpbench-results-change.json"` and `--dir "$BENCH/runs-change"`, with the
+same rules (judge each batch before the next; the order is the `small` tier then the `large` tier).
+
+**8.6 Comments on #3546**, all through `gh` as Part 5: **at the start** (the branch and its SHA, the baseline file with its label,
+version and date, the models, the cases and repeats, the reference and its commit, the runbook SHA); **after each tier** (the
+`small` tier complete, then the `large` tier: `bench.py report` of the new file so far, the failed, invalid and spilled runs, and
+what is surprising); **whenever something has to be told** in between (a server restart, a refused `judge`, a case that fails on
+every repeat); and **at the end with the `compare` verdict** (8.7). Do not promise a cadence of runs: batches of nine do not land
+on multiples of 27.
+
+**8.7 Compare.** When `todo` is empty:
+
+```bash
+. "$BENCH/env.sh"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" report "$BENCH/mcpbench-results-change.json" > "$BENCH/report-change.txt"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" compare "$BASELINE" "$BENCH/mcpbench-results-change.json" > "$BENCH/compare.txt"; echo "exit $?"
+cat "$BENCH/compare.txt"
+```
+
+Exit 0 prints, per tier, the verdict of the four rates (`NO WORSE`, `WORSE` or `INCONCLUSIVE`), the sizes before and after, the
+cases that moved and the ones left out. **Exit 4 means it refused** (the logic version, the defaults, the prompt, the deferral of the
+tools, two sides that cannot be told apart, other `repeats`, more than 3 % invalid or missing runs in a tier, a record still marked
+`needs_judging`): the first lines say why; put the reason in the final comment, and do not edit a results file to get past it
+(`failed-run` and `add-run` are the repair for a lost run; Part 3). The final comment has the whole `compare` output (split it under
+60,000 characters), the `report` table, the failure modes that happened, the cost and the time, and the **secret gist of the
+new results file** (Part 5), named `mcpbench-results-change-<branch>-<sha>-<date>.json`, next to the link of the baseline's gist.
+
+**8.8 Finish** as Part 6; stop the one server by its PID and remove `wd-change`, `wd-ref` and `repo`.
 
 ## Known false failures of the reference baseline
 
@@ -503,14 +613,17 @@ read from the stations the subject itself got listed, not from a call of yours).
    - `unit`: the answer states the value **with its right unit** (see "Units" below). **Only the `units-*` cases (kind
      `units`) have a fact of this kind and need `bench.py unit`.** Other facts carry a `unit` field too (`degree_celsius`, and
      `metre` in the `history-*` case) but it only names the unit of the value: their kind (`ground_truth_value`, ...) decides how
-     they are judged, plainly, against your own call. Run
-     `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" unit --case <id> --fact <id> --truth <value> [<unit>] --answer "<text>"` (or
-     `--truth <min> <max> [<unit>]` for the span of a forecast) with the value from your own call **as the reference returned it,
-     followed by its unit**: the command converts it to the unit the fact counts in (`accepted` of the fact), so you do not.
-     Example: the reference returns the sunshine as `4.117` with the unit `h`, the fact counts in seconds (14821.2):
-     `... unit --case units-sunshine-seconds --fact value-with-its-unit --truth 4.117 h --answer "RESULT: 14821 s | sunshine"`
-     passes it, and `--truth 14821.2` (no unit) would mean seconds. A unit the fact does not accept is refused (exit 2) and
-     the message lists the ones it does. The command prints which figures passed or failed, and the truth it used.
+     they are judged, plainly, against your own call. Run the helper on the run's analysis, so that it reads the case and the
+     subject's answer (and its `RESULT:` lines) itself, and give it only **your truth as the reference returned it, followed by its
+     unit**:
+     `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" unit --analysis "$BENCH/runs-smoke/<case>-<tier>-<repeat>.analysis.json" --truth <value> [<unit>]`
+     (or `--truth <min> <max> [<unit>]` for the span of a forecast). The command converts the truth to the unit the fact counts in
+     (`accepted` of the fact), so you do not. Example: the reference returns the sunshine as `4.117` with the unit `h`, the fact
+     counts in seconds (14821.2): `... unit --analysis ".../units-sunshine-seconds-small-1.analysis.json" --truth 4.117 h` passes an
+     answer of `RESULT: 14821 s` or `RESULT: 4.117 h`, and fails `RESULT: 4.117 min`; `--truth 14821.2` (no unit) would mean
+     seconds. It prints `ok`, which figures passed or failed and why, the truth it used and the lines it read. A unit the fact does
+     not accept is refused (exit 2) and the message lists the ones it does, as it does for a case without a unit fact. (`--case`
+     `--fact` `--answer` still work for an answer you typed; `--fact` is only needed when a case has several.)
    - `no_measurements`: no figure in the answer that no tool result of the transcript supports, with the exemptions
      below.
 3. A `judge_note` for a near miss (the right tool with a better argument than the one a checkpoint lists): record it,
@@ -650,7 +763,7 @@ for it) are therefore compared as rates of their own, and a change is "no worse"
 reference:
 
 ```json
-{"meta": {"date": "2026-11-12", "models": {"small": "haiku", "large": "sonnet"}, "judge_model": "<the model that judges>",
+{"meta": {"date": "2026-11-12", "created_at": "2026-11-12T09:01:23Z", "models": {"small": "haiku", "large": "sonnet"}, "judge_model": "<the model that judges>",
           "server": "http://127.0.0.1:7891/mcp/v1", "server_version": "0.186.0", "label": "<sha of the checkout, +dirty>",
           "server_info": {"name": "Wetterdienst", "version": "0.186.0"}, "reference": "python", "reference_version": "0.186.0",
           "claude_version": "2.1.311 (Claude Code)", "tools_deferred": false, "context_note": "<what remains in the context>",
@@ -705,26 +818,6 @@ tokens at the first request, total and output tokens, and the calls whose result
 median per case before and after and the paired difference. A token-efficiency change is "no worse and smaller" when
 all four rates are `no worse` and the sizes fell; the model, server, reference and Claude Code versions that differ
 are told first.
-
-## Comparing a change before release
-
-The two named runs are the **baseline** (and its smoke check) of `main`. To judge a change (a branch that slims a schema or
-shrinks an answer), run **both sides on local servers in the same environment, with the same limits and cache**, not against the
-hosted server: a baseline of the hosted server differs from a local `main` by the host, the network and the deployed settings.
-The change goes in its own worktree and on its own port, with the **same** `WD_CACHE_DIR`:
-
-```bash
-git worktree add --detach "$BENCH/wd-change" <the branch or SHA>
-cd "$BENCH/wd-change" && uv sync --python 3.13 --extra restapi --extra mcp --extra export --extra interpolation --extra sql
-cd "$BENCH/wd-change" && exec .venv/bin/wetterdienst restapi --listen 127.0.0.1:7892      # MCP at http://127.0.0.1:7892/mcp/v1
-```
-
-Then do Parts 2 to 6 again with `--server http://127.0.0.1:7892/mcp/v1`, the SHA of the branch (`+dirty` if `git status` is not
-clean) as `--label`, and the **same** `--cases`, `--tiers`, `--large` and `--repeats` as the baseline; the two servers report one
-version, so the labels are what tells the files apart. Keep the reference the same for both (`python` of `main`, so the
-judge's ground truth does not move with the change). Then
-`python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" compare <the baseline's results file (from the gist)> <the new one>`; it exits 4
-and says why if the two cannot be compared. Stop both servers by PID when done.
 
 ## Case schema
 
