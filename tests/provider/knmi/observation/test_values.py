@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import itertools
 import logging
+import math
 import time
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
@@ -850,8 +851,10 @@ def test_a_400_for_every_request_ends_the_query_with_the_error_and_costs_the_fir
     assert "400" in message
     assert "check the parameters and the dates" in message
     assert KEY not in message
-    # 15, 7, 3 and then the one alone
-    assert [len(_stations(path)) for path in edr_server.data_requests()] == [15, 7, 3, 1]
+    # 15, 7, 3 and the one alone, which waits; the next request (the other two of the three) is refused as well
+    sizes = [len(_stations(path)) for path in edr_server.data_requests()]
+    assert sizes == [15, 7, 3, 1, 2]
+    assert len(sizes) <= math.ceil(math.log2(len(stations))) + 2
 
 
 def test_the_third_station_the_api_refuses_alone_ends_the_query_with_the_error(
@@ -882,3 +885,40 @@ def test_a_refused_station_is_told_as_a_file_let_go_to_the_core(edr_server: EdrS
     codes = {warning["code"] for warning in recorded_warnings()}
     assert "file-skipped" in codes
     assert "station-without-rows" not in codes
+
+
+@pytest.mark.parametrize("unknown", [0, 1, 2, 3], ids=["first", "second", "third", "last"])
+def test_an_unknown_station_is_left_out_whatever_its_place_in_the_order(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, reader: Reader, unknown: int
+) -> None:
+    """The same answer for one unknown station of four wherever it comes: the others read, one warning, no error.
+
+    The walk isolates depth first, so an unknown station that comes first is refused alone before anything is answered:
+    it waits, the others go on, and once one request is answered it is left out with the warning.
+    """
+    stations = [SCHIPHOL, DE_BILT, EELDE, ROTTERDAM]
+    _serve(edr_server, _hourly(24, stations))
+    edr_server.known.discard(stations[unknown])
+
+    with caplog.at_level(logging.WARNING):
+        df = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 1, 12), stations)
+
+    assert set(df.get_column("station_id")) == set(stations) - {stations[unknown]}
+    (warning,) = _warnings(caplog)
+    assert stations[unknown] in warning
+    assert len(edr_server.data_requests()) <= 7
+
+
+def test_two_unknown_stations_at_the_front_wait_and_are_left_out_when_the_others_answer(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, reader: Reader
+) -> None:
+    """Two refused alone before anything is answered wait, and are left out, each with its warning, once one is."""
+    stations = [SCHIPHOL, DE_BILT, EELDE, ROTTERDAM]
+    _serve(edr_server, _hourly(24, stations))
+    edr_server.known -= {SCHIPHOL, DE_BILT}
+
+    with caplog.at_level(logging.WARNING):
+        df = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 1, 12), stations)
+
+    assert set(df.get_column("station_id")) == {EELDE, ROTTERDAM}
+    assert len(_warnings(caplog)) == 2

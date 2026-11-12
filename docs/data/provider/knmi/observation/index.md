@@ -56,10 +56,10 @@ that is times times parameters times stations; beyond it the API answers 413.
 - **Memory.** The readings of the stations that are read ahead are held until the walk comes to them, so no more than
   about 3 million points are read ahead: a long range is read one station at a time, a day of every station at once.
   `interpolate` and `summarize`, which stop where the data says, read the one station in hand.
-- **Cost** (counted as the walk makes the requests, `edr.estimate_requests`; the stations are all 77). One station: a
-  day of hourly values, 1 request; a year, 1; ten years, 10; ten years of 10-minute values, 120. Every station: a day of
-  hourly or of 10-minute values, 1; a year of daily values, 2; ten years of hourly values, 314; all of the hourly values
-  from 1951, 5,852; all of the 10-minute values from 2012, 13,860. Each distinct range of the cache is a request the
+- **Cost** (counted as the walk makes the requests, `edr.estimate_requests`). One station: a day of hourly values, 1
+  request; a year, 1; ten years, 10; ten years of 10-minute values, 120. For 77 stations: a day of hourly or of 10-minute
+  values, 1; a year of daily values, 2; ten years of hourly values, 314. All of the hourly values from 1951 for the 73
+  stations that have them, 5,548; all of the 10-minute values from 2012 for the 76 that have them, 13,680. Each distinct range of the cache is a request the
   first time and none for 12 hours (settled) or 5 minutes (the last 6 hours).
 - **Quota.** A query that takes more than 1,000 requests that the cache does not hold, which is the quota of the key for an
   hour, is refused before anything is asked, with a `RequestError` (REST 400) that gives the count and asks for a
@@ -77,8 +77,10 @@ that is times times parameters times stations; beyond it the API answers 413.
   request are cut in two until the refused one is alone, which is then left out for the rest of the query with a warning
   (each distinct reason once), never asked for again, and the answer says `file-skipped` of it (a request that was
   turned down, not a station without values). KNMI answers 400 for an unknown parameter or datetime too, which is no
-  station: a request that is refused down to the first station alone, with nothing answered before, or for a third
-  station, ends the query with a `DownloadError` that gives what the client knows of the 400. A 5xx or a dropped connection is retried twice, then it is a
+  station: a station refused alone before anything is answered waits (the walk goes on with the others, whatever its
+  place in the order) and is left out once a request is answered; if the next request of several stations is refused as
+  well, or none is answered, or a third station is refused, the query ends with a `DownloadError` that gives what the
+  client knows of the 400. A 5xx or a dropped connection is retried twice, then it is a
   `DownloadError` (a 502); a 429 or an answer that is no CoverageJSON is a `DownloadError`; no connection a
   `NoInternetError`; a refused key a `CredentialRejectedError`. A range read in part is never an answer.
 
@@ -131,7 +133,8 @@ and one for the daily values of each (8 on 2026-11-12), for every resolution, ke
   last monthly value June 2008, daily values to 2008-11-16; F16-A: July 2020, to 2020-08-30; Hoorn-A: October 2022, to
   2022-11-27). One request for the monthly values of the closed stations (23 parameters, as many stations as fit) names
   the month, and one for the daily values of each from that month on names the day: Soesterberg 2008-11-17, Valkenburg
-  2016-05-03, F16-A 2020-08-31, Hoorn-A 2022-11-28, Hoofdplaat 2016-02-01. It is empty for a station that is open,
+  2016-05-03, F16-A 2020-08-31, Hoorn-A 2022-11-28, Hoofdplaat 2016-02-01 (a day later at 10 minutes and hourly, whose
+  data runs past the last day: F16-A has 10-minute values 12 hours after it, Hoorn-A about 40). It is empty for a station that is open,
   which is still reporting, and for a closed one without a value. A listing for a window leaves a station closed
   before it out (`limit_to_window`; Soesterberg was the second nearest station to De Bilt in a listing for 2026,
   GH-4008). `start_timestamp` is empty.

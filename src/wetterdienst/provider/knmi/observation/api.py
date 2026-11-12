@@ -339,6 +339,11 @@ def _stations_of(df: pl.DataFrame, resolution: Resolution) -> pl.DataFrame:
     """Give the stations of the list that have data at a resolution: without those that cannot."""
     first = edr.FIRST_STAMP[resolution]
     df = df.filter(pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") >= first))
+    if resolution in (Resolution.MINUTE_10, Resolution.HOURLY):
+        # the end is that of the last day with a value of the daily collection, and the finer data runs past it: F16-A
+        # has 10-minute values 12 hours after its last day, Hoorn-A about 40 hours, Soesterberg hourly ones 24 hours
+        # (read 2026-11-12). The two days of the window buffer cover that; a day more keeps it with a buffer of 0
+        df = df.with_columns(pl.col("end_timestamp") + pl.duration(days=1))
     if resolution != Resolution.MINUTE_10:
         kind = pl.col("type").str.strip_chars().str.to_lowercase()
         df = df.filter(~kind.is_in(_TEN_MINUTE_ONLY_TYPES))

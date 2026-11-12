@@ -503,6 +503,9 @@ class EdrReader:
         #: whether the API has answered a request of the query (data, or no data: a 404 is an answer to a request that
         #: was asked right), which a request that is refused for every station is not
         self._answered = False
+        #: the stations refused alone before anything was answered, which wait to be told from a refusal that is no
+        #: station's
+        self._aside: dict[str, _Refused] = {}
 
     def read(  # noqa: C901
         self,
@@ -518,12 +521,15 @@ class EdrReader:
             queue.extend((chunk, tuple(stations[i : i + size])) for i in range(0, len(stations), size))
         while queue:
             chunk, wanted = queue.popleft()
-            group = tuple(station for station in wanted if station[0] not in self.skipped)
+            group = tuple(
+                station for station in wanted if station[0] not in self.skipped and station[0] not in self._aside
+            )
             if not group:
                 continue
             outcome = self._ask(chunk, group, resolution, parameters)
             if isinstance(outcome, (_Answer, _NoData)):
                 self._answered = True
+                self._skip_those_set_aside()
             if isinstance(outcome, _Answer):
                 for station_id, _ in group:
                     if station_id in outcome.frames:
@@ -539,37 +545,55 @@ class EdrReader:
                 queue.extendleft(reversed(parts))
             elif isinstance(outcome, _Refused):
                 if len(group) > 1:
+                    if self._aside and not self._answered:
+                        # a second refusal of several stations with nothing answered: not about a station
+                        raise self._not_a_station(next(iter(self._aside)), outcome)
                     middle = len(group) // 2
                     queue.extendleft(reversed([(chunk, group[:middle]), (chunk, group[middle:])]))
+                elif self._answered:
+                    self._skip(group[0][0], outcome)
                 else:
-                    self._refuse(group[0][0], outcome)
-                    self._warn(
-                        f"KNMI's EDR API refused the request for the station {group[0][0]} (status {outcome.status}), "
-                        "which is left out"
-                    )
+                    # nothing is answered yet, so whether it is the station is not known: it waits, and the others go on
+                    self._aside[group[0][0]] = outcome
+        if self._aside:
+            # the queue is drained and nothing was answered: the stations were not the cause
+            raise self._not_a_station(next(iter(self._aside)), next(iter(self._aside.values())))
         return reads
 
-    def _refuse(self, station_id: str, outcome: _Refused) -> None:
-        """Leave a station out that the API refuses alone, unless that says more than that of a station.
+    def _skip_those_set_aside(self) -> None:
+        """Leave out the stations that were refused alone before anything was answered: it was them, after all."""
+        aside, self._aside = self._aside, {}
+        for station_id, outcome in aside.items():
+            self._skip(station_id, outcome)
+
+    def _skip(self, station_id: str, outcome: _Refused) -> None:
+        """Leave a station out that the API refused alone, with a warning, unless that is a third one.
 
         KNMI answers 400 for an unknown parameter or datetime as well as for an unknown station, and names none of them
-        where the client can read it. A request that is refused for every station down to the first one alone, or for a
-        third station, is not about the stations: the query ends with the error and what the client knows of it, where
-        isolating on would take a request for every station (29 for 15, about 145 for 73) and give no row.
+        where the client can read it. Once the API has answered a request of the query, a station refused alone is a
+        station it does not know; a third one is more than that, and ends the query with the error.
         """
-        if not self._answered or len(self.skipped) >= MAX_REFUSED_STATIONS:
-            raise DownloadError(
-                _without_url_secrets(EDR_BASE_URL),
-                f"KNMI's EDR API answered {outcome.status} for the station {station_id}"
-                + (f" ({outcome.detail})" if outcome.detail else "")
-                + (
-                    ", the first request of the query to be answered at all"
-                    if not self._answered
-                    else f" after {len(self.skipped)} stations that it refused"
-                )
-                + ", which is more than a station it does not know: check the parameters and the dates asked for",
-            )
+        if len(self.skipped) >= MAX_REFUSED_STATIONS:
+            raise self._not_a_station(station_id, outcome)
         self.skipped.add(station_id)
+        self._warn(
+            f"KNMI's EDR API refused the request for the station {station_id} (status {outcome.status}), "
+            "which is left out"
+        )
+
+    def _not_a_station(self, station_id: str, outcome: _Refused) -> DownloadError:
+        """Give the error of a 400 that is no unknown station: what the client knows of it, and where to look."""
+        return DownloadError(
+            _without_url_secrets(EDR_BASE_URL),
+            f"KNMI's EDR API answered {outcome.status} for the station {station_id}"
+            + (f" ({outcome.detail})" if outcome.detail else "")
+            + (
+                ", and answered no request of the query"
+                if not self._answered
+                else f" after {len(self.skipped)} stations that it refused"
+            )
+            + ", which is more than a station it does not know: check the parameters and the dates asked for",
+        )
 
     @staticmethod
     def _smaller(chunk: Chunk, group: Group, resolution: Resolution) -> list[tuple[Chunk, Group]] | None:

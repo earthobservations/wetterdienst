@@ -149,7 +149,7 @@ def test_a_closed_station_ends_with_its_last_day_with_a_value_and_no_station_has
     The last month of a station has no monthly value, so the end is not that of the last monthly value: Soesterberg's is
     June 2008 and its daily values run to 2008-11-16 (`2008-11-17`, the end of that day).
     """
-    df = _stations(tmp_path, "hourly")
+    df = _stations(tmp_path, "daily")
     assert df.get_column("start_timestamp").null_count() == df.height
     ends = dict(df.select("station_id", "end_timestamp").iter_rows())
     assert ends["06265"] == dt.datetime(2008, 11, 17, tzinfo=UTC)
@@ -159,11 +159,34 @@ def test_a_closed_station_ends_with_its_last_day_with_a_value_and_no_station_has
     assert df.schema["end_timestamp"] == pl.Datetime("us", "UTC")
 
 
+@pytest.mark.usefixtures("closed")
+def test_the_end_of_a_closed_station_is_a_day_later_at_10_minutes_and_hourly(tmp_path: Path) -> None:
+    """The finer data runs past the last day of the daily collection: F16-A has 10-minute values 12 hours after it.
+
+    So the end of the hourly and the 10-minute listing is a day after that of the daily one, which keeps the station in
+    a window that starts then even with no buffer (`station_window_end_buffer=0`); the daily, monthly and annual ones
+    are the end of the last day.
+    """
+    from wetterdienst.model.request import limit_to_window  # noqa: PLC0415
+
+    daily = dict(_stations(tmp_path, "daily").select("station_id", "end_timestamp").iter_rows())
+    assert daily["06206"] == dt.datetime(2020, 8, 31, tzinfo=UTC)
+    for resolution in ("hourly", "10_minutes"):
+        ends = dict(_stations(tmp_path, resolution).select("station_id", "end_timestamp").iter_rows())
+        assert ends["06206"] == dt.datetime(2020, 9, 1, tzinfo=UTC)
+        assert ends["06210"] == dt.datetime(2016, 5, 4, tzinfo=UTC)
+    start, end = dt.datetime(2020, 9, 1, tzinfo=UTC), dt.datetime(2020, 9, 10, tzinfo=UTC)
+    finer = _stations(tmp_path, "hourly")
+    coarser = _stations(tmp_path, "daily")
+    assert "06206" in limit_to_window(finer, start, end, 0).get_column("station_id").to_list()
+    assert "06206" not in limit_to_window(coarser, start, end, 0).get_column("station_id").to_list()
+
+
 def test_a_closed_station_without_a_value_has_no_end(edr_server: EdrStub, tmp_path: Path) -> None:
     """A closed station that the API holds no monthly value of has no end, and so is not cut from any window."""
     edr_server.closed = dict(catalogue.ENDS)
     _closed_worlds(edr_server, valkenburg=False)
-    ends = dict(_stations(tmp_path, "hourly").select("station_id", "end_timestamp").iter_rows())
+    ends = dict(_stations(tmp_path, "daily").select("station_id", "end_timestamp").iter_rows())
     assert ends["06210"] is None
     assert ends["06265"] == dt.datetime(2008, 11, 17, tzinfo=UTC)
 
@@ -176,7 +199,7 @@ def test_a_closed_station_with_no_daily_value_after_its_last_month_ends_with_tha
     edr_server.worlds[edr.COLLECTION_BY_RESOLUTION[Resolution.MONTHLY]] = World.generated(
         Resolution.MONTHLY, ["06210"], dt.datetime(2015, 7, 1, tzinfo=UTC), 11
     )
-    ends = dict(_stations(tmp_path, "hourly").select("station_id", "end_timestamp").iter_rows())
+    ends = dict(_stations(tmp_path, "daily").select("station_id", "end_timestamp").iter_rows())
     assert ends["06210"] == dt.datetime(2016, 5, 1, tzinfo=UTC)
 
 
