@@ -39,7 +39,12 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import format_timestamp
-from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, recorded_warnings
+from wetterdienst.util.response_warnings import (
+    ANSWER_TRUNCATED,
+    FORECAST_FROM_NOW,
+    ResponseWarning,
+    recorded_warnings,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -533,6 +538,9 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     # none of the body finds it here
     if truncated := next((w["message"] for w in metadata.warnings if w["code"] == ANSWER_TRUNCATED), None):
         headers["X-Wetterdienst-Truncated"] = _header_text(truncated)
+    # the same for a forecast answer that starts at now (GH-4025)
+    if started := next((w["message"] for w in metadata.warnings if w["code"] == FORECAST_FROM_NOW), None):
+        headers["X-Wetterdienst-Forecast-From-Now"] = _header_text(started)
     return headers
 
 

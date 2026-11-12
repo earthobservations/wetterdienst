@@ -444,6 +444,7 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-processing",
     "x-wetterdienst-warnings",
     "x-wetterdienst-truncated",
+    "x-wetterdienst-forecast-from-now",
 )
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
@@ -529,6 +530,8 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
         report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
     if truncated := headers.get("x-wetterdienst-truncated"):
         report["truncated"] = unquote(truncated)
+    if started := headers.get("x-wetterdienst-forecast-from-now"):
+        report["forecast_from_now"] = unquote(started)
     return report
 
 
@@ -555,6 +558,8 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], 
         sentence += f" Warnings: {', '.join(report['warnings'])}."
     if "truncated" in report:
         sentence += f" Truncated: {report['truncated']}"
+    if "forecast_from_now" in report:
+        sentence += f" Forecast: {report['forecast_from_now']}"
     return sentence
 
 

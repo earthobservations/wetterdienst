@@ -330,7 +330,11 @@ what the answer is missing:
   answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)) and `answer-truncated` (the answer
   of an [MCP tool](mcp.md#the-size-of-an-answer) was cut to 40,000 characters; its message says how many rows are
   returned, the range kept, and the `timestamp` to ask for next. Only a tool's `values` and `stations` raise it: the
-  REST API, the command line and Python answer all of it). Codes are added as more are told; a client reads the ones it
+  REST API, the command line and Python answer all of it) and `forecast-from-now` (an MCP tool's `values` answer for a
+  forecast network without a `timestamp`, or with one of whole days around now, starts at the current
+  hour; its message names the `timestamp` window of the
+  hours left out, see [A forecast starts at now](mcp.md#a-forecast-starts-at-now). The REST API, the command line and
+  Python answer the whole run). Codes are added as more are told; a client reads the ones it
   knows.
 
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
@@ -576,6 +580,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 | `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
+| `X-Wetterdienst-Forecast-From-Now` | the message of the `forecast-from-now` warning of an MCP tool's forecast answer; left out otherwise |
 
 A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
 carry, is percent-encoded UTF-8;

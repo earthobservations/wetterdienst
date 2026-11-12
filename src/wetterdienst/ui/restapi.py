@@ -66,6 +66,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
+from wetterdienst.ui import forecast_start
 from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
@@ -2162,10 +2163,14 @@ def values(
     if _is_streamed(request, http_request):
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
+    tool = is_tool_request(http_request.scope)
+    if tool and forecast_start.applies(api, request):
+        # a forecast without a window, or with one of days around now, starts at now, before the budget counts (GH-4025)
+        values_ = forecast_start.forecast_from_now(values_, floor=forecast_start.lower_bound(request))
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
-    if is_tool_request(http_request.scope):
+    if tool:
         # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
         content, metadata = fit_values(
             values_,
