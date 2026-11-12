@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- `knmi/observation` reads a long range of one station or a list of stations from KNMI's EDR API,
+  in a few requests instead of one file per time step, where the new second key `WD_AUTH__KNMI_EDR`
+  (`Settings(auth={"knmi_edr": ...})`) is set and the range would take more than 48 files. The rows
+  are those of the files. A refused key, a used-up quota or an API that does not answer fall back to
+  the files with one warning. Without the key nothing changes (GH-3928)
 - `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
   observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
   precipitation, sunshine and radiation, one file per month or year. A value is stamped with the first

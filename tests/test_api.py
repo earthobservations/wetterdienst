@@ -1765,9 +1765,13 @@ def _needing_a_credential() -> dict[tuple[str, str], type[TimeseriesRequest]]:
 _CREDENTIALS = {
     "aemet": "DUMMY-KEY",
     "knmi": "DUMMY-KEY",
+    "knmi_edr": "DUMMY-KEY",
     "metno_frost": '["DUMMY-ID", "DUMMY-SECRET"]',
     "ceda": "DUMMY-USER:DUMMY-SECRET",
 }
+# the credentials that configure no network of their own: they add to a network that another credential configures
+# (`knmi_edr` is the key of KNMI's EDR API, which speeds up `knmi/observation`, itself configured by `knmi`, GH-3928)
+_OPTIONAL_CREDENTIALS = frozenset({"knmi_edr"})
 
 
 def _overrides_is_configured(api: type[TimeseriesRequest]) -> bool:
@@ -1818,7 +1822,9 @@ def test_every_credential_of_the_settings_configures_exactly_one_network(
         monkeypatch.setenv(f"WD_AUTH__{field.upper()}", credential)
         configured_by[field] = {key for key, api in needing_a_credential.items() if Wetterdienst.is_configured(api)}
         monkeypatch.delenv(f"WD_AUTH__{field.upper()}")
-    assert {field: len(networks) for field, networks in configured_by.items()} == dict.fromkeys(Auth.model_fields, 1)
+    assert {field: len(networks) for field, networks in configured_by.items()} == {
+        field: 0 if field in _OPTIONAL_CREDENTIALS else 1 for field in Auth.model_fields
+    }
     assert set().union(*configured_by.values()) == set(needing_a_credential)
 
 

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Iterator, Mapping, Sequence
 
-_ROW_SCHEMA = {
+ROW_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
@@ -156,6 +156,20 @@ def parse_knmi_netcdf(
             cell = variables[parameter][row]
             value = float(cell[0]) if getattr(cell, "shape", ()) else float(cell)
             rows.append({"timestamp": moment, "parameter": parameter, "value": value})
+    return knmi_readings(pl.DataFrame(rows, schema=ROW_SCHEMA, orient="row"), trace_codes=trace_codes)
+
+
+def knmi_readings(df: pl.DataFrame, *, trace_codes: bool = True) -> pl.DataFrame:
+    """Turn the readings as KNMI wrote them (`timestamp`, `parameter`, `value`) into the frame the provider hands over.
+
+    The one step that every route to KNMI's values ends in, whether the readings came from a NetCDF file or from the EDR
+    API (GH-3928), so that the two give the same rows, the same `quality_flags` and the same `raw:` tokens. `value` is
+    what KNMI wrote, a NaN where it has no reading (the EDR API writes null there, which the caller turns back into
+    the NaN).
+
+    `trace_codes` is whether the readings come from the hourly or the daily dataset, whose `-1` is a trace
+    (`parse_knmi_netcdf`).
+    """
     # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
     # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0, and the 0 (calm)
     # and 990 (variable) of the hourly wind direction are no bearing, so null (GH-2850), as is the 9 of the cloud cover
@@ -173,6 +187,4 @@ def parse_knmi_netcdf(
         Sentinel(_SKY_INVISIBLE, where=pl.col("parameter").is_in(_CLOUD_COVER_CODE_PARAMETERS)),
         text=False,
     )
-    return pl.DataFrame(rows, schema=_ROW_SCHEMA, orient="row").select(
-        "timestamp", "parameter", value.alias("value"), join_quality_flags(None, raw=raw)
-    )
+    return df.select("timestamp", "parameter", value.alias("value"), join_quality_flags(None, raw=raw))

@@ -9,7 +9,8 @@ KNMI publishes observations from the Dutch weather station network through its D
 Platform, covering 10-minute, hourly, daily, monthly and annual resolution. Access requires a free API key,
 which you can request at
 [developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) and provide via
-the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"})`).
+the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"})`). A second, optional key for KNMI's EDR API, `WD_AUTH__KNMI_EDR`, makes
+long ranges of a station quick, see [the observation page](observation/index.md#long-ranges-the-edr-api-optional).
 
 ## License
 
@@ -44,7 +45,8 @@ it downloads for five minutes, so a repeated query is not a repeated download. A
 other people's queries is the proxy with a cache that KNMI describes for "your own users"; whether an open server that
 anyone can reach, with no account of its own, is within "your own applications" the policy does not say. Reading a long
 window of the 10-minute data takes one file per time step, which is no bulk download of a dataset and counts against
-the hourly quota. Whether a shared instance is within the policy was put to KNMI in November 2026 and no
+the hourly quota (the EDR route, where its key is set, asks for a range in a few requests of its own quota of 1000 an
+hour). Whether a shared instance is within the policy was put to KNMI in November 2026 and no
 answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials).
 
 ```{toctree}

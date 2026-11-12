@@ -37,10 +37,22 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.result import StationsFilter
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.knmi.observation import edr
+from wetterdienst.provider.knmi.observation.grid import (
+    CALENDAR_RESOLUTIONS as _CALENDAR_RESOLUTIONS,
+)
+from wetterdienst.provider.knmi.observation.grid import (
+    STEP_BY_RESOLUTION as _STEP_BY_RESOLUTION,
+)
+from wetterdienst.provider.knmi.observation.grid import advance as _advance
+from wetterdienst.provider.knmi.observation.grid import ceil as _ceil
+from wetterdienst.provider.knmi.observation.grid import floor as _floor
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
 from wetterdienst.provider.knmi.observation.parser import (
     decode_str,
+    knmi_readings,
     open_netcdf,
     parse_knmi_netcdf,
     public_station_id,
@@ -65,6 +77,7 @@ from wetterdienst.util.response_warnings import note_skipped_download
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import File
 
@@ -136,15 +149,6 @@ _LATEST_BY_FILENAME = frozenset(
     )
 )
 
-_STEP_BY_RESOLUTION = {
-    Resolution.MINUTE_10: dt.timedelta(minutes=10),
-    Resolution.HOURLY: dt.timedelta(hours=1),
-    Resolution.DAILY: dt.timedelta(days=1),
-}
-
-#: The periods of a month and of a year, which are no fixed length
-_CALENDAR_RESOLUTIONS = (Resolution.MONTHLY, Resolution.ANNUAL)
-
 #: What a download of KNMI returns when it is not an answer to the request, and must be raised: no connection,
 #: no answer, a refused key.
 _UNANSWERED = (NoInternetError, DownloadError, CredentialRejectedError)
@@ -171,38 +175,10 @@ def _filename_for(resolution: Resolution, moment: dt.datetime) -> str:
     return f"annual-observations-validated-{moment:%Y}.nc"
 
 
-def _floor(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
-    """Snap a moment down to its resolution's interval boundary (:X0 / :00 / midnight / the 1st / 1 January)."""
-    if resolution == Resolution.MINUTE_10:
-        return moment.replace(minute=moment.minute - moment.minute % 10, second=0, microsecond=0)
-    if resolution == Resolution.HOURLY:
-        return moment.replace(minute=0, second=0, microsecond=0)
-    if resolution == Resolution.MONTHLY:
-        return moment.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if resolution == Resolution.ANNUAL:
-        return moment.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    return moment.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def _advance(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
-    """Move a moment on its boundary to the next one: the next 10 minutes, hour, day, month or year."""
-    if resolution == Resolution.MONTHLY:
-        return moment.replace(year=moment.year + moment.month // 12, month=moment.month % 12 + 1)
-    if resolution == Resolution.ANNUAL:
-        return moment.replace(year=moment.year + 1)
-    return moment + _STEP_BY_RESOLUTION[resolution]
-
-
 def _resolution_of(parameter_or_dataset: ParameterModel | DatasetModel) -> Resolution:
     """Return the Resolution enum for a parsed parameter or whole-dataset selection."""
     dataset = parameter_or_dataset.dataset if isinstance(parameter_or_dataset, ParameterModel) else parameter_or_dataset
     return dataset.resolution.value
-
-
-def _ceil(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
-    """Snap a moment up to its resolution's interval boundary, the moment itself if it is on one."""
-    floored = _floor(moment, resolution)
-    return floored if floored == moment else _advance(floored, resolution)
 
 
 def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
@@ -387,10 +363,16 @@ def _download_with_retry(
     *,
     client_kwargs: dict | None = None,
     fetch_url: str | None = None,
+    non_retryable: frozenset[int] | set[int] = _NON_RETRYABLE_STATUSES,
+    attempts: int = 2,
 ) -> File:
     """Download a URL, retrying on retryable failures (rate limiting, transient network errors).
 
     `fetch_url` is where a copy that is not held is fetched from, where `url` is the name it is kept under.
+    `non_retryable` are the statuses that are answers, which a retry cannot change: the EDR API's 413 and 429 are among
+    them (`edr.NON_RETRYABLE_STATUSES`), which the files' API is asked again after. `attempts` is how often
+    `download_file` asks before it believes a 404 (it asks once more, for a file that is being published): the EDR API's
+    404 is "no data", and a second request is a unit of its quota.
 
     Mirrors AEMET's retry design: a deliberately modest couple of short-backoff
     retries, not an attempt to wait out a sustained outage. A failure `download_file`
@@ -414,6 +396,7 @@ def _download_with_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                     fetch_url=fetch_url,
+                    attempts=attempts,
                 )
                 # no network is not a blip two more retries clear: report it at once (the 503
                 # `download_file` gives it would otherwise match)
@@ -421,7 +404,7 @@ def _download_with_retry(
                     isinstance(last_file.content, Exception)
                     and not last_file.is_no_internet_error
                     and not isinstance(last_file.content, RedirectRefusedError)
-                    and last_file.status not in _NON_RETRYABLE_STATUSES
+                    and last_file.status not in non_retryable
                 ):
                     log.warning(
                         f"Retryable KNMI failure (status={last_file.status}) for {_without_url_secrets(url)}: "
@@ -569,8 +552,42 @@ def _fetch_netcdf(
     return content_file.content.read()
 
 
+@dataclass(frozen=True)
+class _EdrRead:
+    """What the EDR API gave of a station: its readings, and the stamps that were left to the files."""
+
+    #: the readings as the files' are (`knmi_readings`), None if the API gave none
+    frame: pl.DataFrame | None
+    #: the ranges of stamps, (first, last) both read, that the API did not give: those of a chunk it refused or failed
+    left: list[tuple[dt.datetime, dt.datetime]]
+
+
+#: How many stations at most one request of the EDR API names. A request is one unit of the quota whatever its size, so
+#: the stations that follow the one a query is at are read with it, as far as the 300,000 points of a request allow.
+_EDR_STATIONS = 20
+
+
 class KnmiObservationValues(TimeseriesValues):
     """Values class for KNMI observation data."""
+
+    def __post_init__(self) -> None:
+        """Post-initialization of the KnmiObservationValues class."""
+        super().__post_init__()
+        # the reader of the EDR API of the query in hand, and what it has read for the stations that follow the one in
+        # hand (`_edr_read`): both belong to one walk (`query`)
+        self._edr: edr.EdrReader | None = None
+        self._edr_reads: dict[tuple[str, str], dict[str, edr.Reading]] = {}
+
+    def query(self) -> Iterator[ValuesResult]:
+        """Answer each station of the request; what the EDR API gave is kept for the walk and no longer."""
+        self._edr = None
+        self._edr_reads.clear()
+        try:
+            yield from super().query()
+        finally:
+            # a result keeps the values object, and so what is held here, for as long as its caller keeps it
+            self._edr = None
+            self._edr_reads.clear()
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -596,7 +613,36 @@ class KnmiObservationValues(TimeseriesValues):
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
 
         frames = []
-        for moment in _moments(start_date, end_date, resolution):
+        windows = [(start_date, end_date)]
+        # a range that would take many files is read from the EDR API, where its key is set (GH-3928)
+        from_edr = self._edr_read(station_id, dataset, resolution, parameter_names, start_date, end_date, settings)
+        if from_edr is not None:
+            if from_edr.frame is not None:
+                frames.append(from_edr.frame)
+            # what it did not read is read from the files: the stamps of the chunks that it refused or failed
+            windows = from_edr.left
+        for first, last in windows:
+            frames.extend(
+                self._read_files(
+                    station_id, dataset_name, version, resolution, parameter_names, _moments(first, last, resolution)
+                )
+            )
+        # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value, quality_flags) schema
+        return pl.concat(frames) if frames else pl.DataFrame()
+
+    def _read_files(
+        self,
+        station_id: str,
+        dataset_name: str,
+        version: str,
+        resolution: Resolution,
+        parameter_names: list[str],
+        moments: Iterator[dt.datetime],
+    ) -> list[pl.DataFrame]:
+        """Read a station's values from the file of each moment: one request of the quota for each."""
+        settings = cast("Settings", self.sr.request.settings)
+        frames = []
+        for moment in moments:
             filename = _filename_for(resolution, moment)
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
             if isinstance(payload, _UNANSWERED):
@@ -627,8 +673,85 @@ class KnmiObservationValues(TimeseriesValues):
                 )
             if not df.is_empty():
                 frames.append(df)
-        # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value, quality_flags) schema
-        return pl.concat(frames) if frames else pl.DataFrame()
+        return frames
+
+    def _edr_read(
+        self,
+        station_id: str,
+        dataset: DatasetModel,
+        resolution: Resolution,
+        parameter_names: list[str],
+        start_date: dt.datetime,
+        end_date: dt.datetime,
+        settings: Settings,
+    ) -> _EdrRead | None:
+        """Read a station's range from the EDR API, None where the files read it (the range, or the key, is not for it).
+
+        The API is used when its key is set and the range would need more than `edr.MIN_FILES` files, which is what the
+        files cost whatever the number of stations. The stations of the result that follow the one in hand are read with
+        it (`_edr_batch`), their readings kept for when the walk comes to them.
+
+        The parameters asked of the API are those of the dataset, as the files are read for: the core judges a
+        parameter against its neighbours in the dataset (the maximum of a day against its mean and its minimum), so
+        the frame must hold what the files' does, and the same request is the same cached chunk for every parameter.
+        """
+        if not settings.auth.knmi_edr or self.sr._stations_filter == StationsFilter.ALL:  # noqa: SLF001
+            # no key, or every station of the network: the files hold all of them at once, which the API cannot beat at
+            # one timestamp, and the issue leaves that query to them
+            return None
+        if resolution == Resolution.DAILY and start_date != _floor(start_date, resolution):
+            # a mixed request that starts within a day labels the days with the time of its start (`_moments`)
+            return None
+        bounds = edr.stamp_bounds(start_date, end_date, resolution, _now())
+        if bounds is None or edr.count_stamps(*bounds, resolution) <= edr.MIN_FILES:
+            return None
+        first, last = bounds
+        reader = self._edr
+        if reader is None:
+            reader = self._edr = edr.EdrReader(settings, _download_with_retry, _file_expiry)
+        reads = self._edr_reads.setdefault((dataset.resolution.name, dataset.name), {})
+        if station_id not in reads:
+            batch = [] if reader.halted else self._edr_batch(station_id, dataset, reads)
+            if not batch:
+                return None
+            begin = dt.datetime.combine(_DATASET_START[resolution], dt.time(), tzinfo=dt.UTC)
+            chunks = edr.plan(first, last, resolution, _now(), edr.stamp_of_moment(begin, resolution))
+            reads.update(reader.read(batch, resolution, parameter_names, chunks))
+        reading = reads.pop(station_id)
+        frame = None
+        if reading.frames:
+            # the chunks are whole blocks of the calendar: cut to the stamps the files would be read for
+            raw = pl.concat(reading.frames).filter(pl.col("timestamp").is_between(first, last))
+            if not raw.is_empty():
+                frame = knmi_readings(raw, trace_codes=resolution not in _CALENDAR_RESOLUTIONS)
+        left = [(max(chunk.first, first), min(chunk.last, last)) for chunk in reading.left]
+        return _EdrRead(frame, [window for window in left if window[0] <= window[1]])
+
+    def _edr_batch(
+        self, station_id: str, dataset: DatasetModel, reads: dict[str, edr.Reading]
+    ) -> list[tuple[str, str]]:
+        """Give the station in hand and those after it in the result for one request of the EDR API, as (id, WSI).
+
+        Empty if the station in hand has no WIGOS identifier to ask by. Only the station in hand where the walk stops
+        where the data says (interpolation, summary), and no more than the rank asked for.
+        """
+        if "wigos_id" not in self.sr.df.columns:
+            return []
+        df = self.sr.df.filter((pl.col("resolution") == dataset.resolution.name) & (pl.col("dataset") == dataset.name))
+        rows = df.select("station_id", "wigos_id").unique(subset="station_id", maintain_order=True).rows()
+        position = next((index for index, (identifier, _) in enumerate(rows) if identifier == station_id), None)
+        if position is None or not edr.is_wsi(rows[position][1]):
+            return []
+        room = _EDR_STATIONS if self._fetch_ahead_allowed else 1
+        if self.sr._rank:  # noqa: SLF001
+            room = min(room, self.sr._rank)  # noqa: SLF001
+        batch = [rows[position]]
+        for identifier, wsi in rows[position + 1 :]:
+            if len(batch) >= room:
+                break
+            if identifier not in reads and edr.is_wsi(wsi):
+                batch.append((identifier, wsi))
+        return batch
 
 
 def _read_station_catalogue(payload: bytes) -> pl.DataFrame:

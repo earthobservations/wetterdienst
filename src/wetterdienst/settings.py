@@ -139,10 +139,13 @@ class Auth(BaseModel):
 
     aemet: SecretStr | None = Field(default=None)
     knmi: SecretStr | None = Field(default=None)
+    # the key of KNMI's EDR API, a second API with its own key and quota (GH-3928): with it, a long range of KNMI values
+    # is read from there in a few requests, and without it from the Open Data files as always
+    knmi_edr: SecretStr | None = Field(default=None)
     metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
     ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
 
-    @field_validator("aemet", "knmi", "metno_frost", "ceda", mode="before")
+    @field_validator("aemet", "knmi", "knmi_edr", "metno_frost", "ceda", mode="before")
     @classmethod
     def reject_a_masked_credential(cls, value: object) -> object:
         """Refuse the mask that a dumped credential leaves behind.
@@ -159,7 +162,7 @@ class Auth(BaseModel):
                 raise ValueError(msg)
         return value
 
-    @field_validator("aemet", "knmi", mode="before")
+    @field_validator("aemet", "knmi", "knmi_edr", mode="before")
     @classmethod
     def strip_a_key(cls, value: object) -> object:
         """Keep a key without the whitespace around it, text of nothing but whitespace reading as unset.

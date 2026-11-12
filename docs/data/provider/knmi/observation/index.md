@@ -17,7 +17,8 @@ to download one file per timestamp and extract that station's row. As a result a
 date range translates into many individual file downloads — a 30-day hourly query is 720
 downloads, and a single day at 10-minute resolution is 144 — so large sub-daily ranges
 are impractical. This is a documented characteristic of KNMI's API, not a limitation of
-wetterdienst. The monthly and annual files make long ranges cheap: a file is about 80 KB and holds every station
+wetterdienst, whose [EDR fast path](#long-ranges-the-edr-api-optional) reads long ranges in a few requests where its key
+is set. The monthly and annual files make long ranges cheap: a file is about 80 KB and holds every station
 for one month or one year, so 30 years of monthly values are 360 downloads and 30 years of annual values 30.
 
 The "validated" datasets lag real time (observed: ~1–2 days for hourly, and a month's file appears in the
@@ -47,6 +48,55 @@ Not served from the monthly and annual files, because the canonical parameters h
 maximum visibility, a code from 0 to 89 and no distance), and `W1`, `W2`, `W3`, `W5` and `W6` (the number of "daily
 intervals" with fog, rain, snow, thunderstorm and ice formation: they hold 0 or 1 for a whole year, so they are no count
 of days, which the description does not explain).
+
+## Long ranges: the EDR API (optional)
+
+KNMI's [EDR API](https://developer.dataplatform.knmi.nl/edr-api) answers the range of a station in one request, where the
+files take one for each time step: a year of hourly values is 8,760 files (about 527 MB) from the Open Data API and one
+request (about 240 KB, compressed) from the EDR API. wetterdienst reads long ranges from it where you give it a key, and
+from the files as before everywhere else.
+
+**The key.** The EDR API is a separate API with its own key and its own quota (1,000 requests an hour, whatever their
+size): the key of the Open Data API is refused by it (403), and the other way round. Request it in the API Catalog of the
+[developer portal](https://developer.dataplatform.knmi.nl/edr-api) and set it beside the other one:
+
+```bash
+export WD_AUTH__KNMI=<open_data_key>          # still needed: the list of the stations is read from the files
+export WD_AUTH__KNMI_EDR=<edr_key>
+```
+
+or `Settings(auth={"knmi": "<open_data_key>", "knmi_edr": "<edr_key>"})`. Without `knmi_edr` nothing changes.
+
+**When it is used.** For `values` of one station or a list of stations (by id, name, rank, distance or bounding box) over a
+range that would take more than 48 files, which is two days of hourly values, 48 days of daily ones or 49 months or years.
+Shorter ranges are read from the files, which take no second key and cost a few requests. Not used: the list of the
+stations, a query of every station of the network (`all()`), and the stations of an `interpolate` or `summarize` beyond
+the one they are at (they read one station at a time). All five resolutions are served: the 10-minute, the hourly and the
+daily collections, and the monthly and the annual ones, which exist and agree with the files (De Bilt, 2026-11-12).
+
+**What you get.** The same rows as from the files: the columns, the dtypes, the timestamps, the `quality_flags` and the
+`raw:` tokens. KNMI's API stamps a value with the end of its interval, as the files' time coordinate does; the daily,
+monthly and annual values are shifted back to the start of their day, month or year, as the files' are, and the 10-minute
+and hourly stamps stay. The codes of the files (`-1` for a trace of rain or sunshine, 0 and 990 of the wind direction, 9
+of the cloud cover) are passed through by the API and handled in the same way. It was compared with the files for De
+Bilt, Schiphol and Maastricht (6,864 cells, no difference), and `tests/provider/knmi/observation/test_edr_remote.py` does
+it for De Bilt again where both keys are set. One difference: a parameter that the files of an old period do not carry at
+all (the 10-minute `tg` in 2020) is a null row of the EDR route and no row of the files route, visible only with
+`drop_nulls=False`, where a parameter a station has no sensor for is a null row in both. A period that has no file (a
+station before its first value) is not a `file-skipped` warning from the EDR route, which has no files to skip.
+
+**How it asks.** One request for a chunk of the calendar, aligned to a month (10 minutes), a year (hourly, daily) or a
+decade (monthly, annual), for the stations of the query that follow the one in hand (up to 20), as many in a request as
+fit under the 300,000 points (times, parameters, stations) that the API allows. Every parameter of the dataset is asked
+for, as the files are read, since the checks of the values compare a parameter with its neighbours. A chunk is kept like a
+file: 12 hours, or 5 minutes where it ends less than 6 hours ago, and a query that overlaps an earlier one is served from
+the same chunks. The key goes in a header and is in no URL, log line or cached file. A period that has not ended is not
+asked for.
+
+**When it fails.** A 404 is no data in the chunk. A 413 (too big) is asked again in two parts. A 429 (the quota is used
+up), a 401 or a 403 (the key is refused; the warning names `WD_AUTH__KNMI_EDR` and never the key), an answer that is no
+CoverageJSON or no answer at all make the rest of the query come from the files, with one warning. A connection that
+cannot be made is a `NoInternetError`, as everywhere.
 
 ## Stations
 

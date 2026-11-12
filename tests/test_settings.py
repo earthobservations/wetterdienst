@@ -135,6 +135,7 @@ def test_use_certifi_setting() -> None:
 _DUMMY_CREDENTIALS = {
     "aemet": "DUMMY-AEMET-KEY",
     "knmi": "DUMMY-KNMI-KEY",
+    "knmi_edr": "DUMMY-KNMI-EDR-KEY",
     "metno_frost": ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET"),
     "ceda": ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD"),
 }
@@ -187,6 +188,7 @@ def test_credentials_are_still_readable_where_they_are_needed() -> None:
 
     assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
     assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert reveal(settings.auth.knmi_edr) == "DUMMY-KNMI-EDR-KEY"
     assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
     assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
     assert reveal(None) is None
@@ -1305,7 +1307,7 @@ def _revealed_pair(pair: tuple[SecretStr, SecretStr] | None) -> tuple[str | None
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi", "knmi_edr", "aemet"])
 @pytest.mark.parametrize("padding", _PADDINGS, ids=_PADDING_IDS)
 def test_settings_auth_key_is_kept_without_its_padding(
     monkeypatch: pytest.MonkeyPatch,
@@ -1326,7 +1328,7 @@ def test_settings_auth_key_is_kept_without_its_padding(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi", "knmi_edr", "aemet"])
 @pytest.mark.parametrize("value", ["", "   ", "\n", "\t \r\n", "\xa0", "\x1f"])
 def test_settings_auth_key_of_whitespace_only_reads_as_unset(
     monkeypatch: pytest.MonkeyPatch,
@@ -1346,7 +1348,7 @@ def test_settings_auth_key_of_whitespace_only_reads_as_unset(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi", "knmi_edr", "aemet"])
 def test_settings_auth_key_still_refuses_a_padded_mask(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     """A mask with whitespace around it is still the mask a dumped credential leaves behind (GH-2557)."""
     monkeypatch.setenv(f"WD_AUTH__{name.upper()}", f"{'*' * 10}\n")
@@ -1465,7 +1467,7 @@ def test_settings_auth_metno_frost_pair_still_refuses_a_null_client_id() -> None
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi", "knmi_edr", "aemet"])
 def test_settings_auth_key_still_refuses_what_is_not_text(name: str) -> None:
     """A KNMI or AEMET key that is no text is left for the field to refuse, not read as its digits (GH-2557)."""
     with pytest.raises(ValidationError, match=name):
