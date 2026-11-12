@@ -452,6 +452,6 @@ for (const language of ['en', ...LONG_LANGUAGES]) {
       const rect = el.getBoundingClientRect()
       return rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1
     })
-    expect(inside, `the popover on the card in ${language}`).toBe(true)
+    expect(inside, `the details on the card in ${language}`).toBe(true)
   })
 }

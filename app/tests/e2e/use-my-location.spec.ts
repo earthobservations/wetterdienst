@@ -133,6 +133,9 @@ test.describe('the stored position', () => {
     await page.keyboard.press('Enter')
     await expect(chip).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByTestId('use-my-location-remembered')).toContainText('53.54, 10.2')
+    // from "Forget" as well as from the control: the details close and the focus is on the control, not lost with them
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: en.location.forget })).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('use-my-location-remembered')).toHaveCount(0)
     await expect(chip).toBeFocused()

@@ -75,8 +75,9 @@ describe('privacy policy texts', () => {
     // the position is sent with each press, not once; the map's tiles tell OpenStreetMap roughly where the reader is; the
     // browser may use its vendor's service
     expect(text).toMatch(code === 'de' ? /bei jedem Druck/ : /with each press/)
-    // (the text says "once a position has been found" of the box, which is not a claim about how often it is sent)
-    expect(text).not.toMatch(code === 'de' ? /\beinmal\b/ : /\b(?:only|just|sent) once\b/)
+    // (the English text says "once a position has been found" of the box, which is not a claim about how often it is
+    // sent: that phrase is taken out, and no other "once" may be left)
+    expect(text.replace('once a position has been found', '')).not.toMatch(code === 'de' ? /\beinmal\b/ : /\bonce\b/)
     expect(text).toContain('tile.openstreetmap.org')
     expect(text).toMatch(code === 'de' ? /Standortdienst seines Herstellers/ : /its vendor's location service/)
     // the storage that is set with consent is excepted where the section says the rest is set without it

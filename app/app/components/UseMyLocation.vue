@@ -89,6 +89,8 @@ const detailsId = useId()
 
 /** Closes the position and "Forget", with the focus back on the control that opened them */
 function closeDetails() {
+  if (!open.value)
+    return
   open.value = false
   stored.value?.$el.focus()
 }
@@ -101,7 +103,7 @@ watch(remembered, (now) => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5" data-testid="use-my-location" data-print="hide" @keydown.esc="open && closeDetails()">
+  <div class="flex flex-col gap-1.5" data-testid="use-my-location" data-print="hide">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <UButton
         v-if="!offerOnly"
@@ -130,9 +132,10 @@ watch(remembered, (now) => {
         :label="t('location.stored')"
         :aria-label="t('location.storedLabel')"
         :aria-expanded="open"
-        :aria-controls="detailsId"
+        :aria-controls="open ? detailsId : undefined"
         data-testid="use-my-location-stored"
         @click="open = !open"
+        @keydown.esc="closeDetails"
       />
     </div>
     <!-- a disclosure, not a popover: the position and "Forget" follow the control in the tab order, where a popover's
@@ -142,6 +145,7 @@ watch(remembered, (now) => {
       :id="detailsId"
       class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-gray-700 dark:text-gray-300"
       data-testid="use-my-location-remembered"
+      @keydown.esc="closeDetails"
     >
       <p>{{ t('location.remembered', { position: positionText }) }}</p>
       <UButton type="button" color="neutral" variant="outline" size="xs" icon="i-ph-trash" :label="t('location.forget')" data-testid="use-my-location-forget" @click="forgetPosition" />

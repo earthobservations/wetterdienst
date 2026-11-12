@@ -179,15 +179,35 @@ describe('once a position is stored', () => {
     expect(chip(wrapper).attributes('aria-controls')).toBe(remembered()!.getAttribute('id'))
     expect(wrapper.element.contains(forgetButton())).toBe(true)
 
+    // Escape with the focus on "Forget": the details close and the focus goes to the control, not to the page's body
+    forgetButton()!.focus()
+    expect(document.activeElement).toBe(forgetButton())
     await wrapper.find('[data-testid="use-my-location-forget"]').trigger('keydown', { key: 'Escape' })
     await vi.waitFor(() => expect(forgetButton()).toBeNull())
     expect(chip(wrapper).attributes('aria-expanded')).toBe('false')
+    // closed, the control names no element that is not there
+    expect(chip(wrapper).attributes('aria-controls')).toBeUndefined()
     expect(document.activeElement).toBe(chip(wrapper).element)
 
     await chip(wrapper).trigger('click')
     await vi.waitFor(() => expect(forgetButton()).not.toBeNull())
     await chip(wrapper).trigger('click')
     await vi.waitFor(() => expect(forgetButton()).toBeNull())
+  })
+
+  it('leaves the focus where it is when Escape is pressed on the "Use my location" button while the details are open', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    await tick(wrapper)
+    await chip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(forgetButton()).not.toBeNull())
+
+    ;(button(wrapper).element as HTMLElement).focus()
+    await button(wrapper).trigger('keydown', { key: 'Escape' })
+    expect(forgetButton()).not.toBeNull()
+    expect(chip(wrapper).attributes('aria-expanded')).toBe('true')
+    expect(document.activeElement).toBe(button(wrapper).element)
   })
 
   it('is shown at once for a position that an earlier visit stored, with no box and no note, and the browser is not asked', async () => {
