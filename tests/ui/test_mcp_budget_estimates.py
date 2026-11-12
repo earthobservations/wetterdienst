@@ -240,7 +240,8 @@ def test_the_stripes_stations_are_cut_to_the_first_that_fit(monkeypatch: pytest.
     note = unquote(response.headers["x-wetterdienst-truncated"])
     assert "the first " in note
     assert "700 stations have data for the precipitation stripes" in note
-    assert "give its place as `name` to `stripes_values` or `stripes_image`" in note
+    assert "give the station's name (often its town's) as `name` to `stripes_values` or `stripes_image`" in note
+    assert "sample of the area" not in note
     assert "latitude, longitude and `rank` or `distance`" not in note
     assert "active=true" not in note
     if fmt == "csv":

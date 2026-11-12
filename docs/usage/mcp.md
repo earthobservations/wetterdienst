@@ -151,11 +151,13 @@ An answer over the budget is cut, not refused, and says so:
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
   where the one before is still over: the answer as it is; the `description` of every parameter null (everything else
   stays); whole datasets in the order of the network, as many as fit; and, where the first dataset alone is more than
-  the budget, its first parameters. The note names the datasets that were left out as `resolution/dataset` and says how
-  to ask for them: `datasets=<name>[,<name>]` (with `resolutions=<resolution>` where a name is in several), which gives
-  the full detail of one dataset. The answer keeps its shape. It has no `metadata` block and takes no key beside the
-  resolutions, so the note is the start of the `description` of the first resolution, and in the
-  `X-Wetterdienst-Truncated` header. `providers` is not cut: it is 20,000 characters for all providers together.
+  the budget, its first parameters, the others not being available through the tool. The note names the datasets that
+  were left out as `resolution/dataset` and says how to ask for one: `datasets=<name>` with `resolutions=<resolution>`
+  gives its full detail. Where a dataset alone is over the budget with its descriptions (noaa/ghcn `daily/data`, 210
+  parameters), no request can give them, so the note does not offer one and names `glossary` for what a parameter
+  means. The answer keeps its shape. It has no `metadata` block and takes no key beside the resolutions, so the note is
+  the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
+  carries it. `providers` is not cut: it is 20,000 characters for all providers together.
 
 The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings` (and in the `X-Wetterdienst-Warnings` header). It
 gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool

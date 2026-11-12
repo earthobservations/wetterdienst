@@ -416,18 +416,19 @@ def _stations_note(*, request: _ListRequest, count: int, total: int, lead: str, 
     a `name`, which they match themselves, and `stations` finds a station near a point.
     """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
-    returned = (
-        f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
-        "station id, not by place, so they are not a sample of the area)."
-    )
+    first = f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
     if isinstance(request, StripesStationsRequest):
         only_active = "" if request.active else " `active=true` lists only the stations that still report."
         return (
-            f"{returned} {total:,} stations have data for the {request.kind} stripes. To get one station, give its "
-            "place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or find a station "
-            f"with `stations` (`name`, or latitude, longitude and `rank`).{only_active}"
+            f"{first}station id, not by place). {total:,} stations have data for the {request.kind} stripes. To get "
+            "one station, give the station's name (often its town's) as `name` to `stripes_values` or "
+            "`stripes_image`, which match it themselves, or find a station with `stations` (`name`, or latitude, "
+            f"longitude and `rank`).{only_active}"
         )
-    return f"{returned} {total:,} stations match; narrow with latitude, longitude and `rank` or `distance`, or `name`."
+    return (
+        f"{first}station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow "
+        "with latitude, longitude and `rank` or `distance`, or `name`."
+    )
 
 
 def _fit_stations(
@@ -575,57 +576,107 @@ def _noted_coverage(coverage: Mapping[str, Any], note: str) -> dict[str, Any]:
     return {**coverage, first: {**coverage[first], "description": f"{note}\n\n{original}" if original else note}}
 
 
+def _too_big_alone(coverage: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """List the datasets whose answer for `datasets=<name>` and `resolutions=<resolution>` is over the budget.
+
+    That is the answer a caller gets by following the advice of the note, so where it is over the budget no advice to
+    ask for the dataset can give its descriptions: they do not fit in one answer.
+    """
+    return [
+        (resolution, name)
+        for resolution, body in coverage.items()
+        for name, dataset in body["datasets"].items()
+        if coverage_size({resolution: {**body, "datasets": {name: dataset}}}) > ANSWER_BUDGET
+    ]
+
+
+def _ask_for_a_dataset(big: list[tuple[str, str]], *, the_rest: bool) -> str:
+    """Write how to get the full detail of one dataset, and which datasets it cannot be had of."""
+    text = "Ask for one dataset with `datasets=<name>` and `resolutions=<resolution>` for its full detail" + (
+        " (or with `resolutions=` alone for a resolution)" if the_rest else ""
+    )
+    if not big:
+        return f"{text}."
+    names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in big)
+    which = "its" if len(big) == 1 else "their"
+    each = "" if len(big) == 1 else " each"
+    return (
+        f"{text}, but not of {names}: the descriptions of {which} parameters are{each} more than that on their own. "
+        "`glossary` says what a parameter means."
+    )
+
+
 def _coverage_note(
-    *, left: list[tuple[str, str]], total: int, within: tuple[str, int, int] | None = None, honest: bool = False
+    *,
+    left: list[tuple[str, str]],
+    total: int,
+    big: list[tuple[str, str]],
+    parameters: int = 0,
+    within: tuple[str, int, int] | None = None,
+    honest: bool = False,
 ) -> str:
     """Write the note of a `coverage` answer whose parameter descriptions are left out, and whose datasets may be cut.
 
-    `left` are the datasets left out, `total` those of the network (of the filter asked). `within` is the dataset that
-    alone was more than the budget, with the parameters returned of it and the number it has.
+    `left` are the datasets left out, `total` those of the network (of the filter asked) and `big` those that alone,
+    with their descriptions, are over the budget, which asking for the dataset cannot give either. `parameters` is the
+    number of those of the one dataset that the answer is, `within` the dataset that alone was more than the budget
+    without them, with the parameters returned of it and the number it has.
     """
     text = f"{_head(honest=honest)}the `description` of each parameter is left out (null)"
     if within is not None:
-        name, kept, parameters = within
+        name, kept, count = within
+        returned = "only its first parameter is" if kept == 1 else f"only its first {kept:,} parameters are"
         text += (
-            f"; the dataset `{name}` alone is more than that, and only its first {kept:,} of {parameters:,} parameters "
-            "are returned"
+            f"; the dataset `{name}` alone is more than that, and {returned} returned, of {count:,}: the others are "
+            "not available through this tool"
         )
-    if not left:
-        return f"{text}. Ask `coverage` with `datasets=<name>` for the full detail of one dataset."
-    names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in left)
-    text += (
-        f"; {total - len(left):,} of {total:,} datasets are returned, whole and in the order of the network. "
-        f"The {len(left):,} left out are: {names}. Ask for them with `datasets=<name>[,<name>]` (add "
-        "`resolutions=<resolution>` where a name is in several), or with `resolutions=`: a single dataset has its "
-        "full detail."
-    )
-    return text
+    if left:
+        names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in left)
+        kept_count = total - len(left)
+        text += (
+            f"; {kept_count:,} of {total:,} datasets {'is' if kept_count == 1 else 'are'} returned, whole and in the "
+            f"order of the network. The {len(left):,} left out {'is' if len(left) == 1 else 'are'}: {names}. "
+        )
+        return text + _ask_for_a_dataset(big, the_rest=True)
+    if within is not None:
+        return f"{text}. `glossary` says what a parameter means."
+    if total == 1:
+        # asking for the one dataset again would answer the same
+        return (
+            f"{text}: the descriptions of its {parameters:,} parameters together are more than that. `glossary` says "
+            "what a parameter means."
+        )
+    return f"{text}. {_ask_for_a_dataset(big, the_rest=False)}"
 
 
 def fit_coverage(coverage: Mapping[str, Any]) -> tuple[Mapping[str, Any], str | None]:
     """Cut a `coverage` tool answer to the budget in steps, each only where the one before is still over it (GH-4024).
 
     1. The answer as it is, where it fits. 2. The `description` of each parameter null (the long text of a
-    parameter is most of a big network), and the note says to ask `datasets=<name>` for the detail of one dataset.
-    3. Whole datasets in the order of the network, as many as fit, and the note names those left out and how to ask for
-    them. 4. Where the first dataset alone is more than the budget, the first of its parameters that fit, and the note
-    says how many. The shape is that of the REST answer: the keys are the same, a `description` is null, a resolution
-    may have no datasets. Returns the answer and its note, None where nothing was cut; the note is in the first
-    resolution's `description` and counts toward the size.
+    parameter is most of a big network), and the note says to ask `datasets=<name>` for the detail of one dataset,
+    unless that answer is over the budget too (the answer is that one dataset already, or it alone is over it): the
+    note then says so and points to `glossary`. 3. Whole datasets in the order of the network, as many as fit, and the
+    note names those left out and how to ask for them. 4. Where the first dataset alone is more than the budget, the
+    first of its parameters that fit, and the note says how many and that the others are not available. The shape is
+    that of the REST answer: the keys are the same, a `description` is null, a resolution may have no datasets.
+    Returns the answer and its note, None where nothing was cut; the note is in the first resolution's `description`
+    and counts toward the size.
     """
     size = coverage_size(coverage)
     if size <= ANSWER_BUDGET or not coverage:
         return coverage, None
     lean = _without_descriptions(coverage)
-    note = _coverage_note(left=[], total=0)
-    if coverage_size(noted := _noted_coverage(lean, note)) <= ANSWER_BUDGET:
-        return noted, note
     datasets = _datasets_of(lean)
     total = len(datasets)
+    big = _too_big_alone(coverage)
+    only = len(lean[datasets[0][0]]["datasets"][datasets[0][1]]["parameters"]) if total == 1 else 0
+    note = _coverage_note(left=[], total=total, big=big, parameters=only)
+    if coverage_size(noted := _noted_coverage(lean, note)) <= ANSWER_BUDGET:
+        return noted, note
     cut: dict[int, tuple[dict[str, Any], str]] = {}
 
     def fits(count: int) -> bool:
-        text = _coverage_note(left=datasets[count:], total=total)
+        text = _coverage_note(left=datasets[count:], total=total, big=big)
         cut[count] = (_noted_coverage(_first_datasets(lean, datasets[:count]), text), text)
         return coverage_size(cut[count][0]) <= ANSWER_BUDGET
 
@@ -639,7 +690,11 @@ def fit_coverage(coverage: Mapping[str, Any]) -> tuple[Mapping[str, Any], str | 
 
     def fits_parameters(count: int, *, honest: bool = False) -> bool:
         text = _coverage_note(
-            left=datasets[1:], total=total, within=(f"{resolution}/{name}", count, len(parameters)), honest=honest
+            left=datasets[1:],
+            total=total,
+            big=big,
+            within=(f"{resolution}/{name}", count, len(parameters)),
+            honest=honest,
         )
         first = _first_datasets(lean, datasets[:1])
         first[resolution]["datasets"][name] = {**first[resolution]["datasets"][name], "parameters": parameters[:count]}

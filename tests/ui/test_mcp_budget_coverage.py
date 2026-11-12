@@ -7,8 +7,8 @@ are far over what a client takes: dwd/phenology 139,000 characters, dwd/observat
 answers, each step only where the one before is still over the budget: the answer as it is; the `description` of every
 parameter null; whole datasets in the order of the network, the note naming those left out; the first of the parameters
 of a dataset that alone is over the budget. The shape is that of the REST answer, so the note is in the `description`
-of its first resolution (it has no `metadata` block, and its schema takes no other key) and in the
-`X-Wetterdienst-Truncated` header. The REST API, the command line and the library answer all of it.
+of its first resolution (it has no `metadata` block, and its schema takes no other key). The REST API, the command line
+and the library answer all of it.
 
 Offline: the metadata of the providers is the library's own, so the networks are the real ones.
 """
@@ -18,14 +18,23 @@ from __future__ import annotations
 import copy
 import json
 from typing import Any
-from urllib.parse import unquote
 
 import pytest
 
 from tests.ui.test_mcp_budget import _client_sees, _rest_client, _tool_client
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from wetterdienst.ui import restapi
-from wetterdienst.ui.budget import ANSWER_BUDGET, coverage_size, fit_coverage
+from wetterdienst.ui.budget import (
+    ANSWER_BUDGET,
+    _coverage_note,
+    _datasets_of,
+    _first_datasets,
+    _noted_coverage,
+    _too_big_alone,
+    _without_descriptions,
+    coverage_size,
+    fit_coverage,
+)
 from wetterdienst.ui.core import resolve_network
 
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
@@ -92,8 +101,6 @@ def test_an_answer_within_the_budget_is_the_rest_answer(selection: dict[str, str
     assert tool.status_code == 200
     assert tool.text == rest.text
     assert len(tool.text) <= ANSWER_BUDGET
-    assert "x-wetterdienst-truncated" not in tool.headers
-    assert "x-wetterdienst-warnings" not in tool.headers
     assert any(description is not None for description in _descriptions(tool.json()))
 
 
@@ -128,10 +135,32 @@ def test_the_descriptions_of_the_parameters_are_left_out_first(selection: dict[s
             assert cut[resolution]["datasets"][name]["extent"] == dataset["extent"]
     note = _note_of(cut)
     assert "the `description` of each parameter is left out (null)" in note
-    assert "Ask `coverage` with `datasets=<name>` for the full detail of one dataset." in note
     assert "left out are" not in note
-    assert unquote(response.headers["x-wetterdienst-truncated"]) == note
-    assert response.headers["x-wetterdienst-warnings"] == "answer-truncated"
+    big = [f"{r}/{n}" for r, n in _too_big_alone(whole)]
+    if len(_datasets(whole)) == 1:
+        assert "datasets=" not in note
+    else:
+        assert "Ask for one dataset with `datasets=<name>` and `resolutions=<resolution>` for its full detail" in note
+        assert (f"but not of {', '.join(big)}:" in note) == bool(big)
+
+
+def test_a_single_dataset_over_the_budget_is_not_told_to_ask_for_itself() -> None:
+    """noaa/ghcn daily is one dataset whose descriptions alone are over the budget: asking again answers the same.
+
+    The note must not send the model round in a circle: it says the descriptions do not fit, and names `glossary`.
+    """
+    selection = _params("noaa", "ghcn", resolutions="daily")
+    first = _tool_client().get("/api/coverage", params=selection).json()
+    again = _tool_client().get("/api/coverage", params={**selection, "datasets": "data"}).json()
+
+    note = _note_of(first)
+    assert "datasets=" not in note
+    assert "resolutions=" not in note
+    parameters = len(first["daily"]["datasets"]["data"]["parameters"])
+    assert f"the descriptions of its {parameters:,} parameters together are more than that" in note
+    assert "`glossary` says what a parameter means." in note
+    # the loop the note would have started: the same answer again, with the same note
+    assert again == first
 
 
 # --- step 3: whole datasets, in order ----------------------------------------------------------------------------
@@ -161,17 +190,30 @@ def test_whole_datasets_are_kept_in_order_and_the_note_names_the_rest(selection:
             ]
     note = _note_of(cut)
     left = everything[len(kept) :]
-    assert f"{len(kept):,} of {len(everything):,} datasets are returned, whole and in the order of the network" in note
-    assert f"The {len(left):,} left out are: {', '.join(left)}." in note
-    assert "`datasets=<name>[,<name>]`" in note
-    assert "`resolutions=<resolution>`" in note
-    # what the note says to do gives the full detail of one of them
+    is_are = "is" if len(kept) == 1 else "are"
+    assert (
+        f"{len(kept):,} of {len(everything):,} datasets {is_are} returned, whole and in the order of the network"
+        in note
+    )
+    assert f"The {len(left):,} left out {'is' if len(left) == 1 else 'are'}: {', '.join(left)}." in note
+    assert "`datasets=<name>` and `resolutions=<resolution>`" in note
+    assert "or with `resolutions=` alone for a resolution" in note
+    # as many datasets as fit are kept: one more, with its own (shorter) note, is over the budget
+    lean = _without_descriptions(whole)
+    pairs = _datasets_of(lean)
+    one_more = _noted_coverage(
+        _first_datasets(lean, pairs[: len(kept) + 1]),
+        _coverage_note(left=pairs[len(kept) + 1 :], total=len(pairs), big=_too_big_alone(whole)),
+    )
+    assert coverage_size(one_more) > ANSWER_BUDGET
+    # what the note says to do gives the dataset: in full where it fits, else as the note of that answer says
     resolution, name = left[0].split("/")
-    again = _tool_client().get("/api/coverage", params={**selection, "resolutions": resolution, "datasets": name})
-    detail = again.json()
+    detail = (
+        _tool_client().get("/api/coverage", params={**selection, "resolutions": resolution, "datasets": name}).json()
+    )
     assert _datasets(detail) == [left[0]]
     assert coverage_size(detail) <= ANSWER_BUDGET
-    if "x-wetterdienst-truncated" not in again.headers:
+    if left[0] not in [f"{r}/{n}" for r, n in _too_big_alone(whole)]:
         assert detail == _discover(**selection, resolutions=resolution, datasets=name)
 
 
@@ -215,13 +257,29 @@ def test_a_dataset_that_alone_is_over_the_budget_keeps_its_first_parameters() ->
     assert [p["name"] for p in kept] == [p["name"] for p in parameters[: len(kept)]]
     assert set(_descriptions(dict(cut))) == {None}
     assert f"the dataset `{resolution}/{name}` alone is more than that" in note
-    assert f"only its first {len(kept):,} of {len(parameters):,} parameters are returned" in note
+    assert f"only its first {len(kept):,} parameters are returned, of {len(parameters):,}" in note
+    assert "the others are not available through this tool" in note
     # the other datasets are left out and named, as for the step before
     others = _datasets(huge)[1:]
     assert _datasets(dict(cut)) == [f"{resolution}/{name}"]
-    assert f"The {len(others):,} left out are: {', '.join(others)}." in note
+    assert f"The {len(others):,} left out {'is' if len(others) == 1 else 'are'}: {', '.join(others)}." in note
     assert "still over" not in note
     assert list(cut) == list(huge)
+
+
+def test_the_singular_is_used_for_one_dataset_and_one_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One dataset is "1 of 2 datasets is returned" and "The 1 left out is"; one parameter is "its first parameter"."""
+    whole = _discover("noaa", "ghcn")
+    cut, note = fit_coverage(whole)
+
+    assert note is not None
+    assert len(_datasets(dict(cut))) == 1
+    assert "1 of 2 datasets is returned" in note
+    assert "The 1 left out is: daily/data." in note
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 600)
+    _, tiny = fit_coverage(_discover("noaa", "ghcn", resolutions="daily"))
+    assert tiny is not None
+    assert "only its first parameter is returned, of" in tiny
 
 
 def test_the_tool_cuts_the_parameters_of_a_huge_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
