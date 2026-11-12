@@ -31,11 +31,12 @@ Types of changes:
 
 ### Fixed
 
-- `[Translations, Forecast, Map, Explorer, Home]` Luxembourgish and Low German no longer fall back to
-  the system's language in Chrome for the sorting of the providers, glossary and answers, the
-  numbers of the date range and the map, and the percentages and distances; and the Meteogram's
-  time axis writes the hour the way the language does (Danish "04.00", where it was "04:00")
-  (GH-4007)
+- `[Translations, Forecast, Map, Explorer, Home, Glossary, Providers]` Luxembourgish no longer
+  falls back to the system's language in Chrome, which has no data for it: the sorting of the
+  providers, glossary and answers, the numbers of the date range and the map, and the percentages
+  and distances are written with German's order and separators. The Meteogram's time axis writes
+  the hour the way the language does (Danish "04.00", where it was "04:00"), and a station whose
+  time zone the browser does not know is drawn in UTC instead of with invalid dates (GH-4007)
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` After "Forget my position", ticking
   "Remember my position in this browser" again showed the box ticked while nothing was stored, and
   "Forget my position" did not come back. The box is now offered only while a position is in hand,

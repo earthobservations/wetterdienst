@@ -33,19 +33,27 @@ const TO_LOCALE_STRING = /(?<!\.setLocale\([^()]*\))\.toLocale(?:Date|Time)?Stri
 const INTL_NO_LANGUAGE = /new Intl\.(?:DateTimeFormat|NumberFormat|RelativeTimeFormat|ListFormat|PluralRules|Collator)\((?:\s*undefined)?\s*[,)]/
 
 /**
- * The app's locale code (`locale`, `locale.value`) as the language of `Intl`, of `toLocale*String` or of a luxon
- * DateTime: the code is not a language the browser has data for. The helpers of `utils/format.ts` take it and map it.
+ * The app's locale code (`locale`, `locale.value`), a language tag read from the locale's properties (`language`,
+ * `language.value`, `localeProperties.value.language`) or a variable of the page by either name, as the language of
+ * `Intl`, of `toLocale*String` or of a luxon DateTime: none of them is a language the browser has data for (Chrome has
+ * none for `lb`). What is handed over is `useFormatLanguage()`'s answer, named `formatLanguage`, or `withData(...)`;
+ * the helpers of `utils/format.ts` take a code or a tag and map it themselves.
  */
-const INTL_BARE_LOCALE = /new Intl\.\w+\(\s*locale(?:\.value)?\s*[,)]/
-const TO_LOCALE_BARE = /\.toLocale(?:Date|Time)?String\(\s*locale(?:\.value)?\s*[,)]/
-const SET_LOCALE_BARE = /\.setLocale\(\s*locale(?:\.value)?\s*\)/
+const UNMAPPED = String.raw`(?:locale|language)(?:\.value)?|localeProperties(?:\.value)?\.language`
+const INTL_BARE_LOCALE = new RegExp(String.raw`new Intl\.\w+\(\s*(?:${UNMAPPED})\s*[,)]`)
+const TO_LOCALE_BARE = new RegExp(String.raw`\.toLocale(?:Date|Time)?String\(\s*(?:${UNMAPPED})\s*[,)]`)
+const SET_LOCALE_BARE = new RegExp(String.raw`\.setLocale\(\s*(?:${UNMAPPED})\s*\)`)
 const BARE_LOCALE_PATTERNS = [INTL_BARE_LOCALE, TO_LOCALE_BARE, SET_LOCALE_BARE]
 
-/** The hour and the minute of a time written out: `${hh}:${mm}`, `toFormat('HH:mm')`, `${d.getUTCHours()}:${d.getUTCMinutes()}` */
+/**
+ * The hour and the minute of a time written out: `${hh}:${mm}`, `toFormat('HH:mm')` or the 12-hour `'hh:mm a'`,
+ * `${d.getUTCHours()}:${d.getUTCMinutes()}`, `toISO().slice(11, 16)`
+ */
 const TIME_PARTS = /\$\{(?:hh|hour|hours|h)\}[:.]\$\{(?:mm|minute|minutes|min|m)\}/
-const TIME_FORMAT = /\.toFormat\(\s*['"`][^'"`]*H[:.]mm?/
+const TIME_FORMAT = /\.toFormat\(\s*['"`][^'"`]*[Hh][:.]mm?/
 const TIME_FROM_DATE = /\$\{[^}]*Hours\(\)[^}]*\}[:.]\$\{[^}]*Minutes\(\)/
-const TIME_PATTERNS = [TIME_PARTS, TIME_FORMAT, TIME_FROM_DATE]
+const TIME_FROM_ISO = /toISO(?:String)?\([^)]*\)\??\.(?:slice|substring|substr)\(\s*11\s*,/
+const TIME_PATTERNS = [TIME_PARTS, TIME_FORMAT, TIME_FROM_DATE, TIME_FROM_ISO]
 
 /** A static attribute with a word in it (`title="Station"`), where the translated one is `:title="t('...')"` */
 const STATIC_ATTRIBUTE = /\s(?:title|aria-label|aria-roledescription|aria-description|placeholder|alt|label)="[^"{]*[A-Za-zÄÖÜäöü]{3}/
@@ -55,6 +63,9 @@ function sources(directory: string): string[] {
     .filter(entry => entry.isFile() && /\.(?:vue|ts)$/.test(entry.name))
     .map(entry => join(entry.parentPath, entry.name))
 }
+
+// `§{` stands for the `${` of a template literal, which a string of this file may not hold
+const code = (line: string) => line.replaceAll('§{', '$' + '{')
 
 const files = ['app', 'shared'].flatMap(sources).map(path => ({ name: relative(APP, path), text: readFileSync(path, 'utf8') }))
 
@@ -91,7 +102,7 @@ describe('what the source leaves to the language', () => {
 
   it('writes no time of day out of its parts: the separator is the language\'s', () => {
     // the offset to UTC ("UTC+01:00") is ISO 8601 notation, with a colon in every language
-    const allowed: Record<string, string> = { '(UTC': 'a UTC offset, ISO 8601 notation' }
+    const allowed: Record<string, string> = { [code('(UTC§{sign}§{h}:§{m})')]: 'a UTC offset, ISO 8601 notation' }
     for (const pattern of TIME_PATTERNS)
       expect(found(pattern, allowed)).toEqual([])
   })
@@ -106,9 +117,6 @@ describe('what the source leaves to the language', () => {
 })
 
 describe('the patterns', () => {
-  // `§{` stands for the `${` of a template literal, which a string of this file may not hold
-  const code = (line: string) => line.replaceAll('§{', '$' + '{')
-
   it.each([
     '{{ t(\'x\') }}: {{ y }}',
     '{{ t(\'x\') }}:</label>',
@@ -142,6 +150,11 @@ describe('the patterns', () => {
     'new Intl.NumberFormat(locale.value, { style: \'percent\' })',
     'new Intl.Collator(locale)',
     'new Intl.DateTimeFormat(locale.value)',
+    'new Intl.Collator(language.value, { numeric: true })',
+    'new Intl.NumberFormat(localeProperties.value.language)',
+    'count.toLocaleString(language)',
+    'DateTime.now().setLocale(language.value)',
+    'DateTime.now().setLocale(localeProperties.value.language)',
     'count.toLocaleString(locale.value)',
     'count.toLocaleString(locale, options)',
     'date.toLocaleDateString(locale)',
@@ -151,10 +164,10 @@ describe('the patterns', () => {
   })
 
   it.each([
-    'new Intl.Collator(language.value, { numeric: true })',
+    'new Intl.Collator(formatLanguage.value, { numeric: true })',
     'new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), options)',
-    'count.toLocaleString(language.value)',
-    'DateTime.now().setLocale(language.value)',
+    'count.toLocaleString(formatLanguage.value)',
+    'DateTime.now().setLocale(formatLanguage.value)',
     'const { t, locale, setLocale } = useI18n()',
     'void setLocale(language.value as typeof locale.value)',
   ])('leaves %s alone (bare locale code)', (line) => {
@@ -167,6 +180,9 @@ describe('the patterns', () => {
     'localDt.toFormat(\'HH.mm\')',
     '`§{hh}:§{mm}`',
     '`§{hour}.§{minute}`',
+    'localDt.toFormat(\'hh:mm a\')',
+    'DateTime.fromMillis(t).toISO().slice(11, 16)',
+    'new Date(t).toISOString().substring(11, 16)',
     '`§{String(d.getUTCHours()).padStart(2, \'0\')}:§{String(d.getUTCMinutes()).padStart(2, \'0\')}`',
   ])('finds a time written out of its parts in %s', (line) => {
     expect(TIME_PATTERNS.some(pattern => pattern.test(code(line)))).toBe(true)

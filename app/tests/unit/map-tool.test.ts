@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   clickReach,
   closerStoppedStation,
@@ -29,6 +29,7 @@ import {
   TAP_RADIUS_PX,
   yearOf,
 } from '../../app/utils/map-tool'
+import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
 // what the address says of the map.
@@ -128,16 +129,15 @@ describe('a distance as a reader says it', () => {
     expect(formatDistance(km, locale).replace(/\u202F|\xA0/g, ' ')).toBe(text)
   })
 
-  it.each(['lb', 'de-hh'])('writes %s as German, where the browser has no data for it', (locale) => {
-    // Chrome has none for Luxembourgish and would write the system's language: here English, "3.2 km"
-    const supported = Intl.NumberFormat.supportedLocalesOf
-    vi.spyOn(Intl.NumberFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
-      supported((languages as string[]).filter(language => !language.startsWith('lb') && !language.startsWith('de-hh')), options))
+  it('writes Luxembourgish as German, where the browser has no data for it', () => {
+    // Chrome has none and would write the system's language: here English, "3.2 km"
+    const chrome = chromeWithoutLuxembourgish()
     try {
-      expect(formatDistance(3.24, locale).replace(/\u202F|\xA0/g, ' ')).toBe('3,2 km')
+      expect(formatDistance(3.24, 'lb').replace(/\u202F|\xA0/g, ' ')).toBe('3,2 km')
+      expect(chrome.passed.filter(language => language.startsWith('lb'))).toEqual([])
     }
     finally {
-      vi.restoreAllMocks()
+      chrome.restore()
     }
   })
 })

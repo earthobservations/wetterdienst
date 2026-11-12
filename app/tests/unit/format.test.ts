@@ -1,6 +1,8 @@
+import type { ChromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 import { DateTime } from 'luxon'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
@@ -196,22 +198,17 @@ describe('formatHour', () => {
 
 describe('a language the browser has no data for', () => {
   // Chrome ships none for Luxembourgish: its Intl then writes the system's language instead, and
-  // the 5th of October month first for an English reader
+  // the 5th of October month first for an English reader. Node has the data, so the browser is stood in for by
+  // constructors that write `en-US` for `lb` (tests/helpers/chrome-without-luxembourgish.ts)
+  let chrome: ChromeWithoutLuxembourgish
+  beforeEach(() => {
+    chrome = chromeWithoutLuxembourgish()
+  })
   afterEach(() => {
-    vi.restoreAllMocks()
+    chrome.restore()
   })
 
-  function withoutLuxembourgish() {
-    for (const format of [Intl.NumberFormat, Intl.DateTimeFormat]) {
-      const supported = format.supportedLocalesOf
-      vi.spyOn(format, 'supportedLocalesOf').mockImplementation((languages, options) =>
-        supported((languages as string[]).filter(language => !language.startsWith('lb')), options))
-    }
-  }
-
   it('asks for German in its place, with its separators and day', () => {
-    expect(withData('lb', Intl.NumberFormat.supportedLocalesOf)).toBe('lb')
-    withoutLuxembourgish()
     expect(withData('lb', Intl.NumberFormat.supportedLocalesOf)).toBe('de-LU')
     expect(withData('lb-LU', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-LU')
     expect(plotlySeparators('lb')).toBe(',.')
@@ -219,23 +216,30 @@ describe('a language the browser has no data for', () => {
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'lb-LU')).toBe('05.10.')
   })
 
-  it('writes the hour, the run and the weekday of Luxembourgish as German, with no data for it', () => {
-    withoutLuxembourgish()
-    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'lb-LU')).toBe('04:00')
+  it('writes the run and the hover heading of Luxembourgish as German, and hands Intl no Luxembourgish', () => {
     expect(formatRunTime('2026-10-15T04:00:00+00:00', 'lb-LU')).toBe('15.10.2026, 04:00 UTC')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'lb-LU')).toBe('04:00')
     expect(plotlyHoverFormat('lb')).toBe('%a %d.%m. %H:%M')
+    expect(chrome.passed).toContain('de-LU')
+    expect(chrome.passed.filter(language => language.startsWith('lb'))).toEqual([])
+  })
+
+  it('would write English where Luxembourgish is handed to Intl as it is', () => {
+    // what the stand-in guards against: the same call, with the bare code, writes the system's language
+    expect(new Intl.NumberFormat('lb').format(1234.5)).toBe('1,234.5')
+    expect(new Intl.DateTimeFormat('lb-LU', { timeZone: 'UTC' }).format(Date.UTC(2026, 9, 15))).toBe('10/15/2026')
   })
 
   it('leaves a language it has data for as it is', () => {
-    withoutLuxembourgish()
     expect(withData('fr-FR', Intl.DateTimeFormat.supportedLocalesOf)).toBe('fr-FR')
     expect(withData('en', Intl.NumberFormat.supportedLocalesOf)).toBe('en')
   })
 })
 
 describe('the locale codes of the app that are no language', () => {
-  // `de-hh` (Hamburgisch) has no data of its own in any browser: it is written as German. A browser may read the code
-  // as German with a region of its own, so it is mapped before the browser is asked, whether or not it would answer.
+  // `de-hh` (Hamburgisch) has no data of its own in any browser: it is written as German. Chrome already resolves the
+  // code to German, so these document the mapping (`withData` asks for `de-DE` before the browser is asked) and
+  // hold the output; they cannot tell the mapping from the browser's own fallback.
   afterEach(() => {
     vi.restoreAllMocks()
   })

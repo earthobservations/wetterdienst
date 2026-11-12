@@ -2,7 +2,7 @@
 import type { NetworkKind, Provider } from '#shared/types/api'
 
 const { t } = useI18n()
-const language = useFormatLanguage()
+const formatLanguage = useFormatLanguage()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('providers.title') })
@@ -10,7 +10,7 @@ const { networkKindLabel } = useNetworkKindLabel()
 
 // Names are sorted for the language of the page, as the glossary does: "Český" after "Czech" is where
 // a Czech reader looks for it, and a code-point sort puts it last.
-const collator = computed(() => new Intl.Collator(language.value, { numeric: true }))
+const collator = computed(() => new Intl.Collator(formatLanguage.value, { numeric: true }))
 
 const { data, pending, error, refresh } = useProviders()
 

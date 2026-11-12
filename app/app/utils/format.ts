@@ -21,8 +21,8 @@ const STAND_IN: Record<string, string> = { 'lb': 'de-LU', 'lb-LU': 'de-LU' }
 
 /**
  * The app's own locale codes that no browser knows as a language: Hamburgisch (`de-hh`, Low German) is written
- * with German's data. A browser may read the code as German with a region of its own or as nothing, so it is
- * mapped before the browser is asked.
+ * with German's data. Chrome resolves the code to German itself; it is mapped before the browser is asked, so that
+ * the tag is the one German has and does not depend on how a browser reads an unknown region.
  */
 const OWN_CODES: Record<string, string> = { 'de-hh': 'de-DE' }
 

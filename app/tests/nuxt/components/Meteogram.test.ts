@@ -1,10 +1,12 @@
 import process from 'node:process'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
+import tzLookup from 'tz-lookup'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import { panelToggleStyle, SERIES_LABEL, seriesLabelColor } from '~/utils/chart-theme'
+import { chromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
 
 // Plotly draws nothing in the test's document: its calls are recorded
 const plotly = vi.hoisted(() => ({
@@ -13,6 +15,12 @@ const plotly = vi.hoisted(() => ({
   purge: vi.fn(),
 }))
 vi.mock('plotly.js-basic-dist-min', () => plotly)
+
+// The zone lookup answers as the library does, until a test has it name a zone the browser does not know
+vi.mock('tz-lookup', async (importOriginal) => {
+  const original = await importOriginal<{ default: (latitude: number, longitude: number) => string }>()
+  return { default: vi.fn(original.default) }
+})
 
 // Nuxt's reload of the page: the test's document does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
@@ -450,16 +458,54 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
       expect(hour).toMatch(new RegExp(`^\\d{2}\\${separator}00$`))
   })
 
+  // Node has the data for Luxembourgish that Chrome lacks (GH-4007): `chromeWithoutLuxembourgish` writes English for
+  // any `lb` handed to Intl, and says what was handed over. The chart's hours are the same text in German and in
+  // English, so that no `lb` was handed to Intl is what shows the stand-in at work
+  function inChromeWithoutLuxembourgish() {
+    const chrome = chromeWithoutLuxembourgish()
+    onTestFinished(chrome.restore)
+    return chrome
+  }
+  const luxembourgish = (chrome: { passed: string[] }) => chrome.passed.filter(language => /^lb/i.test(language))
+
   it('writes the hours of the time axis of Luxembourgish as German where the browser has no data for it', async () => {
-    const supported = Intl.DateTimeFormat.supportedLocalesOf.bind(Intl.DateTimeFormat)
-    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
-      supported(languages, options).filter(language => !String(language).startsWith('lb')))
-    onTestFinished(() => {
-      vi.restoreAllMocks()
-    })
     await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
     await showMeteogram()
     expect(axisHours()).toContain('06:00')
+    expect(chrome.passed).toContain('de-LU')
+    expect(luxembourgish(chrome)).toEqual([])
+  })
+
+  it('writes the times of the data table of Luxembourgish as German where the browser has no data for it', async () => {
+    await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
+    await showMeteogram()
+    ;(wrapper!.vm as any).view = 'table'
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.view).toBe('table'))
+    // the 15th of October at midnight, German's order; English would write "10/15/2026, 12:00 AM"
+    expect(document.body.querySelector('tbody th')?.textContent?.trim()).toBe('15.10.2026, 00:00')
+    expect(luxembourgish(chrome)).toEqual([])
+  })
+
+  // a zone the browser does not know made every date of the chart invalid: "Invalid DateTime" in the day labels and
+  // "UTC+NaN:NaN" in the toolbar. The zone is checked once, and the station is written in UTC
+  it('draws the chart in UTC where the browser does not know the station\'s time zone', async () => {
+    vi.mocked(tzLookup).mockReturnValue('Mars/Olympus')
+    // back to the library's own answer, which `vi.fn(original)` below keeps as its implementation
+    onTestFinished(() => {
+      vi.mocked(tzLookup).mockReset()
+    })
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin', stationCoords: { latitude: 52.47, longitude: 13.4 } }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...rain] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }]
+    expect(layout.annotations.map(annotation => annotation.text).join(' ')).not.toContain('Invalid')
+    expect(axisHours()).toContain('06:00')
+    expect(document.body.textContent).not.toMatch(/NaN|Invalid/)
+    expect(document.body.textContent).toContain('UTC (UTC+00:00)')
   })
 
   // Thursday the 15th: the weekday of the chart's day labels and of the compact view's day cards, and
@@ -488,17 +534,14 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
 
   // Chrome has no data for Luxembourgish and would write the system's language (GH-2971): German is written
   it('names the weekday of the day labels in German where the browser has no data for Luxembourgish', async () => {
-    const supported = Intl.DateTimeFormat.supportedLocalesOf.bind(Intl.DateTimeFormat)
-    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
-      supported(languages, options).filter(language => !String(language).startsWith('lb')))
-    onTestFinished(() => {
-      vi.restoreAllMocks()
-    })
     await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
     await showMeteogram()
     const [, , layout, config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }, { locales: Record<string, { format: { shortDays: string[] } }> }]
+    // English would write "Thu"
     expect(layout.annotations.some(annotation => annotation.text.startsWith('<b>Do</b>'))).toBe(true)
-    expect(config.locales['lb-LU']!.format.shortDays[4]).toBe('Do')
+    expect(config.locales['de-LU']!.format.shortDays[4]).toBe('Do')
+    expect(luxembourgish(chrome)).toEqual([])
   })
 
   it.each(thursdays)('names the weekday of the day cards in %s (%s) %s', async (code, _language, weekday) => {
