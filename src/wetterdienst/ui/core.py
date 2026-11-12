@@ -1710,11 +1710,42 @@ class AlertsRequest(_RefusesRenamedParameters):
             "48 hours. Without it, the latest snapshot."
         ),
     ] = None
+    latitude: Annotated[
+        float | None,
+        Field(
+            ge=LATITUDE_MIN,
+            le=LATITUDE_MAX,
+            description="With longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+        ),
+    ] = None
+    longitude: Annotated[
+        float | None,
+        Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Longitude of the point; given with latitude."),
+    ] = None
+    name: Annotated[
+        str | None,
+        Field(
+            description="Only the warnings for an area of this name or warn cell id: the words of it, in any case "
+            "('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold."
+        ),
+    ] = None
     format: Annotated[
         Literal["json", "geojson", "csv"],
         Field(description="Output format: json, geojson (a feature collection) or csv."),
     ] = "json"
     pretty: _PrettyField = False
+
+    @model_validator(mode="after")
+    def check_point(self) -> AlertsRequest:
+        """Check that latitude and longitude come together, as a point."""
+        given = [field for field in _POINT if _is_set(self, field)]
+        if len(given) == 1:
+            (other,) = (field for field in _POINT if field not in given)
+            _raise_rule_errors(
+                self,
+                [_rule_error("missing_with", f"Field required with {given[0]}", (other,), required_with=given)],
+            )
+        return self
 
 
 def failure_status(e: BaseException) -> int:

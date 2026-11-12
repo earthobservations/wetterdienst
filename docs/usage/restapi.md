@@ -325,8 +325,10 @@ what the answer is missing:
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
-  below) and `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are
-  added as more are told; a client reads the ones it knows.
+  below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below) and
+  `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
+  answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)). Codes are added as more are told; a
+  client reads the ones it knows.
 
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
@@ -910,6 +912,15 @@ The weather warnings of DWD that are active now, or at a time of the last 48 hou
 
 ```bash
 http localhost:7890/api/alerts granularity==district language==de format==geojson
+```
+
+Without a place that is every warning of Germany, 100 to 370 KB. `latitude` and `longitude` keep the warnings whose
+polygons contain the point, and `name` those with an area of that name or warn cell id; a place without a warning is a
+200 with no alerts and a `no-alerts-for-place` warning in `metadata`:
+
+```bash
+http localhost:7890/api/alerts latitude==54.32 longitude==10.14
+http localhost:7890/api/alerts granularity==district name==Kiel
 ```
 
 ### Values

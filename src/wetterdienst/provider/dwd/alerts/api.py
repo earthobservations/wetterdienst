@@ -42,12 +42,14 @@ from wetterdienst.provider.dwd.alerts.metadata import (
     DwdWeatherAlertLanguage,
 )
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
+from wetterdienst.provider.dwd.alerts.place import check_point, is_for_place
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
+from wetterdienst.util.response_warnings import warn_response
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -56,6 +58,10 @@ if TYPE_CHECKING:
     from wetterdienst.model.result import ResultMetadata
 
 log = logging.getLogger(__name__)
+
+#: the code of the warning that tells a request for a place that no warning of the snapshot is for it: an answer, not
+#: a failure, which a caller who reads `alerts: []` alone would take for the one or the other
+NO_ALERTS_FOR_PLACE = "no-alerts-for-place"
 
 # The most a snapshot may unpack to. The largest unpacks to 35 MB (the multilingual district file, on a quiet day);
 # 256 MiB is seven times that.
@@ -298,6 +304,9 @@ class DwdWeatherAlertRequest:
     Fetches a DWD warning snapshot (all warnings active at a point in time) for a given granularity
     and language and parses it into a :class:`DwdWeatherAlertResult`. By default the latest snapshot
     is used; a ``timestamp`` selects a historical snapshot from DWD's rolling ~48-hour archive instead.
+
+    A snapshot is every warning of Germany (a few hundred KB). ``latitude`` and ``longitude``, and ``name``, keep the
+    warnings for one place (:mod:`wetterdienst.provider.dwd.alerts.place`): without them the result is unchanged.
     """
 
     # how `Wetterdienst.discover()` lists the network, which is no timeseries network and has no metadata model: the
@@ -331,6 +340,9 @@ class DwdWeatherAlertRequest:
         language: str | DwdWeatherAlertLanguage = DwdWeatherAlertLanguage.ENGLISH,
         timestamp: str | dt.datetime | None = None,
         settings: Settings | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        name: str | None = None,
         **kwargs: Never,
     ) -> None:
         """Initialize the request.
@@ -344,6 +356,13 @@ class DwdWeatherAlertRequest:
                 used; it must fall within DWD's rolling ~48-hour window. A naive datetime or ISO
                 string is interpreted as UTC.
             settings: settings for the request.
+            latitude: with ``longitude``, keep the warnings whose area polygons contain this point (WGS84 degrees); a
+                point on the edge of a polygon is inside. A warning that has no polygon (one for the sea, given by
+                its areas alone) is never for a point: ask for it by ``name``.
+            longitude: the longitude of the point; it is given with ``latitude``, or not at all.
+            name: keep the warnings with an area of this name (the words of it, in any case: ``Kiel`` is ``Stadt
+                Kiel``, not ``Kielstau``) or of this warn cell id (``101002000``, or its 8-digit key ``01002000``). With
+                a point, a warning must be for both.
             kwargs: none is taken; ``date``, the old name of ``timestamp`` (GH-2438), is refused
                 with an error naming it.
 
@@ -362,14 +381,30 @@ class DwdWeatherAlertRequest:
         self.language = self._parse_language(language)
         self.timestamp = self._parse_timestamp(timestamp)
         self.settings = settings or Settings()
+        check_point(latitude, longitude)
+        self.latitude = latitude
+        self.longitude = longitude
+        # an empty name (a query parameter that is present and empty) is no filter, as an empty timestamp is none
+        self.name = name.strip() or None if isinstance(name, str) else name
 
     def __repr__(self) -> str:
         """Return a string representation of the request."""
         return (
             f"DwdWeatherAlertRequest(granularity={self.granularity.value}, "
             f"language={self.language.value}, "
-            f"timestamp={self.timestamp.isoformat() if self.timestamp else None})"
+            f"timestamp={self.timestamp.isoformat() if self.timestamp else None}, "
+            f"latitude={self.latitude}, longitude={self.longitude}, name={self.name!r})"
         )
+
+    @property
+    def _place(self) -> str | None:
+        """Name the place asked for as a caller would, `None` for a request of the whole snapshot."""
+        parts = []
+        if self.latitude is not None and self.longitude is not None:
+            parts.append(f"the point {self.latitude}, {self.longitude}")
+        if self.name is not None:
+            parts.append(f"the name or warn cell {self.name!r}")
+        return " and ".join(parts) or None
 
     @staticmethod
     def _parse_granularity(granularity: str | DwdWeatherAlertGranularity) -> DwdWeatherAlertGranularity:
@@ -502,6 +537,7 @@ class DwdWeatherAlertRequest:
             raise content
         try:
             alerts = self._parse_archive(content, url)
+            alerts = self._keep_place(alerts)
             df = self._build_dataframe(alerts)
         except zipfile.BadZipFile as e:
             raise DownloadError(url, "the snapshot is not a valid zip archive") from e
@@ -513,6 +549,32 @@ class DwdWeatherAlertRequest:
             msg = f"weather alerts snapshot from {url} holds what the parser does not expect: {e}"
             raise MetaFileFormatError(msg) from e
         return DwdWeatherAlertResult(df=df, granularity=self.granularity, language=self.language, snapshot=snapshot)
+
+    def _keep_place(self, alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Keep the warnings for the place asked for; all of them for a request that names none.
+
+        No warning for a place is an answer: it is told by the `no-alerts-for-place` warning of the response, with how
+        many warnings the snapshot holds for other places, so that it is not taken for a failure or a filter that
+        matched nothing by mistake.
+        """
+        place = self._place
+        if place is None:
+            return alerts
+        kept = [
+            alert
+            for alert in alerts
+            if is_for_place(alert, latitude=self.latitude, longitude=self.longitude, name=self.name)
+        ]
+        if not kept:
+            held = f"{len(alerts)} are for other places" if alerts else "it holds none"
+            message = (
+                f"No warning of the snapshot is for {place} ({held}). That is the answer, not an error: nothing is "
+                "in force there; or, for a name, no warning lists an area of that name, which a place without a "
+                "warning does not appear in, so check the spelling. A point is matched against the polygons of a "
+                "warning, so one for the sea is found by its name."
+            )
+            warn_response(log, NO_ALERTS_FOR_PLACE, message, level=logging.INFO)
+        return kept
 
     @staticmethod
     def _parse_archive(content: BytesIO, url: str) -> list[dict[str, Any]]:

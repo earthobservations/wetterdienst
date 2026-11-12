@@ -73,7 +73,7 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `coverage` | `/api/v1/coverage` | the resolutions, datasets and parameters of one network (`provider` and `network` are required) |
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
-| `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
+| `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,

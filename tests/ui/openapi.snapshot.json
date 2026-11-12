@@ -5146,7 +5146,7 @@
           "Alerts"
         ],
         "summary": "Alerts",
-        "description": "Provide DWD weather alerts (CAP warnings) via restapi.\n\nReturns all warnings active at the selected time, one entry per alert, with a GeoJSON\nMultiPolygon geometry. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from\nDWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means\nthere were no active warnings.",
+        "description": "Provide DWD weather alerts (CAP warnings) via restapi.\n\nReturns the warnings active at the selected time, one entry per alert, with a GeoJSON\nMultiPolygon geometry. Without a place that is every warning of Germany (over 100 KB, more than an assistant can\nread): pass ``latitude`` and ``longitude`` for the warnings whose areas contain the point, and/or ``name`` for an\narea of that name or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from\nDWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not an error: no\nwarning is active (for the place), and for a place a ``no-alerts-for-place`` warning in ``metadata`` says so.",
         "operationId": "alerts_api_alerts_get",
         "parameters": [
           {
@@ -5201,6 +5201,64 @@
               "title": "Timestamp"
             },
             "description": "Instant in ISO 8601 (UTC if no offset) of a snapshot from DWD's rolling window of about 48 hours. Without it, the latest snapshot."
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+              "title": "Latitude"
+            },
+            "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside)."
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Longitude of the point; given with latitude.",
+              "title": "Longitude"
+            },
+            "description": "Longitude of the point; given with latitude."
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold.",
+              "title": "Name"
+            },
+            "description": "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold."
           },
           {
             "name": "format",

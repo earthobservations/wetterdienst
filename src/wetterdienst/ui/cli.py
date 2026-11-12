@@ -1113,6 +1113,10 @@ ALERTS_EXAMPLES = r"""
     # ~48 hours, all DWD keeps
     wetterdienst alerts --granularity=district --timestamp=YYYY-MM-DDTHH:MM
 
+    # the warnings for a place, a few KB and not every warning of Germany: a point, or a name or warn cell id
+    wetterdienst alerts --latitude=54.32 --longitude=10.14
+    wetterdienst alerts --granularity=district --name=Kiel
+
     # to a GeoJSON file
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
 """
@@ -2803,6 +2807,24 @@ def radar(
 )
 @renamed_date_opt
 @click.option(
+    "--latitude",
+    type=click.FloatRange(-90, 90),
+    help="With --longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+)
+@click.option(
+    "--longitude",
+    type=click.FloatRange(-180, 180),
+    help="Longitude of the point; given with --latitude.",
+)
+@click.option(
+    "--name",
+    type=click.STRING,
+    help=(
+        "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is "
+        "'Stadt Kiel', not 'Kielstau'), or a number such as 101002000. With a point, both must hold."
+    ),
+)
+@click.option(
     "--format",
     "fmt",
     type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
@@ -2841,6 +2863,9 @@ def alerts(
     granularity: str,
     language: str,
     timestamp: str,
+    latitude: float | None,
+    longitude: float | None,
+    name: str | None,
     fmt: str,
     target: str,
     if_exists: Literal["replace", "append", "fail", "skip"],
@@ -2850,8 +2875,9 @@ def alerts(
 ) -> None:
     """Acquire DWD weather alerts (CAP warnings).
 
-    Returns all warnings active at the selected time (the latest snapshot by default), one row per
-    alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+    Returns the warnings active at the selected time (the latest snapshot by default), one row per
+    alert, with a GeoJSON MultiPolygon geometry: every warning of Germany, unless --latitude and --longitude or
+    --name name a place. An empty result means no warning was active (for the place).
 
     With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
     """
@@ -2868,11 +2894,20 @@ def alerts(
     # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
     # variable is a `ValueError`, and not the command line's to fix
     settings = Settings()
-    # granularity, language and format are click choices, so only the timestamp reaches this refusal:
+    if (latitude is None) != (longitude is None):
+        msg = "--latitude and --longitude are given together"
+        raise click.UsageError(msg)
+    # granularity, language, format and the point are click's, so only the timestamp reaches this refusal:
     # one that does not parse, or one an offset carries out of what a datetime holds
     try:
         request = DwdWeatherAlertRequest(
-            granularity=granularity, language=language, timestamp=timestamp, settings=settings
+            granularity=granularity,
+            language=language,
+            timestamp=timestamp,
+            settings=settings,
+            latitude=latitude,
+            longitude=longitude,
+            name=name,
         )
     except (ValueError, OverflowError) as e:
         raise click.BadParameter(str(e), param_hint="--timestamp") from e
