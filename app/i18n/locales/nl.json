@@ -780,6 +780,7 @@
     "forget": "Mijn locatie vergeten",
     "stored": "Opgeslagen",
     "storedLabel": "Opgeslagen: mijn locatie in deze browser",
+    "notKept": "Je browser stond niet toe de locatie op te slaan. Ze wordt alleen voor dit bezoek gebruikt.",
     "denied": "Je browser blokkeert de locatie voor deze site. Om haar toe te staan, open je de site-instellingen van je browser, zet je Locatie op Toestaan en druk je opnieuw op de knop. Zoeken werkt gewoon door.",
     "unsupported": "Deze browser kan je locatie niet bepalen. Gebruik in plaats daarvan het zoeken.",
     "unavailable": "Je locatie kon niet worden bepaald. Gebruik in plaats daarvan het zoeken.",

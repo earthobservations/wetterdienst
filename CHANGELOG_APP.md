@@ -36,6 +36,12 @@ Types of changes:
   "Forget my position" did not come back. The box is now offered only while a position is in hand,
   so ticking it always stores that position, and "Forget" puts the focus back on the button
   (GH-4010)
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location": where the browser
+  refuses to keep the position (a private window, blocked site data, a full quota), the "Stored"
+  control no longer shows; an alert says the position is used for this visit only, and the box
+  stays. "Forget my position" now also drops a position request and a nearest-station lookup that
+  are still on their way, so a late answer no longer brings the position or the place back
+  (Part of GH-4014)
 - `[Forecast]` The run picker writes a run's date and time as the page's language does
   ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every
   language (GH-2610)

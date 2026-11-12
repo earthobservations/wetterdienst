@@ -780,6 +780,7 @@
     "forget": "Zapomnij moją lokalizację",
     "stored": "Zapisana",
     "storedLabel": "Zapisana: moja lokalizacja w tej przeglądarce",
+    "notKept": "Twoja przeglądarka nie pozwoliła zapisać lokalizacji. Jest używana tylko podczas tej wizyty.",
     "denied": "Twoja przeglądarka blokuje lokalizację dla tej witryny. Aby na nią zezwolić, otwórz ustawienia witryny w przeglądarce, ustaw Lokalizację na Zezwalaj i naciśnij przycisk jeszcze raz. Wyszukiwanie nadal działa.",
     "unsupported": "Ta przeglądarka nie potrafi ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",
     "unavailable": "Nie udało się ustalić Twojej lokalizacji. Użyj zamiast tego wyszukiwania.",

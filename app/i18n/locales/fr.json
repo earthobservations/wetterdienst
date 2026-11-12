@@ -780,6 +780,7 @@
     "forget": "Oublier ma position",
     "stored": "Mémorisée",
     "storedLabel": "Mémorisée : ma position dans ce navigateur",
+    "notKept": "Ton navigateur n'a pas permis de mémoriser la position. Elle n'est utilisée que pour cette visite.",
     "denied": "Ton navigateur bloque la localisation pour ce site. Pour l'autoriser, ouvre les paramètres du site dans ton navigateur, règle Localisation sur Autoriser, puis appuie de nouveau sur le bouton. La recherche fonctionne toujours.",
     "unsupported": "Ce navigateur ne peut pas déterminer ta position. Utilise plutôt la recherche.",
     "unavailable": "Ta position n'a pas pu être déterminée. Utilise plutôt la recherche.",

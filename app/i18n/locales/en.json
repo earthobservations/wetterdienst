@@ -780,6 +780,7 @@
     "forget": "Forget my position",
     "stored": "Stored",
     "storedLabel": "Stored: my position in this browser",
+    "notKept": "Your browser did not allow the position to be stored. It is used for this visit only.",
     "denied": "Your browser blocks location for this site. To allow it, open the site settings of your browser, set Location to Allow and press the button again. The search still works.",
     "unsupported": "This browser cannot tell your position. Use the search instead.",
     "unavailable": "Your position could not be found. Use the search instead.",

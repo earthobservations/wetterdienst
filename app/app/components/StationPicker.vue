@@ -220,6 +220,19 @@ watch(() => JSON.stringify(props.locate), () => {
   lookupProblem.value = ''
 })
 
+// "Forget my position" (GH-4014): a lookup still on its way is dropped, with what was told of it, so that its late answer
+// does not pick the station or tell a position that is gone. Synchronous, so that no answer lands between the forget and
+// this. The station already picked stays picked, as the reader's own.
+const { position } = useMyLocation()
+watch(position, (now) => {
+  if (now)
+    return
+  lookup++
+  resolving.value = false
+  found.value = ''
+  lookupProblem.value = ''
+}, { flush: 'sync' })
+
 // The position was handed over by the button: the station nearest to it is picked, and its distance told. An answer
 // that arrives after a later press is not the reader's latest and is dropped.
 async function onPosition(point: Point) {

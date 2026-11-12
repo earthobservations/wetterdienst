@@ -79,13 +79,22 @@ export function readRememberedPosition(): Point | null {
   }
 }
 
-/** Remembers a position, already rounded; a storage that refuses is no failure: the position is then for this visit only */
-export function writeRememberedPosition(point: Point): void {
+/**
+ * Remembers a position, already rounded. A storage that refuses (a private window, blocked site data, a full quota) is
+ * no failure: the position is then for this visit only, and the answer says so, so that the page does not claim that it
+ * is kept.
+ *
+ * @param point - The position, rounded
+ * @returns Whether the browser kept it
+ */
+export function writeRememberedPosition(point: Point): boolean {
   try {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(roundPosition(point)))
+    return true
   }
   catch {
     // kept in memory by the composable, which is all that can be done
+    return false
   }
 }
 

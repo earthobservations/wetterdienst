@@ -232,6 +232,10 @@ meant to be understood, not to be the last word, and **a review by a native spea
   says `bewahrt` for "stays in this browser"); `lb` `Gespäichert`; `pl` `Zapisana` and `cs` `Uložená`; and in `fr`, `es`, `it`,
   `pl` and `cs` the feminine (`Mémorisée`, `Guardada`, `Salvata`, `Zapisana`, `Uložená`), which agrees with the language's word
   for the position (`position`, `ubicación`, `posizione`, `lokalizacja`, `poloha`), which the chip leaves out.
+- **Machine-made**: the alert of "Use my location" for a browser that refuses to keep the position (`location.notKept`, GH-4014)
+  was written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read it.
+  Least certain: `de-hh` `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`); `lb` `erlaabt` and
+  `gëtt just fir`; `nl` `Ze wordt` (the note's `Ze` for the position); `cs` `neumožnil` and `Použije se`; `da` `tillod ikke, at`.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
