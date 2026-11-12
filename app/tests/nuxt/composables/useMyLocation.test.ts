@@ -262,17 +262,6 @@ describe('what was kept for the position', () => {
     expect(usePlace().place.value).toEqual(DEFAULT_PLACE)
   })
 
-  it('goes from the browser, and stays for the visit, when the reader unticks remember', async () => {
-    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
-    localStorage.setItem('wd-place', JSON.stringify(placeFromPosition))
-    const wrapper = await mountSuspended(Harness)
-    mounted.push(wrapper)
-    usePlace().place.value = placeFromPosition
-    wrapper.vm.setRemember(false)
-    expect(localStorage.getItem('wd-place')).toBeNull()
-    expect(usePlace().place.value).toEqual(placeFromPosition)
-  })
-
   it('leaves a place the reader chose themselves', async () => {
     const chosen = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
@@ -308,12 +297,36 @@ describe('"remember"', () => {
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 
-  it('keeps the rounded position in the browser when it is ticked before the press', async () => {
+  it('cannot be ticked with no position in hand: nothing would be kept, and the state would say that something is (GH-4010)', async () => {
     mockGeolocation({ latitude: 53.551234, longitude: 9.993456 })
     mockPermission('granted')
     const location = await mountHarness()
-    location.setRemember(true)
+    location.rememberPosition()
+    expect(location.remember).toBe(false)
+    expect(location.remembered).toBe(false)
     await location.locate()
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+    expect(location.remembered).toBe(false)
+  })
+
+  it('stores the position again after a forget, when it is pressed for and ticked again (GH-4010)', async () => {
+    mockGeolocation({ latitude: 53.551234, longitude: 9.993456 })
+    mockPermission('granted')
+    const location = await mountHarness()
+    await location.locate()
+    location.rememberPosition()
+    expect(location.remembered).toBe(true)
+    location.forget()
+    expect(location.remembered).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+
+    // ticked with nothing in hand, it stays unticked and stores nothing
+    location.rememberPosition()
+    expect(location.remember).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+
+    await location.locate()
+    location.rememberPosition()
     expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
     expect(location.remembered).toBe(true)
   })
@@ -324,20 +337,8 @@ describe('"remember"', () => {
     const location = await mountHarness()
     await location.locate()
     expect(localStorage.length).toBe(0)
-    location.setRemember(true)
+    location.rememberPosition()
     expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
-  })
-
-  it('deletes what was kept when it is unticked', async () => {
-    mockGeolocation({ latitude: 53.55, longitude: 9.99 })
-    mockPermission('granted')
-    const location = await mountHarness()
-    location.setRemember(true)
-    await location.locate()
-    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
-    location.setRemember(false)
-    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
-    expect(location.remembered).toBe(false)
   })
 
   it('is read back on a later visit without asking the browser, and a press then uses it', async () => {
@@ -375,8 +376,8 @@ describe('"remember"', () => {
     mockGeolocation({ latitude: 53.55, longitude: 9.99 })
     mockPermission('granted')
     const location = await mountHarness()
-    location.setRemember(true)
     expect(await location.locate()).toEqual({ latitude: 53.55, longitude: 9.99 })
+    location.rememberPosition()
     expect(location.position).toEqual({ latitude: 53.55, longitude: 9.99 })
   })
 })

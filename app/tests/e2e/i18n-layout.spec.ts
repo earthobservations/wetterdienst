@@ -384,3 +384,74 @@ test.describe('the header', () => {
     })
   }
 })
+
+// "Use my location" with a position stored (GH-4011): the "Stored" control stands beside the button, at once for a
+// position that an earlier visit kept, and opens to the position and "Forget my position". The button and the control
+// run side by side, so in the languages whose words run long they must wrap, not push the page sideways or spill out of
+// the window at 320 px. The control is on the pages that have the button: Ask the weather, the map and the forecast's picker.
+const POSITION_STORED = ['/', '/map', '/meteogram']
+
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  for (const path of POSITION_STORED) {
+    test(`${path} in ${language} with a position stored, closed and open, fits at 320px`, async ({ page, context, baseURL }) => {
+      await mockBackend(page, baseURL!, {})
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await context.addInitScript(() => localStorage.setItem('wd-location', JSON.stringify({ latitude: 53.54, longitude: 10.2 })))
+      await page.setViewportSize({ width: 320, height: 844 })
+      await page.goto(path)
+      const chip = page.getByTestId('use-my-location-stored')
+      await expect(chip).toBeVisible({ timeout: 30_000 })
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+      await settle(page)
+
+      const inWindow = async (testId: string) => page.getByTestId(testId).evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        return box.left >= -1 && box.right <= document.documentElement.clientWidth + 1
+      })
+      expect(await offendersOf(page), `${path} in ${language} at 320px, closed`).toEqual([])
+      expect(await inWindow('use-my-location-button'), `the button of ${path} in ${language}`).toBe(true)
+      expect(await inWindow('use-my-location-stored'), `the control of ${path} in ${language}`).toBe(true)
+
+      await chip.click()
+      await expect(page.getByTestId('use-my-location-remembered')).toBeVisible()
+      await settle(page)
+      expect(await offendersOf(page), `${path} in ${language} at 320px, open`).toEqual([])
+      expect(await inWindow('use-my-location-remembered'), `the popover of ${path} in ${language}`).toBe(true)
+      expect(await inWindow('use-my-location-forget'), `Forget of ${path} in ${language}`).toBe(true)
+    })
+  }
+}
+
+// and on the map's station card, where the position's result is shown (GH-4011): the box and its note after a press, and
+// the "Stored" control, closed and open, once the box is ticked
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  test(`/map station card with the option to keep the position, then the Stored control, in ${language}, fits at 320px`, async ({ page, context, baseURL }) => {
+    await mockBackend(page, baseURL!, {})
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await context.grantPermissions(['geolocation'])
+    await context.setGeolocation({ latitude: 53.5412, longitude: 10.1987 })
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto('/map')
+    const press = page.getByTestId('use-my-location-button')
+    await expect(press).toBeVisible({ timeout: 30_000 })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+    await press.click()
+    const box = page.getByTestId('use-my-location-remember')
+    await expect(box).toBeVisible({ timeout: 30_000 })
+    await settle(page)
+    expect(await offendersOf(page), `the card with the option in ${language} at 320px`).toEqual([])
+
+    await box.click()
+    const chip = page.getByTestId('use-my-location-stored')
+    await expect(chip).toBeVisible()
+    await chip.click()
+    await expect(page.getByTestId('use-my-location-remembered')).toBeVisible()
+    await settle(page)
+    expect(await offendersOf(page), `the card with the Stored control open in ${language} at 320px`).toEqual([])
+    const inside = await page.getByTestId('use-my-location-remembered').evaluate((el) => {
+      const rect = el.getBoundingClientRect()
+      return rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1
+    })
+    expect(inside, `the details on the card in ${language}`).toBe(true)
+  })
+}

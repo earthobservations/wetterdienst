@@ -47,7 +47,9 @@ test.describe('with the position allowed', () => {
     await open(page, baseURL!, '/meteogram', en.meteogram.title)
     // nothing is asked of the browser or of the backend by a page that is only opened
     expect(asked.filter(query => query.latitude)).toEqual([])
-    await expect(page.getByText(en.location.note)).toBeVisible()
+    // and only the button is shown at first: the box and its note come after a press (GH-4011)
+    await expect(page.getByText(en.location.note)).toHaveCount(0)
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
 
     const button = page.getByRole('button', { name: en.location.button })
     // the forecast of the station found is then asked for
@@ -57,6 +59,9 @@ test.describe('with the position allowed', () => {
     const chip = page.getByTestId('station-picker-chips').getByRole('button', { name: /HAMBURG-FUHLSBUETTEL/ })
     await expect(chip).toBeVisible()
     await expect(page.getByTestId('use-my-location-status')).toHaveText(/^Nearest station: HAMBURG-FUHLSBUETTEL \(10147\), \d+(\.\d)? km from your position\.$/)
+    // a position is in hand and nothing is stored: the box, unticked, and the note, which the button is described by
+    await expect(page.getByRole('checkbox', { name: en.location.remember })).not.toBeChecked()
+    await expect(page.getByText(en.location.note)).toBeVisible()
     // the one request that carries the position: rounded to two decimals, ranked by one, to the app's own backend
     const located = asked.filter(query => query.latitude)
     expect(located).toHaveLength(1)
@@ -90,6 +95,116 @@ test.describe('with the position allowed', () => {
     // the station is in the address, and the position is not
     await expect(page).toHaveURL(/station=10147/)
     expect(page.url()).not.toMatch(/lat=|lon=|53\.54/)
+  })
+})
+
+test.describe('the stored position', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  const stored = (page: Page) => page.evaluate(() => localStorage.getItem('wd-location'))
+
+  test('is told by a control beside the button, kept over a reload, and forgotten with the keyboard, which puts the focus back on the button (GH-4010, GH-4011)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/meteogram', en.meteogram.title)
+    const button = page.getByTestId('use-my-location-button')
+    const box = page.getByRole('checkbox', { name: en.location.remember })
+    const chip = page.getByRole('button', { name: en.location.storedLabel })
+
+    // press, tick: the control takes the box's and the note's place, and the focus
+    await button.click()
+    await box.click()
+    await expect(chip).toBeVisible()
+    await expect(chip).toHaveText(en.location.stored)
+    await expect(chip).toBeFocused()
+    await expect(box).toHaveCount(0)
+    await expect(page.getByText(en.location.note)).toHaveCount(0)
+    expect(JSON.parse((await stored(page))!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+
+    // a later visit shows it at once, with no box, no note and nothing asked of the browser or the backend
+    asked.length = 0
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.meteogram.title)
+    await expect(chip).toBeVisible()
+    await expect(box).toHaveCount(0)
+    await expect(page.getByText(en.location.note)).toHaveCount(0)
+    expect(asked.filter(query => query.latitude)).toEqual([])
+
+    // the keyboard opens it to the position and the way to forget it, and Escape closes it again with the focus on it
+    await chip.focus()
+    await page.keyboard.press('Enter')
+    await expect(chip).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByTestId('use-my-location-remembered')).toContainText('53.54, 10.2')
+    // from "Forget" as well as from the control: the details close and the focus is on the control, not lost with them
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: en.location.forget })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('use-my-location-remembered')).toHaveCount(0)
+    await expect(chip).toBeFocused()
+
+    // opened again (a disclosure: the focus stays on the control), the next Tab is "Forget", which follows it in the tab
+    // order, and the one after it goes on to the next control of the page, not out of it or round in a loop
+    await page.keyboard.press('Enter')
+    const forget = page.getByRole('button', { name: en.location.forget })
+    await expect(chip).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(forget).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect.poll(() => page.evaluate(() => {
+      const active = document.activeElement
+      return active !== null && active !== document.body && !active.closest('[data-testid="use-my-location-remembered"]') && active.getAttribute('data-testid') !== 'use-my-location-stored'
+    })).toBe(true)
+    await page.keyboard.press('Shift+Tab')
+    await expect(forget).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(chip).toHaveCount(0)
+    await expect(button).toBeFocused()
+    expect(await stored(page)).toBeNull()
+    await expect(box).toHaveCount(0)
+
+    // press, tick again: stored again, and the control is back (GH-4010: it stored nothing)
+    await button.click()
+    await box.click()
+    await expect(chip).toBeVisible()
+    expect(JSON.parse((await stored(page))!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+  })
+})
+
+test.describe('the stored position, on the map', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  test('is offered on the station card that the press picked, kept there, and forgotten there, with one copy of the option in the page at a time (GH-4011)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', en.mapTool.title)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    const box = page.getByRole('checkbox', { name: en.location.remember })
+    const chip = page.getByRole('button', { name: en.location.storedLabel })
+
+    // the list has the button, and the option once a position is found; the station card replaces the list
+    await page.getByTestId('use-my-location-button').click()
+    await expect(page.getByTestId('map-station-name')).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await expect(page.getByTestId('use-my-location-button')).toHaveCount(0)
+    await expect(box).toHaveCount(1)
+    await expect(box).toBeVisible()
+    await expect(page.getByText(en.location.note)).toHaveCount(1)
+    expect(await page.evaluate(() => localStorage.getItem('wd-location'))).toBeNull()
+
+    await box.click()
+    await expect(chip).toHaveCount(1)
+    await expect(chip).toBeFocused()
+    await expect(box).toHaveCount(0)
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('wd-location')))!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: en.location.forget })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(chip).toHaveCount(0)
+    await expect(page.getByTestId('map-station-name')).toBeFocused()
+    expect(await page.evaluate(() => localStorage.getItem('wd-location'))).toBeNull()
+
+    // back to the list: the button alone again
+    await page.getByTestId('map-back').click()
+    await expect(page.getByTestId('use-my-location-button')).toBeVisible()
+    await expect(box).toHaveCount(0)
+    await expect(chip).toHaveCount(0)
   })
 })
 

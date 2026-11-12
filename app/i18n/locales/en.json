@@ -778,6 +778,8 @@
     "privacyLink": "More in the privacy policy",
     "remembered": "Remembered position: {position}",
     "forget": "Forget my position",
+    "stored": "Stored",
+    "storedLabel": "Stored: my position in this browser",
     "denied": "Your browser blocks location for this site. To allow it, open the site settings of your browser, set Location to Allow and press the button again. The search still works.",
     "unsupported": "This browser cannot tell your position. Use the search instead.",
     "unavailable": "Your position could not be found. Use the search instead.",

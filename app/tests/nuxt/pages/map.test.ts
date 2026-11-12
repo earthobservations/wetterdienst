@@ -1667,6 +1667,13 @@ describe('the reader\'s own position', () => {
     clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
   })
   const locate = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="use-my-location-button"]')
+  /** Opens the Stored control and presses "Forget my position" in its popover, which is teleported to the body */
+  async function forgetFromStored(wrapper: Awaited<ReturnType<typeof mountMap>>) {
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="use-my-location-stored"]').trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+  }
 
   it('is asked for by the button alone: a map that is only opened asks the browser nothing', async () => {
     const getCurrentPosition = mockBrowser()
@@ -1752,15 +1759,54 @@ describe('the reader\'s own position', () => {
     mockBrowser()
     const wrapper = await mountMap()
     await listed(wrapper)
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 53.54, longitude: 10.2 }))
-    // the button is in the list of the panel, which a station picked replaces: back to it
+    // the button is in the list of the panel, which the station card replaces: the card shows the option to keep the
+    // position (GH-4011), and the list is not in the page, so there is one copy of it to tab to
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    expect(wrapper.findAll('button[role="checkbox"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="use-my-location-note"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="use-my-location-button"]').exists()).toBe(false)
+    expect(wrapper.find('.map-detail [data-testid="use-my-location"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(false)
+    expect(localStorage.getItem('wd-location')).toBeNull()
+
+    // ticked, the box gives way to the Stored control, on the card, and the position is kept
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.map-detail [data-testid="use-my-location-stored"]').exists()).toBe(true))
+    expect(wrapper.findAll('[data-testid="use-my-location-stored"]')).toHaveLength(1)
+    expect(wrapper.find('button[role="checkbox"]').exists()).toBe(false)
+    expect(JSON.parse(localStorage.getItem('wd-location')!)).toEqual({ latitude: 53.54, longitude: 10.2 })
+
+    // forgotten from the card: the mark and the position go, the station stays, and the focus goes to the card's heading
+    await forgetFromStored(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(localStorage.getItem('wd-location')).toBeNull()
+    expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(false)
+    expect(wrapper.find('button[role="checkbox"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL')
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('[data-testid="map-station-name"]').element))
+  })
+
+  it('shows the option on the list again, with the button, after the way back from the card', async () => {
+    mockBrowser()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-back"]').exists()).toBe(true))
     await wrapper.find('[data-testid="map-back"]').trigger('click')
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-forget"]').exists()).toBe(true))
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
-    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    // the list has the full copy, and the card's is gone with it: one box, one note, and the button
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-button"]').exists()).toBe(true))
+    expect(wrapper.findAll('button[role="checkbox"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="use-my-location-note"]')).toHaveLength(1)
+  })
+
+  it('shows no option on a card whose station the reader picked themselves', async () => {
+    mockBrowser()
+    const wrapper = await mountMap('/map?station=10147')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
+    expect(wrapper.find('.map-detail [data-testid="use-my-location"]').exists()).toBe(false)
   })
 
   it('is forgotten by the panel as well: a position with no station within reach leaves no place and no notice behind', async () => {
@@ -1768,12 +1814,13 @@ describe('the reader\'s own position', () => {
     mockBrowser({ fix: { latitude: 0.0004, longitude: 0.0004 } })
     const wrapper = await mountMap()
     await listed(wrapper)
-    await wrapper.find('button[role="checkbox"]').trigger('click')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
     expect(stage.props.position).toEqual({ latitude: 0, longitude: 0 })
 
-    await wrapper.find('[data-testid="use-my-location-forget"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await forgetFromStored(wrapper)
     await vi.waitFor(() => expect(stage.props.position).toBeNull())
     expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(false)
   })

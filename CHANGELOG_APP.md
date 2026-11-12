@@ -18,12 +18,24 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" shows only its
+  button at first. After a press, with a position found, the box "Remember my position in this
+  browser" and its note appear under it; once a position is stored, a compact "Stored" control
+  beside the button replaces them, and opens the position and "Forget my position". On the map the
+  option is also on the station card that a press picked. Nothing new is kept in the browser, and
+  the note's text is unchanged; the privacy policy (en, de) says where the box and "Forget my
+  position" are now, and no longer offers to untick the box (GH-4011)
 - `[Translations]` French calls the app's settings "Réglages" (it was "Paramètres", the word for the
   measured parameters on the same pages), and Dutch calls the legal notice "Juridische informatie"
   instead of "Colofon" (GH-2610)
 
 ### Fixed
 
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` After "Forget my position", ticking
+  "Remember my position in this browser" again showed the box ticked while nothing was stored, and
+  "Forget my position" did not come back. The box is now offered only while a position is in hand,
+  so ticking it always stores that position, and "Forget" puts the focus back on the button
+  (GH-4010)
 - `[Forecast]` The run picker writes a run's date and time as the page's language does
   ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every
   language (GH-2610)
