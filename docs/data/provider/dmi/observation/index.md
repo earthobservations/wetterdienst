@@ -162,19 +162,19 @@ them and stamped by `from`, so a reading at minute 0 lies an hour after its stam
 value may lie up to one hour from its stamp, and the library does not tell the two apart (this would need a second
 request to metObs for each station).
 
-DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
+DMI says of `temp_grass`, `temp_soil_30`, `leaf_moisture` and `vapour_pressure_deficit_mean` (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
 by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. DMI customer
 service said the same of `temp_grass`, `leaf_moisture` and `vapour_pressure_deficit_mean` on 2026-11-12. The library
-marks no value for that, as `qcStatus` is no verdict (see [the check `source`](../../../plausibility.md#the-sources-own-verdict-source)). The library
-holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
+marks no value for that, as `qcStatus` is no verdict (see
+[the check `source`](../../../plausibility.md#the-sources-own-verdict-source)). The library holds the five new
+parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
 the deficit -10 to 200 hPa, the temperatures those of their families), so what lies outside is null with
 `rejected:range` and the number kept as `raw:`; values that cannot be real and lie inside are among what it returns.
 The examples are not a list. Leaf wetness: the daily `leaf_moisture` is a sum although DMI's calculation table says
 "average of all hourly values within a day", as 1332.0 at 06135 on 2025-06-10 and 364.0 on the 12th, which no mean of
 minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, show, so it is the minutes of the day, 0 to 1440;
 DMI customer service confirms it (2026-11-12): the sum of the hourly values, computed only when at least 22 hourly
-values exist;
-some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is within the span and 5 % more; negative
+values exist; some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is within the span and 5 % more; negative
 days down to -799.0 at 06041 on 2023-03-05 and at three more stations in the first quarter of 2023, which are null)
 and so are some hours (62.0 at 06019 on 2022-05-24, which stays; -33.0 at 06041 on 2023-03-05, which is null). Grass
 temperature: -48.0 °C by the hour at 06056 in July 2022 and 50.9 °C by the day at 06065 in 2013, both inside the range
@@ -203,11 +203,12 @@ in October and November 2026. 21 of those stations, such as 20119, 20315 and 315
 climate data. The library reads the climate data only, so it serves no snow cover after 2015-11-21.
 
 The mean vapour pressure (`pressure_vapor_mean`) is not checked itself: DMI computes it from the checked mean
-temperature and mean relative humidity (DMI customer service, 2026-11-12). For Greenland and the Faroe Islands the
-hourly, daily, monthly and yearly values are computed from however many values exist, even from a single one, and DMI
+temperature and mean relative humidity (DMI customer service, 2026-11-12), and its records still carry `qcStatus`
+`manual`, which here refers to those two inputs. For Greenland and the Faroe Islands the daily, monthly and yearly
+values (and the hourly ones they are computed from) are computed from however many values exist, even from a single one, and DMI
 publishes the number of values behind each in the field `noValuesInCalculation` of the record. The library does not
 read the field. At 04219 (Qeqertarsuaq Heliport), whose count has fallen and which is inactive for parts of the year, the
-daily records of 2026-01-08 to 2026-01-15 hold 0.0 hPa from 1 or 2 values (with `validity:false`), the one of 2026-03-03
+five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa from 1 or 2 values (with `validity:false`), the one of 2026-03-03
 16.8 from 2 values and the one of 2026-04-20 0.0 from 7, so a value that cannot be real can stand on one reading.
 
 ## Parameters DMI lists that are not served

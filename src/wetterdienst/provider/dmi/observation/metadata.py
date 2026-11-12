@@ -185,12 +185,13 @@ _RADIATION_SUM = {
 }
 # The mean vapour pressure, from the hourly values of the mean temperature and the mean relative humidity
 # (DMI: "calculation method of mean_vapour_pressure"), published from the day on. It is not checked itself, only the
-# two it is computed from are. For Greenland and the Faroe Islands DMI computes the hourly, daily, monthly and yearly
-# value from however many values exist, even one, and publishes how many in the field `noValuesInCalculation` of
-# every record (DMI customer service, 2026-11-12): at 04219 (Qeqertarsuaq Heliport) the daily records of 2026-01-08 to
-# 2026-01-15 hold 0.0 hPa, marked `validity:false`, from 1 or 2 values, and that of 2026-04-20 from 7. The reader
-# does not read the count (`_STATION_VALUE_SCHEMA` in `api.py`): serving it, or flagging by it, is the maintainer's
-# to decide (GH-3762).
+# two it is computed from are (its records still carry `qcStatus` `manual`, which here refers to those two). For
+# Greenland and the Faroe Islands DMI computes the daily, monthly and yearly value (and the hourly ones they are
+# computed from) from however many values exist, even one, and publishes how many in the field
+# `noValuesInCalculation` of every record (DMI customer service, 2026-11-12): at 04219 (Qeqertarsuaq Heliport) the
+# five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa, marked `validity:false`, from 1 or 2 values, and
+# that of 2026-04-20 from 7. The reader does not read the count (`_STATION_VALUE_SCHEMA` in `api.py`): serving it, or
+# flagging by it, is the maintainer's to decide (GH-3762).
 _VAPOUR_PRESSURE = {
     "name": "pressure_vapor_mean",
     "name_original": "mean_vapour_pressure",

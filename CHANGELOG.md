@@ -42,12 +42,8 @@ Types of changes:
 
 ### Fixed
 
-- The DMI docs said that DMI publishes `snow_cover` only until 2015-11-21. Its climate data holds
-  none after that day at any station and in no season, but DMI still observes it and publishes it
-  as the metObs parameter `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read,
-  so a query still answers nothing after 2015-11-21. The docs now say so, that `leaf_moisture`,
-  `temp_grass` and `vapour_pressure_deficit_mean` are not quality-controlled by DMI, and that
-  `mean_vapour_pressure` of Greenland and the Faroe Islands can rest on a single value (GH-3762)
+- The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
+  `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
 - The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
   each on the polygon it lies in; they were dropped. The district warnings for Kreis Rastatt
   (the Baden-Baden enclave) and the sea east of Rügen (islands) now have them in the GeoJSON, JSON
