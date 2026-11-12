@@ -107,6 +107,12 @@ WINDOW_NOT_CLOSED = "window-not-closed"
 #: which a station without a parameter is the ordinary case of
 SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 
+#: the code of the warning an MCP tool's `values` or `stations` answer carries when it was cut to the size budget
+#: (`ui.budget`, GH-4022): the rows that are not in it, and how to ask for them. Only a tool's answer is ever cut, the
+#: REST API, the command line and the library answer all of it. The `message` is the note, which for a CSV is the
+#: `X-Wetterdienst-Truncated` header too
+ANSWER_TRUNCATED = "answer-truncated"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.

@@ -325,10 +325,13 @@ what the answer is missing:
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
-  below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below) and
+  below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below),
   `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
-  answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)). Codes are added as more are told; a
-  client reads the ones it knows.
+  answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)) and `answer-truncated` (the answer
+  of an [MCP tool](mcp.md#the-size-of-an-answer) was cut to 40,000 characters; its message says how many rows are
+  returned, the range kept, and the `timestamp` to ask for next. Only a tool's `values` and `stations` raise it: the
+  REST API, the command line and Python answer all of it). Codes are added as more are told; a client reads the ones it
+  knows.
 
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
@@ -572,6 +575,7 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Processing` | `processing_note` |
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
+| `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
 
 A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
 carry, is percent-encoded UTF-8;

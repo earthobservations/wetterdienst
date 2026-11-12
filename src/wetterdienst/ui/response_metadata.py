@@ -39,7 +39,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import format_timestamp
-from wetterdienst.util.response_warnings import ResponseWarning, recorded_warnings
+from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -529,6 +529,10 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     headers["X-Wetterdienst-Processing"] = _header_text(metadata.processing_note)
     if metadata.warnings:
         headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
+    # the note of a tool's answer that was cut (GH-4022): a CSV has no block to carry it, and a client that reads
+    # none of the body finds it here
+    if truncated := next((w["message"] for w in metadata.warnings if w["code"] == ANSWER_TRUNCATED), None):
+        headers["X-Wetterdienst-Truncated"] = _header_text(truncated)
     return headers
 
 

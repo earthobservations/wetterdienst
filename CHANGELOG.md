@@ -39,6 +39,13 @@ Types of changes:
   `WD_AUTH__KNMI` (`auth.knmi`), the Open Data key, is ignored with a warning, and a request with only that key
   is refused with a message that says so. Rows, stamps, codes and flags are the files'. The quota is 1,000
   requests an hour: a query that takes more is refused with its count (GH-3928)
+- **Breaking** (MCP clients): the `values` and `stations` tools cut an answer to 40,000
+  characters, `metadata` included, in every data format, and say so in an `answer-truncated`
+  warning (for CSV also the `X-Wetterdienst-Truncated` header and the tool's sentence). `values`
+  keeps whole timestamps: the end nearest to now, or the start of the `timestamp` window if one is
+  given, and the note names the next window. `stations` without `rank`, `distance` or `name` keeps
+  the first stations and says how many match. Ask for a `timestamp` window, or use the REST API or
+  the library for everything; REST, command line and Python are unchanged (GH-4022)
 
 ### Fixed
 
