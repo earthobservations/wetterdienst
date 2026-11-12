@@ -33,6 +33,10 @@ export function useMyLocation() {
   const failure = useState<LocationFailure | null>('wd-location-failure', () => null)
   const busy = useState<boolean>('wd-location-busy', () => false)
   const remember = useState<boolean>('wd-location-remember', () => false)
+  /** The browser refused to keep the position (blocked or full storage): it is for this visit only, and the reader is told (GH-4014) */
+  const notKept = useState<boolean>('wd-location-not-kept', () => false)
+  /** How many times the browser refused: the alert is keyed on it, so that a second refusal is announced again (GH-4014) */
+  const notKeptCount = useState<number>('wd-location-not-kept-count', () => 0)
   /** Whether the storage was looked at in this visit: once, when a component first asks, as a client-side read */
   const loaded = useState<boolean>('wd-location-loaded', () => false)
 
@@ -47,6 +51,12 @@ export function useMyLocation() {
 
   /** Whether the position in hand is the one remembered in this browser */
   const remembered = computed(() => remember.value && position.value !== null)
+
+  /** The browser did not keep the position: the reader is told, each time */
+  function refused() {
+    notKept.value = true
+    notKeptCount.value++
+  }
 
   /** The state of the permission as the Permissions API tells it, or null where it cannot */
   async function permissionState(): Promise<PermissionState | null> {
@@ -79,6 +89,7 @@ export function useMyLocation() {
    */
   async function locate(): Promise<Point | null> {
     failure.value = null
+    notKept.value = false
     if (position.value && remember.value)
       return position.value
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -101,8 +112,13 @@ export function useMyLocation() {
       if (mine !== latestPress)
         return null
       position.value = fix
-      if (remember.value)
-        writeRememberedPosition(fix)
+      // "remember" was ticked while this press waited: the new position replaces the stored one, or, where the browser
+      // refuses it now, the old one is not kept either (the control would name a position that is not the one in hand)
+      if (remember.value && !writeRememberedPosition(fix)) {
+        forgetRememberedPosition()
+        remember.value = false
+        refused()
+      }
       return fix
     }
     catch (error) {
@@ -123,23 +139,35 @@ export function useMyLocation() {
    * Ticks "remember": the position in hand is kept in the browser. It cannot be ticked with no position in hand
    * (GH-4010): there would be nothing to keep, and the state would say that something is kept when nothing is. The
    * component shows the box only while a position is in hand. There is no unticking: the box gives way to the "Stored"
-   * control once the position is stored, and `forget()` is the one way back.
+   * control once the position is stored, and `forget()` is the one way back. It is ticked only if the browser kept the
+   * position: where it refuses (GH-4014), `remember` stays off, `notKept` is set, and the box stays for another try.
    */
   function rememberPosition() {
     if (!position.value)
       return
+    if (!writeRememberedPosition(position.value)) {
+      refused()
+      return
+    }
+    notKept.value = false
     remember.value = true
-    writeRememberedPosition(position.value)
   }
 
-  /** The position is forgotten: in memory and in the browser */
+  /**
+   * The position is forgotten: in memory and in the browser. What is in flight goes too (GH-4014): a press that still
+   * waits for the browser is dropped, as a later press would drop it, so that its answer does not bring the position
+   * back for the visit. The pages drop their lookups of the nearest station when the position goes.
+   */
   function forget() {
+    latestPress++
+    busy.value = false
     position.value = null
     remember.value = false
+    notKept.value = false
     failure.value = null
     forgetRememberedPosition()
     dropPositionPlace()
   }
 
-  return { position, failure, busy, remember, remembered, locate, rememberPosition, forget }
+  return { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget }
 }
