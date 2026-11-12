@@ -29,6 +29,7 @@ import {
   TAP_RADIUS_PX,
   yearOf,
 } from '../../app/utils/map-tool'
+import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
 // what the address says of the map.
@@ -126,6 +127,18 @@ describe('a distance as a reader says it', () => {
   ])('%s km in %s is %s', (km, locale, text) => {
     // the unit and the number are written the way the language does; a no-break space may stand between them
     expect(formatDistance(km, locale).replace(/\u202F|\xA0/g, ' ')).toBe(text)
+  })
+
+  it('writes Luxembourgish as German, where the browser has no data for it', () => {
+    // Chrome has none and would write the system's language: here English, "3.2 km"
+    const chrome = chromeWithoutLuxembourgish()
+    try {
+      expect(formatDistance(3.24, 'lb').replace(/\u202F|\xA0/g, ' ')).toBe('3,2 km')
+      expect(chrome.passed.filter(language => language.startsWith('lb'))).toEqual([])
+    }
+    finally {
+      chrome.restore()
+    }
   })
 })
 

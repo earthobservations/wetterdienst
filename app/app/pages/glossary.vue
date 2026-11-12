@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '#shared/types/api'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const formatLanguage = useFormatLanguage()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('glossary.title') })
@@ -11,7 +12,7 @@ const { unitTypeLabel } = useUnitTypeLabel()
 // Sorting the translated labels with the default comparison orders them by code point, which puts
 // German "Ökologie" after "Zenit" and Czech "Čas" last instead of first. A collator for the active
 // language puts each where a reader of that language looks for it.
-const collator = computed(() => new Intl.Collator(locale.value, { numeric: true }))
+const collator = computed(() => new Intl.Collator(formatLanguage.value, { numeric: true }))
 
 // the whole vocabulary in one call -- around 500 entries, small enough to filter in the browser
 // and it saves a round trip per keystroke

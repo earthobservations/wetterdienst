@@ -5,10 +5,10 @@ import type { ChartTheme, SeriesLabel } from '~/utils/chart-theme'
 import type { MeteogramView } from '~/utils/meteogram'
 import type { Quantity } from '~/utils/units'
 import type { WeatherKind } from '~/utils/weather-kind'
-import { DateTime } from 'luxon'
+import { DateTime, Info } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
+import { formatDayMonth, formatHour, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 import { fitAxisTitle, MARGIN_LEFT, MARGIN_RIGHT, plotWidth, tickStepHours } from '~/utils/meteogram-ticks'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
@@ -34,10 +34,11 @@ const props = defineProps<{
   units?: Record<string, string>
 }>()
 
-const { t, locale, localeProperties } = useI18n()
+const { t, locale } = useI18n()
 
-// The language's own tag (`en-GB`, `de-DE`), which the date formats read, where `locale` is the app's code (`en`)
-const language = computed(() => localeProperties.value.language ?? locale.value)
+// The language's own tag (`en-GB`, `de-DE`) where `locale` is the app's code (`en`), with the stand-in for a language
+// the browser has no data for (`lb-LU` is written as `de-LU`): what the date formats, `Intl` and luxon are handed
+const formatLanguage = useFormatLanguage()
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
@@ -319,7 +320,9 @@ const stationTimeZone = computed(() => {
   if (latitude == null || longitude == null)
     return 'UTC'
   try {
-    return tzLookup(latitude, longitude)
+    const zone = tzLookup(latitude, longitude)
+    // a zone the browser does not know would make every date of the chart invalid
+    return Info.isValidIANAZone(zone) ? zone : 'UTC'
   }
   catch {
     return 'UTC'
@@ -511,7 +514,7 @@ const compactDays = computed(() => {
     if (dt.toMillis() === last.toMillis() && maxTime + endStep < endUTC) {
       partialHours = Math.max(1, Math.round((maxTime + endStep - Math.max(startUTC, minTime)) / 3_600_000))
     }
-    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday, partialHours })
+    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, formatLanguage.value), dayMonth: formatDayMonth(dt, formatLanguage.value), tempLabel, precipLabel, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
   // Limit number of days shown in compact mode for readability
@@ -569,7 +572,7 @@ const chartTable = computed(() => {
   if (!times.length)
     return null
 
-  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(language.value).toLocaleString(DateTime.DATETIME_SHORT)
+  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(formatLanguage.value).toLocaleString(DateTime.DATETIME_SHORT)
   const main = columns.findIndex(column => column.main)
   const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
   return {
@@ -1194,15 +1197,7 @@ async function renderChartActual() {
   const isoDates = isoMs.map(m => new Date(m))
 
   // Determine timezone
-  let stationTZ = 'UTC'
-  if (props.stationCoords?.latitude != null && props.stationCoords?.longitude != null) {
-    try {
-      stationTZ = tzLookup(props.stationCoords.latitude, props.stationCoords.longitude)
-    }
-    catch {
-      stationTZ = 'UTC'
-    }
-  }
+  const stationTZ = stationTimeZone.value
 
   // Build custom tick values & labels
   let customTickVals: string[] | undefined
@@ -1224,17 +1219,8 @@ async function renderChartActual() {
     const tickText: string[] = []
     for (let t = startTick; t <= displayMaxTime; t += tickMs) {
       tickVals.push(new Date(t).toISOString())
-      try {
-        const utcDt = DateTime.fromMillis(t, { zone: 'UTC' })
-        const localDt = utcDt.setZone(stationTZ)
-        const label = localDt.toFormat('HH:mm')
-        tickText.push(label)
-      }
-      catch {
-        const d = new Date(t)
-        const label = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
-        tickText.push(label)
-      }
+      // the hour as the language writes a time of day (Danish "04.00"), in the station's zone
+      tickText.push(formatHour(t, formatLanguage.value, stationTZ))
     }
     customTickVals = tickVals
     customTickText = tickText
@@ -1352,13 +1338,13 @@ async function renderChartActual() {
     const tenAm = localDt.plus({ hours: 10 }).toJSDate()
     if (tenAm.getTime() < minTime || tenAm.getTime() > displayMaxTime)
       continue
-    const dayMonth = formatDayMonth(localDt, language.value)
+    const dayMonth = formatDayMonth(localDt, formatLanguage.value)
     const isWeekend = localDt.weekday >= 6 // 6=Sat, 7=Sun in Luxon
     // On narrow screens drop the date suffix to prevent overlap; shrink font below 50 px/day.
     const annotFontSize = dayWidthPx < 50 ? 10 : 12
     // The date is 7.4 px per character wide or more: 59 px for the eight characters of "Mo 05.10", which
     // a language that writes the date longer ("Čt 15. 10.") needs more of
-    const weekday = weekdayShort(localDt, language.value)
+    const weekday = weekdayShort(localDt, formatLanguage.value)
     const annotText = dayWidthPx < 7.4 * `${weekday} ${dayMonth}`.length
       ? `<b>${weekday}</b>`
       : `<b>${weekday}</b> ${dayMonth}`
@@ -1961,7 +1947,7 @@ async function renderChartActual() {
       showgrid: false,
       linecolor: 'rgba(0,0,0,0)',
       tickformat: '%H',
-      hoverformat: plotlyHoverFormat(language.value),
+      hoverformat: plotlyHoverFormat(formatLanguage.value),
       dtick: 6 * 3_600_000,
       tickfont: { size: TICK_FONT, color: TICK },
       tickcolor: W(0.25),
@@ -2053,7 +2039,7 @@ async function renderChartActual() {
 
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches
   // the weekday of the hover heading is written by Plotly, which knows English only unless it is given the language
-  const config = { responsive: true, displayModeBar: false, ...(await plotlyLocaleConfig(locale.value, language.value)), ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
+  const config = { responsive: true, displayModeBar: false, ...(await plotlyLocaleConfig(locale.value, formatLanguage.value)), ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
 
   if (chartRef.value) {
     try {
