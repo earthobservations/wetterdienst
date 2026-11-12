@@ -4748,3 +4748,169 @@ def test_the_berlin_case_flags_the_records_a_model_names_from_memory() -> None:
         "records-from-memory"
         not in _evaluate_calls("unanswerable-berlin-1500", glossary_call, answer=read)["violations"]
     )
+
+
+# ------------------------------------------------ after the reference baseline: verdicts, batch headers, todo --dir
+
+
+def _judgeable_analysis(path: Path) -> Path:
+    """Write a complete analysis of the glossary run of repeat 1, as `trial` leaves it, with the file's conditions."""
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "case": GLOSSARY,
+                "tier": "small",
+                "repeat": 1,
+                "steps": 1,
+                "max_steps": 4,
+                "checkpoints": {"k": 1, "n": 1},
+                "violations": [],
+                "model": "claude-haiku-5-5",
+                "mechanical_pass": True,
+                "invalid": False,
+                "calls": [],
+                "run_meta": {
+                    "label": "abc1234",
+                    "wetterdienst_version": "9.9.9",
+                    "model_requested": "haiku",
+                    "prompt_template": bench.prompt_version(),
+                    "prompt_date": "2026-11-12",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.mark.parametrize(
+    ("fact_results", "message"),
+    [
+        ({"nonsense": "ok"}, "'nonsense' is no fact of glossary-temperature-air-mean-2m"),
+        ({"unit": "yes"}, "the verdict of 'unit' is 'yes'"),
+        ({"unit": "fail"}, "the verdict of 'unit' is 'fail'"),
+        ({"unit": "fail:"}, "the verdict of 'unit' is 'fail:'"),
+        ({"unit": "fail: wrong unit"}, "use --facts fail"),
+    ],
+)
+def test_judge_refuses_a_verdict_that_is_none_or_contradicts_the_facts(
+    tmp_path: Path,
+    mcp_url: str,
+    fact_results: dict[str, str],
+    message: str,
+) -> None:
+    """Ids are the case's facts and a verdict is `ok`, `fail: why` or `drift: how`; `fail:` beside `ok` is none."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url)
+    analysis = _judgeable_analysis(tmp_path / "runs" / "a.analysis.json")
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        bench.judge_run(results_path, analysis, is_answer=True, facts_ok=True, fact_results=fact_results)
+    assert json.loads(results_path.read_text(encoding="utf-8"))["runs"] == []
+
+
+def test_judge_takes_a_failed_fact_a_drift_and_the_command_line_checks_its_words(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`fail: why` with `--facts fail` and `drift: how` with `--facts ok` go in; a word that is no choice exits 2."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url)
+    analysis = _judgeable_analysis(tmp_path / "runs" / "a.analysis.json")
+    base = ["judge", "--results", str(results_path), "--analysis", str(analysis), "--is-answer", "yes"]
+
+    assert bench.main([*base, "--facts", "fail", "--fact", "unit=fail: said kelvin", "--fact", "meaning=ok"]) == 0
+    assert bench.main([*base, "--facts", "ok", "--fact", "unit=drift: now in K", "--replace-valid"]) == 0
+    capsys.readouterr()
+    assert bench.main([*base, "--facts", "ok", "--fact", "unit", "--replace-valid"]) == 2
+    assert "--fact takes ID=VERDICT" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as stopped:
+        bench.main([*base, "--facts", "facts_ok"])
+    assert stopped.value.code == 2
+    assert "invalid choice: 'facts_ok' (choose from" in capsys.readouterr().err
+    (record,) = json.loads(results_path.read_text(encoding="utf-8"))["runs"]
+    assert record["facts_ok"] is True
+    assert record["fact_results"] == {"unit": "drift: now in K"}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_a_batch_names_each_run_in_a_header_and_the_order_it_started_them_in(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Runs finish in any order: each prints under `=== [k/N] case | tier | repeat | model ===`, after the plan."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url, repeats=3)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript())
+    scratch = tmp_path / "scratch"
+
+    assert bench.batch(results_path, scratch, limit=3, parallel=3, timeout=20, max_usd=0.1) == 0
+
+    out = capsys.readouterr().out
+    assert out.startswith("batch: 3 runs, 3 at a time, started in this order")
+    assert f"{GLOSSARY}-small-1, {GLOSSARY}-small-2, {GLOSSARY}-small-3" in out.splitlines()[0]
+    for repeat in (1, 2, 3):
+        header = f"=== {GLOSSARY} | small | repeat {repeat} | haiku ==="
+        assert re.search(rf"=== \[\d/3\] {GLOSSARY} \| small \| repeat {repeat} \| haiku ===", out)
+        saved = (scratch / f"{GLOSSARY}-small-{repeat}.trial.txt").read_text(encoding="utf-8")
+        assert saved.startswith(header + "\n")
+        assert f"{GLOSSARY}-small-{repeat}: 1 steps of 4" in saved
+    assert re.findall(r"=== \[(\d)/3\] ", out) == ["1", "2", "3"]
+
+
+def test_todo_with_a_directory_marks_the_runs_that_wait_for_the_judge(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The guard's message names them; `todo --dir` shows them among the runs to do."""
+    results_path = tmp_path / "r.json"
+    _results_with_runs(results_path, mcp_url)
+    _write_analysis(tmp_path / "runs", 2)
+
+    assert bench.main(["todo", "--results", str(results_path), "--dir", str(tmp_path / "runs")]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.out.splitlines() == [
+        f"{GLOSSARY} small 1 haiku",
+        f"{GLOSSARY} small 2 haiku unjudged",
+        f"{GLOSSARY} small 3 haiku",
+    ]
+    assert "3 runs to do, 1 of them made and waiting for the judge" in captured.err
+    assert bench.main(["todo", "--results", str(results_path)]) == 0
+    assert "unjudged" not in capsys.readouterr().out
+
+
+def test_the_digest_shows_when_a_call_was_answered(tmp_path: Path) -> None:
+    """A forecast fact needs the time of the subject's call: its result's `retrieved_at` is in the digest."""
+    path = tmp_path / "a.analysis.json"
+    path.write_text(
+        json.dumps(
+            {
+                "case": GLOSSARY,
+                "tier": "small",
+                "repeat": 1,
+                "steps": 1,
+                "max_steps": 4,
+                "mechanical_pass": True,
+                "checkpoints": {"k": 1, "n": 1},
+                "violations": [],
+                "invalid_reason": None,
+                "format_violation": None,
+                "spilled_calls": 0,
+                "cost_usd": 0.001,
+                "mechanical_facts": {},
+                "calls": [
+                    {
+                        "n": 1,
+                        "tool": "values",
+                        "arguments": {},
+                        "ok": True,
+                        "result_chars": 5,
+                        "retrieved_at": "2026-11-12T09:34:05+00:00",
+                    }
+                ],
+                "answer": "x",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert "5 characters, retrieved_at 2026-11-12T09:34:05+00:00" in bench.digest_run(path)

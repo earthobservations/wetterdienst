@@ -46,7 +46,8 @@ after a baseline, unless your instruction asked for it: report and stop.
 3. **No credential.** The cases that need a provider key (`needs_key`: one, London) are never run, and you never ask for,
    read or pass a key.
 4. **GitHub: only comments on issue #3546 and one secret gist**, all through `gh` on `earthobservations/wetterdienst`
-   (Part 5). Never close, label, merge or edit anything.
+   (Part 5). Never close, label, merge or edit anything: **a comment of yours cannot be edited**; if one is wrong, post a
+   short correction comment that says what was wrong and what is right.
 5. **Stop processes by PID**, never by name (`pkill`, `killall`): the maintainer may have other servers running.
 6. **When something is unclear or breaks, stop and ask** (Part 7); do not guess.
 
@@ -219,9 +220,25 @@ and the analysis as `.analysis.json` next to it). Give each results file **its o
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" batch --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs-smoke" --limit 9 --parallel 3
 ```
 
-Run it in the background (`run_in_background`) and wait for its end: nine runs take a few minutes, at most `timeout` per run.
+A batch of nine runs takes 5 to 8 minutes (at most `timeout` per run, three waves of three), so it **can run in the
+foreground** within the Bash tool's 10-minute limit (`timeout: 600000`); the background (`run_in_background`) is for a larger
+`--limit`. If you start it in the shell's background (`... &`), wait for it by its PID, never with `pgrep -f "bench.py batch"`
+(which matches the `pgrep` itself and never ends):
+
+```bash
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" batch --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs-smoke" --limit 9 --parallel 3 > "$BENCH/batch.out" 2>&1 &
+echo $! > "$BENCH/batch.pid"
+while kill -0 "$(cat "$BENCH/batch.pid")" 2>/dev/null; do sleep 10; done
+cat "$BENCH/batch.out"
+```
+
 Use `--limit 9` (three waves of three) for the smoke run and the baseline alike, so that you judge in small batches and
-post progress as you go. For each run the command does the following, so you need not:
+post progress as you go. **The order of the runs is fixed: the whole `small` tier first, then the whole `large` tier** (each
+tier by case, a case by repeat), so a tier is done after 27 runs of the smoke run and after 135 of the baseline, and the
+"after each tier" comments of Part 5 land there (the baseline: at 135 and at 270). `batch` first prints the order it starts the
+runs in; the three that run at once finish in any order, so each prints under its own header,
+`=== [k/N] <case> | <tier> | repeat <n> | <model> ===` (k is the order of finishing), and the same header starts its
+`<case>-<tier>-<repeat>.trial.txt`. For each run the command does the following, so you need not:
 
 - writes the prompt (`bench.py prompt`, the date of the file), runs the tested model (`run_subject.sh`: Part "The tested
   model"), and analyzes the transcript (`bench.py analyze`);
@@ -232,7 +249,10 @@ post progress as you go. For each run the command does the following, so you nee
 **Judge every run of a batch before you start the next `batch`, and never let the two overlap.** A run that was made and is
 not judged yet is still in `todo`, so the next `batch` would make it again and pay for it twice. `batch` therefore **refuses to
 start** (exit 2, with the names of the runs) while runs of its directory wait for the judge; judge them, or, to make them again
-on purpose, pass `--allow-unjudged`.
+on purpose, pass `--allow-unjudged`. **One run you skipped blocks the next batch, which is correct.** To find it, read the
+message (it names the runs), or run `bench.py todo --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs-smoke"`, which lists
+the runs still to do and marks the ones that were made and wait for the judge with `unjudged`; judge them (Part 4), or put them
+aside (`--allow-unjudged` makes them again and pays again).
 
 **You may judge from a condensed digest.** The printed text of `batch` is already one: the counting's verdict, the calls (tool,
 arguments, ok, size), the answer and its `RESULT:` lines. To print it again, or to see the first characters of each call's result
@@ -274,6 +294,8 @@ the units, the placeholders, what an invented number is) are under "Judging rule
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" judge --results "$BENCH/mcpbench-results-smoke.json" --analysis "$BENCH/runs-smoke/<case>-<tier>-<repeat>.analysis.json" --is-answer yes --facts ok --fact meaning=ok --fact unit=ok --note "<what is worth remembering, or empty>"
 ```
 
+`judge` refuses a `--fact` whose id is no fact of the case or whose verdict is not `ok`, `fail: <why>` or `drift: <how>`, a
+`fail:` verdict beside `--facts ok`, and any `--facts` or `--is-answer` word other than the choices (exit 2, with the reason).
 `judge` computes `passed` (`mechanical_pass` and `is_answer`: never your word alone), drops the large `result_head` of each
 call, and puts the record in the file; it exits 2 with the reason if the file refuses it (a missing field, a case that is not
 in the file, a record of other conditions than the file's). A run that is `invalid` counts as neither answer nor facts.
@@ -365,6 +387,19 @@ names. These failures are known; the first column is what you see, the second wh
 | `gh` fails to post or create the gist | keep the comment in `$BENCH/comment-<n>.md`, retry once, then stop and report; the results file is safe in `$BENCH` |
 | anything not listed here | stop and ask |
 
+## Known false failures of the reference baseline
+
+The reference baseline (the clean run of 2026-11-12, `main` at `d18a37368`, cases file hash `6b5b33ac5cef`) holds one failure
+that is the case's and not the model's, and it stays in the numbers because the cases and the prompt are frozen with it:
+
+- **`observation-vienna-yesterday`**: the first checkpoint `find-station` accepts only `stations` calls (by name or by point).
+  A model that finds the station with `values` by name (`name=Wien`) reads the right Vienna station and answers right, and never
+  meets it, so the headline fails although the facts hold. It happened in 3 of 135 runs of the `small` tier and in 1 of 135 of
+  the `large` tier. Judge such a run as you would any other (`--is-answer yes`, the facts as they are): `passed` is computed
+  from the counting and stays `false`; say in the `--note` that it is this one. Do not change `cases.json` for it: the same
+  failure is in the baseline a later run is compared with. (`observation-paris-last-week` accepts `values` by name; this case
+  does not.)
+
 ## The tested model: what `run_subject.sh` runs, and what remains in its context
 
 A fair comparison needs a tested model that knows only the prompt and the tools. `bench.py run` (called by `batch`, `trial`
@@ -446,20 +481,29 @@ read from the stations the subject itself got listed, not from a call of yours).
    none (for `unanswerable`, saying there is no data is the answer). `passed = mechanical_pass and is_answer`:
    a run with no tool call never passes, even if it is right from memory, and a run that skipped the first
    checkpoint never passes.
-2. **`facts_ok`**: every fact of the case, against ground truth **you** obtain with your own calls (not steps of the
-   tested agent). Read the ground truth from the `reference`, never from the subject's own answers or the server
+2. **`facts_ok`** (the field of the record; the option of `judge` is `--facts ok` when every fact holds against your own
+   ground truth, `--facts fail` when any does not: nothing else is accepted, and `--is-answer` is `yes` or `no`): every fact of
+   the case, against ground truth **you** obtain with your own calls (not steps of the tested agent). Read the ground truth from the `reference`, never from the subject's own answers or the server
    under test alone, so that a change that rounds or drops a value cannot reproduce itself in the judge. Never copy a
    number from the case file: `expected` there only lets you say that the source has drifted.
    - `answer_regex`: the answer matches one of `any_of`.
    - `ground_truth_value`: make the call, pick what `pick` says, and the number in the answer is within `tolerance`.
    - `ground_truth_span`: every figure the answer gives lies in `[min - margin, max + margin]` of the series your call
-     returns and inside `sanity`; with `future_only`, it must belong to timestamps after the subject's call (a
-     forecast), so an observation fails.
+     returns and inside `sanity`; with `future_only` (the three `forecast-*` cases), it must belong to timestamps after the
+     subject's call (a forecast), so an observation fails. **"After the subject's call"** is a timestamp later than the
+     `retrieved_at` of the result of the subject's own `values` call (UTC; the digest prints it per call). The series is your
+     own `values` call for the same station and source with `periods=future`, read for **the next 48 hours counted from your
+     call**, and the span is its minimum and maximum widened by the case's `margin` (4 K for a forecast) and kept inside
+     `sanity`. A figure the answer ties to a time at or before the subject's call (an observation, an hour already past) fails.
+     Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
      lists accepted spellings.
    - `ground_truth_subset`: every name the answer gives is in your call's result. `ground_truth_set`: the answer
      names exactly the items your call yields, or says there are none.
-   - `unit`: the answer states the value **with its right unit** (see "Units" below). Run
+   - `unit`: the answer states the value **with its right unit** (see "Units" below). **Only the `units-*` cases (kind
+     `units`) have a fact of this kind and need `bench.py unit`.** Other facts carry a `unit` field too (`degree_celsius`, and
+     `metre` in the `history-*` case) but it only names the unit of the value: their kind (`ground_truth_value`, ...) decides how
+     they are judged, plainly, against your own call. Run
      `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" unit --case <id> --fact <id> --truth <value> [<unit>] --answer "<text>"` (or
      `--truth <min> <max> [<unit>]` for the span of a forecast) with the value from your own call **as the reference returned it,
      followed by its unit**: the command converts it to the unit the fact counts in (`accepted` of the fact), so you do not.

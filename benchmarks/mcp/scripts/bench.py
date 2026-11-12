@@ -6,7 +6,7 @@ reading (is it an answer, are the facts right); everything that can be counted i
 are compared on the same arithmetic.
 
     bench.py init --results FILE --server URL --label SHA ...        a new results file: its `meta`, no runs yet
-    bench.py todo --results FILE                                     the runs of the file that are still to do
+    bench.py todo --results FILE [--dir DIR]                         the runs still to do (`unjudged`: awaiting `judge`)
     bench.py trial --results FILE --case ID --tier T --repeat N --dir DIR
                                                                      prompt, run and analyze one run
     bench.py batch --results FILE --dir DIR [--limit N] [--parallel P] [--allow-unjudged]
@@ -2595,16 +2595,27 @@ def batch(
     lock = threading.Lock()
     codes: list[int] = []
 
+    print(
+        f"batch: {len(runs)} runs, {parallel} at a time, started in this order (they finish in any order, each under "
+        f"its own header): {', '.join(f'{c}-{t}-{r}' for c, t, r, _ in runs)}",
+        flush=True,
+    )
+
     def one(run: tuple[str, str, int, str]) -> None:
-        case, tier, repeat, _model = run
+        case, tier, repeat, model = run
         try:
             code, text = _trial(results_path, case, tier, repeat, directory, timeout=timeout, max_usd=max_usd)
         except (OSError, ValueError, KeyError, RuntimeError) as error:
             code, text = 2, f"{case}-{tier}-{repeat}: {error}"
-        (directory / f"{case}-{tier}-{repeat}.trial.txt").write_text(text + "\n", encoding="utf-8")
+        name = f"{case}-{tier}-{repeat}"
+        (directory / f"{name}.trial.txt").write_text(
+            f"=== {case} | {tier} | repeat {repeat} | {model} ===\n{text}\n", encoding="utf-8"
+        )
         with lock:
             codes.append(code)
-            print(f"[{len(codes)}/{len(runs)}] {text}\n", flush=True)
+            print(
+                f"=== [{len(codes)}/{len(runs)}] {case} | {tier} | repeat {repeat} | {model} ===\n{text}\n", flush=True
+            )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as pool:
         list(pool.map(one, runs))
@@ -2634,6 +2645,7 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
         lines.append(
             f"  call {c['n']}: {c['tool']} {json.dumps(c['arguments'], ensure_ascii=False)[:300]} -> "
             f"{'ok' if c['ok'] else 'FAILED'}{', spilled' if c.get('spilled') else ''}, {c['result_chars']} characters"
+            f"{', retrieved_at ' + str(c['retrieved_at']) if c.get('retrieved_at') else ''}"
         )
         if heads > 0 and c.get("result_head"):
             lines.append(f"    result: {c['result_head'][:heads]!r}")
@@ -2653,6 +2665,39 @@ def digest_run(analysis_path: Path, heads: int = 0) -> str:
     """Condense the analysis of a run (`<case>-<tier>-<repeat>.analysis.json`) into what the judge reads."""
     found = json.loads(analysis_path.read_text(encoding="utf-8"))
     return f"{found['case']} [{found['tier']}] repeat {found['repeat']}: {_trial_summary(found, heads)}"
+
+
+FACT_VERDICT = re.compile(r"^(?:ok|fail: ?\S.*|drift: ?\S.*)$", re.DOTALL)
+
+
+def check_fact_results(case_id: str, facts_ok: bool, fact_results: dict[str, str]) -> None:  # noqa: FBT001
+    """Refuse a verdict that is none: ids are facts of the case, each verdict `ok`, `fail: why` or `drift: how`.
+
+    `facts_ok` (the `--facts ok|fail` of `judge`) says whether every fact held against the judge's own ground truth;
+    a `fail:` verdict beside `--facts ok` contradicts it, and a `drift:` one is a note that the source has moved from
+    the `expected` of the case, which does not make a fact fail.
+    """
+    known = next((c for c in load_cases()["cases"] if c["id"] == case_id), None)
+    ids = [f["id"] for f in known["facts"]] if known else None
+    for fact, verdict in fact_results.items():
+        if ids is not None and fact not in ids:
+            msg = f"{fact!r} is no fact of {case_id} (its facts: {', '.join(ids)})"
+            raise ValueError(msg)
+        if not isinstance(verdict, str) or not FACT_VERDICT.match(verdict):
+            msg = f"the verdict of {fact!r} is {verdict!r}: it is `ok`, `fail: <why>` or `drift: <how>`"
+            raise ValueError(msg)
+        if facts_ok and verdict.startswith("fail"):
+            msg = f"{fact!r} is `{verdict}` but the facts are given as ok: use --facts fail"
+            raise ValueError(msg)
+
+
+def parse_fact_options(items: list[str]) -> dict[str, str]:
+    """Read the `--fact ID=VERDICT` options of `judge`."""
+    bad = [item for item in items if "=" not in item]
+    if bad:
+        msg = f"--fact takes ID=VERDICT (`ok`, `fail: <why>` or `drift: <how>`), not {bad[0]!r}"
+        raise ValueError(msg)
+    return dict(item.split("=", 1) for item in items)
 
 
 def judge_run(
@@ -2675,6 +2720,7 @@ def judge_run(
         if key not in analysis:
             msg = f"{analysis_path} is no analysis made by `trial` (it lacks {key})"
             raise ValueError(msg)
+    check_fact_results(str(analysis.get("case")), facts_ok, fact_results)
     record = {k: v for k, v in analysis.items() if k != "exit"}
     record["calls"] = [{k: v for k, v in c.items() if k != "result_head"} for c in analysis["calls"]]
     valid = not analysis.get("invalid")
@@ -2707,6 +2753,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_init.add_argument("--today", default=dt.datetime.now(UTC).date().isoformat(), help="UTC date, YYYY-MM-DD")
     p_todo = sub.add_parser("todo")
     p_todo.add_argument("--results", type=Path, required=True)
+    p_todo.add_argument("--dir", type=Path, help="the directory of the runs: marks the ones that wait for the judge")
     p_trial = sub.add_parser("trial")
     p_trial.add_argument("--results", type=Path, required=True)
     p_trial.add_argument("--case", required=True)
@@ -2821,9 +2868,17 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             f"repeats = {len(todo_runs(results))} runs, server {meta['server_version']} ({meta['label']})"
         )
     elif args.command == "todo":
-        todo = todo_runs(json.loads(args.results.read_text(encoding="utf-8")))
-        print("\n".join(f"{case} {tier} {repeat} {model}" for case, tier, repeat, model in todo))
-        print(f"{len(todo)} runs to do", file=sys.stderr)
+        results = json.loads(args.results.read_text(encoding="utf-8"))
+        todo = todo_runs(results)
+        waiting = set(unjudged_runs(results, args.dir)) if args.dir else set()
+        print(
+            "\n".join(
+                f"{case} {tier} {repeat} {model}" + (" unjudged" if f"{case}-{tier}-{repeat}" in waiting else "")
+                for case, tier, repeat, model in todo
+            )
+        )
+        note = f", {len(waiting)} of them made and waiting for the judge (marked `unjudged`)" if waiting else ""
+        print(f"{len(todo)} runs to do{note}", file=sys.stderr)
     elif args.command == "trial":
         return trial(
             args.results,
@@ -2853,7 +2908,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
             return 2
     elif args.command == "judge":
         try:
-            facts = dict(item.split("=", 1) for item in args.fact)
+            facts = parse_fact_options(args.fact)
             print(
                 judge_run(
                     args.results,
