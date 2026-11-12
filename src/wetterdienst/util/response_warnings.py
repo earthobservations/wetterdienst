@@ -113,6 +113,13 @@ SOURCE_DATA_LEFT_OUT = "source-data-left-out"
 #: `X-Wetterdienst-Truncated` header too
 ANSWER_TRUNCATED = "answer-truncated"
 
+#: the code of the warning an MCP tool's `values` answer for a forecast network carries when it starts at now
+#: (`ui.forecast_start`, GH-4025): the rows of the model run stamped before the current hour are left out, and the
+#: `message` says which `timestamp` window asks for them. Only a tool's answer is cut so; the REST API, the command
+#: line and the library answer the whole run. The `message` is the note, which for a CSV is the
+#: `X-Wetterdienst-Forecast-From-Now` header too
+FORECAST_FROM_NOW = "forecast-from-now"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
