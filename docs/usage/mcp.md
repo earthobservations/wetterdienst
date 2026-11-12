@@ -123,10 +123,11 @@ context of the assistant.
 ## The size of an answer
 
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
-a file instead of handing it over (it counts characters, not tokens). So the answer of `values` and `stations` is held
-to **40,000 characters** of what the client receives, in `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as
-the client gets it, `metadata` and `with_metadata` included, and for `csv` and `ndjson` the sentence of the tool, which
-carries the licence and the note below, and the body. A chart is not counted. The budget is a constant of the server
+a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
+`interpolate`, `summarize` and `stripes_stations` is held to **40,000 characters** of what the client receives, in
+`json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
+included, and for `csv` and `ndjson` the sentence of the tool, which carries the licence and the note below, and the
+body. A chart is not counted. The budget is a constant of the server
 and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
@@ -136,9 +137,16 @@ An answer over the budget is cut, not refused, and says so:
   a forecast, the latest part of a `recent` or `historical` record. With a `timestamp` it keeps the start of the window,
   so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
   window can split a timestamp: ask for fewer parameters or stations.
+- **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
+  required, so it is always the start of the window that is kept and the next window continues it. They have no
+  `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
 - **`stations`** with `rank`, `distance` or `name` is never cut: they ask for a few stations. Otherwise (`all`, a bounding
   box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it.
+- **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
+  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
+  station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
+  stripes 640,000.
 
 The note is a warning, `answer-truncated`, in `metadata.warnings` (and in the `X-Wetterdienst-Warnings` header). It
 gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool
@@ -148,7 +156,10 @@ block, it is the `X-Wetterdienst-Truncated` header too and a sentence of the too
 the body. `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
-that `coverage` and `glossary` give the units.
+that `coverage` and `glossary` give the units. The same holds for a `rank`, a `distance`, a `name` or a single station,
+whose rows are never cut: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is left out of them, and nothing
+else is. The answers of `coverage` (58,000 characters for noaa/ghcn, 139,000 for dwd/phenology) are not held to the
+budget yet.
 
 The instructions and the description of `values` recommend a `timestamp` window, so an assistant that follows them
 asks for a day or a week and is not cut. A forecast of ten days of three parameters in the long JSON is about 100,000
