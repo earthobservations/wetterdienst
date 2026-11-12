@@ -107,7 +107,7 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
 2. `values` — get the measurements for that station:
      values(provider="dwd", network="observation",
             parameters="daily/climate_summary/temperature_air_mean_2m",
-            stations="01975", periods="recent")
+            stations="01975", timestamp="2026-07-25")
 
 The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `providers`). Without \
 a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
@@ -175,13 +175,13 @@ resolution, dataset and parameter, in timestamp order within each group. `qualit
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
-by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
-`timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \
-`stations` where it has one; a null one means the provider gives no end, not that the data reaches \
-today). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
-"2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
-reading.
+- Responses are compact (just the `values`). Always give `values` a `timestamp` window and a \
+single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
+warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
+hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
+(timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
+where it has one; null means the provider gives no end, not that data reaches today. For a long series, \
+format="csv" with shape="wide" is 5-6x smaller.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
 matches, or ids in the `stations` argument the network has no station for (they are left out of the list and the \
 rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
@@ -189,14 +189,14 @@ station. `stations` takes the same `timestamp` as `values` and lists only the st
 in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
-format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
+format or with unrelated flags; that just wastes calls.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
     -> station_id "01975"
   values(provider="dwd", network="observation",
-         parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", periods="recent")
-    -> last item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (i.e. 19.2 °C)
+         parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", timestamp="2026-07-25")
+    -> item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.
@@ -253,6 +253,14 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
 }
 
 
+# The sentence that ends the description of the `values` tool, which only the tool has: the answer of a tool is cut to
+# `ui.budget.ANSWER_BUDGET` characters.
+_VALUES_WINDOW_ADVICE = (
+    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
+    "shape=wide."
+)
+
+
 def _annotate_tool(
     route: HTTPRoute,  # noqa: ARG001
     component: OpenAPITool | OpenAPIResource | OpenAPIResourceTemplate,
@@ -274,6 +282,9 @@ def _annotate_tool(
         raise KeyError(msg)
     title, open_world = _TOOL_TITLES[component.name]
     component.title = title
+    if component.name == "values":
+        # the tool's own advice, so that the REST document, which these descriptions come from, is not changed (GH-4022)
+        component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(
@@ -432,6 +443,7 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-attribution",
     "x-wetterdienst-processing",
     "x-wetterdienst-warnings",
+    "x-wetterdienst-truncated",
 )
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
@@ -515,6 +527,8 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
         report["processing_note"] = unquote(processing)
     if warnings := headers.get("x-wetterdienst-warnings"):
         report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
+    if truncated := headers.get("x-wetterdienst-truncated"):
+        report["truncated"] = unquote(truncated)
     return report
 
 
@@ -539,7 +553,23 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], 
         sentence += f" {report['processing_note']}"
     if "warnings" in report:
         sentence += f" Warnings: {', '.join(report['warnings'])}."
+    if "truncated" in report:
+        sentence += f" Truncated: {report['truncated']}"
     return sentence
+
+
+def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
+    """Count the characters of the structured content a client gets for an answer whose `body` is text of `media_type`.
+
+    For data that is not JSON (csv, ndjson) it is the sentence of the answer and the body (`_sentence_of`, which
+    `_return_bodies_as_content` builds from the same `headers` the REST app sent): what `ui.budget` holds to its budget
+    (GH-4022). Any other media type is not repeated in the structured content, and counts as its body.
+    """
+    if media_type not in _REPEATED_MEDIA_TYPES:
+        return len(body)
+    size = len(body.encode("utf-8"))
+    sentence = _sentence_of(media_type, size, "text content", _report_of(headers), repeated=True)
+    return len(f"{sentence}\n\n{body}")
 
 
 def _envelope_of(result: ToolResult) -> dict[str, Any] | None:

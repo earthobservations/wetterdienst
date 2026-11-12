@@ -403,8 +403,13 @@ does not stream. The refusal a tool gets therefore names only what works through
 formats work through a tool, as text content of the result, but a tool is held to the `rows` limit in every format,
 not to the higher `stream_rows`: the assistant reads the whole answer through its context. `interpolate` and
 `summarize` name no stations (the radius chooses them) and have no `ndjson`, and their `csv` is not streamed, so their
-refusal, over REST as through a tool, names a shorter `timestamp` window or fewer `parameters` only (GH-3576). What
-does help is to ask for less and to ask in slices:
+refusal, over REST as through a tool, names a shorter `timestamp` window or fewer `parameters` only (GH-3576).
+
+A tool's answer that is not refused but long is cut to 40,000 characters of what the assistant receives, `metadata` and
+the sentence of a CSV included (see [The size of an answer](mcp.md#the-size-of-an-answer)). A `values` answer keeps the
+end nearest to now, or the start of a `timestamp` window, and its `answer-truncated` warning names the window to ask for
+next; a `stations` list that is no `rank`, `distance` or `name` keeps its first stations and says how many match. The
+REST API and the library are not cut. What does help is to ask for less and to ask in slices:
 
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
