@@ -19,9 +19,21 @@ export function formatDate(dateStr: string): string {
  */
 const STAND_IN: Record<string, string> = { 'lb': 'de-LU', 'lb-LU': 'de-LU' }
 
-/** The language to hand `Intl`: the one asked for where the browser has its data, else its stand-in. */
+/**
+ * The app's own locale codes that no browser knows as a language: Hamburgisch (`de-hh`, Low German) is written
+ * with German's data. A browser may read the code as German with a region of its own or as nothing, so it is
+ * mapped before the browser is asked.
+ */
+const OWN_CODES: Record<string, string> = { 'de-hh': 'de-DE' }
+
+/**
+ * The language to hand `Intl`, for a locale code of the app (`lb`, `de-hh`) or a language tag (`en-GB`): the one
+ * asked for where the browser has its data, else its stand-in. Every `Intl` and `toLocale*String` call of the app
+ * is given what this answers, never the bare code (`tests/unit/i18n-source.test.ts`).
+ */
 export function withData(language: string, supported: (languages: string[]) => string[]): string {
-  return supported([language]).length ? language : (STAND_IN[language] ?? language)
+  const asked = OWN_CODES[language] ?? language
+  return supported([asked]).length ? asked : (STAND_IN[asked] ?? asked)
 }
 
 /**
@@ -116,6 +128,22 @@ export function formatRunTime(iso: string, language: string): string {
     timeZone: 'UTC',
     timeZoneName: 'short',
   }).format(new Date(iso))
+}
+
+/**
+ * The hour of a moment as the language writes a time of day, in the given zone (UTC by default): "04:00" in German
+ * and British English, "04.00" in Danish. The language is the region-bearing tag of the locale (`en-GB`), as
+ * {@link formatDayMonth} takes it. Never built from its parts (`HH:mm`), which is the German separator in every language.
+ * @example
+ * formatHour(Date.UTC(2026, 9, 15, 4), 'da-DK') // '04.00'
+ */
+export function formatHour(ms: number, language: string, timeZone = 'UTC'): string {
+  return new Intl.DateTimeFormat(withData(language, Intl.DateTimeFormat.supportedLocalesOf), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(ms)
 }
 
 /**

@@ -428,6 +428,40 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(layout.annotations.some(annotation => annotation.text.replace(/<\/?b>/g, '').endsWith(` ${expected}`))).toBe(true)
   })
 
+  // the hour of the time axis, as the language writes a time of day: Danish writes a point, not a colon, between the
+  // hour and the minute, and Luxembourgish is written as German where the browser has no data for it (GH-4007)
+  const axisHours = () => {
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, Record<string, { ticktext?: string[] } | undefined>]
+    return Object.values(layout).flatMap(axis => axis && typeof axis === 'object' && 'ticktext' in axis ? axis.ticktext ?? [] : [])
+  }
+
+  it.each([
+    ['en', ':'],
+    ['de', ':'],
+    ['de-hh', ':'],
+    ['lb', ':'],
+    ['da', '.'],
+  ])('writes the hours of the time axis in %s with "%s" between the hour and the minute', async (code, separator) => {
+    await inLanguage(code)
+    await showMeteogram()
+    const hours = axisHours()
+    expect(hours.length).toBeGreaterThan(2)
+    for (const hour of hours)
+      expect(hour).toMatch(new RegExp(`^\\d{2}\\${separator}00$`))
+  })
+
+  it('writes the hours of the time axis of Luxembourgish as German where the browser has no data for it', async () => {
+    const supported = Intl.DateTimeFormat.supportedLocalesOf.bind(Intl.DateTimeFormat)
+    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
+      supported(languages, options).filter(language => !String(language).startsWith('lb')))
+    onTestFinished(() => {
+      vi.restoreAllMocks()
+    })
+    await inLanguage('lb')
+    await showMeteogram()
+    expect(axisHours()).toContain('06:00')
+  })
+
   // Thursday the 15th: the weekday of the chart's day labels and of the compact view's day cards, and
   // the Plotly language of the hover heading, which Plotly writes itself (GH-3051). The code is the
   // app's, the language the tag it stands for (nuxt.config.ts)

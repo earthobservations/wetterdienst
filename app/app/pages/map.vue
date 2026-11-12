@@ -7,6 +7,7 @@ import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
+import { formatNumber } from '~/utils/format'
 import {
   closerStoppedStation,
   DEFAULT_MEASURED,
@@ -48,7 +49,8 @@ import {
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const language = useFormatLanguage()
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('mapTool.title') })
 const route = useRoute()
@@ -222,7 +224,7 @@ const searching = computed(() => search.value.trim().length > 0)
 const near = computed(() => nearestStations(stations.value, view.value, 8).map(entry => ({ ...entry, distance: entry.distance as number | null })))
 const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
-const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: stations.value.length.toLocaleString(locale.value) }))
+const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, language.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
 
 // ---- the station picked ---------------------------------------------------------------------------------------
@@ -249,7 +251,7 @@ function setPanel(element: unknown) {
   panel.value = element as HTMLElement | null
 }
 const announcement = ref('')
-const reach = computed(() => formatDistance(REACH_KM, locale.value))
+const reach = computed(() => formatDistance(REACH_KM, language.value))
 
 // ---- the reader's own position (GH-3651) ------------------------------------------------------------------------
 
@@ -496,7 +498,7 @@ const measuredCloser = computed(() => {
 })
 /** Why the station is not the nearest: the one that reports, and the nearer one that has stopped, with how long it measured */
 function whyFarther(closer: CloserStation) {
-  const params = { name: stationName(closer.station), distance: formatDistance(closer.distance, locale.value), year: closer.endYear }
+  const params = { name: stationName(closer.station), distance: formatDistance(closer.distance, language.value), year: closer.endYear }
   return closer.endYear === null ? t('mapTool.whyFartherNoEnd', params) : t('mapTool.whyFarther', params)
 }
 /** What is announced for a station chosen: its name, and for a measuring station that is not the nearest, why */
@@ -515,7 +517,7 @@ function pickCloser(closer: CloserStation) {
 const placeText = computed(() => {
   if (!place.value || !selected.value)
     return ''
-  const distance = formatDistance(distanceKm(place.value, selected.value), locale.value)
+  const distance = formatDistance(distanceKm(place.value, selected.value), language.value)
   const from = origin.value
   if (from.kind === 'station')
     return t('mapTool.pickedStationPlace', { name: from.name, distance })
@@ -644,7 +646,7 @@ watch(() => route.query, (query) => {
                 </h3>
                 <template v-if="forecastPoint">
                   <p v-if="forecastPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, locale) }) }}
+                    {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, language) }) }}
                   </p>
                   <MapForecast :station="forecastPoint.station" />
                   <UButton :to="forecastLink(forecastPoint.station.station_id)" :label="t('mapTool.openForecast')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
@@ -671,7 +673,7 @@ watch(() => route.query, (query) => {
                 </h3>
                 <template v-if="stripesPoint">
                   <p v-if="stripesPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, locale) }) }}
+                    {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, language) }) }}
                   </p>
                   <MapStripes :station-id="stripesPoint.station.station_id" :station-name="stationName(stripesPoint.station)" />
                   <UButton :to="stripesLink(stripesPoint.station.station_id)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
@@ -703,7 +705,7 @@ watch(() => route.query, (query) => {
                     </template>
                   </p>
                   <p v-if="measuredPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, locale) }) }}
+                    {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, language) }) }}
                   </p>
                   <!-- the station is not the nearest: a nearer one has stopped (GH-3875) -->
                   <div v-if="measuredCloser" class="map-why" data-testid="map-why">
@@ -792,7 +794,7 @@ watch(() => route.query, (query) => {
                         <span class="block font-semibold text-highlighted break-words">{{ stationName(entry.station) }}</span>
                         <span class="block text-xs text-muted">{{ entry.station.station_id }}<template v-if="entry.station.region"> · {{ entry.station.region }}</template></span>
                       </span>
-                      <span v-if="entry.distance !== null" class="shrink-0 text-xs text-muted tabular-nums">{{ formatDistance(entry.distance, locale) }}</span>
+                      <span v-if="entry.distance !== null" class="shrink-0 text-xs text-muted tabular-nums">{{ formatDistance(entry.distance, language) }}</span>
                     </button>
                   </li>
                 </ul>

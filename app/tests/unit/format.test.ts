@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
 
 describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
@@ -163,6 +163,37 @@ describe('formatRunTime', () => {
   })
 })
 
+describe('formatHour', () => {
+  const four = Date.UTC(2026, 9, 15, 4, 0)
+
+  it.each([
+    ['de-DE', '04:00'],
+    ['en-GB', '04:00'],
+    ['fr-FR', '04:00'],
+    ['nl-NL', '04:00'],
+    ['cs-CZ', '04:00'],
+    // Danish writes a point between the hour and the minute, which `HH:mm` built from parts never could
+    ['da-DK', '04.00'],
+  ])('writes 04:00 UTC as the %s reader reads it: %s', (language, text) => {
+    expect(formatHour(four, language)).toBe(text)
+  })
+
+  it('writes the hour of the zone it is given, not of the machine', () => {
+    // 04:00 UTC is 06:00 in Berlin in October (CEST) and 13:00 in Tokyo
+    expect(formatHour(four, 'de-DE', 'Europe/Berlin')).toBe('06:00')
+    expect(formatHour(four, 'da-DK', 'Asia/Tokyo')).toBe('13.00')
+  })
+
+  it('writes midnight as 00:00, not 24:00', () => {
+    expect(formatHour(Date.UTC(2026, 9, 15, 0, 0), 'en-GB')).toBe('00:00')
+    expect(formatHour(Date.UTC(2026, 9, 15, 0, 0), 'da-DK')).toBe('00.00')
+  })
+
+  it('refuses a zone the browser does not know, for the caller to fall back to UTC', () => {
+    expect(() => formatHour(four, 'de-DE', 'Mars/Olympus')).toThrow(RangeError)
+  })
+})
+
 describe('a language the browser has no data for', () => {
   // Chrome ships none for Luxembourgish: its Intl then writes the system's language instead, and
   // the 5th of October month first for an English reader
@@ -188,10 +219,45 @@ describe('a language the browser has no data for', () => {
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'lb-LU')).toBe('05.10.')
   })
 
+  it('writes the hour, the run and the weekday of Luxembourgish as German, with no data for it', () => {
+    withoutLuxembourgish()
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'lb-LU')).toBe('04:00')
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'lb-LU')).toBe('15.10.2026, 04:00 UTC')
+    expect(plotlyHoverFormat('lb')).toBe('%a %d.%m. %H:%M')
+  })
+
   it('leaves a language it has data for as it is', () => {
     withoutLuxembourgish()
     expect(withData('fr-FR', Intl.DateTimeFormat.supportedLocalesOf)).toBe('fr-FR')
     expect(withData('en', Intl.NumberFormat.supportedLocalesOf)).toBe('en')
+  })
+})
+
+describe('the locale codes of the app that are no language', () => {
+  // `de-hh` (Hamburgisch) has no data of its own in any browser: it is written as German. A browser may read the code
+  // as German with a region of its own, so it is mapped before the browser is asked, whether or not it would answer.
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('asks for German in place of Hamburgisch, as the browser answers or not', () => {
+    expect(withData('de-hh', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-DE')
+    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
+    expect(withData('de-hh', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-DE')
+  })
+
+  it('writes Hamburgisch with the separators and the order of German', () => {
+    expect(formatNumber(1234.5, 'de-hh', 2)).toBe('1.234,50')
+    expect(plotlySeparators('de-hh')).toBe(',.')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'de-hh')).toBe('04:00')
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'de-hh')).toBe('15.10.2026, 04:00 UTC')
+    expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'de-hh')).toBe('05.10.')
+  })
+
+  it('writes Danish with its own separators', () => {
+    expect(formatNumber(1234.5, 'da', 2)).toBe('1.234,50')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'da-DK')).toBe('04.00')
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'da-DK')).toMatch(/^15\.10\.2026.+04[.:]00 UTC$/)
   })
 })
 

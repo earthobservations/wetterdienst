@@ -34,8 +34,8 @@ const features = computed(() => [
 // provider of its registry, so a provider added upstream is on this page without a change here. Short names
 // and flags: the flag is the provider's own country, and NOAA's GHCN is worldwide despite the US flag, which
 // `home.dataProvidersDesc` says. The request is the one the Providers pages share, by its key.
-const { locale } = useI18n()
-const collator = computed(() => new Intl.Collator(locale.value, { numeric: true }))
+const language = useFormatLanguage()
+const collator = computed(() => new Intl.Collator(language.value, { numeric: true }))
 const { data: providerList, pending: providersPending, error: providersError, refresh: refreshProviders } = useProviders()
 
 const providers = computed(() => (providerList.value?.providers ?? [])

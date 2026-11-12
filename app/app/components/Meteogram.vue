@@ -8,7 +8,7 @@ import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { formatDayMonth, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
+import { formatDayMonth, formatHour, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 import { fitAxisTitle, MARGIN_LEFT, MARGIN_RIGHT, plotWidth, tickStepHours } from '~/utils/meteogram-ticks'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
@@ -38,6 +38,9 @@ const { t, locale, localeProperties } = useI18n()
 
 // The language's own tag (`en-GB`, `de-DE`), which the date formats read, where `locale` is the app's code (`en`)
 const language = computed(() => localeProperties.value.language ?? locale.value)
+// The same for what is handed to `Intl` and luxon directly, with the stand-in for a language the browser has no
+// data for (`lb-LU` is written as `de-LU`)
+const formatLanguage = useFormatLanguage()
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
@@ -569,7 +572,7 @@ const chartTable = computed(() => {
   if (!times.length)
     return null
 
-  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(language.value).toLocaleString(DateTime.DATETIME_SHORT)
+  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(formatLanguage.value).toLocaleString(DateTime.DATETIME_SHORT)
   const main = columns.findIndex(column => column.main)
   const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
   return {
@@ -1225,15 +1228,12 @@ async function renderChartActual() {
     for (let t = startTick; t <= displayMaxTime; t += tickMs) {
       tickVals.push(new Date(t).toISOString())
       try {
-        const utcDt = DateTime.fromMillis(t, { zone: 'UTC' })
-        const localDt = utcDt.setZone(stationTZ)
-        const label = localDt.toFormat('HH:mm')
-        tickText.push(label)
+        // the hour as the language writes a time of day (Danish "04.00"), in the station's zone
+        tickText.push(formatHour(t, formatLanguage.value, stationTZ))
       }
       catch {
-        const d = new Date(t)
-        const label = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
-        tickText.push(label)
+        // a zone the browser does not know: the hour in UTC
+        tickText.push(formatHour(t, formatLanguage.value))
       }
     }
     customTickVals = tickVals

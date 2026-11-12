@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   clickReach,
   closerStoppedStation,
@@ -126,6 +126,19 @@ describe('a distance as a reader says it', () => {
   ])('%s km in %s is %s', (km, locale, text) => {
     // the unit and the number are written the way the language does; a no-break space may stand between them
     expect(formatDistance(km, locale).replace(/\u202F|\xA0/g, ' ')).toBe(text)
+  })
+
+  it.each(['lb', 'de-hh'])('writes %s as German, where the browser has no data for it', (locale) => {
+    // Chrome has none for Luxembourgish and would write the system's language: here English, "3.2 km"
+    const supported = Intl.NumberFormat.supportedLocalesOf
+    vi.spyOn(Intl.NumberFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
+      supported((languages as string[]).filter(language => !language.startsWith('lb') && !language.startsWith('de-hh')), options))
+    try {
+      expect(formatDistance(3.24, locale).replace(/\u202F|\xA0/g, ' ')).toBe('3,2 km')
+    }
+    finally {
+      vi.restoreAllMocks()
+    }
   })
 })
 

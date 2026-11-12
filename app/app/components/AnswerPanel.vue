@@ -22,7 +22,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:day': [day: string] }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const language = useFormatLanguage()
 const { place } = usePlace()
 const { questionText, dayText } = useQuestions()
 const { data: providerList } = useProviders()
@@ -40,8 +41,8 @@ const summer = ref<SummerAnswer | null>(null)
 const wind = ref<WindAnswer | null>(null)
 const sources = ref<TemperatureSource[]>([])
 
-const number = (value: number, digits = 1) => formatNumber(value, locale.value, digits)
-const percent = (value: number) => new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 0 }).format(value)
+const number = (value: number, digits = 1) => formatNumber(value, language.value, digits)
+const percent = (value: number) => new Intl.NumberFormat(language.value, { style: 'percent', maximumFractionDigits: 0 }).format(value)
 const today = () => DateTime.now()
 
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
@@ -154,7 +155,7 @@ async function answerDownload(): Promise<Status> {
     throw error
   })
   const found = await foundSources.value
-  const collator = new Intl.Collator(locale.value)
+  const collator = new Intl.Collator(language.value)
   sources.value = found
     // the place's own service first, the rest by name
     .toSorted((a, b) => Number(b.provider === 'dwd') - Number(a.provider === 'dwd') || collator.compare(a.name, b.name))
