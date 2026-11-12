@@ -223,7 +223,8 @@ watch(() => JSON.stringify(props.locate), () => {
 // "Forget my position" (GH-4014): a lookup still on its way is dropped, with what was told of it, so that its late answer
 // does not pick the station or tell a position that is gone. Synchronous, so that no answer lands between the forget and
 // this. The station already picked stays picked, as the reader's own.
-const { position } = useMyLocation()
+// the position's own state, which `useMyLocation` shares (it also reads the storage, which a picker without `locate` need not)
+const position = useState<Point | null>('wd-location-position', () => null)
 watch(position, (now) => {
   if (now)
     return

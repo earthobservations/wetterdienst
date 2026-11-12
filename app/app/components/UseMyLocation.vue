@@ -43,7 +43,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { position, failure, busy, remember, notKept, remembered, locate, rememberPosition, forget } = useMyLocation()
+const { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget } = useMyLocation()
 
 /** The box and its note: a position is in hand and nothing is stored */
 const offerToKeep = computed(() => position.value !== null && !remembered.value)
@@ -54,8 +54,11 @@ const stored = useTemplateRef<{ $el: HTMLElement }>('stored')
 
 // a refusal of an earlier visit to another tool is not this one's to tell until the button is pressed here
 onMounted(() => {
-  if (!props.offerOnly)
+  if (!props.offerOnly) {
     failure.value = null
+    // the card's copy told it already: the list's copy, mounted after it, does not announce it again
+    notKept.value = false
+  }
 })
 
 const working = computed(() => busy.value)
@@ -168,7 +171,7 @@ watch(remembered, (now) => {
       </p>
       <!-- the browser did not keep the position (GH-4014): the box stays, since nothing is stored. Here, beside the box, and
            not with the failures below, so that the copy of the map's station card, which has no alert of its own, tells it -->
-      <p v-if="notKept" class="text-sm text-error" role="alert" data-testid="use-my-location-not-kept">
+      <p v-if="notKept" :key="notKeptCount" class="text-sm text-error" role="alert" data-testid="use-my-location-not-kept">
         {{ t('location.notKept') }}
       </p>
     </template>

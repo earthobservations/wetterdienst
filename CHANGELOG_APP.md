@@ -37,8 +37,8 @@ Types of changes:
   so ticking it always stores that position, and "Forget" puts the focus back on the button
   (GH-4010)
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location": where the browser
-  refuses to keep the position (a private window, blocked site data, a full quota), the "Stored"
-  control no longer shows; an alert says the position is used for this visit only, and the box
+  refuses to keep the position (blocked site data, a full quota), the "Stored" control no longer
+  shows; an alert, announced each time, says the position is used for this visit only, and the box
   stays. "Forget my position" now also drops a position request and a nearest-station lookup that
   are still on their way, so a late answer no longer brings the position or the place back
   (Part of GH-4014)

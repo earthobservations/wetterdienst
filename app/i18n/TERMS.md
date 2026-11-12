@@ -234,8 +234,9 @@ meant to be understood, not to be the last word, and **a review by a native spea
   for the position (`position`, `ubicación`, `posizione`, `lokalizacja`, `poloha`), which the chip leaves out.
 - **Machine-made**: the alert of "Use my location" for a browser that refuses to keep the position (`location.notKept`, GH-4014)
   was written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read it.
-  Least certain: `de-hh` `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`); `lb` `erlaabt` and
-  `gëtt just fir`; `nl` `Ze wordt` (the note's `Ze` for the position); `cs` `neumožnil` and `Použije se`; `da` `tillod ikke, at`.
+  The second sentence names the position again (not "it"), so that it cannot read as the browser. Least certain: `de-hh`
+  `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`; `De Standort` for the masculine article);
+  `lb` `erlaabt` and `gëtt just fir`; `cs` `neumožnil` and `Poloha se použije`; `da` `tillod ikke, at`.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.

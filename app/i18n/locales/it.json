@@ -780,7 +780,7 @@
     "forget": "Dimentica la mia posizione",
     "stored": "Salvata",
     "storedLabel": "Salvata: la mia posizione in questo browser",
-    "notKept": "Il tuo browser non ha permesso di salvare la posizione. Viene usata solo per questa visita.",
+    "notKept": "Il tuo browser non ha permesso di salvare la posizione. La posizione viene usata solo per questa visita.",
     "denied": "Il tuo browser blocca la posizione per questo sito. Per consentirla, apri le impostazioni del sito nel browser, imposta Posizione su Consenti e premi di nuovo il pulsante. La ricerca funziona comunque.",
     "unsupported": "Questo browser non riesce a determinare la tua posizione. Usa invece la ricerca.",
     "unavailable": "Non è stato possibile trovare la tua posizione. Usa invece la ricerca.",

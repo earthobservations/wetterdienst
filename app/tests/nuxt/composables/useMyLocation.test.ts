@@ -417,6 +417,57 @@ describe('"remember"', () => {
       expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
     })
 
+    it('does not keep the old position as the stored one when a later press, with "remember" ticked meanwhile, cannot write the new one', async () => {
+      mockPermission('granted')
+      const answers: Array<(position: unknown) => void> = []
+      Object.defineProperty(navigator, 'geolocation', {
+        configurable: true,
+        value: { getCurrentPosition: vi.fn((success: (position: unknown) => void) => void answers.push(success)) },
+      })
+      const location = await mountHarness()
+      const first = location.locate()
+      await vi.waitFor(() => expect(answers).toHaveLength(1))
+      answers[0]!({ coords: { latitude: 53.55, longitude: 9.99 } })
+      await first
+
+      // the second press waits; the box is ticked (the write works), then the browser refuses the write of the late fix
+      const second = location.locate()
+      await vi.waitFor(() => expect(answers).toHaveLength(2))
+      location.rememberPosition()
+      expect(location.remembered).toBe(true)
+      expect(JSON.parse(localStorage.getItem(LOCATION_STORAGE_KEY)!)).toEqual({ latitude: 53.55, longitude: 9.99 })
+      const real = globalThis.localStorage
+      vi.stubGlobal('localStorage', {
+        getItem: (key: string) => real.getItem(key),
+        setItem: () => {
+          throw new DOMException('full', 'QuotaExceededError')
+        },
+        removeItem: (key: string) => real.removeItem(key),
+      })
+      answers[1]!({ coords: { latitude: 48.137, longitude: 11.575 } })
+      await second
+
+      expect(location.position).toEqual({ latitude: 48.14, longitude: 11.58 })
+      expect(location.remember).toBe(false)
+      expect(location.remembered).toBe(false)
+      expect(location.notKept).toBe(true)
+      // the old position is not left behind as if it were the one in hand
+      expect(real.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+      vi.unstubAllGlobals()
+    })
+
+    it('counts each refusal, so that the alert can be announced again', async () => {
+      mockGeolocation({ latitude: 53.55, longitude: 9.99 })
+      mockPermission('granted')
+      const location = await mountHarness()
+      await location.locate()
+      const allow = refuseWrites()
+      location.rememberPosition()
+      location.rememberPosition()
+      expect(location.notKeptCount).toBe(2)
+      allow()
+    })
+
     it('is cleared by the next press and by a forget', async () => {
       mockGeolocation({ latitude: 53.55, longitude: 9.99 })
       mockPermission('granted')

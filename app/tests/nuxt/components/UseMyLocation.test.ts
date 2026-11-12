@@ -288,7 +288,7 @@ describe('where the browser refuses to keep the position (GH-4014)', () => {
     await box(wrapper).trigger('click')
     await vi.waitFor(() => expect(notKept(wrapper).exists()).toBe(true))
     expect(notKept(wrapper).attributes('role')).toBe('alert')
-    expect(notKept(wrapper).text()).toBe('Your browser did not allow the position to be stored. It is used for this visit only.')
+    expect(notKept(wrapper).text()).toBe('Your browser did not allow the position to be stored. The position is used for this visit only.')
     expect(chip(wrapper).exists()).toBe(false)
     expect(box(wrapper).attributes('aria-checked')).toBe('false')
     expect(stored()).toBeNull()
@@ -305,6 +305,34 @@ describe('where the browser refuses to keep the position (GH-4014)', () => {
     await box(card).trigger('click')
     await vi.waitFor(() => expect(notKept(card).exists()).toBe(true))
     expect(chip(card).exists()).toBe(false)
+  })
+
+  it('puts the alert in again at a second refusal, so that a screen reader announces it again', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    blockStorage()
+    await box(wrapper).trigger('click')
+    await vi.waitFor(() => expect(notKept(wrapper).exists()).toBe(true))
+    const first = notKept(wrapper).element
+
+    await box(wrapper).trigger('click')
+    // a live region is announced when it is inserted: a second refusal is a second element, not the first one kept
+    await vi.waitFor(() => expect(notKept(wrapper).exists() && notKept(wrapper).element !== first).toBe(true))
+    expect(first.isConnected).toBe(false)
+  })
+
+  it('is not announced again by the list\'s copy that mounts after the card\'s', async () => {
+    mockBrowser()
+    const card = await mountControl()
+    await press(card)
+    blockStorage()
+    await box(card).trigger('click')
+    await vi.waitFor(() => expect(notKept(card).exists()).toBe(true))
+    card.unmount()
+
+    const list = await mountControl()
+    expect(notKept(list).exists()).toBe(false)
   })
 
   it('takes the alert back when the box is ticked again and the browser keeps it', async () => {

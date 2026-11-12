@@ -35,6 +35,8 @@ export function useMyLocation() {
   const remember = useState<boolean>('wd-location-remember', () => false)
   /** The browser refused to keep the position (blocked or full storage): it is for this visit only, and the reader is told (GH-4014) */
   const notKept = useState<boolean>('wd-location-not-kept', () => false)
+  /** How many times the browser refused: the alert is keyed on it, so that a second refusal is announced again (GH-4014) */
+  const notKeptCount = useState<number>('wd-location-not-kept-count', () => 0)
   /** Whether the storage was looked at in this visit: once, when a component first asks, as a client-side read */
   const loaded = useState<boolean>('wd-location-loaded', () => false)
 
@@ -49,6 +51,12 @@ export function useMyLocation() {
 
   /** Whether the position in hand is the one remembered in this browser */
   const remembered = computed(() => remember.value && position.value !== null)
+
+  /** The browser did not keep the position: the reader is told, each time */
+  function refused() {
+    notKept.value = true
+    notKeptCount.value++
+  }
 
   /** The state of the permission as the Permissions API tells it, or null where it cannot */
   async function permissionState(): Promise<PermissionState | null> {
@@ -104,8 +112,13 @@ export function useMyLocation() {
       if (mine !== latestPress)
         return null
       position.value = fix
-      if (remember.value)
-        writeRememberedPosition(fix)
+      // "remember" was ticked while this press waited: the new position replaces the stored one, or, where the browser
+      // refuses it now, the old one is not kept either (the control would name a position that is not the one in hand)
+      if (remember.value && !writeRememberedPosition(fix)) {
+        forgetRememberedPosition()
+        remember.value = false
+        refused()
+      }
       return fix
     }
     catch (error) {
@@ -133,7 +146,7 @@ export function useMyLocation() {
     if (!position.value)
       return
     if (!writeRememberedPosition(position.value)) {
-      notKept.value = true
+      refused()
       return
     }
     notKept.value = false
@@ -156,5 +169,5 @@ export function useMyLocation() {
     dropPositionPlace()
   }
 
-  return { position, failure, busy, remember, notKept, remembered, locate, rememberPosition, forget }
+  return { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget }
 }

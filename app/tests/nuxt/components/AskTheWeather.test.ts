@@ -334,7 +334,7 @@ describe('the place from the reader\'s position', () => {
     return getCurrentPosition
   }
   // the position's own state only: the place is the file's, which each test sets
-  const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-not-kept', 'wd-location-loaded'])
+  const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-not-kept', 'wd-location-not-kept-count', 'wd-location-loaded'])
   beforeEach(() => {
     clearLocation()
   })

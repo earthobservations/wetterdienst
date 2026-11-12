@@ -780,7 +780,7 @@
     "forget": "Meinen Standort vergessen",
     "stored": "Gespeichert",
     "storedLabel": "Gespeichert: mein Standort in diesem Browser",
-    "notKept": "Dein Browser hat nicht erlaubt, den Standort zu speichern. Er wird nur für diesen Besuch genutzt.",
+    "notKept": "Dein Browser hat nicht erlaubt, den Standort zu speichern. Der Standort wird nur für diesen Besuch genutzt.",
     "denied": "Dein Browser blockiert den Standort für diese Seite. Um ihn zu erlauben, öffne die Website-Einstellungen deines Browsers, stelle Standort auf Zulassen und drücke die Schaltfläche erneut. Die Suche funktioniert weiterhin.",
     "unsupported": "Dieser Browser kann deinen Standort nicht ermitteln. Nutze stattdessen die Suche.",
     "unavailable": "Dein Standort konnte nicht ermittelt werden. Nutze stattdessen die Suche.",

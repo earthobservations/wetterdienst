@@ -80,7 +80,7 @@ export function readRememberedPosition(): Point | null {
 }
 
 /**
- * Remembers a position, already rounded. A storage that refuses (a private window, blocked site data, a full quota) is
+ * Remembers a position, already rounded. A storage that refuses (blocked site data, a full quota) is
  * no failure: the position is then for this visit only, and the answer says so, so that the page does not claim that it
  * is kept.
  *
