@@ -2,7 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
 
-The answers it holds are those of `values`, `stations`, `interpolate`, `summarize` and the stripes' stations.
+The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations and
+`coverage` (which is no rows but nested: `fit_coverage`).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
 instead of handing it over (Claude Code does, whatever its tokens). Two calls spilled in the transcripts: a forecast
@@ -42,7 +43,7 @@ from wetterdienst.ui.response_metadata import response_headers, response_metadat
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
@@ -522,3 +523,131 @@ def fit_stations(
         "to stay within the budget."
     )
     return chosen.content, chosen.metadata
+
+
+# --- coverage -----------------------------------------------------------------------------------------------------
+
+
+def coverage_size(coverage: Mapping[str, Any]) -> int:
+    """Count the characters a client receives of a `coverage` answer: its compact JSON, the structured content."""
+    return len(json.dumps(coverage, separators=(",", ":"), ensure_ascii=False))
+
+
+def _without_descriptions(coverage: Mapping[str, Any]) -> dict[str, Any]:
+    """Give the coverage with the `description` of every parameter null: the shape stays, the long text goes."""
+    return {
+        resolution: {
+            **body,
+            "datasets": {
+                name: {
+                    **dataset,
+                    "parameters": [{**parameter, "description": None} for parameter in dataset["parameters"]],
+                }
+                for name, dataset in body["datasets"].items()
+            },
+        }
+        for resolution, body in coverage.items()
+    }
+
+
+def _datasets_of(coverage: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """List the `(resolution, dataset)` of a coverage in the order the network has them."""
+    return [(resolution, name) for resolution, body in coverage.items() for name in body["datasets"]]
+
+
+def _first_datasets(coverage: Mapping[str, Any], keep: list[tuple[str, str]]) -> dict[str, Any]:
+    """Give the coverage with the datasets of `keep` only; a resolution left with none stays, with no datasets."""
+    wanted = set(keep)
+    return {
+        resolution: {**body, "datasets": {n: d for n, d in body["datasets"].items() if (resolution, n) in wanted}}
+        for resolution, body in coverage.items()
+    }
+
+
+def _noted_coverage(coverage: Mapping[str, Any], note: str) -> dict[str, Any]:
+    """Put the note in the `description` of the first resolution, the one place the shape of the answer has for text.
+
+    The answer is keyed by resolution, has no `metadata` block, and its schema forbids a key beside the resolutions,
+    so the note cannot go where it goes in the other tools' answers. The note is in what is counted.
+    """
+    first = next(iter(coverage))
+    original = coverage[first]["description"]
+    return {**coverage, first: {**coverage[first], "description": f"{note}\n\n{original}" if original else note}}
+
+
+def _coverage_note(
+    *, left: list[tuple[str, str]], total: int, within: tuple[str, int, int] | None = None, honest: bool = False
+) -> str:
+    """Write the note of a `coverage` answer whose parameter descriptions are left out, and whose datasets may be cut.
+
+    `left` are the datasets left out, `total` those of the network (of the filter asked). `within` is the dataset that
+    alone was more than the budget, with the parameters returned of it and the number it has.
+    """
+    text = f"{_head(honest=honest)}the `description` of each parameter is left out (null)"
+    if within is not None:
+        name, kept, parameters = within
+        text += (
+            f"; the dataset `{name}` alone is more than that, and only its first {kept:,} of {parameters:,} parameters "
+            "are returned"
+        )
+    if not left:
+        return f"{text}. Ask `coverage` with `datasets=<name>` for the full detail of one dataset."
+    names = ", ".join(f"{resolution}/{dataset}" for resolution, dataset in left)
+    text += (
+        f"; {total - len(left):,} of {total:,} datasets are returned, whole and in the order of the network. "
+        f"The {len(left):,} left out are: {names}. Ask for them with `datasets=<name>[,<name>]` (add "
+        "`resolutions=<resolution>` where a name is in several), or with `resolutions=`: a single dataset has its "
+        "full detail."
+    )
+    return text
+
+
+def fit_coverage(coverage: Mapping[str, Any]) -> tuple[Mapping[str, Any], str | None]:
+    """Cut a `coverage` tool answer to the budget in steps, each only where the one before is still over it (GH-4024).
+
+    1. The answer as it is, where it fits. 2. The `description` of each parameter null (the long text of a
+    parameter is most of a big network), and the note says to ask `datasets=<name>` for the detail of one dataset.
+    3. Whole datasets in the order of the network, as many as fit, and the note names those left out and how to ask for
+    them. 4. Where the first dataset alone is more than the budget, the first of its parameters that fit, and the note
+    says how many. The shape is that of the REST answer: the keys are the same, a `description` is null, a resolution
+    may have no datasets. Returns the answer and its note, None where nothing was cut; the note is in the first
+    resolution's `description` and counts toward the size.
+    """
+    size = coverage_size(coverage)
+    if size <= ANSWER_BUDGET or not coverage:
+        return coverage, None
+    lean = _without_descriptions(coverage)
+    note = _coverage_note(left=[], total=0)
+    if coverage_size(noted := _noted_coverage(lean, note)) <= ANSWER_BUDGET:
+        return noted, note
+    datasets = _datasets_of(lean)
+    total = len(datasets)
+    cut: dict[int, tuple[dict[str, Any], str]] = {}
+
+    def fits(count: int) -> bool:
+        text = _coverage_note(left=datasets[count:], total=total)
+        cut[count] = (_noted_coverage(_first_datasets(lean, datasets[:count]), text), text)
+        return coverage_size(cut[count][0]) <= ANSWER_BUDGET
+
+    best = _largest(1, total - 1, fits, max(1, total * ANSWER_BUDGET // size)) if total > 1 else None
+    if best is not None:
+        return cut[best]
+    # the first dataset alone is more than the budget: keep the first of its parameters that fit
+    resolution, name = datasets[0]
+    parameters = lean[resolution]["datasets"][name]["parameters"]
+    partial: dict[int, tuple[dict[str, Any], str]] = {}
+
+    def fits_parameters(count: int, *, honest: bool = False) -> bool:
+        text = _coverage_note(
+            left=datasets[1:], total=total, within=(f"{resolution}/{name}", count, len(parameters)), honest=honest
+        )
+        first = _first_datasets(lean, datasets[:1])
+        first[resolution]["datasets"][name] = {**first[resolution]["datasets"][name], "parameters": parameters[:count]}
+        partial[count] = (_noted_coverage(first, text), text)
+        return coverage_size(partial[count][0]) <= ANSWER_BUDGET
+
+    kept = _largest(1, max(1, len(parameters) - 1), fits_parameters, max(1, len(parameters) * ANSWER_BUDGET // size))
+    if kept is None:
+        kept = 1
+        fits_parameters(kept, honest=True)
+    return partial[kept]

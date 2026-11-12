@@ -536,6 +536,11 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
     return headers
 
 
+def truncation_headers(note: str) -> Mapping[str, str]:
+    """Give the headers of an answer that has no `metadata` block to carry the note of its cut (GH-4024): `coverage`."""
+    return {"X-Wetterdienst-Warnings": ANSWER_TRUNCATED, "X-Wetterdienst-Truncated": _header_text(note)}
+
+
 def catalogue_headers(metadata: CatalogueMetadata) -> Mapping[str, str]:
     """Give the headers that say the same as the block of an answer about the library, for a client that reads none."""
     headers = {

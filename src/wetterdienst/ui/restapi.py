@@ -66,7 +66,7 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
-from wetterdienst.ui.budget import fit_stations, fit_values
+from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -175,6 +175,7 @@ from wetterdienst.ui.response_metadata import (
     response_metadata,
     result_metadata,
     stripes_metadata,
+    truncation_headers,
 )
 from wetterdienst.ui.streaming import (
     NDJSON_MEDIA_TYPE,
@@ -1552,9 +1553,11 @@ def _revalidatable(*, last_modified: bool) -> dict[int | str, dict[str, Any]]:
     }
 
 
-def _catalogue_answer(request: Request, content: str) -> Response:
+def _catalogue_answer(request: Request, content: str, headers: Mapping[str, str] | None = None) -> Response:
     """Answer with a catalogue document, to be kept and asked about again, or with the 304 where it is held."""
-    return cached_json(request, content, cache_control=CATALOGUE_CACHE_CONTROL, last_modified=settings_changed_at())
+    return cached_json(
+        request, content, cache_control=CATALOGUE_CACHE_CONTROL, last_modified=settings_changed_at(), headers=headers
+    )
 
 
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -1691,7 +1694,12 @@ def coverage(
         datasets=request.datasets,
     )
 
-    return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
+    headers = None
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        cov, note = fit_coverage(cov)
+        headers = truncation_headers(note) if note else None
+    return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None), headers)
 
 
 @router.get(

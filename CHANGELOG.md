@@ -47,13 +47,16 @@ Types of changes:
   the first stations and says how many match. Ask for a `timestamp` window, or use the REST API or
   the library for everything; REST, command line and Python are unchanged (GH-4022)
 - **Breaking** (MCP clients): the same 40,000-character cut now holds for the `interpolate`,
-  `summarize` and `stripes_stations` tools, which returned 80,000 to 640,000 characters for a year
-  of daily values or the station list. `interpolate` and `summarize` keep whole timestamps from the
-  start of their `timestamp` window, and the note names the next window. `stripes_stations` keeps
-  the first stations and says to give a `name` to `stripes_values` or `stripes_image`. A
-  `with_metadata` block that is over the budget alone is left out, with a note, also from the
-  answer of a `rank`, a `distance`, a `name` or one station. REST, command line and Python are
-  unchanged (GH-4024)
+  `summarize`, `stripes_stations` and `coverage` tools, which returned 59,000 to 640,000
+  characters for a year of daily values, the station list or a big network. `interpolate` and
+  `summarize` keep whole timestamps from the start of their `timestamp` window, and the note names
+  the next window. `stripes_stations` keeps the first stations and says to give a `name` to
+  `stripes_values` or `stripes_image`. A `with_metadata` block that is over the budget alone is
+  left out, with a note, also from the answer of a `rank`, a `distance`, a `name` or one station.
+  `coverage` over the budget first sends the parameters' `description` as null, then whole datasets
+  in order; its note, in the first resolution's `description` and the `X-Wetterdienst-Truncated`
+  header, names the datasets left out and `datasets=<name>` for their detail. REST, command line
+  and Python are unchanged (GH-4024)
 
 ### Fixed
 
