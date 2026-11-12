@@ -9,7 +9,8 @@ requests to the live providers.
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
 something is unclear or breaks. Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
-writes nothing into the repository.
+writes nothing into the repository. **Until pull request #3544 is merged the benchmark exists only on its branch
+`feat/mcp-benchmark-skill`, not on `main`**: a checkout of `main` does not have this file; Part 2.1 says how to get it.
 
 | file | what it is |
 | --- | --- |
@@ -49,7 +50,10 @@ after a baseline, unless your instruction asked for it: report and stop.
 6. **When something is unclear or breaks, stop and ask** (Part 7); do not guess.
 
 Shell state does not survive between your Bash calls: put the variables in `$BENCH/env.sh` (Part 2) and start each
-command with `. "$BENCH/env.sh"`, or write the paths out.
+command with `. "$BENCH/env.sh"`, or write the paths out. **The snippets run in bash and in zsh** (the Bash tool on a Mac
+is often zsh): every variable is quoted and holds one word, and none holds several arguments, because zsh does not split an
+unquoted `$ARGS` into words (a `judge` call built from `FACTS="--fact a=ok --fact b=ok"` breaks there). Write each argument
+out in the command, as the snippets do.
 
 ## Part 1. Prerequisites
 
@@ -63,18 +67,36 @@ Check each; if one fails, stop and ask (Part 7).
 | the issue | `gh issue view 3546 -R earthobservations/wetterdienst --json state -q .state` | `OPEN` |
 | `git`, `uv`, `curl`, `lsof` | `uv --version` | present |
 | Python 3.13 for the server | `uv python find 3.13` | a path. The server runs on **3.13** (`UV_PYTHON=3.13`): the free-threaded 3.14 fails to build polars. |
-| this checkout | `ls benchmarks/mcp/README.md` (in the repository root you were started in) | exists; the root is `$REPO` below |
+| a checkout of the repository to start from | `git rev-parse --show-toplevel` | a path; it need not have `benchmarks/mcp` (a checkout of `main` has not, until #3544 is merged): 2.1 makes the copy of the benchmark you use, `$REPO` |
 | the port | `lsof -nP -iTCP:7891 -sTCP:LISTEN` | **no output**: if something listens on 7891, it is not yours: stop and ask |
 
 ## Part 2. Set up
 
-**2.1 The scratch directory and `env.sh`.** Everything of the run goes under it. Use the UTC date; `$TMPDIR` is the user's
-temporary directory (on this Mac `/var/folders/...`; fall back to `/tmp`). Run these from `$REPO`:
+**2.1 The scratch directory, the benchmark and `env.sh`.** Everything of the run goes under the scratch directory `$BENCH`:
+**the one the person who started the run gave you, else `$TMPDIR`** (the user's temporary directory, on this Mac
+`/var/folders/...`; fall back to `/tmp`) with the UTC date. It must have no space in its path. Run these from the checkout you
+started in (any checkout of the repository):
 
 ```bash
 BENCH="${TMPDIR:-/tmp}/mcpbench-$(date -u +%Y%m%d)"
 mkdir -p "$BENCH"
-printf 'export REPO="%s"\nexport BENCH="%s"\nexport UV_PYTHON=3.13\nexport WD_CACHE_DIR="%s"\nexport URL=http://127.0.0.1:7891/mcp/v1\n' "$(pwd)" "$BENCH" "$HOME/.cache/wetterdienst-mcpbench" > "$BENCH/env.sh"
+git fetch origin feat/mcp-benchmark-skill
+git worktree add --detach "$BENCH/repo" origin/feat/mcp-benchmark-skill
+git -C "$BENCH/repo" rev-parse HEAD
+ls "$BENCH/repo/benchmarks/mcp/README.md"
+```
+
+Replace `BENCH=...` by the directory you were given, if you were given one. The **detached worktree `$BENCH/repo` of the head
+of the pull request is the copy of the benchmark you run**: it is `$REPO` below, and its SHA is "the runbook at ..." in
+your comments. Once the pull request is merged, use `origin/main` instead of `origin/feat/mcp-benchmark-skill` (the
+branch may be gone: `gh pr view 3544 -R earthobservations/wetterdienst --json state -q .state` says `MERGED`). If your
+README is not the one in `$BENCH/repo/benchmarks/mcp/README.md` (you were started from another copy), read that one and follow it.
+**`git fetch` can fail transiently (`Connection refused`): retry it once after 10 s; if it fails again, stop and ask.**
+
+Then the variables, in one file (`LABEL` and `SERVER_VERSION` are added in 2.2):
+
+```bash
+printf 'export REPO="%s"\nexport BENCH="%s"\nexport UV_PYTHON=3.13\nexport WD_CACHE_DIR="%s"\nexport URL=http://127.0.0.1:7891/mcp/v1\n' "$BENCH/repo" "$BENCH" "$HOME/.cache/wetterdienst-mcpbench" > "$BENCH/env.sh"
 cat "$BENCH/env.sh"
 ```
 
@@ -86,13 +108,15 @@ that two sides of a comparison share one cache and the maintainer's other caches
 
 ```bash
 . "$BENCH/env.sh"
-git fetch origin main
-git worktree add --detach "$BENCH/wd-main" origin/main
-cd "$BENCH/wd-main" && git rev-parse HEAD && git status --porcelain
+git -C "$REPO" fetch origin main
+git -C "$REPO" worktree add --detach "$BENCH/wd-main" origin/main
+git -C "$BENCH/wd-main" rev-parse HEAD
+git -C "$BENCH/wd-main" status --porcelain
 ```
 
-The worktree must be clean (no output from `status`). The SHA is the **label** of the run: `git rev-parse --short HEAD`
-there (add `+dirty` if `git status --porcelain` is not empty, which it must not be). Install, one command (a few minutes, about 800 MB;
+`git fetch` can fail transiently (`Connection refused`): **retry it once after 10 s; if it fails again, stop and ask.** The
+worktree must be clean (no output from `status`). The SHA is the **label** of the run (add `+dirty` if `status` is not empty,
+which it must not be); keep it in `env.sh` with the version of `main` once the server answers: Install, one command (a few minutes, about 800 MB;
 if it fails on macOS, run the extras one at a time):
 
 ```bash
@@ -115,13 +139,15 @@ Wait for it (about 10 s), then check and record what you need:
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do curl -fsS http://127.0.0.1:7891/health && break; sleep 2; done
 curl -fsS http://127.0.0.1:7891/api/version
 lsof -nP -t -iTCP:7891 -sTCP:LISTEN > "$BENCH/server.pid" && cat "$BENCH/server.pid"
-python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" probe "$URL" --label "$(git -C "$BENCH/wd-main" rev-parse --short HEAD)"
+printf 'export LABEL="%s"\nexport SERVER_VERSION="%s"\n' "$(git -C "$BENCH/wd-main" rev-parse --short HEAD)" "$(curl -fsS http://127.0.0.1:7891/api/version | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')" >> "$BENCH/env.sh"
+. "$BENCH/env.sh"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" probe "$URL" --label "$LABEL"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" tools-size --server "$URL"
 ```
 
 `/health` answers `{"status":"OK"}`, `/api/version` the version of `main` (for example `0.186.0`), `probe` says
 `"tools": 14`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
-Note the SHA, the version, and the `tools-size` table (it is the cost of `tools/list` on the wire, which the tested model's
+Note the SHA (`$LABEL`), the version (`$SERVER_VERSION`), and the `tools-size` table (it is the cost of `tools/list` on the wire, which the tested model's
 context does not show: see "What the benchmark cannot see"). A server that does not answer ends the run here, before a model
 is paid for.
 
@@ -130,18 +156,29 @@ model's own answers or from the server under test alone, so that a change that r
 in the judge. Two choices:
 
 - **`python` (the default, and the one to use unless told otherwise):** the command line and the library of the **same
-  checkout** as the server, `"$BENCH/wd-main/.venv/bin/wetterdienst"`. It has one command per tool with the same name
-  (`glossary`, `providers`, `coverage`, `stations`, `values`, `interpolate`, `summarize`, `history`, `alerts`, `issues`,
-  `stripes`, `auth`; `--help` lists the options), and it does not go through the MCP layer. Append `2>/dev/null` (the log goes
-  to stderr). Examples, tried on 2026-11-12:
+  checkout** as the server, `"$BENCH/wd-main/.venv/bin/wetterdienst"`. It does not go through the MCP layer. Append
+  `2>/dev/null` (the log goes to stderr). Its commands, tool by tool (checked against `--help` on 2026-11-12; a command's
+  flags are the tool's arguments in kebab case, `--with-metadata true`, `--periods`, `--stations`, `--timestamp`, with a few extra
+  ones such as `--start`/`--end`; `--help` lists them):
+
+  | MCP tool | command of the reference |
+  | --- | --- |
+  | `glossary`, `providers`, `coverage`, `stations`, `values`, `interpolate`, `summarize`, `history`, `alerts`, `issues`, `auth` | the command of the same name |
+  | `stripes_stations` | `stripes stations --kind temperature` (or `precipitation`) |
+  | `stripes_image` | `stripes image ...` (a picture: the cases do not judge it) |
+  | `stripes_values` | **no command** (there is no `stripes values`). Read the series the server reads, `_get_stripes_data` in `ui/core.py`: DWD observation, period `historical`, **temperature** `annual/climate_summary/temperature_air_mean_2m`, **precipitation** `annual/precipitation_more/precipitation_amount`, with `values` and take the year (or years) the case asks for |
+
+  Examples, tried on 2026-11-12:
 
   ```bash
   "$BENCH/wd-main/.venv/bin/wetterdienst" glossary --parameter temperature_air_mean_2m --limit 3 2>/dev/null
   "$BENCH/wd-main/.venv/bin/wetterdienst" providers --provider dwd 2>/dev/null
   "$BENCH/wd-main/.venv/bin/wetterdienst" values --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 02564 --with-metadata true --format json 2>/dev/null
+  "$BENCH/wd-main/.venv/bin/wetterdienst" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>/dev/null
   ```
 
-  The library is the other way (`"$BENCH/wd-main/.venv/bin/python" -I -c "from wetterdienst import Wetterdienst; ..."`, with
+  The last one is the `stripes_values` truth of Potsdam for 1991 (8.91 on 2026-11-12). The library is the other way
+  (`"$BENCH/wd-main/.venv/bin/python" -I -c "from wetterdienst import Wetterdienst; ..."`, with
   `Wetterdienst.resolve(provider, network)(parameters=..., periods=...).filter_by_station_id(...).values().all().df`). The
   `python` reference is independent of the MCP layer, not of the library.
 - **The hosted connector** (the tools `mcp__claude_ai_wetterdienst__*` of the released server): only if your instruction
@@ -156,7 +193,7 @@ the repeats, the hashes of the cases, the defaults, the prompt and the counting,
 
 ```bash
 . "$BENCH/env.sh"
-python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpbench-results-smoke.json" --server "$URL" --label "<the SHA>" --cases all --tiers small,large --large sonnet --repeats 1 --reference python --reference-version "<the version of 2.2>" --judge-model "<your own model id>" --today "$(date -u +%F)"
+python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" init --results "$BENCH/mcpbench-results-smoke.json" --server "$URL" --label "$LABEL" --cases all --tiers small,large --large sonnet --repeats 1 --reference python --reference-version "$SERVER_VERSION" --judge-model "<your own model id>" --today "$(date -u +%F)"
 ```
 
 For the **baseline**: the same with `--results "$BENCH/mcpbench-results-baseline.json"` and `--repeats 5`. `--large opus` only if
@@ -213,8 +250,9 @@ the units, the placeholders, what an invented number is) are under "Judging rule
    an `unanswerable` case saying there is no data is the answer)?
 3. **`facts_ok`**: for each fact of the case in `cases.json`, read the ground truth with your own calls on the reference (2.3),
    never from the subject's results alone, and compare as the fact's kind says. For a `unit` fact run
-   `bench.py unit` (below). For `no_measurements`, read the transcript (`<stem>.jsonl`) for what each tool result said.
-4. Record the verdict. `--fact` is repeated, one per fact of the case: `ok`, `"fail: <why>"` or `"drift: <how>"` (the source
+   `bench.py unit` (below) with the value **as the reference returned it, with its unit**. For `no_measurements`, read the transcript (`<stem>.jsonl`) for what each tool result said.
+4. Record the verdict. `--fact` is repeated, one per fact of the case, **each written out in the command** (never in a
+   shell variable that holds several arguments: zsh does not split it): `ok`, `"fail: <why>"` or `"drift: <how>"` (the source
    has moved from the `expected` of the case: say so, it is not a failure of the model):
 
 ```bash
@@ -234,9 +272,10 @@ unjudged (it stays in `todo`), retry after a few minutes, and if it still fails 
 
 All of it through `gh`, on `earthobservations/wetterdienst`. Write each comment to `$BENCH/comment-<n>.md` first and check
 its size: **each comment stays under 60,000 characters** (`wc -c`). If the report is longer, split it at a heading into
-`(1/2)`, `(2/2)`, each its own comment. **Each comment ends with the session link line of the run**: the two lines your own
-instructions give for issue comments and pull request descriptions (`🤖 Generated with [Claude Code](https://claude.com/claude-code)`
-and, below it, `https://claude.ai/code/session_<your session id>`); if you cannot find them, ask, do not invent an id.
+`(1/2)`, `(2/2)`, each its own comment. **Each comment ends with the footer of the run**: first the line
+`🤖 Generated with [Claude Code](https://claude.com/claude-code)`, then, **last**, the session link line that **the person who
+started the run gave you** (`https://claude.ai/code/session_<id>`), copied exactly. If you were given no link line, **end
+with the "Generated with" line alone**: do not ask, and do not invent an id.
 
 ```bash
 wc -c "$BENCH/comment-1.md"
@@ -279,8 +318,8 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
 1. Stop the server **by its PID**: `kill "$(cat "$BENCH/server.pid")"` (the background task then ends with exit code 144: that is the signal), then `lsof -nP -iTCP:7891 -sTCP:LISTEN` shows nothing.
    Stop the background task that started it too (the Bash tool's task list). Check no other process of yours is still running
    (`bench.py batch`, `claude -p`), and wait for it if one is.
-2. Remove the server worktree from the repository (the venv is in it): `git worktree remove --force "$BENCH/wd-main"` and
-   `git worktree prune`, run in `$REPO`. The scratch directory (prompts, transcripts, the results file) **stays**: it is the
+2. Remove the two worktrees from the repository you started in (the server's venv is in the first):
+   `git worktree remove --force "$BENCH/wd-main"`, `git worktree remove --force "$BENCH/repo"`, then `git worktree prune`. The scratch directory (prompts, transcripts, the results file) **stays**: it is the
    record behind the comments. Say where it is in your last message.
 3. Check what a run may have left in `~/.claude/projects`: `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" cleanup`
    removes the project directories that tested models left (it takes only those older than 10 minutes, and only
@@ -399,8 +438,13 @@ read from the stations the subject itself got listed, not from a call of yours).
    - `ground_truth_subset`: every name the answer gives is in your call's result. `ground_truth_set`: the answer
      names exactly the items your call yields, or says there are none.
    - `unit`: the answer states the value **with its right unit** (see "Units" below). Run
-     `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" unit --case <id> --fact <id> --truth <value> | <min> <max> --answer "<text>"` with the value
-     (or the span of a forecast) from your own call; it applies the rules and prints which figures passed or failed.
+     `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" unit --case <id> --fact <id> --truth <value> [<unit>] --answer "<text>"` (or
+     `--truth <min> <max> [<unit>]` for the span of a forecast) with the value from your own call **as the reference returned it,
+     followed by its unit**: the command converts it to the unit the fact counts in (`accepted` of the fact), so you do not.
+     Example: the reference returns the sunshine as `4.117` with the unit `h`, the fact counts in seconds (14821.2):
+     `... unit --case units-sunshine-seconds --fact value-with-its-unit --truth 4.117 h --answer "RESULT: 14821 s | sunshine"`
+     passes it, and `--truth 14821.2` (no unit) would mean seconds. A unit the fact does not accept is refused (exit 2) and
+     the message lists the ones it does. The command prints which figures passed or failed, and the truth it used.
    - `no_measurements`: no figure in the answer that no tool result of the transcript supports, with the exemptions
      below.
 3. A `judge_note` for a near miss (the right tool with a better argument than the one a checkpoint lists): record it,

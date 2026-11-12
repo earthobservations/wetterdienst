@@ -476,7 +476,7 @@
       "checkpoints": [
         {
           "id": "find-station",
-          "description": "finds a Paris station on a network that observes it (by name or by point)",
+          "description": "finds a Paris station on a network that observes it, by name or by point: with `stations`, or with `values` itself (which takes a name or a point), whatever an earlier `stations` call that failed did",
           "match": [
             {
               "tool": "stations",
@@ -488,6 +488,23 @@
             },
             {
               "tool": "stations",
+              "args": {
+                "provider": {"any_of": ["meteofrance", "noaa"]},
+                "network": {"any_of": ["synop", "observation", "ghcn"]},
+                "latitude": {"between": [48.5, 49.2]},
+                "longitude": {"between": [1.9, 2.8]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": {"any_of": ["meteofrance", "noaa"]},
+                "network": {"any_of": ["synop", "observation", "ghcn"]},
+                "name": {"regex": "(?i)paris"}
+              }
+            },
+            {
+              "tool": "values",
               "args": {
                 "provider": {"any_of": ["meteofrance", "noaa"]},
                 "network": {"any_of": ["synop", "observation", "ghcn"]},
@@ -1332,10 +1349,31 @@
       "checkpoints": [
         {
           "id": "summarizes",
-          "description": "calls summarize for the point, with the daily mean air temperature on that date",
+          "description": "gets the daily mean air temperature of that date for the point: with summarize, or with stations and then values of the stations it found (the nearest that has data); the facts decide whether the value and the station are the ones summarize gives",
           "match": [
             {
               "tool": "summarize",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [53.8, 54]},
+                "longitude": {"between": [10.6, 10.8]},
+                "timestamp": {"on_date": "2025-12-26"}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "stations": {"present": true},
+                "timestamp": {"on_date": "2025-12-26"}
+              }
+            },
+            {
+              "tool": "values",
               "args": {
                 "provider": "dwd",
                 "network": "observation",
@@ -1401,7 +1439,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "The other opt-in tool, asked for by what it does. `summarize` is not a text summary, which a small model has taken it for."
+      "notes": "The other opt-in tool, asked for by what it does. `summarize` is not a text summary, which a small model has taken it for. `stations` (by point) and then `values` of the nearest station that has data reaches the same value and station, so the first checkpoint accepts it too (a large model took that route on 2026-11-12); a value or a station that is not the one `summarize` returns fails the facts, not the checkpoint."
     },
     {
       "id": "alerts-kiel",
@@ -1456,10 +1494,32 @@
       "checkpoints": [
         {
           "id": "reads-stripes-values",
-          "description": "reads the annual temperature series of Potsdam, for a span covering both years or one call per year",
+          "description": "reads the annual temperature series of Potsdam, for a span covering both years or one call per year: with stripes_values, or the same series (the annual DWD observation series the stripes are made of) with values",
           "match": [
             {"tool": "stripes_values", "args": {"kind": "temperature", "name": {"regex": "(?i)potsdam"}}},
-            {"tool": "stripes_values", "args": {"kind": "temperature", "station": {"any_of": ["03987"]}}}
+            {"tool": "stripes_values", "args": {"kind": "temperature", "station": {"any_of": ["03987"]}}},
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {
+                  "any_of": ["annual/climate_summary/temperature_air_mean_2m", "annual/climate_summary", "annual/kl"]
+                },
+                "stations": {"any_of": ["03987"]}
+              }
+            },
+            {
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {
+                  "any_of": ["annual/climate_summary/temperature_air_mean_2m", "annual/climate_summary", "annual/kl"]
+                },
+                "name": {"regex": "(?i)potsdam"}
+              }
+            }
           ]
         }
       ],
@@ -1475,6 +1535,13 @@
           "description": "calls stripes_values more than twice with the same arguments",
           "kind": "repeat",
           "tool": "stripes_values",
+          "max_identical": 2
+        },
+        {
+          "id": "repeats-values",
+          "description": "calls values more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "values",
           "max_identical": 2
         }
       ],
@@ -1511,7 +1578,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "stripes_values takes start_year and end_year, which keeps the answer to two rows; without them it is the whole record (130 years)."
+      "notes": "stripes_values takes start_year and end_year, which keeps the answer to two rows; without them it is the whole record (130 years). The stripes read the annual DWD observation series (`annual/climate_summary/temperature_air_mean_2m`, period historical, `ui/core.py` `_get_stripes_data`), so `stations` + `values` of that series reaches the same two numbers and is a valid route (the first checkpoint accepts it; a `values` call of another series, a daily one, does not match it); the judge reads the truth from that series with the command line, which has no `stripes values` command."
     },
     {
       "id": "history-kiel-holtenau",
@@ -2124,7 +2191,7 @@
       "facts": [
         {
           "id": "value-with-its-unit",
-          "description": "the answer says 84 % (or 0.84 as a fraction): the library returns 0.8404, so '0.84 %' fails",
+          "description": "the answer says 84 % (84.04, as the server returns it) or the same as a fraction (0.84): '0.84 %' and '84.04 fraction' fail",
           "kind": "unit",
           "asked_descriptions": ["humidity", "feuchte", "mean", "average"],
           "ignore_descriptions": ["minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "dew", "temperature", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
@@ -2157,7 +2224,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "The library returns a fraction (0.8404), not a percentage: a figure of 0.84 followed by % is wrong by a factor of 100. The unit of the values is `-` in the metadata and `decimal` in the glossary."
+      "notes": "Since the unit targets of the server, `values` returns 84.04 with the unit `%` (the source and the library hold the fraction 0.8404). Either is right when it is written with its own unit, and the fact counts in the fraction (`unit`, `accepted`): a figure of 0.84 followed by % is wrong by a factor of 100, and so is 84.04 as a fraction. The judge passes the value as the reference returns it, with its unit: `bench.py unit --truth 84.04 %` converts it. The question stays open on the unit on purpose: the case is meant to test that the answer states the unit the figure is in, whichever the tool returned. `estimates-instead` stays a failure: a `values` call with no window spilled (100,000+ characters) and the model fell back on `summarize`, which the server's instructions allow only when `values` returns no station with data near the place; here `values` had the data, but the model asked for it without a window and the result was too large to read. A strategy that makes `values` spill must show as a failure here, not be hidden by a fallback."
     },
     {
       "id": "units-sunshine-seconds",
@@ -2216,7 +2283,7 @@
       "facts": [
         {
           "id": "value-with-its-unit",
-          "description": "the answer says about 14821 s, or the same time in minutes (247 min) or hours (4.1 h): '14821 minutes' or '14821 hours' fails",
+          "description": "the answer says about 4.1 h (4.117, as the server returns it), or the same time in minutes (247 min) or seconds (14821 s): '4.117 minutes' or '4.117 s' fails",
           "kind": "unit",
           "asked_descriptions": ["sun", "sonne", "shine", "duration"],
           "ignore_descriptions": ["day length", "daylight", "possible", "astronom", "total", "month", "week", "so far", "minim", "\\bmin\\b", "tmin", "maxim", "\\bmax\\b", "tmax", "\\blow\\b", "\\bhigh\\b", "normal", "climat", "day before", "day earlier", "earlier day", "previous day", "yesterday", "day after", "next day", "other station", "another station", "nearby", "\\b2026-10-(?!16\\b)\\d{2}\\b", "\\b(?!16\\b)\\d{1,2}\\.? ?oct"],
@@ -2247,7 +2314,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "The values are in seconds (14821.2 on 2026-10-16), not hours: a model that guesses reads the number as minutes or hours."
+      "notes": "Since the unit targets of the server, `values` returns 4.117 with the unit `h` (the source and the library hold 14821.2 s). Hours, minutes and seconds are right when written with their own unit, and the fact counts in seconds (`unit`, `accepted`): 4.117 minutes and 14821 hours are wrong. The judge passes the value as the reference returns it, with its unit: `bench.py unit --truth 4.117 h` converts it. The question stays open on the unit on purpose (the case tests that the answer states the unit the figure is in); the id keeps its old name so that the case can still be found."
     },
     {
       "id": "units-wind-speed",
@@ -2349,7 +2416,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "DWD publishes the daily mean wind speed in m/s, and so does the library; 3.0 km/h would be a wrong unit by a factor of 3.6."
+      "notes": "DWD publishes the daily mean wind speed in m/s, and so does the library; 3.0 km/h would be a wrong unit by a factor of 3.6. `estimates-instead` stays a failure, as for units-humidity-percent: a `values` call with no window spilled and the model fell back on `summarize`, which is not what the instructions of the server allow when `values` has the data."
     },
     {
       "id": "units-precipitation-mm",

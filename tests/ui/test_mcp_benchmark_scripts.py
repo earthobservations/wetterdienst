@@ -15,6 +15,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -4377,3 +4378,170 @@ def test_the_runbook_names_commands_and_counts_that_exist() -> None:
     assert f"all {n} that need no key" in text
     assert f"| runs | {2 * n} | {10 * n} |" in text
     assert f"(`all`: {n})" in text
+
+
+# ---------------------------------- the truth with its unit, and the routes the first checkpoints accept
+
+
+def _evaluate_calls(case_id: str, *calls: dict[str, Any], answer: str = "x") -> dict[str, Any]:
+    """Count a run of the cases file's case that made these calls."""
+    case = bench.find_case(bench.load_cases(), case_id)
+    run = {"calls": list(calls), "steps": len(calls), "other_tools": [], "answer": answer, "invalid": False}
+    return bench.evaluate(case, run, bench.load_cases()["defaults"])
+
+
+PARIS_VALUES = {
+    "provider": "meteofrance",
+    "network": "synop",
+    "parameters": "subdaily/data/temperature_air_2m",
+    "timestamp": "2026-11-05/2026-11-11",
+}
+POTSDAM_ANNUAL = {
+    "provider": "dwd",
+    "network": "observation",
+    "parameters": "annual/climate_summary/temperature_air_mean_2m",
+}
+NEAREST_DAILY = {
+    "provider": "dwd",
+    "network": "observation",
+    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+    "timestamp": "2025-12-26",
+}
+
+
+@pytest.mark.parametrize(
+    ("case_id", "calls", "first_met"),
+    [
+        # Paris: `values` finds the station itself, with a name or a point, whatever a failed `stations` call did
+        ("observation-paris-last-week", [("values", {**PARIS_VALUES, "name": "Paris"}, True)], True),
+        (
+            "observation-paris-last-week",
+            [
+                ("stations", {"provider": "meteofrance", "parameters": "x"}, False),
+                ("values", {**PARIS_VALUES, "name": "Paris"}, True),
+            ],
+            True,
+        ),
+        (
+            "observation-paris-last-week",
+            [("values", {**PARIS_VALUES, "latitude": 48.8, "longitude": 2.3, "rank": 1}, True)],
+            True,
+        ),
+        ("observation-paris-last-week", [("values", {**PARIS_VALUES, "stations": "07156"}, True)], False),
+        ("observation-paris-last-week", [("values", {**PARIS_VALUES, "name": "Lyon"}, True)], False),
+        # Potsdam: the same annual series with `values`, by station or name; a daily series is another one
+        ("stripes-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "03987"}, True)], True),
+        (
+            "stripes-potsdam",
+            [("stations", {"name": "Potsdam"}, True), ("values", {**POTSDAM_ANNUAL, "name": "Potsdam"}, True)],
+            True,
+        ),
+        (
+            "stripes-potsdam",
+            [("values", {**POTSDAM_ANNUAL, "parameters": "daily/kl", "stations": "03987"}, True)],
+            False,
+        ),
+        ("stripes-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "01975"}, True)], False),
+        # the nearest station that has data: `values` of the stations a point search found, on the date
+        ("summarize-nearest-station", [("values", {**NEAREST_DAILY, "stations": ["03086", "02564"]}, True)], True),
+        (
+            "summarize-nearest-station",
+            [("values", {**NEAREST_DAILY, "latitude": 53.9, "longitude": 10.7, "rank": 1}, True)],
+            True,
+        ),
+        (
+            "summarize-nearest-station",
+            [("values", {**NEAREST_DAILY, "timestamp": "2025-12-01", "stations": "03086"}, True)],
+            False,
+        ),
+    ],
+)
+def test_a_valid_other_route_meets_the_first_checkpoint_and_a_wrong_one_does_not(
+    case_id: str, calls: list[tuple[str, dict[str, Any], bool]], *, first_met: bool
+) -> None:
+    """A right answer by `values` instead of the tool the case is named for is not failed for the route."""
+    verdict = _evaluate_calls(case_id, *(_call(tool, args, ok=ok) for tool, args, ok in calls))
+
+    assert verdict["first_checkpoint_met"] is first_met
+    assert not any(v.startswith("non-wetterdienst") for v in verdict["violations"])
+
+
+@pytest.mark.parametrize("case_id", ["units-humidity-percent", "units-wind-speed"])
+def test_summarize_after_a_values_call_that_spilled_stays_a_failure(case_id: str) -> None:
+    """The fallback on `summarize` is what the case is for: the headline fails and `estimates-instead` shows."""
+    spilled = _call("values", {"provider": "dwd", "network": "observation", "stations": "01975", "periods": "recent"})
+    spilled.update({"ok": False, "spilled": True})
+    verdict = _evaluate_calls(case_id, spilled, _call("summarize", {"latitude": 53.6, "longitude": 10}))
+
+    assert verdict["first_checkpoint_met"] is False
+    assert verdict["mechanical_pass"] is False
+    assert "estimates-instead" in verdict["violations"]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "words", "expected"),
+    [
+        ("units-sunshine-seconds", ["4.117", "h"], 14821.2),
+        ("units-sunshine-seconds", ["247", "min"], 14820),
+        ("units-sunshine-seconds", ["14821.2"], 14821.2),
+        ("units-sunshine-seconds", ["4.117 h"], 14821.2),
+        ("units-humidity-percent", ["84.04", "%"], 0.8404),
+        ("units-humidity-percent", ["0.8404"], 0.8404),
+        ("units-fahrenheit", ["30.74", "°F"], -0.7),
+    ],
+)
+def test_the_truth_may_carry_its_unit_and_is_converted_to_the_facts(
+    case_id: str, words: list[str], expected: float
+) -> None:
+    """`--truth 4.117 h` is what the reference returned, converted with the fact's own factors (within rounding)."""
+    fact = _unit_fact(case_id)
+
+    truth = bench.truth_in_case_unit(fact, words)
+
+    assert truth["value"] == pytest.approx(expected, rel=1e-3)
+
+
+def test_a_span_with_a_unit_is_converted_and_ordered_and_a_bad_truth_is_refused() -> None:
+    """A forecast's min and max in °F come out in °C, smallest first; a unit the fact does not know is an error."""
+    fact = _unit_fact("units-fahrenheit")
+
+    span = bench.truth_in_case_unit(fact, ["68", "50", "°F"])
+
+    assert (span["min"], span["max"]) == (pytest.approx(10), pytest.approx(20))
+    for words in (["4.117", "parsec"], ["a"], ["1", "2", "3"], []):
+        with pytest.raises(ValueError, match=r"--truth|accepted units"):
+            bench.truth_in_case_unit(fact, words)
+
+
+def test_the_unit_command_takes_the_reference_value_with_its_unit(capsys: pytest.CaptureFixture[str]) -> None:
+    """The sunshine as the reference gives it (`4.117 h`) judges an answer in seconds, and says what it used."""
+    base = ["unit", "--case", "units-sunshine-seconds", "--fact", "value-with-its-unit"]
+
+    assert bench.main([*base, "--truth", "4.117", "h", "--answer", "RESULT: 14821 s | sunshine"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True
+    assert out["truth_used"]["value"] == pytest.approx(14821.2, rel=1e-3)
+    assert bench.main([*base, "--truth", "4.117", "h", "--answer", "RESULT: 4.117 min | sunshine"]) == 0
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+    assert bench.main([*base, "--truth", "4.117", "parsec", "--answer", "RESULT: 1 s | x"]) == 2
+    assert "unit: " in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the snippets are for a POSIX shell")
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_the_snippets_of_the_runbook_parse_in_bash_and_zsh(shell: str, tmp_path: Path) -> None:
+    """Every fenced `bash` block of the README is valid in both shells, and none holds a several-word variable."""
+    path = shutil.which(shell)
+    if path is None:
+        pytest.skip(f"no {shell} here")
+    text = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```bash\n(.*?)```", text, re.DOTALL)
+
+    assert len(blocks) >= 10
+    for number, block in enumerate(blocks):
+        script = tmp_path / f"block{number}.sh"
+        script.write_text(re.sub(r"<[^>\n]*>", "X", block), encoding="utf-8")
+        done = subprocess.run([path, "-n", str(script)], capture_output=True, text=True, check=False)  # noqa: S603
+        assert done.returncode == 0, (shell, number, done.stderr, block)
+        # an unquoted variable that holds arguments is split in bash and not in zsh
+        assert not re.search(r"(?<![\"\w{])\$(?:ARGS|FACTS|OPTS|FLAGS)\b", block), block

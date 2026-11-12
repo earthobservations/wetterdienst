@@ -1,4 +1,4 @@
-Today's date is {today} (UTC). Answer the question below using ONLY the tools of the wetterdienst MCP server ({tools}). If those tools are deferred, load them with ToolSearch first; loading is not a step. Do not use any other tool, the web, files or your memory of weather facts.
+Today's date is {today} (UTC). Answer the question below using ONLY the tools of the wetterdienst MCP server ({tools}). Do not use any other tool, the web, files or your memory of weather facts.
 
 Question: {question}
 

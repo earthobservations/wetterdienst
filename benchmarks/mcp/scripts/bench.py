@@ -22,7 +22,7 @@ are compared on the same arithmetic.
     bench.py probe URL | tools-size [--server URL]                   does the server answer / what tools/list costs
     bench.py add-run --results FILE --run RUN.json                   put one judged run in, replacing its repeat
     bench.py cleanup                                                 remove the project dirs headless runs leave
-    bench.py unit --case ID --fact ID --truth V [V2] --answer TEXT   the unit fact of a case against an answer
+    bench.py unit --case ID --fact ID --truth V [V2] [UNIT] --answer TEXT   the unit fact of a case against an answer
     bench.py hashes [--cases PATH]                                   hash of the cases file and of each case
 
 A transcript is the stream-json of `claude -p` (`run` writes it): an init record, then `assistant` and `user`
@@ -1824,6 +1824,37 @@ def _fallback_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) 
     )
 
 
+def truth_in_case_unit(fact: dict[str, Any], parts: list[str]) -> dict[str, float]:
+    """Read the judge's `--truth` words: a value, or a min and a max, optionally followed by the unit they are in.
+
+    The reference may return another unit than the one the fact counts in (the sunshine as `4.117 h`, the fact in
+    seconds): `4.117 h` is converted with the fact's own `accepted` pairs (`value * factor + offset` is what is
+    written, so the value in the fact's unit is `(value - offset) / factor`). Without a unit the numbers are taken as
+    given, in the fact's unit. A unit the fact does not accept is an error, which names the ones it does.
+    """
+    words = [word for part in parts for word in part.split()]
+    numbers: list[float] = []
+    while words:
+        try:
+            numbers.append(float(words[0]))
+        except ValueError:
+            break
+        words.pop(0)
+    if len(numbers) not in {1, 2}:
+        msg = "--truth takes a value, or a min and a max, and then optionally their unit"
+        raise ValueError(msg)
+    unit = " ".join(words)
+    if unit:
+        wanted = _norm_unit(unit)
+        pair = next((p for p in fact["accepted"] if any(_norm_unit(t) == wanted for t in p["tokens"])), None)
+        if pair is None:
+            known = sorted({t for p in fact["accepted"] for t in p["tokens"]})
+            msg = f"the unit {unit!r} is none of the fact's accepted units ({', '.join(known)})"
+            raise ValueError(msg)
+        numbers = sorted((n - pair.get("offset", 0)) / pair["factor"] for n in numbers)
+    return {"value": numbers[0]} if len(numbers) == 1 else {"min": numbers[0], "max": numbers[1]}
+
+
 def unit_check(answer: str, fact: dict[str, Any], truth: dict[str, float]) -> dict[str, Any]:
     """Check an answer's value and its unit against the judge's own reading of the value.
 
@@ -2666,7 +2697,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_unit = sub.add_parser("unit")
     p_unit.add_argument("--case", required=True)
     p_unit.add_argument("--fact", required=True)
-    p_unit.add_argument("--truth", type=float, nargs="+", required=True, help="the value, or the min and max of a span")
+    p_unit.add_argument(
+        "--truth",
+        nargs="+",
+        required=True,
+        help="the value, or the min and max of a span, then optionally their unit (`4.117 h`): converted to the fact's",
+    )
     p_unit.add_argument("--answer", required=True)
     for name in ("report", "compare"):
         p = sub.add_parser(name)
@@ -2792,8 +2828,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     elif args.command == "unit":
         case = find_case(load_cases(args.cases), args.case)
         fact = next(f for f in case["facts"] if f["id"] == args.fact)
-        truth = {"value": args.truth[0]} if len(args.truth) == 1 else {"min": args.truth[0], "max": args.truth[1]}
-        print(json.dumps(unit_check(args.answer, fact, truth), indent=1, ensure_ascii=False))
+        try:
+            truth = truth_in_case_unit(fact, args.truth)
+        except ValueError as error:
+            sys.stderr.write(f"unit: {error}\n")
+            return 2
+        print(json.dumps({**unit_check(args.answer, fact, truth), "truth_used": truth}, indent=1, ensure_ascii=False))
     elif args.command == "hashes":
         print(json.dumps(hashes(load_cases(args.cases)), indent=1))
     elif args.command == "report":
