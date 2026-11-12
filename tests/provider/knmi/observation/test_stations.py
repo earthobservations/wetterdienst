@@ -53,14 +53,30 @@ def _pinned_now(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(api, "_now", lambda: NOW)
 
 
+def _closed_worlds(edr_server: EdrStub, *, valkenburg: bool = True) -> None:
+    """Serve the monthly and the daily values of the closed stations as the real API has them (2026-11-12).
+
+    Soesterberg: the last monthly value is June 2008 (stamped 2008-07-01), the last daily one is of 2008-11-16 (the last
+    month has none: a month needs its days). F16-A: July 2020 and 2020-08-30. Valkenburg: April 2016 and 2016-05-02.
+    """
+    monthly = World.generated(Resolution.MONTHLY, ["06265"], dt.datetime(2007, 8, 1, tzinfo=UTC), 12)
+    monthly.cells.update(World.generated(Resolution.MONTHLY, ["06206"], dt.datetime(2019, 9, 1, tzinfo=UTC), 12).cells)
+    daily = World.generated(Resolution.DAILY, ["06265"], dt.datetime(2008, 7, 2, tzinfo=UTC), 139)
+    daily.cells.update(World.generated(Resolution.DAILY, ["06206"], dt.datetime(2020, 8, 2, tzinfo=UTC), 30).cells)
+    if valkenburg:
+        monthly.cells.update(
+            World.generated(Resolution.MONTHLY, ["06210"], dt.datetime(2015, 7, 1, tzinfo=UTC), 11).cells
+        )
+        daily.cells.update(World.generated(Resolution.DAILY, ["06210"], dt.datetime(2016, 5, 2, tzinfo=UTC), 2).cells)
+    edr_server.worlds[edr.COLLECTION_BY_RESOLUTION[Resolution.MONTHLY]] = monthly
+    edr_server.worlds[edr.COLLECTION_BY_RESOLUTION[Resolution.DAILY]] = daily
+
+
 @pytest.fixture
 def closed(edr_server: EdrStub) -> EdrStub:
     """Serve the stations that have closed, as KNMI's list has them: the list of those open now leaves them out."""
     edr_server.closed = dict(catalogue.ENDS)
-    monthly = World.generated(Resolution.MONTHLY, ["06265"], dt.datetime(2007, 8, 1, tzinfo=UTC), 12)
-    valkenburg = World.generated(Resolution.MONTHLY, ["06210"], dt.datetime(2015, 7, 1, tzinfo=UTC), 11)
-    monthly.cells.update(valkenburg.cells)
-    edr_server.worlds[edr.COLLECTION_BY_RESOLUTION[Resolution.MONTHLY]] = monthly
+    _closed_worlds(edr_server)
     return edr_server
 
 
@@ -125,21 +141,43 @@ def test_every_station_has_its_wigos_identifier_a_position_and_a_height_with_its
 
 
 @pytest.mark.usefixtures("closed")
-def test_a_closed_station_ends_with_its_last_monthly_value_and_no_station_has_a_start(tmp_path: Path) -> None:
-    """`end_timestamp` is the stamp of the last month with a value of a closed station, null for an open one.
+def test_a_closed_station_ends_with_its_last_day_with_a_value_and_no_station_has_a_start(tmp_path: Path) -> None:
+    """`end_timestamp` is the end of the last day with a value of a closed station, null for an open one.
 
     `start_timestamp` is null: the start of a station in KNMI's catalogue is not the first day of its data (Schiphol's
     station starts in 1990 and its daily values in 1951), and `/locations?datetime=` leaves it out of a window in 1960.
-    A closed station without a value (F16-A here) has no end.
+    The last month of a station has no monthly value, so the end is not that of the last monthly value: Soesterberg's is
+    June 2008 and its daily values run to 2008-11-16 (`2008-11-17`, the end of that day).
     """
     df = _stations(tmp_path, "hourly")
     assert df.get_column("start_timestamp").null_count() == df.height
     ends = dict(df.select("station_id", "end_timestamp").iter_rows())
-    assert ends["06265"] == dt.datetime(2008, 7, 1, tzinfo=UTC)
-    assert ends["06210"] == dt.datetime(2016, 5, 1, tzinfo=UTC)
-    assert ends["06206"] is None
-    assert [station for station, end in ends.items() if end is not None] == ["06210", "06265"]
+    assert ends["06265"] == dt.datetime(2008, 11, 17, tzinfo=UTC)
+    assert ends["06206"] == dt.datetime(2020, 8, 31, tzinfo=UTC)
+    assert ends["06210"] == dt.datetime(2016, 5, 3, tzinfo=UTC)
+    assert [station for station, end in ends.items() if end is not None] == ["06206", "06210", "06265"]
     assert df.schema["end_timestamp"] == pl.Datetime("us", "UTC")
+
+
+def test_a_closed_station_without_a_value_has_no_end(edr_server: EdrStub, tmp_path: Path) -> None:
+    """A closed station that the API holds no monthly value of has no end, and so is not cut from any window."""
+    edr_server.closed = dict(catalogue.ENDS)
+    _closed_worlds(edr_server, valkenburg=False)
+    ends = dict(_stations(tmp_path, "hourly").select("station_id", "end_timestamp").iter_rows())
+    assert ends["06210"] is None
+    assert ends["06265"] == dt.datetime(2008, 11, 17, tzinfo=UTC)
+
+
+def test_a_closed_station_with_no_daily_value_after_its_last_month_ends_with_that_month(
+    edr_server: EdrStub, tmp_path: Path
+) -> None:
+    """Hoofdplaat on 2026-11-12: monthly values to 2016-01, and none of the days after: the end is that month's."""
+    edr_server.closed = {"06210": dt.datetime(2016, 5, 3, tzinfo=UTC)}
+    edr_server.worlds[edr.COLLECTION_BY_RESOLUTION[Resolution.MONTHLY]] = World.generated(
+        Resolution.MONTHLY, ["06210"], dt.datetime(2015, 7, 1, tzinfo=UTC), 11
+    )
+    ends = dict(_stations(tmp_path, "hourly").select("station_id", "end_timestamp").iter_rows())
+    assert ends["06210"] == dt.datetime(2016, 5, 1, tzinfo=UTC)
 
 
 @pytest.mark.usefixtures("closed")
@@ -164,15 +202,27 @@ def test_a_listing_for_a_window_in_2026_leaves_out_the_stations_closed_long_befo
 
 @pytest.mark.usefixtures("closed")
 def test_a_window_a_closed_station_has_data_in_keeps_it_and_one_after_it_leaves_it_out(tmp_path: Path) -> None:
-    """Soesterberg's last monthly value is June 2008 (stamped 2008-07-01): it is listed for July 2008, not for 2009."""
+    """Soesterberg has daily values to 2008-11-16 (its last monthly one is June 2008): listed for them, not for 2009."""
     from wetterdienst.ui.core import limit_stations_to_window  # noqa: PLC0415
 
     def kept(start: dt.datetime, end: dt.datetime) -> list[str]:
         request = _request(tmp_path, "daily", start=start, end=end)
         return limit_stations_to_window(request.all()).df.get_column("station_id").to_list()
 
+    assert "06265" in kept(dt.datetime(2008, 11, 1, tzinfo=UTC), dt.datetime(2008, 11, 16, tzinfo=UTC))
     assert "06265" in kept(dt.datetime(2008, 6, 15, tzinfo=UTC), dt.datetime(2008, 7, 10, tzinfo=UTC))
     assert "06265" not in kept(dt.datetime(2009, 1, 1, tzinfo=UTC), dt.datetime(2009, 1, 31, tzinfo=UTC))
+
+
+@pytest.mark.usefixtures("closed")
+def test_an_hourly_window_a_closed_station_has_data_in_keeps_it(tmp_path: Path) -> None:
+    """F16-A has daily values to 2020-08-30 (monthly to July 2020): an hourly listing for 2020-08-10 to 20 has it."""
+    from wetterdienst.ui.core import limit_stations_to_window  # noqa: PLC0415
+
+    request = _request(
+        tmp_path, "hourly", start=dt.datetime(2020, 8, 10, tzinfo=UTC), end=dt.datetime(2020, 8, 20, tzinfo=UTC)
+    )
+    assert "06206" in limit_stations_to_window(request.all()).df.get_column("station_id").to_list()
 
 
 @pytest.mark.usefixtures("closed")
@@ -206,10 +256,12 @@ def test_the_caribbean_stations_are_no_stations_of_the_annual_dataset(tmp_path: 
     assert {"78871", "78990"} <= monthly
 
 
-def test_the_stations_cost_three_requests_for_every_resolution_and_are_then_kept(
+def test_the_stations_cost_the_lists_the_monthly_values_and_a_day_request_for_each_closed_station(
     closed: EdrStub, tmp_path: Path
 ) -> None:
-    """Five resolutions are the list, the list of those open now and the last values of the closed: three requests.
+    """Five resolutions: the list, the list of those open now, the monthly values of the closed stations, a day each.
+
+    The daily values of each closed station (the last day of a station is not in its last month): 3 + 3 requests here.
 
     A second listing is served from the cache (12 hours for the two lists, a week for the dates).
     """
@@ -218,12 +270,15 @@ def test_the_stations_cost_three_requests_for_every_resolution_and_are_then_kept
         "locations",
         "locations?datetime=",
         "0-20000-0-06206,0-20000-0-06210,0-20000-0-06265?datetime=",
+        "0-20000-0-06206?datetime=",
+        "0-20000-0-06210?datetime=",
+        "0-20000-0-06265?datetime=",
     ]
-    assert len(closed.asked()) == 3
+    assert len(closed.asked()) == 6
 
     _stations(tmp_path, "hourly")
 
-    assert len(closed.asked()) == 3
+    assert len(closed.asked()) == 6
 
 
 def test_with_no_station_closed_the_dates_are_not_asked_for(edr_server: EdrStub, tmp_path: Path) -> None:

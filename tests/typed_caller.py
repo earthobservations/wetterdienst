@@ -57,7 +57,7 @@ from wetterdienst.provider.dwd.radar import DwdRadarValues
 
 # settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
 settings = Settings(cache_disable=True)
-Settings(cache_dir="cache", auth={"knmi": "api-key"}, fsspec_client_kwargs={"trust_env": True})
+Settings(cache_dir="cache", auth={"knmi_edr": "api-key"}, fsspec_client_kwargs={"trust_env": True})
 Settings(**settings.model_dump())
 
 # the fields of the settings are checked by name and by type, as those of the options are

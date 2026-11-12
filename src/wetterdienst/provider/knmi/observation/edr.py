@@ -43,7 +43,12 @@ from wetterdienst.provider.knmi.observation.download import download_with_retry
 from wetterdienst.provider.knmi.observation.grid import advance, ceil, floor
 from wetterdienst.provider.knmi.observation.parser import ROW_SCHEMA, public_station_id
 from wetterdienst.settings import reveal
-from wetterdienst.util.network import CREDENTIAL_REJECTED_STATUSES, _without_url_secrets, drop_cached_file
+from wetterdienst.util.network import (
+    CREDENTIAL_REJECTED_STATUSES,
+    _without_url_secrets,
+    _without_url_secrets_in,
+    drop_cached_file,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -112,6 +117,12 @@ STATIONS_AT_MOST = 100
 #: handed over: about 100 MB of frames. A long range of one station is a point each of 3 million and more, which is a
 #: station at a time, as the files were read; a day of every station is a few thousand and is read in one request.
 MEMORY_POINTS = 3_000_000
+
+#: How many stations the API may refuse alone in a query before that is no longer a station it does not know (`_refuse`)
+MAX_REFUSED_STATIONS = 2
+
+#: The requests a query may take at most: the quota of a registered key for an hour (`api` refuses a query above it)
+MAX_REQUESTS = 1000
 
 #: How a WIGOS station identifier reads (`0-20000-0-06260`, `0-528-0-06233`): what goes into the URL of a request
 _WSI = re.compile(r"^[0-9]-[0-9]{1,5}-[0-9]-[0-9A-Za-z]{1,16}$")
@@ -242,21 +253,38 @@ def stations_per_request(chunk: Chunk, resolution: Resolution, parameters: int) 
     return max(1, MAX_POINTS // (count_stamps(chunk.first, chunk.last, resolution) * max(parameters, 1)))
 
 
+#: The resolutions whose stamp is the END of its interval and is the stamp of the API too: a block of the calendar holds
+#: the stamps after its first moment, up to and with the first moment of the next block (a day, a month and a year are
+#: stamped with their start, and a block holds the stamps from its first moment up to the last before the next)
+_END_STAMPED = (Resolution.MINUTE_10, Resolution.HOURLY)
+
+
 def _aligned(first: dt.datetime, last: dt.datetime, resolution: Resolution, now: dt.datetime) -> list[Chunk]:
     """Cut the stamps from `first` to `last` into the blocks of the calendar that hold them (`BLOCK_MONTHS`).
 
     A chunk is the whole block, not the part of it that is asked for: the URL is the key of the cache, so a query that
-    overlaps an earlier one asks for the same chunks and is served from them. Cut at the start of the data and at the
-    last stamp that has ended, which for the block that holds now moves with the grid of the resolution, as a copy of it
-    is kept for minutes only.
+    overlaps an earlier one asks for the same chunks and is served from them. The hourly and the 10-minute stamps mark
+    the end of their interval, so a block of them is (its first moment, the first moment of the next block]: a calendar
+    year of hourly values, 2020-01-01 01:00 to 2021-01-01 00:00, is one block and one request, where the blocks of the
+    stamps from 00:00 would be two. Cut at the start of the data and at the last stamp that has ended, which for the
+    block that holds now moves with the grid of the resolution, as a copy of it is kept for minutes only.
     """
     span = BLOCK_MONTHS[resolution]
     ended = to_stamp(floor(now, resolution), resolution)
+    end_stamped = resolution in _END_STAMPED
+    step = advance(first, resolution) - first
+    # the block that holds a stamp is that of the start of its interval
+    start_of = (lambda stamp: stamp - step) if end_stamped else (lambda stamp: stamp)
     chunks = []
-    for index in range((first.year * 12 + first.month - 1) // span * span, (last.year * 12 + last.month - 1) + 1, span):
+    for index in range(
+        (start_of(first).year * 12 + start_of(first).month - 1) // span * span,
+        start_of(last).year * 12 + start_of(last).month - 1 + 1,
+        span,
+    ):
         block_start = dt.datetime(index // 12, index % 12 + 1, 1, tzinfo=dt.UTC)
-        low = max(block_start, FIRST_STAMP[resolution])
-        high = min(advance(advance(block_start, Resolution.MONTHLY, span), resolution, -1), ended)
+        block_end = advance(block_start, Resolution.MONTHLY, span)
+        low = max(advance(block_start, resolution) if end_stamped else block_start, FIRST_STAMP[resolution])
+        high = min(block_end if end_stamped else advance(block_end, resolution, -1), ended)
         if low <= high:
             chunks.append(Chunk(low, high))
     return chunks
@@ -303,6 +331,38 @@ def plan_requests(
     ended = to_stamp(floor(now, resolution), resolution)
     exact = _exact(max(first, FIRST_STAMP[resolution]), min(last, ended), resolution, stations, parameters)
     return exact if _requests(exact, stations) < _requests(blocks, stations) else blocks
+
+
+def room(stamps: int, parameters: int) -> int:
+    """Say how many stations are read ahead with the one in hand for a range of `stamps`, by the memory they hold.
+
+    No more than `STATIONS_AT_MOST` and `MEMORY_POINTS` allow: a long range is a station at a time, a day all of them.
+    """
+    return min(STATIONS_AT_MOST, max(1, MEMORY_POINTS // (max(stamps, 1) * max(parameters, 1))))
+
+
+def estimate_requests(
+    stations: int,
+    first: dt.datetime,
+    last: dt.datetime,
+    resolution: Resolution,
+    now: dt.datetime,
+    parameters: int,
+    *,
+    batch: int | None = None,
+) -> int:
+    """Count the requests that reading `stations` for the stamps from `first` to `last` takes, as the walk makes them.
+
+    The stations are read in batches (`room`, or `batch` where the caller reads fewer), each planned on its own
+    (`plan_requests`), which is why 77 stations of 10 years of hourly values take more requests than the blocks of one
+    station times the stations that fit a request.
+    """
+    size = batch or room(count_stamps(first, last, resolution), parameters)
+    total = 0
+    for start in range(0, stations, size):
+        group = min(size, stations - start)
+        total += _requests(plan_requests(group, first, last, resolution, now, parameters), group)
+    return total
 
 
 def request_url(
@@ -414,6 +474,7 @@ class _Refused:
     """The API refuses the request (a 400 or a 422, an unknown station among those named): not by its size."""
 
     status: int
+    detail: str = ""
 
 
 class EdrReader:
@@ -439,6 +500,9 @@ class EdrReader:
         #: the stations that the API refused, which are not asked for again
         self.skipped: set[str] = set()
         self._warned: set[str] = set()
+        #: whether the API has answered a request of the query (data, or no data: a 404 is an answer to a request that
+        #: was asked right), which a request that is refused for every station is not
+        self._answered = False
 
     def read(  # noqa: C901
         self,
@@ -458,6 +522,8 @@ class EdrReader:
             if not group:
                 continue
             outcome = self._ask(chunk, group, resolution, parameters)
+            if isinstance(outcome, (_Answer, _NoData)):
+                self._answered = True
             if isinstance(outcome, _Answer):
                 for station_id, _ in group:
                     if station_id in outcome.frames:
@@ -476,12 +542,34 @@ class EdrReader:
                     middle = len(group) // 2
                     queue.extendleft(reversed([(chunk, group[:middle]), (chunk, group[middle:])]))
                 else:
-                    self.skipped.add(group[0][0])
+                    self._refuse(group[0][0], outcome)
                     self._warn(
                         f"KNMI's EDR API refused the request for the station {group[0][0]} (status {outcome.status}), "
                         "which is left out"
                     )
         return reads
+
+    def _refuse(self, station_id: str, outcome: _Refused) -> None:
+        """Leave a station out that the API refuses alone, unless that says more than that of a station.
+
+        KNMI answers 400 for an unknown parameter or datetime as well as for an unknown station, and names none of them
+        where the client can read it. A request that is refused for every station down to the first one alone, or for a
+        third station, is not about the stations: the query ends with the error and what the client knows of it, where
+        isolating on would take a request for every station (29 for 15, about 145 for 73) and give no row.
+        """
+        if not self._answered or len(self.skipped) >= MAX_REFUSED_STATIONS:
+            raise DownloadError(
+                _without_url_secrets(EDR_BASE_URL),
+                f"KNMI's EDR API answered {outcome.status} for the station {station_id}"
+                + (f" ({outcome.detail})" if outcome.detail else "")
+                + (
+                    ", the first request of the query to be answered at all"
+                    if not self._answered
+                    else f" after {len(self.skipped)} stations that it refused"
+                )
+                + ", which is more than a station it does not know: check the parameters and the dates asked for",
+            )
+        self.skipped.add(station_id)
 
     @staticmethod
     def _smaller(chunk: Chunk, group: Group, resolution: Resolution) -> list[tuple[Chunk, Group]] | None:
@@ -511,7 +599,9 @@ class EdrReader:
             raise_if_unanswered(file)
             if file.status == 404:
                 return _NoData()
-            return _TooBig() if file.status == 413 else _Refused(file.status)
+            if file.status == 413:
+                return _TooBig()
+            return _Refused(file.status, _without_url_secrets_in(str(file.content))[:200])
         try:
             return _Answer(parse_coverage_json(file.content.read(), parameters, resolution))
         except UnusableAnswerError as error:

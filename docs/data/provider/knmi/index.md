@@ -11,7 +11,8 @@ which you can request at
 [developer.dataplatform.knmi.nl](https://developer.dataplatform.knmi.nl/) (a key of the platform's EDR API, which the
 library reads) and provide via the `WD_AUTH__KNMI_EDR` environment variable (or
 `Settings(auth={"knmi_edr": "<api_key>"})`); see [the observation page](observation/index.md#the-key). A key of the Open
-Data API, which the former `auth.knmi` setting held until 0.186.0, is refused.
+Data API, which the former `auth.knmi` setting held until 0.186.0, is refused by the API, and the old setting is
+ignored with a warning.
 
 ## License
 
@@ -46,7 +47,7 @@ it downloads for 12 hours (5 minutes for the last 6), so a repeated query is not
 other people's queries is the proxy with a cache that KNMI describes for "your own users"; whether an open server that
 anyone can reach, with no account of its own, is within "your own applications" the policy does not say. A long
 window of one station is a few requests of the EDR API, whose quota is 1,000 an hour (a year of hourly values is one
-request, ten years of 10-minute values 120), where the files it replaced took one for each time step. Nothing is read
+request, ten years of 10-minute values 120; a query of more than 1,000 is refused before it starts), where the files it replaced took one for each time step. Nothing is read
 from a bulk dataset. Whether a shared instance is within the policy was put to KNMI in November 2026 and no
 answer has come yet; see [what it does with the data](../data-use.md#keys-and-credentials).
 

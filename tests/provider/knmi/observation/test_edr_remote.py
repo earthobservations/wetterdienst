@@ -130,10 +130,13 @@ def test_months_and_years_are_dated_with_their_first_day(tmp_path: Path) -> None
 
 
 def test_the_stations_and_what_keeps_a_closed_one_out_of_a_window(tmp_path: Path) -> None:
-    """The 77 stations of the list; Soesterberg (closed 2008) has an end and is not in a window of 2026.
+    """The 77 stations of the list; a closed station ends with its last day with a value, which a window may be in.
 
-    Schiphol is in a window of 1960, where `/locations?datetime=` would leave it out (its station starts in 1990, its
-    values in 1951). The fog stations are 10-minute stations only, block 78 is not in the annual data.
+    Soesterberg (closed 2008) has daily values to 2008-11-16 (its last monthly value is June 2008): its end is
+    2008-11-17, it is in a daily window of 2008-11-01 to 16 and not in one of 2026. F16-A has daily values to 2020-08-30
+    (monthly to July 2020) and is in an hourly window of 2020-08-10 to 20. Schiphol is in a window of 1960, where
+    `/locations?datetime=` would leave it out (its station starts in 1990, its values in 1951). The fog stations are
+    10-minute stations only, block 78 is not in the annual data.
     """
     from wetterdienst.ui.core import limit_stations_to_window  # noqa: PLC0415
 
@@ -141,19 +144,25 @@ def test_the_stations_and_what_keeps_a_closed_one_out_of_a_window(tmp_path: Path
         return limit_stations_to_window(_request(tmp_path, [(resolution, "data")], start, end).all()).df
 
     now = dt.datetime(2026, 1, 1, tzinfo=UTC)
-    everything = _request(tmp_path, [("10_minutes", "data")], None, None).all().df
+    daily_2026 = listing("daily", now, dt.datetime(2026, 1, 31, tzinfo=UTC))
+    everything = _request(tmp_path, [("daily", "data")], now, now).all().df
     assert everything.height >= 70
     row = everything.filter(pl.col("station_id") == DE_BILT).row(0, named=True)
     assert (row["name"], row["wigos_id"]) == ("De Bilt", "0-20000-0-06260")
-    soesterberg = everything.filter(pl.col("station_id") == "06265")
-    assert (
-        dt.datetime(2008, 12, 1, tzinfo=UTC)
-        <= soesterberg.item(0, "end_timestamp")
-        <= dt.datetime(2009, 3, 1, tzinfo=UTC)
-        if not soesterberg.is_empty()
-        else True
+    ends = dict(everything.select("station_id", "end_timestamp").iter_rows())
+    assert ends["06265"] == dt.datetime(2008, 11, 17, tzinfo=UTC)
+    assert ends["06206"] == dt.datetime(2020, 8, 31, tzinfo=UTC)
+    assert ends[DE_BILT] is None
+    assert "06265" in set(
+        listing("daily", dt.datetime(2008, 11, 1, tzinfo=UTC), dt.datetime(2008, 11, 16, tzinfo=UTC)).get_column(
+            "station_id"
+        )
     )
-    daily_2026 = listing("daily", now, dt.datetime(2026, 1, 31, tzinfo=UTC))
+    assert "06206" in set(
+        listing("hourly", dt.datetime(2020, 8, 10, tzinfo=UTC), dt.datetime(2020, 8, 20, tzinfo=UTC)).get_column(
+            "station_id"
+        )
+    )
     assert "06265" not in set(daily_2026.get_column("station_id"))
     assert DE_BILT in set(daily_2026.get_column("station_id"))
     assert SCHIPHOL in set(

@@ -67,9 +67,10 @@ _VARIABLE_SINCE = {Resolution.MINUTE_10: {"tg": dt.datetime(2020, 7, 23, 7, 40, 
 
 
 def without_rows_before_the_variable(df: pl.DataFrame, resolution: Resolution) -> pl.DataFrame:
-    """Leave out the rows of a variable from before the files carried it (`_VARIABLE_SINCE`)."""
+    """Leave out the empty rows of a variable from before the files carried it (`_VARIABLE_SINCE`)."""
     for name, since in _VARIABLE_SINCE.get(resolution, {}).items():
-        df = df.filter((pl.col("parameter") != name) | (pl.col("timestamp") >= since))
+        # only the empty rows go: a value that the API holds for `tg` before the cut-off is data and stays
+        df = df.filter((pl.col("parameter") != name) | (pl.col("timestamp") >= since) | pl.col("value").is_not_nan())
     return df
 
 

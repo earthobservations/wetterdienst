@@ -16,6 +16,7 @@ import shutil
 import tempfile
 import threading
 from collections.abc import Iterable, Mapping
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -24,6 +25,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     SecretStr,
     ValidationError,
     field_validator,
@@ -118,6 +120,22 @@ def reveal(secret: SecretStr | None) -> str | None:
     return secret.get_secret_value() if secret is not None else None
 
 
+_OPEN_DATA_KEY_WARNED = threading.Event()
+#: whether the settings being built were given an Open Data key of KNMI (`Settings.note_the_open_data_key`)
+_OPEN_DATA_KEY_GIVEN: ContextVar[bool] = ContextVar("_open_data_key_given", default=False)
+
+
+def _warn_about_the_open_data_key() -> None:
+    """Say once for the process that `WD_AUTH__KNMI` is ignored, and which setting is needed instead."""
+    if not _OPEN_DATA_KEY_WARNED.is_set():
+        _OPEN_DATA_KEY_WARNED.set()
+        log.warning(
+            "WD_AUTH__KNMI (auth.knmi), the key of KNMI's Open Data API, is ignored: wetterdienst reads KNMI from its "
+            "EDR API now, which needs a key of that API in WD_AUTH__KNMI_EDR "
+            "(https://developer.dataplatform.knmi.nl/edr-api). Remove WD_AUTH__KNMI."
+        )
+
+
 class Auth(BaseModel):
     """Authentication credentials for providers requiring API keys.
 
@@ -139,35 +157,10 @@ class Auth(BaseModel):
 
     aemet: SecretStr | None = Field(default=None)
     # the key of KNMI's EDR API, which is the only source of `knmi/observation` since GH-3928; the key of the Open Data
-    # API that `WD_AUTH__KNMI` held is refused (`refuse_the_open_data_key`)
+    # API that `WD_AUTH__KNMI` held is dropped with a warning (`Settings.note_the_open_data_key`)
     knmi_edr: SecretStr | None = Field(default=None)
     metno_frost: tuple[SecretStr, SecretStr] | None = Field(default=None)
     ceda: tuple[SecretStr, SecretStr] | None = Field(default=None)
-
-    @model_validator(mode="before")
-    @classmethod
-    def refuse_the_open_data_key(cls, data: object) -> object:
-        """Refuse a `knmi` key, the key of KNMI's Open Data API, and say which key is needed now (GH-3928).
-
-        `WD_AUTH__KNMI` held the key of the Open Data API, which `knmi/observation` read its NetCDF files with. KNMI
-        is read
-        from its EDR API only now, which refuses that key, so a key that is still set is refused where it is set, by
-        name,
-        and not left to fail at KNMI with a 403 (or taken for a key of the other API, which it is not). Only the name is
-        said, never the value. A blank value is no key and is left alone, as it always was.
-        """
-        if isinstance(data, Mapping):
-            for name, value in data.items():
-                text = value.get_secret_value() if isinstance(value, SecretStr) else value
-                if str(name).lower() == "knmi" and not (text is None or (isinstance(text, str) and not text.strip())):
-                    msg = (
-                        "knmi (WD_AUTH__KNMI) is no setting any more: KNMI is read from its EDR API now, which needs a "
-                        "key of that API (an Open Data API key, which this held, is refused). Request one in the API "
-                        "Catalog at https://developer.dataplatform.knmi.nl/edr-api and set WD_AUTH__KNMI_EDR "
-                        "(or Settings(auth={'knmi_edr': ...})) instead"
-                    )
-                    raise ValueError(msg)
-        return data
 
     @field_validator("aemet", "knmi_edr", "metno_frost", "ceda", mode="before")
     @classmethod
@@ -536,6 +529,17 @@ class Settings(BaseSettings):
     # `--listen` sets it to the loopback names for its own process unless it is given
     restapi_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(default=())
 
+    # whether the settings were given a key of KNMI's Open Data API, which is dropped (`note_the_open_data_key`)
+    _open_data_key_set: bool = PrivateAttr(default=False)
+
+    @property
+    def open_data_key_set(self) -> bool:
+        """Tell whether a `knmi` key (`WD_AUTH__KNMI`) was given, that of the Open Data API, which is no longer read.
+
+        It is dropped, so that nothing is sent with it; `knmi/observation` says why it needs the EDR key instead.
+        """
+        return self._open_data_key_set
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -578,6 +582,31 @@ class Settings(BaseSettings):
             restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,
         ) -> None:
             """Build the settings from the fields, which the environment and `.env` fill where they are not given."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def note_the_open_data_key(cls, data: object) -> object:
+        """Drop a `knmi` key, the key of KNMI's Open Data API, and note that it was given (GH-3928).
+
+        `WD_AUTH__KNMI` held the key of the Open Data API, which `knmi/observation` read its NetCDF files with. KNMI is
+        read from its EDR API only now, which refuses that key, so the setting is gone. It is not refused here: a
+        process that still has it set (a `.env` file, a hosted instance) must go on serving every other provider. It is
+        warned about once (`model_post_init`), by name and never with its value, and `knmi/observation` refuses a
+        request that has no EDR key with the reason (`Settings.open_data_key_set`). A blank value is no key and is left
+        alone, as it always was.
+        """
+        found = False
+        if isinstance(data, Mapping) and isinstance(data.get("auth"), Mapping):
+            auth = data["auth"]
+            for name, value in auth.items():
+                text = value.get_secret_value() if isinstance(value, SecretStr) else value
+                if str(name).lower() == "knmi" and not (text is None or (isinstance(text, str) and not text.strip())):
+                    found = True
+            if any(str(name).lower() == "knmi" for name in auth):
+                data = {**data, "auth": {name: value for name, value in auth.items() if str(name).lower() != "knmi"}}
+        # set every time, so that a construction that failed after this does not leave it for the next
+        _OPEN_DATA_KEY_GIVEN.set(found)
+        return data
 
     @model_validator(mode="before")
     @classmethod
@@ -658,6 +687,11 @@ class Settings(BaseSettings):
             log.info("Wetterdienst cache is disabled")
         else:
             log.info(f"Wetterdienst cache is enabled [CACHE_DIR:{self.cache_dir}]")
+        if _OPEN_DATA_KEY_GIVEN.get():
+            # an Open Data key of KNMI was given and dropped (`note_the_open_data_key`)
+            _OPEN_DATA_KEY_GIVEN.set(False)
+            self._open_data_key_set = True
+            _warn_about_the_open_data_key()
 
     def _rendered(self) -> dict[str, Any]:
         """Return the settings as they are rendered: ``fsspec_client_kwargs`` without its credentials.

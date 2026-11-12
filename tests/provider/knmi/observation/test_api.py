@@ -124,6 +124,36 @@ def test_knmi_request_requires_the_edr_key(monkeypatch: pytest.MonkeyPatch, tmp_
     assert "Open Data" in str(raised.value)
 
 
+def test_knmi_request_with_only_the_old_open_data_key_says_it_no_longer_works(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A request with `WD_AUTH__KNMI` set and no EDR key is refused with the reason: the old key is no longer read."""
+    monkeypatch.delenv("WD_AUTH__KNMI_EDR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    old = "old-open-data-key-for-test"
+
+    with caplog.at_level(logging.WARNING), pytest.raises(CredentialMissingError) as raised:
+        KnmiObservationRequest(
+            parameters=[("daily", "data", "temperature_air_mean_2m")], settings=Settings(auth={"knmi": old})
+        )
+
+    message = str(raised.value)
+    assert "WD_AUTH__KNMI holds the key of KNMI's Open Data API" in message
+    assert "no longer reads" in message
+    assert "WD_AUTH__KNMI_EDR=<api_key>" in message
+    assert "https://developer.dataplatform.knmi.nl/edr-api" in message
+    assert old not in message + caplog.text
+
+
+def test_knmi_request_with_both_keys_uses_the_edr_key() -> None:
+    """The old key beside the EDR key is dropped (with a warning) and the request is built."""
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        settings=Settings(auth={"knmi": "old-key", "knmi_edr": "new-key"}),
+    )
+    assert request is not None
+
+
 def test_knmi_request_constructs_with_the_edr_key() -> None:
     """With the key of the EDR API a request is built, and no request is made to build it."""
     request = _request(

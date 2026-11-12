@@ -9,8 +9,8 @@ sea level, the position (longitude, latitude) and the WIGOS identifier that is t
 
 - 06201 an offshore platform that is open (the first row), 06206 a platform that closed on 2020-09-01;
 - 06209 IJmond;
-- 06210 Valkenburg (closed 2016) and 06265 Soesterberg (closed 2008-11-15, its last monthly value is June 2008), the
-  second closing before the 10-minute data starts (2012);
+- 06210 Valkenburg (closed 2016) and 06265 Soesterberg (closed 2008-11-15, its last daily value is of 2008-11-16 and
+  its last monthly one of June 2008), the second closing before the 10-minute data starts (2012);
 - 06215 Voorschoten, a "Fog station/Meteo site" that has data at every resolution, and 06233 Assendelft, a "Fog station"
   (and a WSI of the issuer 528, as 06392 Horst);
 - 06240 Schiphol, which has daily values since 1951 although KNMI's catalogue starts the station in 1990;
@@ -18,9 +18,10 @@ sea level, the position (longitude, latitude) and the WIGOS identifier that is t
 - 06275 Deelen and 06370 Eindhoven;
 - 78871 and 78990 of the Caribbean Netherlands (block 78).
 
-`ENDS` is what `stations.read_stations` finds for the closed stations: the stamp (the end of the month) of their last
-monthly value, as the real API answered on 2026-11-12 (06206 F16-A, 06210 Valkenburg and 06265 Soesterberg; the list has
-two more closed stations, 06212 Hoorn-A and 06311 Hoofdplaat)
+`ENDS` is what `stations.read_stations` finds for the closed stations: the stamp (the end) of their last day with a value,
+as the real API answered on 2026-11-12 (06206 F16-A, 06210 Valkenburg and 06265 Soesterberg, whose last day is
+2008-11-16 where its last monthly value is June 2008; the list has two more closed stations, 06212 Hoorn-A and 06311
+Hoofdplaat)
 """
 
 from __future__ import annotations
@@ -56,9 +57,9 @@ LOCATIONS = {
 
 #: the stations that have closed, and the stamp of their last monthly value (`stations._last_data`)
 ENDS = {
-    "06206": dt.datetime(2020, 8, 1, tzinfo=dt.UTC),
-    "06210": dt.datetime(2016, 5, 1, tzinfo=dt.UTC),
-    "06265": dt.datetime(2008, 7, 1, tzinfo=dt.UTC),
+    "06206": dt.datetime(2020, 8, 31, tzinfo=dt.UTC),
+    "06210": dt.datetime(2016, 5, 3, tzinfo=dt.UTC),
+    "06265": dt.datetime(2008, 11, 17, tzinfo=dt.UTC),
 }
 
 #: how the list of those that are open now names them: every station but the closed

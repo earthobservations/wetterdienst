@@ -26,18 +26,12 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: `knmi/observation` reads KNMI's EDR API only, which answers a range of several
-  stations in one request, where the Open Data files took one request for each time step (a year of
-  hourly values was 8,760). The file reader and the `knmi` extra are removed (`pip install
-  wetterdienst[knmi]` is no extra any more; nothing else is needed). The EDR API needs a key of its
-  own: register at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set it as
-  `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`). `WD_AUTH__KNMI` (`auth.knmi`), the key of
-  the Open Data API, is refused with an error that names `WD_AUTH__KNMI_EDR`, and an Open Data key
-  is refused by the API (`CredentialRejectedError`, with where to get the right key). The rows,
-  stamps, codes and flags are those of the files; a 10-minute `tg` is still no row before 2020-07-23.
-  The quota is 1,000 requests an hour: a year of hourly values of one station is 1, ten years of
-  10-minute values 120, a day of every station 1. A 429 or a failure is a `DownloadError`, and an
-  unknown station is left out with a warning (GH-3928)
+- **Breaking**: `knmi/observation` reads KNMI's EDR API only, in a few requests where the Open Data files took one
+  for each time step. The file reader and the `knmi` extra are removed. Register an EDR key at KNMI (the API
+  Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`).
+  `WD_AUTH__KNMI` (`auth.knmi`), the Open Data key, is ignored with a warning, and a request with only that key
+  is refused with a message that says so. Rows, stamps, codes and flags are the files'. The quota is 1,000
+  requests an hour: a query that takes more is refused with its count (GH-3928)
 
 ### Fixed
 
@@ -45,9 +39,9 @@ Types of changes:
   the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are in
   the API, are listed, and the list no longer varies with the latest file. Fog stations are listed at
   10 minutes only, and the Caribbean stations (block 78) not at annual, which has no value of them.
-  A closed station has an `end_timestamp` (the end of its last monthly value, read from the API), so
-  a listing for a later window leaves it out, as does the rank listing that had Soesterberg second
-  nearest to De Bilt in 2026 (GH-4008)
+  A closed station has an `end_timestamp` (the end of its last day with a value, read from the API), so a
+  listing for a later window leaves it out, as does the rank listing that had Soesterberg second
+  nearest to De Bilt in 2026, and not one it has data in (GH-4008)
 - `knmi/observation` `wigos_id` at 10 minutes is the WSI (`0-20000-0-06260`), as at every other
   resolution, and no longer the bare number (`06260`). `station_id` is unchanged (GH-4008)
 - `knmi/observation` asks for nothing of a period that has not ended (the running 10-minute

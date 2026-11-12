@@ -23,6 +23,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from tests.provider.knmi.observation import catalogue
 from tests.provider.knmi.observation.catalogue import locations_frame
 from tests.provider.knmi.observation.edr_stub import (
     DE_BILT,
@@ -34,7 +35,7 @@ from tests.provider.knmi.observation.edr_stub import (
     World,
     real_world,
 )
-from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError
+from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError, RequestError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation import api, edr
@@ -173,11 +174,13 @@ def test_the_10_minute_tg_has_no_row_before_the_first_file_that_carried_it(edr_s
     """The files held no `tg` before the one named 2020-07-23 07:40, so the file route returned no row of it before.
 
     The API leaves `tg` out of the answer for those stamps (as for a station with no sensor), which is read as a NaN
-    row of every stamp: the rows before 07:40 are taken out, so that the nulls kept are the rows the files gave. From
-    07:40 the NaN is a row, as the variable was in the file.
+    row of every stamp: the empty rows before 07:40 are taken out, so that the nulls kept are the rows the files gave. A
+    value the API holds there stays. From 07:40 the NaN is a row, as the variable was in the file.
     """
     world = World.generated(Resolution.MINUTE_10, [DE_BILT], _at(2020, 7, 23, 7, 10), 8)
     del world.cells[DE_BILT]["tg"]
+    # a value of `tg` that the API holds before the first file that carried it is data, and stays
+    world.cells[DE_BILT]["tg"] = {_at(2020, 7, 23, 7, 20): 14.5}
     _serve(edr_server, world)
 
     df = reader.read(
@@ -188,11 +191,12 @@ def test_the_10_minute_tg_has_no_row_before_the_first_file_that_carried_it(edr_s
     )
 
     tg = df.filter(pl.col("parameter") == "tg")
-    assert tg.get_column("timestamp").to_list() == [_at(2020, 7, 23, 7, minute) for minute in (40, 50)] + [
-        _at(2020, 7, 23, 8, minute) for minute in (0, 10, 20)
-    ]
-    assert tg.get_column("value").null_count() == tg.height
-    assert set(tg.get_column("quality_flags")) == {"raw:NaN"}
+    assert tg.get_column("timestamp").to_list() == [_at(2020, 7, 23, 7, 20)] + [
+        _at(2020, 7, 23, 7, minute) for minute in (40, 50)
+    ] + [_at(2020, 7, 23, 8, minute) for minute in (0, 10, 20)]
+    assert tg.get_column("value").to_list()[0] == 14.5
+    assert tg.get_column("value").null_count() == tg.height - 1
+    assert set(tg.get_column("quality_flags").drop_nulls()) == {"raw:NaN"}
     # every other parameter has a row of every stamp
     assert df.filter(pl.col("parameter") == "ta").height == 8
 
@@ -250,7 +254,7 @@ def _points(path: str, resolution: Resolution) -> int:
 def test_without_the_key_nothing_is_asked_and_the_request_says_which_key(edr_server: EdrStub, reader: Reader) -> None:
     """No `knmi_edr`, no request: the error names the setting, where the key is asked for, and that an old one fails."""
     with pytest.raises(CredentialMissingError) as raised:
-        reader.values([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 3), key=None)
+        reader.values([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3), key=None)
 
     message = str(raised.value)
     assert "WD_AUTH__KNMI_EDR" in message
@@ -268,7 +272,7 @@ def test_a_key_that_is_refused_is_an_error_that_says_an_edr_key_is_needed(
     edr_server.statuses.extend([status])
 
     with caplog.at_level(logging.DEBUG), pytest.raises(CredentialRejectedError) as raised:
-        reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 3))
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
 
     message = str(raised.value)
     assert f"HTTP {status}" in message
@@ -289,7 +293,7 @@ def test_a_gateway_that_refuses_the_key_before_the_stations_is_the_same_error(
     edr_server.key = "another-key"
 
     with pytest.raises(CredentialRejectedError, match="WD_AUTH__KNMI_EDR"):
-        reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 3))
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
 
     assert [request["status"] for request in edr_server.requests] == [403]
 
@@ -302,12 +306,13 @@ def test_one_station_over_a_range_is_asked_for_in_blocks_of_the_calendar(edr_ser
     world = World.generated(Resolution.MINUTE_10, [DE_BILT], _at(2026, 9, 30, 23, 0), 6 * 24 * 40)
     _serve(edr_server, world)
 
-    df = reader.read([("10_minutes", "data")], _at(2026, 10, 1), _at(2026, 11, 8))
+    df = reader.read([("10_minutes", "data")], _at(2026, 10, 1, 0, 10), _at(2026, 11, 8))
 
-    assert df.get_column("timestamp").n_unique() == 6 * 24 * 38 + 1
+    assert df.get_column("timestamp").n_unique() == 6 * 24 * 38
+    # a 10-minute stamp is the end of its interval, so the month of October is (2026-10-01 00:00, 2026-11-01 00:00]
     assert [_datetime(path) for path in edr_server.data_requests()] == [
-        ("2026-10-01T00:00:00Z", "2026-10-31T23:50:00Z"),
-        ("2026-11-01T00:00:00Z", "2026-11-12T12:30:00Z"),
+        ("2026-10-01T00:10:00Z", "2026-11-01T00:00:00Z"),
+        ("2026-11-01T00:10:00Z", "2026-11-12T12:30:00Z"),
     ]
 
 
@@ -406,7 +411,7 @@ def test_a_range_that_the_memory_budget_cannot_hold_for_two_stations_is_read_sta
     _serve(edr_server, _hourly(100, stations))
     monkeypatch.setattr(edr, "MEMORY_POINTS", 1_000)
 
-    df = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 4, 3), stations)
+    df = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 4, 3), stations)
 
     assert set(df.get_column("station_id")) == set(stations)
     assert [_stations(path) for path in edr_server.data_requests()] == [["0-20000-0-06240"], ["0-20000-0-06260"]]
@@ -418,7 +423,7 @@ def test_a_walk_that_stops_where_the_data_says_asks_for_one_station_at_a_time(
     """An interpolation or a summary stops at the first stations that have data: it reads the one in hand only."""
     stations = [DE_BILT, SCHIPHOL]
     _serve(edr_server, _hourly(100, stations))
-    values = reader.values([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 4, 3), stations)
+    values = reader.values([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 4, 3), stations)
     values._fetch_ahead_allowed = False  # noqa: SLF001
 
     df = values.all().df
@@ -460,7 +465,7 @@ def test_a_request_that_stays_too_big_is_an_error(edr_server: EdrStub, reader: R
     edr_server.max_points = 5
 
     with pytest.raises(DownloadError, match="one station and one stamp"):
-        reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 3, 11))
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3, 11))
 
     assert len(edr_server.data_requests()) <= 2 * 60 + 1
 
@@ -473,8 +478,8 @@ def test_a_404_is_an_empty_chunk_and_no_error(
     edr_server.known.add(SCHIPHOL)
 
     with caplog.at_level(logging.WARNING):
-        both = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 4, 12), [DE_BILT, SCHIPHOL])
-        only = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 4, 12), [SCHIPHOL])
+        both = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 4, 12), [DE_BILT, SCHIPHOL])
+        only = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 4, 12), [SCHIPHOL])
 
     assert set(both.get_column("station_id")) == {DE_BILT}
     assert only.is_empty()
@@ -626,7 +631,7 @@ def test_a_station_without_a_wigos_identifier_is_not_asked_for(
     _serve(edr_server, _hourly(10))
     monkeypatch.setattr(api, "read_stations", lambda *_args: locations_frame(DE_BILT).drop("wigos_id"))
 
-    df = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 1, 2))
+    df = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 2))
 
     assert df.is_empty()
     assert edr_server.data_requests() == []
@@ -647,8 +652,8 @@ def test_an_answer_is_kept_by_its_chunk_and_an_overlapping_query_is_served_from_
     """The cache key is the request, whole blocks of the calendar: a query that overlaps an earlier one asks nothing."""
     _serve(edr_server, _hourly(24 * 100))
 
-    first = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10))
-    again = reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10))
+    first = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10))
+    again = reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10))
     overlapping = reader.read([("hourly", "data")], _at(2020, 1, 20), _at(2020, 3, 1))
 
     assert len(edr_server.data_requests()) == 1
@@ -662,9 +667,9 @@ def test_the_cache_does_not_serve_a_list_of_stations_that_names_others_from_a_ch
     """The cache key holds the stations of the request: `[A, B]` and then `[A]` are two requests."""
     _serve(edr_server, _hourly(24 * 40, [DE_BILT, SCHIPHOL]))
 
-    reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10), [DE_BILT, SCHIPHOL])
-    reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10), [DE_BILT])
-    reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10), [DE_BILT, SCHIPHOL])
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10), [DE_BILT, SCHIPHOL])
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10), [DE_BILT])
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10), [DE_BILT, SCHIPHOL])
 
     assert [len(_stations(path)) for path in edr_server.data_requests()] == [2, 1]
 
@@ -682,7 +687,7 @@ def test_a_settled_chunk_is_kept_for_12_hours_and_a_young_one_for_5_minutes(
     parameters = [("hourly", "data")]
 
     def read() -> None:
-        reader.read(parameters, _at(2020, 1, 1), _at(2020, 2, 10))  # ended in 2020: settled
+        reader.read(parameters, _at(2020, 1, 1, 1), _at(2020, 2, 10))  # ended in 2020: settled
         reader.read(parameters, _at(2026, 10, 14), _at(2026, 11, 13))  # ends 30 minutes ago: young
 
     read()
@@ -716,7 +721,7 @@ def test_the_key_goes_in_a_header_and_is_in_no_url_no_log_no_repr_and_no_file_of
     settings = reader.settings()
 
     with caplog.at_level(logging.DEBUG):
-        values = reader.values([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10))
+        values = reader.values([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10))
         values.all()
         shown = " ".join(
             [repr(settings), str(settings), repr(values), repr(values.sr.request), settings.model_dump_json()]
@@ -743,8 +748,8 @@ def test_two_keys_do_not_share_a_cached_answer(edr_server: EdrStub, reader: Read
     """An answer fetched with one key is not served to another: the cache of an authenticated request is the key's."""
     _serve(edr_server, _hourly(24 * 40))
 
-    reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10))
-    reader.read([("hourly", "data")], _at(2020, 1, 1), _at(2020, 2, 10), key="another-key-for-test")
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10))
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 2, 10), key="another-key-for-test")
 
     assert len(edr_server.data_requests()) == 2
     assert [
@@ -753,3 +758,127 @@ def test_two_keys_do_not_share_a_cached_answer(edr_server: EdrStub, reader: Read
         KEY,
         "another-key-for-test",
     ]
+
+
+# --- the blocks of the end-stamped resolutions, the quota, and a 400 that is no station ------------------------------
+
+
+def test_a_calendar_year_of_hourly_values_and_a_month_of_10_minutes_are_one_request() -> None:
+    """The stamps mark the end of their interval: the blocks are (start, next start], so a year is one request."""
+    hourly = edr.stamp_bounds(_at(2020, 1, 1, 1), _at(2021, 1, 1), Resolution.HOURLY, NOW)
+    assert hourly is not None
+    plan = edr.plan_requests(1, *hourly, Resolution.HOURLY, NOW, 12)
+    assert [(chunk.first, chunk.last) for chunk, _ in plan] == [(_at(2020, 1, 1, 1), _at(2021, 1, 1))]
+    minutes = edr.stamp_bounds(_at(2020, 2, 1, 0, 10), _at(2020, 3, 1), Resolution.MINUTE_10, NOW)
+    assert minutes is not None
+    plan = edr.plan_requests(1, *minutes, Resolution.MINUTE_10, NOW, 16)
+    assert [(chunk.first, chunk.last) for chunk, _ in plan] == [(_at(2020, 2, 1, 0, 10), _at(2020, 3, 1))]
+    # a range over the turn of the year is two blocks, the stamp of midnight in the year that ends (whole blocks)
+    over = edr.stamp_bounds(_at(2019, 12, 31, 23), _at(2020, 1, 1, 2), Resolution.HOURLY, NOW)
+    assert over is not None
+    plan = edr.plan_requests(1, *over, Resolution.HOURLY, NOW, 12)
+    assert [(chunk.first.year, chunk.first.hour, chunk.last) for chunk, _ in plan] == [
+        (2019, 1, _at(2020, 1, 1, 0)),
+        (2020, 1, _at(2021, 1, 1, 0)),
+    ]
+    # the days, the months and the years are stamped with their start, and their blocks are as before
+    daily = edr.stamp_bounds(_at(2020, 1, 1), _at(2020, 12, 31), Resolution.DAILY, NOW)
+    assert daily is not None
+    plan = edr.plan_requests(1, *daily, Resolution.DAILY, NOW, 13)
+    assert [(chunk.first, chunk.last) for chunk, _ in plan] == [(_at(2020, 1, 1), _at(2020, 12, 31))]
+
+
+def test_a_query_that_takes_more_requests_than_the_quota_is_refused_before_anything_is_asked(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """16 stations of 10 years of 10-minute values: 120 requests each, more than the 1,000 an hour of the key."""
+    stations = list(catalogue.LOCATIONS)
+    start, end = _at(2016, 1, 1), _at(2025, 12, 31)
+    first, last = edr.stamp_bounds(start, end, Resolution.MINUTE_10, NOW)
+    expected = edr.estimate_requests(len(stations), first, last, Resolution.MINUTE_10, NOW, 16)
+    assert expected > edr.MAX_REQUESTS
+
+    with pytest.raises(RequestError) as raised:
+        reader.read([("10_minutes", "data")], start, end, stations)
+
+    message = str(raised.value)
+    assert f"{expected:,} requests" in message
+    assert "1,000" in message
+    assert "narrower range or fewer stations" in message
+    assert edr_server.data_requests() == []
+
+
+def test_a_query_within_the_quota_is_not_refused_and_a_walk_that_stops_where_the_data_says_is_left_alone(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """The same query for 5 stations is 600 requests and is read; a walk that stops where the data says is not."""
+    stations = list(catalogue.LOCATIONS)[:5]
+    values = reader.values([("10_minutes", "data")], _at(2016, 1, 1), _at(2025, 12, 31), stations)
+    values._check_quota()  # noqa: SLF001
+    big = reader.values([("10_minutes", "data")], _at(2016, 1, 1), _at(2025, 12, 31), list(catalogue.LOCATIONS))
+    big._fetch_ahead_allowed = False  # noqa: SLF001
+    big._check_quota()  # noqa: SLF001
+    assert edr_server.data_requests() == []
+
+
+def test_the_requests_of_a_walk_are_counted_as_it_makes_them(edr_server: EdrStub, reader: Reader) -> None:
+    """The count is the walk's, batch by batch, and the requests of a real walk are as many as were counted."""
+    stations = [DE_BILT, SCHIPHOL]
+    _serve(edr_server, _hourly(24 * 400, stations))
+    first, last = edr.stamp_bounds(_at(2020, 1, 1, 1), _at(2021, 1, 20), Resolution.HOURLY, NOW)
+    expected = edr.estimate_requests(2, first, last, Resolution.HOURLY, NOW, 12)
+
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2021, 1, 20), stations)
+
+    assert len(edr_server.data_requests()) == expected
+
+
+def test_a_400_for_every_request_ends_the_query_with_the_error_and_costs_the_first_station_alone(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """An unknown parameter or datetime is a 400 too: isolating took 29 requests for 15 stations and gave 0 rows.
+
+    The first request that is refused down to one station, with nothing answered before, ends the query.
+    """
+    stations = [station for station in catalogue.LOCATIONS if station != "06233"]
+    edr_server.always = 400
+
+    with pytest.raises(DownloadError) as raised:
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 2), stations)
+
+    message = str(raised.value)
+    assert "400" in message
+    assert "check the parameters and the dates" in message
+    assert KEY not in message
+    # 15, 7, 3 and then the one alone
+    assert [len(_stations(path)) for path in edr_server.data_requests()] == [15, 7, 3, 1]
+
+
+def test_the_third_station_the_api_refuses_alone_ends_the_query_with_the_error(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, reader: Reader
+) -> None:
+    """Two stations that it does not know are left out with a warning each; a third is more than that."""
+    stations = [SCHIPHOL, DE_BILT, EELDE, ROTTERDAM, EINDHOVEN]
+    _serve(edr_server, _hourly(24, [SCHIPHOL, DE_BILT]))
+    edr_server.known -= {EELDE, ROTTERDAM, EINDHOVEN}
+
+    with caplog.at_level(logging.WARNING), pytest.raises(DownloadError, match="after 2 stations that it refused"):
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 1, 12), stations)
+
+    assert len(_warnings(caplog)) == 2
+
+
+def test_a_refused_station_is_told_as_a_file_let_go_to_the_core(edr_server: EdrStub, reader: Reader) -> None:
+    """The station that is left out is `file-skipped` in the answer, and is no station without rows."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    stations = [SCHIPHOL, DE_BILT, EELDE]
+    _serve(edr_server, _hourly(24, [SCHIPHOL, DE_BILT]))
+    edr_server.known.discard(EELDE)
+    begin_response()
+
+    reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 1, 12), stations)
+
+    codes = {warning["code"] for warning in recorded_warnings()}
+    assert "file-skipped" in codes
+    assert "station-without-rows" not in codes

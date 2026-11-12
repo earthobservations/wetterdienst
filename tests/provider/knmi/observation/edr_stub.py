@@ -177,6 +177,8 @@ class EdrStub(ThreadingHTTPServer):
         #: `catalogue.ENDS` are the real ones), which `/locations?datetime=` leaves out of a window after it
         self.listed = list(catalogue.LOCATIONS)
         self.closed: dict[str, dt.datetime] = {}
+        #: a status to answer every request for data with, whatever it asks (a 400 for a parameter that is not one)
+        self.always: int | None = None
         #: bodies to answer the next requests for a list of stations with (200), instead of the list
         self.locations_bodies: deque[bytes] = deque()
         #: the key it takes, any if None: a missing one is a 401, another a 403
@@ -235,6 +237,9 @@ class _EdrHandler(BaseHTTPRequestHandler):
 
     def _data(self, pieces: list[str], query: dict) -> None:
         server = self.server
+        if server.always:
+            self._send(server.always, json.dumps({"detail": "unknown parameter-name"}).encode(), "application/json")
+            return
         world = server.worlds.get(pieces[4])
         if world is None:
             self._send(404, b'{"detail":"no collection"}', "application/json")

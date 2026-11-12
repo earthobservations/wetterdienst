@@ -19,9 +19,10 @@ export WD_AUTH__KNMI_EDR=<edr_key>
 
 or `Settings(auth={"knmi_edr": "<edr_key>"})`. A key of the Open Data API is refused by the EDR API with a 403, and the
 other way round. Until 0.186.0 the library read KNMI's Open Data files with the key of the former `auth.knmi` setting; it no longer
-does, and that setting, where it is still set, is refused with an error that names `WD_AUTH__KNMI_EDR` (the value is
-never printed).
-A request without the key, or with one the API refuses, is an error that says where to get one. `wetterdienst auth
+does. That setting, where it is still set, is ignored with one warning that names `WD_AUTH__KNMI_EDR` (the value is
+never printed), so a process that still has it goes on serving every other provider, and a KNMI request without an EDR
+key is refused with an error that says the old key no longer works. A request without the key, or with one the API
+refuses, is an error that says where to get one. `wetterdienst auth
 --provider=knmi --network=observation`, `GET /api/auth` and the MCP tool `auth` ask the API whether it takes the key
 (`GET /`, one request of the quota; a refusal costs none), and `coverage` says whether it is `configured`.
 
@@ -39,21 +40,30 @@ that is times times parameters times stations; beyond it the API answers 413.
   core judges a parameter against its neighbours in the dataset (the maximum of a day against its mean and its minimum),
   and one request per dataset is one cached chunk for every parameter.
 - **One station.** A request is a block of the calendar: a month at 10 minutes, a year at hourly and daily, a decade at
-  monthly and annual, so that a query that overlaps an earlier one is served from the cache (below). A year of hourly
-  values of one station is one request, ten years of 10-minute values 120.
+  monthly and annual, so that a query that overlaps an earlier one is served from the cache (below). The 10-minute and
+  the hourly stamps mark the end of their interval, so their block is (its first moment, the first moment of the next
+  block]: the calendar year 2020 of hourly values, 2020-01-01 01:00 to 2021-01-01 00:00, is one request (a query from
+  2020-01-01 00:00 reaches back into 2019, the interval that ends then, and is two). A year of hourly values of one
+  station is one request, ten years of 10-minute values 120.
 - **Several stations.** The stations of the query that follow the one in hand are read with it: as many in a request as
   fit under the limit. For the stations that were asked for the cheaper of the blocks and the exact range is taken, the
   blocks where they cost the same: a day of 77 stations of hourly values is one request of the 24 hours (the blocks of a
-  year would be 39), and 10 years of daily values of 70 stations are 12. `/locations/{ids}` and
+  year would be 39), and 10 years of daily values of 70 stations are 12. The stations are planned batch by batch, as
+  they are read (below), so 77 stations of 10 years of hourly values take 314 requests, not the 10 of a station times the
+  stations that fit one request. `/locations/{ids}` and
   `/cube?bbox=` answer the same stations with the same values for the same request and count the same points
   (measured 2026-11-12), so a query of many stations costs no fewer requests that way.
 - **Memory.** The readings of the stations that are read ahead are held until the walk comes to them, so no more than
   about 3 million points are read ahead: a long range is read one station at a time, a day of every station at once.
   `interpolate` and `summarize`, which stop where the data says, read the one station in hand.
-- **Cost.** One station: a day of hourly values, 1 request; a year, 1; ten years, 10; ten years of 10-minute values,
-  120. 77 stations: a day of hourly or of 10-minute values, 1; a year of daily values, 2; ten years of hourly values,
-  about 270. Each distinct range of the cache is a request the first time and none for 12 hours (settled) or 5
-  minutes (the last 6 hours).
+- **Cost** (counted as the walk makes the requests, `edr.estimate_requests`; the stations are all 77). One station: a
+  day of hourly values, 1 request; a year, 1; ten years, 10; ten years of 10-minute values, 120. Every station: a day of
+  hourly or of 10-minute values, 1; a year of daily values, 2; ten years of hourly values, 314; all of the hourly values
+  from 1951, 5,852; all of the 10-minute values from 2012, 13,860. Each distinct range of the cache is a request the
+  first time and none for 12 hours (settled) or 5 minutes (the last 6 hours).
+- **Quota.** A query that takes more than 1,000 requests that the cache does not hold, which is the quota of the key for an
+  hour, is refused before anything is asked, with a `RequestError` (REST 400) that gives the count and asks for a
+  narrower range or fewer stations. `interpolate` and `summarize`, which stop where the data says, are not counted.
 - **Not asked for.** A period that has not ended (the running 10 minutes, hour, day, month or year) and anything before
   the start of the collection (2012 at 10 minutes, 1951 hourly, 1901 for the other three).
 - **Cache.** A chunk is kept under its URL, which holds the collection, the stations, the parameters and the stamps: a
@@ -65,7 +75,10 @@ that is times times parameters times stations; beyond it the API answers 413.
 - **Failures.** A 404 is no data in the chunk (not an error; asked once, as every request is a unit of the quota). A
   413 is asked again in two parts. A 400 or 422 means the API refused a station it does not know: the stations of the
   request are cut in two until the refused one is alone, which is then left out for the rest of the query with a warning
-  (each distinct reason once), never asked for again. A 5xx or a dropped connection is retried twice, then it is a
+  (each distinct reason once), never asked for again, and the answer says `file-skipped` of it (a request that was
+  turned down, not a station without values). KNMI answers 400 for an unknown parameter or datetime too, which is no
+  station: a request that is refused down to the first station alone, with nothing answered before, or for a third
+  station, ends the query with a `DownloadError` that gives what the client knows of the 400. A 5xx or a dropped connection is retried twice, then it is a
   `DownloadError` (a 502); a 429 or an answer that is no CoverageJSON is a `DownloadError`; no connection a
   `NoInternetError`; a refused key a `CredentialRejectedError`. A range read in part is never an answer.
 
@@ -86,7 +99,9 @@ The codes of the source are passed through by the API and handled as they always
 such code), 0 (calm) and 990 (variable) of the hourly wind direction and 9 of the cloud cover (octants, "9=sky
 invisible") are null, each with the source's number as the `raw:` token of `quality_flags`. A parameter that a station has
 no sensor for is left out of its coverage by the API and is a null row, as the NaN of the files was (the 10-minute `tg` is
-no row before 2020-07-23 07:40, the first file of the platform that carried it). The rows an answer is made into are
+no empty row before 2020-07-23 07:40, the first file of the platform that carried it). The one difference is a station
+whose values the files carried all as NaN, which has no rows in the API (06315 at 10 minutes, 06216 at annual): with
+`drop_nulls=False` the files gave its null rows and the API gives none. The rows an answer is made into are
 those the files returned until GH-3928 (`tests/provider/knmi/observation/files/frozen_*.csv`).
 
 The monthly and the annual datasets (GH-4006) have the variables of the daily one, with `TG` the mean of the daily means,
@@ -102,17 +117,22 @@ formation, which hold 0 or 1 for a whole year and so are no count of days).
 `GET /collections/{collection}/locations` lists the stations: 77, the same for every collection, with the name, the
 position, the height above sea level, the `type` and the WMO number (`wmoId`, the `station_id`) and the WIGOS station
 identifier as the `id` (`0-20000-0-06260` for De Bilt, the station's `wigos_id`). It has no dates, so two more requests
-tell which stations are closed and when, three requests of the quota in all for every resolution, kept for 12 hours (the
-lists) and a week (the dates):
+tell which stations are closed and when: two requests for the lists, one for the monthly values of the closed stations
+and one for the daily values of each (8 on 2026-11-12), for every resolution, kept for 12 hours (both lists) and a week
+(the dates):
 
 - `/locations?datetime=<today>/<today>` lists the stations that are open: those the full list has and this one has not are
   closed (five on 2026-11-12: F16-A `06206`, Valkenburg `06210`, Hoorn-A `06212`, Soesterberg `06265`, Hoofdplaat
   `06311`). That list filters by the dates of the station in KNMI's catalogue and not by those of its data (Schiphol, whose
   station starts in 1990 and whose daily values in 1951, is not in it for 1960), so it is used to tell closed from open
   and never to cut a window by the start of a station.
-- `end_timestamp` of a closed station is the end of its last monthly value (one request for the closed stations, the 23
-  monthly parameters: Soesterberg 2008-07-01, Valkenburg 2016-05-01, F16-A 2020-08-01), and empty for a station that is
-  open, which is still reporting, and for a closed one without a value. A listing for a window leaves a station closed
+- `end_timestamp` of a closed station is the end of its last day with a value. The last monthly value is not it: the
+  last month of a station usually has none, so a cut there drops a station from a window it has data in (Soesterberg:
+  last monthly value June 2008, daily values to 2008-11-16; F16-A: July 2020, to 2020-08-30; Hoorn-A: October 2022, to
+  2022-11-27). One request for the monthly values of the closed stations (23 parameters, as many stations as fit) names
+  the month, and one for the daily values of each from that month on names the day: Soesterberg 2008-11-17, Valkenburg
+  2016-05-03, F16-A 2020-08-31, Hoorn-A 2022-11-28, Hoofdplaat 2016-02-01. It is empty for a station that is open,
+  which is still reporting, and for a closed one without a value. A listing for a window leaves a station closed
   before it out (`limit_to_window`; Soesterberg was the second nearest station to De Bilt in a listing for 2026,
   GH-4008). `start_timestamp` is empty.
 - The list of a resolution is the list without the stations its dataset cannot hold: the four fog stations

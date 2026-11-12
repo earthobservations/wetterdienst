@@ -2,7 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The grids of the five KNMI resolutions: the boundaries of an interval, and the step from one to the next.
 
-Shared by the reader of the files (`api`) and the reader of the EDR API (`edr`), which must agree on what a moment is.
+Shared by the reader of KNMI's EDR API (`edr`), the request (`api`) and the stations (`stations`), which must agree on
+what a stamp is.
 """
 
 from __future__ import annotations

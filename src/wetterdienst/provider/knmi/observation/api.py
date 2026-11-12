@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import CredentialMissingError
+from wetterdienst.exceptions import CredentialMissingError, RequestError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -29,7 +29,8 @@ from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetad
 from wetterdienst.provider.knmi.observation.parser import knmi_readings, without_rows_before_the_variable
 from wetterdienst.provider.knmi.observation.stations import read_stations
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import cached_copy_is_held, download_file
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -139,15 +140,99 @@ class KnmiObservationValues(TimeseriesValues):
         self._edr_reads: dict[tuple[str, str], dict[str, edr.Reading]] = {}
 
     def query(self) -> Iterator[ValuesResult]:
-        """Answer each station of the request; what the EDR API gave is kept for the walk and no longer."""
+        """Answer each station of the request; what the EDR API gave is kept for the walk and no longer.
+
+        A query that cannot be read within the quota of the key for an hour is refused before the walk (`_check_quota`).
+        """
         self._edr = None
         self._edr_reads.clear()
+        self._check_quota()
         try:
             yield from super().query()
         finally:
             # a result keeps the values object, and so what is held here, for as long as its caller keeps it
             self._edr = None
             self._edr_reads.clear()
+
+    def _check_quota(self) -> None:
+        """Refuse a query that takes more requests than the quota of the key for an hour, before anything is asked.
+
+        The requests are counted as the walk makes them (`edr.estimate_requests`, batch by batch), less those whose
+        answer the cache holds. A walk that stops where the data says (interpolation, summary) reads the one station in
+        hand, and a few of them, and is left alone.
+
+        Raises:
+            RequestError: the query takes more than `edr.MAX_REQUESTS` requests that are not cached.
+
+        """
+        settings = cast("Settings", self.sr.request.settings)
+        start_date, end_date = self.sr.start, self.sr.end
+        if not self._fetch_ahead_allowed or not start_date or not end_date or "wigos_id" not in self.sr.df.columns:
+            return
+        total = 0
+        for resolution_name, dataset_name in self.sr.df.select("resolution", "dataset").unique().rows():
+            dataset = self.sr.request.metadata[resolution_name][dataset_name]
+            resolution = dataset.resolution.value
+            bounds = edr.stamp_bounds(start_date, end_date, resolution, _now())
+            if bounds is None:
+                continue
+            rows = (
+                self.sr.df.filter((pl.col("resolution") == resolution_name) & (pl.col("dataset") == dataset_name))
+                .select("station_id", "wigos_id")
+                .unique(subset="station_id", maintain_order=True)
+                .rows()
+            )
+            rows = [row for row in rows if edr.is_wsi(row[1])]
+            if self.sr._rank:  # noqa: SLF001
+                rows = rows[: self.sr._rank]  # noqa: SLF001
+            total += self._count_requests(settings, dataset, resolution, bounds, rows)
+        if total > edr.MAX_REQUESTS:
+            msg = (
+                f"This query takes {total:,} requests of KNMI's EDR API, which allows {edr.MAX_REQUESTS:,} an hour "
+                "for a key. Ask for a narrower range or fewer stations (the stations of one query that are read "
+                "together share a request, a shorter range fits more of them in one)."
+            )
+            raise RequestError(msg)
+
+    def _count_requests(
+        self,
+        settings: Settings,
+        dataset: DatasetModel,
+        resolution: Resolution,
+        bounds: tuple[dt.datetime, dt.datetime],
+        rows: list[tuple[str, str]],
+    ) -> int:
+        """Count the requests of one dataset that the cache does not hold, in the walk's batches."""
+        first, last = bounds
+        names = [parameter.name_original for parameter in dataset.parameters]
+        batch = edr.room(edr.count_stamps(first, last, resolution), len(names))
+        planned = edr.estimate_requests(len(rows), first, last, resolution, _now(), len(names), batch=batch)
+        if planned <= edr.MAX_REQUESTS:
+            # what the cache holds can only make it fewer
+            return planned
+        uncached = 0
+        kwargs = edr.client_kwargs(settings)
+        for start in range(0, len(rows), batch):
+            group = rows[start : start + batch]
+            for chunk, size in edr.plan_requests(len(group), first, last, resolution, _now(), len(names)):
+                for i in range(0, len(group), size):
+                    url = edr.request_url(
+                        edr.COLLECTION_BY_RESOLUTION[resolution],
+                        [wsi for _, wsi in group[i : i + size]],
+                        names,
+                        chunk,
+                        resolution,
+                    )
+                    held = cached_copy_is_held(
+                        url,
+                        settings.cache_dir,
+                        _chunk_expiry(edr.to_edr_stamp(chunk.last, resolution)),
+                        kwargs,
+                        cache_disable=settings.cache_disable,
+                        use_certifi=settings.use_certifi,
+                    )
+                    uncached += 0 if held else 1
+        return uncached
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -204,6 +289,10 @@ class KnmiObservationValues(TimeseriesValues):
             plan = edr.plan_requests(len(batch), first, last, resolution, _now(), len(parameter_names))
             reads.update(reader.read(batch, resolution, parameter_names, plan))
         reading = reads.pop(station_id, None)
+        if station_id in reader.skipped:
+            # the API refused the station: that is a request it turned down, and no evidence that it holds nothing
+            note_skipped_download(SkipCause.REFUSED)
+            return _EdrRead(None)
         if reading is None or not reading.frames:
             return _EdrRead(None)
         # the chunks are whole blocks of the calendar: cut to the stamps of the range
@@ -230,9 +319,7 @@ class KnmiObservationValues(TimeseriesValues):
         position = next((index for index, (identifier, _) in enumerate(rows) if identifier == station_id), None)
         if position is None or not edr.is_wsi(rows[position][1]):
             return []
-        room = min(edr.STATIONS_AT_MOST, max(1, edr.MEMORY_POINTS // (stamps * max(parameters, 1))))
-        if not self._fetch_ahead_allowed:
-            room = 1
+        room = edr.room(stamps, parameters) if self._fetch_ahead_allowed else 1
         if self.sr._rank:  # noqa: SLF001
             room = min(room, self.sr._rank)  # noqa: SLF001
         batch = [rows[position]]
@@ -289,10 +376,15 @@ class KnmiObservationRequest(TimeseriesRequest):
             msg = (
                 "KNMI Data Platform reads from its EDR API, which requires a key of that API. "
                 f"Request one in the API Catalog at {edr.EDR_KEY_URL} "
-                "(a key of the Open Data API, as WD_AUTH__KNMI held until now, does not work) "
+                "(a key of the Open Data API does not work) "
                 "and set WD_AUTH__KNMI_EDR=<api_key> (env var) "
                 "or Settings(auth={'knmi_edr': '<api_key>'}) (Python)."
             )
+            if settings.open_data_key_set:
+                msg = (
+                    "WD_AUTH__KNMI holds the key of KNMI's Open Data API, which wetterdienst no longer reads, and "
+                    "the EDR API refuses it. " + msg
+                )
             raise CredentialMissingError(msg)
         # When the whole request targets the daily resolution, snap start down to the day: a daily value is stamped
         # with its date, so a query beginning mid-day should include that day, and flooring start here (the one
