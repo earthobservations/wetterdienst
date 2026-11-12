@@ -128,8 +128,9 @@ first rows reports an hour that has passed as the forecast. So `values` for a ne
 (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`; `coverage` and `providers` give the kind) leaves out the rows stamped before
 the current hour, in UTC, and the row stamped at the current hour stays. A `forecast-from-now` warning in
 `metadata.warnings` says that the answer starts at now and names the `timestamp` window that asks for the earlier
-hours of the run; for `csv` and `ndjson`, which have no block, it is the `X-Wetterdienst-Forecast-From-Now` header and
-the sentence of the tool. No row is left out, and no note is attached, where the run begins at or after the current
+hours of the run; for `csv` and `ndjson`, whose headers are in the sentence and the `_meta` of the result, it is the
+`X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool (an `ndjson` answer also has the block as its
+first line). No row is left out, and no note is attached, where the run begins at or after the current
 hour. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
 come.
 
@@ -156,9 +157,9 @@ An assistant reads the answer of a tool in its context, and Claude Code saves a 
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
 `interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
-included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the licence
-and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is not counted. The budget is a constant of the server
-and applies to the tools alone: the REST API, the command line and Python answer everything the
+included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
+licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
+not counted. The budget is a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
 An answer over the budget is cut, not refused, and says so:
@@ -174,7 +175,7 @@ An answer over the budget is cut, not refused, and says so:
   box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
   hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
-  how many lie within the distance and suggests a smaller `distance`, or `rank`.
+  how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.
 - **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
   note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
   station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
@@ -192,12 +193,13 @@ An answer over the budget is cut, not refused, and says so:
   carries it. `providers` is not cut: it is 20,000 characters for all providers together.
 
 The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings`. A JSON answer reaches a
-client as its body alone, so no header carries it (a `csv` or `ndjson` answer has no block, so its headers are in the
-sentence and the `_meta` of the result). It gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool
-accepts, ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters,
-and `format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no
-block, it is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of
-the body. `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
+client as its body alone, so no header carries it (a `csv` answer has no block; for `csv` and `ndjson` the headers are in
+the sentence and the `_meta` of the result, and an `ndjson` answer also has the block as its first line). It gives the
+rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool accepts,
+ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters, and
+`format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no block, it
+is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
+`metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
 that `coverage` and `glossary` give the units. The same holds for a `rank`, a `name` or a single station,

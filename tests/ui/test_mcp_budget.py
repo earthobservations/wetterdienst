@@ -472,7 +472,9 @@ def test_a_wide_distance_is_cut_to_the_nearest_stations(monkeypatch: pytest.Monk
 
     assert response.status_code == 200
     note = unquote(response.headers["x-wetterdienst-truncated"])
-    assert re.search(r"the nearest [\d,]+ of 700 stations are returned, nearest first\. ", note)
+    assert re.search(
+        r"the nearest [\d,]+ of 700 stations are returned, nearest first \(the farthest returned is ", note
+    )
     assert "700 stations lie within 500 km of the point" in note
     assert "ask again with a smaller `distance`, or with `rank` for the nearest few" in note
     # it is no list order, and no search by a bounding box
@@ -487,6 +489,9 @@ def test_a_wide_distance_is_cut_to_the_nearest_stations(monkeypatch: pytest.Monk
         assert body["metadata"]["counts"]["stations"] == len(kept)
         assert _note_of(body) == note
         assert _compact(response.text) <= ANSWER_BUDGET
+        # the farthest returned is the distance of the last station kept, so a smaller `distance` can be chosen
+        farthest = max(station["distance"] for station in body["stations"])
+        assert f"the farthest returned is {farthest:,.1f} km away" in note
     elif fmt == "csv":
         assert 0 < len(response.text.splitlines()) - 1 < 700
 
@@ -508,6 +513,22 @@ def test_what_a_client_receives_of_a_wide_distance_is_within_the_budget(
         assert "the nearest" in structured["metadata"]["warnings"][0]["message"]
     else:
         assert "Truncated: The answer was cut to stay within 40,000 characters: the nearest " in structured
+
+
+def test_the_note_of_one_station_is_told_in_the_singular() -> None:
+    """One station kept is "the nearest station is returned" or "the first station is returned", not "1 of N"."""
+    from wetterdienst.ui.budget import _stations_note  # noqa: PLC0415
+
+    request = type("Request", (), {})()
+    near = _stations_note(request=request, count=1, total=9, lead="", honest=True, distance=500, farthest=0.4)  # ty: ignore[invalid-argument-type]
+    assert "the nearest station is returned, nearest first (the farthest returned is 0.4 km away)." in near
+    assert "9 stations lie within 500 km of the point" in near
+    assert "1 of" not in near
+    first = _stations_note(request=request, count=1, total=9, lead="", honest=True)  # ty: ignore[invalid-argument-type]
+    assert "the first station is returned, in the provider's list order" in first
+    assert "1 of" not in first
+    many = _stations_note(request=request, count=3, total=9, lead="", honest=True)  # ty: ignore[invalid-argument-type]
+    assert "the first 3 of 9 stations are returned" in many
 
 
 def test_a_distance_that_fits_is_left_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -412,22 +412,36 @@ def fit_values(
 
 
 def _stations_note(
-    *, request: _ListRequest, count: int, total: int, lead: str, honest: bool, distance: float | None = None
+    *,
+    request: _ListRequest,
+    count: int,
+    total: int,
+    lead: str,
+    honest: bool,
+    distance: float | None = None,
+    farthest: float | None = None,
 ) -> str:
     """Write the note of a stations answer cut to its first `count` of `total` stations.
 
     The list of the climate stripes' stations has no selection to narrow with: a place goes to the stripes' tools as
     a `name`, which they match themselves, and `stations` finds a station near a point. The stations of a `distance`
-    are in the order of their distance, so the ones kept are the nearest.
+    are in the order of their distance, so the ones kept are the nearest: `distance` is the one asked for, `farthest`
+    the distance in km of the last station returned, which says what a smaller `distance` would still keep.
     """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
     if distance is not None:
-        return (
-            f"{head}the nearest {count:,} of {total:,} stations are returned, nearest first. {total:,} stations lie "
-            f"within {distance:,.10g} km of the point; ask again with a smaller `distance`, or with `rank` for the "
-            "nearest few."
+        returned = (
+            "the nearest station is returned, nearest first"
+            if count == 1
+            else f"the nearest {count:,} of {total:,} stations are returned, nearest first"
         )
-    first = f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
+        reach = f" (the farthest returned is {farthest:,.1f} km away)" if farthest is not None else ""
+        return (
+            f"{head}{returned}{reach}. {total:,} stations lie within {distance:,.10g} km of the point; ask again "
+            "with a smaller `distance`, or with `rank` for the nearest few."
+        )
+    returned = "the first station is" if count == 1 else f"the first {count:,} of {total:,} stations are"
+    first = f"{head}{returned} returned, in the provider's list order (usually by "
     if isinstance(request, StripesStationsRequest):
         only_active = "" if request.active else " `active=true` lists only the stations that still report."
         return (
@@ -465,8 +479,16 @@ def _fit_stations(
 
     def fits(count: int) -> bool:
         cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
+        far = cut.get_column("distance").max() if distance is not None and "distance" in cut.columns else None
+        farthest = float(far) if far is not None else None  # ty: ignore[invalid-argument-type]
         note = _stations_note(
-            request=request, count=count, total=count_all, lead=lead, honest=honest, distance=distance
+            request=request,
+            count=count,
+            total=count_all,
+            lead=lead,
+            honest=honest,
+            distance=distance,
+            farthest=farthest,
         )
         tried[count] = _made(result, request, cut, note, render)
         return tried[count].size <= ANSWER_BUDGET

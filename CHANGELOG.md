@@ -43,15 +43,16 @@ Types of changes:
   characters, `metadata` included, in every data format, and say so in an `answer-truncated`
   warning (for CSV also the `X-Wetterdienst-Truncated` header and the tool's sentence). `values`
   keeps whole timestamps: the end nearest to now, or the start of the `timestamp` window if one is
-  given, and the note names the next window. `stations` without `rank`, `distance` or `name` keeps
-  the first stations and says how many match. Ask for a `timestamp` window, or use the REST API or
-  the library for everything; REST, command line and Python are unchanged (GH-4022)
+  given, and the note names the next window. `stations` without `rank` or `name` keeps the first
+  stations (the nearest, for a `distance`) and says how many match. A CSV or NDJSON answer is
+  counted as the JSON the client receives. Ask for a `timestamp` window, or use the REST API or
+  the library for everything; REST, command line and Python are unchanged (GH-4022, GH-4029)
 - **Breaking** (MCP clients): the 40,000-character cut now holds for `interpolate`, `summarize`,
   `stripes_stations` and `coverage`. `interpolate` and `summarize` keep whole timestamps from the
   start of their `timestamp` window; `stripes_stations` keeps the first stations and says to give
   the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block over the
-  budget alone is left out, also of a `rank`, `distance`, `name` or one station. `coverage` sends
-  the parameters' `description` as null, then whole datasets in order; its note, at the start of
+  budget alone is left out, also of a `rank`, `name` or one station. `coverage` sends the
+  parameters' `description` as null, then whole datasets in order; its note, at the start of
   the first resolution's `description`, names the datasets left out and how to ask for them.
   REST, command line and Python are unchanged (GH-4024)
 - **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`,
@@ -65,14 +66,6 @@ Types of changes:
 
 ### Fixed
 
-- The 40,000-character budget of an MCP tool answer now holds as the client receives it. A `csv` or
-  `ndjson` answer was counted as plain text but arrives as JSON with every newline and quote escaped,
-  so `interpolate` csv came to 40,782 characters and `values` csv to 40,399; they are now cut to
-  fit. A `stations` answer by `distance` was never cut (983 stations, 296,000 characters, within
-  500 km of Berlin); it keeps the nearest stations and says how many lie within the distance. A
-  `rank` or `name` is still whole. The docs no longer say that the `X-Wetterdienst-Warnings` header
-  reaches a tool's client for a JSON answer; `metadata.warnings` carries it. REST, command line and
-  Python are unchanged (GH-4029)
 - The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
   `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
 - The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
