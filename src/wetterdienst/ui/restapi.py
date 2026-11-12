@@ -2720,10 +2720,14 @@ def alerts(
 ) -> Response:
     """Provide DWD weather alerts (CAP warnings) via restapi.
 
-    Returns all warnings active at the selected time, one entry per alert, with a GeoJSON
-    MultiPolygon geometry. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from
-    DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means
-    there were no active warnings.
+    Returns the warnings active at the selected time, one entry per alert, with a GeoJSON MultiPolygon geometry.
+    Without a place that is every warning of Germany (over 100 KB, more than an assistant can read): pass
+    ``latitude`` and ``longitude`` for the warnings whose areas contain the point, the reliable way to ask about one
+    place, and/or ``name`` for an area of that name (DWD's German one, ``München`` and not ``Munich``, matched as words
+    in every area that has it) or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical
+    snapshot from DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not
+    an error: no warning is active, or none is for the place, which a ``no-alerts-for-place`` warning in ``metadata``
+    says in the words of what was asked.
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
@@ -2733,7 +2737,13 @@ def alerts(
     settings = Settings()
     try:
         alerts_request = DwdWeatherAlertRequest(
-            granularity=request.granularity, language=request.language, timestamp=request.timestamp, settings=settings
+            granularity=request.granularity,
+            language=request.language,
+            timestamp=request.timestamp,
+            settings=settings,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            name=request.name,
         )
         result = alerts_request.query()
     except Exception as e:

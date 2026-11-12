@@ -18,6 +18,31 @@ if TYPE_CHECKING:
 #: wording is DWD's; only the polygon of the one area is cut to 5 of its 124 points (closed), the same in each block.
 CAP_MUL: bytes = (Path(__file__).parent / "files" / "cap_mul_fog.xml").read_bytes()
 
+_FILES = Path(__file__).parent / "files"
+
+#: Real messages of the `en` products of 2026-11-12, as DWD published them (a gale warning day on the coast of the North
+#: Sea and the Baltic), for the tests of the place filter (GH-4019). Nothing is cut. The warncells and names are the
+#: areas a warning is for, the polygons its event area:
+#:
+#: - the community product, wind gusts for 150 communes, one polygon, `Stadt Kiel` (`801002000`) among them
+CAP_COMMUNITY_KIEL: bytes = (_FILES / "cap_community_wind_kiel.xml").read_bytes()
+#: - the community product, wind gusts for 27 communes of the Ostfriesland coast, 13 polygons, Norderney in one
+CAP_COMMUNITY_NORDERNEY: bytes = (_FILES / "cap_community_wind_norderney.xml").read_bytes()
+#: - the community product, a warning for the sea (`Ostfriesische Küste`, `501000001`): one area with a warn cell and no
+#:   polygon, so no point is in it
+CAP_COMMUNITY_SEA: bytes = (_FILES / "cap_community_sea_near_gale.xml").read_bytes()
+#: - the district product, wind gusts for 5 districts, `Stadt Kiel` (`101002000`) among them
+CAP_DISTRICT_KIEL: bytes = (_FILES / "cap_district_wind_kiel.xml").read_bytes()
+#: - the district product, a warning for the sea around Helgoland: a polygon of the sea of 5 corners with a hole, the
+#:   island, in it
+CAP_DISTRICT_HELGOLAND: bytes = (_FILES / "cap_district_sea_helgoland.xml").read_bytes()
+
+#: - the district product, a fog warning for 11 districts of Baden-Württemberg of 2026-11-12: `Kreis Rastatt` has two
+#:   polygons and two holes in one, Baden-Baden (with a polygon of its own, an exclave, in it) and a small one
+CAP_DISTRICT_RASTATT: bytes = (_FILES / "cap_district_fog_rastatt.xml").read_bytes()
+#: - the district product, a warning for the sea east of Rügen: two polygons and a hole (an island) in each
+CAP_DISTRICT_RUEGEN: bytes = (_FILES / "cap_district_sea_ruegen.xml").read_bytes()
+
 #: the languages of that message, in the order of its blocks
 CAP_MUL_LANGUAGES = ["de-DE", "en", "fr", "es", "ar", "ru", "tr", "pl"]
 

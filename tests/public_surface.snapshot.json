@@ -139,7 +139,7 @@
     "aemet/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "chmi/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dmi/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
-    "dwd/alerts": "(granularity=..., language=..., timestamp=None, settings=None, **kwargs)",
+    "dwd/alerts": "(granularity=..., language=..., timestamp=None, settings=None, latitude=None, longitude=None, name=None, **kwargs)",
     "dwd/derived": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise', _lead_time_asked=None)",
     "dwd/mosmix": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=..., *, options=None, on_unknown='raise')",

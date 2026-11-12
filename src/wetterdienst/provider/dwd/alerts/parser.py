@@ -15,6 +15,7 @@ import datetime as dt
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
+from wetterdienst.provider.dwd.alerts.place import OUTSIDE, locate
 from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.xml import parse_xml
 
@@ -122,12 +123,32 @@ def _parse_area(area: _Element) -> dict[str, Any]:  # noqa: C901
     }
 
 
+def _attach_holes(polygons: list[list[list[float]]], holes: list[list[list[float]]]) -> list[list[list[list[float]]]]:
+    """Give each polygon its rings: the exterior, then the holes (`EXCLUDE_POLYGON`) that lie in it.
+
+    A hole belongs to the polygon that has most of its vertices (an edge counts), so that the hole of a district that
+    surrounds an enclave (the Baden-Baden hole of Kreis Rastatt, with a polygon of its own in the hole) is not taken by
+    that polygon, and a hole that touches its exterior is not lost to a vertex that rounds to the outside (its first
+    vertex, in the sea east of Rügen). A hole in none of the polygons is left out. A tie, which no real message has
+    (the polygons of an area do not overlap, so a hole lies in one), goes to the first polygon, so the geometry does
+    not depend on anything but the message.
+    """
+    rings: list[list[list[list[float]]]] = [[polygon] for polygon in polygons]
+    for hole in holes:
+        vertices = hole[:-1] or hole
+        scores = [sum(locate(polygon, x, y) != OUTSIDE for x, y in vertices) for polygon in polygons]
+        best = max(scores)
+        if best > 0:
+            rings[scores.index(best)].append(hole)
+    return rings
+
+
 def _build_multipolygon(areas: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Combine all polygon areas into a single GeoJSON ``MultiPolygon`` (or ``None`` if there are none).
 
-    Per the DWD profile, an area with a hole (``EXCLUDE_POLYGON``) carries exactly one ``<polygon>``,
-    so holes are attached to that polygon; areas with multiple polygons get one GeoJSON polygon each
-    without holes.
+    An area with one ``<polygon>`` keeps all its holes (``EXCLUDE_POLYGON``) on it. An area with several polygons has
+    each hole attached to the polygon it lies in (`_attach_holes`): a district with an enclave, or islands in a
+    polygon of the sea, has more than one of each.
     """
     coordinates: list[list[list[list[float]]]] = []
     for area in areas:
@@ -138,7 +159,7 @@ def _build_multipolygon(areas: list[dict[str, Any]]) -> dict[str, Any] | None:
         if len(polygons) == 1:
             coordinates.append([polygons[0], *holes])
         else:
-            coordinates.extend([polygon] for polygon in polygons)
+            coordinates.extend(_attach_holes(polygons, holes))
     if not coordinates:
         return None
     return {"type": "MultiPolygon", "coordinates": coordinates}

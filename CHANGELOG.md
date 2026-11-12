@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `alerts` (Python, REST, command line and the MCP tool) takes `latitude` and `longitude`, which keep
+  the warnings whose polygons contain the point, and `name`, which keeps those with an area of that
+  name or warn cell id (`Kiel`, `101002000`; DWD's German names). Without them the answer is every
+  warning of Germany as before, 100 to 370 KB. A place without a warning is a 200 with
+  no alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
+  newest `sent` of the whole snapshot, not of the warnings kept. A latitude without a longitude is a
+  422 (GH-4019)
 - `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
   observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
   precipitation, sunshine and radiation. A value is stamped with the first day of its period (the
@@ -35,6 +42,11 @@ Types of changes:
 
 ### Fixed
 
+- The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
+  each on the polygon it lies in; they were dropped. The district warnings for Kreis Rastatt
+  (the Baden-Baden enclave) and the sea east of Rügen (islands) now have them in the GeoJSON, JSON
+  and CSV, and a point in a hole is not in the warning. An area with one polygon is unchanged
+  (GH-4019)
 - `knmi/observation` lists the stations of the list of the EDR API (`/locations`) and not those of
   the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are in
   the API, are listed, and the list no longer varies with the latest file. Fog stations are listed at

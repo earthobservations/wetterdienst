@@ -127,7 +127,8 @@ and nearest-station-with-data respectively); both introduce inaccuracy and are o
 ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
-(name/location/sensor changes), not weather.
+(name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
+(a point is the reliable way).
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \

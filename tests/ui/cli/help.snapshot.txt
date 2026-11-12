@@ -44,8 +44,9 @@ Usage: wetterdienst alerts [OPTIONS]
 
   Acquire DWD weather alerts (CAP warnings).
 
-  Returns all warnings active at the selected time (the latest snapshot by default), one row per
-  alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+  Returns the warnings active at the selected time (the latest snapshot by default), one row per
+  alert, with a GeoJSON MultiPolygon geometry: every warning of Germany, unless --latitude and
+  --longitude or --name name a place. An empty result means no warning was active (for the place).
 
   With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
 
@@ -58,6 +59,15 @@ Options:
   --timestamp TEXT                Point in time (ISO 8601, UTC if no offset) to select the active-
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.
+  --latitude FLOAT RANGE          With --longitude, only the warnings whose areas contain this point
+                                  (an edge counts as inside): the reliable way to ask about one
+                                  place.  [-90<=x<=90]
+  --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
+  --name TEXT                     Only the warnings for an area of this name or warn cell id. DWD's
+                                  German names, in any case ('München', not 'Munich'), matched as
+                                  words in every area that has them ('Hamburg' also finds 'Wentorf
+                                  bei Hamburg'), or a number such as 101002000. A point is the
+                                  reliable way to ask about one place. With a point, both must hold.
   --format [json|geojson|csv]     Output format. Default: json
   --target TEXT                   Write the alerts to this file instead of stdout, in the format its
                                   extension names: .json, .geojson or .csv. Databases are refused. A
@@ -88,6 +98,10 @@ Options:
   # the warnings active at a past time: replace YYYY-MM-DDTHH:MM with one within the last
   # ~48 hours, all DWD keeps
   wetterdienst alerts --granularity=district --timestamp=YYYY-MM-DDTHH:MM
+
+  # the warnings for a place, a few KB and not every warning of Germany: a point, or a name or warn cell id
+  wetterdienst alerts --latitude=54.32 --longitude=10.14
+  wetterdienst alerts --granularity=district --name=Kiel
 
   # to a GeoJSON file
   wetterdienst alerts --format=geojson --target=file://alerts.geojson
