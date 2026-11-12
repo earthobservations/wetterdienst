@@ -16,14 +16,13 @@ from __future__ import annotations
 
 import io
 import json
-import zipfile
 from typing import TYPE_CHECKING
 
 import pytest
 from click.testing import CliRunner
 from starlette.testclient import TestClient
 
-from tests.provider.dwd.observation.test_api_history import _STATION_01975_METADATA
+from tests.provider.dwd.observation.test_api_history import _station_01975_zip
 from wetterdienst.provider.dwd.observation import api, fileindex, metaindex
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -52,15 +51,6 @@ _PARAMS = {
 }
 
 
-def _history_zip() -> io.BytesIO:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as zf:
-        for name, content in _STATION_01975_METADATA.items():
-            zf.writestr(name, content)
-    buffer.seek(0)
-    return buffer
-
-
 @pytest.fixture(autouse=True)
 def dwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Stand in for DWD's server: every directory lists station 01975, whose description and archive are served."""
@@ -73,7 +63,7 @@ def dwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(fileindex, "list_remote_files_fsspec", listing)
     monkeypatch.setattr(metaindex, "download_file", download_file)
-    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_history_zip(), status=200))
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_station_01975_zip(), status=200))
     monkeypatch.setenv("WD_CACHE_DIR", str(tmp_path / "cache"))
 
 

@@ -1569,6 +1569,24 @@ def test_dwd_obs_history_reads_every_file_of_a_station_with_an_umlaut() -> None:
     }
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_dwd_obs_history_reads_the_name_file_with_either_line_ending(newline: str) -> None:
+    """Test the name file reads with LF and with CRLF, which DWD mixes within a file type (GH-4021).
+
+    54 of 68 sampled `Metadaten_Parameter_*` files end their lines with CRLF; the name file is LF today.
+    """
+    content = _STATION_01975_METADATA["Metadaten_Stationsname_Betreibername_01975.txt"].replace(b"\n", newline.encode())
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("Metadaten_Stationsname_Betreibername_01975.txt", content)
+    buffer.seek(0)
+
+    name = DwdObservationHistory.read_name_history(ZipFileSystem(buffer))
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
 def test_dwd_obs_history_records_give_their_validity() -> None:
     """Test every history record gives the span it held for as `valid_from` and `valid_to` (GH-2440).
 
