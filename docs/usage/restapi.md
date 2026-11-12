@@ -248,8 +248,8 @@ what the answer is missing:
   - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
     published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
     run is. This is the age of a forecast only: for a file it is not the age of the data.
-  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
-    a snapshot with no warning has none.
+  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings of the whole snapshot, which DWD states in each of them,
+    also for an answer filtered by a place, which may hold a few warnings or none; a snapshot with no warning has none.
 
   The date is `null` for the networks whose source states none and whose responses carry no `Last-Modified` that is a
   file's (FMI and SMHI send the time of the request), for those that need credentials and are not examined (AEMET,

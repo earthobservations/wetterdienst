@@ -9,6 +9,7 @@ areas DWD writes, not to ones made up for it.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from typing import TYPE_CHECKING
 
@@ -318,3 +319,33 @@ def test_the_answers_of_a_place_are_json(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(result.to_ogc_feature_collection()["features"]) == 1
     assert "Stadt Norderney" in result.to_csv()
     assert "Stadt Kiel" not in result.to_csv()
+
+
+# the date of the data is that of the whole snapshot, whatever the place keeps (the sea warning is the newest, 08:44)
+_SNAPSHOT_UPDATED_AT = dt.datetime(2026, 11, 12, 8, 44, tzinfo=dt.UTC)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "kept"),
+    [
+        pytest.param({}, 3, id="unfiltered"),
+        pytest.param({"latitude": KIEL[0], "longitude": KIEL[1]}, 1, id="filtered-with-a-match"),
+        pytest.param({"name": "Kiel"}, 1, id="filtered-by-name"),
+        pytest.param({"latitude": MUNICH[0], "longitude": MUNICH[1]}, 0, id="filtered-with-no-match"),
+    ],
+)
+def test_the_date_of_the_data_is_that_of_the_whole_snapshot(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, float | str], kept: int
+) -> None:
+    """A place keeps a few warnings or none, and the data it checked is as current as the snapshot is."""
+    serve_snapshot(monkeypatch, *SNAPSHOT)
+    result = DwdWeatherAlertRequest(**kwargs).query()
+    assert result.df.height == kept
+    assert result.data_updated_at == _SNAPSHOT_UPDATED_AT
+
+
+def test_the_date_of_an_empty_snapshot_is_none_with_or_without_a_place(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A snapshot without a warning has no date, as before."""
+    serve_snapshot(monkeypatch)
+    assert DwdWeatherAlertRequest().query().data_updated_at is None
+    assert DwdWeatherAlertRequest(name="Kiel").query().data_updated_at is None

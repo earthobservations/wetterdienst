@@ -49,7 +49,7 @@ A place without a warning is **an answer, not a failure**: the REST API answers 
 of 0 and a `no-alerts-for-place` warning in `metadata.warnings`, whose message says what was asked and how many warnings
 of the snapshot are for other places (the same text is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has
 no block, and in the `metadata` of the command line's JSON). Nothing is told for a request without a place, nor for a
-place with a warning.
+place with a warning. Its `data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
 
 Measured on 2026-11-12, against the live community snapshot of 16 warnings (JSON, characters): the whole snapshot is
 114,240, Kiel 13,260 (one warning), Norderney 19,628 (two) and Munich 1,701 (none, the reason).
@@ -64,8 +64,10 @@ also_kiel = DwdWeatherAlertRequest(granularity="district", name="Kiel").query()
 ## Update date
 
 The `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the newest
-`sent` of the warnings in it, which DWD states in each of them (a warning that is updated is sent again). A snapshot
-with no warning has none.
+`sent` of the warnings of the **whole snapshot**, which DWD states in each of them (a warning that is updated is sent
+again). It is the same for a request for a [place](#a-place), whatever its answer holds: a place with a few warnings, or
+with none, carries the time of the snapshot that was checked, and a `timestamp` taken from it reads that snapshot. A
+snapshot with no warning has none.
 
 ## Languages
 

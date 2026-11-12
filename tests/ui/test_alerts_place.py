@@ -216,3 +216,12 @@ def test_cli_help_names_the_place_options() -> None:
     output = CliRunner().invoke(cli, ["alerts", "--help"]).output
     for option in ("--latitude", "--longitude", "--name"):
         assert option in output
+
+
+@pytest.mark.parametrize("params", [{}, KIEL, {"name": "Kiel"}, MUNICH])
+def test_rest_the_date_of_the_data_is_that_of_the_whole_snapshot(client: TestClient, params: dict) -> None:
+    """With a match, with none and without a place, `data_updated_at` is the newest `sent` of the snapshot (08:44)."""
+    data = client.get("/api/alerts", params=params).json()
+    assert data["metadata"]["data_updated_at"] == "2026-11-12T08:44:00.000000+00:00"
+    csv = client.get("/api/alerts", params={**params, "format": "csv"})
+    assert csv.headers["x-wetterdienst-data-updated-at"] == "2026-11-12T08:44:00.000000+00:00"

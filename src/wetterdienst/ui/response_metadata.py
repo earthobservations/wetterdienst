@@ -479,7 +479,8 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
 def alerts_metadata(api: object, alerts: int, data_updated_at: dt.datetime | None = None) -> ResponseMetadata:
     """Build the block of the warnings of `dwd/alerts` (`/api/alerts`), which are about no stations.
 
-    `data_updated_at` is the newest `sent` of the warnings in the answer (`DwdWeatherAlertResult.data_updated_at`).
+    `data_updated_at` is the newest `sent` of the warnings of the whole snapshot, those for a place or not
+    (`DwdWeatherAlertResult.data_updated_at`).
     """
     return _block_without_result(
         api,

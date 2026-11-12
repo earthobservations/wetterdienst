@@ -119,6 +119,7 @@ class DwdWeatherAlertResult:
         granularity: DwdWeatherAlertGranularity,
         language: DwdWeatherAlertLanguage,
         snapshot: dt.datetime | None = None,
+        snapshot_updated_at: dt.datetime | None = None,
     ) -> None:
         """Initialize the result.
 
@@ -127,8 +128,12 @@ class DwdWeatherAlertResult:
             granularity: the requested granularity.
             language: the requested language.
             snapshot: production time (UTC) of the selected snapshot, or ``None`` for the latest one.
+            snapshot_updated_at: the newest ``sent`` of every warning of the snapshot, which a request for a place
+                gives because ``df`` holds only the warnings for it; ``None`` (the default) for ``df`` being the
+                whole snapshot, whose own newest ``sent`` it is.
 
         """
+        self.snapshot_updated_at = snapshot_updated_at
         self.df = df
         self.granularity = granularity
         self.language = language
@@ -136,12 +141,17 @@ class DwdWeatherAlertResult:
 
     @property
     def data_updated_at(self) -> dt.datetime | None:
-        """When DWD last said anything of these warnings: the newest `sent` of them, `None` for no warning (GH-2567).
+        """When DWD last said anything of the warnings it published: the newest `sent` of the snapshot (GH-2567).
 
         The `sent` of a CAP message is the time DWD issued it, an update of a warning being a new message, so the
-        newest of them is the "date of the most recent update" of what the answer holds. It is stated in the body of
-        each warning, not read off the file the snapshot came in.
+        newest of them is the "date of the most recent update" of the data read. It is stated in the body of each
+        warning, not read off the file the snapshot came in. It is that of the **whole snapshot**, also for a request
+        for a place (`DwdWeatherAlertRequest` with a point or a name) whose answer holds a few warnings, or none: it
+        says how current the data is that was checked, and a `timestamp` taken from it reads the same snapshot.
+        `None` for a snapshot without a warning.
         """
+        if self.snapshot_updated_at is not None:
+            return self.snapshot_updated_at
         sent = self.df.get_column("sent").drop_nulls()
         return None if sent.is_empty() else cast("dt.datetime", sent.max())
 
@@ -537,6 +547,8 @@ class DwdWeatherAlertRequest:
             raise content
         try:
             alerts = self._parse_archive(content, url)
+            sent = [alert["sent"] for alert in alerts if alert.get("sent") is not None]
+            snapshot_updated_at = max(sent) if sent else None
             alerts = self._keep_place(alerts)
             df = self._build_dataframe(alerts)
         except zipfile.BadZipFile as e:
@@ -548,7 +560,13 @@ class DwdWeatherAlertRequest:
             # was converted already
             msg = f"weather alerts snapshot from {url} holds what the parser does not expect: {e}"
             raise MetaFileFormatError(msg) from e
-        return DwdWeatherAlertResult(df=df, granularity=self.granularity, language=self.language, snapshot=snapshot)
+        return DwdWeatherAlertResult(
+            df=df,
+            granularity=self.granularity,
+            language=self.language,
+            snapshot=snapshot,
+            snapshot_updated_at=snapshot_updated_at,
+        )
 
     def _keep_place(self, alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Keep the warnings for the place asked for; all of them for a request that names none.

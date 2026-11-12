@@ -22,7 +22,8 @@ Types of changes:
   the warnings whose polygons contain the point, and `name`, which keeps those with an area of that
   name or warn cell id (`Kiel`, `101002000`). Without them the answer is every warning of Germany
   as before, 100 to 370 KB, more than an assistant can read. A place without a warning is a 200 with
-  no alerts and a `no-alerts-for-place` warning in `metadata`. A latitude without a longitude is a
+  no alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
+  newest `sent` of the whole snapshot, not of the warnings kept. A latitude without a longitude is a
   422 (GH-4019)
 - `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
   observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
