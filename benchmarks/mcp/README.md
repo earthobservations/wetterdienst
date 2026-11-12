@@ -55,7 +55,10 @@ Shell state does not survive between your Bash calls: put the variables in `$BEN
 command with `. "$BENCH/env.sh"`, or write the paths out. **The snippets run in bash and in zsh** (the Bash tool on a Mac
 is often zsh): every variable is quoted and holds one word, and none holds several arguments, because zsh does not split an
 unquoted `$ARGS` into words (a `judge` call built from `FACTS="--fact a=ok --fact b=ok"` breaks there). Write each argument
-out in the command, as the snippets do.
+out in the command, as the snippets do. **The same goes for loops over words**: `for p in "a b"; do set -- $p; ...` and
+`for x in $list` split in bash and **not in zsh**. Write the words out (`for p in a b c; do ...`), or split on purpose with
+`${=p}` (zsh) or an array (`arr=(a b c); for x in "${arr[@]}"; do ...`), or run the loop with `bash -c '...'`. A test rejects
+`set -- $var` and `for x in $var` in the snippets of this file.
 
 ## Part 1. Prerequisites
 
@@ -145,7 +148,7 @@ Start it **in the background** (the Bash tool's `run_in_background`, or `nohup .
 
 ```bash
 . "$BENCH/env.sh"
-cd "$SERVER_DIR" && exec .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
+cd "$SERVER_DIR" && exec env -u WD_RESTAPI_SQL .venv/bin/wetterdienst restapi --listen 127.0.0.1:7891
 ```
 
 Wait for it (about 10 s), then check and record what you need:
@@ -160,6 +163,13 @@ printf 'export LABEL="%s"\nexport SERVER_VERSION="%s"\n' "$(git -C "$SERVER_DIR"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" probe "$URL" --label "$LABEL"
 python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" tools-size --server "$URL"
 ```
+
+**The server's SQL setting.** `env -u WD_RESTAPI_SQL` starts it with the default, **SQL filtering off**: `sql` and `sql_values`
+are refused with a 403, and a small model that tries them after a result too large to read spends steps on the refusal. The
+baseline and every comparison with it must be run with the **same** setting, and the baselines of this file were run with it unset;
+leave it so unless the maintainer tells you otherwise (then set `WD_RESTAPI_SQL=true` on **both** sides and say so in the comments).
+`init` asks the server and writes the answer into `meta.server_settings.restapi_sql` (`off`, `on` or `unknown`); `probe` prints it;
+`compare` **warns** (it does not refuse) when the two files differ.
 
 `/health` answers `{"status":"OK"}`, `/api/version` the version of the checkout (for example `0.186.0` for `main`), `probe` says
 `"tools": 14`, and `server.pid` holds the one PID that listens: **that PID, and no other, is what you stop at the end**.
@@ -189,6 +199,9 @@ in the judge. Two choices:
   | `stripes_image` | `stripes image ...` (a picture: the cases do not judge it) |
   | `stripes_values` | **no command** (there is no `stripes values`). Read the series the server reads, `_get_stripes_data` in `ui/core.py`: DWD observation, period `historical`, **temperature** `annual/climate_summary/temperature_air_mean_2m`, **precipitation** `annual/precipitation_more/precipitation_amount`, with `values` and take the year (or years) the case asks for |
 
+  **CSV output ends with an empty line** (the last line of `... --format csv | tail -1` is empty, which is not the "empty output"
+  above): the examples drop it with `grep -v '^$'`, so the header and every row show, and `| tail -n 2` shows the last row.
+
   Examples (every option is held to the `--help` of its command by a test; note that `coverage`, `providers` and `history` have no
   `--format` or only `json`, and `stripes stations` takes `--kind`):
 
@@ -196,13 +209,13 @@ in the judge. Two choices:
   "$REFCLI" glossary --parameter temperature_air_mean_2m --limit 3 2>>"$BENCH/ref.err"
   "$REFCLI" providers --provider dwd 2>>"$BENCH/ref.err"
   "$REFCLI" coverage --provider dwd --network observation --resolutions daily --datasets climate_summary 2>>"$BENCH/ref.err"
-  "$REFCLI" stations --provider dwd --network observation --parameters daily/climate_summary --name Kiel --format csv 2>>"$BENCH/ref.err"
-  "$REFCLI" stations --provider geosphere --network observation --parameters daily/data --latitude 48.2085 --longitude 16.3721 --distance 15 --format csv 2>>"$BENCH/ref.err"
+  "$REFCLI" stations --provider dwd --network observation --parameters daily/climate_summary --name Kiel --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
+  "$REFCLI" stations --provider geosphere --network observation --parameters daily/data --latitude 48.2085 --longitude 16.3721 --distance 15 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
   "$REFCLI" summarize --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --timestamp 2025-12-26 --latitude 53.9 --longitude 10.7 2>>"$BENCH/ref.err"
   "$REFCLI" history --provider dwd --network observation --parameters daily/climate_summary --stations 02564 --sections name,geography 2>>"$BENCH/ref.err"
   "$REFCLI" alerts --granularity community --language en 2>>"$BENCH/ref.err"
   "$REFCLI" values --provider dwd --network observation --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 02564 --with-metadata true --format json 2>>"$BENCH/ref.err"
-  "$REFCLI" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>>"$BENCH/ref.err"
+  "$REFCLI" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
   ```
 
   The last one is the `stripes_values` truth of Potsdam for 1991 (8.91 on 2026-11-12). The library is the other way
@@ -385,7 +398,10 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
 1. Stop the server **by its PID**: `kill "$(cat "$BENCH/server.pid")"` (the background task then ends with exit code 144: that is the signal), then `lsof -nP -iTCP:7891 -sTCP:LISTEN` shows nothing.
    Stop the background task that started it too (the Bash tool's task list). Check no other process of yours is still running
    (`bench.py batch`, `claude -p`), and wait for it if one is.
-2. Remove the worktrees with git **of the checkout you started in** (`$START`), not of `$REPO`: `$REPO` is itself one of the
+2. Check what a run may have left in `~/.claude/projects`: `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" cleanup`
+   removes the project directories that tested models left (it takes only those older than 10 minutes, and only
+   `mcpbench-subject` ones). **Do it before the next step: it runs `bench.py` from `$REPO`, which step 3 removes.**
+3. Remove the worktrees with git **of the checkout you started in** (`$START`), not of `$REPO`: `$REPO` is itself one of the
    worktrees being removed (the server's venv is in `$SERVER_DIR`; `wd-ref` exists in a comparison only):
 
    ```bash
@@ -398,9 +414,6 @@ gh issue comment 3546 -R earthobservations/wetterdienst --body-file "$BENCH/comm
 
    (`git worktree remove` of a worktree that is not there is an error you can ignore.) The scratch directory (prompts, transcripts,
    the results file) **stays**: it is the record behind the comments. Say where it is in your last message.
-3. Check what a run may have left in `~/.claude/projects`: `python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" cleanup`
-   removes the project directories that tested models left (it takes only those older than 10 minutes, and only
-   `mcpbench-subject` ones).
 4. Say in your last message: the results file, the comments you posted (links), the gist link, what is not clean, and
    what you stopped for. Do not go on to the other named run.
 
@@ -447,7 +460,8 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" hashes
 `meta` prints what the baseline was made with: **`label`, the commit its server ran** (for example `d18a37368`, the reference's
 build), its `server_version`, `reference` and `reference_version`, `models`, `repeats`, the case list, `prompt`, `logic`,
 `claude_version`, the date. `hashes` prints the `logic`, `prompt` and `defaults` of your `$REPO`: if they differ from the
-baseline's, `compare` will refuse (exit 4), so **stop and ask before you pay for the runs**; a different `cases_file` only means
+baseline's, `compare` will refuse (exit 4), so **stop and ask before you pay for the runs**; a different `server_settings` (SQL on in one and off in the other) is not a refusal
+but a warning, and it makes the sides unlike: start your server with the baseline's setting (`env -u WD_RESTAPI_SQL` for the default); a different `cases_file` only means
 that some cases changed (`compare` leaves those out and lists them). A different `claude_version` is allowed: say it in the report.
 
 **8.2 The server is the branch.** Do 2.1, and set the three names of 2.2 for the change (`SERVER_REF` is `origin/<X>` for a
@@ -643,8 +657,13 @@ read from the stations the subject itself got listed, not from a call of yours).
      (`--values -` reads standard input; `--hours 48`, `--now <ISO time of your call>` and `--window all` are options). It takes the rows
      after your call and up to 48 hours later for a forecast, all rows for an observation fact, widens the min and max by the fact's margin,
      keeps them in `sanity`, and says for each `RESULT:` figure of the answer (converted to °C from °F or K) whether it is in the span;
-     a figure in another unit is `null`, not judged. It cannot tell the time a figure belongs to: that and `retrieved_at` of the
-     subject's call (the digest prints it) stay yours.
+     a figure in another unit is `null`, not judged. **It also checks the timing of a forecast figure:** it looks the figure up among
+     the rows of your call (to the rounding it was written with) and says `timing`: `past_only` when every row it equals is stamped at
+     or before `retrieved_at` of the subject's last `values` call (read from the analysis; `--called-at <ISO time>` overrides it), which
+     is an hour already past, an observation, so the figure **fails**; `after` when one of the rows is later (fine); `no_match` when no
+     row equals it (a derived figure, a mean: judge it yourself). A figure that equals the 11:00 hour of a call made at 11:30 is
+     `past_only`. Your call must include the hours since the model run (`periods=future` does for a forecast), or it has no row to
+     match. What a figure without a stated hour belongs to stays yours.
      Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
      lists accepted spellings.

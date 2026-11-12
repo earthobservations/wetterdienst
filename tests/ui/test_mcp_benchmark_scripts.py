@@ -893,6 +893,8 @@ class _McpHandler(http.server.BaseHTTPRequestHandler):
     """A tiny streamable-HTTP MCP endpoint: initialize, the initialized notification and tools/list."""
 
     tools: ClassVar[list[dict[str, Any]]] = []
+    #: what the fake server answers to a request with a `sql` clause: 403 is a server that has SQL off
+    sql_status: ClassVar[int] = 403
 
     def do_POST(self) -> None:
         """Answer one JSON-RPC message."""
@@ -915,7 +917,14 @@ class _McpHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self) -> None:
-        """Answer `/api/version` as the wetterdienst does."""
+        """Answer `/api/version` as the wetterdienst does, and a `sql` request as a server with SQL on or off does."""
+        if self.path.startswith("/api/v1/stations"):
+            payload = b'{"title": "SQL filtering is disabled on this server"}'
+            self.send_response(self.sql_status)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         payload = b'{"version": "9.9.9"}'
         self.send_response(200)
         self.send_header("Content-Length", str(len(payload)))
@@ -4546,6 +4555,7 @@ def test_the_snippets_of_the_runbook_parse_in_bash_and_zsh(shell: str, tmp_path:
         assert done.returncode == 0, (shell, number, done.stderr, block)
         # an unquoted variable that holds arguments is split in bash and not in zsh
         assert not re.search(r"(?<![\"\w{])\$(?:ARGS|FACTS|OPTS|FLAGS)\b", block), block
+        assert not re.search(r"\bset\s+--\s+\$", block), block
 
 
 # ---------------------------------------- the baseline of 2026-11-12: spills, the batch guard, the digest, cases
@@ -5197,3 +5207,120 @@ def test_the_reference_commands_of_the_runbook_use_options_the_command_line_has(
         assert helped.exit_code == 0, (line, helped.output)
         for option in options:
             assert option in helped.output, (line, option)
+
+
+# ------------------------------------------------ the SQL setting of the server, the timing of a forecast figure, zsh
+
+
+@pytest.fixture
+def sql_status() -> Iterator[None]:
+    """Let a test choose what the fake server answers to a `sql` request; the default is restored."""
+    old = _McpHandler.sql_status
+    yield
+    _McpHandler.sql_status = old
+
+
+@pytest.mark.usefixtures("sql_status")
+@pytest.mark.parametrize(("status", "expected"), [(403, "off"), (200, "on"), (500, "unknown"), (404, "unknown")])
+def test_the_sql_setting_of_the_server_is_read_from_how_it_answers_a_sql_request(
+    mcp_url: str, status: int, expected: str
+) -> None:
+    """403 with the SQL refusal is `off`, a 200 is `on`, anything else, or no answer, `unknown`."""
+    _McpHandler.sql_status = status
+
+    assert bench.server_sql(mcp_url) == expected
+    assert bench.server_sql("http://127.0.0.1:1/mcp/v1", timeout=2) == "unknown"
+
+
+@pytest.mark.usefixtures("sql_status")
+def test_init_and_probe_record_the_sql_setting_and_compare_warns_when_it_differs(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`meta.server_settings.restapi_sql` is what the server did; sides that differ get a warning, no refusal."""
+    off = _init(tmp_path / "off.json", mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
+    _McpHandler.sql_status = 200
+    on = _init(tmp_path / "on.json", mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
+
+    assert off["meta"]["server_settings"] == {"restapi_sql": "off"}
+    assert on["meta"]["server_settings"] == {"restapi_sql": "on"}
+    assert bench.main(["probe", mcp_url]) == 0
+    assert json.loads(capsys.readouterr().out)["restapi_sql"] == "on"
+    text = bench.compare(off, on)
+    assert "WARNING: the two servers were not run with the same settings" in text
+    assert "{'restapi_sql': 'off'} -> {'restapi_sql': 'on'}" in text
+    assert "WARNING" not in bench.compare(off, off, same_server=True)
+    assert "WARNING" in bench.compare(
+        {"meta": {k: v for k, v in off["meta"].items() if k != "server_settings"}, "runs": []}, off
+    )
+
+
+def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_call() -> None:
+    """The 11:00 hour was past when the subject called at 11:30: a figure that is only that hour is `past_only`."""
+    case = bench.find_case(bench.load_cases(), "forecast-nairobi")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+    rows = _rows(
+        ("2026-11-12T10:00:00+00:00", 21.0),
+        ("2026-11-12T11:00:00+00:00", 23.4),
+        ("2026-11-12T12:00:00+00:00", 25.1),
+        ("2026-11-12T13:00:00+00:00", 26.0),
+        ("2026-11-12T14:00:00+00:00", 25.1),
+    )
+    answer = (
+        "RESULT: 23.4 °C | the 11:00 hour\nRESULT: 26.0 °C | the 13:00 hour\n"
+        "RESULT: 25.1 °C | the noon hour, or 14:00\nRESULT: 24.3 °C | a derived mean\n"
+        "RESULT: 74.12 °F | 23.4 C in F\nRESULT: 3 m/s | wind"
+    )
+    now = bench._timestamp("2026-11-12T11:40:00+00:00")  # noqa: SLF001
+    called = bench._timestamp("2026-11-12T11:30:00+00:00")  # noqa: SLF001
+
+    found = bench.span_of_values(fact, rows, answer=answer, now=now, called_at=called)
+
+    assert found["called_at"] == "2026-11-12T11:30:00+00:00"
+    assert [f.get("timing") for f in found["figures"]] == ["past_only", "after", "after", "no_match", "past_only", None]
+    assert found["figures"][0]["rows_before_the_call"] == ["2026-11-12T11:00:00+00:00"]
+    without = bench.span_of_values(fact, rows, answer=answer, now=now)
+    assert all("timing" not in f for f in without["figures"])
+    assert found["values_used"] == 3
+
+
+def test_the_span_command_takes_the_call_time_from_the_analysis_or_the_option(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The latest `retrieved_at` of a `values` call of the analysis is the call time; `--called-at` overrides it."""
+    path = tmp_path / "a.analysis.json"
+    path.write_text(
+        json.dumps(
+            {
+                "case": "forecast-nairobi",
+                "answer": "RESULT: 23.4 °C | the 11:00 hour",
+                "calls": [
+                    {"tool": "stations", "retrieved_at": "2026-11-12T09:00:00+00:00"},
+                    {"tool": "values", "retrieved_at": "2026-11-12T11:30:00+00:00"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = tmp_path / "v.json"
+    values.write_text(
+        json.dumps(_rows(("2026-11-12T11:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), encoding="utf-8"
+    )
+    base = ["span", "--analysis", str(path), "--values", str(values), "--now", "2026-11-12T11:40:00+00:00"]
+
+    assert bench.main(base) == 0
+    assert json.loads(capsys.readouterr().out)["figures"][0]["timing"] == "past_only"
+    assert bench.main([*base, "--called-at", "2026-11-12T10:00:00+00:00"]) == 0
+    assert json.loads(capsys.readouterr().out)["figures"][0]["timing"] == "after"
+    assert bench.main([*base, "--called-at", "later"]) == 2
+    assert "--called-at is no ISO 8601 time" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the snippets are for a POSIX shell")
+def test_the_runbook_has_no_unquoted_variable_split_into_words() -> None:
+    """`set -- $line` and `for x in $list` split in bash and not in zsh: no snippet of the README uses them."""
+    text = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
+    blocks = "\n".join(re.findall(r"```bash\n(.*?)```", text, re.DOTALL))
+
+    assert not re.search(r"\bset\s+--\s+\$", blocks)
+    assert not re.search(r"\bfor\s+\w+\s+in\s+\$(?!\()", blocks)
+    assert "${=" in text, "the rule names the zsh-safe form"

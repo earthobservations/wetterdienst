@@ -52,6 +52,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
@@ -938,6 +939,14 @@ def compare_with_status(  # noqa: C901
     for key in ("models", "server", "server_version", "reference_version", "claude_version", "cases_file"):
         if meta_p.get(key) != meta_c.get(key):
             out.append(f"differs: {key}: {meta_p.get(key)!r} -> {meta_c.get(key)!r}")
+    settings_p, settings_c = meta_p.get("server_settings"), meta_c.get("server_settings")
+    if settings_p != settings_c:
+        out.append(
+            "WARNING: the two servers were not run with the same settings: server_settings "
+            f"{settings_p!r} -> {settings_c!r} (`restapi_sql` decides whether a model may filter with `sql_values`: "
+            "a side that refuses it spends steps on the refusal, so the sides are not alike; a file made before this "
+            "was recorded has none)"
+        )
     reasons = []
     for key, what in (
         ("logic", "the logic version of bench.py"),
@@ -1968,6 +1977,34 @@ def server_version(url: str, timeout: float = 15) -> str | None:
     return str(body.get("version")) if isinstance(body, dict) and body.get("version") else None
 
 
+def server_sql(url: str, timeout: float = 60) -> str:
+    """Say whether the server lets `sql` and `sql_values` through (`WD_RESTAPI_SQL`): `off`, `on` or `unknown`.
+
+    The REST API refuses a `sql` clause with a 403 before it fetches anything, so a server that has it off answers at
+    once; one that has it on runs the station query. The MCP tools are routes of that API: the answer holds for them.
+    """
+    parts = urllib.parse.urlsplit(url)
+    query = urllib.parse.urlencode(
+        {
+            "provider": "dwd",
+            "network": "mosmix",
+            "parameters": "hourly/small/temperature_air_2m",
+            "sql": "station_id = '10382'",
+        }
+    )
+    request = urllib.request.Request(  # noqa: S310
+        f"{parts.scheme}://{parts.netloc}/api/v1/stations?{query}", headers={"User-Agent": "wetterdienst-mcp-benchmark"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+            return "on" if response.status == 200 else "unknown"
+    except urllib.error.HTTPError as error:
+        body = error.read(2000).decode("utf-8", "replace")
+        return "off" if error.code == 403 and "SQL" in body else "unknown"
+    except (OSError, ValueError):
+        return "unknown"
+
+
 def probe(url: str) -> dict[str, Any]:
     """Check that a server answers and offers tools; give its serverInfo, tool count and wetterdienst version."""
     info, tools = list_tools(url)
@@ -2420,6 +2457,7 @@ def init_results(
         "server": server,
         "server_version": probed["wetterdienst_version"],
         "server_info": probed["server_info"],
+        "server_settings": {"restapi_sql": server_sql(server)},
         "label": label,
         "reference": reference,
         "reference_version": reference_version,
@@ -2468,6 +2506,7 @@ def describe_meta(results: dict[str, Any]) -> dict[str, Any]:
         "reference",
         "reference_version",
         "claude_version",
+        "server_settings",
         "judge_model",
         "models",
         "repeats",
@@ -2871,6 +2910,7 @@ def span_of_values(
     now: dt.datetime | None = None,
     hours: float = 48,
     window: str | None = None,
+    called_at: dt.datetime | None = None,
 ) -> dict[str, Any]:
     """Give the span a `ground_truth_span` fact allows, from the rows of the judge's own `values` call.
 
@@ -2878,12 +2918,22 @@ def span_of_values(
     judge's next 48 hours); otherwise all of them (`window="all"` forces that). The span is the lowest and highest value
     widened by the fact's `margin` and kept inside its `sanity`. Each `RESULT:` figure of the answer in a temperature
     unit is converted to degrees Celsius and said to be inside it or not; a figure in another unit is `None`.
+
+    With `called_at` (when the subject's `values` result was retrieved) a figure is also looked up among the rows, to
+    the rounding it was written with: `timing` says `past_only` when every row it equals is stamped at or before that
+    time (a forecast figure must belong to an hour after the call: an hour already past is an observation, which
+    fails), `after` when one is stamped later, `no_match` when no row equals it (a derived figure: judge it yourself).
     """
     margin = float(fact.get("margin", fact.get("tolerance", 0)))
     low_limit, high_limit = fact.get("sanity", [-math.inf, math.inf])
     window = window or ("future" if fact.get("future_only") else "all")
     moment = now or dt.datetime.now(UTC)
     chosen = []
+    stamped = [
+        (float(r["value"]), _timestamp(r.get("timestamp", "")))
+        for r in rows
+        if isinstance(r.get("value"), (int, float)) and not isinstance(r.get("value"), bool)
+    ]
     for row in rows:
         value = row.get("value")
         if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -2902,18 +2952,27 @@ def span_of_values(
     for line in format_lines(answer)[0]:
         number = _number(line["figure"])[0]
         celsius = _to_celsius(number, line["unit"])
-        figures.append(
-            {
-                "figure": line["figure"],
-                "unit": line["unit"],
-                "what": line["what"],
-                "celsius": None if celsius is None else round(celsius, 2),
-                "in_span": None if celsius is None else low <= celsius <= high,
-            }
-        )
+        figure = {
+            "figure": line["figure"],
+            "unit": line["unit"],
+            "what": line["what"],
+            "celsius": None if celsius is None else round(celsius, 2),
+            "in_span": None if celsius is None else low <= celsius <= high,
+        }
+        if called_at is not None and celsius is not None:
+            slack = (
+                0.5 * 10 ** -_number(line["figure"])[1] / (1.8 if _norm_unit(line["unit"]) in {"f", "\u00b0f"} else 1)
+            )
+            hits = [stamp for value, stamp in stamped if abs(value - celsius) <= slack + 1e-9]
+            before = [stamp for stamp in hits if stamp is not None and stamp <= called_at]
+            later = [stamp for stamp in hits if stamp is None or stamp > called_at]
+            figure["timing"] = "no_match" if not hits else "past_only" if before and not later else "after"
+            figure["rows_before_the_call"] = [x.isoformat() for x in before[:5]]
+        figures.append(figure)
     return {
         "window": window,
         "after": moment.isoformat() if window == "future" else None,
+        "called_at": called_at.isoformat() if called_at else None,
         "values_used": len(chosen),
         "min": min(chosen),
         "max": max(chosen),
@@ -2934,6 +2993,16 @@ def _rows_of(payload: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     return [row for row in payload if isinstance(row, dict)]
 
 
+def _subject_call_time(analysis: dict[str, Any]) -> dt.datetime | None:
+    """Give when the subject's last `values` call was answered (`retrieved_at` of its result), or None."""
+    stamps = [
+        _timestamp(c.get("retrieved_at", ""))
+        for c in analysis.get("calls", [])
+        if c.get("tool") == "values" and c.get("retrieved_at")
+    ]
+    return max((s for s in stamps if s is not None), default=None)
+
+
 def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
     """Run `span_of_values` for the arguments of `bench.py span`: the case and the answer from the analysis."""
     analysis = json.loads(args.analysis.read_text(encoding="utf-8"))
@@ -2951,8 +3020,18 @@ def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
     if args.now and now is None:
         msg = f"--now is no ISO 8601 time: {args.now!r}"
         raise ValueError(msg)
+    called_at = _timestamp(args.called_at) if args.called_at else _subject_call_time(analysis)
+    if args.called_at and called_at is None:
+        msg = f"--called-at is no ISO 8601 time: {args.called_at!r}"
+        raise ValueError(msg)
     found = span_of_values(
-        fact, _rows_of(json.loads(text)), answer=analysis["answer"], now=now, hours=args.hours, window=args.window
+        fact,
+        _rows_of(json.loads(text)),
+        answer=analysis["answer"],
+        now=now,
+        hours=args.hours,
+        window=args.window,
+        called_at=called_at,
     )
     return {"case": case["id"], "fact": fact["id"], **found}
 
@@ -3043,6 +3122,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_span.add_argument("--fact", help="the span fact (default: the case's only one)")
     p_span.add_argument("--hours", type=float, default=48, help="a forecast: how many hours after now are read")
     p_span.add_argument("--now", help="the time your call was made (ISO 8601, UTC; default: now)")
+    p_span.add_argument(
+        "--called-at", help="when the subject's `values` result was retrieved (default: from the analysis)"
+    )
     p_span.add_argument("--window", choices=("future", "all"), help="`future` (default for a forecast) or `all` rows")
     p_digest = sub.add_parser("digest")
     p_digest.add_argument("analysis", type=Path, help="the `.analysis.json` of a run")
@@ -3221,7 +3303,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
         print(json.dumps({"case": case["id"], **run, **verdict, "run_meta": side}, indent=1, ensure_ascii=False))
     elif args.command == "probe":
         try:
-            print(json.dumps({**probe(args.url), "label": args.label}, indent=1))
+            print(json.dumps({**probe(args.url), "label": args.label, "restapi_sql": server_sql(args.url)}, indent=1))
         except (OSError, ValueError, RuntimeError) as error:
             sys.stderr.write(f"probe: {args.url} does not answer: {error}\n")
             return 3
