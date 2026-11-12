@@ -23,7 +23,7 @@ import datetime as dt
 import json
 import logging
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
@@ -58,11 +58,6 @@ _RESULT_WRAPPER = len('{"result":}')
 
 #: the selections that are small: a rank, a distance or a name asks for a few stations, so they are never cut
 _SMALL_SELECTIONS = frozenset({StationsFilter.BY_RANK, StationsFilter.BY_DISTANCE, StationsFilter.BY_NAME})
-
-_NARROWING = (
-    "To get less at a time, narrow the `timestamp` window, ask for fewer parameters, or use `format=csv` with "
-    "`shape=wide`, which is several times smaller."
-)
 
 
 @dataclass(frozen=True)
@@ -133,8 +128,39 @@ def _noted(
     return metadata.model_copy(update={"warnings": [*metadata.warnings, warning]})
 
 
+def _wide_csv_hint(request: StationsRequest | ValuesRequest) -> bool:
+    """Tell whether `format=csv` with `shape=wide` is still something to suggest: not where the request is that."""
+    return not (request.format == "csv" and getattr(request, "shape", None) == "wide")
+
+
+def _narrowing(request: StationsRequest | ValuesRequest) -> str:
+    """Write the ways to get less in one answer, leaving out the one the request already took."""
+    if _wide_csv_hint(request):
+        return (
+            "To get less at a time, narrow the `timestamp` window, ask for fewer parameters, or use `format=csv` "
+            "with `shape=wide`, which is several times smaller."
+        )
+    return "To get less at a time, narrow the `timestamp` window or ask for fewer parameters."
+
+
+def _head(*, honest: bool) -> str:
+    """Begin a note: that the answer was cut to the budget, or, where it cannot be, that it is still over it."""
+    if honest:
+        return f"The answer was cut as far as it goes and is still over {ANSWER_BUDGET:,} characters: "
+    return f"The answer was cut to stay within {ANSWER_BUDGET:,} characters: "
+
+
+def _block_left_out(characters: int) -> str:
+    """Write the note of a `with_metadata` block that was left out of the answer, which is more than the budget."""
+    return (
+        f"The `with_metadata` block ({characters:,} characters) was left out to stay within {ANSWER_BUDGET:,} "
+        "characters; read units with `coverage` or `glossary`."
+    )
+
+
 def _values_note(
     *,
+    request: ValuesRequest,
     kept: int,
     total: int,
     stamps: list[dt.datetime],
@@ -142,12 +168,15 @@ def _values_note(
     start: bool,
     window: str | None,
     within: int | None = None,
+    lead: str = "",
+    honest: bool = False,
 ) -> str:
     """Write the note of a `values` answer cut to its first (`start`) or last `count` of `stamps` timestamps.
 
     `within` is the number of rows of the single timestamp that was cut through, where one timestamp alone is more
     than the budget. The next window is a `timestamp` the tool accepts: it begins at the first timestamp left out and
-    ends where the caller's window did (or with the last timestamp of the answer, where they gave none).
+    ends where the caller's window did (or with the last timestamp of the answer, where they gave none). `lead` is
+    what was said of the `with_metadata` block that was left out, `honest` that even so the answer is over the budget.
     """
     total_stamps = len(stamps)
     kept_stamps = stamps[:count] if start else stamps[total_stamps - count :]
@@ -159,13 +188,16 @@ def _values_note(
             rest = f"{_iso(stamps[0])}/{_iso(stamps[left_out - 1])}"
     else:
         rest = None
-    head = f"The answer was cut to stay within {ANSWER_BUDGET:,} characters: "
+    head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
     if within is not None:
+        returned = "only the first row is" if kept == 1 else f"only the first {kept:,} rows are"
+        hint = (
+            ", or use `format=csv` with `shape=wide`, which is several times smaller" if _wide_csv_hint(request) else ""
+        )
         text = (
-            f"{head}one timestamp ({_iso(kept_stamps[0])}) alone holds {within:,} rows and only the first "
-            f"{kept:,} of them are returned, of {total:,} rows in all. A `timestamp` window cannot split a "
-            "timestamp: ask for fewer parameters or stations, or use `format=csv` with `shape=wide`, which is "
-            "several times smaller."
+            f"{head}one timestamp ({_iso(kept_stamps[0])}) alone holds {within:,} rows and {returned} returned, "
+            f"of {total:,} rows in all. A `timestamp` window cannot split a timestamp: ask for fewer parameters or "
+            f"stations{hint}."
         )
         if rest:
             what = "the rest" if start else "the earlier part"
@@ -185,30 +217,62 @@ def _values_note(
         text += (
             f" For the rest, ask again with `timestamp={rest}`."
             if start
-            else f" The earlier part is `timestamp={rest}`."
+            else f" For the earlier part, ask again with `timestamp={rest}`."
         )
-    return f"{text} {_NARROWING}"
+    return f"{text} {_narrowing(request)}"
 
 
-def fit_values(
+def _made(
+    result: StationsResult | ValuesResult,
+    request: StationsRequest | ValuesRequest,
+    frame: pl.DataFrame,
+    note: str,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+) -> _Attempt:
+    """Make the answer for `frame` of `result`, with `note` in its warnings, and count what a client receives."""
+    cut = replace(result, df=frame)
+    metadata = _noted(cut, request, note)
+    content = render(cut, metadata, request)
+    return _Attempt(content, metadata, answer_size(content, request, metadata), note)
+
+
+def _lean(request: Any) -> Any:  # noqa: ANN401
+    """Give the request without its `with_metadata`: the units, the quality legend and the settings are left out."""
+    return request.model_copy(update={"with_metadata": False})
+
+
+def _without_block(
+    result: StationsResult | ValuesResult,
+    request: StationsRequest | ValuesRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+) -> tuple[Any, str] | None:
+    """Tell, for an answer that is over the budget with `with_metadata`, whether its block alone is why.
+
+    An empty answer is made with the block and without it. Where the empty one with the block is over the budget, the
+    block is more than the budget allows of any answer: give the request without it, and the note of what was left
+    out. None where it is not (the rows are why), and an answer without `with_metadata` has no block to leave out.
+    """
+    if not request.with_metadata:
+        return None
+    empty = result.df.head(0)
+    with_block = _made(result, request, empty, "", render)
+    if with_block.size <= ANSWER_BUDGET:
+        return None
+    lean = _lean(request)
+    block = with_block.size - _made(result, lean, empty, "", render).size
+    return lean, _block_left_out(block)
+
+
+def _fit_values(
     result: ValuesResult,
     request: ValuesRequest,
-    content: str | bytes,
-    metadata: ResponseMetadata,
-    render: Callable[[ValuesResult, ResponseMetadata], str | bytes],
-) -> tuple[str | bytes, ResponseMetadata]:
-    """Cut the answer of a `values` tool call to the budget at a timestamp, and say so; unchanged where it fits.
-
-    Without a `timestamp` from the caller the end nearest to now is kept: the start of a forecast, the latest part of
-    a record. With one, its start is kept, so that the next window of the note continues it. At least one whole
-    timestamp is kept, and a timestamp is cut through only where one alone is more than the budget. `render` writes
-    the answer for a cut result and its block; `content` and `metadata` are the whole answer.
-    """
-    if request.format not in BUDGETED_FORMATS or result.df.is_empty() or "timestamp" not in result.df.columns:
-        return content, metadata
-    size = answer_size(content, request, metadata)
-    if size <= ANSWER_BUDGET:
-        return content, metadata
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+    size: int,
+    *,
+    lead: str,
+    honest: bool,
+) -> _Attempt:
+    """Find the longest cut of a `values` result that fits the budget, or the smallest cut where none does."""
     df = result.df
     stamps = df.get_column("timestamp").drop_nulls().unique().sort().to_list()
     window = request.timestamp
@@ -216,46 +280,119 @@ def fit_values(
     total = df.height
     count_all = len(stamps)
 
-    def attempt(cut: pl.DataFrame, count: int, within: int | None = None) -> _Attempt:
-        cut_result = replace(result, df=cut)
+    def attempt(frame: pl.DataFrame, count: int, within: int | None = None) -> _Attempt:
         note = _values_note(
-            kept=cut.height, total=total, stamps=stamps, count=count, start=start, window=window, within=within
+            request=request,
+            kept=frame.height,
+            total=total,
+            stamps=stamps,
+            count=count,
+            start=start,
+            window=window,
+            within=within,
+            lead=lead,
+            honest=honest,
         )
-        cut_metadata = _noted(cut_result, request, note)
-        return _Attempt(render(cut_result, cut_metadata), cut_metadata, 0, note)
-
-    def measured(made: _Attempt) -> _Attempt:
-        return replace(made, size=answer_size(made.content, request, made.metadata))
-
-    def whole(count: int) -> _Attempt:
-        boundary = stamps[count - 1] if start else stamps[count_all - count]
-        cut = df.filter(pl.col("timestamp") <= boundary if start else pl.col("timestamp") >= boundary)
-        return measured(attempt(cut, count))
+        return _made(result, request, frame, note, render)
 
     tried: dict[int, _Attempt] = {}
 
     def fits(count: int) -> bool:
-        tried[count] = whole(count)
+        boundary = stamps[count - 1] if start else stamps[count_all - count]
+        cut = df.filter(pl.col("timestamp") <= boundary if start else pl.col("timestamp") >= boundary)
+        tried[count] = attempt(cut, count)
         return tried[count].size <= ANSWER_BUDGET
 
     best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size)) if count_all > 1 else None
     if best is not None:
-        chosen = tried[best]
-    else:
-        # one timestamp is more than the budget: cut through it, keeping what fits of its rows
-        only = stamps[0] if start else stamps[-1]
-        rows = df.filter(pl.col("timestamp") == only)
-        partial: dict[int, _Attempt] = {}
+        return tried[best]
+    # one timestamp is more than the budget: cut through it, keeping what fits of its rows
+    rows = df.filter(pl.col("timestamp") == (stamps[0] if start else stamps[-1]))
+    partial: dict[int, _Attempt] = {}
 
-        def fits_rows(count: int) -> bool:
-            partial[count] = measured(attempt(rows.head(count), 1, within=rows.height))
-            return partial[count].size <= ANSWER_BUDGET
+    def fits_rows(count: int) -> bool:
+        partial[count] = attempt(rows.head(count), 1, within=rows.height)
+        return partial[count].size <= ANSWER_BUDGET
 
-        kept = _largest(1, max(1, rows.height - 1), fits_rows, max(1, rows.height * ANSWER_BUDGET // size))
-        chosen = partial[kept if kept is not None else 1]
+    kept = _largest(1, max(1, rows.height - 1), fits_rows, max(1, rows.height * ANSWER_BUDGET // size))
+    return partial[kept if kept is not None else 1]
+
+
+def fit_values(
+    result: ValuesResult,
+    request: ValuesRequest,
+    content: str | bytes,
+    metadata: ResponseMetadata,
+    render: Callable[[ValuesResult, ResponseMetadata, ValuesRequest], str | bytes],
+) -> tuple[str | bytes, ResponseMetadata]:
+    """Cut the answer of a `values` tool call to the budget at a timestamp, and say so; unchanged where it fits.
+
+    Without a `timestamp` from the caller the end nearest to now is kept: the start of a forecast, the latest part of
+    a record. With one, its start is kept, so that the next window of the note continues it. At least one whole
+    timestamp is kept, and a timestamp is cut through only where one alone is more than the budget.
+
+    Where even the smallest cut is over the budget because the `with_metadata` block is (the units and the quality
+    legend of a dataset can be 40,000 characters), the block is left out, and the note says so. `render` writes the
+    answer for a cut result, its block and the request; `content` and `metadata` are the whole answer.
+    """
+    if request.format not in BUDGETED_FORMATS or result.df.is_empty() or "timestamp" not in result.df.columns:
+        return content, metadata
+    size = answer_size(content, request, metadata)
+    if size <= ANSWER_BUDGET:
+        return content, metadata
+    asked, lead = request, ""
+    chosen = _fit_values(result, asked, render, size, lead=lead, honest=False)
+    if chosen.size > ANSWER_BUDGET and (dropped := _without_block(result, request, render)) is not None:
+        asked, lead = dropped
+        whole = _made(result, asked, result.df, lead, render)
+        chosen = (
+            whole
+            if whole.size <= ANSWER_BUDGET
+            else _fit_values(result, asked, render, whole.size, lead=lead, honest=False)
+        )
+    if chosen.size > ANSWER_BUDGET:
+        chosen = _fit_values(result, asked, render, chosen.size, lead=lead, honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
-    log.info(f"Cut a values answer of {total} rows to {chosen.metadata.counts.rows} to stay within the budget.")
+    log.info(
+        f"Cut a values answer of {result.df.height} rows to {chosen.metadata.counts.rows} to stay within the budget."
+    )
     return chosen.content, chosen.metadata
+
+
+def _stations_note(*, count: int, total: int, lead: str, honest: bool) -> str:
+    """Write the note of a `stations` answer cut to its first `count` of `total` stations."""
+    head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
+    return (
+        f"{head}the first {count:,} of {total:,} stations are returned, in the provider's list order (usually by "
+        f"station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow with "
+        "latitude, longitude and `rank` or `distance`, or `name`."
+    )
+
+
+def _fit_stations(
+    result: StationsResult,
+    request: StationsRequest,
+    render: Callable[[Any, ResponseMetadata, Any], str | bytes],
+    size: int,
+    *,
+    lead: str,
+    honest: bool,
+) -> _Attempt:
+    """Find the most stations of a listing that fit the budget, or the first one where none does."""
+    df = result.df
+    ids = df.get_column("station_id").unique(maintain_order=True)
+    count_all = len(ids)
+    tried: dict[int, _Attempt] = {}
+
+    def fits(count: int) -> bool:
+        cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
+        note = _stations_note(count=count, total=count_all, lead=lead, honest=honest)
+        tried[count] = _made(result, request, cut, note, render)
+        return tried[count].size <= ANSWER_BUDGET
+
+    best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size))
+    # where not even one station fits, the first is kept: the probes ended at it
+    return tried[best if best is not None else 1]
 
 
 def fit_stations(
@@ -263,45 +400,36 @@ def fit_stations(
     request: StationsRequest,
     content: str | bytes,
     metadata: ResponseMetadata,
-    render: Callable[[StationsResult, ResponseMetadata], str | bytes],
+    render: Callable[[StationsResult, ResponseMetadata, StationsRequest], str | bytes],
 ) -> tuple[str | bytes, ResponseMetadata]:
     """Cut the answer of a `stations` tool call to the budget, keeping the first stations; unchanged where it fits.
 
     A rank, a distance or a name asks for a few stations and is left as it is. Otherwise (all stations, a bounding
     box, `sql`, ids) the stations that fit are kept, in list order, and the note says how many match and what narrows
-    them. `render` writes the answer for a cut result and its block; `content` and `metadata` are the whole answer.
+    them. Where even one station is over the budget because the `with_metadata` block is, the block is left out, and
+    the note says so. `render` writes the answer for a cut result, its block and the request; `content` and `metadata`
+    are the whole answer.
     """
     if request.format not in BUDGETED_FORMATS or result._stations_filter in _SMALL_SELECTIONS:  # noqa: SLF001
         return content, metadata
     size = answer_size(content, request, metadata)
-    if size <= ANSWER_BUDGET:
+    if size <= ANSWER_BUDGET or result.df.get_column("station_id").n_unique() < 2:
         return content, metadata
-    df = result.df
-    ids = df.get_column("station_id").unique(maintain_order=True)
-    count_all = len(ids)
-    if count_all < 2:
-        return content, metadata
-
-    tried: dict[int, _Attempt] = {}
-
-    def fits(count: int) -> bool:
-        cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
-        cut_result = replace(result, df=cut)
-        note = (
-            f"The answer was cut to stay within {ANSWER_BUDGET:,} characters: the first {count:,} of {count_all:,} "
-            f"stations are returned, in list order. {count_all:,} stations match; narrow with latitude, longitude and "
-            "`rank` or `distance`, or `name`."
+    asked, lead = request, ""
+    chosen = _fit_stations(result, asked, render, size, lead=lead, honest=False)
+    if chosen.size > ANSWER_BUDGET and (dropped := _without_block(result, request, render)) is not None:
+        asked, lead = dropped
+        whole = _made(result, asked, result.df, lead, render)
+        chosen = (
+            whole
+            if whole.size <= ANSWER_BUDGET
+            else _fit_stations(result, asked, render, whole.size, lead=lead, honest=False)
         )
-        cut_metadata = _noted(cut_result, request, note)
-        made = _Attempt(render(cut_result, cut_metadata), cut_metadata, 0, note)
-        tried[count] = replace(made, size=answer_size(made.content, request, made.metadata))
-        return tried[count].size <= ANSWER_BUDGET
-
-    best = _largest(1, count_all - 1, fits, max(1, count_all * ANSWER_BUDGET // size))
-    # where not even one station fits, the first is kept: the probes ended at it
-    chosen = tried[best if best is not None else 1]
+    if chosen.size > ANSWER_BUDGET:
+        chosen = _fit_stations(result, asked, render, chosen.size, lead=lead, honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
     log.info(
-        f"Cut a stations answer of {count_all} stations to {chosen.metadata.counts.stations} to stay within the budget."
+        f"Cut a stations answer of {result.df.height} rows to {chosen.metadata.counts.stations} stations "
+        "to stay within the budget."
     )
     return chosen.content, chosen.metadata

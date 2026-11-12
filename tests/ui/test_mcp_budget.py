@@ -227,7 +227,7 @@ def test_one_timestamp_over_the_budget_is_cut_through(monkeypatch: pytest.Monkey
     assert 0 < kept < 600
     note = _note_of(answer)
     assert "alone holds 600 rows" in note
-    assert f"only the first {kept:,} of them" in note
+    assert f"only the first {kept:,} rows are returned" in note
     assert "cannot split a timestamp" in note
     assert answer["metadata"]["counts"]["rows"] == kept
 
@@ -380,9 +380,9 @@ def test_every_station_of_a_bounding_box_or_all_is_cut_to_the_first_that_fit(
         assert response.status_code == 200
         note = unquote(response.headers["x-wetterdienst-truncated"])
         assert (
-            "of 700 stations are returned, in list order. 700 stations match; narrow with latitude, longitude and"
-            in note
-        )
+            "stations are returned, in the provider's list order (usually by station id, not by place, so they are "
+            "not a sample of the area). 700 stations match; narrow with latitude, longitude and"
+        ) in note
         assert "`rank` or `distance`, or `name`" in note
         if fmt == "json":
             body = response.json()
@@ -534,6 +534,133 @@ def test_the_header_and_the_sentence_carry_the_note_of_a_csv(monkeypatch: pytest
     assert unquote(header).startswith("The answer was cut to stay within 40,000 characters: ")
     result = _client_sees("values", {**_VALUES, "format": "csv"})
     assert f"Truncated: {unquote(header)[:60]}" in result.structured_content["result"]
+
+
+# --- a `with_metadata` block that is more than the budget ----------------------------------------------------------
+
+
+def _a_legend_of(characters: int) -> list[Any]:
+    """Give a quality legend of about `characters` characters, the heavy part of a `with_metadata` block."""
+    from wetterdienst.model.quality_legend import QualityKind  # noqa: PLC0415
+
+    return [QualityKind(kind=None, written="x", meaning="m" * characters)]
+
+
+def _the_client_gets(result: Any) -> tuple[Any, int]:  # noqa: ANN401
+    """Give the structured content of a JSON answer a client receives and its size, in its wrapper, compact."""
+    assert not result.is_error, result.content
+    structured = result.structured_content
+    return structured["result"], len(json.dumps(structured, separators=(",", ":"), ensure_ascii=False))
+
+
+def test_a_with_metadata_block_over_the_budget_is_left_out_of_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The block of a dataset can be over the budget: it is dropped, the note says so, and the rows fit as usual."""
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(45_000))
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
+
+    answer, size = _the_client_gets(_client_sees("values", {**_VALUES, "with_metadata": True}))
+
+    assert ANSWER_BUDGET - 1_500 < size <= ANSWER_BUDGET
+    # the block that is always there stays, the heavy parts and the settings are gone
+    assert answer["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    assert "quality" not in answer["metadata"]
+    assert "parameters" not in answer["metadata"]
+    assert "settings" not in answer
+    note = _note_of(answer)
+    assert re.match(r"The `with_metadata` block \(4\d,\d{3} characters\) was left out to stay within 40,000 ", note)
+    assert "read units with `coverage` or `glossary`" in note
+    assert "The answer was cut to stay within 40,000 characters: " in note
+    # the rows are cut as for an answer without the block
+    assert 1 < len(answer["values"]) < 1800
+    assert answer["metadata"]["counts"]["rows"] == len(answer["values"])
+
+
+def test_a_with_metadata_block_over_the_budget_is_left_out_of_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same for a listing: the block goes, and the stations that fit are kept, not the first one only."""
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(45_000))
+    _stub_stations(monkeypatch, _stations_of(700))
+
+    answer, size = _the_client_gets(_client_sees("stations", {**_STATIONS, "with_metadata": True}))
+
+    assert ANSWER_BUDGET - 1_500 < size <= ANSWER_BUDGET
+    assert "quality" not in answer["metadata"]
+    note = _note_of(answer)
+    assert note.startswith("The `with_metadata` block (")
+    assert "was left out to stay within 40,000 characters; read units with `coverage` or `glossary`." in note
+    assert "700 stations match" in note
+    assert 1 < len(answer["stations"]) < 700
+
+
+def test_a_block_that_alone_fits_is_kept_and_the_note_does_not_mention_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The common path is as it was: a `with_metadata` block of its usual size stays, and the rows are cut."""
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
+
+    answer, size = _the_client_gets(_client_sees("values", {**_VALUES, "with_metadata": True}))
+
+    assert size <= ANSWER_BUDGET
+    assert "parameters" in answer["metadata"]
+    assert "settings" in answer
+    note = _note_of(answer)
+    assert note.startswith("The answer was cut to stay within 40,000 characters: ")
+    assert "with_metadata" not in note
+
+
+@pytest.mark.parametrize("tool", ["values", "stations"])
+def test_an_answer_that_cannot_be_cut_to_the_budget_says_so(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    """Where the rows are cut as far as they go and the always-present block is over the budget, the note says that."""
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 800)
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 50))
+    _stub_stations(monkeypatch, _stations_of(50))
+    arguments = _VALUES if tool == "values" else _STATIONS
+
+    answer, size = _the_client_gets(_client_sees(tool, {**arguments, "with_metadata": True}))
+
+    assert size > 800
+    note = _note_of(answer)
+    assert "was cut as far as it goes and is still over 800 characters" in note
+    assert "to stay within" not in note.replace("left out to stay within", "")
+
+
+# --- the wording of the notes ---------------------------------------------------------------------------------------
+
+
+def test_the_note_names_the_earlier_part_and_the_order_of_the_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An end-kept answer says how to ask for the earlier part; a listing says in what order its stations are kept."""
+    _stub_values(monkeypatch, _values_of(_NOW - dt.timedelta(hours=600), 600))
+    note = _note_of(_tool_client().get("/api/values", params=_VALUES).json())
+    assert "For the earlier part, ask again with `timestamp=" in note
+
+    _stub_stations(monkeypatch, _stations_of(700))
+    listed = _tool_client().get("/api/stations", params=_STATIONS).json()
+    assert "in the provider's list order (usually by station id, not by place" in _note_of(listed)
+
+
+def test_a_wide_csv_is_not_told_to_use_a_wide_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The way to narrow that the request already took is left out of the note; the others stay."""
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
+
+    wide = _tool_client().get("/api/values", params={**_VALUES, "format": "csv", "shape": "wide"})
+    long = _tool_client().get("/api/values", params={**_VALUES, "format": "csv"})
+
+    told = unquote(wide.headers["x-wetterdienst-truncated"])
+    assert "narrow the `timestamp` window or ask for fewer parameters." in told
+    assert "shape=wide" not in told
+    assert "`format=csv` with `shape=wide`" in unquote(long.headers["x-wetterdienst-truncated"])
+
+
+def test_one_row_is_told_in_the_singular() -> None:
+    """One row is "the first row is returned", not "the first 1 rows are"."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst.ui.budget import _values_note  # noqa: PLC0415
+
+    stamps = [_NOW + dt.timedelta(hours=hour) for hour in range(3)]
+    request = SimpleNamespace(format="json", shape="long")
+    one = _values_note(request=request, kept=1, total=900, stamps=stamps, count=1, start=True, window=None, within=600)
+    many = _values_note(request=request, kept=7, total=900, stamps=stamps, count=1, start=True, window=None, within=600)
+
+    assert "and only the first row is returned, of 900 rows" in one
+    assert "and only the first 7 rows are returned, of 900 rows" in many
 
 
 # --- what the model is told ---------------------------------------------------------------------------------------

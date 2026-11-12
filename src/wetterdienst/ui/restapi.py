@@ -2068,7 +2068,7 @@ def stations(
             request,
             content,
             metadata,
-            lambda cut, block: render_stations(cut, request, max_side=_MAX_IMAGE_SIDE, metadata=block),
+            lambda cut, block, asked: render_stations(cut, asked, max_side=_MAX_IMAGE_SIDE, metadata=block),
         )
 
     return _answer(content, request.format, metadata)
@@ -2168,7 +2168,9 @@ def values(
             request,
             content,
             metadata,
-            lambda cut, block: render(cut, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block),
+            lambda cut, block, asked: render(
+                cut, asked, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
         )
 
     return _answer(content, request.format, metadata)
