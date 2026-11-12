@@ -1490,6 +1490,103 @@ def test_dwd_obs_missing_data_history_reads_latin1() -> None:
     ] == [("01684", "Görlitz", 3), ("01684", "Görlitz", 3)]
 
 
+#: slices of the metadata files of Hamburg-Fuhlsbüttel (01975) in tageswerte_KL_01975_19360101_20251231_hist.zip, as
+#: DWD wrote them on 2026-06-17: the bytes, not text, since `\xfc` is the latin-1 `ü` and no UTF-8 sequence (GH-4021)
+_STATION_01975_METADATA = {
+    "Metadaten_Stationsname_Betreibername_01975.txt": (
+        b"Stations_ID;Stationsname;Von_Datum;Bis_Datum\n"
+        b"  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+        b"\n"
+        b"Stations_ID;Betreibername;Von_Datum;Bis_Datum\n"
+        b"  1975;Wetterdienst;19340801;19521110\n"
+        b"  1975;DWD;19521111;\n"
+        b"generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+    "Metadaten_Geographie_01975.txt": (
+        b"Stations_id;Stationshoehe;Geogr.Breite;Geogr.Laenge;von_datum;bis_datum;Stationsname\n"
+        b"  1975;   11.70; 53.6380;  9.9994;19340801;19351231;Hamburg-Fuhlsb\xfcttel\n"
+        b"  1975;   10.65; 53.6332;  9.9881;20080601;        ;Hamburg-Fuhlsb\xfcttel\n"
+    ),
+    # this file ends its lines with CRLF
+    "Metadaten_Parameter_klima_tag_01975.txt": (
+        b"Stations_ID;Von_Datum;Bis_Datum;Stationsname;Parameter;Parameterbeschreibung;Einheit;"
+        b"Datenquelle (Strukturversion=SV);Zusatz-Info;Besonderheiten;Literaturhinweis;eor;\r\n"
+        b"1975;19500101;19741231;Hamburg-Fuhlsb\xfcttel;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;"
+        b"m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus analogen "
+        b"Registrierungen. Richtungsangaben in der 32-teiligen Windrose.;"
+        b"arithm.Mittel aus mind. 21 Stundenwerten;;;eor;\r\n"
+    ),
+    "Metadaten_Geraete_Lufttemperatur_01975.txt": (
+        b"Stations_ID;Stationsname;Geo. Laenge [Grad];Geo. Breite [Grad];Stationshoehe [m];"
+        b"Geberhoehe ueber Grund [m];Von_Datum;Bis_Datum;Geraetetyp Name;Messverfahren;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;10;53.63;12;2;19360101;19461031;Psychrometerthermometer (trocken);"
+        b"Temperatur/Feuchtemessung, konv.;eor;\n"
+    ),
+    "Metadaten_Fehldaten_01975_19360101_20251231.txt": (
+        b"Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;TMK;01.01.1936;18.04.2026;1;Gesamt_Messzeitraum;eor;\n"
+        b"Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;TMK;09.01.2026;09.01.2026;1;;eor;\n"
+        b"generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+}
+
+
+def _station_01975_zip() -> io.BytesIO:
+    """Zip the bytes of `_STATION_01975_METADATA` as they are."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, content in _STATION_01975_METADATA.items():
+            zf.writestr(name, content)
+    buffer.seek(0)
+    return buffer
+
+
+def test_dwd_obs_history_reads_every_file_of_a_station_with_an_umlaut() -> None:
+    """Test each history reader decodes its file as latin-1, as DWD writes it: Hamburg-Fuhlsbüttel (GH-4021).
+
+    `read_name_history` opened its file in text mode, so the first `ü` raised a `UnicodeDecodeError` and the whole
+    history of the station failed, while the stations without an umlaut (Kiel-Holtenau) worked; the readers of the
+    other files (GH-2214 fixed the missing-data one) read bytes and decode them.
+    """
+    zfs = ZipFileSystem(_station_01975_zip())
+    name = DwdObservationHistory.read_name_history(zfs)
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+    assert [(record.station_id, record.station_name) for record in name.station] == [("01975", "Hamburg-Fuhlsbüttel")]
+    assert [(record.station_id, record.operator_name) for record in name.operator] == [
+        ("01975", "Wetterdienst"),
+        ("01975", "DWD"),
+    ]
+    sections = {
+        "parameter": DwdObservationHistory.read_parameter_history(zfs),
+        "device": DwdObservationHistory.read_device_history(zfs),
+        "geography": DwdObservationHistory.read_geography_history(zfs),
+        "missing_data.summary": missing_data.summary,
+        "missing_data.periods": missing_data.periods,
+    }
+    assert {section: [record.station_name for record in records] for section, records in sections.items()} == {
+        section: ["Hamburg-Fuhlsbüttel"] * (2 if section == "geography" else 1) for section in sections
+    }
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_dwd_obs_history_reads_the_name_file_with_either_line_ending(newline: str) -> None:
+    """Test the name file reads with LF and with CRLF, which DWD mixes within a file type (GH-4021).
+
+    54 of 68 sampled `Metadaten_Parameter_*` files end their lines with CRLF; the name file is LF today.
+    """
+    content = _STATION_01975_METADATA["Metadaten_Stationsname_Betreibername_01975.txt"].replace(b"\n", newline.encode())
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("Metadaten_Stationsname_Betreibername_01975.txt", content)
+    buffer.seek(0)
+
+    name = DwdObservationHistory.read_name_history(ZipFileSystem(buffer))
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
 def test_dwd_obs_history_records_give_their_validity() -> None:
     """Test every history record gives the span it held for as `valid_from` and `valid_to` (GH-2440).
 
