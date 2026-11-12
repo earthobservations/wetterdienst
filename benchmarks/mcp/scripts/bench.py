@@ -94,6 +94,9 @@ PROMPT_TOOLS = (
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
+#: a tool answer the server itself cut to its size budget names it in a warning of its `metadata`: `{"code":
+#: "answer-truncated", "message": "The answer was cut to stay within 40,000 characters: 49 of 57 rows ..."}`
+TRUNCATED_RE = re.compile(r'"code"\s*:\s*"answer-truncated"|The answer was cut to stay within [\d,]+ characters')
 #: Claude Code 2.1.311 answers a large result of a tool with this notice and a preview of its first 2 KB, and no count
 #: of characters: `<persisted-output>\nOutput too large (57.2KB). Full output saved to: ...\n\nPreview (first 2KB):`
 SPILL_PERSISTED_RE = re.compile(r"^\s*<persisted-output>\s*Output too large \(([\d.,]+)\s*([KMG]?B)\)")
@@ -441,6 +444,8 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                             call["result_chars"] = spill
                         elif len(text) < 2500 and SPILL_HINT.search(text) and SPILL_FILE.search(text):
                             call["spill_unrecognised"] = True
+                        if TRUNCATED_RE.search(text):
+                            call["truncated"] = True
                         meta = result_metadata(text)
                         call["data_updated_at"] = meta.get("data_updated_at")
                         call["retrieved_at"] = meta.get("retrieved_at")
@@ -483,6 +488,7 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
         "invalid_reason": invalid,
         "spilled_calls": sum(1 for c in calls if c.get("spilled")),
         "spill_unrecognised_calls": sum(1 for c in calls if c.get("spill_unrecognised")),
+        "truncated_calls": sum(1 for c in calls if c.get("truncated")),
         "unanswered_calls": sum(1 for c in calls if c.get("unanswered")),
         "calls": calls,
         "steps": len(calls),
@@ -736,6 +742,14 @@ def report(results: dict[str, Any]) -> str:
             f"\n{spilled} tool calls had a result above the limit of Claude Code, saved to a file the tested agent "
             "cannot open "
             "(a Read-less run reads nothing of it)"
+        )
+    cut = [r for r in results["runs"] if r.get("truncated_calls")]
+    if cut:
+        names = ", ".join(f"{r['case']} [{r['tier']}] repeat {r.get('repeat')}" for r in cut[:8])
+        lines.append(
+            f"\n{sum(r['truncated_calls'] for r in cut)} tool calls of {len(cut)} runs had their answer cut by the "
+            f"server (`answer-truncated`; the model got part of the rows and a note to ask again): {names}"
+            f"{', ...' if len(cut) > 8 else ''}"
         )
     unrecognised = sum(r.get("spill_unrecognised_calls", 0) for r in results["runs"])
     if unrecognised:
@@ -2730,13 +2744,15 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
             f"checkpoints {analysis['checkpoints']['k']}/{analysis['checkpoints']['n']}; "
             f"violations {analysis['violations'] or 'none'}; invalid {analysis['invalid_reason'] or False}; "
             f"format_violation {analysis['format_violation']}; spilled calls {analysis['spilled_calls']}; "
+            f"cut calls {analysis.get('truncated_calls', 0)}; "
             f"cost {round(analysis['cost_usd'] or 0, 4)} USD"
         )
     ]
     for c in analysis["calls"]:
         lines.append(
             f"  call {c['n']}: {c['tool']} {json.dumps(c['arguments'], ensure_ascii=False)[:300]} -> "
-            f"{'ok' if c['ok'] else 'FAILED'}{', spilled' if c.get('spilled') else ''}, {c['result_chars']} characters"
+            f"{'ok' if c['ok'] else 'FAILED'}{', spilled' if c.get('spilled') else ''}"
+            f"{', cut by the server' if c.get('truncated') else ''}, {c['result_chars']} characters"
             f"{', retrieved_at ' + str(c['retrieved_at']) if c.get('retrieved_at') else ''}"
         )
         if heads > 0 and c.get("result_head"):
@@ -2902,6 +2918,11 @@ def _timestamp(text: str) -> dt.datetime | None:
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
+def _is_temperature(name: str) -> bool:
+    """Tell whether a canonical parameter name is an air temperature (`temperature_air_2m`, `..._max_2m_last_12h`)."""
+    return name.startswith("temperature_air")
+
+
 def span_of_values(
     fact: dict[str, Any],
     rows: list[dict[str, Any]],
@@ -2911,6 +2932,7 @@ def span_of_values(
     hours: float = 48,
     window: str | None = None,
     called_at: dt.datetime | None = None,
+    parameters: list[str] | None = None,
 ) -> dict[str, Any]:
     """Give the span a `ground_truth_span` fact allows, from the rows of the judge's own `values` call.
 
@@ -2919,29 +2941,44 @@ def span_of_values(
     widened by the fact's `margin` and kept inside its `sanity`. Each `RESULT:` figure of the answer in a temperature
     unit is converted to degrees Celsius and said to be inside it or not; a figure in another unit is `None`.
 
-    With `called_at` (when the subject's `values` result was retrieved) a figure is also looked up among the rows, to
-    the rounding it was written with: `timing` says `past_only` when every row it equals is stamped at or before that
-    time (a forecast figure must belong to an hour after the call: an hour already past is an observation, which
+    A reference may hold several parameters (the hourly temperature and the 12-hour maximum and minimum): the rows say
+    which in `parameter`. Without `parameters` the air temperatures are kept and the others (wind, probabilities) left
+    out, so that a wind speed cannot widen the span; each figure says in `matched_parameters` which series of the call
+    it equals, the one it came from. A call that holds none of the parameters asked for is an error.
+
+    With `called_at` (when the subject's `values` result was retrieved) a figure is also looked up among those rows,
+    to the rounding it was written with: `timing` says `past_only` when every row it equals is stamped at or before
+    that time (a forecast figure must belong to an hour after the call: an hour already past is an observation, which
     fails), `after` when one is stamped later, `no_match` when no row equals it (a derived figure: judge it yourself).
+    Without `called_at` there is no `timing`, and `timing_note` says why.
     """
     margin = float(fact.get("margin", fact.get("tolerance", 0)))
     low_limit, high_limit = fact.get("sanity", [-math.inf, math.inf])
     window = window or ("future" if fact.get("future_only") else "all")
     moment = now or dt.datetime.now(UTC)
-    chosen = []
+    names = list(dict.fromkeys(str(r["parameter"]) for r in rows if r.get("parameter")))
+    if parameters:
+        kept = [n for n in names if n in parameters]
+        if not kept and names:
+            msg = f"the call holds none of the parameters {parameters} (it holds: {', '.join(names)})"
+            raise ValueError(msg)
+    elif len(names) > 1:
+        kept = [n for n in names if _is_temperature(n)] or names
+    else:
+        kept = names
+    used = [r for r in rows if not names or str(r.get("parameter")) in kept]
     stamped = [
-        (float(r["value"]), _timestamp(r.get("timestamp", "")))
-        for r in rows
+        (float(r["value"]), _timestamp(r.get("timestamp", "")), str(r.get("parameter") or ""))
+        for r in used
         if isinstance(r.get("value"), (int, float)) and not isinstance(r.get("value"), bool)
     ]
-    for row in rows:
-        value = row.get("value")
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            continue
-        stamp = _timestamp(row.get("timestamp", ""))
+    chosen: list[float] = []
+    series: dict[str, list[float]] = {}
+    for value, stamp, name in stamped:
         if window == "future" and (stamp is None or not moment < stamp <= moment + dt.timedelta(hours=hours)):
             continue
-        chosen.append(float(value))
+        chosen.append(value)
+        series.setdefault(name, []).append(value)
     if not chosen:
         msg = (
             f"no value of the call lies in the window ({window}, {hours:g} h after {moment.isoformat()}): read it again"
@@ -2952,27 +2989,38 @@ def span_of_values(
     for line in format_lines(answer)[0]:
         number = _number(line["figure"])[0]
         celsius = _to_celsius(number, line["unit"])
-        figure = {
+        figure: dict[str, Any] = {
             "figure": line["figure"],
             "unit": line["unit"],
             "what": line["what"],
             "celsius": None if celsius is None else round(celsius, 2),
             "in_span": None if celsius is None else low <= celsius <= high,
         }
-        if called_at is not None and celsius is not None:
+        if celsius is not None:
             slack = (
                 0.5 * 10 ** -_number(line["figure"])[1] / (1.8 if _norm_unit(line["unit"]) in {"f", "\u00b0f"} else 1)
             )
-            hits = [stamp for value, stamp in stamped if abs(value - celsius) <= slack + 1e-9]
-            before = [stamp for stamp in hits if stamp is not None and stamp <= called_at]
-            later = [stamp for stamp in hits if stamp is None or stamp > called_at]
-            figure["timing"] = "no_match" if not hits else "past_only" if before and not later else "after"
-            figure["rows_before_the_call"] = [x.isoformat() for x in before[:5]]
+            hits = [(stamp, name) for value, stamp, name in stamped if abs(value - celsius) <= slack + 1e-9]
+            figure["matched_parameters"] = list(dict.fromkeys(name for _, name in hits if name))
+            if called_at is not None:
+                before = [stamp for stamp, _ in hits if stamp is not None and stamp <= called_at]
+                later = [stamp for stamp, _ in hits if stamp is None or stamp > called_at]
+                figure["timing"] = "no_match" if not hits else "past_only" if before and not later else "after"
+                figure["rows_before_the_call"] = [x.isoformat() for x in before[:5]]
         figures.append(figure)
     return {
         "window": window,
         "after": moment.isoformat() if window == "future" else None,
         "called_at": called_at.isoformat() if called_at else None,
+        "timing_note": None
+        if called_at
+        else (
+            "the timing of the figures is not checked: the analysis has no `retrieved_at` of a `values` call (an "
+            "answer without a metadata block has none): pass --called-at <ISO time of the subject's call>"
+        ),
+        "parameters_used": kept,
+        "parameters_left_out": [n for n in names if n not in kept],
+        "series": {n: {"values": len(v), "min": min(v), "max": max(v)} for n, v in series.items()},
         "values_used": len(chosen),
         "min": min(chosen),
         "max": max(chosen),
@@ -3032,6 +3080,7 @@ def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
         hours=args.hours,
         window=args.window,
         called_at=called_at,
+        parameters=[x.strip() for x in args.parameters.split(",") if x.strip()] if args.parameters else None,
     )
     return {"case": case["id"], "fact": fact["id"], **found}
 
@@ -3120,6 +3169,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     p_span.add_argument("--analysis", type=Path, required=True, help="the `.analysis.json` of a run")
     p_span.add_argument("--values", type=Path, required=True, help="the JSON of your `values` call (a file, or `-`)")
     p_span.add_argument("--fact", help="the span fact (default: the case's only one)")
+    p_span.add_argument(
+        "--parameters", help="the parameters of the call to use, comma-separated (default: its air temperatures)"
+    )
     p_span.add_argument("--hours", type=float, default=48, help="a forecast: how many hours after now are read")
     p_span.add_argument("--now", help="the time your call was made (ISO 8601, UTC; default: now)")
     p_span.add_argument(

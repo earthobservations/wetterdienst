@@ -5324,3 +5324,150 @@ def test_the_runbook_has_no_unquoted_variable_split_into_words() -> None:
     assert not re.search(r"\bset\s+--\s+\$", blocks)
     assert not re.search(r"\bfor\s+\w+\s+in\s+\$(?!\()", blocks)
     assert "${=" in text, "the rule names the zsh-safe form"
+
+
+# ------------------------------------------------ several parameters in the reference of a span, and cut answers
+
+
+def _series_rows() -> list[dict[str, Any]]:
+    """Give the rows of a reference call with the hourly temperature, the 12-hour maximum and a wind speed."""
+    return [
+        {"parameter": "temperature_air_2m", "timestamp": "2026-11-12T13:00:00+00:00", "value": 20.0},
+        {"parameter": "temperature_air_2m", "timestamp": "2026-11-12T18:00:00+00:00", "value": 15.0},
+        {"parameter": "temperature_air_max_2m_last_12h", "timestamp": "2026-11-12T11:00:00+00:00", "value": 23.4},
+        {"parameter": "temperature_air_max_2m_last_12h", "timestamp": "2026-11-13T00:00:00+00:00", "value": 21.9},
+        {"parameter": "wind_speed", "timestamp": "2026-11-12T14:00:00+00:00", "value": 40.0},
+    ]
+
+
+def test_a_reference_with_several_parameters_keeps_the_air_temperatures_and_names_the_series_of_a_figure() -> None:
+    """Wind cannot widen the span; each figure says which series it equals; the 11:00 max is an hour already past."""
+    case = bench.find_case(bench.load_cases(), "forecast-nairobi")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+    answer = "RESULT: 23.4 °C | the 12-hour maximum\nRESULT: 21.9 °C | the next 12-hour maximum\nRESULT: 20 °C | now"
+    now = bench._timestamp("2026-11-12T12:00:00+00:00")  # noqa: SLF001
+    called = bench._timestamp("2026-11-12T11:30:00+00:00")  # noqa: SLF001
+
+    found = bench.span_of_values(fact, _series_rows(), answer=answer, now=now, called_at=called)
+
+    assert found["parameters_used"] == ["temperature_air_2m", "temperature_air_max_2m_last_12h"]
+    assert found["parameters_left_out"] == ["wind_speed"]
+    assert (found["min"], found["max"], found["span"]) == (15.0, 21.9, [11.0, 25.9])
+    assert set(found["series"]) == {"temperature_air_2m", "temperature_air_max_2m_last_12h"}
+    assert [f["matched_parameters"] for f in found["figures"]] == [
+        ["temperature_air_max_2m_last_12h"],
+        ["temperature_air_max_2m_last_12h"],
+        ["temperature_air_2m"],
+    ]
+    assert [f["timing"] for f in found["figures"]] == ["past_only", "after", "after"]
+    early = bench.span_of_values(
+        fact,
+        _series_rows(),
+        answer=answer,
+        now=now,
+        called_at=bench._timestamp("2026-11-12T10:30:00+00:00"),  # noqa: SLF001
+    )
+    assert [f["timing"] for f in early["figures"]] == ["after", "after", "after"]
+
+
+def test_the_parameters_of_a_span_can_be_chosen_and_a_call_without_them_is_refused() -> None:
+    """`parameters` picks the series; none of them in the call is an error that names what the call holds."""
+    case = bench.find_case(bench.load_cases(), "forecast-nairobi")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+    now = bench._timestamp("2026-11-12T12:00:00+00:00")  # noqa: SLF001
+
+    only = bench.span_of_values(fact, _series_rows(), now=now, parameters=["wind_speed"])
+
+    assert (only["parameters_used"], only["min"], only["max"]) == (["wind_speed"], 40.0, 40.0)
+    with pytest.raises(ValueError, match="holds none of the parameters"):
+        bench.span_of_values(fact, _series_rows(), now=now, parameters=["rain"])
+
+
+def test_without_a_call_time_the_span_says_why_no_timing_is_given() -> None:
+    """A compact answer has no `retrieved_at`: `timing_note` says so and names `--called-at`."""
+    case = bench.find_case(bench.load_cases(), "forecast-nairobi")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+
+    found = bench.span_of_values(
+        fact,
+        _series_rows(),
+        answer="RESULT: 23.4 °C | max",
+        now=bench._timestamp("2026-11-12T12:00:00+00:00"),  # noqa: SLF001
+    )
+
+    assert "timing" not in found["figures"][0]
+    assert "no `retrieved_at` of a `values` call" in found["timing_note"]
+    assert "--called-at" in found["timing_note"]
+    assert found["figures"][0]["matched_parameters"] == ["temperature_air_max_2m_last_12h"]
+
+
+def test_the_span_command_takes_a_parameters_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--parameters a,b` is the series to use; the default is the air temperatures of the call."""
+    analysis = _analysis_file(tmp_path, "forecast-nairobi", "RESULT: 21.9 °C | max")
+    values = tmp_path / "v.json"
+    values.write_text(json.dumps({"values": _series_rows()}), encoding="utf-8")
+    base = ["span", "--analysis", str(analysis), "--values", str(values), "--now", "2026-11-12T12:00:00+00:00"]
+
+    assert bench.main(base) == 0
+    assert json.loads(capsys.readouterr().out)["parameters_left_out"] == ["wind_speed"]
+    assert bench.main([*base, "--parameters", "temperature_air_2m"]) == 0
+    assert json.loads(capsys.readouterr().out)["parameters_used"] == ["temperature_air_2m"]
+    assert bench.main([*base, "--parameters", "rain"]) == 2
+    assert "holds none of the parameters" in capsys.readouterr().err
+
+
+CUT = (
+    '{"result":{"metadata":{"warnings":[{"code":"answer-truncated","message":"The answer was cut to stay within '
+    '40,000 characters: 49 of 57 rows are returned, from 2026-11-12T15:00:00+00:00 to 2026-11-14T15:00:00+00:00."}]},'
+    '"values":[]}}'
+)
+
+
+def test_a_tool_answer_the_server_cut_is_counted_apart_and_shown_in_the_digest_and_the_report(
+    tmp_path: Path,
+) -> None:
+    """`answer-truncated` in a result (its code, or its sentence about 40,000 characters) is `truncated_calls`."""
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("values", "a", provider="dwd"),
+            _result("a", CUT),
+            _use("values", "b", provider="dwd"),
+            _result("b", "The answer was cut to stay within 20,000 characters: 5 of 9 rows."),
+            _use("stations", "c"),
+            _result("c", '{"result": {"values": []}}'),
+        ),
+        PREFIX,
+    )
+
+    assert [c.get("truncated") for c in run["calls"]] == [True, True, None]
+    assert (run["truncated_calls"], run["steps"], run["spilled_calls"]) == (2, 3, 0)
+    assert run["calls"][0]["ok"] is True
+    analysis = {
+        **run,
+        "case": GLOSSARY,
+        "tier": "small",
+        "repeat": 1,
+        "max_steps": 4,
+        "mechanical_pass": True,
+        "checkpoints": {"k": 1, "n": 1},
+        "violations": [],
+        "format_violation": None,
+        "mechanical_facts": {},
+    }
+    summary = bench._trial_summary(analysis)  # noqa: SLF001
+    assert "cut calls 2" in summary
+    assert summary.count("cut by the server") == 2
+    results = {
+        "meta": {},
+        "runs": [
+            {**bench.failed_run(bench.find_case(bench.load_cases(), GLOSSARY), "small", 1, "x"), "invalid": False}
+            | {"truncated_calls": 2},
+            {**bench.failed_run(bench.find_case(bench.load_cases(), "licence-dwd"), "small", 1, "x"), "invalid": False},
+        ],
+    }
+    assert "2 tool calls of 1 runs had their answer cut by the server" in bench.report(results)
+    assert f"{GLOSSARY} [small] repeat 1" in bench.report(results)
+    results["runs"][0]["truncated_calls"] = 0
+    assert "had their answer cut" not in bench.report(results)
+    assert bench.LOGIC_VERSION == 17

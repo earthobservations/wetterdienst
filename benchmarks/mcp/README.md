@@ -58,7 +58,8 @@ unquoted `$ARGS` into words (a `judge` call built from `FACTS="--fact a=ok --fac
 out in the command, as the snippets do. **The same goes for loops over words**: `for p in "a b"; do set -- $p; ...` and
 `for x in $list` split in bash and **not in zsh**. Write the words out (`for p in a b c; do ...`), or split on purpose with
 `${=p}` (zsh) or an array (`arr=(a b c); for x in "${arr[@]}"; do ...`), or run the loop with `bash -c '...'`. A test rejects
-`set -- $var` and `for x in $var` in the snippets of this file.
+`set -- $var` and `for x in $var` in the snippets of this file. **A word that starts with `=` is an expansion in zsh**:
+`echo ======` fails with `= not found`; quote it (`echo '======'`), also in a separator line of a report you print.
 
 ## Part 1. Prerequisites
 
@@ -430,6 +431,7 @@ names. These failures are known; the first column is what you see, the second wh
 | a run `timed out` (exit 124, recorded as `failed`, `failure: timeout`) | a result of the model, not an error: it counts against the pass rate and is not repeated. The first repeat of a case reads a cold cache and may be slow; many timeouts in a row point to a slow provider or a loaded machine: say so in the next comment |
 | `end: error_max_budget_usd` in an analysis | the tested model reached 0.50 USD: a failed headline (`is_answer` no); say so in the report |
 | `spilled` calls (a result larger than Claude Code allows is saved to a file the tested model cannot open), or `spill_unrecognised` | a real finding about a tool's answer size, not a fault of the benchmark: report it as it is. `spill_unrecognised` (a short result that mentions a saved file in other words than the two notices of "The tested model") means the notice changed again: say so; do not fix `bench.py` |
+| `truncated_calls` above 0 (the digest says `cut by the server`; `report` lists the runs) | the **server** cut a tool answer to its size budget (a warning `answer-truncated` in the answer's `metadata`: the model got part of the rows and a note to ask again). It is no fault of the run and it is not counted: say in the comment which runs, and in the digest note whether the model's answer mentions the cut or asks again (the cut may make it miss a part of the window). Only a change that sets such a budget produces it |
 | `invalid_reason: the server 'wetterdienst' was 'failed'` / `offered no tool` / `the transcript has no init record` | the tested `claude` did not start or did not connect: check `claude --version`, the server, the transcript's last lines; a few in a row: stop and ask |
 | `judge` or `add-run` exits 2 | read the message: it names what the file refuses (the label, version, model, prompt or date of the run differ from the file's; a missing field; a valid run that would be replaced). Fix the cause; **never** `--replace-valid` to get past it without a reason |
 | `init` refuses | a bad argument, or the file exists: read it; never delete a results file to make `init` work |
@@ -487,6 +489,7 @@ cd "$BENCH/wd-ref" && uv sync --python 3.13 --extra restapi --extra mcp --extra 
 "$REFCLI" --version
 ```
 
+The label is the **short SHA** the baseline recorded, and git takes it as it is (`git worktree add --detach ... d18a37368`).
 If git does not know the commit, `git -C "$REPO" fetch origin` (the 2.2 retry rule) and try again; a label that ends in `+dirty`
 or a commit that is still not found is a stop. `$REFCLI` is the command of 2.3. The `reference_version` of the baseline is what
 `init --like` records, so that `compare` finds both sides read from the same version.
@@ -525,11 +528,31 @@ cases that moved and the ones left out. **Exit 4 means it refused** (the logic v
 tools, two sides that cannot be told apart, other `repeats`, more than 3 % invalid or missing runs in a tier, a record still marked
 `needs_judging`): the first lines say why; put the reason in the final comment, and do not edit a results file to get past it
 (`failed-run` and `add-run` are the repair for a lost run; Part 3). The final comment has the whole `compare` output (split it under
-60,000 characters), the `report` table, the failure modes that happened, the cost and the time, and the **secret gist of the
-new results file** (Part 5), named `mcpbench-results-change-<branch>-<sha>-<date>.json`, next to the link of the baseline's gist.
+60,000 characters; to **trim it**, drop the per-case hint lines that say nothing: `grep -v ': no clear change' "$BENCH/compare.txt" > "$BENCH/compare-short.txt"`
+keeps the pooled verdicts, the `big drop` lines, the sizes, the warnings, and the hints of a case that changed; say in the comment that
+the hints were trimmed), the `report` table, the failure modes that happened, the cost and the time, and the **secret gist of the
+new results file** (Part 5), named `mcpbench-results-change-<branch>-<sha>-<date>.json` (**replace every `/` of the branch name with `-`**: `feat/x` is
+`feat-x`; a gist file name cannot hold a slash), next to the link of the baseline's gist.
 
 **8.8 Finish** as Part 6: stop the one server by its PID and remove `wd-change` (`$SERVER_DIR`), `wd-ref` and `repo` with
 `git -C "$START"`, as there.
+
+**When the change makes a rule of a case obsolete.** A change under test can make a forbidden rule of a case meaningless (for
+example `wide-long-window` of `observation-paris-last-week`, which forbids `shape=wide` over a long window because that answer
+overflowed the client, when the change keeps such an answer small). **Judge as written** (the rule's violation counts, the case's
+hash is the baseline's), **list the conflict in the final comment** (the case, the rule, why the change makes it obsolete, how many
+runs it touched), and **do not edit the case**. The rules whose removal the maintainer has decided are in "Pending case changes".
+
+## Pending case changes
+
+Decided, and to be applied **with the next re-baseline** (a change to a case changes its hash and starts a new baseline, so these
+wait for it; nothing is edited before):
+
+- **`observation-paris-last-week`: drop the forbidden rule `wide-long-window`.** The maintainer decided on 2026-11-12 to drop it with
+  the next case changes: a change that keeps a wide answer small makes it obsolete. Until then it is judged as written.
+
+Not decided (a candidate, no change before the maintainer decides): **`observation-vienna-yesterday`**, whose `find-station`
+checkpoint accepts only `stations` calls (see "Known false failures").
 
 ## Known false failures of the reference baseline
 
@@ -662,8 +685,14 @@ read from the stations the subject itself got listed, not from a call of yours).
      or before `retrieved_at` of the subject's last `values` call (read from the analysis; `--called-at <ISO time>` overrides it), which
      is an hour already past, an observation, so the figure **fails**; `after` when one of the rows is later (fine); `no_match` when no
      row equals it (a derived figure, a mean: judge it yourself). A figure that equals the 11:00 hour of a call made at 11:30 is
-     `past_only`. Your call must include the hours since the model run (`periods=future` does for a forecast), or it has no row to
-     match. What a figure without a stated hour belongs to stays yours.
+     `past_only`. **Your reference call must hold every series the answer used**: ask `values` for the same parameters the subject
+     asked for (the hourly temperature and the 12-hour maximum and minimum, for example), with the hours since the model run
+     (`periods=future` does for a forecast), or a figure has no row to match. A call with several parameters is fine: `span` keeps
+     the air temperatures (`temperature_air*`) for the span, **leaves the others out** (a wind speed cannot widen it; see
+     `parameters_left_out`; `--parameters a,b` picks the series by hand), and says for each figure in `matched_parameters` which
+     series it equals. When the analysis has no `retrieved_at` of a `values` call (an answer without a metadata block), there is no
+     `timing`, and `timing_note` says so: pass `--called-at <ISO time of the subject's call>`. What a figure without a stated hour
+     belongs to stays yours.
      Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
      lists accepted spellings.
