@@ -5,7 +5,15 @@ Standard library only; run it as `python3 -I bench.py <command>`. The orchestrat
 reading (is it an answer, are the facts right); everything that can be counted is counted here, so that two runs
 are compared on the same arithmetic.
 
-    bench.py prompt <case-id> --today YYYY-MM-DD [--tools TEXT]      the prompt of the tested agent
+    bench.py init --results FILE --server URL --label SHA ...        a new results file: its `meta`, no runs yet
+    bench.py todo --results FILE                                     the runs of the file that are still to do
+    bench.py trial --results FILE --case ID --tier T --repeat N --dir DIR
+                                                                     prompt, run and analyze one run
+    bench.py batch --results FILE --dir DIR [--limit N] [--parallel P]
+                                                                     the next N runs of `todo`, P at a time (at most 3)
+    bench.py judge --results FILE --analysis A.json --is-answer yes|no --facts ok|fail
+                                                                     the verdict of the judge on one run, into the file
+    bench.py prompt <case-id> --today YYYY-MM-DD                     the prompt of the tested agent
     bench.py analyze <transcript.jsonl> --case <id> --server <prefix> [--cases PATH]
                                                                      steps, checkpoints, violations, size, tokens
     bench.py report <results.json>                                   the table and the aggregates
@@ -17,14 +25,14 @@ are compared on the same arithmetic.
     bench.py unit --case ID --fact ID --truth V [V2] --answer TEXT   the unit fact of a case against an answer
     bench.py hashes [--cases PATH]                                   hash of the cases file and of each case
 
-A transcript is the stream-json of `claude -p` (headless) or the JSONL of a subagent (the `output_file` the Agent
-tool returns, or `subagents/agent-<id>.jsonl` under the session directory, a detail of the harness): both hold
-`assistant` and `user` messages with `tool_use` and `tool_result` blocks, which is all that is read.
+A transcript is the stream-json of `claude -p` (`run` writes it): an init record, then `assistant` and `user`
+messages with `tool_use` and `tool_result` blocks, which is what is read.
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import contextlib
 import datetime as dt
 import hashlib
@@ -38,6 +46,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -51,11 +60,12 @@ try:
 except ImportError:  # Windows: `add-run` cannot lock the results file there
     fcntl = None  # type: ignore[assignment]
 
-SKILL_DIR = Path(__file__).resolve().parent.parent
-CASES_PATH = SKILL_DIR / "cases.json"
-PROMPT_PATH = SKILL_DIR / "prompt.md"
-#: tool calls of the harness that are no step and no violation: loading deferred tools, the subagent's hand-back
-HARNESS_TOOLS = {"ToolSearch", "SubagentHandback"}
+BENCH_DIR = Path(__file__).resolve().parent.parent
+CASES_PATH = BENCH_DIR / "cases.json"
+PROMPT_PATH = BENCH_DIR / "prompt.md"
+#: tool calls of the harness that are no step and no violation: loading deferred tools (the headless run has no
+#: ToolSearch, so one that shows is a change of Claude Code, which `tools_deferred` records and `compare` refuses)
+HARNESS_TOOLS = {"ToolSearch"}
 SIGNIFICANCE = 0.05
 #: how much lower the pass rate of the new run may be than the previous one and still be "no worse"
 NON_INFERIORITY_MARGIN = 0.10
@@ -70,7 +80,12 @@ CLEANUP_MIN_AGE = 600
 MAX_TIMEOUT = 540
 #: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 15
+LOGIC_VERSION = 16
+#: the tools the prompt names (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's)
+PROMPT_TOOLS = (
+    "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, stripes_image, "
+    "stripes_stations, stripes_values, summarize, values"
+)
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")
@@ -121,7 +136,7 @@ def find_case(data: dict[str, Any], case_id: str) -> dict[str, Any]:
     raise SystemExit(msg)
 
 
-def render_prompt(case: dict[str, Any], today: str, tools: str) -> str:
+def render_prompt(case: dict[str, Any], today: str, tools: str = PROMPT_TOOLS) -> str:
     """Fill the prompt template for one case."""
     template = PROMPT_PATH.read_text(encoding="utf-8")
     return template.format(today=today, question=case["question"], max_steps=case["max_steps"], tools=tools)
@@ -296,18 +311,13 @@ def listed_stations(text: str) -> list[dict[str, Any]]:
     ]
 
 
-def invalid_reason(
-    servers: list[dict[str, Any]] | None, listed: list[str], prefix: str, visible: set[str] | None = None
-) -> str | None:
+def invalid_reason(servers: list[dict[str, Any]] | None, listed: list[str], prefix: str) -> str | None:
     """Say why a run says nothing about the model: the server was not connected or offered no tool.
 
-    A headless transcript says it in its init record (`mcp_servers`, `tools`). A subagent's has none: the tools of the
-    server must then be visible in it, as listed or deferred tools of the session or as calls (`visible`).
+    The transcript says it in its init record (`mcp_servers`, `tools`); one without that record says nothing either.
     """
     if servers is None:
-        if visible is not None and not any(name.startswith(prefix) for name in visible):
-            return f"the transcript shows no tool of the server ({prefix}...)"
-        return None
+        return "the transcript has no init record (`claude` ended before it started)"
     name = prefix.removeprefix("mcp__").removesuffix("__")
     found = [s for s in servers if s.get("name") == name]
     if not found:
@@ -339,7 +349,6 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
     versions: set[str] = set()
     model = None
     servers: list[dict[str, Any]] | None = None
-    visible: set[str] = set()
     for raw in path.read_text(encoding="utf-8").splitlines():
         try:
             record = json.loads(raw)
@@ -350,13 +359,9 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
             listed = record.get("tools") or []
             model = record.get("model")
             servers = record.get("mcp_servers")
-            visible.update(listed)
         elif kind == "attachment":
             attached = record.get("attachment") or {}
             attachments[attached.get("type", "?")] += 1
-            for key in ("addedNames", "surfacedNames", "readdedNames"):
-                visible.update(attached.get(key) or [])
-            visible.update(e.get("name", "") for e in attached.get("entries") or [] if isinstance(e, dict))
         elif kind == "result":
             result_line = record
         elif kind in {"assistant", "user"}:
@@ -376,7 +381,6 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                     answer = block.get("text", "")
                 elif btype == "tool_use":
                     name = block.get("name", "")
-                    visible.add(name)
                     if name.startswith(server):
                         call = {
                             "n": len(calls) + 1,
@@ -389,8 +393,6 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                         }
                         calls.append(call)
                         by_id[block["id"]] = call
-                    elif name == "SubagentHandback":
-                        answer = str((block.get("input") or {}).get("message", ""))
                     elif name == "ToolSearch":
                         searches.append(block.get("input"))
                         search_ids[block["id"]] = len(searches)
@@ -448,7 +450,7 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
             # a call the run ended on (a budget stop, a timeout): it is a step, no read, and meets no checkpoint
             call["ok"] = False
             call["unanswered"] = True
-    invalid = invalid_reason(servers, listed, server, visible)
+    invalid = invalid_reason(servers, listed, server)
     sizes = [call["result_chars"] for call in calls]
     return {
         "invalid": invalid is not None,
@@ -717,6 +719,9 @@ def report(results: dict[str, Any]) -> str:
             "do not have the notice bench.py knows; their sizes are the notice's, not the result's. Check the "
             "transcripts."
         )
+    costs = [r["cost_usd"] for r in results["runs"] if isinstance(r.get("cost_usd"), (int, float))]
+    if costs:
+        lines.append(f"\ncost of the tested agents: {sum(costs):.3f} USD over {len(costs)} runs")
     return "\n".join(lines)
 
 
@@ -886,7 +891,7 @@ def compare_with_status(  # noqa: C901
 ) -> tuple[str, bool]:
     """Compare two results files as a non-inferiority claim on the pooled rates of each tier; say if it refused.
 
-    It refuses when the counting or the conditions differ: the logic version, the defaults, the prompt, the mode,
+    It refuses when the counting or the conditions differ: the logic version, the defaults, the prompt,
     the deferral of the tools, two sides that cannot be told apart (the same server version and no differing
     `label`), two files made with a different number of `repeats`, a repeat outside 1..`repeats` or given twice for
     a (case, tier), or more than a few percent invalid or missing runs among the compared ones (a repeat of
@@ -913,7 +918,6 @@ def compare_with_status(  # noqa: C901
         ("logic", "the logic version of bench.py"),
         ("defaults", "the defaults of the cases file"),
         ("prompt", "the prompt"),
-        ("mode", "the mode (headless or subagent)"),
         ("tools_deferred", "whether the tools were deferred"),
     ):
         if meta_p.get(key) != meta_c.get(key):
@@ -1917,6 +1921,15 @@ def probe(url: str) -> dict[str, Any]:
     return {"url": url, "server_info": info, "tools": len(tools), "wetterdienst_version": server_version(url)}
 
 
+def _tool_sizes(tool: dict[str, Any]) -> tuple[int, int, int]:
+    """Give the characters of a tool's description, inputSchema and outputSchema, as sent over the wire."""
+    return (
+        len(tool.get("description") or ""),
+        len(json.dumps(tool.get("inputSchema") or {}, separators=(",", ":"), ensure_ascii=False)),
+        len(json.dumps(tool.get("outputSchema") or {}, separators=(",", ":"), ensure_ascii=False)),
+    )
+
+
 def tools_size(url: str) -> str:
     """Tell what `tools/list` costs on the wire, per tool: characters of description, inputSchema and outputSchema.
 
@@ -1925,14 +1938,7 @@ def tools_size(url: str) -> str:
     that slims the output schemas shows here and not in the benchmark.
     """
     info, tools = list_tools(url)
-    rows = []
-    for tool in tools:
-        sizes = (
-            len(tool.get("description") or ""),
-            len(json.dumps(tool.get("inputSchema") or {}, separators=(",", ":"), ensure_ascii=False)),
-            len(json.dumps(tool.get("outputSchema") or {}, separators=(",", ":"), ensure_ascii=False)),
-        )
-        rows.append((tool["name"], *sizes))
+    rows = [(tool["name"], *_tool_sizes(tool)) for tool in tools]
     lines = [
         f"{url} ({info.get('name')} {info.get('version')}): {len(tools)} tools",
         "| tool | description | inputSchema | outputSchema |",
@@ -2105,7 +2111,7 @@ def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  #
         )
     if record.get("case") not in meta.get("case_hashes", {}):
         problems.append(f"the case {record.get('case')!r} is not in the file")
-    if failed_kind or str(meta.get("mode")) != "headless":
+    if failed_kind:
         return problems
     side = record.get("run_meta")
     if not isinstance(side, dict):
@@ -2114,7 +2120,6 @@ def _check_record(record: dict[str, Any], meta: dict[str, Any]) -> list[str]:  #
         "label": meta.get("label"),
         "wetterdienst_version": meta.get("server_version"),
         "model_requested": (meta.get("models") or {}).get(record.get("tier")),
-        "mode": meta.get("mode"),
         "prompt_template": meta.get("prompt"),
         "prompt_date": meta.get("date"),
     }
@@ -2219,9 +2224,7 @@ def run_subject(
         return 2
     claude = shutil.which("claude")
     if claude is None:
-        sys.stderr.write(
-            "run: `claude` is not on the PATH: headless mode needs Claude Code (use mode=subagent otherwise)\n"
-        )
+        sys.stderr.write("run: `claude` is not on the PATH: the benchmark runs `claude -p`\n")
         return 2
     try:
         probed = probe(url)
@@ -2250,7 +2253,6 @@ def run_subject(
     code = 0
     prompt_text = prompt_path.read_text(encoding="utf-8")
     side = {
-        "mode": "headless",
         "label": label,
         "model_requested": model,
         "claude_version": _claude_version(claude),
@@ -2274,6 +2276,311 @@ def run_subject(
     return code
 
 
+# ----------------------------------------------------------------------------- a results file, and one run of it
+
+CONTEXT_NOTE = (
+    "headless `claude -p` in an empty directory outside the repository: what remains in the context is Claude Code's "
+    "system prompt and the harness's block with the user's email; no CLAUDE.md, memory, skill or built-in tool; the "
+    "server's tools are not deferred"
+)
+
+
+def select_cases(data: dict[str, Any], spec: str) -> list[dict[str, Any]]:
+    """Pick cases: `all` (every case that needs no key), `kind:<kind>`, or ids separated by commas."""
+    cases = data["cases"]
+    if spec == "all":
+        chosen = [c for c in cases if not c["needs_key"]]
+    elif spec.startswith("kind:"):
+        chosen = [c for c in cases if c["kind"] == spec[5:]]
+    else:
+        known = {c["id"]: c for c in cases}
+        wanted = [part.strip() for part in spec.split(",") if part.strip()]
+        unknown = [w for w in wanted if w not in known]
+        if unknown:
+            msg = f"no case {unknown}"
+            raise ValueError(msg)
+        chosen = [known[w] for w in dict.fromkeys(wanted)]
+    if not chosen:
+        msg = f"no case matches {spec!r}"
+        raise ValueError(msg)
+    needing = [c["id"] for c in chosen if c["needs_key"]]
+    if needing:
+        msg = f"the cases {needing} need a provider key: this benchmark never passes a credential, leave them out"
+        raise ValueError(msg)
+    return chosen
+
+
+def init_results(
+    path: Path,
+    *,
+    server: str,
+    label: str,
+    cases: str,
+    tiers: str,
+    large: str,
+    repeats: int,
+    reference: str,
+    reference_version: str | None,
+    judge_model: str,
+    today: str,
+) -> dict[str, Any]:
+    """Write a results file with its `meta` and no runs: what the runs of it are to be made with.
+
+    The `meta` is what `compare` and `add-run` hold the runs to: the server (URL, version, label), the models of the
+    tiers, the repeats, the hashes of the cases, the defaults, the prompt and the counting, the version of `claude`.
+    """
+    data = load_cases()
+    if path.exists():
+        msg = f"{path} exists: a results file is never overwritten (use another name, or `todo` to go on with it)"
+        raise ValueError(msg)
+    if not SAFE_LABEL.match(label):
+        msg = "the label may only hold letters, digits and . _ + - (the SHA of the checkout, +dirty)"
+        raise ValueError(msg)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", today):
+        msg = f"today must be a date YYYY-MM-DD, not {today!r}"
+        raise ValueError(msg)
+    if repeats < 1:
+        msg = "repeats must be at least 1"
+        raise ValueError(msg)
+    if large not in {"sonnet", "opus"}:
+        msg = "large is sonnet or opus"
+        raise ValueError(msg)
+    names = [t.strip() for t in tiers.split(",") if t.strip()]
+    unknown = [t for t in names if t not in data["tiers"]]
+    if unknown or not names:
+        msg = f"tiers are {sorted(data['tiers'])}, not {tiers!r}"
+        raise ValueError(msg)
+    chosen = select_cases(data, cases)
+    probed = probe(server)
+    _, tools = list_tools(server)
+    sizes = [sum(_tool_sizes(t)[k] for t in tools) for k in range(3)]
+    claude = shutil.which("claude")
+    hashed = hashes(data)
+    meta = {
+        "date": today,
+        "models": {t: (large if t == "large" else data["tiers"][t]) for t in names},
+        "judge_model": judge_model,
+        "server": server,
+        "server_version": probed["wetterdienst_version"],
+        "server_info": probed["server_info"],
+        "label": label,
+        "reference": reference,
+        "reference_version": reference_version,
+        "claude_version": _claude_version(claude) if claude else None,
+        "tools_deferred": False,
+        "context_note": CONTEXT_NOTE,
+        "repeats": repeats,
+        "cases_file": hashed["cases_file"],
+        "defaults": hashed["defaults"],
+        "logic": hashed["logic"],
+        "prompt": hashed["prompt"],
+        "case_hashes": {c["id"]: hashed["cases"][c["id"]] for c in chosen},
+        "tools_list": {"description": sizes[0], "inputSchema": sizes[1], "outputSchema": sizes[2]},
+    }
+    results = {"meta": meta, "runs": []}
+    _write_atomic(path, json.dumps(results, indent=1, ensure_ascii=False))
+    return results
+
+
+def todo_runs(results: dict[str, Any]) -> list[tuple[str, str, int, str]]:
+    """List the (case, tier, repeat, model) of a results file that has no record yet, or only an invalid one.
+
+    A failed run (a timeout, a budget stop) is a record: it is a result of the model, and is not made again.
+    """
+    meta = results["meta"]
+    done = {(r["case"], r["tier"], r.get("repeat")) for r in results["runs"] if not r.get("invalid")}
+    return [
+        (case, tier, repeat, model)
+        for tier, model in meta["models"].items()
+        for case in meta["case_hashes"]
+        for repeat in range(1, int(meta["repeats"]) + 1)
+        if (case, tier, repeat) not in done
+    ]
+
+
+def _trial(
+    results_path: Path,
+    case_id: str,
+    tier: str,
+    repeat: int,
+    directory: Path,
+    *,
+    timeout: float,
+    max_usd: float,
+    replace_valid: bool = False,
+) -> tuple[int, str]:
+    """Make one run of a results file and say what came of it: its exit code and the text for the judge.
+
+    Everything is read from the file's `meta` (the server, the label, the model of the tier, the date), so that the
+    run is made as the others. The files in `directory` are `<case>-<tier>-<repeat>` with the suffixes `.prompt`,
+    `.jsonl` (the transcript), `.jsonl.meta.json` and `.analysis.json`. A server that does not answer is recorded as
+    an invalid run and a timeout as a failed one (`failed_run`), both in the file; any other run is left to the judge
+    (`judge`), with its analysis written. Exit codes: 0 the analysis is written and waits for the judge, 3 a run was
+    recorded without an analysis (no server, timeout), 2 a refusal (an argument, a run that is already valid).
+    """
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    meta = results["meta"]
+    data = load_cases()
+    stem = f"{case_id}-{tier}-{repeat}"
+    if case_id not in meta["case_hashes"] or tier not in meta["models"] or not 1 <= repeat <= int(meta["repeats"]):
+        return 2, f"{stem}: not a run of {results_path}"
+    case = find_case(data, case_id)
+    done = [
+        r
+        for r in results["runs"]
+        if (r["case"], r["tier"], r.get("repeat")) == (case_id, tier, repeat) and not r.get("invalid")
+    ]
+    if done and not replace_valid:
+        return 2, f"{stem}: is recorded already (--replace-valid to make it again)"
+    directory.mkdir(parents=True, exist_ok=True)
+    prompt_file, transcript = directory / f"{stem}.prompt", directory / f"{stem}.jsonl"
+    prompt_file.write_text(render_prompt(case, meta["date"]), encoding="utf-8")
+    code = run_subject(
+        meta["models"][tier], meta["server"], "wetterdienst", str(prompt_file), str(transcript), timeout, max_usd,
+        meta["label"],
+    )  # fmt: skip
+    if code == 2:
+        return 2, f"{stem}: `run` refused (see its message above)"
+    kwargs = {"transcript": transcript, "defaults": data.get("defaults", {})}
+    if code in {3, 124}:
+        if code == 3:
+            record = failed_run(case, tier, repeat, "the server did not answer (exit 3)", **kwargs)
+        else:
+            record = failed_run(case, tier, repeat, "timeout", invalid=False, **kwargs)
+        added = add_run(results_path, record, replace_valid=replace_valid)
+        why = record.get("invalid_reason") or record.get("failure")
+        return 3, f"{stem}: recorded as {record['kind']} ({why}), exit {code}; {added}"
+    run = parse_transcript(transcript, "mcp__wetterdienst__")
+    verdict = evaluate(case, run, data.get("defaults", {}))
+    sidecar = Path(f"{transcript}.meta.json")
+    side = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.is_file() else None
+    analysis = {"case": case_id, "tier": tier, "repeat": repeat, "exit": code, **run, **verdict, "run_meta": side}
+    path = directory / f"{stem}.analysis.json"
+    path.write_text(json.dumps(analysis, indent=1, ensure_ascii=False), encoding="utf-8")
+    return 0, f"{stem}: {_trial_summary(analysis)}\nanalysis: {path}"
+
+
+def trial(
+    results_path: Path,
+    case_id: str,
+    tier: str,
+    repeat: int,
+    directory: Path,
+    *,
+    timeout: float,
+    max_usd: float,
+    replace_valid: bool = False,
+) -> int:
+    """Make one run (`_trial`) and print what came of it: to stdout for the judge, to stderr for a refusal."""
+    code, text = _trial(
+        results_path, case_id, tier, repeat, directory, timeout=timeout, max_usd=max_usd, replace_valid=replace_valid
+    )
+    print(text, file=sys.stderr if code == 2 else sys.stdout)
+    return code
+
+
+#: at most this many tested agents at once: more than three is more than a laptop takes
+MAX_PARALLEL = 3
+
+
+def batch(
+    results_path: Path,
+    directory: Path,
+    *,
+    limit: int,
+    parallel: int,
+    timeout: float,
+    max_usd: float,
+) -> int:
+    """Make the next `limit` runs `todo` lists, `parallel` at a time, and print what came of each as it finishes.
+
+    The runs are the first of the file's `todo`, in its order (a tier, then a case, then its repeats). Each is a
+    `trial`; the exit code is 0 if all of them gave an analysis for the judge or were recorded as failed or invalid
+    runs, 2 if one was refused.
+    """
+    if not 1 <= parallel <= MAX_PARALLEL:
+        sys.stderr.write(f"batch: parallel is 1 to {MAX_PARALLEL}\n")
+        return 2
+    runs = todo_runs(json.loads(results_path.read_text(encoding="utf-8")))[: max(limit, 0)]
+    if not runs:
+        print("batch: nothing to do")
+        return 0
+    lock = threading.Lock()
+    codes: list[int] = []
+
+    def one(run: tuple[str, str, int, str]) -> None:
+        case, tier, repeat, _model = run
+        try:
+            code, text = _trial(results_path, case, tier, repeat, directory, timeout=timeout, max_usd=max_usd)
+        except (OSError, ValueError, KeyError, RuntimeError) as error:
+            code, text = 2, f"{case}-{tier}-{repeat}: {error}"
+        (directory / f"{case}-{tier}-{repeat}.trial.txt").write_text(text + "\n", encoding="utf-8")
+        with lock:
+            codes.append(code)
+            print(f"[{len(codes)}/{len(runs)}] {text}\n", flush=True)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as pool:
+        list(pool.map(one, runs))
+    print(
+        f"batch: {len(runs)} runs: {codes.count(0)} wait for the judge (`judge`), "
+        f"{codes.count(3)} recorded as failed or invalid, {codes.count(2)} refused"
+    )
+    return 2 if 2 in codes else 0
+
+
+def _trial_summary(analysis: dict[str, Any]) -> str:
+    """Say what a run did for the judge to read: the verdict of the counting, the calls, the answer."""
+    lines = [
+        (
+            f"{analysis['steps']} steps of {analysis['max_steps']}; mechanical_pass {analysis['mechanical_pass']}; "
+            f"checkpoints {analysis['checkpoints']['k']}/{analysis['checkpoints']['n']}; "
+            f"violations {analysis['violations'] or 'none'}; invalid {analysis['invalid_reason'] or False}; "
+            f"format_violation {analysis['format_violation']}; spilled calls {analysis['spilled_calls']}; "
+            f"cost {round(analysis['cost_usd'] or 0, 4)} USD"
+        )
+    ]
+    lines.extend(
+        f"  call {c['n']}: {c['tool']} {json.dumps(c['arguments'], ensure_ascii=False)[:300]} -> "
+        f"{'ok' if c['ok'] else 'FAILED'}, {c['result_chars']} characters"
+        for c in analysis["calls"]
+    )
+    if analysis["mechanical_facts"]:
+        lines.append(f"  mechanical facts: {json.dumps(analysis['mechanical_facts'], ensure_ascii=False)}")
+    lines.append(f"  answer: {analysis['answer'][:4000]}")
+    return "\n".join(lines)
+
+
+def judge_run(
+    results_path: Path,
+    analysis_path: Path,
+    *,
+    is_answer: bool,
+    facts_ok: bool,
+    fact_results: dict[str, str],
+    note: str = "",
+    replace_valid: bool = False,
+) -> str:
+    """Put a run with the judge's verdict into a results file: the analysis, `is_answer`, `facts_ok` and the notes.
+
+    `passed` is `mechanical_pass and is_answer`, never the judge's own word, and a run that is `invalid` is neither.
+    The big `result_head` of each call is left out. The file refuses what does not belong in it (`add_run`).
+    """
+    analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+    for key in ("tier", "repeat", "mechanical_pass"):
+        if key not in analysis:
+            msg = f"{analysis_path} is no analysis made by `trial` (it lacks {key})"
+            raise ValueError(msg)
+    record = {k: v for k, v in analysis.items() if k != "exit"}
+    record["calls"] = [{k: v for k, v in c.items() if k != "result_head"} for c in analysis["calls"]]
+    valid = not analysis.get("invalid")
+    record["is_answer"] = bool(is_answer) and valid
+    record["facts_ok"] = bool(facts_ok) and valid
+    record["passed"] = bool(analysis["mechanical_pass"]) and record["is_answer"]
+    record["fact_results"] = fact_results
+    record["judge_note"] = note
+    return add_run(results_path, record, replace_valid=replace_valid)
+
+
 # --------------------------------------------------------------------------------------------------------- cli
 
 
@@ -2281,16 +2588,49 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     """Run one command."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
+    p_init = sub.add_parser("init")
+    p_init.add_argument("--results", type=Path, required=True)
+    p_init.add_argument("--server", required=True, help="the MCP URL of the server under test")
+    p_init.add_argument("--label", required=True, help="the SHA of the checkout it serves (+dirty if it has changes)")
+    p_init.add_argument("--cases", default="all", help="`all`, `kind:<kind>` or ids separated by commas")
+    p_init.add_argument("--tiers", default="small,large")
+    p_init.add_argument("--large", default="sonnet", choices=("sonnet", "opus"))
+    p_init.add_argument("--repeats", type=int, default=1)
+    p_init.add_argument("--reference", required=True, help="where the judge reads ground truth: `python` or a prefix")
+    p_init.add_argument("--reference-version")
+    p_init.add_argument("--judge-model", required=True, help="the model that judges, as it names itself")
+    p_init.add_argument("--today", default=dt.datetime.now(UTC).date().isoformat(), help="UTC date, YYYY-MM-DD")
+    p_todo = sub.add_parser("todo")
+    p_todo.add_argument("--results", type=Path, required=True)
+    p_trial = sub.add_parser("trial")
+    p_trial.add_argument("--results", type=Path, required=True)
+    p_trial.add_argument("--case", required=True)
+    p_trial.add_argument("--tier", required=True)
+    p_trial.add_argument("--repeat", type=int, required=True)
+    p_trial.add_argument("--dir", type=Path, required=True, help="where the prompt, transcript and analysis go")
+    p_trial.add_argument("--timeout", type=float, default=float(os.environ.get("MCPBENCH_TIMEOUT", "300")))
+    p_trial.add_argument("--max-usd", type=float, default=float(os.environ.get("MCPBENCH_MAX_USD", "0.50")))
+    p_trial.add_argument("--replace-valid", action="store_true")
+    p_batch = sub.add_parser("batch")
+    p_batch.add_argument("--results", type=Path, required=True)
+    p_batch.add_argument("--dir", type=Path, required=True, help="where the prompts, transcripts and analyses go")
+    p_batch.add_argument("--limit", type=int, default=9, help="how many of the runs still to do")
+    p_batch.add_argument("--parallel", type=int, default=MAX_PARALLEL, help=f"at once, at most {MAX_PARALLEL}")
+    p_batch.add_argument("--timeout", type=float, default=float(os.environ.get("MCPBENCH_TIMEOUT", "300")))
+    p_batch.add_argument("--max-usd", type=float, default=float(os.environ.get("MCPBENCH_MAX_USD", "0.50")))
+    p_judge = sub.add_parser("judge")
+    p_judge.add_argument("--results", type=Path, required=True)
+    p_judge.add_argument("--analysis", type=Path, required=True)
+    p_judge.add_argument("--is-answer", choices=("yes", "no"), required=True)
+    p_judge.add_argument("--facts", choices=("ok", "fail"), required=True)
+    p_judge.add_argument(
+        "--fact", action="append", default=[], metavar="ID=VERDICT", help="`ok`, `fail: why` or `drift: how`, per fact"
+    )
+    p_judge.add_argument("--note", default="")
+    p_judge.add_argument("--replace-valid", action="store_true")
     p_prompt = sub.add_parser("prompt")
     p_prompt.add_argument("case")
     p_prompt.add_argument("--today", required=True)
-    p_prompt.add_argument(
-        "--tools",
-        default=(
-            "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, stripes_image, "
-            "stripes_stations, stripes_values, summarize, values"
-        ),
-    )
     p_analyze = sub.add_parser("analyze")
     p_analyze.add_argument("transcript", type=Path)
     p_analyze.add_argument("--case", required=True)
@@ -2339,8 +2679,72 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901
     for p in (p_prompt, p_analyze, p_unit, sub.add_parser("hashes")):
         p.add_argument("--cases", type=Path, default=CASES_PATH)
     args = parser.parse_args(argv)
-    if args.command == "prompt":
-        sys.stdout.write(render_prompt(find_case(load_cases(args.cases), args.case), args.today, args.tools))
+    if args.command == "init":
+        try:
+            results = init_results(
+                args.results,
+                server=args.server,
+                label=args.label,
+                cases=args.cases,
+                tiers=args.tiers,
+                large=args.large,
+                repeats=args.repeats,
+                reference=args.reference,
+                reference_version=args.reference_version,
+                judge_model=args.judge_model,
+                today=args.today,
+            )
+        except (ValueError, OSError, RuntimeError) as error:
+            sys.stderr.write(f"init: {error}\n")
+            return 2
+        meta = results["meta"]
+        print(
+            f"{args.results}: {len(meta['case_hashes'])} cases x {len(meta['models'])} tiers x {meta['repeats']} "
+            f"repeats = {len(todo_runs(results))} runs, server {meta['server_version']} ({meta['label']})"
+        )
+    elif args.command == "todo":
+        todo = todo_runs(json.loads(args.results.read_text(encoding="utf-8")))
+        print("\n".join(f"{case} {tier} {repeat} {model}" for case, tier, repeat, model in todo))
+        print(f"{len(todo)} runs to do", file=sys.stderr)
+    elif args.command == "trial":
+        return trial(
+            args.results,
+            args.case,
+            args.tier,
+            args.repeat,
+            args.dir,
+            timeout=args.timeout,
+            max_usd=args.max_usd,
+            replace_valid=args.replace_valid,
+        )
+    elif args.command == "batch":
+        return batch(
+            args.results,
+            args.dir,
+            limit=args.limit,
+            parallel=args.parallel,
+            timeout=args.timeout,
+            max_usd=args.max_usd,
+        )
+    elif args.command == "judge":
+        try:
+            facts = dict(item.split("=", 1) for item in args.fact)
+            print(
+                judge_run(
+                    args.results,
+                    args.analysis,
+                    is_answer=args.is_answer == "yes",
+                    facts_ok=args.facts == "ok",
+                    fact_results=facts,
+                    note=args.note,
+                    replace_valid=args.replace_valid,
+                )
+            )
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            sys.stderr.write(f"judge: {error}\n")
+            return 2
+    elif args.command == "prompt":
+        sys.stdout.write(render_prompt(find_case(load_cases(args.cases), args.case), args.today))
     elif args.command == "analyze":
         data = load_cases(args.cases)
         case = find_case(data, args.case)

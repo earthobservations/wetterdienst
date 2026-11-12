@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The cases of the manual MCP benchmark stay true to the code (GH-3538).
 
-`.claude/skills/mcp-benchmark/cases.json` holds the questions a person has a model answer with the MCP tools,
-by hand inside Claude (`/mcp-benchmark`). Nothing here calls a model or the network: this test only holds the
+`benchmarks/mcp/cases.json` holds the questions a person has a model answer with the MCP tools, by hand: a Claude
+Code session follows `benchmarks/mcp/README.md`. Nothing here calls a model or the network: this test only holds the
 cases to the code they were written against, so that a renamed tool, argument, provider or parameter fails here
 and not silently in the next manual run, where a checkpoint would simply never be met.
 
@@ -12,7 +12,7 @@ call or a ground-truth call names, the enum values among them (and that the enum
 from the tool's schema: a schema that moves it into a description would make the check vacuous), the periods, every
 provider, network and parameter that is a literal, that the regexes compile and tell what they should (a list of
 strings each must and must not match), that `needs_key` is true exactly for the cases of a network that needs
-credentials, and that nothing that looks like a credential or personal data is in the cases or the skill.
+credentials, and that nothing that looks like a credential or personal data is in the cases or the runbook.
 """
 
 from __future__ import annotations
@@ -37,8 +37,8 @@ from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.ui import restapi
 from wetterdienst.ui.mcp import build_mcp_server
 
-SKILL_DIR = Path(__file__).parents[2] / ".claude" / "skills" / "mcp-benchmark"
-CASES_FILE = SKILL_DIR / "cases.json"
+BENCH_DIR = Path(__file__).parents[2] / "benchmarks" / "mcp"
+CASES_FILE = BENCH_DIR / "cases.json"
 
 KINDS = {
     "forecast",
@@ -711,15 +711,14 @@ def test_there_are_enough_cases_and_they_cover_the_tools(tools: dict[str, dict[s
     assert any(case["needs_key"] for case in data["cases"]), "the skipped-by-default case is gone"
 
 
-def test_the_skill_and_the_cases_hold_no_credential_or_personal_data() -> None:
-    """Nothing of the benchmark (skill, scripts, cases, agent, docs, tests) looks like a secret or personal data."""
+def test_the_runbook_and_the_cases_hold_no_credential_or_personal_data() -> None:
+    """Nothing of the benchmark (runbook, scripts, cases, docs, tests) looks like a secret or personal data."""
     root = Path(__file__).parents[2]
     paths = [
         CASES_FILE,
-        SKILL_DIR / "SKILL.md",
-        SKILL_DIR / "prompt.md",
-        *SKILL_DIR.glob("scripts/*.*"),
-        *(root / ".claude" / "agents").glob("mcp-benchmark*.md"),
+        BENCH_DIR / "README.md",
+        BENCH_DIR / "prompt.md",
+        *BENCH_DIR.glob("scripts/*.*"),
         root / "docs" / "contribution" / "mcp-benchmark.md",
         *Path(__file__).parent.glob("test_mcp_benchmark_*.py"),
     ]
@@ -727,19 +726,21 @@ def test_the_skill_and_the_cases_hold_no_credential_or_personal_data() -> None:
     for fixture in FIXTURES:
         text = text.replace(fixture, "")
 
-    assert len(paths) >= 9
+    assert len(paths) >= 8
     assert [m.group(0) for p in (*SECRET_PATTERNS, *PERSONAL_PATTERNS) for m in p.finditer(text)] == []
 
 
-def test_the_skill_is_manual_only() -> None:
-    """The skill header keeps the model from starting a run on its own, which costs tokens and calls providers."""
-    text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
-    header = text.split("---")[1]
+def test_the_benchmark_is_a_runbook_outside_claude() -> None:
+    """Nothing of it is in `.claude/` (no skill, no agent): a README that a fresh session follows is the entry point."""
+    root = Path(__file__).parents[2]
+    text = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
 
-    assert re.search(r"(?m)^name: mcp-benchmark$", header)
-    assert re.search(r"(?m)^disable-model-invocation: true$", header)
-    assert "Costs tokens" in header
-    assert "never by CI" in header
+    assert not (root / ".claude" / "skills" / "mcp-benchmark").exists()
+    assert not (root / ".claude" / "agents" / "mcp-benchmark-subject.md").exists()
+    assert not text.startswith("---"), "a skill header: the README is no slash skill"
+    assert "never by CI" in text
+    assert "smoke" in text
+    assert "baseline" in text
 
 
 def _rule_pattern_matches(case: dict[str, Any], rule_id: str, text: str) -> bool:

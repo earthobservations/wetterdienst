@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The counting half of the manual MCP benchmark (GH-3538): `.claude/skills/mcp-benchmark/scripts/bench.py`.
+"""The counting half of the manual MCP benchmark (GH-3538): `benchmarks/mcp/scripts/bench.py`.
 
 The orchestrating Claude judges what needs reading; this script counts everything else (steps, checkpoints,
 violations, sizes, tokens, aggregates and the comparison of two runs), so that two runs are compared on the same
@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 import pytest
 
-SKILL_DIR = Path(__file__).parents[2] / ".claude" / "skills" / "mcp-benchmark"
-SPEC = importlib.util.spec_from_file_location("mcp_benchmark_bench", SKILL_DIR / "scripts" / "bench.py")
+BENCH_DIR = Path(__file__).parents[2] / "benchmarks" / "mcp"
+SPEC = importlib.util.spec_from_file_location("mcp_benchmark_bench", BENCH_DIR / "scripts" / "bench.py")
 assert SPEC is not None
 assert SPEC.loader is not None
 bench = importlib.util.module_from_spec(SPEC)
@@ -130,7 +130,15 @@ def _transcript(tmp_path: Path) -> Path:
     usage = {"input_tokens": 10, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 0, "output_tokens": 20}
     later = {"input_tokens": 10, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 200, "output_tokens": 30}
     lines = [
-        json.dumps({"type": "system", "subtype": "init", "tools": [f"{PREFIX}stations"], "model": "m"}),
+        json.dumps(
+            {
+                "type": "system",
+                "subtype": "init",
+                "tools": [f"{PREFIX}stations"],
+                "mcp_servers": [{"name": "wetterdienst", "status": "connected"}],
+                "model": "m",
+            }
+        ),
         json.dumps({"type": "attachment", "attachment": {"type": "instructions"}}),
         _message(
             "assistant",
@@ -208,24 +216,6 @@ def test_a_headless_result_line_gives_the_totals(tmp_path: Path) -> None:
 
     assert run["output_tokens"] == 123
     assert run["total_tokens"] == 4 + 100 + 400 + 123
-
-
-def test_the_hand_back_of_a_subagent_is_its_answer(tmp_path: Path) -> None:
-    """A subagent that ends with SubagentHandback has its answer in that call, and it is no step and no violation."""
-    path = tmp_path / "sub.jsonl"
-    path.write_text(
-        _message(
-            "assistant", [{"type": "tool_use", "id": "z", "name": "SubagentHandback", "input": {"message": "-0.7"}}]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    run = bench.parse_transcript(path, PREFIX)
-
-    assert run["answer"] == "-0.7"
-    assert run["steps"] == 0
-    assert run["other_tools"] == []
 
 
 CASE = {
@@ -380,7 +370,6 @@ def _results(
     ]
     case_hashes = hashes or dict.fromkeys({c for c, _ in passes}, "h1")
     base = {
-        "mode": "headless",
         "prompt": prompt,
         "case_hashes": case_hashes,
         "logic": bench.LOGIC_VERSION,
@@ -473,7 +462,6 @@ def test_the_comparison_skips_changed_cases() -> None:
     ("changed", "expected"),
     [
         ({"prompt": "p2"}, "the prompt differs"),
-        ({"mode": "subagent"}, "the mode (headless or subagent) differs"),
         ({"tools_deferred": True}, "whether the tools were deferred differs"),
         ({"logic": 99}, "the logic version of bench.py differs"),
         ({"defaults": "d2"}, "the defaults of the cases file differs"),
@@ -513,7 +501,7 @@ def test_the_comparison_compares_the_resolved_model_ids() -> None:
 
 
 def test_the_comparison_names_what_differs_between_the_runs() -> None:
-    """A different model, mode or server version is told first, as it explains most differences."""
+    """A different model or server version is told first, as it explains most differences."""
     before = _results({("a", "small"): 5}, server_version="0.178.0")
     after = _results({("a", "small"): 5}, server_version="0.179.0")
 
@@ -990,7 +978,7 @@ def test_a_run_fails_fast_without_a_server_a_prompt_or_claude(
 def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
     tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The sidecar holds what the probe said (a glossary run has no metadata block), the label and the mode."""
+    """The sidecar holds what the probe said (a glossary run has no metadata block), the label and the model."""
     fake = tmp_path / "claude"
     fake.write_text(
         '#!/bin/sh\nif [ "$1" = "--version" ]; then echo 9.9.9; exit 0; fi\necho \'{"type":"result","result":"x"}\'\n',
@@ -1008,7 +996,6 @@ def test_a_run_leaves_the_probes_answer_and_the_label_next_to_its_transcript(
     side = json.loads(Path(f"{out}.meta.json").read_text(encoding="utf-8"))
     assert code == 0
     assert out.read_text(encoding="utf-8").strip() == '{"type":"result","result":"x"}'
-    assert side["mode"] == "headless"
     assert side["label"] == "abc1234+dirty"
     assert side["claude_version"] == "9.9.9"
     assert side["server_info"] == {"name": "Wetterdienst", "version": "9.9.9"}
@@ -1119,11 +1106,11 @@ def test_a_refused_comparison_exits_with_a_code(tmp_path: Path, capsys: pytest.C
     ok = tmp_path / "ok.json"
     other = tmp_path / "other.json"
     ok.write_text(json.dumps(_results({("a", "small"): 5}, label="x")), encoding="utf-8")
-    other.write_text(json.dumps(_results({("a", "small"): 5}, mode="subagent", label="y")), encoding="utf-8")
+    other.write_text(json.dumps(_results({("a", "small"): 5}, prompt="p2", label="y")), encoding="utf-8")
 
     assert bench.main(["compare", str(ok), str(ok), "--same-server"]) == 0
     assert bench.main(["compare", str(ok), str(other)]) == 4
-    assert "the mode (headless or subagent) differs" in capsys.readouterr().out
+    assert "the prompt differs" in capsys.readouterr().out
 
 
 def test_two_sides_that_report_one_version_must_carry_labels() -> None:
@@ -1171,22 +1158,6 @@ def test_a_run_that_never_ran_is_an_invalid_record_with_its_reason() -> None:
     assert record["invalid_reason"] == "the server did not answer (exit 3)"
     assert bench.aggregate(results["runs"])["n"] == 0
     assert "2 of 2 runs are invalid" in bench.report(results)
-
-
-def test_a_subagent_transcript_must_show_the_servers_tools(tmp_path: Path) -> None:
-    """A subagent's transcript has no init record: the server's tools must be listed or deferred in it, or called."""
-    attached = {
-        "type": "attachment",
-        "attachment": {"type": "deferred_tools_record", "entries": [{"name": f"{PREFIX}values"}]},
-    }
-    without = bench.parse_transcript(_stream(tmp_path, {"type": "attachment", "attachment": {"type": "date"}}), PREFIX)
-    deferred = bench.parse_transcript(_stream(tmp_path, attached, name="d.jsonl"), PREFIX)
-    called = bench.parse_transcript(_stream(tmp_path, _use("values", "a"), name="c.jsonl"), PREFIX)
-
-    assert without["invalid"] is True
-    assert "no tool of the server" in without["invalid_reason"]
-    assert deferred["invalid"] is False
-    assert called["invalid"] is False
 
 
 def test_a_spill_is_a_call_that_read_nothing_whatever_is_error_says(tmp_path: Path) -> None:
@@ -1798,41 +1769,15 @@ def test_the_timeout_is_capped_below_the_age_cleanup_waits_for(tmp_path: Path, m
     assert bench.run_subject("haiku", mcp_url, "wetterdienst", str(prompt), str(tmp_path / "o"), 0, 0.1) == 2
 
 
-def _subagent_attachment(**names: list[str]) -> dict[str, Any]:
-    """Build the `deferred_tools_delta` attachment of a real subagent transcript: its keys, with names only."""
-    shape = {
-        "type": "deferred_tools_delta",
-        "addedNames": [],
-        "addedLines": [],
-        "removedNames": [],
-        "wireHiddenNames": [],
-        "readdedNames": [],
-        "surfacedNames": [],
-        "surfacedDefinitions": [],
-    }
-    return {"type": "attachment", "attachment": {**shape, **names}}
-
-
-@pytest.mark.parametrize("key", ["addedNames", "surfacedNames", "readdedNames"])
-def test_the_servers_tools_are_visible_in_any_list_of_a_real_subagent_transcript(tmp_path: Path, key: str) -> None:
-    """After the judge pre-loads the tools, a subject's tools are `surfaced`, not `added`: it is still a valid run."""
-    names = [f"{PREFIX}{tool}" for tool in ("stations", "values", "glossary")]
-    shown = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(**{key: names})), PREFIX)
-    hidden = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(), name="h.jsonl"), PREFIX)
-    other = bench.parse_transcript(
-        _stream(tmp_path, _subagent_attachment(addedNames=["WebFetch", "mcp__claude_ai_Gmail__x"]), name="o.jsonl"),
-        PREFIX,
-    )
-
-    assert shown["invalid"] is False
-    assert hidden["invalid"] is True
-    assert other["invalid"] is True
-
-
 def test_a_subject_that_made_no_call_is_not_dropped_as_invalid(tmp_path: Path) -> None:
     """The failure a pass guards against (an answer with no tool call) must reach the rates, not vanish."""
-    names = [f"{PREFIX}values"]
-    run = bench.parse_transcript(_stream(tmp_path, _subagent_attachment(surfacedNames=names)), PREFIX)
+    init = {
+        "type": "system",
+        "subtype": "init",
+        "tools": [f"{PREFIX}values"],
+        "mcp_servers": [{"name": "wetterdienst", "status": "connected"}],
+    }
+    run = bench.parse_transcript(_stream(tmp_path, init), PREFIX)
     verdict = bench.evaluate(CASE, {**run, "answer": "From memory: 20 C."}, DEFAULTS)
 
     assert run["steps"] == 0
@@ -1888,7 +1833,6 @@ def _add_run_file(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
     path = tmp_path / "results.json"
     path.write_text(json.dumps(results), encoding="utf-8")
     run_meta = {
-        "mode": "headless",
         "label": "L",
         "model_requested": "haiku",
         "wetterdienst_version": "0.178.0",
@@ -1943,7 +1887,6 @@ def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
                     "label": "L",
                     "wetterdienst_version": "0.178.0",
                     "model_requested": "haiku",
-                    "mode": "headless",
                     "prompt_template": "OLD",
                 },
             },
@@ -1956,7 +1899,6 @@ def test_a_run_is_added_to_a_results_file_by_its_repeat(tmp_path: Path) -> None:
                     "label": "L",
                     "wetterdienst_version": "0.178.0",
                     "model_requested": "haiku",
-                    "mode": "headless",
                     "prompt_template": "p1",
                     "prompt_date": "2026-10-29",
                 },
@@ -2003,7 +1945,7 @@ def test_add_run_takes_the_record_of_a_run_that_gave_no_answer_and_never_leaves_
 
 def test_the_prompts_example_is_no_cases_answer() -> None:
     """A model that copies the prompt's example must not pass a unit check: it is made up, and no case expects it."""
-    prompt = (SKILL_DIR / "prompt.md").read_text(encoding="utf-8")
+    prompt = (BENCH_DIR / "prompt.md").read_text(encoding="utf-8")
     example = re.search(r"`RESULT: (?P<line>(?P<figure>[-\d.]+) (?P<unit>\S+) \| (?P<what>[^`]+))`", prompt)
     assert example is not None
     data = bench.load_cases()
@@ -2058,16 +2000,18 @@ def test_the_step_maximum_is_none_for_runs_that_measured_no_step_and_the_sizes_u
 
 
 def test_the_default_full_run_is_the_cases_that_need_no_key() -> None:
-    """The skill and the docs state how many cases and runs a default full run is; the number is the file's."""
+    """The runbook and the docs state how many cases and runs a default full run is; the number is the file's."""
     cases = bench.load_cases()["cases"]
     n = sum(1 for c in cases if not c["needs_key"])
-    skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    runbook = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
     docs = (Path(__file__).parents[2] / "docs" / "contribution" / "mcp-benchmark.md").read_text(encoding="utf-8")
     phrase = f"{n} cases, {5 * n} runs a side per tier at 5 repeats, {10 * n} in all"
 
     assert n < len(cases)
-    assert phrase in skill
-    assert phrase in docs
+    assert phrase in runbook
+    assert f"{n} cases that need no key" in docs
+    assert f"{2 * n} runs" in docs
+    assert f"{10 * n} runs" in docs
 
 
 # ------------------------------------------------------------------------------- round 7: what the strict check holds
@@ -2513,7 +2457,7 @@ def test_the_row_of_a_table_is_found_in_the_forms_a_date_is_written(cell: str, f
 
 def test_the_prompt_asks_for_a_result_line_only_for_the_figures_the_question_asks_for() -> None:
     """No line for a minimum, a day before, a count or a distance, and one per forecast temperature."""
-    prompt = (SKILL_DIR / "prompt.md").read_text(encoding="utf-8")
+    prompt = (BENCH_DIR / "prompt.md").read_text(encoding="utf-8")
 
     assert "one line for each figure the question asks for" in prompt
     assert "Write no RESULT line for any other figure you mention" in prompt
@@ -2799,7 +2743,6 @@ def test_concurrent_add_runs_keep_every_record(tmp_path: Path) -> None:
         date="2026-10-28",
     )
     run_meta = {
-        "mode": "headless",
         "label": "L",
         "model_requested": "haiku",
         "wetterdienst_version": "0.178.0",
@@ -2824,7 +2767,7 @@ def test_concurrent_add_runs_keep_every_record(tmp_path: Path) -> None:
                 [
                     sys.executable,
                     "-I",
-                    str(SKILL_DIR / "scripts" / "bench.py"),
+                    str(BENCH_DIR / "scripts" / "bench.py"),
                     "add-run",
                     "--results",
                     str(path),
@@ -2852,7 +2795,7 @@ def test_add_run_waits_for_the_lock_on_the_results_file(tmp_path: Path) -> None:
     command = [
         sys.executable,
         "-I",
-        str(SKILL_DIR / "scripts" / "bench.py"),
+        str(BENCH_DIR / "scripts" / "bench.py"),
         "add-run",
         "--results",
         str(path),
@@ -4120,3 +4063,317 @@ def test_a_short_sentence_that_ends_in_a_stop_is_no_header_and_an_abbreviation_i
         assert bench._is_name(cell), cell  # noqa: SLF001
     for cell in ("in mm.", "or not?", "unit is mm!", "Is it wet today?"):
         assert not bench._is_name(cell), cell  # noqa: SLF001
+
+
+# ------------------------------------------------- the results file as the runbook makes it: init, todo, trial, judge
+
+GLOSSARY = "glossary-temperature-air-mean-2m"
+
+
+def _init(path: Path, url: str, **changed: Any) -> dict[str, Any]:  # noqa: ANN401
+    """Make a results file with `init_results` for the glossary case and the licence case."""
+    arguments: dict[str, Any] = {
+        "server": url,
+        "label": "abc1234",
+        "cases": f"{GLOSSARY},licence-dwd",
+        "tiers": "small,large",
+        "large": "opus",
+        "repeats": 2,
+        "reference": "python",
+        "reference_version": "9.9.9",
+        "judge_model": "claude-test",
+        "today": "2026-11-12",
+    }
+    return bench.init_results(path, **{**arguments, **changed})
+
+
+def test_init_writes_the_meta_the_runs_are_held_to_and_todo_lists_the_runs(tmp_path: Path, mcp_url: str) -> None:
+    """The meta has the server, the models, the hashes and the counting; todo is cases x tiers x repeats."""
+    path = tmp_path / "r.json"
+
+    results = _init(path, mcp_url)
+
+    meta = json.loads(path.read_text(encoding="utf-8"))["meta"]
+    assert meta == results["meta"]
+    assert (meta["server"], meta["server_version"], meta["label"], meta["repeats"]) == (mcp_url, "9.9.9", "abc1234", 2)
+    assert meta["models"] == {"small": "haiku", "large": "opus"}
+    assert meta["case_hashes"] == {c: bench.hashes(bench.load_cases())["cases"][c] for c in (GLOSSARY, "licence-dwd")}
+    assert (meta["logic"], meta["prompt"], meta["tools_deferred"]) == (
+        bench.LOGIC_VERSION,
+        bench.prompt_version(),
+        False,
+    )
+    assert meta["tools_list"] == {"description": 15, "inputSchema": 56, "outputSchema": 19}
+    todo = bench.todo_runs(results)
+    assert len(todo) == 2 * 2 * 2
+    assert todo[0] == (GLOSSARY, "small", 1, "haiku")
+    assert (GLOSSARY, "large", 2, "opus") in todo
+
+
+@pytest.mark.parametrize(
+    ("changed", "message"),
+    [
+        ({"cases": "nope"}, "no case ['nope']"),
+        ({"cases": "observation-london-yesterday"}, "need a provider key"),
+        ({"cases": "kind:nothing"}, "no case matches"),
+        ({"label": "a b"}, "the label may only hold"),
+        ({"large": "haiku"}, "large is sonnet or opus"),
+        ({"tiers": "medium"}, "tiers are"),
+        ({"repeats": 0}, "repeats must be at least 1"),
+        ({"today": "yesterday"}, "today must be a date"),
+    ],
+)
+def test_init_refuses_what_would_make_a_results_file_nobody_can_compare(
+    tmp_path: Path, mcp_url: str, changed: dict[str, Any], message: str
+) -> None:
+    """A bad selection, label or date is refused before a model is paid; an existing file is never overwritten."""
+    with pytest.raises(ValueError, match=re.escape(message)):
+        _init(tmp_path / "r.json", mcp_url, **changed)
+    assert not (tmp_path / "r.json").exists()
+    _init(tmp_path / "r.json", mcp_url)
+    with pytest.raises(ValueError, match="exists"):
+        _init(tmp_path / "r.json", mcp_url)
+
+
+def test_all_cases_leave_out_the_ones_that_need_a_key(tmp_path: Path, mcp_url: str) -> None:
+    """The default selection is the cases that need no key, never one that would need a credential."""
+    results = _init(tmp_path / "r.json", mcp_url, cases="all", tiers="small", repeats=1)
+    data = bench.load_cases()["cases"]
+
+    assert len(results["meta"]["case_hashes"]) == sum(1 for c in data if not c["needs_key"])
+    assert "observation-london-yesterday" not in results["meta"]["case_hashes"]
+    assert len(bench.todo_runs(results)) == len(results["meta"]["case_hashes"])
+
+
+def _fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, transcript: str, *, sleep: int = 0) -> None:
+    """Put a `claude` on the PATH of `which` that prints a transcript (after a sleep, for a timeout)."""
+    body = tmp_path / "transcript.jsonl"
+    body.write_text(transcript, encoding="utf-8")
+    fake = tmp_path / "claude"
+    fake.write_text(
+        f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo 9.9.9; exit 0; fi\nsleep {sleep}\ncat {body}\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    monkeypatch.setattr(bench.shutil, "which", lambda _name: str(fake))
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda _cls: tmp_path / "home"))
+
+
+def _glossary_transcript(answer: str = "It is the mean air temperature at 2 m, in degrees Celsius.") -> str:
+    """Write the stream of a run that asks the glossary once and answers."""
+    init = {
+        "type": "system",
+        "subtype": "init",
+        "tools": [f"{PREFIX}glossary"],
+        "mcp_servers": [{"name": "wetterdienst", "status": "connected"}],
+        "model": "claude-haiku-5-5",
+    }
+    records = [
+        init,
+        _use("glossary", "a", parameter="temperature_air_mean_2m"),
+        _result("a", "x" * 50),
+        {"type": "assistant", "message": {"id": "z", "content": [{"type": "text", "text": answer}]}},
+        {"type": "result", "subtype": "success", "result": answer, "total_cost_usd": 0.01},
+    ]
+    return "\n".join(json.dumps(r) for r in records) + "\n"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_a_trial_then_a_judgement_puts_one_run_in_the_file_and_todo_goes_on_without_it(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The runbook's loop: trial writes the analysis, judge records it, todo drops it, a second try refuses."""
+    results_path = tmp_path / "r.json"
+    _init(results_path, mcp_url, cases=GLOSSARY, tiers="small", repeats=2)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript())
+    scratch = tmp_path / "scratch"
+
+    code = bench.trial(results_path, GLOSSARY, "small", 1, scratch, timeout=20, max_usd=0.1)
+
+    out = capsys.readouterr().out
+    analysis = scratch / f"{GLOSSARY}-small-1.analysis.json"
+    assert code == 0
+    assert "1 steps of 4; mechanical_pass True" in out
+    assert "call 1: glossary" in out
+    assert "answer: It is the mean air temperature" in out
+    assert (scratch / f"{GLOSSARY}-small-1.prompt").read_text(encoding="utf-8").startswith("Today's date is 2026-11-12")
+    assert json.loads(analysis.read_text(encoding="utf-8"))["run_meta"]["label"] == "abc1234"
+    message = bench.judge_run(
+        results_path, analysis, is_answer=True, facts_ok=True, fact_results={"unit": "ok"}, note="fine"
+    )
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    (record,) = results["runs"]
+    assert message == f"added {GLOSSARY} [small] repeat 1: 1 runs"
+    assert (record["passed"], record["is_answer"], record["facts_ok"], record["repeat"]) == (True, True, True, 1)
+    assert record["fact_results"] == {"unit": "ok"}
+    assert "exit" not in record
+    assert all("result_head" not in call for call in record["calls"])
+    assert bench.todo_runs(results) == [(GLOSSARY, "small", 2, "haiku")]
+    assert bench.trial(results_path, GLOSSARY, "small", 1, scratch, timeout=20, max_usd=0.1) == 2
+    assert "is recorded already" in capsys.readouterr().err
+    assert bench.trial(results_path, GLOSSARY, "small", 3, scratch, timeout=20, max_usd=0.1) == 2
+    assert "not a run of" in capsys.readouterr().err
+    with pytest.raises(ValueError, match="would replace a valid run"):
+        bench.judge_run(results_path, analysis, is_answer=True, facts_ok=True, fact_results={})
+    assert "cost of the tested agents: 0.010 USD over 1 runs" in bench.report(results)
+
+
+def test_a_judge_does_not_pass_a_run_the_counting_failed_nor_one_that_is_invalid(tmp_path: Path, mcp_url: str) -> None:
+    """`passed` is the counting's pass and the judge's `is_answer`; a run that is invalid is neither."""
+    results_path = tmp_path / "r.json"
+    _init(results_path, mcp_url, cases=GLOSSARY, tiers="small", repeats=3)
+    base = {
+        "case": GLOSSARY,
+        "tier": "small",
+        "steps": 1,
+        "max_steps": 4,
+        "checkpoints": {"k": 1, "n": 1},
+        "violations": [],
+        "model": "claude-haiku-5-5",
+        "calls": [{"n": 1, "tool": "glossary", "result_head": "big"}],
+        "run_meta": {
+            "label": "abc1234",
+            "wetterdienst_version": "9.9.9",
+            "model_requested": "haiku",
+            "prompt_template": bench.prompt_version(),
+            "prompt_date": "2026-11-12",
+        },
+    }
+    rows = [
+        (1, {"mechanical_pass": False, "invalid": False}, True),
+        (2, {"mechanical_pass": True, "invalid": True}, True),
+        (3, {"mechanical_pass": True, "invalid": False}, False),
+    ]
+    for repeat, extra, is_answer in rows:
+        analysis = tmp_path / f"a{repeat}.json"
+        analysis.write_text(json.dumps({**base, "repeat": repeat, **extra}), encoding="utf-8")
+        bench.judge_run(results_path, analysis, is_answer=is_answer, facts_ok=True, fact_results={})
+
+    runs = json.loads(results_path.read_text(encoding="utf-8"))["runs"]
+    assert [r["passed"] for r in runs] == [False, False, False]
+    assert [r["is_answer"] for r in runs] == [True, False, False]
+    assert [r["facts_ok"] for r in runs] == [True, False, True]
+    broken = tmp_path / "broken.json"
+    broken.write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="no analysis made by `trial`"):
+        bench.judge_run(results_path, broken, is_answer=True, facts_ok=True, fact_results={})
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_a_trial_that_times_out_or_finds_no_server_records_the_run_itself(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A timeout is a failed run, an unreachable server an invalid one: both are in the file, todo redoes the latter."""
+    results_path = tmp_path / "r.json"
+    _init(results_path, mcp_url, cases=GLOSSARY, tiers="small", repeats=2)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript(), sleep=5)
+
+    slow = bench.trial(results_path, GLOSSARY, "small", 1, tmp_path / "s", timeout=1, max_usd=0.1)
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    results["meta"]["server"] = "http://127.0.0.1:1/mcp/v1"
+    results_path.write_text(json.dumps(results), encoding="utf-8")
+    dead = bench.trial(results_path, GLOSSARY, "small", 2, tmp_path / "s", timeout=1, max_usd=0.1)
+
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    runs = {r["repeat"]: r for r in results["runs"]}
+    assert (slow, dead) == (3, 3)
+    assert (runs[1]["kind"], runs[1]["failure"], runs[1]["passed"]) == ("failed", "timeout", False)
+    assert (runs[2]["kind"], runs[2]["invalid_reason"]) == ("invalid", "the server did not answer (exit 3)")
+    assert bench.todo_runs(results) == [(GLOSSARY, "small", 2, "haiku")]
+
+
+def test_the_command_line_of_init_todo_and_judge(
+    tmp_path: Path, mcp_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The commands the runbook names exist, and a refusal exits 2."""
+    path = str(tmp_path / "r.json")
+    init = [
+        "init", "--results", path, "--server", mcp_url, "--label", "abc", "--cases", GLOSSARY, "--tiers", "small",
+        "--repeats", "1", "--reference", "python", "--judge-model", "m", "--today", "2026-11-12",
+    ]  # fmt: skip
+    judge = [
+        "judge",
+        "--results",
+        path,
+        "--analysis",
+        str(tmp_path / "none.json"),
+        "--is-answer",
+        "yes",
+        "--facts",
+        "ok",
+    ]
+
+    assert bench.main(init) == 0
+    assert "1 cases x 1 tiers x 1 repeats = 1 runs, server 9.9.9 (abc)" in capsys.readouterr().out
+    assert bench.main(init) == 2
+    assert "init: " in capsys.readouterr().err
+    assert bench.main(["todo", "--results", path]) == 0
+    assert capsys.readouterr().out.strip() == f"{GLOSSARY} small 1 haiku"
+    assert bench.main(judge) == 2
+    assert "judge: " in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_a_batch_makes_the_next_runs_of_todo_and_leaves_each_summary_next_to_its_transcript(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The first `limit` runs of todo are made, three at a time at most, and each has its `.trial.txt`."""
+    results_path = tmp_path / "r.json"
+    _init(results_path, mcp_url, cases=GLOSSARY, tiers="small", repeats=4)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript())
+    scratch = tmp_path / "scratch"
+
+    code = bench.batch(results_path, scratch, limit=3, parallel=2, timeout=20, max_usd=0.1)
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "batch: 3 runs: 3 wait for the judge (`judge`), 0 recorded as failed or invalid, 0 refused" in out
+    for repeat in (1, 2, 3):
+        text = (scratch / f"{GLOSSARY}-small-{repeat}.trial.txt").read_text(encoding="utf-8")
+        assert "1 steps of 4; mechanical_pass True" in text
+        assert (scratch / f"{GLOSSARY}-small-{repeat}.analysis.json").is_file()
+    assert not (scratch / f"{GLOSSARY}-small-4.prompt").exists()
+    assert bench.batch(results_path, scratch, limit=3, parallel=4, timeout=20, max_usd=0.1) == 2
+    assert "parallel is 1 to 3" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake `claude` is a #!/bin/sh script, which Windows cannot execute")
+def test_a_batch_with_nothing_to_do_says_so_and_a_refused_run_makes_it_exit_2(
+    tmp_path: Path, mcp_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An empty todo is no error; a run the file already holds, valid, is refused and shows in the exit code."""
+    results_path = tmp_path / "r.json"
+    _init(results_path, mcp_url, cases=GLOSSARY, tiers="small", repeats=1)
+    _fake_claude(tmp_path, monkeypatch, _glossary_transcript())
+    assert bench.trial(results_path, GLOSSARY, "small", 1, tmp_path / "s", timeout=20, max_usd=0.1) == 0
+    bench.judge_run(
+        results_path,
+        tmp_path / "s" / f"{GLOSSARY}-small-1.analysis.json",
+        is_answer=True,
+        facts_ok=True,
+        fact_results={},
+    )
+    capsys.readouterr()
+
+    assert bench.batch(results_path, tmp_path / "s", limit=5, parallel=3, timeout=20, max_usd=0.1) == 0
+    assert "batch: nothing to do" in capsys.readouterr().out
+    code, text = bench._trial(  # noqa: SLF001
+        results_path, GLOSSARY, "small", 1, tmp_path / "s", timeout=20, max_usd=0.1
+    )
+    assert (code, "recorded already" in text) == (2, True)
+
+
+def test_the_runbook_names_commands_and_counts_that_exist() -> None:
+    """Every `bench.py` command the README tells a session to run exists, and its run counts are the file's."""
+    text = (BENCH_DIR / "README.md").read_text(encoding="utf-8")
+    commands = set(re.findall(r'bench\.py"? ([a-z][a-z-]*)', text))
+    n = sum(1 for c in bench.load_cases()["cases"] if not c["needs_key"])
+
+    assert {"init", "todo", "batch", "judge", "report", "probe", "tools-size", "cleanup", "unit", "compare"} <= commands
+    for command in commands:
+        with pytest.raises(SystemExit) as stopped:
+            bench.main([command, "--help"])
+        assert stopped.value.code == 0, command
+    assert f"all {n} that need no key" in text
+    assert f"| runs | {2 * n} | {10 * n} |" in text
+    assert f"(`all`: {n})" in text
