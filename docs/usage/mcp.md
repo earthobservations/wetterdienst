@@ -156,8 +156,8 @@ An assistant reads the answer of a tool in its context, and Claude Code saves a 
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
 `interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
-included, and for `csv` and `ndjson` the sentence of the tool, which carries the licence and the note below, and the
-body. A chart is not counted. The budget is a constant of the server
+included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the licence
+and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is not counted. The budget is a constant of the server
 and applies to the tools alone: the REST API, the command line and Python answer everything the
 [limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
 
@@ -170,9 +170,11 @@ An answer over the budget is cut, not refused, and says so:
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
-- **`stations`** with `rank`, `distance` or `name` is never cut: they ask for a few stations. Otherwise (`all`, a bounding
+- **`stations`** with `rank` or `name` is never cut: they ask for a few stations. Otherwise (`all`, a bounding
   box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
-  `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it.
+  `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
+  hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
+  how many lie within the distance and suggests a smaller `distance`, or `rank`.
 - **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
   note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
   station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
@@ -189,15 +191,16 @@ An answer over the budget is cut, not refused, and says so:
   the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
   carries it. `providers` is not cut: it is 20,000 characters for all providers together.
 
-The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings` (and in the `X-Wetterdienst-Warnings` header). It
-gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool
+The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings`. A JSON answer reaches a
+client as its body alone, so no header carries it (a `csv` or `ndjson` answer has no block, so its headers are in the
+sentence and the `_meta` of the result). It gives the rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool
 accepts, ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters,
 and `format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no
 block, it is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of
 the body. `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
 parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
-that `coverage` and `glossary` give the units. The same holds for a `rank`, a `distance`, a `name` or a single station,
+that `coverage` and `glossary` give the units. The same holds for a `rank`, a `name` or a single station,
 whose rows are never cut: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is left out of them, and nothing
 else is.
 

@@ -30,7 +30,7 @@ from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from tests.ui.test_restapi import _values_result_of_shape
 from wetterdienst.ui import restapi
 from wetterdienst.ui.budget import ANSWER_BUDGET, answer_size
-from wetterdienst.ui.mcp import _mark_tool_requests
+from wetterdienst.ui.mcp import _mark_tool_requests, structured_size
 from wetterdienst.util.datetime import parse_date_window
 
 if TYPE_CHECKING:
@@ -95,6 +95,15 @@ def _stations_of(count: int, *, with_umlaut: bool = False) -> StationsResult:
         ]
     )
     return replace(base, df=frame, _df_all=frame)
+
+
+def _stations_by_distance(count: int, *, with_umlaut: bool = False) -> StationsResult:
+    """Give `count` stations as a search by distance lists them: nearest first, each with its distance in km."""
+    from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
+
+    listing = _stations_of(count, with_umlaut=with_umlaut)
+    frame = listing.df.with_columns((pl.col("station_id").cast(pl.Int64) * 1.5 + 0.4).alias("distance"))
+    return replace(listing, df=frame, _df_all=frame, _stations_filter=StationsFilter.BY_DISTANCE, _rank=None)
 
 
 def _stub_stations(monkeypatch: pytest.MonkeyPatch, result: StationsResult) -> None:
@@ -319,6 +328,15 @@ def _client_sees(tool: str, arguments: dict[str, Any]) -> Any:  # noqa: ANN401
     return asyncio.run(call())
 
 
+def _received(result: Any) -> int:  # noqa: ANN401
+    """Count the characters a client receives of a tool result: its structured content as the JSON it is sent in.
+
+    For CSV and NDJSON that is `{"result": "<sentence> <body>"}`, where each newline and quote of the text is an
+    escape of two characters (GH-4029).
+    """
+    return len(json.dumps(result.structured_content, separators=(",", ":"), ensure_ascii=False))
+
+
 @pytest.mark.parametrize("fmt", ["json", "geojson", "csv", "ndjson"])
 @pytest.mark.parametrize("with_metadata", [False, True])
 def test_what_the_client_receives_is_within_the_budget(
@@ -327,7 +345,7 @@ def test_what_the_client_receives_is_within_the_budget(
     """The budget holds for the structured content of the tool result, `with_metadata` and the sentence included.
 
     For JSON that is the answer as FastMCP hands it on, compact; for CSV and NDJSON the sentence of the tool (the
-    licence, the processing note, the warnings and the note itself) and the body.
+    licence, the processing note, the warnings and the note itself) and the body, as the JSON string they are sent in.
     """
     _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
     arguments = {**_VALUES, "format": fmt, "with_metadata": with_metadata}
@@ -336,12 +354,8 @@ def test_what_the_client_receives_is_within_the_budget(
 
     assert not result.is_error, result.content
     structured = result.structured_content
-    seen = (
-        structured["result"]
-        if fmt in ("csv", "ndjson")
-        else json.dumps(structured, separators=(",", ":"), ensure_ascii=False)
-    )
-    assert ANSWER_BUDGET - 1_500 < len(seen) <= ANSWER_BUDGET
+    seen = structured["result"] if fmt in ("csv", "ndjson") else structured
+    assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET
     if fmt in ("csv", "ndjson"):
         # the sentence tells the note in words, and the body is below it
         assert "Truncated: The answer was cut to stay within 40,000 characters" in seen
@@ -408,13 +422,9 @@ def test_the_stations_of_a_client_are_within_the_budget(monkeypatch: pytest.Monk
     """What a client receives of a stations listing, CSV with its sentence and JSON, is within the budget."""
     _stub_stations(monkeypatch, _stations_of(700, with_umlaut=True))
 
-    for fmt in ("json", "csv"):
+    for fmt in ("json", "csv", "ndjson"):
         result = _client_sees("stations", {**_STATIONS, "format": fmt})
-        structured = result.structured_content
-        seen = (
-            structured["result"] if fmt == "csv" else json.dumps(structured, separators=(",", ":"), ensure_ascii=False)
-        )
-        assert ANSWER_BUDGET - 1_500 < len(seen) <= ANSWER_BUDGET, fmt
+        assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET, fmt
 
 
 @pytest.mark.parametrize(
@@ -422,20 +432,13 @@ def test_the_stations_of_a_client_are_within_the_budget(monkeypatch: pytest.Monk
     [
         {"name": "Station", "rank": 700},
         {"latitude": 51.1, "longitude": 13.8, "rank": 700},
-        {"latitude": 51.1, "longitude": 13.8, "distance": 5000},
     ],
 )
-def test_a_rank_a_distance_or_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch, selection: dict[str, Any]) -> None:
+def test_a_rank_or_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch, selection: dict[str, Any]) -> None:
     """They ask for a few stations: nothing is cut, however many come back, and nothing is noted."""
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
-    kind = (
-        StationsFilter.BY_NAME
-        if "name" in selection and "rank" not in selection
-        else StationsFilter.BY_RANK
-        if "rank" in selection
-        else StationsFilter.BY_DISTANCE
-    )
+    kind = StationsFilter.BY_NAME if "name" in selection and "rank" not in selection else StationsFilter.BY_RANK
     listing = replace(_stations_of(700), _stations_filter=kind, _rank=None)
     _stub_stations(monkeypatch, listing)
     params = {k: v for k, v in _STATIONS.items() if k != "all"} | {
@@ -451,6 +454,123 @@ def test_a_rank_a_distance_or_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch,
     assert len(body["stations"]) == 700
     assert body["metadata"]["warnings"] == []
     assert "x-wetterdienst-truncated" not in response.headers
+
+
+_A_DISTANCE = {k: v for k, v in _STATIONS.items() if k != "all"} | {
+    "latitude": 52.52,
+    "longitude": 13.4,
+    "distance": 500,
+}
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv", "ndjson"])
+def test_a_wide_distance_is_cut_to_the_nearest_stations(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """A distance that lists hundreds of stations keeps the nearest that fit; the note says how many lie within it."""
+    _stub_stations(monkeypatch, _stations_by_distance(700, with_umlaut=True))
+
+    response = _tool_client().get("/api/stations", params={**_A_DISTANCE, "format": fmt})
+
+    assert response.status_code == 200
+    note = unquote(response.headers["x-wetterdienst-truncated"])
+    assert re.search(r"the nearest [\d,]+ of 700 stations are returned, nearest first\. ", note)
+    assert "700 stations lie within 500 km of the point" in note
+    assert "ask again with a smaller `distance`, or with `rank` for the nearest few" in note
+    # it is no list order, and no search by a bounding box
+    assert "list order" not in note
+    assert "latitude, longitude" not in note
+    if fmt == "json":
+        body = response.json()
+        kept = [station["station_id"] for station in body["stations"]]
+        assert 0 < len(kept) < 700
+        # the first of the order the core hands out, which is the order of the distance
+        assert kept == [f"{i:05d}" for i in range(len(kept))]
+        assert body["metadata"]["counts"]["stations"] == len(kept)
+        assert _note_of(body) == note
+        assert _compact(response.text) <= ANSWER_BUDGET
+    elif fmt == "csv":
+        assert 0 < len(response.text.splitlines()) - 1 < 700
+
+
+@pytest.mark.parametrize("fmt", ["json", "csv", "ndjson"])
+def test_what_a_client_receives_of_a_wide_distance_is_within_the_budget(
+    monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """Through a real MCP session: within the budget, as the client receives it, and not far under it."""
+    _stub_stations(monkeypatch, _stations_by_distance(700, with_umlaut=True))
+
+    result = _client_sees("stations", {**_A_DISTANCE, "format": fmt})
+
+    assert not result.is_error, result.content
+    assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET
+    structured = result.structured_content["result"]
+    if fmt == "json":
+        assert [w["code"] for w in structured["metadata"]["warnings"]] == ["answer-truncated"]
+        assert "the nearest" in structured["metadata"]["warnings"][0]["message"]
+    else:
+        assert "Truncated: The answer was cut to stay within 40,000 characters: the nearest " in structured
+
+
+def test_a_distance_that_fits_is_left_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Twenty stations within the distance are no cut: nothing is noted."""
+    _stub_stations(monkeypatch, _stations_by_distance(20))
+
+    response = _tool_client().get("/api/stations", params=_A_DISTANCE)
+
+    assert len(response.json()["stations"]) == 20
+    assert response.json()["metadata"]["warnings"] == []
+    assert "x-wetterdienst-truncated" not in response.headers
+
+
+def test_a_distance_is_whole_over_rest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same request, not from a tool, lists every station within the distance, without a note."""
+    _stub_stations(monkeypatch, _stations_by_distance(700))
+
+    response = _rest_client().get("/api/stations", params=_A_DISTANCE)
+
+    assert len(response.json()["stations"]) == 700
+    assert response.json()["metadata"]["warnings"] == []
+    assert "x-wetterdienst-truncated" not in response.headers
+
+
+@pytest.mark.parametrize("fmt", ["csv", "ndjson"])
+def test_a_csv_or_ndjson_is_counted_as_the_json_it_is_received_in(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """The size counted is the length of the structured content as JSON, where each newline and quote is an escape."""
+    media_type = {"csv": "text/csv", "ndjson": "application/x-ndjson"}[fmt]
+    for tool, route, params in (
+        ("values", "/api/values", _VALUES),
+        ("stations", "/api/stations", _STATIONS),
+    ):
+        if tool == "values":
+            _stub_values(monkeypatch, _values_of(_NOW, 12))
+            from tests.ui.test_restapi import _stub_stream  # noqa: PLC0415
+
+            _stub_stream(monkeypatch, [_values_of(_NOW, 12)])
+        else:
+            _stub_stations(monkeypatch, _stations_of(30, with_umlaut=True))
+        response = _tool_client().get(route, params={**params, "format": fmt})
+        headers = {name.lower(): value for name, value in response.headers.items()}
+
+        counted = structured_size(media_type, response.text, headers)
+        result = _client_sees(tool, {**params, "format": fmt})
+
+        assert counted == _received(result), tool
+        # and it is more than the text: the lines of the body are escaped
+        assert counted > len(result.structured_content["result"]) + 11, tool
+
+
+def test_a_json_answer_has_its_warnings_in_the_block_and_no_header_reaches_the_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A JSON tool answer is its body alone: `metadata.warnings` carries the warning, as no header does (GH-4029)."""
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
+
+    rest = _tool_client().get("/api/values", params=_VALUES)
+    result = _client_sees("values", _VALUES)
+
+    # REST sends the header, the tool's client gets the block
+    assert rest.headers["x-wetterdienst-warnings"] == "answer-truncated"
+    assert [w["code"] for w in result.structured_content["result"]["metadata"]["warnings"]] == ["answer-truncated"]
+    assert not (result.meta or {}).get("wetterdienst")
 
 
 # --- the other surfaces -------------------------------------------------------------------------------------------

@@ -65,6 +65,14 @@ Types of changes:
 
 ### Fixed
 
+- The 40,000-character budget of an MCP tool answer now holds as the client receives it. A `csv` or
+  `ndjson` answer was counted as plain text but arrives as JSON with every newline and quote escaped,
+  so `interpolate` csv came to 40,782 characters and `values` csv to 40,399; they are now cut to
+  fit. A `stations` answer by `distance` was never cut (983 stations, 296,000 characters, within
+  500 km of Berlin); it keeps the nearest stations and says how many lie within the distance. A
+  `rank` or `name` is still whole. The docs no longer say that the `X-Wetterdienst-Warnings` header
+  reaches a tool's client for a JSON answer; `metadata.warnings` carries it. REST, command line and
+  Python are unchanged (GH-4029)
 - The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
   `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
 - The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
