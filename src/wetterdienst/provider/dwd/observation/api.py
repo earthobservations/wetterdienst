@@ -633,10 +633,10 @@ class DwdObservationHistory(TimeseriesHistory):
         if not name_files:
             return _NameHistory()
         name_file = cast("str", next(iter(name_files)))
-        with zfs.open(name_file, "r") as f:
-            lines = f.readlines()
-        # Normalize bytes to str for consistent processing regardless of file-like object behavior
-        lines = [line.decode("latin1") if isinstance(line, (bytes, bytearray)) else line for line in lines]
+        # DWD writes the file in latin-1 (`Hamburg-Fuhlsb\xfcttel`): open it as bytes, as the other readers
+        # do, since text mode would decode it as UTF-8 and raise on the first umlaut (GH-4021)
+        with zfs.open(name_file, "rb") as f:
+            lines = [line.decode("latin-1") for line in f.readlines()]
         # split by empty line into station name and operator name
         split_index = lines.index("\n")
         # determine which part is station name and which is operator name
