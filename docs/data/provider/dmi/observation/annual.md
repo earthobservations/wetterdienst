@@ -31,7 +31,7 @@
 | {term}`sunshine_duration` | bright_sunshine | Sunshine duration of the year, in hours: the sum of the underlying daily values. The source says that the algorithm that calculates it has changed since week 11 of 2026. | h |
 | {term}`cloud_cover_total_mean` | mean_cloud_cover | Mean cloud cover of the year, in percent: the average of the underlying daily values. | % |
 | {term}`radiation_global` | mean_radiation | Global radiation (305 to 2800 nm) of the year, as the energy summed over the year: the sum of the underlying daily values, which the source publishes in MJ/m² (returned as it is, in the default unit, or converted to the unit asked for). | MJ/m² |
-| {term}`pressure_vapor_mean` | mean_vapour_pressure | Mean vapour pressure of the year, in hPa: the average of the underlying daily values. | hPa |
+| {term}`pressure_vapor_mean` | mean_vapour_pressure | Mean vapour pressure of the year, in hPa: the average of the underlying daily values. For Greenland and the Faroe Islands DMI computes it from however many values exist, even one, and publishes the count as `noValuesInCalculation` (the library does not read it). | hPa |
 | {term}`snow_depth_max` | max_snow_depth | Greatest snow depth of the year, in cm: the highest of the underlying daily values of snow_depth, which are read by hand once a day, with the date and the place. A value of 999.0 (24043 and 31259, 2020) is no depth and is null. | cm |
 | {term}`count_days_ice` | no_ice_days | Number of ice days of the year: the days on which the highest temperature (max_temp_w_date) was below 0 °C. | - |
 | {term}`count_days_frost` | no_frost_days | Number of days with frost of the year: the days on which the lowest temperature (min_temp) was below 0 °C. | - |
