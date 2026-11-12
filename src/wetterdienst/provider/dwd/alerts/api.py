@@ -49,7 +49,7 @@ from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.json_util import dumps_json, json_indent
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
-from wetterdienst.util.response_warnings import warn_response
+from wetterdienst.util.response_warnings import RESPONSE_WARNING_RECORD, record_response_warning
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
@@ -62,6 +62,8 @@ log = logging.getLogger(__name__)
 #: the code of the warning that tells a request for a place that no warning of the snapshot is for it: an answer, not
 #: a failure, which a caller who reads `alerts: []` alone would take for the one or the other
 NO_ALERTS_FOR_PLACE = "no-alerts-for-place"
+#: what the log says of it, with nothing of the place asked for (the point is a location of the requester)
+_NO_ALERTS_FOR_PLACE_LOG = "no warning of the snapshot is for the requested place"
 
 # The most a snapshot may unpack to. The largest unpacks to 35 MB (the multilingual district file, on a quiet day);
 # 256 MiB is seven times that.
@@ -629,7 +631,10 @@ class DwdWeatherAlertRequest:
         ]
         if not kept:
             message = self._none_for_place(alerts)
-            warn_response(log, NO_ALERTS_FOR_PLACE, message, level=logging.INFO)
+            # the log line is a fixed text: the message holds the point, which is the requester's own and is no business
+            # of the server's log; the answer keeps it
+            log.info(_NO_ALERTS_FOR_PLACE_LOG, extra={RESPONSE_WARNING_RECORD: NO_ALERTS_FOR_PLACE})
+            record_response_warning(NO_ALERTS_FOR_PLACE, message)
         return kept
 
     @staticmethod

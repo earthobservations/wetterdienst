@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 import pytest
 from click.testing import CliRunner
@@ -234,6 +235,103 @@ def test_rest_the_date_of_the_data_is_that_of_the_whole_snapshot(client: TestCli
     assert data["metadata"]["data_updated_at"] == "2026-11-12T08:44:00.000000+00:00"
     csv = client.get("/api/alerts", params={**params, "format": "csv"})
     assert csv.headers["x-wetterdienst-data-updated-at"] == "2026-11-12T08:44:00.000000+00:00"
+
+
+def _wetterdienst_log(caplog: pytest.LogCaptureFixture) -> str:
+    """Everything the library's loggers wrote, formatted as a handler would write it, with the traceback."""
+    return "\n".join(
+        f"{record.name} {record.getMessage()} {record.exc_text or ''} {record.__dict__.get('response_warning', '')}"
+        for record in caplog.records
+        if record.name.startswith("wetterdienst")
+    )
+
+
+# what the point of a request is written as, however it is formatted: no log line of the library holds it
+_POINT_TEXTS = ["48.1351", "11.582", "48.14", "54.3233", "10.1228", "53.9", "latitude", "longitude"]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(MUNICH, id="point"),
+        pytest.param({**MUNICH, "name": "Munich"}, id="point-and-name"),
+        pytest.param({"latitude": 53.9, "longitude": 7.0}, id="point-at-sea"),
+        pytest.param(KIEL, id="point-with-a-warning"),
+    ],
+)
+def test_rest_the_point_of_a_request_is_in_no_log_line_and_in_the_answer(
+    client: TestClient, caplog: pytest.LogCaptureFixture, params: dict
+) -> None:
+    """The point is the requester's location: the answer may say it back, the server's log does not (CodeQL 47)."""
+    caplog.set_level(logging.DEBUG)
+    response = client.get("/api/alerts", params=params)
+    assert response.status_code == 200
+    logged = _wetterdienst_log(caplog)
+    assert logged
+    for text in _POINT_TEXTS:
+        assert text not in logged
+    if not response.json()["alerts"]:
+        # the answer has the full text, with the point, and the log a fixed one without it
+        assert str(params["latitude"]) in _message(response.json())
+        assert "no-alerts-for-place" in {getattr(r, "response_warning", None) for r in caplog.records}
+        assert "no warning of the snapshot is for the requested place" in logged
+
+
+def test_the_point_of_the_python_request_is_in_no_log_line(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The same for the library as a library: the request, its warning and the log it writes."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL)
+    caplog.set_level(logging.DEBUG)
+    begin_response()
+    DwdWeatherAlertRequest(latitude=48.1351, longitude=11.582, name="Munich").query()
+    for text in ("48.1351", "11.582"):
+        assert text not in _wetterdienst_log(caplog)
+        assert text in recorded_warnings()[0]["message"]
+
+
+def test_cli_the_point_of_a_request_is_in_no_log_line(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The command line prints the answer, with the response warning, to its requester and logs nothing of the point."""
+    serve_snapshot(monkeypatch, CAP_COMMUNITY_KIEL)
+    caplog.set_level(logging.DEBUG)
+    result = CliRunner().invoke(cli, ["alerts", "--latitude=48.1351", "--longitude=11.582"])
+    assert result.exit_code == 0, result.output
+    assert "48.1351" in result.output  # the answer's warning, which is the requester's own
+    logged = _wetterdienst_log(caplog)
+    for text in ("48.1351", "11.582"):
+        assert text not in logged
+
+
+def test_a_message_recorded_for_the_answer_is_not_logged() -> None:
+    """`record_response_warning` writes no line: the recorded text reaches no logger."""
+    from wetterdienst.util.response_warnings import (  # noqa: PLC0415
+        begin_response,
+        record_response_warning,
+        recorded_warnings,
+    )
+
+    class Handler(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__(logging.DEBUG)
+            self.records: list[logging.LogRecord] = []
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.records.append(record)
+
+    handler = Handler()
+    logging.getLogger().addHandler(handler)
+    try:
+        begin_response()
+        record_response_warning("some-code", "the point 1.5, 2.5")
+    finally:
+        logging.getLogger().removeHandler(handler)
+    assert handler.records == []
+    assert recorded_warnings() == [{"code": "some-code", "message": "the point 1.5, 2.5"}]
 
 
 def _message(response_json: dict) -> str:

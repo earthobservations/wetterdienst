@@ -104,8 +104,8 @@ def check_point(latitude: float | None, longitude: float | None) -> None:
     if latitude is None or longitude is None:
         return
     if not (math.isfinite(latitude) and -90 <= latitude <= 90):
-        msg = f"latitude {latitude!r} is not between -90 and 90"
+        msg = "latitude is not between -90 and 90"
         raise RequestError(msg)
     if not (math.isfinite(longitude) and -180 <= longitude <= 180):
-        msg = f"longitude {longitude!r} is not between -180 and 180"
+        msg = "longitude is not between -180 and 180"
         raise RequestError(msg)

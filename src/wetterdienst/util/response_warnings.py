@@ -329,6 +329,23 @@ def warn_response(
     A warning recorded twice, as an estimate asks the same stations for each parameter, is told once.
     """
     log.log(level, message, extra={RESPONSE_WARNING_RECORD: code})
+    record_response_warning(code, message, parameter=parameter, stations=stations)
+
+
+def record_response_warning(
+    code: str,
+    message: str,
+    *,
+    parameter: str | None = None,
+    stations: Sequence[str] | None = None,
+) -> None:
+    """Record the warning `code` for the answer of the request being served, and write nothing to a log.
+
+    `warn_response` is this and the log line. A message that holds what the requester asked for and is no business of
+    the server's log (the point of a request for the warnings of a place, GH-4019) is recorded with this, the log line
+    being the caller's own, a fixed text: the answer, which is the requester's own, keeps the full `message`, and no
+    path leads from `message` to a logger.
+    """
     named = _NAMED.get()
     # not the warning of this very code, which is raised after a walk, and must not silence another one
     if named is not None and parameter is not None and code != PARAMETER_WITHOUT_ROWS:
