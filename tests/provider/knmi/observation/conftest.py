@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,22 @@ from wetterdienst.provider.knmi.observation import download, edr
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_settings(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests, a key of KNMI among them, out of the settings.
+
+    The tests that need no key or a key of their own say so; a remote test reads the key where it is configured.
+    """
+    if request.node.get_closest_marker("remote"):
+        return
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    # the settings read `.env` from the working directory
+    monkeypatch.chdir(tmp_path)
 
 
 @pytest.fixture
