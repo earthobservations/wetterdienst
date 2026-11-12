@@ -97,6 +97,9 @@ SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum a
 #: a tool answer the server itself cut to its size budget names it in a warning of its `metadata`: `{"code":
 #: "answer-truncated", "message": "The answer was cut to stay within 40,000 characters: 49 of 57 rows ..."}`
 TRUNCATED_RE = re.compile(r'"code"\s*:\s*"answer-truncated"|The answer was cut to stay within [\d,]+ characters')
+#: the note of a cut answer: a JSON string that starts with this sentence (in a warning with rows, or at the head of the
+#: first resolution's `description` of a `coverage` answer), up to the closing quote
+TRUNCATED_NOTE_RE = re.compile(r'The answer was cut to stay within [\d,]+ characters(?:[^"\\]|\\.)*')
 #: Claude Code 2.1.311 answers a large result of a tool with this notice and a preview of its first 2 KB, and no count
 #: of characters: `<persisted-output>\nOutput too large (57.2KB). Full output saved to: ...\n\nPreview (first 2KB):`
 SPILL_PERSISTED_RE = re.compile(r"^\s*<persisted-output>\s*Output too large \(([\d.,]+)\s*([KMG]?B)\)")
@@ -432,6 +435,7 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                     if call is not None:
                         text = _flatten(block.get("content"))
                         call["answered"] = True
+                        call["answered_at"] = record.get("timestamp")
                         call["result_chars"] = len(text)
                         call["result_head"] = text[:1500]
                         call["ok"] = not block.get("is_error", False)
@@ -446,6 +450,8 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
                             call["spill_unrecognised"] = True
                         if TRUNCATED_RE.search(text):
                             call["truncated"] = True
+                            note = TRUNCATED_NOTE_RE.search(text)
+                            call["truncated_note"] = note.group(0).replace('\\"', '"')[:700] if note else None
                         meta = result_metadata(text)
                         call["data_updated_at"] = meta.get("data_updated_at")
                         call["retrieved_at"] = meta.get("retrieved_at")
@@ -481,6 +487,12 @@ def parse_transcript(path: Path, server: str) -> dict[str, Any]:  # noqa: C901
             # a call the run ended on (a budget stop, a timeout): it is a step, no read, and meets no checkpoint
             call["ok"] = False
             call["unanswered"] = True
+    for position, call in enumerate(calls):
+        if call.get("truncated"):
+            after = calls[position + 1] if position + 1 < len(calls) else None
+            call["after_cut"] = (
+                {"n": after["n"], "tool": after["tool"], "arguments": after["arguments"]} if after else None
+            )
     invalid = invalid_reason(servers, listed, server)
     sizes = [call["result_chars"] for call in calls]
     return {
@@ -2755,6 +2767,17 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
             f"{', cut by the server' if c.get('truncated') else ''}, {c['result_chars']} characters"
             f"{', retrieved_at ' + str(c['retrieved_at']) if c.get('retrieved_at') else ''}"
         )
+        if c.get("truncated"):
+            lines.append(f"    cut note: {c.get('truncated_note') or '(the note was not found in the answer)'}")
+            after = c.get("after_cut")
+            lines.append(
+                "    after the cut: "
+                + (
+                    f"call {after['n']}: {after['tool']} {json.dumps(after['arguments'], ensure_ascii=False)[:300]}"
+                    if after
+                    else "no further call (the model answered with what it had)"
+                )
+            )
         if heads > 0 and c.get("result_head"):
             lines.append(f"    result: {c['result_head'][:heads]!r}")
     if analysis["mechanical_facts"]:
@@ -2767,7 +2790,9 @@ def _trial_summary(analysis: dict[str, Any], heads: int = 0) -> str:
 def digest_run(analysis_path: Path, heads: int = 0) -> str:
     """Condense the analysis of a run (`<case>-<tier>-<repeat>.analysis.json`) into what the judge reads."""
     found = json.loads(analysis_path.read_text(encoding="utf-8"))
-    return f"{found['case']} [{found['tier']}] repeat {found['repeat']}: {_trial_summary(found, heads)}"
+    return (
+        f"{found['case']} [{found.get('tier', '?')}] repeat {found.get('repeat', '?')}: {_trial_summary(found, heads)}"
+    )
 
 
 FACT_VERDICT = re.compile(r"^(?:ok|fail: ?\S.*|drift: ?\S.*)$", re.DOTALL)
@@ -3015,8 +3040,8 @@ def span_of_values(
         "timing_note": None
         if called_at
         else (
-            "the timing of the figures is not checked: the analysis has no `retrieved_at` of a `values` call (an "
-            "answer without a metadata block has none): pass --called-at <ISO time of the subject's call>"
+            "the timing of the figures is not checked: the analysis has no `retrieved_at` nor a transcript timestamp "
+            "of a `values` call: pass --called-at <ISO time of the subject's call>"
         ),
         "parameters_used": kept,
         "parameters_left_out": [n for n in names if n not in kept],
@@ -3041,14 +3066,19 @@ def _rows_of(payload: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     return [row for row in payload if isinstance(row, dict)]
 
 
-def _subject_call_time(analysis: dict[str, Any]) -> dt.datetime | None:
-    """Give when the subject's last `values` call was answered (`retrieved_at` of its result), or None."""
-    stamps = [
-        _timestamp(c.get("retrieved_at", ""))
-        for c in analysis.get("calls", [])
-        if c.get("tool") == "values" and c.get("retrieved_at")
-    ]
-    return max((s for s in stamps if s is not None), default=None)
+def _subject_call_time(analysis: dict[str, Any]) -> tuple[dt.datetime | None, str | None]:
+    """Give when the subject's last `values` call was answered and where that comes from, or `(None, None)`.
+
+    The `retrieved_at` of the result says it; an answer without a metadata block (CSV, a compact answer) has none, and
+    the time the transcript stamped on the result of that call (`answered_at`) stands in for it, a moment later.
+    """
+    values = [c for c in analysis.get("calls", []) if c.get("tool") == "values"]
+    for key, source in (("retrieved_at", "retrieved_at of the result"), ("answered_at", "timestamp of the transcript")):
+        stamps = [_timestamp(c.get(key) or "") for c in values if c.get(key)]
+        found = max((x for x in stamps if x is not None), default=None)
+        if found is not None:
+            return found, source
+    return None, None
 
 
 def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
@@ -3068,7 +3098,7 @@ def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
     if args.now and now is None:
         msg = f"--now is no ISO 8601 time: {args.now!r}"
         raise ValueError(msg)
-    called_at = _timestamp(args.called_at) if args.called_at else _subject_call_time(analysis)
+    called_at, source = (_timestamp(args.called_at), "--called-at") if args.called_at else _subject_call_time(analysis)
     if args.called_at and called_at is None:
         msg = f"--called-at is no ISO 8601 time: {args.called_at!r}"
         raise ValueError(msg)
@@ -3082,7 +3112,7 @@ def span_for_run(args: argparse.Namespace) -> dict[str, Any]:
         called_at=called_at,
         parameters=[x.strip() for x in args.parameters.split(",") if x.strip()] if args.parameters else None,
     )
-    return {"case": case["id"], "fact": fact["id"], **found}
+    return {"case": case["id"], "fact": fact["id"], "called_at_from": source, **found}
 
 
 def unit_for_run(args: argparse.Namespace) -> dict[str, Any]:

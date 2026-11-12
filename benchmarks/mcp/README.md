@@ -8,7 +8,10 @@ requests to the live providers.
 
 This file is the runbook. A fresh Claude Code session that is told only *"follow `benchmarks/mcp/README.md` for the smoke
 run"* or *"... for the baseline"* has everything it needs here: do **Parts 1 to 6** in order, and **Part 7** whenever
-something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
+something is unclear or breaks. Told *"run a comparison of branch X against baseline file Y"*, do the same with **Part 8**. **Current reference** (the file Y of
+Part 8 unless you are given another): the strategy-3 comparison run of #4028, a secret gist,
+<https://gist.github.com/gutzbenj/cc65036fe00cdf51dec83c987d42db64>, made with the server at label `eca7ed7f4`, which becomes `main`
+when #4028 lands. **Update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
 writes nothing into the repository. **Until pull request #3544 is merged the benchmark exists only on its branch
 `feat/mcp-benchmark-skill`, not on `main`**: a checkout of `main` does not have this file; Part 2.1 says how to get it.
 
@@ -264,7 +267,9 @@ python3 -I "$REPO/benchmarks/mcp/scripts/bench.py" batch --results "$BENCH/mcpbe
 
 A batch of nine runs takes 5 to 8 minutes (at most `timeout` per run, three waves of three), so it **can run in the
 foreground** within the Bash tool's 10-minute limit (`timeout: 600000`); the background (`run_in_background`) is for a larger
-`--limit`. If you start it in the shell's background (`... &`), wait for it by its PID, never with `pgrep -f "bench.py batch"`
+`--limit`. **The Bash tool moves a command to the background after about 180 s** and says so, so a `large` batch of about three
+minutes or more may leave the foreground: then wait for the completion notice of that task, or start the batch yourself with `&`
+and wait on its PID as below. If you start it in the shell's background (`... &`), wait for it by its PID, never with `pgrep -f "bench.py batch"`
 (which matches the `pgrep` itself and never ends):
 
 ```bash
@@ -291,7 +296,8 @@ runs in; the three that run at once finish in any order, so each prints under it
 **Judge every run of a batch before you start the next `batch`, and never let the two overlap.** A run that was made and is
 not judged yet is still in `todo`, so the next `batch` would make it again and pay for it twice. `batch` therefore **refuses to
 start** (exit 2, with the names of the runs) while runs of its directory wait for the judge; judge them, or, to make them again
-on purpose, pass `--allow-unjudged`. **One run you skipped blocks the next batch, which is correct.** To find it, read the
+on purpose, pass `--allow-unjudged`. **One run you skipped blocks the next batch, which is correct, and a refused `batch` costs nothing: it prints only the refusal and
+makes no run.** To find it, read the
 message (it names the runs), or run `bench.py todo --results "$BENCH/mcpbench-results-smoke.json" --dir "$BENCH/runs-smoke"`, which lists
 the runs still to do and marks the ones that were made and wait for the judge with `unjudged`; judge them (Part 4), or put them
 aside (`--allow-unjudged` makes them again and pays again).
@@ -431,6 +437,7 @@ names. These failures are known; the first column is what you see, the second wh
 | a run `timed out` (exit 124, recorded as `failed`, `failure: timeout`) | a result of the model, not an error: it counts against the pass rate and is not repeated. The first repeat of a case reads a cold cache and may be slow; many timeouts in a row point to a slow provider or a loaded machine: say so in the next comment |
 | `end: error_max_budget_usd` in an analysis | the tested model reached 0.50 USD: a failed headline (`is_answer` no); say so in the report |
 | `spilled` calls (a result larger than Claude Code allows is saved to a file the tested model cannot open), or `spill_unrecognised` | a real finding about a tool's answer size, not a fault of the benchmark: report it as it is. `spill_unrecognised` (a short result that mentions a saved file in other words than the two notices of "The tested model") means the notice changed again: say so; do not fix `bench.py` |
+| a call whose arguments are `__unparsedToolInput` (the `large` model writes `parameters: hourly/large` **unquoted**) | a **model quirk** that costs steps: the call fails, the model repeats it, sometimes several times (9 runs of the first baseline, 11 of a branch run). It is no fault of the server or of the run; do not fix `bench.py`, and say in the comment how many runs it touched. It can push a run over `max_steps` |
 | `truncated_calls` above 0 (the digest says `cut by the server`; `report` lists the runs) | the **server** cut a tool answer to its size budget (a warning `answer-truncated` in the answer's `metadata`: the model got part of the rows and a note to ask again). It is no fault of the run and it is not counted: say in the comment which runs, and in the digest note whether the model's answer mentions the cut or asks again (the cut may make it miss a part of the window). Only a change that sets such a budget produces it |
 | `invalid_reason: the server 'wetterdienst' was 'failed'` / `offered no tool` / `the transcript has no init record` | the tested `claude` did not start or did not connect: check `claude --version`, the server, the transcript's last lines; a few in a row: stop and ask |
 | `judge` or `add-run` exits 2 | read the message: it names what the file refuses (the label, version, model, prompt or date of the run differ from the file's; a missing field; a valid run that would be replaced). Fix the cause; **never** `--replace-valid` to get past it without a reason |
@@ -551,12 +558,18 @@ wait for it; nothing is edited before):
 - **`observation-paris-last-week`: drop the forbidden rule `wide-long-window`.** The maintainer decided on 2026-11-12 to drop it with
   the next case changes: a change that keeps a wide answer small makes it obsolete. Until then it is judged as written.
 
+- **Add a case that calls `stripes_stations`.** No case does today. Decided on 2026-11-12, to be added at the next re-baseline,
+  not before.
+- **Add a case in which `interpolate` or `summarize` grows large**, for example a year of daily values, so that a strategy that
+  budgets those answers is measured. Decided on 2026-11-12, to be added at the next re-baseline, not before.
+
 Not decided (a candidate, no change before the maintainer decides): **`observation-vienna-yesterday`**, whose `find-station`
 checkpoint accepts only `stations` calls (see "Known false failures").
 
 ## Known false failures of the reference baseline
 
-The reference baseline (the clean run of 2026-11-12, `main` at `d18a37368`, cases file hash `6b5b33ac5cef`) holds one failure
+The first reference baseline (the clean run of 2026-11-12, `main` at `d18a37368`, cases file hash `6b5b33ac5cef`; later references
+are runs of the same cases and carry the same failure) holds one failure
 that is the case's and not the model's, and it stays in the numbers because the cases and the prompt are frozen with it:
 
 - **`observation-vienna-yesterday`**: the first checkpoint `find-station` accepts only `stations` calls (by name or by point).
@@ -690,8 +703,11 @@ read from the stations the subject itself got listed, not from a call of yours).
      (`periods=future` does for a forecast), or a figure has no row to match. A call with several parameters is fine: `span` keeps
      the air temperatures (`temperature_air*`) for the span, **leaves the others out** (a wind speed cannot widen it; see
      `parameters_left_out`; `--parameters a,b` picks the series by hand), and says for each figure in `matched_parameters` which
-     series it equals. When the analysis has no `retrieved_at` of a `values` call (an answer without a metadata block), there is no
-     `timing`, and `timing_note` says so: pass `--called-at <ISO time of the subject's call>`. What a figure without a stated hour
+     series it equals. The call time is the `retrieved_at` of the subject's last `values` result; **an answer without a metadata block (CSV, a compact
+     answer) has none, and `span` then takes the time the transcript stamped on the result of that call** (`answered_at`, a moment
+     later; `called_at_from` in the output says which it used). Only when neither is there is there no `timing`, and `timing_note`
+     says so: pass `--called-at <ISO time>`, the timestamp of that tool call in the transcript (`<stem>.jsonl`, the `timestamp` of the
+     `user` record that holds the result). What a figure without a stated hour
      belongs to stays yours.
      Forecasts change between runs, which the margin absorbs: judge soon after the run, the same day.
    - `ground_truth_text`: the answer carries what `pick` says, in its own words; `answer_matches_any_of`, if there,
@@ -812,6 +828,11 @@ The unit must be stated: by a `TABLE-UNIT` line (or the header) for the chosen c
 for the value is also enough when the answer has no table. When no RESULT line and no table gives the value, the failure says why
 each table decided nothing: no row of the day, `n` columns that may be the value (named), no column is the value, or the table
 holds the value but states no unit.
+
+**A known limitation of the unit check.** It judges the unit the answer **states**, not how the model learned it: a model can pass a
+`units-*` case by stating a unit it assumed (degrees Celsius for a temperature, `mm` for a rainfall) without a `glossary`, `coverage`
+or `with_metadata` call, and the `gets-the-unit` checkpoint, which is not the first, does not stop the pass. Note it when you judge,
+and do not fail such a run for it: the case change, if any, waits for a re-baseline.
 
 **The unit slot** forgives slips: a trailing point, a remark in brackets (`°C (as returned)`, `mm (millimetres)`,
 `degrees Celsius (°C)`), `℃`, `ºC`, `m s⁻¹`, `%RH`, bold, bullets, numbered markers, quotes, fences, any case.

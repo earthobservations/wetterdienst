@@ -5396,7 +5396,7 @@ def test_without_a_call_time_the_span_says_why_no_timing_is_given() -> None:
     )
 
     assert "timing" not in found["figures"][0]
-    assert "no `retrieved_at` of a `values` call" in found["timing_note"]
+    assert "no `retrieved_at` nor a transcript timestamp of a `values` call" in found["timing_note"]
     assert "--called-at" in found["timing_note"]
     assert found["figures"][0]["matched_parameters"] == ["temperature_air_max_2m_last_12h"]
 
@@ -5471,3 +5471,125 @@ def test_a_tool_answer_the_server_cut_is_counted_apart_and_shown_in_the_digest_a
     results["runs"][0]["truncated_calls"] = 0
     assert "had their answer cut" not in bench.report(results)
     assert bench.LOGIC_VERSION == 17
+
+
+# ------------------------------------------------ the note of a cut answer and the next call, the transcript's time
+
+
+COVERAGE_CUT = (
+    '{"hourly":{"description":"The answer was cut to stay within 40,000 characters: the `description` of each '
+    "parameter "
+    "is left out (null); 1 of 2 datasets is returned, whole. The 1 left out is: daily/data. Ask for one dataset with "
+    '`datasets=<name>` and `resolutions=<resolution>`.","datasets":{"data":{"description":"Historical hourly"}}}}'
+)
+
+
+def _stamped(record: dict[str, Any], stamp: str) -> dict[str, Any]:
+    """Give a transcript record the `timestamp` Claude Code writes on it."""
+    return {**record, "timestamp": stamp}
+
+
+def test_the_note_of_a_cut_answer_and_the_next_call_are_kept_for_the_judge(tmp_path: Path) -> None:
+    """A coverage cut has its note at the head of a description, a values cut in a warning: both are read out."""
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("coverage", "a", provider="noaa", network="ghcn"),
+            _stamped(_result("a", COVERAGE_CUT), "2026-11-12T16:46:52.384Z"),
+            _use("coverage", "b", provider="noaa", network="ghcn", datasets="data", resolutions="hourly"),
+            _result("b", CUT),
+            _use("stations", "c"),
+            _result("c", '{"result": {}}'),
+            _use("values", "d"),
+            _result("d", CUT),
+        ),
+        PREFIX,
+    )
+
+    first, second, plain, last = run["calls"]
+    assert first["truncated_note"].startswith("The answer was cut to stay within 40,000 characters: the `description`")
+    assert first["truncated_note"].endswith("`datasets=<name>` and `resolutions=<resolution>`.")
+    assert first["after_cut"] == {
+        "n": 2,
+        "tool": "coverage",
+        "arguments": {"provider": "noaa", "network": "ghcn", "datasets": "data", "resolutions": "hourly"},
+    }
+    assert second["truncated_note"].startswith("The answer was cut to stay within 40,000 characters: 49 of 57 rows")
+    assert second["after_cut"]["tool"] == "stations"
+    assert "after_cut" not in plain
+    assert last["after_cut"] is None
+    assert first["answered_at"] == "2026-11-12T16:46:52.384Z"
+    assert run["truncated_calls"] == 3
+
+
+def test_the_digest_shows_the_cut_note_and_what_the_model_did_next(tmp_path: Path) -> None:
+    """The judge reads the note, the next call, or that the model answered with what it had: no transcript needed."""
+    run = bench.parse_transcript(
+        _stream(
+            tmp_path,
+            _use("coverage", "a", provider="noaa"),
+            _result("a", COVERAGE_CUT),
+            _use("coverage", "b", provider="noaa", datasets="data"),
+            _result("b", CUT),
+        ),
+        PREFIX,
+    )
+    analysis = {
+        **run,
+        "case": GLOSSARY,
+        "tier": "small",
+        "repeat": 1,
+        "max_steps": 4,
+        "mechanical_pass": True,
+        "checkpoints": {"k": 1, "n": 1},
+        "violations": [],
+        "format_violation": None,
+        "mechanical_facts": {},
+        "answer": "x",
+    }
+    path = tmp_path / "c.analysis.json"
+    path.write_text(json.dumps(analysis), encoding="utf-8")
+
+    text = bench.digest_run(path)
+
+    assert "cut note: The answer was cut to stay within 40,000 characters: the `description`" in text
+    assert 'after the cut: call 2: coverage {"provider": "noaa", "datasets": "data"}' in text
+    assert "after the cut: no further call (the model answered with what it had)" in text
+    assert text.count("cut by the server") == 2
+
+
+def test_span_falls_back_on_the_transcript_time_of_the_call_when_the_answer_has_no_retrieved_at(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A CSV answer has no metadata block: the time the transcript stamped on the `values` result is the call time."""
+    values = tmp_path / "v.json"
+    values.write_text(
+        json.dumps(_rows(("2026-11-12T11:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), "utf-8"
+    )
+    base = ["span", "--values", str(values), "--now", "2026-11-12T11:40:00+00:00"]
+
+    def run(calls: list[dict[str, Any]], *extra: str) -> dict[str, Any]:
+        path = tmp_path / "a.analysis.json"
+        path.write_text(
+            json.dumps({"case": "forecast-nairobi", "answer": "RESULT: 23.4 °C | the 11:00 hour", "calls": calls}),
+            encoding="utf-8",
+        )
+        assert bench.main([*base, "--analysis", str(path), *extra]) == 0
+        return json.loads(capsys.readouterr().out)
+
+    csv_only = run([{"tool": "values", "answered_at": "2026-11-12T11:30:00.123Z"}])
+    both = run([{"tool": "values", "answered_at": "2026-11-12T10:00:00Z", "retrieved_at": "2026-11-12T11:30:00+00:00"}])
+    neither = run([{"tool": "values"}])
+    override = run(
+        [{"tool": "values", "answered_at": "2026-11-12T11:30:00Z"}], "--called-at", "2026-11-12T10:00:00+00:00"
+    )
+
+    assert (csv_only["called_at_from"], csv_only["figures"][0]["timing"]) == (
+        "timestamp of the transcript",
+        "past_only",
+    )
+    assert csv_only["called_at"].startswith("2026-11-12T11:30:00.123")
+    assert both["called_at_from"] == "retrieved_at of the result"
+    assert (neither["called_at_from"], neither["called_at"], "timing" in neither["figures"][0]) == (None, None, False)
+    assert "no `retrieved_at` nor a transcript timestamp" in neither["timing_note"]
+    assert (override["called_at_from"], override["figures"][0]["timing"]) == ("--called-at", "after")
