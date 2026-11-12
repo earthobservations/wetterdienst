@@ -7,4 +7,5 @@ development.md
 architecture.md
 services.md
 documentation.md
+mcp-benchmark.md
 ```
