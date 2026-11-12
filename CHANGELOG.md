@@ -49,6 +49,8 @@ Types of changes:
 
 ### Fixed
 
+- The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
+  `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
 - The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
   each on the polygon it lies in; they were dropped. The district warnings for Kreis Rastatt
   (the Baden-Baden enclave) and the sea east of Rügen (islands) now have them in the GeoJSON, JSON

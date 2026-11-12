@@ -2289,13 +2289,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "mean_vapour_pressure"): (
             "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "
             "from the hourly mean temperature and mean relative humidity. The source marks some values 0.0 "
-            "with validity false."
+            "with validity false. Not checked itself; for Greenland and the Faroe Islands it is computed from "
+            "however many hourly values exist, even one, and the record's `noValuesInCalculation` says how many "
+            "(the library does not read it)."
         ),
         ("monthly", "data", "mean_vapour_pressure"): (
-            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values."
+            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values. For Greenland and "
+            "the Faroe Islands DMI computes it from however many values exist, even one, and publishes the count as "
+            "`noValuesInCalculation` (the library does not read it)."
         ),
         ("annual", "data", "mean_vapour_pressure"): (
-            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values."
+            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values. For Greenland and "
+            "the Faroe Islands DMI computes it from however many values exist, even one, and publishes the count as "
+            "`noValuesInCalculation` (the library does not read it)."
         ),
         ("monthly", "data", "max_snow_depth"): (
             "Greatest snow depth of the month, in cm: the highest of the underlying daily values of "
@@ -2357,9 +2363,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "leaf_moisture"): (
             "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the day, 0 to 1440, during which the "
             "leaf was wet. The source says the day is the average of the hourly values, but the values are their "
-            "sum (1332.0 at 06135 on 2025-06-10, which no mean of minutes could be). Not quality controlled by "
-            "DMI's climatologists, so data can be erroneous. Some days are outside the day (for example 1442.0 at "
-            "06019 on 2022-05-24 and -799.0 at 06041 on 2023-03-05)."
+            "sum (1332.0 at 06135 on 2025-06-10, which no mean of minutes could be), and DMI customer service said "
+            "(2026-11-12) that the day is computed only when at least 22 hourly values exist. Not quality "
+            "controlled by DMI's climatologists, so data can be erroneous. Some days are outside the day (for example "
+            "1442.0 at 06019 on 2022-05-24 and -799.0 at 06041 on 2023-03-05)."
         ),
         ("hourly", "data", "vapour_pressure_deficit_mean"): (
             "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: the saturation vapour "
@@ -2378,7 +2385,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "snow_cover"): (
             "Snow cover, the share of the ground covered by snow, in percent: observed by hand once a day and "
             '"derived directly, but codes are changed to %" (a day of 06:00 to 06:00 UTC, labelled by the date '
-            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations."
+            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations. DMI still observes it from "
+            "1 October to 30 April, but publishes the observations only as the metObs parameter `snow_cover_man` "
+            "(codes 0 to 4), which this network does not read."
         ),
         ("monthly", "data", "no_cold_days"): (
             "Number of cold days of the month: the days on which the lowest temperature (min_temp) was less "

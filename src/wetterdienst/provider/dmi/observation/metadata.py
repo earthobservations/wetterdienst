@@ -184,7 +184,14 @@ _RADIATION_SUM = {
     "unit": "megajoule_per_square_meter",
 }
 # The mean vapour pressure, from the hourly values of the mean temperature and the mean relative humidity
-# (DMI: "calculation method of mean_vapour_pressure"), published from the day on.
+# (DMI: "calculation method of mean_vapour_pressure"), published from the day on. It is not checked itself, only the
+# two it is computed from are (its records still carry `qcStatus` `manual`, which here refers to those two). For
+# Greenland and the Faroe Islands DMI computes the daily, monthly and yearly value (and the hourly ones they are
+# computed from) from however many values exist, even one, and publishes how many in the field
+# `noValuesInCalculation` of every record (DMI customer service, 2026-11-12): at 04219 (Qeqertarsuaq Heliport) the
+# five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa, marked `validity:false`, from 1 or 2 values, and
+# that of 2026-04-20 from 7. The reader does not read the count (`_STATION_VALUE_SCHEMA` in `api.py`): serving it, or
+# flagging by it, is the maintainer's to decide (GH-3762).
 _VAPOUR_PRESSURE = {
     "name": "pressure_vapor_mean",
     "name_original": "mean_vapour_pressure",
@@ -265,9 +272,16 @@ _SOIL_TEMPERATURE = {
 # `snow_cover` is a daily value of 2011-01-01 to 2015-11-21 and nothing else (hour, month and year come back empty);
 # the other four are published by the hour and the day, with no month or year. The daily value is the average of the
 # hourly values, as DMI's calculation table says, except the minutes of leaf wetness, which the day adds up (see
-# `_LEAF_WETNESS`).
+# `_LEAF_WETNESS`). `snow_cover` is the daily value of the climate data and stops there on 2015-11-21 for every
+# station, in and out of season, although DMI says it is still observed (see `_SNOW_COVER`).
 #
-# The air temperature at grass height, "5-20 cm over terrain": the mean of the hour (`temp_grass_mean_past1h`).
+# DMI's climatologists do not check `temp_grass`, `leaf_moisture` and `vapour_pressure_deficit_mean` (DMI customer
+# service, 2026-11-12; their records carry `qcStatus` `none`), so their values can be wrong. The library marks no
+# value for that: `qcStatus` is no verdict (`docs/data/plausibility.md`, the check `source`), and the range check
+# of the table judges them like any other quantity (GH-3762).
+#
+# The air temperature at grass height, "5-20 cm over terrain": the mean of the hour (`temp_grass_mean_past1h`). Not
+# quality controlled by DMI (see above).
 _GRASS_TEMPERATURE = {
     "name": "temperature_air_mean_grass_height",
     "name_original": "temp_grass",
@@ -285,7 +299,8 @@ _SOIL_TEMPERATURE_30 = {
 # The minutes of the hour with a wet leaf (`leav_hum_dur_past1h` of metObs, 0 to 60). DMI's calculation table says the
 # day is "average of all hourly values within a day", but the values are the sum: a mean of minutes cannot pass 60,
 # and 06135 has 1332.0, 39.0 and 364.0 on 2025-06-10 to 12 (the fixture of the tests), 06068 1440.0 (24 times 60.0)
-# on 2025-06-11 (GH-3622).
+# on 2025-06-11 (GH-3622). DMI customer service confirms the sum, and that it is computed only when at least 22
+# hourly values exist (2026-11-12, GH-3762). Not quality controlled by DMI (see above).
 _LEAF_WETNESS = {
     "name": "leaf_wetness_duration",
     "name_original": "leaf_moisture",
@@ -294,14 +309,20 @@ _LEAF_WETNESS = {
 # The share of the ground covered by snow, in percent, observed by hand once a day like the snow depth
 # (`snow_cover_man` of metObs; DMI: "derived directly ..., but codes are changed to %"), a day of 06:00 to 06:00 UTC
 # labelled by the date it begins. All 62,399 values of 91 stations are whole percent from 0 to 100,
-# and none is a sentinel.
+# and none is a sentinel. The climate data holds no value after 2015-11-21 (read live and key-less on 2026-11-12: the
+# last day of 74 of the 91 stations is 2015-11-21, the others end earlier, and none has a record from 2015-11-22 to
+# the day of the read, the seasons 2024/25 and 2025/26 and October and November 2026 included; `snow_depth` of the
+# same collection goes on to 2026-11-11), although DMI says it is still observed, by about 91 snow observers from 1
+# October to 30 April. The observations are published on, as the metObs parameter `snow_cover_man` that the table of
+# DMI's calculation names as the source: codes 0 to 4 and not percent, at 80 to 86 stations (GH-3762). The library
+# reads the climate data only, so it has nothing after the stop to serve.
 _SNOW_COVER = {
     "name": "snow_cover",
     "name_original": "snow_cover",
     "unit": "percent",
 }
 # The vapour pressure deficit, from the hourly mean temperature and mean relative humidity ("Calculation method for
-# vapour_pressure_deficit_mean"), in kPa.
+# vapour_pressure_deficit_mean"), in kPa. Not quality controlled by DMI (see above).
 _VAPOUR_PRESSURE_DEFICIT = {
     "name": "vapor_pressure_deficit_mean",
     "name_original": "vapour_pressure_deficit_mean",
@@ -321,6 +342,11 @@ _WIND_DIRECTION_MINUTE_0 = {
     "name_original": "mean_wind_dir_min0",
     "unit": "degree",
 }
+
+# Not modelled, by decision of the maintainer (GH-3762, 2026-11-12): `no_days_snowfall`, `mean_absolute_humidity`,
+# `no_days_fog` and `no_days_thunder`. DMI customer service (2026-11-12): they are climate normals of 1961 to 1990 for
+# Greenland only, and `no_days_fog` is no longer calculated, as visibility is no longer quality checked. The library
+# has no 30-year-normal resolution, and a normal is no time series.
 
 _HOURLY_PARAMETERS = [
     *_BASE_PARAMETERS,
