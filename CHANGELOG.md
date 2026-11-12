@@ -26,6 +26,13 @@ Types of changes:
 
 ### Fixed
 
+- The MCP tools answer `format=csv` and `format=ndjson` with the body in the structured `result`
+  as well, after the sentence naming the licence. Claude Code hands the model the structured
+  content and not the content blocks, so it saw only "sent as text content of this result" and no
+  rows. The content block is unchanged, so the body is now twice in the result (about twice the
+  size on the wire), and a program that reads the structured `result` (FastMCP's `.data`, say) gets
+  the sentence plus the body. A chart (html, svg), an image or a pdf has the sentence alone
+  (GH-4017)
 - `knmi/observation` lists the stations of KNMI's own station catalogue (one small file, read with
   the same `WD_AUTH__KNMI` key and kept a week) and not those of the latest file of each resolution.
   Valkenburg `06210` and Soesterberg `06265`, whose values are in the files, are listed, and the

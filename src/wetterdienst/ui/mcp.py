@@ -434,6 +434,9 @@ _REPORTING_HEADERS = (
 )
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
+# The media types of data, whose body is repeated in the structured content (GH-4017). A chart (html, svg) is markup
+# of 100 KB and more that a model cannot read as data, so it is not.
+_REPEATED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 
 def _is_json(media_type: str) -> bool:
@@ -514,9 +517,18 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
     return report
 
 
-def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) -> str:
-    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result."""
-    sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], *, repeated: bool = False) -> str:
+    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result.
+
+    With `repeated` the body follows the sentence in the structured content, which the sentence says, so that a reader
+    of the structured content alone does not look for a content block it cannot see.
+    """
+    if repeated:
+        sentence = (
+            f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the {kind} of this result)."
+        )
+    else:
+        sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
     if "license" in report:
         url = f" ({report['license_url']})" if "license_url" in report else ""
         sentence += f" Licence: {report['license']}{url}."
@@ -548,8 +560,11 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
     the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
     processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
-    has one admits a string as its `result` (the `str` of the REST route's response model), and the body is not
-    repeated in it. The same, structured, is in the `_meta` of the result under `wetterdienst`.
+    has one admits a string as its `result` (the `str` of the REST route's response model). For data (csv, ndjson) the
+    sentence is followed by the body itself, since a client may hand the model the structured content alone (Claude
+    Code does, and the rows of a csv never reached it, GH-4017); a client that reads the content blocks has the same
+    text there, so the body is twice in the result. A chart (html, svg), an image or a pdf is not repeated, and its
+    sentence stands alone. The report, structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
@@ -582,7 +597,12 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
-                structured = {"result": _sentence_of(media_type, size, kind, report)}
+                # A client may hand the model the structured content and not the content blocks (Claude Code does:
+                # a result with both reaches the model as the structured content alone, so the rows of a csv were
+                # lost behind the sentence, GH-4017). The schema admits a string, so data is repeated in it.
+                repeated = envelope["encoding"] == "text" and media_type in _REPEATED_MEDIA_TYPES
+                sentence = _sentence_of(media_type, size, kind, report, repeated=repeated)
+                structured = {"result": f"{sentence}\n\n{body}" if repeated else sentence}
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
