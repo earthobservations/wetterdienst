@@ -112,9 +112,18 @@ is followed by its value takes the colon from `common.colon`, which French sets 
 space before it (`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out
 of its parts and an `Intl` call that names no language). Coordinates and elevations are the
 exception to the rule for numbers and keep a point in every language (`toFixed`): a position is
-copied into a map or a query, and the number input that takes one reads a point. Chrome has no
-data for Luxembourgish, so `withData` writes `lb` as German (`de-LU`) is written, which is the
-same.
+copied into a map or a query, and the number input that takes one reads a point.
+
+Every `Intl`, `toLocale*String` and luxon `setLocale` call is handed the language that
+`useFormatLanguage()` answers (named `formatLanguage`), never the app's code (`lb`, `de-hh`) or a
+tag read from `localeProperties`: it is the locale's tag (`en-GB`, `de-DE`) through `withData`.
+Chrome has no data for Luxembourgish and writes `lb` in the system's language (an English reader
+gets `en-US`: numbers "1,234.5", dates month first), so `withData` asks for German (`de-LU`) in
+its place, whose order and separators Luxembourgish shares. `de-hh` is written as `de-DE`. The
+helpers of `utils/format.ts` take a code or a tag and map it themselves. A time of day is written
+by `formatHour` (the Meteogram's axis: "04:00" in German, "04.00" in Danish), in the station's
+zone, never built from its parts (`HH:mm`); `tests/unit/i18n-source.test.ts` holds the source to
+both.
 
 ## Parameter glossaries
 

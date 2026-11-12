@@ -1,4 +1,5 @@
 import type { Station } from '#shared/types/api'
+import { withData } from './format'
 
 /**
  * The map tool (GH-3650): what the map shows, how far a place is from a station, and where each kind of station is
@@ -294,7 +295,7 @@ export function searchStations<S extends Station>(stations: S[], query: string, 
  */
 export function formatDistance(km: number, locale: string): string {
   const unit = (value: number, name: 'meter' | 'kilometer', digits: number) =>
-    new Intl.NumberFormat(locale, { style: 'unit', unit: name, unitDisplay: 'short', maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
+    new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { style: 'unit', unit: name, unitDisplay: 'short', maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
   if (km < 1)
     return unit(Math.round(km * 100) * 10, 'meter', 0)
   return unit(km, 'kilometer', km < 10 ? 1 : 0)
