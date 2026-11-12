@@ -153,10 +153,77 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
                 assert result.meta["wetterdienst"]["warnings"] == ["station-skipped"], fmt
 
 
-def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Text is the content of the result as the REST API sends it, and not repeated in the structured content.
+def _tools_that_offer(fmt: str) -> list[dict[str, Any]]:
+    """Give the input schemas of the tools of the real server that offer `fmt`."""
 
-    An image is image content of its media type, a pdf an embedded resource, and a json answer stays structured.
+    async def tools() -> list[Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return await client.list_tools()
+
+    return [
+        {"name": tool.name, "schema": tool.input_schema, "output": tool.output_schema}
+        for tool in asyncio.run(tools())
+        if fmt in tool.input_schema.get("properties", {}).get("format", {}).get("enum", ())
+    ]
+
+
+def _argument_for(schema: dict[str, Any]) -> Any:  # noqa: ANN401
+    """Give a value that a property of an input schema takes, for the arguments a tool requires."""
+    if "enum" in schema:
+        return schema["enum"][0]
+    kind = schema.get("type")
+    if kind is None:
+        kind = next(option["type"] for option in schema["anyOf"] if option.get("type") not in (None, "null"))
+    return {"string": "x", "integer": 1, "number": 1.0, "boolean": True, "array": ["x"], "object": {}}[kind]
+
+
+def test_the_rows_of_a_csv_reach_a_client_that_reads_the_structured_content_alone() -> None:
+    """Every tool that offers `csv` has its rows in the structured content, and in the content block (GH-4017).
+
+    Claude Code hands the model the structured content of a result that has some, and not the content blocks, so a
+    sentence about the csv there (and the csv in the block) left the model with a notice and no rows. The REST app is
+    stood in for by one that answers every route with the same csv, so what is held is the transport of each tool.
+    """
+    csv = "station_id,name\n01048,Dresden-Klotzsche\n02564,Kiel-Holtenau\n"
+    stand_in = FastAPI()
+    stand_in.openapi = restapi.app.openapi  # ty: ignore[invalid-assignment]
+
+    @stand_in.api_route("/{path:path}", methods=["GET"])
+    def answer(path: str) -> Response:  # noqa: ARG001
+        return Response(csv, media_type="text/csv", headers={"X-Wetterdienst-License": "CC-BY-4.0"})
+
+    offering = _tools_that_offer("csv")
+    assert {"values", "stations", "interpolate", "summarize", "alerts", "stripes_values"} <= {
+        t["name"] for t in offering
+    }
+    calls = [
+        (
+            tool["name"],
+            {
+                name: _argument_for(tool["schema"]["properties"][name])
+                for name in tool["schema"].get("required", ())
+                if name != "format"
+            }
+            | {"format": "csv"},
+        )
+        for tool in offering
+    ]
+
+    for (result, schema), (tool, _) in zip(_calls(stand_in, calls), calls, strict=True):
+        assert not result.is_error, (tool, result.content)
+        assert result.content[0].text == csv, tool
+        if schema is not None:
+            jsonschema.validate(result.structured_content, schema)
+            told = result.structured_content["result"]
+            assert told.endswith(f"\n\n{csv}"), tool
+            assert "Licence: CC-BY-4.0." in told, tool
+
+
+def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Text is the content of the result as the REST API sends it, and follows the sentence in the structured content.
+
+    An image is image content of its media type, a pdf an embedded resource, and a json answer stays structured. Only
+    a text body can be repeated in the structured content: an image or a pdf has the sentence alone.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
 
@@ -168,6 +235,9 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     assert csv.content[0].text.splitlines()[1].startswith("01048,daily,")
     sent = f"The answer is text/csv ({len(csv.content[0].text.encode()):,} bytes), sent as text content of this result."
     assert csv.structured_content["result"].startswith(sent)
+    # the rows follow the sentence, for a client that hands the model the structured content alone (GH-4017)
+    assert csv.structured_content["result"].endswith(f"\n\n{csv.content[0].text}")
+    assert ndjson.structured_content["result"].endswith(f"\n\n{ndjson.content[0].text}")
     lines = ndjson.content[0].text.splitlines()
     assert '"metadata"' in lines[0]
     assert lines[-1].startswith('{"end"')
@@ -176,6 +246,7 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
     size = len(base64.b64decode(png.content[0].data))
     sent = f"The answer is image/png ({size:,} bytes), sent as image content of this result."
     assert png.structured_content["result"].startswith(sent)
+    assert png.content[0].data not in png.structured_content["result"]
     assert pdf.content[0].resource.mime_type == "application/pdf"
     assert base64.b64decode(pdf.content[0].resource.blob).startswith(b"%PDF")
     assert json_.structured_content["result"]["values"][0]["station_id"] == "01048"

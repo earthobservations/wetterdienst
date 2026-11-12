@@ -548,8 +548,11 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
     the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
     processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
-    has one admits a string as its `result` (the `str` of the REST route's response model), and the body is not
-    repeated in it. The same, structured, is in the `_meta` of the result under `wetterdienst`.
+    has one admits a string as its `result` (the `str` of the REST route's response model). For a text body the
+    sentence is followed by the body itself, since a client may hand the model the structured content alone (Claude
+    Code does, and the rows of a csv never reached it, GH-4017); a client that reads the content blocks has the same
+    text there. An image or a pdf cannot be put in a string, so its sentence stands alone. The report, structured, is
+    in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
@@ -582,7 +585,11 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
-                structured = {"result": _sentence_of(media_type, size, kind, report)}
+                sentence = _sentence_of(media_type, size, kind, report)
+                # A client may hand the model the structured content and not the content blocks (Claude Code does:
+                # a result with both reaches the model as the structured content alone, so the rows of a csv were
+                # lost behind the sentence, GH-4017). The schema admits a string, so a text body is repeated in it.
+                structured = {"result": f"{sentence}\n\n{body}" if envelope["encoding"] == "text" else sentence}
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None
