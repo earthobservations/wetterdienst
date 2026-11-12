@@ -190,7 +190,7 @@ the image"), so its release after this one is the next 0.x app version (after 0.
   `continue-on-error`, so a red job does not block anything and the run reports success: what must be green is the
   `Offline selection` jobs, `Lint`, `Typecheck`, `Docs`, `Unused` and `Vulnerable`. A red matrix job is
   acceptable only when it is an upstream outage or a missing credential (`WD_AUTH__METNO_FROST`, `WD_AUTH__AEMET`,
-  `WD_AUTH__KNMI`, `WD_AUTH__CEDA` are secrets of this repository, not of a fork) and a rerun the same day does not
+  `WD_AUTH__KNMI_EDR`, `WD_AUTH__CEDA` are secrets of this repository, not of a fork) and a rerun the same day does not
   clear it; anything else is read as a regression.
 - [ ] `App E2E` and `App Tests` are green on `main`.
 - [ ] `uv run poe docs` passes (warnings are errors), and the scheduled `Check the external links` job of the

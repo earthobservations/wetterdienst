@@ -1431,7 +1431,7 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
 @pytest.mark.parametrize(
     ("provider", "network", "parameters", "setting"),
     [
-        ("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI"),
+        ("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI_EDR"),
         ("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET"),
         ("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST"),
     ],

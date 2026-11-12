@@ -7,7 +7,6 @@ The wetterdienst Docker image comes with several extras installed so you can use
 - export
 - influxdb
 - interpolation
-- knmi
 - mcp
 - plotting
 - postgresql

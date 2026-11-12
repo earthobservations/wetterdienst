@@ -8,8 +8,8 @@ decimal separator, and the padding too where a comment does not say it was cut. 
 the provider's own reader (`_all()` and the frame handling of `all()`), so a reader that loses a sign or drops a column
 shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
 sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
-`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the CSV file of
-the catalogue of `knmi/observation`, which needs a key. A comment also says which fields a stub made up (the
+`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the list of
+the stations of `knmi/observation`, which needs a key. A comment also says which fields a stub made up (the
 observations a Hubeau station's resolution is measured from, the file names of `dwd/observation` but two) and which
 it left out. A network whose data files are listed serves the listing or feed beside the catalogue as well
 (`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo`, `chmi/observation`, `meteoswiss/observation`,
@@ -78,7 +78,6 @@ from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.knmi.observation import KnmiObservationRequest
-from wetterdienst.provider.knmi.observation import api as knmi_api
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation import api as lhmt_api
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest
@@ -1623,18 +1622,23 @@ KNMI_EXPECTED: dict[str, dict[str, Any]] = {
 
 
 def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the list is the catalogue of the stations of KNMI, one CSV file that the Open Data API serves with the key of the
-    # observations, so the file is served in place of the download. The rows are those of the real file (the dataset
-    # `waarneemstations_csv`, `csv_knmi_nl_20260615.csv`, read 2026-11-11): IJmond, Valkenburg (closed in 2016, whose
-    # data the files hold and that no latest file lists), De Bilt, Rotterdam Airport at a height of -5.14 m and Horst,
-    # a WSI of the issuer 528. The number 260 of the legacy export is the 06260 of the WSI
-    from tests.provider.knmi.observation.catalogue import catalogue_csv  # noqa: PLC0415
+    # the list is the one of KNMI's EDR API, `GET /collections/<collection>/locations`, which needs a key, so the
+    # list is served in place of the download. The rows are those of the real list (read 2026-11-11): IJmond,
+    # Valkenburg (closed in 2016, whose data the API holds and that no latest data lists), De Bilt, Rotterdam Airport
+    # at a height of -5.14 m and Horst, a WSI of the issuer 528. The number 260 of the legacy export is the 06260 of
+    # the WSI
+    from io import BytesIO  # noqa: PLC0415
 
-    payload = catalogue_csv("06209", "06210", "06260", "06344", "06392")
-    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "csv_knmi_nl_20260615.csv")
-    monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args: payload)
+    from tests.provider.knmi.observation.catalogue import locations_json  # noqa: PLC0415
+    from wetterdienst.provider.knmi.observation import stations as knmi_stations  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    body = locations_json(["06209", "06210", "06260", "06344", "06392"])
+    monkeypatch.setattr(
+        knmi_stations, "fetch", lambda url, _settings, _ttl: File(url=url, content=BytesIO(body), status=200)
+    )
     request = KnmiObservationRequest(
-        parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"knmi": "stub"})
+        parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"knmi_edr": "stub"})
     )
     return request.all().df
 

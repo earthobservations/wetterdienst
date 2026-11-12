@@ -250,7 +250,7 @@ def test_resolve_names_the_package_a_provider_is_missing(monkeypatch: pytest.Mon
     message = str(excinfo.value)
     assert "requires h5py" in message
     # and which extra brings it, read from the installed metadata rather than from a list in the code
-    assert "pip install wetterdienst[knmi]" in message
+    assert "pip install wetterdienst[radar]" in message
 
 
 def test_resolve_still_reports_a_module_that_is_really_absent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1301,7 +1301,7 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 @pytest.mark.skipif(
     not KnmiObservationRequest.is_configured(),
-    reason="KNMI credentials not set — provide WD_AUTH__KNMI=<api_key>",
+    reason="KNMI credentials not set — provide WD_AUTH__KNMI_EDR=<api_key>",
 )
 def test_api_knmi_observation(default_settings: Settings) -> None:
     """Test KNMI observation API."""
@@ -1764,7 +1764,7 @@ def _needing_a_credential() -> dict[tuple[str, str], type[TimeseriesRequest]]:
 # each field of `Settings.auth` as the environment takes it: a key, a `username:password`, a Frost client id and secret
 _CREDENTIALS = {
     "aemet": "DUMMY-KEY",
-    "knmi": "DUMMY-KEY",
+    "knmi_edr": "DUMMY-KEY",
     "metno_frost": '["DUMMY-ID", "DUMMY-SECRET"]',
     "ceda": "DUMMY-USER:DUMMY-SECRET",
 }

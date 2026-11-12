@@ -28,7 +28,6 @@ import bz2
 import datetime as dt
 import gzip
 import json
-import tempfile
 import zipfile
 from dataclasses import dataclass
 from io import BytesIO
@@ -72,7 +71,6 @@ from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.knmi.observation import KnmiObservationRequest
-from wetterdienst.provider.knmi.observation import api as knmi_api
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest
 from wetterdienst.provider.meteofrance.observation import api as observation_api
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
@@ -193,12 +191,14 @@ def stations_result(
     elevation: float | None = 100.0,
     country: str | None = None,
     position: tuple[float, float] = (50.0, 10.0),
+    wigos_id: str | None = None,
 ) -> StationsResult:
     """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving.
 
     The station lies at ``elevation`` m (none where the catalogue gives none), which the check of a station pressure
     reads (GH-3627). A ``country`` adds the column of that name, for a provider whose reader reads it (DMI, GH-3768).
-    The ``position`` is its latitude and longitude, which the day length of the check ``relations`` reads (GH-3681).
+    The ``position`` is its latitude and longitude, which the day length of the check ``relations`` reads (GH-3681). A
+    ``wigos_id`` adds the column of that name, which `knmi/observation` asks its API by (GH-3928).
     """
     df = pl.DataFrame(
         [
@@ -213,6 +213,7 @@ def stations_result(
                 "elevation": elevation,
                 "name": "Stub",
                 **({"country": country} if country else {}),
+                **({"wigos_id": wigos_id} if wigos_id else {}),
             }
         ],
         schema={
@@ -226,6 +227,7 @@ def stations_result(
             "elevation": pl.Float64,
             "name": pl.String,
             **({"country": pl.String} if country else {}),
+            **({"wigos_id": pl.String} if wigos_id else {}),
         },
     )
     return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
@@ -2144,46 +2146,60 @@ def _metno_frost_daily_precipitation_weekly_reader(
     )
 
 
-def _knmi_netcdf(values: dict[str, float]) -> bytes:
-    """Write the file KNMI serves for one timestamp: a variable per name, laid out as (station, time), one station."""
-    h5py = pytest.importorskip("h5py")
-    h5netcdf = pytest.importorskip("h5netcdf")
+def _knmi_coverage(stamps: dict[str, dict[str, float]]) -> bytes:
+    """Write the CoverageJSON the EDR API answers for one station (De Bilt): a range per name, null for a NaN.
 
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "knmi.nc"
-        with h5netcdf.File(path, "w") as file:
-            file.dimensions = {"station": 1, "time": 1}
-            station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
-            station[:] = ["0-20000-0-06260"]
-            for name, value in values.items():
-                variable = file.create_variable(name, ("station", "time"), dtype="f8")
-                variable[:] = [[value]]
-        return path.read_bytes()
+    The times are the stamps of the API, the end of each interval: a day is stamped with the next midnight.
+    """
+    names = list(next(iter(stamps.values())))
+    times = list(stamps)
+    ranges = {
+        name: {
+            "type": "NdArray",
+            "dataType": "float",
+            "axisNames": ["t", "y", "x"],
+            "shape": [len(times), 1, 1],
+            "values": [None if stamps[time][name] != stamps[time][name] else stamps[time][name] for time in times],
+        }
+        for name in names
+    }
+    coverage = {
+        "type": "Coverage",
+        "domain": {"type": "Domain", "domainType": "PointSeries", "axes": {"t": {"values": times}}},
+        "ranges": ranges,
+        "eumetnet:locationId": "0-20000-0-06260",
+    }
+    return json.dumps({"type": "CoverageCollection", "domainType": "PointSeries", "coverages": [coverage]}).encode()
 
 
-def _knmi_serve(monkeypatch: pytest.MonkeyPatch, payloads: dict[str, bytes]) -> None:
-    """Serve the file of each timestamp, by the part of its filename that names it."""
+def _knmi_serve(monkeypatch: pytest.MonkeyPatch, stamps: dict[str, dict[str, float]]) -> None:
+    """Answer every request of the EDR API with the coverage of the stamps, whatever the chunk."""
+    from wetterdienst.provider.knmi.observation import edr as knmi_edr  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    body = _knmi_coverage(stamps)
     monkeypatch.setattr(
-        knmi_api,
-        "_fetch_netcdf",
-        lambda _dataset, _version, filename, _settings: next(
-            payload for moment, payload in payloads.items() if moment in filename
-        ),
+        knmi_edr, "fetch", lambda url, _settings, _ttl: File(url=url, content=BytesIO(body), status=200)
     )
 
 
+def _knmi_values(request: KnmiObservationRequest, resolution: str) -> pl.DataFrame:
+    """Read the values of De Bilt, which the stub has, with the identifier the API is asked by."""
+    return stations_result(request, resolution, "data", "06260", wigos_id="0-20000-0-06260").values().all().df
+
+
 def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # a file per day for the whole network (here one station): a missing observation is the NaN _FillValue and a trace
-    # of precipitation a -1 in RH
+    # a value for each day of the whole network (here one station): a missing observation is the NaN, a null of the API,
+    # and a trace of precipitation a -1 in RH
     # The sunshine duration SQ has the trace code of RH, "(-1 for <0.05 hour)", which the daily export of the
     # stations 260, 240, 344, 235, 270 and 310 writes 246 times since 1960, and the mean cloud cover NG "9=sky
     # invisible" (GH-3123); both are the headers of https://www.daggegevens.knmi.nl/klimatologie/daggegevens, read
-    # 2026-10-18
+    # 2026-10-18. The API stamps a day with the end of it
     _knmi_serve(
         monkeypatch,
         {
-            "20240101": _knmi_netcdf({"TG": 3.2, "RH": 1.4, "SQ": 2.1, "NG": 7.0}),
-            "20240102": _knmi_netcdf({"TG": float("nan"), "RH": -1.0, "SQ": -1.0, "NG": 9.0}),
+            "2024-01-02T00:00:00Z": {"TG": 3.2, "RH": 1.4, "SQ": 2.1, "NG": 7.0},
+            "2024-01-03T00:00:00Z": {"TG": float("nan"), "RH": -1.0, "SQ": -1.0, "NG": 9.0},
         },
     )
     request = KnmiObservationRequest(
@@ -2195,25 +2211,25 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
-        settings=_settings(auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi_edr": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "06260").values().all().df
+    return _knmi_values(request, "daily")
 
 
 def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # DD is "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (GH-2850): a bearing at 00 UTC, the code for
-    # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
-    # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue. The cloud cover N is in octants and "9=sky
+    # DD is "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (GH-2850): a bearing at 01 UTC, the code for
+    # a variable wind at 02 UTC (hourly-observations-validated-20261012-08.nc had Horst at 990 with FF 1.0 m/s) and the
+    # one for a calm at 03 UTC; a missing temperature is the NaN. The cloud cover N is in octants and "9=sky
     # invisible" (GH-3123): 941 of the 87,696 hours of the stations 260, 240 and 344 from 2015 to 2024 in the hourly
     # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18. The same header gives the
     # precipitation RH "(-1 for <0.05 mm)" and the sunshine duration SQ "(-1 for <0.05 hour)", a trace in both
     _knmi_serve(
         monkeypatch,
         {
-            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0, "RH": 0.4, "SQ": 0.3}),
-            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0, "RH": -1.0, "SQ": -1.0}),
-            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0, "RH": 0.0, "SQ": 0.0}),
+            "2024-01-01T01:00:00Z": {"T": 3.2, "DD": 250.0, "N": 6.0, "RH": 0.4, "SQ": 0.3},
+            "2024-01-01T02:00:00Z": {"T": float("nan"), "DD": 990.0, "N": 9.0, "RH": -1.0, "SQ": -1.0},
+            "2024-01-01T03:00:00Z": {"T": 3.0, "DD": 0.0, "N": 8.0, "RH": 0.0, "SQ": 0.0},
         },
     )
     request = KnmiObservationRequest(
@@ -2224,26 +2240,26 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
             ("hourly", "data", "precipitation_amount"),
             ("hourly", "data", "sunshine_duration"),
         ],
-        # the files of the hours 00 to 03 are stamped with the end of their hour (GH-2824)
+        # the values are stamped with the end of their hour (GH-2824)
         start=_day(2024, 1, 1, 1),
         end=_day(2024, 1, 1, 3),
-        settings=_settings(auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi_edr": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "06260").values().all().df
+    return _knmi_values(request, "hourly")
 
 
 def _knmi_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the 10-minute total cloud cover `n` is in okta ("units": "okta") like the hourly N, and a 9 is in the files:
+    # the 10-minute total cloud cover `n` is in okta ("units": "okta") like the hourly N, and a 9 is in the data:
     # 128 of the 11,293 readings of the 336 files of 05:00 to 08:50 UTC from 2026-10-05 to 2026-10-18 (GH-3135), at a
     # mean horizontal visibility `vv` of 130 m (median) to 998 m, so the sky invisible of the hourly and daily
     # export; the wind direction `dd` of the same files holds no code (8 zeros in 23,388 readings, at 7 to 11 m/s)
     _knmi_serve(
         monkeypatch,
         {
-            "202401010010": _knmi_netcdf({"n": 6.0, "dd": 250.0}),
-            "202401010020": _knmi_netcdf({"n": 9.0, "dd": float("nan")}),
-            "202401010030": _knmi_netcdf({"n": 8.0, "dd": 0.0}),
+            "2024-01-01T00:10:00Z": {"n": 6.0, "dd": 250.0},
+            "2024-01-01T00:20:00Z": {"n": 9.0, "dd": float("nan")},
+            "2024-01-01T00:30:00Z": {"n": 8.0, "dd": 0.0},
         },
     )
     request = KnmiObservationRequest(
@@ -2251,25 +2267,25 @@ def _knmi_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
             ("10_minutes", "data", "cloud_cover_total"),
             ("10_minutes", "data", "wind_direction_mean"),
         ],
-        # the files are stamped with the end of their interval, which their name is
+        # the values are stamped with the end of their interval
         start=dt.datetime(2024, 1, 1, 0, 10, tzinfo=_UTC),
         end=dt.datetime(2024, 1, 1, 0, 30, tzinfo=_UTC),
-        settings=_settings(auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi_edr": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "10_minutes", "data", "06260").values().all().df
+    return _knmi_values(request, "10_minutes")
 
 
 def _knmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the monthly files (GH-4006), one per month for the whole network (here one station), named for their month. The
-    # description of the variables of monthly-observations-validated-202609.nc says "0=calm/variable" for the vector
-    # mean wind direction DDVEC and "9=sky invisible" for the mean cloud cover NG; a missing value is the NaN _FillValue
-    # (read 2026-11-11). A -1 is no trace here (the sums of the monthly file describe none), so it is not stubbed
+    # the monthly collection (GH-4006), a value for each month: the API stamps the end of a month. The description of
+    # the variables of the monthly files said "0=calm/variable" for the vector mean wind direction DDVEC and "9=sky
+    # invisible" for the mean cloud cover NG; a missing value is the NaN (read 2026-11-11). A -1 is no trace here (the
+    # sums of the monthly values describe none), so it is not stubbed
     _knmi_serve(
         monkeypatch,
         {
-            "202401": _knmi_netcdf({"TG": 3.2, "DDVEC": 231.0, "NG": 7.0}),
-            "202402": _knmi_netcdf({"TG": float("nan"), "DDVEC": 0.0, "NG": 9.0}),
+            "2024-02-01T00:00:00Z": {"TG": 3.2, "DDVEC": 231.0, "NG": 7.0},
+            "2024-03-01T00:00:00Z": {"TG": float("nan"), "DDVEC": 0.0, "NG": 9.0},
         },
     )
     request = KnmiObservationRequest(
@@ -2281,20 +2297,20 @@ def _knmi_monthly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> p
         # a month is stamped with its first day
         start=_day(2024, 1, 1),
         end=_day(2024, 2, 1),
-        settings=_settings(auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi_edr": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "monthly", "data", "06260").values().all().df
+    return _knmi_values(request, "monthly")
 
 
 def _knmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the annual files, one per year, named for it; the same variables and fill value as the monthly ones (read from
-    # annual-observations-validated-2024.nc, 2026-11-11)
+    # the annual collection, a value for each year, stamped with the end of it; the same variables and fill value as the
+    # monthly ones (read from annual-observations-validated-2024.nc, 2026-11-11)
     _knmi_serve(
         monkeypatch,
         {
-            "2023": _knmi_netcdf({"TG": 10.9, "DDVEC": 214.0}),
-            "2024": _knmi_netcdf({"TG": float("nan"), "DDVEC": 0.0}),
+            "2024-01-01T00:00:00Z": {"TG": 10.9, "DDVEC": 214.0},
+            "2025-01-01T00:00:00Z": {"TG": float("nan"), "DDVEC": 0.0},
         },
     )
     request = KnmiObservationRequest(
@@ -2304,10 +2320,10 @@ def _knmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         ],
         start=_day(2023, 1, 1),
         end=_day(2024, 1, 1),
-        settings=_settings(auth={"knmi": "stub"}),
+        settings=_settings(auth={"knmi_edr": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "annual", "data", "06260").values().all().df
+    return _knmi_values(request, "annual")
 
 
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002

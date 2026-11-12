@@ -66,7 +66,7 @@ conda install -c conda-forge wetterdienst  # from conda-forge, without extras
 ```
 
 Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `interpolation`,
-`knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
+`mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
 Check the installation with `wetterdienst --help`. On conda-forge the extras are packages of their own,
 such as `wetterdienst-with-interpolation`.
 

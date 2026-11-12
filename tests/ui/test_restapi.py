@@ -8804,7 +8804,7 @@ def test_mcp_auth_tool_refuses_an_unknown_network_as_the_route_does() -> None:
 
 
 _MISSING_EXTRA = (
-    "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+    "Reading radar HDF5 requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[radar]"
 )
 
 
@@ -8847,7 +8847,7 @@ def test_a_network_whose_extra_is_missing_is_a_501_on_auth_and_coverage(
     assert "optional dependency" in detail
     assert "pip install" not in detail
     assert "Choose provider and network" not in detail
-    assert "pip install wetterdienst[knmi]" in caplog.text
+    assert "pip install wetterdienst[radar]" in caplog.text
 
 
 @pytest.mark.parametrize(("route", "params"), _LISTED_NETWORK_ROUTES)
@@ -9183,26 +9183,27 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     extra: dict[str, str],
     known_stations: bool,  # noqa: FBT001
 ) -> None:
-    """A provider that imports its extra lazily answers 501 with the install line in the log, not a bare 500 (GH-2545).
+    """A provider whose reader meets a missing extra answers 501 with the install line in the log, not a 500 (GH-2545).
 
-    KNMI reads its NetCDF through h5netcdf, which only the `knmi` extra installs. The import sits in
-    the reader, so the absence surfaces while stations or values are fetched, not when the provider is
-    resolved, and the bare `ModuleNotFoundError` was a 500 with a traceback and no advice. The package
-    is masked in `sys.modules` and the download is stubbed, so the real reader runs up to its import.
-    A values request reads the station list first, which is the import the stations case fails at;
-    with the stations known, it reaches the one in the values parser.
+    The absence surfaces while stations or values are fetched, not when the provider is resolved, and the bare
+    `ModuleNotFoundError` was a 500 with a traceback and no advice. KNMI reads no optional package now (its NetCDF files
+    were, GH-3928), so the reader is made to raise what an extra's `import_optional` raises: the station list for the
+    stations case, the request of the values for the other (which reads the station list first, so it is known).
     """
-    import sys  # noqa: PLC0415
-
-    from tests.provider.knmi.observation.catalogue import catalogue_frame  # noqa: PLC0415
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
     from wetterdienst.provider.knmi.observation import api as knmi_api  # noqa: PLC0415
 
-    monkeypatch.setenv("WD_AUTH__KNMI", "key")
-    monkeypatch.setitem(sys.modules, "h5netcdf", None)
-    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args, **_kwargs: "file.nc")
-    monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args, **_kwargs: b"not read")
+    def missing(*_args: object, **_kwargs: object) -> None:
+        raise MissingDependencyError(_MISSING_EXTRA)
+
+    monkeypatch.setenv("WD_AUTH__KNMI_EDR", "key")
     if known_stations:
-        monkeypatch.setattr(knmi_api, "_station_catalogue", lambda *_a, **_k: catalogue_frame("06260"))
+        from tests.provider.knmi.observation.catalogue import locations_frame  # noqa: PLC0415
+
+        monkeypatch.setattr(knmi_api, "read_stations", lambda *_a, **_k: locations_frame("06260"))
+        monkeypatch.setattr(knmi_api.edr.EdrReader, "read", missing)
+    else:
+        monkeypatch.setattr(knmi_api, "read_stations", missing)
 
     with caplog.at_level(logging.INFO):
         response = client.get(
@@ -9219,13 +9220,13 @@ def test_a_provider_import_of_a_missing_extra_is_a_501(
     detail = response.json()["detail"]
     assert "optional dependency" in detail
     assert "pip install" not in detail
-    assert "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: " in caplog.text
-    assert "pip install wetterdienst[knmi]" in caplog.text
+    assert "Reading radar HDF5 requires h5netcdf, which is not installed. Install it with: " in caplog.text
+    assert "pip install wetterdienst[radar]" in caplog.text
     assert not [record for record in caplog.records if record.exc_info]
 
 
 _CREDENTIAL_PROVIDERS = [
-    pytest.param("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI", id="knmi"),
+    pytest.param("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI_EDR", id="knmi"),
     pytest.param("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET", id="aemet"),
     pytest.param("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST", id="frost"),
 ]
