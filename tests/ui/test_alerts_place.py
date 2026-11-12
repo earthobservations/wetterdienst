@@ -211,6 +211,15 @@ def test_cli_a_point_off_the_earth_is_a_usage_error() -> None:
     assert result.exit_code == 2
 
 
+@pytest.mark.parametrize("point", [["--latitude=nan", "--longitude=10"], ["--latitude=54", "--longitude=nan"]])
+def test_cli_a_coordinate_that_is_not_a_number_is_blamed_on_the_point_and_not_the_timestamp(point: list[str]) -> None:
+    """Click lets NaN through its range; it is no place on Earth, and the error names the point's options."""
+    result = CliRunner().invoke(cli, ["alerts", *point])
+    assert result.exit_code == 2
+    assert "--latitude/--longitude" in result.output
+    assert "--timestamp" not in result.output
+
+
 def test_cli_help_names_the_place_options() -> None:
     """`alerts --help` lists them with an example."""
     output = CliRunner().invoke(cli, ["alerts", "--help"]).output

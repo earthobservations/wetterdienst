@@ -28,6 +28,8 @@ from .stubs import (
     CAP_COMMUNITY_SEA,
     CAP_DISTRICT_HELGOLAND,
     CAP_DISTRICT_KIEL,
+    CAP_DISTRICT_RASTATT,
+    CAP_DISTRICT_RUEGEN,
     serve_snapshot,
 )
 
@@ -100,6 +102,52 @@ def test_a_point_on_a_vertex_of_a_polygon_of_kiel_is_inside_it() -> None:
     for polygon in alert["geometry"]["coordinates"]:
         for lon, lat in polygon[0][:20]:
             assert geometry_contains(alert["geometry"], lat, lon)
+
+
+def _rings(geometry: dict[str, Any]) -> list[int]:
+    return [len(polygon) for polygon in geometry["coordinates"]]
+
+
+def test_the_holes_of_an_area_with_several_polygons_are_on_the_polygon_they_lie_in() -> None:
+    """Kreis Rastatt has two polygons and two holes in the one (Baden-Baden, and a small one): none is lost."""
+    geometry = _alert(CAP_DISTRICT_RASTATT)["geometry"]
+    # the 14 polygons of the 14 areas: the exterior alone but for the second, which has its two holes; the exclave of
+    # Baden-Baden, a polygon in the hole, is a polygon of its own
+    assert sorted(_rings(geometry)) == [1] * 13 + [3]
+    (with_holes,) = (polygon for polygon in geometry["coordinates"] if len(polygon) == 3)
+    assert [len(ring) for ring in with_holes] == [91, 39, 6]
+
+
+def test_a_point_in_a_hole_of_an_area_with_several_polygons_is_outside_it() -> None:
+    """Baden-Baden is not in the warning for Kreis Rastatt, which surrounds it; Rastatt and its exclave are."""
+    alert = _alert(CAP_DISTRICT_RASTATT)
+    geometry = alert["geometry"]
+    assert geometry_contains(geometry, 48.8575, 8.2073)  # Rastatt
+    assert geometry_contains(geometry, 48.8294, 8.2514)  # Kuppenheim
+    assert not geometry_contains(geometry, 48.7606, 8.2398)  # Baden-Baden, in the hole
+    assert not geometry_contains(geometry, 48.7010, 8.0551)  # the small hole
+    # the exclave in the hole, a polygon of its own
+    assert geometry_contains(geometry, 48.7387, 8.2095)
+    # a corner of a hole is its edge, and inside the warning
+    assert geometry_contains(geometry, 48.706317, 8.069233)
+    assert is_for_place(alert, name="Rastatt")
+    assert not is_for_place(alert, latitude=48.7606, longitude=8.2398)
+
+
+def test_the_islands_in_the_sea_east_of_ruegen_are_holes_of_the_polygons_they_lie_in() -> None:
+    """The warning has two polygons and an island in each; the second island touches its polygon at an edge."""
+    geometry = _alert(CAP_DISTRICT_RUEGEN)["geometry"]
+    assert _rings(geometry) == [2, 2]
+    assert geometry_contains(geometry, 54.6, 14.0)  # the sea
+    assert not geometry_contains(geometry, 54.3202, 13.5314)  # an island, in the first polygon
+    assert not geometry_contains(geometry, 54.5544, 13.3718)  # the other, in the second
+    assert geometry_contains(geometry, 54.30994, 13.523588)  # a corner of the first island: its edge
+
+
+def test_an_area_with_one_polygon_keeps_its_holes_as_before() -> None:
+    """Helgoland has one polygon and a hole, and its coordinates are what they were."""
+    geometry = _alert(CAP_DISTRICT_HELGOLAND)["geometry"]
+    assert _rings(geometry) == [2]
 
 
 def test_the_hole_of_a_polygon_is_outside_it_and_its_edge_inside() -> None:
@@ -253,6 +301,9 @@ def test_no_warning_for_a_place_is_told_as_an_answer(monkeypatch: pytest.MonkeyP
     assert "the point 48.1351, 11.582" in warning["message"]
     assert "3 are for other places" in warning["message"]
     assert "not an error" in warning["message"]
+    # a point says what it is, and nothing of names
+    assert "name" not in warning["message"]
+    assert "German" not in warning["message"]
 
 
 def test_a_place_in_a_snapshot_without_warnings_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -263,6 +314,47 @@ def test_a_place_in_a_snapshot_without_warnings_says_so(monkeypatch: pytest.Monk
     (warning,) = recorded_warnings()
     assert "'Kiel'" in warning["message"]
     assert "it holds none" in warning["message"]
+
+
+def test_a_name_that_matches_nothing_is_not_told_as_an_all_clear(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Munich` is no name DWD uses: the message says that no area carries it, and not that nothing is in force."""
+    serve_snapshot(monkeypatch, *SNAPSHOT)
+    begin_response()
+    assert DwdWeatherAlertRequest(name="Munich").query().df.is_empty()
+    (warning,) = recorded_warnings()
+    message = warning["message"]
+    assert message.startswith("No warning in force lists an area named 'Munich'")
+    assert "German" in message
+    assert "München" in message
+    assert "nothing in force" not in message
+    assert "ask by point" in message
+
+
+def test_a_point_and_a_name_that_match_nothing_are_told_as_both(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With both, the message names the point and the name, and that either may be why."""
+    serve_snapshot(monkeypatch, *SNAPSHOT)
+    begin_response()
+    DwdWeatherAlertRequest(latitude=KIEL[0], longitude=KIEL[1], name="Munich").query()
+    (warning,) = recorded_warnings()
+    assert "the point 54.3233, 10.1228" in warning["message"]
+    assert "'Munich'" in warning["message"]
+    assert "either nothing in force covers the point, or the name matches no area" in warning["message"].lower()
+
+
+def test_a_name_is_matched_whatever_the_unicode_form_of_an_umlaut() -> None:
+    """`ü` is one code point or a `u` and a combining diaeresis, in the name asked for or in DWD's: the same name."""
+    composed, decomposed = "Neum\u00fcnster", "Neumu\u0308nster"
+    assert composed != decomposed
+    for asked in (composed, decomposed):
+        assert names_match([f"Stadt {composed}"], ["101004000"], asked)
+        assert names_match([f"Stadt {decomposed}"], ["101004000"], asked)
+        assert names_match([f"Stadt {decomposed}"], ["101004000"], asked.upper())
+
+
+def test_a_name_finds_every_area_that_has_the_word() -> None:
+    """The name is a word, so `Hamburg` is also the commune near it: a point is the reliable way to ask."""
+    assert names_match(["Gemeinde Wentorf bei Hamburg"], ["801062000"], "Hamburg")
+    assert names_match(["Kirchheim b. München"], ["809184000"], "München")
 
 
 def test_a_place_with_a_warning_tells_nothing(monkeypatch: pytest.MonkeyPatch) -> None:

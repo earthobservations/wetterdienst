@@ -37,6 +37,12 @@ CAP_DISTRICT_KIEL: bytes = (_FILES / "cap_district_wind_kiel.xml").read_bytes()
 #:   island, in it
 CAP_DISTRICT_HELGOLAND: bytes = (_FILES / "cap_district_sea_helgoland.xml").read_bytes()
 
+#: - the district product, a fog warning for 11 districts of Baden-Württemberg of 2026-11-12: `Kreis Rastatt` has two
+#:   polygons and two holes in one, Baden-Baden (with a polygon of its own, an exclave, in it) and a small one
+CAP_DISTRICT_RASTATT: bytes = (_FILES / "cap_district_fog_rastatt.xml").read_bytes()
+#: - the district product, a warning for the sea east of Rügen: two polygons and a hole (an island) in each
+CAP_DISTRICT_RUEGEN: bytes = (_FILES / "cap_district_sea_ruegen.xml").read_bytes()
+
 #: the languages of that message, in the order of its blocks
 CAP_MUL_LANGUAGES = ["de-DE", "en", "fr", "es", "ar", "ru", "tr", "pl"]
 

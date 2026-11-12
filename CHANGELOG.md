@@ -20,8 +20,8 @@ Types of changes:
 
 - `alerts` (Python, REST, command line and the MCP tool) takes `latitude` and `longitude`, which keep
   the warnings whose polygons contain the point, and `name`, which keeps those with an area of that
-  name or warn cell id (`Kiel`, `101002000`). Without them the answer is every warning of Germany
-  as before, 100 to 370 KB, more than an assistant can read. A place without a warning is a 200 with
+  name or warn cell id (`Kiel`, `101002000`; DWD's German names). Without them the answer is every
+  warning of Germany as before, 100 to 370 KB. A place without a warning is a 200 with
   no alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
   newest `sent` of the whole snapshot, not of the warnings kept. A latitude without a longitude is a
   422 (GH-4019)
@@ -33,6 +33,11 @@ Types of changes:
 
 ### Fixed
 
+- The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
+  each on the polygon it lies in; they were dropped. The district warnings for Kreis Rastatt
+  (the Baden-Baden enclave) and the sea east of Rügen (islands) now have them in the GeoJSON, JSON
+  and CSV, and a point in a hole is not in the warning. An area with one polygon is unchanged
+  (GH-4019)
 - The MCP tools answer `format=csv` and `format=ndjson` with the body in the structured `result`
   as well, after the sentence naming the licence. Claude Code hands the model the structured
   content and not the content blocks, so it saw only "sent as text content of this result" and no

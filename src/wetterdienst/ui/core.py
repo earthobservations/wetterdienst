@@ -1715,7 +1715,8 @@ class AlertsRequest(_RefusesRenamedParameters):
         Field(
             ge=LATITUDE_MIN,
             le=LATITUDE_MAX,
-            description="With longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+            description="With longitude, only the warnings whose areas contain this point (an edge counts as "
+            "inside): the reliable way to ask about one place.",
         ),
     ] = None
     longitude: Annotated[
@@ -1725,8 +1726,10 @@ class AlertsRequest(_RefusesRenamedParameters):
     name: Annotated[
         str | None,
         Field(
-            description="Only the warnings for an area of this name or warn cell id: the words of it, in any case "
-            "('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold."
+            description="Only the warnings for an area of this name or warn cell id. DWD's German names, in any "
+            "case ('München', not 'Munich'), matched as words in every area that has them ('Hamburg' also finds "
+            "'Wentorf bei Hamburg'), or a number such as '101002000'. A point is the reliable way to ask about one "
+            "place. With a point, both must hold."
         ),
     ] = None
     format: Annotated[

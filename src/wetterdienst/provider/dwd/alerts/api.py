@@ -407,14 +407,35 @@ class DwdWeatherAlertRequest:
         )
 
     @property
-    def _place(self) -> str | None:
-        """Name the place asked for as a caller would, `None` for a request of the whole snapshot."""
-        parts = []
-        if self.latitude is not None and self.longitude is not None:
-            parts.append(f"the point {self.latitude}, {self.longitude}")
-        if self.name is not None:
-            parts.append(f"the name or warn cell {self.name!r}")
-        return " and ".join(parts) or None
+    def _has_place(self) -> bool:
+        """Tell whether the request names a place (a point, a name, or both), `False` for the whole snapshot."""
+        return self.latitude is not None or self.name is not None
+
+    def _none_for_place(self, others: int) -> str:
+        """Say that no warning is for the place, in the words of what was asked: a point, a name, or both.
+
+        A point that no polygon contains is that nothing in force covers it. A name that matches no area is not: the
+        names are DWD's German ones, so `Munich` matches none while `München` does, and a place without a warning is not
+        listed, so the message does not say that nothing is in force. `others` is the number of warnings of the
+        snapshot, none of them for the place.
+        """
+        held = f"{others} are for other places" if others else "it holds none"
+        point = f"the point {self.latitude}, {self.longitude}"
+        names = (
+            "the names are DWD's German ones ('München', not 'Munich') and a place without a warning is in none, "
+            "so check the spelling, or ask by point"
+        )
+        if self.name is None:
+            return (
+                f"No warning of the snapshot has an area that contains {point} ({held}). That is the answer, not an "
+                "error: nothing in force covers it."
+            )
+        if self.latitude is None:
+            return f"No warning in force lists an area named {self.name!r} ({held}): {names}."
+        return (
+            f"No warning of the snapshot has an area that contains {point} and is named {self.name!r} ({held}). "
+            f"Either nothing in force covers the point, or the name matches no area: {names}."
+        )
 
     @staticmethod
     def _parse_granularity(granularity: str | DwdWeatherAlertGranularity) -> DwdWeatherAlertGranularity:
@@ -575,8 +596,7 @@ class DwdWeatherAlertRequest:
         many warnings the snapshot holds for other places, so that it is not taken for a failure or a filter that
         matched nothing by mistake.
         """
-        place = self._place
-        if place is None:
+        if not self._has_place:
             return alerts
         kept = [
             alert
@@ -584,13 +604,7 @@ class DwdWeatherAlertRequest:
             if is_for_place(alert, latitude=self.latitude, longitude=self.longitude, name=self.name)
         ]
         if not kept:
-            held = f"{len(alerts)} are for other places" if alerts else "it holds none"
-            message = (
-                f"No warning of the snapshot is for {place} ({held}). That is the answer, not an error: nothing is "
-                "in force there; or, for a name, no warning lists an area of that name, which a place without a "
-                "warning does not appear in, so check the spelling. A point is matched against the polygons of a "
-                "warning, so one for the sea is found by its name."
-            )
+            message = self._none_for_place(len(alerts))
             warn_response(log, NO_ALERTS_FOR_PLACE, message, level=logging.INFO)
         return kept
 

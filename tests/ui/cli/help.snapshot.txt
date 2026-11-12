@@ -60,11 +60,14 @@ Options:
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.
   --latitude FLOAT RANGE          With --longitude, only the warnings whose areas contain this point
-                                  (an edge counts as inside).  [-90<=x<=90]
+                                  (an edge counts as inside): the reliable way to ask about one
+                                  place.  [-90<=x<=90]
   --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
-  --name TEXT                     Only the warnings for an area of this name or warn cell id: the
-                                  words of it, in any case ('Kiel' is 'Stadt Kiel', not 'Kielstau'),
-                                  or a number such as 101002000. With a point, both must hold.
+  --name TEXT                     Only the warnings for an area of this name or warn cell id. DWD's
+                                  German names, in any case ('München', not 'Munich'), matched as
+                                  words in every area that has them ('Hamburg' also finds 'Wentorf
+                                  bei Hamburg'), or a number such as 101002000. A point is the
+                                  reliable way to ask about one place. With a point, both must hold.
   --format [json|geojson|csv]     Output format. Default: json
   --target TEXT                   Write the alerts to this file instead of stdout, in the format its
                                   extension names: .json, .geojson or .csv. Databases are refused. A

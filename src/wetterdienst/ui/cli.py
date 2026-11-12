@@ -2809,7 +2809,10 @@ def radar(
 @click.option(
     "--latitude",
     type=click.FloatRange(-90, 90),
-    help="With --longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+    help=(
+        "With --longitude, only the warnings whose areas contain this point (an edge counts as inside): the "
+        "reliable way to ask about one place."
+    ),
 )
 @click.option(
     "--longitude",
@@ -2820,8 +2823,10 @@ def radar(
     "--name",
     type=click.STRING,
     help=(
-        "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is "
-        "'Stadt Kiel', not 'Kielstau'), or a number such as 101002000. With a point, both must hold."
+        "Only the warnings for an area of this name or warn cell id. DWD's German names, in any case ('München', "
+        "not 'Munich'), matched as words in every area that has them ('Hamburg' also finds 'Wentorf bei Hamburg'), "
+        "or a number such as 101002000. A point is the reliable way to ask about one place. With a point, both must "
+        "hold."
     ),
 )
 @click.option(
@@ -2883,6 +2888,7 @@ def alerts(
     """
     from wetterdienst import Settings
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+    from wetterdienst.provider.dwd.alerts.place import check_point
     from wetterdienst.ui.render import render_alerts
 
     _apply_log_level(debug=debug)
@@ -2897,7 +2903,12 @@ def alerts(
     if (latitude is None) != (longitude is None):
         msg = "--latitude and --longitude are given together"
         raise click.UsageError(msg)
-    # granularity, language, format and the point are click's, so only the timestamp reaches this refusal:
+    # click bounds the point, and lets NaN through, which is no place on Earth and not the timestamp's to blame
+    try:
+        check_point(latitude, longitude)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--latitude/--longitude") from e
+    # granularity, language and format are click's, so only the timestamp reaches this refusal:
     # one that does not parse, or one an offset carries out of what a datetime holds
     try:
         request = DwdWeatherAlertRequest(

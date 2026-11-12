@@ -30,25 +30,30 @@ is the whole snapshot, as it was.
 | Argument | Keeps the warnings |
 | --- | --- |
 | `latitude` and `longitude` | whose polygons contain the point. They are given together; a point on the edge of a polygon is inside it, and one in a hole (the island in a warning for the sea around it) is outside |
-| `name` | with an area of that name: its words in any case (`Kiel` is `Stadt Kiel` and `Kreis Plön - Binnenland` is not, `Kielstau` is not `Kiel`), or of that warn cell id: `101002000`, or only its 8-digit municipality key `01002000`, which is the same for a commune (`801002000`) and its district |
+| `name` | with an area of that name, **DWD's German name** (`München`, not `Munich`), its words in any case and in either Unicode form of an umlaut, in every area that has them (`Kiel` is `Stadt Kiel`, not `Kielstau`; `Hamburg` is also `Gemeinde Wentorf bei Hamburg`, and `München` also `Kirchheim b. München`), or of that warn cell id: `101002000`, or its 8-digit municipality key `01002000`, which is the same for a commune (`801002000`) and its district where one cell carries it (a city that the community product splits into quarters, such as Augsburg, `09761000`, has a cell for each: ask for it by name or by point) |
 
 With both, a warning must be for the point and for the name. The point test needs no more than the standard library, so
 it works without the `interpolation` extra.
 
-Two things to know about what a place finds:
+Three things to know about what a place finds:
 
 - A **point is matched against the polygons** of a warning, the event area DWD draws, which follows the borders of the
   communes or districts it is for. A warning for the **sea** (`Ostfriesische Küste`, `501000001`) of the community
   product has no polygon, only its area and warn cell, so no point is in it: find it by its `name`. In the district
   product the same warning has a polygon.
 - A **name is matched against the areas a warning is issued for**, and a place without a warning is in none: a `name`
-  that matches nothing says only that no warning has it, not that the place does not exist. Check the spelling, or ask by
-  point.
+  that matches nothing says only that no warning has it, not that the place does not exist or that nothing is in force
+  there. The names are in German whatever the `language`, and a name matches every area with that word. **A point is the
+  reliable way to ask about one place**; use a name for what a point cannot say (a warning for the sea), or a warn cell id.
+- A **hole** of a polygon (`EXCLUDE_POLYGON`: the land inside a warning for the sea, the Baden-Baden enclave of Kreis
+  Rastatt) is outside the warning, also where the area has several polygons: each hole is attached to the polygon it lies
+  in, in the `geometry` of the answer too.
 
 A place without a warning is **an answer, not a failure**: the REST API answers 200 with `"alerts": []`, `counts.rows`
 of 0 and a `no-alerts-for-place` warning in `metadata.warnings`, whose message says what was asked and how many warnings
-of the snapshot are for other places (the same text is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has
-no block, and in the `metadata` of the command line's JSON). Nothing is told for a request without a place, nor for a
+of the snapshot are for other places, in the words of what was asked: for a point that no polygon contains, for a name that
+no area carries (which does not say that nothing is in force there) or both. Its code is in the `X-Wetterdienst-Warnings`
+header of a CSV answer, which has no block, and the text in the `metadata` of the command line's JSON. Nothing is told for a request without a place, nor for a
 place with a warning. Its `data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
 
 Measured on 2026-11-12, against the live community snapshot of 16 warnings (JSON, characters): the whole snapshot is

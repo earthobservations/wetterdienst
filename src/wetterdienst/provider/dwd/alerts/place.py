@@ -15,20 +15,25 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from itertools import pairwise
 from typing import Any
 
 from wetterdienst.exceptions import RequestError
 
 #: where a point lies against a ring: strictly inside, on its edge, or outside
-_INSIDE, _ON_EDGE, _OUTSIDE = 1, 0, -1
+INSIDE, ON_EDGE, OUTSIDE = 1, 0, -1
 
-#: a point this close to a segment, in degrees (about a micrometre), is on it: the rounding of the product below
+#: the tolerance on the cross product of the segment and the point, which is the length of the segment times the
+#: distance of the point from its line: a point within about `1e-12 / length of the segment` degrees is on it
 _EDGE_TOLERANCE = 1e-12
 
 
-def _locate(ring: list[list[float]], x: float, y: float) -> int:
-    """Tell where the point `x, y` lies against a closed ring of `[x, y]` pairs: inside, on its edge, or outside."""
+def locate(ring: list[list[float]], x: float, y: float) -> int:
+    """Tell where the point `x, y` lies against a closed ring of `[x, y]` pairs: inside, on its edge, or outside.
+
+    The test is planar: it is wrong across the antimeridian, which no DWD warning crosses.
+    """
     inside = False
     for (x1, y1), (x2, y2) in pairwise(ring):
         if (
@@ -36,11 +41,11 @@ def _locate(ring: list[list[float]], x: float, y: float) -> int:
             and min(y1, y2) <= y <= max(y1, y2)
             and abs((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)) <= _EDGE_TOLERANCE
         ):
-            return _ON_EDGE
+            return ON_EDGE
         # the ray to the east crosses this segment: one of its ends is above the point, the other not
         if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
             inside = not inside
-    return _INSIDE if inside else _OUTSIDE
+    return INSIDE if inside else OUTSIDE
 
 
 def geometry_contains(geometry: dict[str, Any] | None, latitude: float, longitude: float) -> bool:
@@ -49,8 +54,8 @@ def geometry_contains(geometry: dict[str, Any] | None, latitude: float, longitud
         return False
     for polygon in geometry["coordinates"]:
         exterior, *holes = polygon
-        if _locate(exterior, longitude, latitude) != _OUTSIDE and all(
-            _locate(hole, longitude, latitude) != _INSIDE for hole in holes
+        if locate(exterior, longitude, latitude) != OUTSIDE and all(
+            locate(hole, longitude, latitude) != INSIDE for hole in holes
         ):
             return True
     return False
@@ -66,14 +71,16 @@ def names_match(area_names: list[str], warncell_ids: list[str], name: str) -> bo
     """Tell whether a warning has an area of this name, or of this warn cell id.
 
     A name of digits is an id: a warn cell (`101002000`, a type digit and the 8-digit municipality key, `AGS`) or only
-    its key (`01002000`), which is the same for a commune and its district. Any other name is the words of an area's
-    name, `Kiel` for `Stadt Kiel`, whatever the case.
+    its key (`01002000`), which is the same for a commune and its district where one cell carries it: a city that the
+    community product splits into quarters (Augsburg, `09761000`) has a cell for each, none ending in its key, so ask
+    for it by name or by point. Any other name is the words of an area's name, `Kiel` for `Stadt Kiel`, whatever the
+    case and the Unicode form of an umlaut (the names are DWD's German ones, and match every area with the word).
     """
-    name = name.strip()
+    name = unicodedata.normalize("NFC", name.strip())
     if name.isdigit():
         return any(cell == name or (len(name) == 8 and cell.endswith(name)) for cell in warncell_ids)
     pattern = _words(name)
-    return any(pattern.search(area_name) for area_name in area_names)
+    return any(pattern.search(unicodedata.normalize("NFC", area_name)) for area_name in area_names)
 
 
 def is_for_place(

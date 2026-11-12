@@ -5146,7 +5146,7 @@
           "Alerts"
         ],
         "summary": "Alerts",
-        "description": "Provide DWD weather alerts (CAP warnings) via restapi.\n\nReturns the warnings active at the selected time, one entry per alert, with a GeoJSON\nMultiPolygon geometry. Without a place that is every warning of Germany (over 100 KB, more than an assistant can\nread): pass ``latitude`` and ``longitude`` for the warnings whose areas contain the point, and/or ``name`` for an\narea of that name or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from\nDWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not an error: no\nwarning is active (for the place), and for a place a ``no-alerts-for-place`` warning in ``metadata`` says so.",
+        "description": "Provide DWD weather alerts (CAP warnings) via restapi.\n\nReturns the warnings active at the selected time, one entry per alert, with a GeoJSON MultiPolygon geometry.\nWithout a place that is every warning of Germany (over 100 KB, more than an assistant can read): pass\n``latitude`` and ``longitude`` for the warnings whose areas contain the point, the reliable way to ask about one\nplace, and/or ``name`` for an area of that name (DWD's German one, ``München`` and not ``Munich``, matched as words\nin every area that has it) or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical\nsnapshot from DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not\nan error: no warning is active, or none is for the place, which a ``no-alerts-for-place`` warning in ``metadata``\nsays in the words of what was asked.",
         "operationId": "alerts_api_alerts_get",
         "parameters": [
           {
@@ -5217,10 +5217,10 @@
                   "type": "null"
                 }
               ],
-              "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside).",
+              "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside): the reliable way to ask about one place.",
               "title": "Latitude"
             },
-            "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside)."
+            "description": "With longitude, only the warnings whose areas contain this point (an edge counts as inside): the reliable way to ask about one place."
           },
           {
             "name": "longitude",
@@ -5255,10 +5255,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold.",
+              "description": "Only the warnings for an area of this name or warn cell id. DWD's German names, in any case ('München', not 'Munich'), matched as words in every area that has them ('Hamburg' also finds 'Wentorf bei Hamburg'), or a number such as '101002000'. A point is the reliable way to ask about one place. With a point, both must hold.",
               "title": "Name"
             },
-            "description": "Only the warnings for an area of this name or warn cell id: the words of it, in any case ('Kiel' is 'Stadt Kiel', not 'Kielstau'), or a number such as '101002000'. With a point, both must hold."
+            "description": "Only the warnings for an area of this name or warn cell id. DWD's German names, in any case ('München', not 'Munich'), matched as words in every area that has them ('Hamburg' also finds 'Wentorf bei Hamburg'), or a number such as '101002000'. A point is the reliable way to ask about one place. With a point, both must hold."
           },
           {
             "name": "format",
