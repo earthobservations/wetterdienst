@@ -8,8 +8,8 @@ decimal separator, and the padding too where a comment does not say it was cut. 
 the provider's own reader (`_all()` and the frame handling of `all()`), so a reader that loses a sign or drops a column
 shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
 sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
-`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the NetCDF file of
-`knmi/observation`, which needs a key, written with h5netcdf. A comment also says which fields a stub made up (the
+`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the CSV file of
+the catalogue of `knmi/observation`, which needs a key. A comment also says which fields a stub made up (the
 observations a Hubeau station's resolution is measured from, the file names of `dwd/observation` but two) and which
 it left out. A network whose data files are listed serves the listing or feed beside the catalogue as well
 (`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo`, `chmi/observation`, `meteoswiss/observation`,
@@ -28,10 +28,8 @@ from __future__ import annotations
 import bz2
 import datetime as dt
 import json
-import tempfile
 from dataclasses import dataclass, field
 from io import BytesIO
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -1616,46 +1614,24 @@ def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 # the station id of `knmi/observation` is the WMO number at the end of the WSI, the height keeps its sign
 KNMI_EXPECTED: dict[str, dict[str, Any]] = {
-    "06209": {"wigos_id": "0-20000-0-06209", "name": "IJmond", "latitude": 52.465, "longitude": 4.518},
-    "06260": {"wigos_id": "0-20000-0-06260", "name": "De Bilt", "latitude": 52.1, "longitude": 5.18, "elevation": 1.9},
-    "06344": {"name": "Rotterdam Airport", "elevation": -4.3},
-    "06392": {"name": "Horst", "latitude": 51.486836, "longitude": 6.056189},
+    "06209": {"wigos_id": "0-20000-0-06209", "name": "IJmond", "latitude": 52.4636, "longitude": 4.5175},
+    "06210": {"wigos_id": "0-20000-0-06210", "name": "VALKENBURG VK", "elevation": -0.2},
+    "06260": {"wigos_id": "0-20000-0-06260", "name": "De Bilt", "latitude": 52.0989, "longitude": 5.1797},
+    "06344": {"name": "Rotterdam Airport", "elevation": -5.14},
+    "06392": {"wigos_id": "0-528-0-06392", "name": "Horst", "latitude": 51.4869, "longitude": 6.0561},
 }
 
 
 def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # the list is the station axis of the latest NetCDF file of a resolution, which needs the API key, so the file is
-    # written with h5netcdf in the shape the reader reads (stations keyed by WSI, `stationname`, `lat`, `lon`,
-    # `height`) and served in place of the download. The rows are those of the key-less station table that
-    # `daggegevens.knmi.nl` prints above its data (2026-10-15, `stns=ALL`: the first two stations, De Bilt, Rotterdam
-    # Airport at a height of -4.3 m, and Horst with a position of six decimals): the legacy
-    # number 260 of De Bilt is the 06260 of its WSI. The names and positions of the NetCDF files themselves could not
-    # be read without a key
-    import pytest  # noqa: PLC0415
+    # the list is the catalogue of the stations of KNMI, one CSV file that the Open Data API serves with the key of the
+    # observations, so the file is served in place of the download. The rows are those of the real file (the dataset
+    # `waarneemstations_csv`, `csv_knmi_nl_20260615.csv`, read 2026-11-11): IJmond, Valkenburg (closed in 2016, whose
+    # data the files hold and that no latest file lists), De Bilt, Rotterdam Airport at a height of -5.14 m and Horst,
+    # a WSI of the issuer 528. The number 260 of the legacy export is the 06260 of the WSI
+    from tests.provider.knmi.observation.catalogue import catalogue_csv  # noqa: PLC0415
 
-    h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
-    h5py = pytest.importorskip("h5py", reason="h5py not installed")
-    stations = [
-        ("0-20000-0-06209", "IJmond", 52.465, 4.518, 0.0),
-        ("0-20000-0-06210", "VALKENBURG VK", 52.171, 4.430, -0.2),
-        ("0-20000-0-06260", "De Bilt", 52.100, 5.180, 1.9),
-        ("0-20000-0-06344", "Rotterdam Airport", 51.962, 4.447, -4.3),
-        ("0-20000-0-06392", "Horst", 51.486836, 6.056189, 21.88),
-    ]
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "stations.nc"
-        with h5netcdf.File(path, "w") as file:
-            file.dimensions = {"station": len(stations)}
-            string_dtype = h5py.string_dtype()
-            station = file.create_variable("station", ("station",), dtype=string_dtype)
-            station[:] = [wsi for wsi, *_ in stations]
-            stationname = file.create_variable("stationname", ("station",), dtype=string_dtype)
-            stationname[:] = [name for _, name, *_ in stations]
-            for column, index in {"lat": 2, "lon": 3, "height": 4}.items():
-                variable = file.create_variable(column, ("station",), dtype="f8")
-                variable[:] = [row[index] for row in stations]
-        payload = path.read_bytes()
-    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "latest.nc")
+    payload = catalogue_csv("06209", "06210", "06260", "06344", "06392")
+    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "csv_knmi_nl_20260615.csv")
     monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args: payload)
     request = KnmiObservationRequest(
         parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"knmi": "stub"})
