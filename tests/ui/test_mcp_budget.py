@@ -606,6 +606,37 @@ def test_a_block_that_alone_fits_is_kept_and_the_note_does_not_mention_it(monkey
 
 
 @pytest.mark.parametrize("tool", ["values", "stations"])
+def test_a_block_that_fits_alone_but_not_with_one_row_is_left_out_too(
+    monkeypatch: pytest.MonkeyPatch, tool: str
+) -> None:
+    """The empty answer with the block is under the budget and one timestamp or station on top of it is over it.
+
+    The answer would go past what the client takes, though without the block it fits: so the block is left out.
+    The budget is set from the size of the smallest answer with the block, so that exactly this holds.
+    """
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(30_000))
+    arguments = {**(_VALUES if tool == "values" else _STATIONS), "with_metadata": True}
+    # the smallest answer (one timestamp, one station) with the block, whole, as a client receives it
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 1))
+    _stub_stations(monkeypatch, _stations_of(1))
+    smallest = _the_client_gets(_client_sees(tool, arguments))[1]
+    # a little under it: the smallest answer is over, and the empty one, some 300 characters less, is not
+    budget = smallest - 100
+    monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", budget)
+    _stub_values(monkeypatch, _values_of(_NOW + dt.timedelta(hours=1), 900))
+    _stub_stations(monkeypatch, _stations_of(700))
+
+    answer, size = _the_client_gets(_client_sees(tool, arguments))
+
+    assert size <= budget
+    assert "quality" not in answer["metadata"]
+    note = _note_of(answer)
+    assert note.startswith("The `with_metadata` block (")
+    assert "still over" not in note
+    assert answer["metadata"]["counts"]["rows" if tool == "values" else "stations"] > 1
+
+
+@pytest.mark.parametrize("tool", ["values", "stations"])
 def test_an_answer_that_cannot_be_cut_to_the_budget_says_so(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
     """Where the rows are cut as far as they go and the always-present block is over the budget, the note says that."""
     monkeypatch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 800)

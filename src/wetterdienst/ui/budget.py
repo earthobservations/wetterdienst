@@ -245,22 +245,25 @@ def _without_block(
     result: StationsResult | ValuesResult,
     request: StationsRequest | ValuesRequest,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
-) -> tuple[Any, str] | None:
-    """Tell, for an answer that is over the budget with `with_metadata`, whether its block alone is why.
+    fit: Callable[[Any, int, str], _Attempt],
+) -> tuple[_Attempt, Any] | None:
+    """Try an answer that is over the budget with its `with_metadata` block again without the block.
 
-    An empty answer is made with the block and without it. Where the empty one with the block is over the budget, the
-    block is more than the budget allows of any answer: give the request without it, and the note of what was left
-    out. None where it is not (the rows are why), and an answer without `with_metadata` has no block to leave out.
+    The block (the units, the quality legend and the settings of every dataset asked for) can be tens of thousands of
+    characters: with it not even the smallest cut, one timestamp or one station, may fit, although without it many do.
+    The request is made without `with_metadata`, the answer is fitted again by `fit(request, size, lead)` (`lead` is
+    the note of what was left out) and, where it fits the budget now, given back with that request. None where the
+    request has no block, or where leaving it out does not help either, which `fit_*` then tells as it is.
     """
     if not request.with_metadata:
         return None
     empty = result.df.head(0)
-    with_block = _made(result, request, empty, "", render)
-    if with_block.size <= ANSWER_BUDGET:
-        return None
     lean = _lean(request)
-    block = with_block.size - _made(result, lean, empty, "", render).size
-    return lean, _block_left_out(block)
+    block = _made(result, request, empty, "", render).size - _made(result, lean, empty, "", render).size
+    lead = _block_left_out(block)
+    whole = _made(result, lean, result.df, lead, render)
+    fitted = whole if whole.size <= ANSWER_BUDGET else fit(lean, whole.size, lead)
+    return (fitted, lean) if fitted.size <= ANSWER_BUDGET else None
 
 
 def _fit_values(
@@ -331,8 +334,9 @@ def fit_values(
     a record. With one, its start is kept, so that the next window of the note continues it. At least one whole
     timestamp is kept, and a timestamp is cut through only where one alone is more than the budget.
 
-    Where even the smallest cut is over the budget because the `with_metadata` block is (the units and the quality
-    legend of a dataset can be 40,000 characters), the block is left out, and the note says so. `render` writes the
+    Where even the smallest cut (one timestamp) is over the budget with the `with_metadata` block and fits without it
+    (the units and the quality legend of a dataset can be 40,000 characters), the block is left out, and the note says
+    so. Where it is over without the block too, the note says it is still over. `render` writes the
     answer for a cut result, its block and the request; `content` and `metadata` are the whole answer.
     """
     if request.format not in BUDGETED_FORMATS or result.df.is_empty() or "timestamp" not in result.df.columns:
@@ -340,18 +344,19 @@ def fit_values(
     size = answer_size(content, request, metadata)
     if size <= ANSWER_BUDGET:
         return content, metadata
-    asked, lead = request, ""
-    chosen = _fit_values(result, asked, render, size, lead=lead, honest=False)
-    if chosen.size > ANSWER_BUDGET and (dropped := _without_block(result, request, render)) is not None:
-        asked, lead = dropped
-        whole = _made(result, asked, result.df, lead, render)
-        chosen = (
-            whole
-            if whole.size <= ANSWER_BUDGET
-            else _fit_values(result, asked, render, whole.size, lead=lead, honest=False)
+    asked = request
+    chosen = _fit_values(result, asked, render, size, lead="", honest=False)
+    if chosen.size > ANSWER_BUDGET and (
+        dropped := _without_block(
+            result,
+            request,
+            render,
+            lambda lean, whole, lead: _fit_values(result, lean, render, whole, lead=lead, honest=False),
         )
+    ):
+        chosen, asked = dropped
     if chosen.size > ANSWER_BUDGET:
-        chosen = _fit_values(result, asked, render, chosen.size, lead=lead, honest=True)
+        chosen = _fit_values(result, asked, render, chosen.size, lead="", honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
     log.info(
         f"Cut a values answer of {result.df.height} rows to {chosen.metadata.counts.rows} to stay within the budget."
@@ -406,27 +411,28 @@ def fit_stations(
 
     A rank, a distance or a name asks for a few stations and is left as it is. Otherwise (all stations, a bounding
     box, `sql`, ids) the stations that fit are kept, in list order, and the note says how many match and what narrows
-    them. Where even one station is over the budget because the `with_metadata` block is, the block is left out, and
-    the note says so. `render` writes the answer for a cut result, its block and the request; `content` and `metadata`
-    are the whole answer.
+    them. Where even one station is over the budget with the `with_metadata` block and fits without it, the block is
+    left out, and the note says so. `render` writes the answer for a cut result, its block and the request; `content`
+    and `metadata` are the whole answer.
     """
     if request.format not in BUDGETED_FORMATS or result._stations_filter in _SMALL_SELECTIONS:  # noqa: SLF001
         return content, metadata
     size = answer_size(content, request, metadata)
     if size <= ANSWER_BUDGET or result.df.get_column("station_id").n_unique() < 2:
         return content, metadata
-    asked, lead = request, ""
-    chosen = _fit_stations(result, asked, render, size, lead=lead, honest=False)
-    if chosen.size > ANSWER_BUDGET and (dropped := _without_block(result, request, render)) is not None:
-        asked, lead = dropped
-        whole = _made(result, asked, result.df, lead, render)
-        chosen = (
-            whole
-            if whole.size <= ANSWER_BUDGET
-            else _fit_stations(result, asked, render, whole.size, lead=lead, honest=False)
+    asked = request
+    chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
+    if chosen.size > ANSWER_BUDGET and (
+        dropped := _without_block(
+            result,
+            request,
+            render,
+            lambda lean, whole, lead: _fit_stations(result, lean, render, whole, lead=lead, honest=False),
         )
+    ):
+        chosen, asked = dropped
     if chosen.size > ANSWER_BUDGET:
-        chosen = _fit_stations(result, asked, render, chosen.size, lead=lead, honest=True)
+        chosen = _fit_stations(result, asked, render, chosen.size, lead="", honest=True)
     record_response_warning(ANSWER_TRUNCATED, chosen.note)
     log.info(
         f"Cut a stations answer of {result.df.height} rows to {chosen.metadata.counts.stations} stations "
