@@ -177,25 +177,37 @@ def _argument_for(schema: dict[str, Any]) -> Any:  # noqa: ANN401
     return {"string": "x", "integer": 1, "number": 1.0, "boolean": True, "array": ["x"], "object": {}}[kind]
 
 
-def test_the_rows_of_a_csv_reach_a_client_that_reads_the_structured_content_alone() -> None:
-    """Every tool that offers `csv` has its rows in the structured content, and in the content block (GH-4017).
+#: the media type each text format is answered in, and whether its body is repeated in the structured content
+_TEXT_FORMATS = [
+    ("csv", "text/csv", True),
+    ("ndjson", "application/x-ndjson", True),
+    ("html", "text/html", False),
+    ("svg", "image/svg+xml", False),
+]
+
+
+@pytest.mark.parametrize(("fmt", "media_type", "repeated"), _TEXT_FORMATS)
+def test_the_body_of_data_reaches_a_client_that_reads_the_structured_content_alone(
+    fmt: str, media_type: str, *, repeated: bool
+) -> None:
+    """Every tool that offers csv or ndjson has the body in the structured content, and in the content block (GH-4017).
 
     Claude Code hands the model the structured content of a result that has some, and not the content blocks, so a
-    sentence about the csv there (and the csv in the block) left the model with a notice and no rows. The REST app is
-    stood in for by one that answers every route with the same csv, so what is held is the transport of each tool.
+    sentence about the csv there (and the csv in the block) left the model with a notice and no rows. A chart (html,
+    svg) is markup a model cannot read as data, and 100 KB and more, so its structured content is the sentence alone.
+    The REST app is stood in for by one that answers every route with the same body, so what is held is the transport
+    of each tool.
     """
-    csv = "station_id,name\n01048,Dresden-Klotzsche\n02564,Kiel-Holtenau\n"
+    body = "station_id,name\n01048,Dresden-Klotzsche\n02564,Kiel-Holtenau\n"
     stand_in = FastAPI()
     stand_in.openapi = restapi.app.openapi  # ty: ignore[invalid-assignment]
 
     @stand_in.api_route("/{path:path}", methods=["GET"])
     def answer(path: str) -> Response:  # noqa: ARG001
-        return Response(csv, media_type="text/csv", headers={"X-Wetterdienst-License": "CC-BY-4.0"})
+        return Response(body, media_type=media_type, headers={"X-Wetterdienst-License": "CC-BY-4.0"})
 
-    offering = _tools_that_offer("csv")
-    assert {"values", "stations", "interpolate", "summarize", "alerts", "stripes_values"} <= {
-        t["name"] for t in offering
-    }
+    offering = _tools_that_offer(fmt)
+    assert {"values", "stations"} <= {t["name"] for t in offering}
     calls = [
         (
             tool["name"],
@@ -204,26 +216,33 @@ def test_the_rows_of_a_csv_reach_a_client_that_reads_the_structured_content_alon
                 for name in tool["schema"].get("required", ())
                 if name != "format"
             }
-            | {"format": "csv"},
+            | {"format": fmt},
         )
         for tool in offering
     ]
 
     for (result, schema), (tool, _) in zip(_calls(stand_in, calls), calls, strict=True):
         assert not result.is_error, (tool, result.content)
-        assert result.content[0].text == csv, tool
-        if schema is not None:
-            jsonschema.validate(result.structured_content, schema)
-            told = result.structured_content["result"]
-            assert told.endswith(f"\n\n{csv}"), tool
-            assert "Licence: CC-BY-4.0." in told, tool
+        assert result.content[0].text == body, tool
+        if schema is None:
+            continue
+        jsonschema.validate(result.structured_content, schema)
+        told = result.structured_content["result"]
+        assert "Licence: CC-BY-4.0." in told, tool
+        if repeated:
+            assert told.endswith(f"\n\n{body}"), tool
+            assert "and follows below" in told, tool
+            assert "sent as" not in told, tool
+        else:
+            assert body not in told, tool
+            assert "sent as text content of this result." in told, tool
 
 
 def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Text is the content of the result as the REST API sends it, and follows the sentence in the structured content.
+    """Text is the content of the result as the REST API sends it, and csv and ndjson follow the sentence structured.
 
     An image is image content of its media type, a pdf an embedded resource, and a json answer stays structured. Only
-    a text body can be repeated in the structured content: an image or a pdf has the sentence alone.
+    data (csv, ndjson) is repeated in the structured content: a chart, an image or a pdf has the sentence alone.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
 
@@ -233,11 +252,13 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
 
     assert csv.content[0].text.splitlines()[0].startswith("station_id,resolution,")
     assert csv.content[0].text.splitlines()[1].startswith("01048,daily,")
-    sent = f"The answer is text/csv ({len(csv.content[0].text.encode()):,} bytes), sent as text content of this result."
-    assert csv.structured_content["result"].startswith(sent)
     # the rows follow the sentence, for a client that hands the model the structured content alone (GH-4017)
     assert csv.structured_content["result"].endswith(f"\n\n{csv.content[0].text}")
     assert ndjson.structured_content["result"].endswith(f"\n\n{ndjson.content[0].text}")
+    assert csv.structured_content["result"].startswith(
+        f"The answer is text/csv ({len(csv.content[0].text.encode()):,} bytes) and follows below "
+        "(it is also the text content of this result)."
+    )
     lines = ndjson.content[0].text.splitlines()
     assert '"metadata"' in lines[0]
     assert lines[-1].startswith('{"end"')
@@ -418,6 +439,16 @@ def test_an_answer_without_a_licence_or_warnings_has_a_plain_sentence() -> None:
     assert _report_of({}) == {}
     assert _sentence_of("image/png", 3, "image content", {}) == (
         "The answer is image/png (3 bytes), sent as image content of this result."
+    )
+
+
+def test_the_sentence_of_a_repeated_body_says_it_follows_and_does_not_send_a_reader_to_a_block() -> None:
+    """A reader of the structured content alone is told the answer follows, not that it was sent as content."""
+    sentence = _sentence_of("text/csv", 1234, "text content", {"license": "CC-BY-4.0"}, repeated=True)
+
+    assert sentence == (
+        "The answer is text/csv (1,234 bytes) and follows below (it is also the text content of this result). "
+        "Licence: CC-BY-4.0."
     )
 
 
