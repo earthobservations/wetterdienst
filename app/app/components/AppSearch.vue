@@ -11,8 +11,8 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const open = ref(false)
-// a finger in the open dialog moves nothing behind it (GH-3761)
-useDialogTouchGuard(open)
+// the page behind the open dialog is held on iOS, and a finger in it moves nothing behind it (GH-3761)
+useModalDialogHold(open)
 
 // Ctrl+K and ⌘K on every system (Nuxt UI's `meta_k` is ⌘K alone on a Mac, where a reader may well use Ctrl), and
 // from a field as well: the search is where one goes from anywhere
@@ -57,7 +57,7 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     :title="t('shell.search')"
     :description="t('shell.searchPlaceholder')"
     :close="false"
-    :ui="{ content: 'sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+    :ui="{ content: 'app-vv-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
   >
     <template #body>
       <AppCommandPalette @done="open = false" />

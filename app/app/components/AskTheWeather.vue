@@ -138,8 +138,8 @@ async function onPosition(point: { latitude: number, longitude: number }) {
 
 // the place dialog: the search of stations (AppCommandPalette in its place mode). A place chosen is in the link too.
 const placeOpen = ref(false)
-// a finger in the open place dialog moves nothing behind it (GH-3761)
-useDialogTouchGuard(placeOpen)
+// the page behind the open place dialog is held on iOS, and a finger in it moves nothing behind it (GH-3761)
+useModalDialogHold(placeOpen)
 const placeButton = ref<HTMLButtonElement | null>(null)
 function onPlace(chosen: { id: string }) {
   placeOpen.value = false
@@ -209,7 +209,7 @@ function onPlace(chosen: { id: string }) {
       :title="t('ask.placeDialogTitle')"
       :description="t('ask.placeHint')"
       :close="false"
-      :ui="{ content: 'sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+      :ui="{ content: 'app-vv-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
     >
       <template #body>
         <AppCommandPalette mode="place" @place="onPlace" @done="placeOpen = false" />
