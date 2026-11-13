@@ -1,37 +1,31 @@
-import { shouldCancelDialogTouch } from '~/utils/dialog-touch'
+import type { Ref } from 'vue'
+import { onScopeDispose, watch } from 'vue'
+import { holdDialogTouch } from '../utils/dialog-touch'
 
 /**
- * Keeps a finger in an open dialog from moving the page behind it (GH-3761). The one place for the three dialogs (the
- * search, the place dialog of "Ask the weather", the menu sheet): any `role="dialog"` is covered, so a new one needs
- * nothing of its own. A one-finger move that no box between the finger and the dialog can follow (a list already at
- * its top or its end, a part that does not scroll) is cancelled, which neither `overflow: hidden` on the body nor
- * `overscroll-behavior` does for iOS Safari with the on-screen keyboard up (see `utils/dialog-touch.ts`). A pinch is
- * left alone (WCAG 1.4.4). Call it once, in the root component; it takes no part where touch events are not made.
+ * Keeps a finger in an open modal dialog from moving the page behind it, on iOS (GH-3761; the reasons and what it
+ * does not cover are in `utils/dialog-touch.ts`). Call it in the component of a `UModal` with that modal's `open`: the
+ * guard is held for as long as it is open, and the touch listeners are on the document only while some modal is. A
+ * popover is no modal and does not call it, so its `role="dialog"` is not the guard's. Nothing is done on the server.
  */
-export function useDialogTouchGuard() {
+export function useDialogTouchGuard(open: Readonly<Ref<boolean>>) {
   if (import.meta.server)
     return
 
-  let lastX = 0
-  let lastY = 0
-
-  useEventListener(document, 'touchstart', (event: TouchEvent) => {
-    const touch = event.touches[0]
-    if (touch) {
-      lastX = touch.clientX
-      lastY = touch.clientY
+  let letGo: (() => void) | undefined
+  const stop = watch(open, (isOpen) => {
+    if (isOpen && !letGo) {
+      letGo = holdDialogTouch()
     }
-  }, { passive: true, capture: true })
+    else if (!isOpen && letGo) {
+      letGo()
+      letGo = undefined
+    }
+  }, { immediate: true, flush: 'sync' })
 
-  useEventListener(document, 'touchmove', (event: TouchEvent) => {
-    const touch = event.touches[0]
-    if (!touch || event.touches.length > 1)
-      return
-    const dx = touch.clientX - lastX
-    const dy = touch.clientY - lastY
-    lastX = touch.clientX
-    lastY = touch.clientY
-    if (event.cancelable && shouldCancelDialogTouch(event.target, dx, dy))
-      event.preventDefault()
-  }, { passive: false, capture: true })
+  onScopeDispose(() => {
+    stop()
+    letGo?.()
+    letGo = undefined
+  })
 }

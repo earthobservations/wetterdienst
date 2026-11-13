@@ -243,7 +243,13 @@ async function moveIsCancelled(target: Locator, dy: number, fingers = 1) {
   }, { dy, fingers })
 }
 
+// the guard is iOS's, as reka-ui's own (`isIOS` of the user agent): these run as an iPhone's Safari, the touch and the size
+// of the Pixel 7 of the project, since Chromium can be given the user agent and the events a script makes
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+
 test.describe('the guard on a move at the edge of a list (GH-3761)', () => {
+  test.use({ userAgent: IPHONE })
+
   test('the search\'s list lets a move scroll it, and cancels one at its top and at its end, as the dialog is just opened', async ({ page, baseURL }) => {
     await home(page, baseURL!)
     await page.getByRole('button', { name: en.shell.search }).click()
@@ -271,6 +277,65 @@ test.describe('the guard on a move at the edge of a list (GH-3761)', () => {
       expect(await moveIsCancelled(part, -30)).toBe(true)
       expect(await moveIsCancelled(part, 30)).toBe(true)
     }
+  })
+
+  test('is held by the place dialog and the menu sheet as by the search, at the top of their lists', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    // short enough that the places and the sheet's links are more than the dialogs hold
+    await page.setViewportSize({ width: 412, height: 520 })
+    await page.getByTestId('place-button').click()
+    const place = page.getByRole('dialog', { name: en.ask.placeDialogTitle })
+    await expect(place).toBeVisible()
+    await place.getByRole('combobox').fill('Test')
+    const option = place.getByRole('option').first()
+    await expect(place.getByRole('option')).toHaveCount(8)
+    expect(await moveIsCancelled(option, -30), 'up: the list scrolls').toBe(false)
+    expect(await moveIsCancelled(option, 30), 'down at the top: not on to the page').toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(place).toBeHidden()
+
+    await page.getByRole('button', { name: en.header.menu, exact: true }).click()
+    const sheet = page.getByRole('dialog', { name: en.header.menu })
+    await expect(sheet).toBeVisible()
+    const body = sheet.locator('[data-slot="body"]')
+    await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(100)
+    const link = body.getByRole('link').first()
+    expect(await moveIsCancelled(link, -30), 'up: the sheet scrolls').toBe(false)
+    expect(await moveIsCancelled(link, 30), 'down at the top: not on to the page').toBe(true)
+  })
+
+  test('is not held by the settings popover, which is no modal and is not the guard\'s', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await page.getByRole('button', { name: en.common.settings }).click()
+    const popover = page.getByRole('dialog').first()
+    await expect(popover).toBeVisible()
+    expect(await moveIsCancelled(popover, 30)).toBe(false)
+    expect(await moveIsCancelled(popover, -30)).toBe(false)
+  })
+
+  test.describe('on a browser that is not iOS', () => {
+    test.use({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' })
+
+    test('the search is left to overscroll-behavior: the guard is not held', async ({ page, baseURL }) => {
+      await home(page, baseURL!)
+      await page.getByRole('button', { name: en.shell.search }).click()
+      const dialog = page.getByRole('dialog', { name: en.shell.search })
+      await expect(dialog).toBeVisible()
+      const option = dialog.getByRole('listbox', { name: en.shell.results }).getByRole('option').first()
+      expect(await moveIsCancelled(option, 30), 'down at the top').toBe(false)
+      expect(await moveIsCancelled(palette(dialog)[0]!, 30), 'on the field').toBe(false)
+    })
+  })
+
+  test('leaves a pan of a zoomed-in page alone', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await page.getByRole('button', { name: en.shell.search }).click()
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog).toBeVisible()
+    const option = dialog.getByRole('listbox', { name: en.shell.results }).getByRole('option').first()
+    // a page that is zoomed in reports a visual viewport scale above 1 (the emulation cannot pinch)
+    await page.evaluate(() => Object.defineProperty(window, 'visualViewport', { value: { scale: 2 }, configurable: true }))
+    expect(await moveIsCancelled(option, 30)).toBe(false)
   })
 
   test('a move on the page with no dialog open is the page\'s own', async ({ page, baseURL }) => {
