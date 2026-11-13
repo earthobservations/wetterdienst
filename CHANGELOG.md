@@ -30,8 +30,9 @@ Types of changes:
   with a 429 among its files, `dwd/dmo`'s read of the stations a product covers and Hubeau's
   elevations raise `ProviderRateLimitError` where they answered from the rest and warned; the
   walks that fetch ahead (`dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology`, `smhi`) end
-  with it, and the refused URL is asked once, not again at the station's turn. Wait `retry_after`
-  and ask again (GH-4053)
+  with it, and the refused URL is asked once, not again at the station's turn. A batch of files
+  (`download_files`) asks no queued file after a 429, and `meteofrance/observation` no longer asks
+  a 429 a second time. Wait `retry_after` and ask again (GH-4053)
 
 ## [0.187.1] - 2026-11-13
 

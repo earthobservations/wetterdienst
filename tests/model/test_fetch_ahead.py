@@ -557,6 +557,29 @@ def test_the_other_threads_stop_at_the_429_before_the_walk_comes_to_raise_it(
     results.close()
 
 
+def test_a_429_noted_while_planning_does_not_wait_for_the_download_of_the_station_in_hand(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The walk is raising the limit: the files of the station it came to are not waited for, as nobody reads them."""
+
+    def named(station_id: str) -> list[str]:
+        if int(station_id) == 3:
+            raise ProviderRateLimitError(upstream.url, "limited", RATE_LIMIT_WAIT)
+        return _files(upstream, 1)(station_id)
+
+    upstream.delay = lambda path: 3.0 if path.startswith("/1/") else 0.0
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=2, named=named)
+
+    results = reader.query()
+    next(results)
+    started = time.monotonic()
+    with pytest.raises(ProviderRateLimitError):
+        next(results)
+
+    # the file of station 1 takes 3 s; the walk that raises for station 3, planned from station 1, does not wait for it
+    assert time.monotonic() - started < 1.5
+
+
 def test_a_429_met_by_the_hook_that_names_the_files_ends_the_walk(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

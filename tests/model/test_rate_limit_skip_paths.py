@@ -13,6 +13,7 @@ meets is counted: what is held is "asked once", read off the server and not off 
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 
@@ -30,7 +31,13 @@ from wetterdienst.provider.dwd.derived.download import download_climate_derived_
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest, fileindex
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
-from wetterdienst.util.network import File, download_file, list_remote_directory_fsspec, list_remote_files_fsspec
+from wetterdienst.util.network import (
+    File,
+    download_file,
+    download_files,
+    list_remote_directory_fsspec,
+    list_remote_files_fsspec,
+)
 from wetterdienst.util.response_warnings import SkipCause, begin_response, collecting, recorded_warnings
 
 if TYPE_CHECKING:
@@ -438,3 +445,95 @@ def _dmo_directory_url() -> str:
     from wetterdienst.provider.dwd.dmo.api import _dmo_station_dir  # noqa: PLC0415
 
     return urljoin(_DWD, _dmo_station_dir("icon"))
+
+
+def test_a_429_in_a_batch_of_meteofrance_resources_stops_the_retries_and_the_next_batch_and_is_raised_first(
+    road: _Dwd,
+) -> None:
+    """A 503 before the 429 is not asked again, the batch of another expiry is not downloaded, the 429 is raised."""
+    from wetterdienst.provider.meteofrance.observation.api import (  # noqa: PLC0415
+        _download_climate_resources,
+        _raise_if_climate_download_failed,
+    )
+
+    base = road.server.base
+    urls = {name: f"{base}/climate/{name}.csv.gz" for name in ("a", "b", "old")}
+    road.server.statuses["/climate/a.csv.gz"] = 503
+    road.limit("/climate/b.csv.gz")
+    road.server.contents["/climate/old.csv.gz"] = b"x"
+    recent = "previous 1950-2025"
+    resources = [
+        {"url": urls["a"], "title": recent},
+        {"url": urls["b"], "title": recent},
+        # kept for good: another group of the download, which comes after the first
+        {"url": urls["old"], "title": "avant 1949"},
+    ]
+
+    files = _download_climate_resources(resources, road.settings)
+
+    # the 503 is asked the retries of the download itself and not once more, the 429 once, the other batch not at all
+    assert road.asked("/climate/b.csv.gz") == 1
+    assert road.asked("/climate/old.csv.gz") == 0
+    assert urls["old"] not in files
+    # what one download of a 503 asks, retries included, is what the 503 of the batch was asked: no round of its own
+    road.server.statuses["/climate/single.csv.gz"] = 503
+    download_file(f"{base}/climate/single.csv.gz", cache_dir=road.settings.cache_dir, ttl=CacheExpiry.FIVE_MINUTES)
+    assert road.asked("/climate/a.csv.gz") == road.asked("/climate/single.csv.gz")
+    with pytest.raises(ProviderRateLimitError) as raised:
+        _raise_if_climate_download_failed(files)
+    assert raised.value.retry_after == WAIT
+
+
+# --- download_files: the files that are queued are not asked once one of them is a 429 ----------------------------
+
+
+def test_the_files_still_to_begin_are_not_asked_once_a_download_is_a_429(road: _Dwd) -> None:
+    """A group of many files (a road group, the archives of a station): the queue behind a 429 is not sent."""
+    from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+
+    workers = ThreadPoolExecutor()._max_workers  # noqa: SLF001 -- how many downloads begin at once
+    names = [f"/many/{n:03d}.zip" for n in range(workers * 3)]
+    road.limit(names[0])
+    for name in names[1:]:
+        # under way for long enough that the 429 is known before any worker comes for the next file
+        road.server.contents[name] = b"x"
+        road.server.delays[name] = 0.3
+    urls = [road.server.base + name for name in names]
+
+    files = download_files(urls=urls, cache_dir=road.settings.cache_dir, ttl=CacheExpiry.NO_CACHE)
+
+    asked = [name for name in names if road.asked(name)]
+    assert asked == names[:workers], "only what had begun when the 429 came was asked"
+    assert [file.url for file in files] == urls
+    assert all(file.is_rate_limited for file in files[workers:])
+    for file in (files[0], files[-1]):
+        with pytest.raises(ProviderRateLimitError) as raised:
+            file.raise_if_exception()
+        assert raised.value.retry_after == WAIT
+    # the ones that were under way arrived
+    assert all(isinstance(file.content, BytesIO) for file in files[1:workers])
+
+
+# --- aemet: the link of the data that is refused with a 429 is no chunk let go ---------------------------------------
+
+
+def test_a_429_of_the_data_link_of_aemet_is_returned_to_be_raised_and_no_chunk_is_noted_as_let_go(
+    monkeypatch: pytest.MonkeyPatch, road: _Dwd
+) -> None:
+    """The envelope says 200 and names the data, which is a 429: the readers raise it, so no `file-skipped` is told."""
+    import stamina  # noqa: PLC0415
+
+    from wetterdienst.provider.aemet.observation import api as aemet  # noqa: PLC0415
+
+    monkeypatch.setattr(aemet, "_BASE_URL", road.server.base)
+    road.server.contents["/envelope"] = f'{{"estado": 200, "datos": "{road.server.base}/datos"}}'.encode()
+    road.limit("/datos")
+    noted: list[SkipCause] = []
+    settings = Settings(cache_dir=road.settings.cache_dir, auth={"aemet": "dummy-key"})
+
+    with stamina.set_testing(True, attempts=1), collecting(lambda _whole_request, cause: noted.append(cause)):
+        payload = aemet._fetch_datos(f"{road.server.base}/envelope", settings, CacheExpiry.NO_CACHE)  # noqa: SLF001
+
+    assert isinstance(payload, ProviderRateLimitError)
+    assert payload.retry_after == WAIT
+    assert noted == []

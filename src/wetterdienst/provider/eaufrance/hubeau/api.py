@@ -721,7 +721,8 @@ class HubeauRequest(TimeseriesRequest):
             one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
             cannot be read: the elevation is all it supplies, and a station list without one is
             better than none at all. Not when no connection can be made, which raises
-            ``NoInternetError`` as the station list it enriches would.
+            ``NoInternetError`` as the station list it enriches would, nor when the provider answers 429, which raises
+            ``ProviderRateLimitError`` (GH-4053).
 
         """
         from typing import cast  # noqa: PLC0415

@@ -232,7 +232,8 @@ A provider that lets a failed file go (`note_skipped_download`) or answers from 
 first (`File.is_rate_limited`, then `File.raise_if_exception()`): a limit is not a file to skip, and the next file meets
 it too. A reader that degrades to a narrower answer for a failed read (`except DownloadError`, `except Exception`)
 re-raises `ProviderRateLimitError` as it does `NoInternetError`. A download that is retried by a provider's own loop
-leaves a 429 out of it, and the fetch-ahead of a walk keeps a 429 it meets and raises it at the next station of the
+leaves a 429 out of it (AEMET's retry of its per-minute limit is the exception, decided in GH-4048), `download_files`
+asks no file that was not begun once one is a 429, and the fetch-ahead of a walk keeps a 429 it meets and raises it at the next station of the
 walk (`model/fetch_ahead.py`).
 
 Both errors are `UpstreamError`s. A download that fails is stored in `File.content` and raised by

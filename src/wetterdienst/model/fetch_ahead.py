@@ -232,6 +232,13 @@ class FetchAhead:
             log.debug("Fetch-ahead: planning failed at position %d: %r", position, error)
             self._failed.set()
         fetch = self._fetches.pop(position, None)
+        if self._rate_limited is not None:
+            # a limit met while planning, or by a thread since the check above: what is under way is not waited for,
+            # as its answer is thrown away with the walk
+            if fetch is not None and fetch.future is not None:
+                fetch.stop.set()
+                fetch.future.cancel()
+            self._raise_if_rate_limited()
         if fetch is not None and fetch.future is not None:
             # the station's own download fetches its files side by side, so what this has not fetched yet is left to
             # it: the thread ends the file it is at, and one that has not begun at all is not begun
