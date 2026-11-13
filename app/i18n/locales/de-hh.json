@@ -518,6 +518,7 @@
       "zoomOut": "Rutzoomen",
       "earlier": "Fröhere Stunnen",
       "later": "Laterte Stunnen",
+      "zoomGroup": "Diagramm zoomen un verschuven",
       "readoutFor": "Vörhersaag för {time}",
       "readoutClose": "Warten tomaken",
       "keysHint": "Mit de Pielentasten geihst du stunnenwies dör de Vörhersaag, mit Umschalt in Sess-Stunnen-Schreed. Bild op un Bild af springt een Dag, Pos1 un Enn gaht to'n Anfang un to'n Enn. Plus, Minus un 0 maakt grötter, lüttjer un sett trüch. Esc maakt de Warten to.",

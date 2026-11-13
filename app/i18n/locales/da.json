@@ -518,6 +518,7 @@
       "zoomOut": "Zoom ud",
       "earlier": "Tidligere timer",
       "later": "Senere timer",
+      "zoomGroup": "Zoom og rul i diagrammet",
       "readoutFor": "Prognose for {time}",
       "readoutClose": "Luk værdierne",
       "keysHint": "Piletasterne går time for time, med Skift seks timer ad gangen. Page Up og Page Down går en dag, Home og End til begyndelsen og slutningen. Plus, minus og 0 zoomer ind, zoomer ud og nulstiller. Esc lukker værdierne.",

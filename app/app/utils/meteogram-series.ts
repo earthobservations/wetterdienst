@@ -1,9 +1,7 @@
 /**
- * The forecast's values as series, and the grid they are drawn on: what the meteogram's chart, its day cards, its
- * summary and its table are all made from.
+ * The forecast's values as series: what the meteogram's chart, its day cards, its summary and its table are all made from.
  */
 import type { Value } from '#shared/types/api'
-import { interpSeries, nearestNeighbor, resampleCadenceMs } from './meteogram'
 
 /** One parameter's values in time order: the dates and the values at them */
 export interface Series { x: Date[], y: number[] }
@@ -50,29 +48,4 @@ export function seriesSpan(series: SeriesMap): { min: number, max: number } | nu
     max = Math.max(max, s.x.at(-1)!.getTime())
   }
   return Number.isFinite(min) ? { min, max } : null
-}
-
-/**
- * Every series on one grid, hourly and every 3 hours past 5 days (`resampleCadenceMs`): linear between the stamps,
- * and for the series named in `stepKeys` (the precipitation) the value of the nearest stamp, which is no curve.
- */
-export function resampleSeries(series: SeriesMap, minTime: number, maxTime: number, stepKeys: Set<string> = new Set()): SeriesMap {
-  const cadenceMs = resampleCadenceMs(minTime, maxTime)
-  const resampled: SeriesMap = new Map()
-
-  for (const [key, s] of series) {
-    const newX: Date[] = []
-    const newY: number[] = []
-    const startTick = Math.ceil(minTime / cadenceMs) * cadenceMs
-    for (let t = startTick; t <= maxTime; t += cadenceMs) {
-      const val = stepKeys.has(key) ? nearestNeighbor(s.x, s.y, t) : interpSeries(s.x, s.y, t)
-      if (val !== null) {
-        newX.push(new Date(t))
-        newY.push(val)
-      }
-    }
-    if (newX.length > 0)
-      resampled.set(key, { x: newX, y: newY })
-  }
-  return resampled
 }

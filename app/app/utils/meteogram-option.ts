@@ -20,6 +20,8 @@ export const BARB_SPACING = 26
 export const SYMBOL_SPACING = 32
 export const LABEL_SPACING = 46
 export const SYMBOL_SIZE = 30
+/** Half the width of a label of the time axis, in px */
+export const HOUR_LABEL_HALF_WIDTH = 18
 
 /** The colours of the series: the line and the wash under it, in the light and the dark scheme */
 const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fillDark?: string }> = {
@@ -125,8 +127,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         fontSize: 12,
         fontFamily,
         margin: 8,
-        // the panel above ends where this one begins: its top label would touch that panel's bottom one
-        showMaxLabel: i === 0,
+        // the top of a panel is where the panel above ends: its label would touch that one's bottom label, and the
+        // ticks that remain are round numbers
+        showMaxLabel: false,
         formatter: (value: number) => format.format(value),
       },
       name: axis.title,
@@ -302,11 +305,14 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     z: 5,
     animation: false,
     data: model.hours.map(h => [h.t, h.hour]),
-    renderItem: (_params: any, api: any) => {
+    renderItem: (params: any, api: any) => {
       const step = labelStepHours(api.size([HOUR_MS, 0])[0], LABEL_SPACING)
       if (api.value(1) % step !== 0)
         return null
       const x = api.coord([api.value(0), 0])[0]
+      // a label that the edge of the plot would cut is left out: half an hour is no hour
+      if (outsidePlot(x, params.coordSys.x, params.coordSys.x + params.coordSys.width, -HOUR_LABEL_HALF_WIDTH))
+        return null
       return text(hourLabel(api.value(0)), x, header.hoursTop + 9, theme.textMuted)
     },
   })

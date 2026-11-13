@@ -518,6 +518,7 @@
       "zoomOut": "Verklengeren",
       "earlier": "Fréier Stonnen",
       "later": "Méi spéit Stonnen",
+      "zoomGroup": "Diagramm zoomen a verréckelen",
       "readoutFor": "Prévisioun fir {time}",
       "readoutClose": "Wäerter zoumaachen",
       "keysHint": "Mat den Feiltaste gees du Stonn fir Stonn duerch d'Prévisioun, mat Shift a Sechs-Stonne-Schrëtt. Page Up a Page Down sprange fir een Dag, Home an End un den Ufank an d'Enn. Plus, Minus an 0 vergréisseren, verklengeren an zerécksetzen. Esc mécht d'Wäerter zou.",

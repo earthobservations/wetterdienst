@@ -518,6 +518,7 @@
       "zoomOut": "Alejar",
       "earlier": "Horas anteriores",
       "later": "Horas posteriores",
+      "zoomGroup": "Zoom y desplazamiento del gráfico",
       "readoutFor": "Previsión para {time}",
       "readoutClose": "Cerrar los valores",
       "keysHint": "Las flechas recorren las horas, con Mayús de seis en seis. Re Pág y Av Pág avanzan un día, Inicio y Fin van a los extremos. Más, menos y 0 acercan, alejan y restablecen. Esc cierra los valores.",
