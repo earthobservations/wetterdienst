@@ -752,7 +752,7 @@
     "parametersLabel": "Parameters",
     "providerRestrictionUnavailable": "De geconfigureerde aanbieder “{provider}” is niet beschikbaar voor deze backend.",
     "networkRestrictionUnavailable": "Het geconfigureerde netwerk “{network}” is niet beschikbaar voor deze aanbieder.",
-    "backendUnreachable": "De backend is niet bereikbaar, dus de aanbieders kunnen niet worden getoond."
+    "backendUnreachable": "De backend is niet bereikbaar, dus kunnen de aanbieders niet worden getoond."
   },
   "stationSelection": {
     "loading": "Stations laden …",

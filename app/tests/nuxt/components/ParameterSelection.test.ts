@@ -1,6 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, ref } from 'vue'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -80,9 +81,9 @@ describe('parameterSelection Component', () => {
   })
 
   it('emits update when parameters change', async () => {
-    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
-    )
+    // an answer: a failed request has nothing to restore and tells the parent nothing (GH-4042)
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {
@@ -101,10 +102,8 @@ describe('parameterSelection Component', () => {
   })
 
   it('initializes with provided model value', async () => {
-    vi.mocked(globalThis.fetch)
-      .mockResolvedValue(
-        new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
-      )
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
 
     const initialValue = {
       provider: 'dwd',
@@ -617,6 +616,69 @@ describe('parameterSelection Component, the list of providers', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
     expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
     expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  // A parent that holds the selection as the Explorer and History do (v-model), starting from a link's selection
+  async function mountWithParent(restricted: boolean) {
+    const selection = ref<any>({ provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] })
+    const emitted: any[] = []
+    const Parent = defineComponent({
+      setup: () => () => h(ParameterSelection, {
+        'modelValue': selection.value,
+        'onUpdate:modelValue': (value: any) => {
+          emitted.push(value)
+          selection.value = value
+        },
+        ...(restricted ? { restrictProvider: 'dwd', restrictNetwork: 'observation' } : {}),
+      }),
+    })
+    const wrapper = await mountSuspended(Parent)
+    mountedWrappers.push(wrapper)
+    return { wrapper, selection, emitted }
+  }
+
+  it.each([true, false])('keeps the parent\'s selection while the backend is down, and restores it on Retry (restricted: %s)', async (restricted) => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+    const link = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] }
+
+    const { wrapper, selection, emitted } = await mountWithParent(restricted)
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    await vi.waitFor(() => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    // nothing could be restored, so nothing was told: the parent (and the address it writes) keeps the link's selection
+    expect(emitted).toEqual([])
+    expect(selection.value).toEqual(link)
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    const vm = wrapper.findComponent(ParameterSelection).vm as any
+    // the selects hold the link's selection again, from the first `modelValue`, and the parent is told it
+    await vi.waitFor(() => {
+      expect(vm.isInitializing).toBe(false)
+      expect([vm.provider, vm.network, vm.resolution, vm.dataset, vm.parameters]).toEqual(['dwd', 'observation', 'daily', 'climate_summary', ['temperature_air_max_2m']])
+    })
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(emitted.at(-1)).toMatchObject(link)
+    expect(selection.value).toMatchObject(link)
+  })
+
+  it('restores from what the parent handed over first, not from what it holds by the time of the retry', async () => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const { wrapper, selection } = await mountWithParent(false)
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    await vi.waitFor(() => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false))
+    // a parent that moved on meanwhile (the address changed, a reset)
+    selection.value = { parameters: [] }
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    const vm = wrapper.findComponent(ParameterSelection).vm as any
+    await vi.waitFor(() => expect([vm.provider, vm.network, vm.resolution, vm.dataset]).toEqual(['dwd', 'observation', 'daily', 'climate_summary']))
   })
 
   it('tells a retry that finds the provider missing apart from one that fails', async () => {

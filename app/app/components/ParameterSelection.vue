@@ -259,8 +259,20 @@ const paramItems = computed(() => params.value.map(p => ({
 })))
 
 // Initialize from query params and validate step by step
+// What the parent handed over when initialization first ran: a retry of a failed request restores from it, not from
+// what the parent holds by then
+let initialModel: NonNullable<typeof props.modelValue> = {}
+
+// Where initialization ends, the parent is told the selection it came to. Not where it ran on a failed request: nothing
+// could be restored then, and an empty selection would replace the parent's, and the address it writes, for good. The
+// parent keeps what it had until a retry is answered.
+function emitInitial() {
+  if (!coverageFailed.value)
+    emitUpdate()
+}
+
 async function initializeFromProps() {
-  const initial = { ...props.modelValue }
+  const initial = { ...initialModel }
 
   // A restricted provider/network overrides anything URL-provided — there's
   // only one valid value, so no point treating a mismatch as "invalid input".
@@ -284,7 +296,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -296,7 +308,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -306,7 +318,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -316,7 +328,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -334,7 +346,7 @@ async function initializeFromProps() {
   // Wait another tick to ensure watchers have processed before turning off initialization mode
   await nextTick()
   isInitializing.value = false
-  emitUpdate()
+  emitInitial()
 }
 
 // Initialization needs the coverage answer -- every validation step above reads it -- and that is
@@ -346,8 +358,8 @@ async function initializeFromProps() {
 // (both /explorer and /history mount this component against the same `useFetch` key), and
 // `emitUpdate()` firing mid-render mutates the parent's state while it is still rendering.
 //
-// An initialization that ran on a failed request is run again when the retry is answered, since it restricted
-// nothing and restored nothing.
+// An initialization that ran on a failed request restricted nothing, restored nothing and told the parent nothing
+// (`emitInitial`): it is run again, from what the parent handed over the first time, when the retry is answered.
 let initializationStarted = false
 let initializedOnFailure = false
 function initializeWhenCoverageSettled() {
@@ -357,6 +369,9 @@ function initializeWhenCoverageSettled() {
     if (!initializedOnFailure || coverageStatus.value !== 'success')
       return
     isInitializing.value = true
+  }
+  else {
+    initialModel = { ...props.modelValue, parameters: props.modelValue?.parameters ? [...props.modelValue.parameters] : undefined }
   }
   initializationStarted = true
   initializedOnFailure = coverageFailed.value
@@ -484,8 +499,7 @@ watch([provider, network, resolution, dataset, parameters, dateRequired, network
         variant="subtle"
         :title="t('parameterSelection.backendUnreachable')"
         icon="i-ph-warning-circle"
-        :ui="{ actions: 'min-w-0 max-w-full shrink' }"
-        :actions="[{ label: t('common.retry'), icon: 'i-ph-arrow-clockwise', color: 'neutral', variant: 'outline', size: 'sm', class: 'max-w-full h-auto', ui: { label: 'whitespace-normal text-left' }, onClick: () => refreshProviders() }]"
+        :actions="[{ label: t('common.retry'), icon: 'i-ph-arrow-clockwise', color: 'neutral', variant: 'outline', size: 'sm', class: 'max-w-full h-auto', ui: { label: 'whitespace-normal text-clip text-left' }, onClick: () => refreshProviders() }]"
       />
       <UAlert
         v-else-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"

@@ -479,7 +479,12 @@ async function expectBannerWithinFields(page: Page, title: ReturnType<Page['getB
       const root = el.closest('[data-slot="root"]')!
       const alert = root.getBoundingClientRect()
       const field = document.querySelector('button[role="combobox"]')!.getBoundingClientRect()
-      const button = [...root.querySelectorAll('button')].find(b => b.textContent?.includes(label))?.getBoundingClientRect()
+      const buttonElement = [...root.querySelectorAll('button')].find(b => b.textContent?.includes(label))
+      const button = buttonElement?.getBoundingClientRect()
+      // `offendersOf` skips an element that truncates on purpose, so that the label wraps is said here: its text is not
+      // cut off by an ellipsis, and its own text is all inside its box
+      const labelElement = buttonElement ? [...buttonElement.querySelectorAll('span')].find(span => span.textContent?.trim() === label) : undefined
+      const labelStyle = labelElement ? getComputedStyle(labelElement) : null
       return {
         alertLeft: alert.left,
         alertRight: alert.right,
@@ -487,6 +492,7 @@ async function expectBannerWithinFields(page: Page, title: ReturnType<Page['getB
         fieldRight: field.right,
         window: document.documentElement.clientWidth,
         retryInside: button ? button.width > 0 && button.left >= alert.left - 1 && button.right <= alert.right + 1 : null,
+        labelWraps: labelElement && labelStyle ? { whiteSpace: labelStyle.whiteSpace, textOverflow: labelStyle.textOverflow, clipped: labelElement.scrollWidth > labelElement.clientWidth } : null,
       }
     }, retryLabel)
     const where = `the ${what} banner of /history in ${language} at ${width}px`
@@ -494,6 +500,9 @@ async function expectBannerWithinFields(page: Page, title: ReturnType<Page['getB
     expect(Math.abs(edges.alertRight - edges.fieldRight), `${where}: right edge against the fields'`).toBeLessThanOrEqual(1)
     expect(edges.alertRight, `${where}: inside the window`).toBeLessThanOrEqual(edges.window)
     expect(edges.retryInside, `${where}: the Retry button ${retry ? 'stands inside the banner' : 'is not there'}`).toBe(retry ? true : null)
+    expect(edges.labelWraps, `${where}: the label of the Retry button wraps, it is not truncated`).toEqual(retry
+      ? { whiteSpace: expect.stringMatching(/^(normal|pre-wrap|break-spaces)$/), textOverflow: 'clip', clipped: false }
+      : null)
     if (width === 320)
       expect(await offendersOf(page), where).toEqual([])
   }
