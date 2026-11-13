@@ -43,7 +43,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget } = useMyLocation()
+const { position, failure, busy, remember, notKept, notKeptCount, withdrawn, remembered, locate, rememberPosition, forget } = useMyLocation()
 
 /** The box and its note: a position is in hand and nothing is stored */
 const offerToKeep = computed(() => position.value !== null && !remembered.value)
@@ -59,6 +59,11 @@ onMounted(() => {
     // the card's copy told it already: the list's copy, mounted after it, does not announce it again
     notKept.value = false
   }
+})
+// what was told of a withdrawn permission stays with the page that told it: it can come at load, before this mounts
+onBeforeUnmount(() => {
+  if (!props.offerOnly)
+    withdrawn.value = false
 })
 
 const working = computed(() => busy.value)
@@ -180,6 +185,10 @@ watch(remembered, (now) => {
     <template v-if="!offerOnly">
       <p class="text-sm text-gray-700 empty:sr-only dark:text-gray-300" role="status" aria-live="polite" data-testid="use-my-location-status">
         {{ status }}
+      </p>
+      <!-- the stored position was deleted because the browser's permission is withdrawn (GH-4014): told politely, in the tree from the start like the status above -->
+      <p class="text-sm text-gray-700 empty:sr-only dark:text-gray-300" role="status" aria-live="polite" data-testid="use-my-location-withdrawn">
+        {{ withdrawn ? t('location.withdrawn') : '' }}
       </p>
       <p v-if="failureText || problem" class="text-sm text-error" role="alert" data-testid="use-my-location-problem">
         {{ failureText || problem }}

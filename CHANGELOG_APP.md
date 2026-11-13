@@ -18,6 +18,15 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" no longer uses a
+  stored position once the browser reports the location permission as blocked (denied): a press,
+  and the load of the home page with a station that the position made, delete the position and
+  that station and say so; the home page asks nothing about the station until it is checked. A
+  query that never answers counts as "cannot tell" after 1.5 s. A station stored without its
+  position is deleted too. Forgetting the position in one tab reaches the other open tabs, also
+  those with no control open or restored from the browser's cache, and a press no longer uses a
+  position forgotten elsewhere or leaves the button busy. The privacy policy (en, de) says so
+  (GH-4014)
 - `[All pages]` On iPhone, a drag in an open dialog (the search, the place dialog of "Ask the
   weather", the menu sheet) no longer scrolls the page behind it when the list is at its top or its
   end, such as the search's list right after it opens. A list still scrolls inside, and a pinch or

@@ -782,6 +782,7 @@
     "stored": "Gespäichert",
     "storedLabel": "Gespäichert: meng Positioun an dësem Browser",
     "notKept": "Däi Browser huet net erlaabt, d'Positioun ze späicheren. D'Positioun gëtt just fir dëse Besuch benotzt.",
+    "withdrawn": "Däi Browser erlaabt d'Positioun fir dëse Site net méi, dofir gouf déi gespäichert Positioun geläscht.",
     "denied": "Däi Browser blockéiert d'Positioun fir dës Säit. Fir se z'erlaben, maach d'Säiteastellunge vun dengem Browser op, stell Positioun op Erlaben a dréck nach eng Kéier op de Knäppchen. D'Sich funktionéiert weider.",
     "unsupported": "Dëse Browser kann deng Positioun net erkennen. Benotz amplaz d'Sich.",
     "unavailable": "Deng Positioun konnt net fonnt ginn. Benotz amplaz d'Sich.",

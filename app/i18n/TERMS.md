@@ -246,6 +246,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
   The second sentence names the position again (not "it"), so that it cannot read as the browser. Least certain: `de-hh`
   `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`; `De Standort` for the masculine article);
   `lb` `erlaabt` and `gëtt just fir`; `cs` `neumožnil` and `Poloha se použije`; `da` `tillod ikke, at`.
+- **Machine-made**: the status of "Use my location" for a stored position that was deleted because the browser's permission
+  was found withdrawn (`location.withdrawn`, GH-4014) was written by a language model (Claude) in **all ten locales besides
+  `en`**, `de` included, and no person has read it. Least certain: `de-hh` `verlööft`, `wegmaakt worrn` and `bewahrte`
+  (the chip says `Bewahrt`); `lb` `erlaabt`, `gouf déi gespäichert Positioun geläscht` and `Site`; `cs` `už ... nepovoluje`
+  and `smazána`; `da` `tillader ikke længere`; `nl` `staat ... niet meer toe`.
 - **Machine-made**: the banner of the provider selection for a backend that could not be reached
   (`parameterSelection.backendUnreachable`, GH-4042) was written by a language model (Claude) in **all ten locales
   besides `en`**, `de` included, and no person has read it. It says "provider" with the locale's word and names no
