@@ -393,7 +393,7 @@ Decided on 2026-11-08 and recorded on #2625 and #3137.
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.187.1`)
+- **Backend**: Version in `pyproject.toml` (currently `0.188.0`)
 - **App**: Version in `app/package.json` (currently `0.49.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
