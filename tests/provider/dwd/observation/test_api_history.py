@@ -1620,7 +1620,28 @@ def test_dwd_obs_history_name_file_keeps_its_last_row_with_or_without_footer(end
     assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
 
 
-@pytest.mark.parametrize("ending", _ENDINGS.values(), ids=_ENDINGS.keys())
+@pytest.mark.parametrize("first", ["station", "operator"])
+def test_dwd_obs_history_name_file_stops_at_the_footer(first: str) -> None:
+    """Test the rows after the `generiert:` line are not read: the footer ends the file (GH-4034)."""
+    station = "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+    operator = (
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n  1975;Wetterdienst;19340801;19521110\n  1975;DWD;19521111;\n"
+    )
+    text = station + "\n" + operator if first == "station" else operator + "\n" + station
+    after_footer = "  1975;Nachzuegler;19600101;\n"
+    zfs = ZipFileSystem(
+        _metadata_zip({"Metadaten_Stationsname_Betreibername_01975.txt": text + _FOOTER + after_footer})
+    )
+
+    name = DwdObservationHistory.read_name_history(zfs)
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+# `read_missing_data_history` strips the text before it splits it into lines, so an empty line at the end never
+# reaches the helper: only the footer and its absence are cases there
+@pytest.mark.parametrize("ending", [_FOOTER, ""], ids=["footer", "no footer"])
 def test_dwd_obs_history_missing_data_file_keeps_its_last_row_with_or_without_footer(ending: str) -> None:
     """Test the last period row is read whether or not the missing-data file ends with `generiert:` (GH-4034)."""
     text = (
@@ -1641,13 +1662,18 @@ def test_dwd_obs_history_missing_data_file_keeps_its_last_row_with_or_without_fo
 def test_dwd_obs_history_other_readers_keep_their_last_row_without_footer() -> None:
     """Test the parameter, device and geography readers keep the last row of a file with no `generiert:` line.
 
-    They skip the footer by its text, so they hold no assumption that it is there (GH-4034).
+    The parameter and device readers skip the footer by its text; the geography reader takes every line with enough
+    fields, and its live files have no footer. None of them cuts the last line (GH-4034).
     """
     files = {
-        name: text.replace(_FOOTER, "")
+        name: "".join(
+            line for line in text.splitlines(keepends=True) if not line.startswith(("generiert:", "Legende:"))
+        )
         for name, text in _STATION_01048_METADATA.items()
         if name.startswith(("Metadaten_Parameter", "Metadaten_Geraete", "Metadaten_Geographie"))
     }
+    # the data row is the last line of each file now, so a reader that cut a line would lose it
+    assert all(text.rstrip("\n").splitlines()[-1].startswith(("1048;", "  1048;")) for text in files.values())
     zfs = ZipFileSystem(_metadata_zip(files))
 
     assert [record.parameter for record in DwdObservationHistory.read_parameter_history(zfs)] == ["VPM"]
