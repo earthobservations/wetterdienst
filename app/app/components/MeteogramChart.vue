@@ -245,7 +245,7 @@ const readout = computed(() => {
 
 // at the right of the crosshair, or at its left where the right has no room; level with the pointer, so that the pointer
 // is moved onto it by moving across the one step to the crosshair's hour, and no further
-const READOUT_WIDTH = 216
+const READOUT_WIDTH = 236
 const readoutStyle = computed(() => {
   const x = cursorX.value ?? 0
   const right = x + READOUT_WIDTH + 6 <= outerPx.value
