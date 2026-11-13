@@ -751,7 +751,8 @@
     "datasetLabel": "Datasæt",
     "parametersLabel": "Parametre",
     "providerRestrictionUnavailable": "Den konfigurerede udbyder “{provider}” er ikke tilgængelig for denne backend.",
-    "networkRestrictionUnavailable": "Det konfigurerede netværk “{network}” er ikke tilgængeligt for denne udbyder."
+    "networkRestrictionUnavailable": "Det konfigurerede netværk “{network}” er ikke tilgængeligt for denne udbyder.",
+    "backendUnreachable": "Backend kan ikke nås, så udbyderne kan ikke vises."
   },
   "stationSelection": {
     "loading": "Indlæser stationer …",

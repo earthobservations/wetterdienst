@@ -456,38 +456,72 @@ for (const language of ['en', ...LONG_LANGUAGES]) {
   })
 }
 
-// The banner of a provider the page is configured for but the backend does not offer (GH-4037): it is shown too when the
-// list of providers cannot be read at all (an unreachable backend). It was `w-full` with a margin of 24 px on both sides,
-// so it ran 24 px past the card's content at every width, 8 px past the window at 320 px. It stands where the fields
-// stand: the same left and right edge as the first select, inside the window, at a phone's, a tablet's and a desktop's width.
-function restrictionTitle(language: string): string {
-  const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
-  return catalog.parameterSelection.providerRestrictionUnavailable.replace('{provider}', 'dwd')
+// The banners of the list of providers (GH-4037, GH-4042). The page is configured for a provider (/history is DWD's), and the
+// list is either not readable at all (an unreachable backend: "could not be reached", with a Retry button) or readable
+// and without that provider (the provider is "not available from this backend"). The banner was `w-full` with a margin of
+// 24 px on both sides, so it ran 24 px past the card's content at every width, 8 px past the window at 320 px. It stands
+// where the fields stand: the same left and right edge as the first select, inside the window, at a phone's, a tablet's and
+// a desktop's width, and its Retry button inside its own edges.
+function readCatalog(language: string) {
+  return JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+}
+
+function bannerText(language: string, key: 'providerRestrictionUnavailable' | 'backendUnreachable'): string {
+  return readCatalog(language).parameterSelection[key].replace('{provider}', 'dwd')
+}
+
+async function expectBannerWithinFields(page: Page, title: ReturnType<Page['getByText']>, language: string, what: string, retry: boolean) {
+  const retryLabel: string = readCatalog(language).common.retry
+  for (const width of [320, 640, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await settle(page)
+    const edges = await title.evaluate((el, label) => {
+      const root = el.closest('[data-slot="root"]')!
+      const alert = root.getBoundingClientRect()
+      const field = document.querySelector('button[role="combobox"]')!.getBoundingClientRect()
+      const button = [...root.querySelectorAll('button')].find(b => b.textContent?.includes(label))?.getBoundingClientRect()
+      return {
+        alertLeft: alert.left,
+        alertRight: alert.right,
+        fieldLeft: field.left,
+        fieldRight: field.right,
+        window: document.documentElement.clientWidth,
+        retryInside: button ? button.width > 0 && button.left >= alert.left - 1 && button.right <= alert.right + 1 : null,
+      }
+    }, retryLabel)
+    const where = `the ${what} banner of /history in ${language} at ${width}px`
+    expect(Math.abs(edges.alertLeft - edges.fieldLeft), `${where}: left edge against the fields'`).toBeLessThanOrEqual(1)
+    expect(Math.abs(edges.alertRight - edges.fieldRight), `${where}: right edge against the fields'`).toBeLessThanOrEqual(1)
+    expect(edges.alertRight, `${where}: inside the window`).toBeLessThanOrEqual(edges.window)
+    expect(edges.retryInside, `${where}: the Retry button ${retry ? 'stands inside the banner' : 'is not there'}`).toBe(retry ? true : null)
+    if (width === 320)
+      expect(await offendersOf(page), where).toEqual([])
+  }
 }
 
 for (const language of ['en', ...LONG_LANGUAGES]) {
-  test(`/history with the backend's providers unreadable shows the banner of its provider within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
+  test(`/history with the backend's providers unreadable says it could not be reached, with a Retry, within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
     const unreachable = () => new ApiFailure(503, 'Service Unavailable')
     await mockBackend(page, baseURL!, { providers: unreachable, coverage: unreachable })
     await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
     await page.setViewportSize({ width: 320, height: 844 })
     await page.goto('/history')
-    const title = page.getByText(restrictionTitle(language), { exact: true })
+    const title = page.getByText(bannerText(language, 'backendUnreachable'), { exact: true })
     await expect(title).toBeVisible({ timeout: 60_000 })
-    for (const width of [320, 640, 1280]) {
-      await page.setViewportSize({ width, height: 844 })
-      await settle(page)
-      const edges = await title.evaluate((el) => {
-        const alert = el.closest('[data-slot="root"]')!.getBoundingClientRect()
-        const field = document.querySelector('button[role="combobox"]')!.getBoundingClientRect()
-        return { alertLeft: alert.left, alertRight: alert.right, fieldLeft: field.left, fieldRight: field.right, window: document.documentElement.clientWidth }
-      })
-      const where = `the banner of /history in ${language} at ${width}px`
-      expect(Math.abs(edges.alertLeft - edges.fieldLeft), `${where}: left edge against the fields'`).toBeLessThanOrEqual(1)
-      expect(Math.abs(edges.alertRight - edges.fieldRight), `${where}: right edge against the fields'`).toBeLessThanOrEqual(1)
-      expect(edges.alertRight, `${where}: inside the window`).toBeLessThanOrEqual(edges.window)
-      if (width === 320)
-        expect(await offendersOf(page), where).toEqual([])
-    }
+    // the other text blames a provider that may well exist
+    await expect(page.getByText(bannerText(language, 'providerRestrictionUnavailable'), { exact: true })).toHaveCount(0)
+    await expectBannerWithinFields(page, title, language, 'unreachable', true)
+  })
+
+  test(`/history with a list of providers without DWD shows the banner of its provider within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
+    const list = await defaultHandlers().providers!(new URL(baseURL!), undefined as never) as { providers: Array<{ provider: string }> }
+    await mockBackend(page, baseURL!, { providers: () => ({ ...list, providers: list.providers.filter(p => p.provider !== 'dwd') }) })
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto('/history')
+    const title = page.getByText(bannerText(language, 'providerRestrictionUnavailable'), { exact: true })
+    await expect(title).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(bannerText(language, 'backendUnreachable'), { exact: true })).toHaveCount(0)
+    await expectBannerWithinFields(page, title, language, 'unavailable provider', false)
   })
 }

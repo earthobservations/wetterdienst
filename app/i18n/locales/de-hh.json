@@ -751,7 +751,8 @@
     "datasetLabel": "Datensatz",
     "parametersLabel": "Parameter",
     "providerRestrictionUnavailable": "De instellte Anbeder „{provider}“ is bi dit Backend nich verfögbar.",
-    "networkRestrictionUnavailable": "Dat instellte Nettwark „{network}“ is för disse Anbeder nich verfögbar."
+    "networkRestrictionUnavailable": "Dat instellte Nettwark „{network}“ is för disse Anbeder nich verfögbar.",
+    "backendUnreachable": "Dat Backend weer nich to erreken, dorüm laat sik de Anbeder nich opwiesen."
   },
   "stationSelection": {
     "loading": "Stationen warrt laadt …",

@@ -751,7 +751,8 @@
     "datasetLabel": "Zbiór danych",
     "parametersLabel": "Parametry",
     "providerRestrictionUnavailable": "Skonfigurowany dostawca „{provider}” nie jest dostępny dla tego backendu.",
-    "networkRestrictionUnavailable": "Skonfigurowana sieć „{network}” nie jest dostępna dla tego dostawcy."
+    "networkRestrictionUnavailable": "Skonfigurowana sieć „{network}” nie jest dostępna dla tego dostawcy.",
+    "backendUnreachable": "Nie udało się połączyć z backendem, więc nie można wyświetlić dostawców."
   },
   "stationSelection": {
     "loading": "Ładowanie stacji …",

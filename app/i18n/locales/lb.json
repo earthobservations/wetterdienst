@@ -751,7 +751,8 @@
     "datasetLabel": "Datesaz",
     "parametersLabel": "Parameteren",
     "providerRestrictionUnavailable": "Den agestallte Ubidder „{provider}“ ass fir dëse Backend net disponibel.",
-    "networkRestrictionUnavailable": "Dat agestallt Netzwierk „{network}“ ass fir dëse Ubidder net disponibel."
+    "networkRestrictionUnavailable": "Dat agestallt Netzwierk „{network}“ ass fir dëse Ubidder net disponibel.",
+    "backendUnreachable": "De Backend war net erreechbar, dofir kënnen d'Ubidder net ugewise ginn."
   },
   "stationSelection": {
     "loading": "Statioune ginn gelueden …",

@@ -9,6 +9,7 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 import { networksAnswer } from '../fixtures/providers'
+import { EXPLORER_STATE } from '../fixtures/state'
 
 // The date range the explorer starts for a selection whose whole record is more than the server sends as one
 // answer (GH-3457), and who the range belongs to once the user has touched it
@@ -40,7 +41,7 @@ const endpoints: (() => void)[] = []
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
-  clearNuxtState()
+  clearNuxtState(EXPLORER_STATE)
   useToast().clear()
 })
 

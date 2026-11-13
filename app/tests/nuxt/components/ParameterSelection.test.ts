@@ -504,3 +504,130 @@ describe('parameterSelection credential checks', () => {
     expect(vm.network).toBeUndefined()
   })
 })
+
+// The list of providers is the one request the selects are built from. A request that failed says nothing about which
+// providers exist, so it is not the banner "not available from this backend", which is for an answer that arrived and does
+// not list the provider (GH-4042).
+describe('parameterSelection Component, the list of providers', () => {
+  beforeEach(() => {
+    clearNuxtData()
+  })
+
+  const RESTRICTED = { modelValue: {}, restrictProvider: 'dwd', restrictNetwork: 'observation' }
+  const UNREACHABLE = 'The backend could not be reached, so the providers cannot be listed.'
+  const NOT_AVAILABLE = 'is not available from this backend'
+  const retryButton = (wrapper: { findAll: (selector: string) => Array<{ text: () => string, trigger: (event: string) => Promise<unknown> }> }) =>
+    wrapper.findAll('button').find(button => button.text() === 'Retry')
+  const serviceUnavailable = (event: Parameters<typeof setResponseStatus>[0]) => {
+    setResponseStatus(event, 503)
+    return { detail: 'Service Unavailable' }
+  }
+
+  it('says the backend could not be reached when the request fails with a 5xx, and does not blame the provider', async () => {
+    registerEndpoint('/api/providers', serviceUnavailable)
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  it('says the same where the page restricts nothing: the selects are empty and the reader is told why', async () => {
+    registerEndpoint('/api/providers', serviceUnavailable)
+
+    const wrapper = await mountReady({ modelValue: {} })
+
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  it('keeps the text about the provider for an answer that arrived and does not list it, with no retry', async () => {
+    registerEndpoint('/api/providers', () => networksAnswer({ noaa: { ghcn: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain('The configured provider “dwd” is not available from this backend.')
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('keeps the text about the network for an answer that lists the provider without it', async () => {
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { mosmix: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain('The configured network “observation” is not available for this provider.')
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('shows neither while the request is out', async () => {
+    registerEndpoint('/api/providers', () => new Promise(() => {}))
+
+    const wrapper = await mountSuspended(ParameterSelection, { props: RESTRICTED })
+    mountedWrappers.push(wrapper)
+
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+  })
+
+  // The backend's state, which the test changes between the first answer and the retry. `asked` counts the requests made,
+  // and one failed `GET` is asked twice (ofetch retries a 503 once), so a count is compared with itself, not with a number.
+  function backend(whenUp: () => unknown) {
+    const state = { up: false, asked: 0 }
+    registerEndpoint('/api/providers', (event) => {
+      state.asked++
+      return state.up ? whenUp() : serviceUnavailable(event)
+    })
+    return state
+  }
+
+  it('asks again on Retry, takes the banner away and restores the restricted selection from the answer', async () => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    const vm = wrapper.vm as any
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(vm.provider).toBeUndefined()
+    const askedBefore = server.asked
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain(UNREACHABLE))
+    // exactly one more request, and the answer is what the selects are built from
+    expect(server.asked).toBe(askedBefore + 1)
+    await vi.waitFor(() => expect(vm.isInitializing).toBe(false))
+    await vi.waitFor(() => expect(vm.provider).toBe('dwd'))
+    expect(vm.network).toBe('observation')
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('keeps the banner and its button when the retry fails too', async () => {
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    const askedBefore = server.asked
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(server.asked).toBeGreaterThan(askedBefore))
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  it('tells a retry that finds the provider missing apart from one that fails', async () => {
+    const server = backend(() => networksAnswer({ noaa: { ghcn: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The configured provider “dwd” is not available from this backend.'))
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+})

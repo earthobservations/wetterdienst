@@ -6,6 +6,7 @@ import { defineComponent, h, ref } from 'vue'
 import { clearNuxtState } from '#app'
 import StationPicker from '~/components/StationPicker.vue'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" in the station picker (GH-3651): the button under the toggle, the nearest station that the ranked
 // `stations` request answers (or the list in hand, for the stripes), picked as the search would pick it, its distance
@@ -52,7 +53,7 @@ function mockBrowser(options: { fix?: { latitude: number, longitude: number }, c
 }
 
 beforeEach(() => {
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
   requests.length = 0
   answer = { stations: [berlin] }
   failing = false
@@ -62,7 +63,7 @@ afterEach(() => {
   delete (navigator as any).geolocation
   delete (navigator as any).permissions
   vi.unstubAllGlobals()
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 
 async function mountPage(props: Props = {}) {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { clearNuxtState } from '#app'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" (GH-3651, GH-4011, GH-4010): the one component of the station map, "Ask the weather" and the station
 // picker. What it shows follows what is in hand and what is stored: only the button at first; after a press, the box
@@ -16,7 +17,7 @@ function mockBrowser(fix = { latitude: 53.5512, longitude: 9.9934 }) {
 }
 
 beforeEach(() => {
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
   localStorage.clear()
 })
 afterEach(() => {
@@ -24,7 +25,7 @@ afterEach(() => {
   delete (navigator as any).permissions
   vi.unstubAllGlobals()
   localStorage.clear()
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 
 async function mountControl(props: Record<string, unknown> = {}) {
