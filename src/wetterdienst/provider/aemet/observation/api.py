@@ -40,6 +40,8 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    rate_limited,
+    retry_after_of_failure,
     skip_cause_of_failure,
 )
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
@@ -257,10 +259,10 @@ def _as_outage(failure: Exception, url: str, status: int | None = None) -> Excep
     more, which is how it reports its own faults (GH-2965). Nor does it when it refuses the rate, an
     `estado` of 429 or an HTTP 429 that outlasted the retries (GH-2989): the data of that request was
     not handed out, which a chunk skipped as "no data" would read as. Each is the `DownloadError`
-    that names the file, with the failure as its `__cause__`: an `_AemetEnvelopeError` whose `status`
-    is the `estado`, or the HTTP error. Any other failure is an answer and is returned as it was: a
-    404, whether of the request or as `estado` 404 ("no data for these criteria"), a refused key, a
-    body that is no envelope.
+    that names the file (for a 429 the `ProviderRateLimitError`, which is one), with the failure as its `__cause__`:
+    an `_AemetEnvelopeError` whose `status` is the `estado`, or the HTTP error. Any other failure is an answer and is
+    returned as it was: a 404, whether of the request or as `estado` 404 ("no data for these criteria"), a refused
+    key, a body that is no envelope.
 
     `status` is the HTTP status of the download the failure came from, which a failure that is no
     `ClientResponseError` (a file that was not found) does not carry.
@@ -270,11 +272,11 @@ def _as_outage(failure: Exception, url: str, status: int | None = None) -> Excep
         estado == HTTPStatus.TOO_MANY_REQUESTS
         or (isinstance(failure, _AemetEnvelopeError) and estado >= HTTPStatus.INTERNAL_SERVER_ERROR)
     ):
-        kind = "estado" if isinstance(failure, _AemetEnvelopeError) else "HTTP"
-        reason = f"AEMET answered {kind} {estado}"
         if estado == HTTPStatus.TOO_MANY_REQUESTS:
-            reason += ", the rate limit"
-        error = DownloadError(_without_url_secrets(url), f"{reason}: {failure}")
+            # the HTTP error carries AEMET's own wait where it sent one, an `estado` of the envelope none
+            error: DownloadError = rate_limited(url, retry_after_of_failure(failure))
+        else:
+            error = DownloadError(_without_url_secrets(url), f"AEMET answered estado {estado}: {failure}")
         error.__cause__ = failure
         return error
     return as_outage(failure, url)

@@ -169,7 +169,6 @@ def _serve(monkeypatch: pytest.MonkeyPatch, series: Series, *, path: str = "batc
         return _ok(url, SOURCES) if "/sources/" in url else observations(url)
 
     monkeypatch.setattr(frost_api, "download_file", download)
-    monkeypatch.setattr(frost_api, "read_refusal", lambda *_args, **_kwargs: None)
 
 
 #: a second parameter of the dataset by resolution, whose batched request the stub answers with a 404, so that the

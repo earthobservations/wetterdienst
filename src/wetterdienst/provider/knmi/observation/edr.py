@@ -49,10 +49,10 @@ from wetterdienst.provider.knmi.observation.parser import ROW_SCHEMA, public_sta
 from wetterdienst.settings import reveal
 from wetterdienst.util.network import (
     CREDENTIAL_REJECTED_STATUSES,
+    RATE_LIMIT_RETRY_AFTER_SECONDS,
     _without_url_secrets,
     _without_url_secrets_in,
     drop_cached_file,
-    read_refusal_answer,
 )
 
 if TYPE_CHECKING:
@@ -176,9 +176,6 @@ def fetch(url: str, settings: Settings, ttl: CacheExpiry) -> File:
 #: `{"error": "Quota exceeded"}`)
 _QUOTA_EXCEEDED = "quota exceeded"
 
-#: How much of the body of a 403 is read to tell the quota from a refused key: it is a sentence
-_REFUSAL_CHARS = 500
-
 
 def quota_exceeded(url: str, *, status: int, retry_after: int | None = None) -> ProviderRateLimitError:
     """Say that KNMI's quota of the key is used up, and that the key is fine: retry later (GH-4046).
@@ -195,22 +192,19 @@ def quota_exceeded(url: str, *, status: int, retry_after: int | None = None) -> 
     )
 
 
-#: The seconds a 429 is asked to wait where KNMI names none: it limits the rate per second as well as the quota of the
-#: hour, so a 429 is not known to need the hour
-RATE_LIMIT_RETRY_AFTER_SECONDS = 60
-
-
-def rate_limited(url: str) -> ProviderRateLimitError:
+def rate_limited(url: str, retry_after: int | None = None) -> ProviderRateLimitError:
     """Say that KNMI limits how fast the key may ask (a 429), without saying that the hour's quota is what ran out.
 
     The API limits the rate per second (200) as well as the requests of the hour, and a 429 does not say which, so no
-    reset time is promised: the answer to wait for is short (`RATE_LIMIT_RETRY_AFTER_SECONDS`).
+    reset time is promised: the wait is the one KNMI sent (`retry_after`) or, where it sent none, a short one
+    (`RATE_LIMIT_RETRY_AFTER_SECONDS`, the default of every provider's 429).
     """
+    again = f" KNMI says to wait about {_minutes(retry_after)}." if retry_after else ""
     return ProviderRateLimitError(
         _without_url_secrets(url),
         "KNMI's EDR API answered 429: it limits how fast the key of this installation may ask (a rate per second, "
-        f"and a quota of {MAX_REQUESTS:,} requests an hour), which is no fault of the key. Try again later.",
-        RATE_LIMIT_RETRY_AFTER_SECONDS,
+        f"and a quota of {MAX_REQUESTS:,} requests an hour), which is no fault of the key. Try again later.{again}",
+        retry_after or RATE_LIMIT_RETRY_AFTER_SECONDS,
     )
 
 
@@ -218,32 +212,23 @@ def _minutes(seconds: int) -> str:
     return f"{seconds} seconds" if seconds < 2 * 60 else f"{_ceil_div(seconds / 60)} minutes"
 
 
-def read_quota_exceeded(file: File, settings: Settings) -> ProviderRateLimitError | None:
-    """Tell whether a 403 is the quota of the key used up, by asking again for its body: the error if it is, else None.
+def read_quota_exceeded(file: File) -> ProviderRateLimitError | None:
+    """Tell whether a 403 is the quota of the key used up, from the body of that answer: the error if it is, else None.
 
-    A download stores the status and not the body (`download_file`), and the gateway answers 403 for a key it refuses
-    and for a key whose quota is used up, saying which only in the body (`Access to this API has been disallowed`,
-    `Quota exceeded`). So the 403 is asked again, once, not retried and not cached (`read_refusal_answer`), a request
-    that is refused as the first one was (the only extra request, and only a 403 earns it). The key goes in the
-    header of that request and nowhere else, the body read is at most `_REFUSAL_CHARS` characters, and nothing of it
-    is logged or put into the message. A body that cannot be had (a timeout, an answer that is no 4xx any more) is
-    None: the status alone then says the key is refused, as it always did.
+    The gateway answers 403 for a key it refuses and for a key whose quota is used up, saying which only in the body
+    (`Access to this API has been disallowed`, `Quota exceeded`). The download keeps that body (`File.refusal`, at most
+    `REFUSAL_BODY_CHARS` characters, read from the first answer): no second request is made. Nothing of it is logged or
+    put into the message. A 403 that has no body to read (a timeout, a body too long) is None: the status alone then
+    says the key is refused, as it always did.
     """
-    kwargs = client_kwargs(settings)
-    refusal = read_refusal_answer(
-        file.url,
-        headers=kwargs.get("headers"),
-        client_kwargs={key: value for key, value in kwargs.items() if key != "headers"},
-        use_certifi=settings.use_certifi,
-        max_chars=_REFUSAL_CHARS,
-    )
+    refusal = file.refusal
     if (
         refusal is None
         or refusal.status != HTTPStatus.FORBIDDEN
         or _QUOTA_EXCEEDED not in _error_text(refusal.body).lower()
     ):
         return None
-    return quota_exceeded(file.url, status=file.status, retry_after=refusal.retry_after)
+    return quota_exceeded(file.url, status=file.status, retry_after=file.retry_after)
 
 
 def _error_text(body: str) -> str:
@@ -256,7 +241,7 @@ def _error_text(body: str) -> str:
     return error if isinstance(error, str) else body
 
 
-def raise_if_unanswered(file: File, settings: Settings) -> None:
+def raise_if_unanswered(file: File) -> None:
     """Raise what a download of the API that failed means for the caller: nothing for a 404 and a 400, which answer.
 
     A quota that is used up (a 429, or a 403 whose body says `Quota exceeded`) is the `ProviderRateLimitError`: the key
@@ -268,13 +253,13 @@ def raise_if_unanswered(file: File, settings: Settings) -> None:
     if not isinstance(file.content, Exception) or file.status in {400, 404, 413, 422}:
         return
     if file.status == HTTPStatus.FORBIDDEN:
-        if (exhausted := read_quota_exceeded(file, settings)) is not None:
+        if (exhausted := read_quota_exceeded(file)) is not None:
             raise exhausted
         raise key_rejected(file.status)
     if file.status in CREDENTIAL_REJECTED_STATUSES:
         raise key_rejected(file.status)
     if file.status == HTTPStatus.TOO_MANY_REQUESTS:
-        raise rate_limited(file.url)
+        raise rate_limited(file.url, file.retry_after)
     file.raise_if_exception()
 
 
@@ -713,7 +698,7 @@ class EdrReader:
         ttl = self._expiry(to_edr_stamp(chunk.last, resolution))
         file = fetch(url, settings, ttl)
         if isinstance(file.content, Exception):
-            raise_if_unanswered(file, settings)
+            raise_if_unanswered(file)
             if file.status == 404:
                 return _NoData()
             if file.status == 413:

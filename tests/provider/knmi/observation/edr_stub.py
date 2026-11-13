@@ -188,6 +188,8 @@ class EdrStub(ThreadingHTTPServer):
         #: (`X-Ratelimit-Reset`, `Retry-After`)
         self.quota_after: int | None = None
         self.quota_headers: dict[str, str] = {}
+        #: the headers to answer the requests that `statuses` forces with (`Retry-After` of a 429)
+        self.status_headers: dict[str, str] = {}
 
     def asked(self) -> list[str]:
         """Give the paths of the requests, with their query."""
@@ -219,7 +221,7 @@ class _EdrHandler(BaseHTTPRequestHandler):
             return
         forced = server.statuses.popleft() if server.statuses else None
         if forced not in (None, 200):
-            self._send(forced, json.dumps({"detail": "stub"}).encode(), "application/json")
+            self._send(forced, json.dumps({"detail": "stub"}).encode(), "application/json", server.status_headers)
             return
         parts = urlsplit(self.path)
         pieces = parts.path.split("/")

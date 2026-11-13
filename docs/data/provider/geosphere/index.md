@@ -19,7 +19,7 @@ The documentation does not say what "a user" is: where an instance answers many 
 requests an hour are probably shared by all of them, which is a reading. "All data that is publicly accessible without
 authentication is licensed under Creative Commons Attribution 4.0"
 ([license](https://dataset.api.hub.geosphere.at/v1/docs/)), and the data hub says the licence of each dataset is in its
-metadata. Wetterdienst does not retry a 429.
+metadata. Wetterdienst does not retry a 429, which is a `ProviderRateLimitError` with the wait the hub sent, else a minute.
 
 ```{toctree}
 :hidden:

@@ -289,9 +289,8 @@ def test_a_key_that_is_refused_is_an_error_that_says_an_edr_key_is_needed(
     assert "Open Data" in message
     assert KEY not in message
     assert KEY not in caplog.text
-    # the first request that carried the key was the last, but for the one that reads the body of a 403 (here it is
-    # answered with data: no refusal to read, so the status alone is the answer)
-    assert len(edr_server.requests) == (2 if status == 403 else 1)
+    # the first request that carried the key was the last: the body of a 403 is read from that answer (GH-4048)
+    assert len(edr_server.requests) == 1
 
 
 def test_a_gateway_that_refuses_the_key_before_the_stations_is_the_same_error(
@@ -303,8 +302,8 @@ def test_a_gateway_that_refuses_the_key_before_the_stations_is_the_same_error(
     with pytest.raises(CredentialRejectedError, match="WD_AUTH__KNMI_EDR"):
         reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
 
-    # the second is the one that reads the body of the 403
-    assert [request["status"] for request in edr_server.requests] == [403, 403]
+    # the body of the 403 is read from the first answer: no second request
+    assert [request["status"] for request in edr_server.requests] == [403]
 
 
 # --- a quota that is used up is no rejected key (GH-4046) --------------------------------------------------------
@@ -329,8 +328,8 @@ def test_a_403_that_says_the_quota_is_exceeded_is_the_rate_limit_error_and_not_a
     assert KEY not in message
     assert KEY not in caplog.text
     assert raised.value.retry_after is None
-    # the request, and the one that reads its body: nothing is asked again, a loop would burn the quota further
-    assert [request["status"] for request in edr_server.requests] == [403, 403]
+    # the one request, whose body is read as it arrives: nothing is asked again, a loop would burn the quota further
+    assert [request["status"] for request in edr_server.requests] == [403]
 
 
 @pytest.mark.parametrize(
@@ -369,9 +368,9 @@ def test_a_quota_that_is_used_up_in_the_middle_of_a_query_ends_it_with_one_more_
     with pytest.raises(ProviderRateLimitError, match="quota"):
         reader.read([("daily", "data")], _at(2019, 12, 1), _at(2020, 12, 31))
 
-    # three answered, the 403 and the one that reads its body
-    assert [request["status"] for request in edr_server.requests][-2:] == [403, 403]
-    assert len(edr_server.requests) == 5
+    # three answered and the 403, whose body is read from that answer
+    assert [request["status"] for request in edr_server.requests][-1:] == [403]
+    assert len(edr_server.requests) == 4
 
 
 def test_a_403_that_says_the_access_is_disallowed_is_a_rejected_key(
@@ -401,7 +400,7 @@ def test_a_401_that_says_the_authorization_is_missing_is_a_rejected_key(edr_serv
 
     assert file.status == 401
     with pytest.raises(CredentialRejectedError, match="HTTP 401"):
-        edr.raise_if_unanswered(file, settings)
+        edr.raise_if_unanswered(file)
 
     assert [request["status"] for request in edr_server.requests] == [401]
 
@@ -612,6 +611,23 @@ def test_a_quota_that_is_used_up_is_an_error_that_says_so(edr_server: EdrStub, r
     assert isinstance(raised.value, ProviderRateLimitError)
     assert "hour has passed" not in str(raised.value)
     assert raised.value.retry_after == edr.RATE_LIMIT_RETRY_AFTER_SECONDS
+
+
+def test_the_wait_that_knmi_sends_with_a_429_is_in_the_error_and_the_default_is_the_general_one(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """A 429 with a `Retry-After` carries that wait (GH-4048), and without one the minute of every provider's 429."""
+    world = World.generated(Resolution.DAILY, [DE_BILT], _at(2019, 12, 2), 700)
+    _serve(edr_server, world)
+    edr_server.statuses.extend([None, None, None, 429])
+    edr_server.status_headers = {"Retry-After": "300"}
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        reader.read([("daily", "data")], _at(2019, 12, 1), _at(2020, 12, 31))
+
+    assert raised.value.retry_after == 301
+    assert "KNMI says to wait about 6 minutes" in str(raised.value)
+    assert [request["status"] for request in edr_server.requests][-1:] == [429]
 
 
 def test_an_answer_that_is_no_coverage_json_is_an_error_and_is_not_kept(edr_server: EdrStub, reader: Reader) -> None:

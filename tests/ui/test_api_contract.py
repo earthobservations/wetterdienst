@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from wetterdienst import exceptions
 from wetterdienst.provider.knmi.observation import edr
 from wetterdienst.ui import restapi
+from wetterdienst.util import network
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -332,6 +333,31 @@ def test_a_429_of_a_provider_is_a_503_that_asks_for_a_short_wait_and_promises_no
     assert "resets" not in body["detail"]
     assert ".." not in body["detail"]
     assert body["detail"].lower().count("try again") == 1
+
+
+@pytest.mark.parametrize(("retry_after", "header"), [(121, "121"), (None, "60")], ids=["sent", "not-sent"])
+def test_a_429_of_any_provider_is_a_503_with_the_wait_the_provider_sent_and_not_a_502(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, retry_after: int | None, header: str
+) -> None:
+    """A 429 of a provider that is not KNMI answers as the limit it is: 503 `upstream-quota-exhausted`, `Retry-After`.
+
+    It was a 502 `upstream-failed`, which says the provider failed and not that the key or the client is limited
+    (GH-4048). The sentence is neutral: it names no provider, no URL and no key.
+    """
+    error = network.rate_limited("https://opendata.example.org/api/x?api_key=SECRET", retry_after)
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", _raising(error))
+
+    response = client.get("/api/v1/values", params=_VALUES)
+    body = _is_a_problem(response, 503, "upstream-quota-exhausted")
+
+    assert response.headers["Retry-After"] == header
+    assert body["detail"].startswith("The provider answered 429: it limits how fast the key or client")
+    assert body["detail"].endswith(". The request was valid.")
+    assert ".." not in body["detail"]
+    assert body["detail"].lower().count("try again") == 1
+    assert ("asks for a wait" in body["detail"]) is (retry_after is not None)
+    assert "opendata.example.org" not in response.text
+    assert "SECRET" not in response.text
 
 
 def _text_of(body: dict[str, Any]) -> str:

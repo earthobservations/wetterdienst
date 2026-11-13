@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a 429 from any provider is a `ProviderRateLimitError` (a `DownloadError`) with the
+  provider's wait in `retry_after` (`Retry-After` as seconds or a date, `RateLimit-Reset`,
+  `X-RateLimit-Reset`; else 60 s), and REST answers 503 `upstream-quota-exhausted` with that
+  `Retry-After`, not 502 `upstream-failed`. `metno/frost` raises it where a 429 was a warning and an
+  empty result. It is still not retried. A refused request is no longer asked a second time to read
+  its body: `File.refusal` keeps the first 500 characters; `read_refusal` is gone. Catch
+  `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
+
 ### Fixed
 
 - An exhausted KNMI quota is reported as such, not as a rejected key. KNMI's EDR API answers a key

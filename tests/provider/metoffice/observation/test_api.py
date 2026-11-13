@@ -529,6 +529,38 @@ def test_ceda_token_exchange_that_never_reached_ceda_raises_no_internet(monkeypa
     assert not download._TOKEN_CACHE  # noqa: SLF001
 
 
+def test_ceda_token_exchange_that_is_rate_limited_raises_the_rate_limit_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 of the token endpoint is CEDA limiting the account, with its wait: raised, not "no token" (GH-4048)."""
+    from unittest.mock import MagicMock  # noqa: PLC0415
+
+    from aiohttp import ClientResponseError  # noqa: PLC0415
+    from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
+
+    from wetterdienst.exceptions import DownloadError, ProviderRateLimitError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+    error = ClientResponseError(
+        request_info=MagicMock(),
+        history=(),
+        status=429,
+        headers=CIMultiDictProxy(CIMultiDict({"Retry-After": "120"})),
+    )
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(url=download._TOKEN_URL, content=error, status=429)  # noqa: SLF001
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    with pytest.raises(ProviderRateLimitError) as raised:
+        download.get_ceda_token(Settings(auth={"ceda": "user:pass"}))
+    assert isinstance(raised.value, DownloadError)
+    assert raised.value.retry_after == 121
+    assert "pass" not in str(raised.value)
+    assert not download._TOKEN_CACHE  # noqa: SLF001
+
+
 def test_ceda_token_valid_until_falls_back_on_unreadable_payload() -> None:
     """A JWT whose payload is valid JSON but not a dict falls back to a short TTL, not a crash."""
     import base64  # noqa: PLC0415

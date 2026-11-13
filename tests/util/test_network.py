@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 from collections.abc import Callable, Iterator, MutableMapping
+from email.utils import formatdate
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
@@ -48,7 +49,7 @@ from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
 from yarl import URL
 
-from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.ui.core import failure_status, timed_out
@@ -70,13 +71,13 @@ from wetterdienst.util.network import (
     _reclaim_done,
     _sends_credentials,
     _swept_dirs,
+    cached_copy_is_held,
     download_file,
     download_files,
     list_remote_directory_fsspec,
     list_remote_files_fsspec,
     post_file,
-    read_refusal,
-    read_refusal_answer,
+    rate_limited,
     retry_after_of,
 )
 
@@ -902,6 +903,18 @@ def _every_carrier_of(error: BaseException) -> str:
 #: what the stand-in token endpoint answers with, and what each of its paths is for
 _TOKEN_BODY = json.dumps({"access_token": "t"}).encode()
 _STATUS_BY_PATH = {"/denied": 401, "/rate-limited": 429, "/boom": 500}
+#: the paths that answer 429, each with the headers it says its wait in (a function, for the dates that are from now)
+_RATE_LIMITED: dict[str, Callable[[], dict[str, str]]] = {
+    "/limit-bare": dict,
+    "/limit-seconds": lambda: {"Retry-After": "120"},
+    "/limit-date": lambda: {"Retry-After": formatdate(time.time() + 600, usegmt=True)},
+    "/limit-ratelimit-reset": lambda: {"RateLimit-Reset": "45"},
+    "/limit-x-reset-seconds": lambda: {"X-Ratelimit-Reset": "30"},
+    "/limit-x-reset-epoch": lambda: {"X-RateLimit-Reset": str(int(time.time()) + 600)},
+    "/limit-zero": lambda: {"Retry-After": "0"},
+    "/limit-past-a-day": lambda: {"Retry-After": "99999999"},
+    "/limit-garbage": lambda: {"Retry-After": "soon"},
+}
 _REFUSAL_BODY = json.dumps(
     {
         "error": {
@@ -925,6 +938,14 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
     if path == "/quota":
         # a refusal of a key whose quota is used up, with the wait it says (KNMI's gateway, 2026-11-13)
         return 403, b'{"error": "Quota exceeded"}', {"Retry-After": "1200"}
+    if path == "/long":
+        # a refusal whose body is far longer than the 500 characters that are kept
+        return 403, b"x" * 2000, {}
+    if path == "/missing":
+        return 404, b'{"error": "not found"}', {}
+    if path in _RATE_LIMITED:
+        # a 429 of a provider, with the wait it gives in the header of its own way (or none)
+        return 429, b'{"message": "Too many requests"}', _RATE_LIMITED[path]()
     if path in _STATUS_BY_PATH:
         return _STATUS_BY_PATH[path], b"", {}
     return 200, _TOKEN_BODY, {}
@@ -955,7 +976,7 @@ class _TokenEndpoint(BaseHTTPRequestHandler):
     def _refuse_at_length(self) -> None:
         """Answer with a 403 whose body is too slow (`/drip`), says it is too long (`/huge`) or is, unannounced.
 
-        The last is `/huge-stream`: the cases the limits of `read_refusal` are held to.
+        The last is `/huge-stream`: the cases the limits of the body read of a refusal are held to.
         """
         self.send_response(403)
         if self.path == "/drip":
@@ -1028,30 +1049,287 @@ def http_server() -> Iterator[tuple[str, list]]:
         thread.join(timeout=5)
 
 
-def test_read_refusal_gives_the_body_of_a_4xx_and_sends_the_headers(http_server: tuple[str, list]) -> None:
-    """A refusal is asked for again and its body is the reason; the headers go with that request alone (GH-3748)."""
+def _fetch(base_url: str, path: str, cache_dir: Path, *, headers: dict[str, str] | None = None, **kwargs: Any) -> File:  # noqa: ANN401
+    """Download a path of the stand-in endpoint once, through `download_file`, with the cache off unless asked."""
+    kwargs.setdefault("cache_disable", True)
+    kwargs.setdefault("ttl", CacheExpiry.NO_CACHE)
+    if headers is not None:
+        kwargs["client_kwargs"] = {"headers": headers}
+    return download_file(url=f"{base_url}{path}", cache_dir=cache_dir, **kwargs)
+
+
+def _asked(requests: list, path: str) -> int:
+    return len([request for request in requests if request["path"] == path])
+
+
+def test_a_refusal_is_kept_from_the_first_answer_with_its_body_and_wait(
+    http_server: tuple[str, list], tmp_path: Path
+) -> None:
+    """A 4xx is stored with its status, the first of its body and its wait, and the provider is asked once (GH-4048).
+
+    Frost's 403 for a window of too many observations and KNMI's 403 `Quota exceeded` say why only in the body, and
+    were asked for a second time to read it. The headers of the request go with the one request that is made.
+    """
     base_url, requests = http_server
 
-    body = read_refusal(f"{base_url}/too-many", headers={"Authorization": "Basic Zm9v"})
+    file = _fetch(base_url, "/quota", tmp_path, headers={"Authorization": "Basic Zm9v"})
 
-    assert body is not None
-    assert "exceeds the maximum number allowed (100000)" in body
-    assert requests[-1]["method"] == "GET"
-    assert requests[-1]["headers"]["Authorization"] == "Basic Zm9v"
+    assert file.status == 403
+    assert file.refusal is not None
+    assert file.refusal.status == 403
+    assert json.loads(file.refusal.body) == {"error": "Quota exceeded"}
+    assert file.refusal.retry_after == 1201
+    assert file.retry_after == 1201
+    assert [(request["method"], request["path"]) for request in requests] == [("GET", "/quota")]
+    assert requests[0]["headers"]["Authorization"] == "Basic Zm9v"
 
 
-def test_read_refusal_answer_gives_the_status_the_body_and_the_wait_the_answer_asks_for(
-    http_server: tuple[str, list],
-) -> None:
-    """`Retry-After` of a refusal is read with its body, for a provider whose 403 is a quota (GH-4046)."""
+def test_the_reason_of_a_refusal_is_in_the_body_that_is_kept(http_server: tuple[str, list], tmp_path: Path) -> None:
+    """The body of Frost's 403 for a window it will not compute is kept whole, being short of the cut."""
+    base_url, requests = http_server
+
+    file = _fetch(base_url, "/too-many", tmp_path)
+
+    assert file.refusal is not None
+    assert "exceeds the maximum number allowed (100000)" in file.refusal.body
+    assert _asked(requests, "/too-many") == 1
+
+
+def test_the_body_of_a_refusal_is_cut_at_500_characters(http_server: tuple[str, list], tmp_path: Path) -> None:
+    """Only the first 500 characters are kept, whatever the server sends."""
     base_url, _ = http_server
 
-    refusal = read_refusal_answer(f"{base_url}/quota")
+    file = _fetch(base_url, "/long", tmp_path)
 
-    assert refusal is not None
-    assert refusal.status == 403
-    assert json.loads(refusal.body) == {"error": "Quota exceeded"}
-    assert refusal.retry_after == 1201
+    assert file.refusal is not None
+    assert file.refusal.body == "x" * network.REFUSAL_BODY_CHARS
+    assert network.REFUSAL_BODY_CHARS == 500
+
+
+@pytest.mark.parametrize("path", ["/token", "/boom", "/missing"])
+def test_a_download_that_is_no_refusal_keeps_none(path: str, http_server: tuple[str, list], tmp_path: Path) -> None:
+    """A 200 is no refusal, a 5xx a failure of the server and a 404 a file that is not there: no body is read."""
+    base_url, _ = http_server
+
+    file = _fetch(base_url, path, tmp_path, attempts=1)
+
+    assert file.refusal is None
+    assert file.retry_after is None
+
+
+def test_a_body_that_drips_is_given_up_on_after_the_time_it_may_take_in_all(
+    http_server: tuple[str, list], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A body that arrives a byte at a time is given up on after the time it may take in all, not after each silence.
+
+    The client timeout bounds a silence only (GH-2258): with one of a second, this body, a byte every 0.2 s, would run
+    for the 30 seconds it takes the server to finish it. The refusal is kept all the same, with an empty body.
+    """
+    base_url, _ = http_server
+    monkeypatch.setattr(network, "_REFUSAL_MAX_SECONDS", 1.0)
+
+    started = time.monotonic()
+    file = download_file(
+        url=f"{base_url}/drip",
+        cache_dir=tmp_path,
+        ttl=CacheExpiry.NO_CACHE,
+        cache_disable=True,
+        client_kwargs={"timeout": 1.0},
+    )
+
+    assert time.monotonic() - started < 10
+    assert file.status == 403
+    assert file.refusal is not None
+    assert file.refusal.body == ""
+
+
+@pytest.mark.parametrize("path", ["/huge", "/huge-stream"])
+def test_a_body_past_the_bytes_it_may_have_is_not_kept(
+    path: str, http_server: tuple[str, list], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A body past 64 KiB is no reason: refused at once if it says it is long, as it arrives if it does not."""
+    base_url, _ = http_server
+
+    refused = _fetch(base_url, path, tmp_path)
+    assert refused.status == 403
+    assert refused.refusal is not None
+    assert refused.refusal.body == ""
+
+    # the same body within the limit is read, so it is the limit that refuses it
+    monkeypatch.setattr(network, "_REFUSAL_MAX_BYTES", 16 * 1024**2)
+    read = _fetch(base_url, path, tmp_path)
+    assert read.refusal is not None
+    assert read.refusal.body == "x" * network.REFUSAL_BODY_CHARS
+
+
+@pytest.mark.parametrize(
+    ("path", "lowest", "highest", "sent"),
+    [
+        pytest.param("/limit-bare", 60, 60, False, id="none sent: a minute"),
+        pytest.param("/limit-seconds", 121, 121, True, id="Retry-After seconds"),
+        pytest.param("/limit-date", 599, 602, True, id="Retry-After date"),
+        pytest.param("/limit-ratelimit-reset", 46, 46, True, id="RateLimit-Reset"),
+        pytest.param("/limit-x-reset-seconds", 31, 31, True, id="X-Ratelimit-Reset seconds"),
+        pytest.param("/limit-x-reset-epoch", 599, 602, True, id="X-RateLimit-Reset epoch second"),
+        pytest.param("/limit-zero", 60, 60, False, id="not positive is none"),
+        pytest.param("/limit-past-a-day", 60, 60, False, id="past a day is none"),
+        pytest.param("/limit-garbage", 60, 60, False, id="no wait is none"),
+    ],
+)
+def test_a_429_is_a_provider_rate_limit_error_with_the_wait_the_provider_sent(
+    path: str,
+    lowest: int,
+    highest: int,
+    sent: bool,  # noqa: FBT001
+    http_server: tuple[str, list],
+    tmp_path: Path,
+) -> None:
+    """A 429 of any provider is the `ProviderRateLimitError`, which is asked for once and carries the provider's wait.
+
+    The wait is read from `Retry-After` (seconds or an HTTP date), `RateLimit-Reset` or `X-Ratelimit-Reset` (seconds or
+    the epoch second); a wait that is not positive, is past a day or is no number is none, and a minute stands in. The
+    message says the provider's wait only where it sent one, and names no provider, no URL and no key.
+    """
+    base_url, requests = http_server
+
+    file = _fetch(base_url, path, tmp_path)  # two attempts, which a 429 does not get
+    with pytest.raises(ProviderRateLimitError) as raised:
+        file.raise_if_exception()
+
+    error = raised.value
+    assert file.status == 429
+    assert _asked(requests, path) == 1
+    assert isinstance(error, DownloadError)
+    assert lowest <= error.retry_after <= highest
+    assert ("asks for a wait" in str(error)) is sent
+    assert "429" in error.reason
+    assert base_url not in error.reason
+    assert failure_status(error) == 503
+
+
+def test_a_429_is_not_asked_again_by_a_listing_or_a_post_and_is_the_same_error(
+    http_server: tuple[str, list], tmp_path: Path
+) -> None:
+    """A listing (three attempts) and a post (two) take a 429 for the answer it is, as a download does (GH-4048)."""
+    base_url, requests = http_server
+
+    with pytest.raises(ProviderRateLimitError) as listed:
+        list_remote_files_fsspec(f"{base_url}/limit-seconds", settings=Settings(cache_dir=tmp_path))
+    assert listed.value.retry_after == 121
+    assert _asked(requests, "/limit-seconds") == 1
+
+    with pytest.raises(ProviderRateLimitError) as directory:
+        list_remote_directory_fsspec(f"{base_url}/limit-ratelimit-reset", settings=Settings(cache_dir=tmp_path))
+    assert directory.value.retry_after == 46
+    assert _asked(requests, "/limit-ratelimit-reset") == 1
+
+    posted = post_file(f"{base_url}/limit-x-reset-seconds", auth=("user", "pa:ss"))
+    assert posted.status == 429
+    assert posted.refusal is not None
+    assert posted.refusal.retry_after == 31
+    with pytest.raises(ProviderRateLimitError) as raised:
+        posted.raise_if_exception()
+    assert raised.value.retry_after == 31
+    assert _asked(requests, "/limit-x-reset-seconds") == 1
+
+
+def test_as_outage_hands_a_429_back_as_the_rate_limit_error(http_server: tuple[str, list], tmp_path: Path) -> None:
+    """A provider that reads a failed download for itself (Frost, SMHI, CEDA) does not let a 429 go as "no data"."""
+    base_url, _ = http_server
+    file = _fetch(base_url, "/limit-seconds", tmp_path)
+
+    failure = network.as_outage(file.content, file.url)
+
+    assert isinstance(failure, ProviderRateLimitError)
+    assert failure.retry_after == 121
+    assert failure.__cause__ is file.content
+
+
+@pytest.mark.parametrize("path", ["/quota", "/limit-seconds", "/denied"])
+def test_nothing_of_a_4xx_is_cached(path: str, http_server: tuple[str, list], tmp_path: Path) -> None:
+    """A refusal is no copy and no entry: the next download asks the provider again, and no blob is left behind."""
+    base_url, requests = http_server
+    url = f"{base_url}{path}"
+
+    first = _fetch(base_url, path, tmp_path, ttl=CacheExpiry.TWELVE_HOURS, cache_disable=False, attempts=1)
+    held_after_first = cached_copy_is_held(url, tmp_path, CacheExpiry.TWELVE_HOURS)
+    second = _fetch(base_url, path, tmp_path, ttl=CacheExpiry.TWELVE_HOURS, cache_disable=False, attempts=1)
+
+    assert isinstance(first.content, Exception)
+    assert isinstance(second.content, Exception)
+    assert first.refusal is not None
+    assert second.from_cache is False
+    assert held_after_first is False
+    assert cached_copy_is_held(url, tmp_path, CacheExpiry.TWELVE_HOURS) is False
+    assert _asked(requests, path) == 2
+    blobs = [found for found in tmp_path.rglob("*") if found.is_file() and "refus" in found.read_text(errors="ignore")]
+    assert blobs == []
+
+
+def test_a_listing_that_is_refused_is_not_cached(http_server: tuple[str, list], tmp_path: Path) -> None:
+    """A 429 of a listing stores no listing: asked again, the provider is asked again."""
+    base_url, requests = http_server
+    settings = Settings(cache_dir=tmp_path)
+
+    for _ in range(2):
+        with pytest.raises(ProviderRateLimitError):
+            list_remote_files_fsspec(f"{base_url}/limit-bare", settings=settings, cache_expiry=CacheExpiry.FILEINDEX)
+
+    assert _asked(requests, "/limit-bare") == 2
+
+
+@pytest.mark.parametrize("path", ["/quota", "/too-many", "/limit-seconds"])
+def test_the_key_and_the_body_of_a_refusal_are_in_no_message_and_no_log(
+    path: str, http_server: tuple[str, list], tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The key goes to the provider alone: not on the `File`, not in an error and not in a log line; nor does a body.
+
+    The body of a refusal is the provider's own text and may name anything, so it is kept for the code that reads it
+    and for nothing else.
+    """
+    base_url, requests = http_server
+    key = "SUPER-SECRET-API-KEY"
+
+    with caplog.at_level(logging.DEBUG):
+        file = _fetch(base_url, path, tmp_path, headers={"Authorization": key})
+        error = None
+        try:
+            file.raise_if_exception()
+        except DownloadError as raised:
+            error = raised
+
+    assert requests[0]["headers"]["Authorization"] == key
+    assert file.refusal is not None
+    assert file.refusal.body
+    carried = _every_carrier_of(file.content) + repr(file)
+    assert key not in carried
+    assert key not in caplog.text
+    assert file.refusal.body not in caplog.text
+    assert "Quota exceeded" not in caplog.text
+    assert "exceeds the maximum" not in caplog.text
+    if error is not None:
+        assert key not in str(error) + repr(error) + str(error.__cause__) + repr(error.__cause__)
+        assert file.refusal.body not in str(error)
+    assert file.refusal.body not in repr(file)
+
+
+def test_rate_limited_names_no_provider_url_or_key_and_says_the_wait_it_is_given() -> None:
+    """The sentence is true of every provider: it names none, and the wait only where the provider sent one."""
+    bare = rate_limited("https://api.example.org/v1/x?key=SECRET")
+    waited = rate_limited("https://api.example.org/v1/x?key=SECRET", 121)
+    shortly = rate_limited("https://api.example.org/v1/x", 45)
+
+    assert bare.retry_after == network.RATE_LIMIT_RETRY_AFTER_SECONDS == 60
+    assert "asks for a wait" not in bare.reason
+    assert "about 3 minutes" in waited.reason
+    assert "about 45 seconds" in shortly.reason
+    for error in (bare, waited, shortly):
+        assert "429" in error.reason
+        assert "example.org" not in error.reason
+        assert "SECRET" not in str(error)
+        assert "SECRET" not in error.url
+        assert "retry later" in error.reason.lower() or "try again later" in error.reason.lower()
+    assert pickle.loads(pickle.dumps(waited)).retry_after == 121  # noqa: S301
 
 
 @pytest.mark.parametrize(
@@ -1079,79 +1357,6 @@ def test_retry_after_of_reads_the_wait_a_refusal_asks_for_and_none_it_does_not(
     headers = {name: epoch if value == "EPOCH_PLUS_600" else value for name, value in headers.items()}
 
     assert retry_after_of(headers, now) == expected
-
-
-def test_read_refusal_cuts_the_body_at_max_chars(http_server: tuple[str, list]) -> None:
-    """Only the first characters of the body are given, whatever the server sends."""
-    base_url, _ = http_server
-
-    assert read_refusal(f"{base_url}/too-many", max_chars=10) == _REFUSAL_BODY.decode()[:10]
-
-
-@pytest.mark.parametrize("path", ["/token", "/boom"])
-def test_read_refusal_gives_nothing_for_an_answer_that_is_no_4xx(path: str, http_server: tuple[str, list]) -> None:
-    """A 200 is not a refusal, and a 5xx is a failure of the server: neither has a reason to read."""
-    base_url, _ = http_server
-
-    assert read_refusal(f"{base_url}{path}") is None
-
-
-def test_read_refusal_stops_waiting_for_a_body_that_drips(http_server: tuple[str, list]) -> None:
-    """A body that arrives a byte at a time is given up on after ``max_seconds`` in all, not after each silence.
-
-    The client timeout bounds a silence only (GH-2258): with one of a second, this body, a byte every 0.2 s, ran for the
-    30 seconds it takes the server to finish it.
-    """
-    base_url, _ = http_server
-
-    started = time.monotonic()
-    body = read_refusal(f"{base_url}/drip", max_seconds=1.0, client_kwargs={"timeout": 1.0})
-
-    assert body is None
-    assert time.monotonic() - started < 10
-
-
-@pytest.mark.parametrize("path", ["/huge", "/huge-stream"])
-def test_read_refusal_does_not_read_a_body_past_max_bytes(path: str, http_server: tuple[str, list]) -> None:
-    """A body past ``max_bytes`` is no reason: refused at once if it says it is long, as it arrives if it does not."""
-    base_url, _ = http_server
-
-    assert read_refusal(f"{base_url}{path}", max_bytes=100_000) is None
-    # the same body within the limit is read, so it is the limit that refuses it
-    assert read_refusal(f"{base_url}{path}", max_bytes=16 * 1024**2, max_chars=5) == "xxxxx"
-
-
-def test_read_refusal_does_not_follow_a_redirect(http_server: tuple[str, list]) -> None:
-    """A redirect is the answer, and no 4xx: the one it points to (a 401 here) is not asked for."""
-    base_url, requests = http_server
-
-    assert read_refusal(f"{base_url}/login-redirect") is None
-    assert [request["path"] for request in requests] == ["/login-redirect"]
-
-
-def test_read_refusal_has_the_timeout_and_the_certificates_it_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The client has a timeout of its own where the caller gave none, and verifies against certifi where asked."""
-    made: list[dict] = []
-
-    class Spy(HTTPFileSystem):
-        def __init__(self, *args: object, **kwargs: object) -> None:
-            made.append(kwargs)
-            super().__init__(*args, **kwargs)
-
-    monkeypatch.setattr(network, "HTTPFileSystem", Spy)
-
-    read_refusal("http://127.0.0.1:1/unreachable")
-    read_refusal("http://127.0.0.1:1/unreachable", use_certifi=True, client_kwargs={"timeout": 3.0})
-
-    assert made[0]["use_certifi"] is False
-    assert made[0]["client_kwargs"]["timeout"] == network._POST_TIMEOUT_SECONDS  # noqa: SLF001
-    assert made[1]["use_certifi"] is True
-    assert made[1]["client_kwargs"]["timeout"] == 3.0
-
-
-def test_read_refusal_gives_nothing_where_the_connection_cannot_be_made() -> None:
-    """Nothing is raised for a refusal that cannot be asked for again: the caller falls back on the status."""
-    assert read_refusal("http://127.0.0.1:1/unreachable") is None
 
 
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
@@ -3195,15 +3400,26 @@ def test_raise_if_credential_rejected_raises_for_a_401_and_a_403_only(
     [
         pytest.param(FileNotFoundError(_FAILED_URL), id="404"),
         pytest.param(_response_error(_FAILED_URL, 404), id="404-response"),
-        pytest.param(_response_error(_FAILED_URL, 429), id="429"),
         pytest.param(_response_error(_FAILED_URL, 403), id="403"),
         pytest.param(ValueError("not a download error"), id="no-download-error"),
         pytest.param(NoInternetError("no route to host"), id="no-internet"),
     ],
 )
 def test_as_outage_hands_back_what_is_an_answer_as_it_was(error: Exception) -> None:
-    """A 404, another 4xx, a 429 and what is no download failure are returned, for the caller to answer."""
+    """A 404, another 4xx and what is no download failure are returned, for the caller to answer (not a 429)."""
     assert network.as_outage(error, _FAILED_URL) is error
+
+
+def test_as_outage_gives_a_429_as_the_rate_limit_error_with_its_wait() -> None:
+    """A 429 is not an answer to let go as "no data": it is the `ProviderRateLimitError`, with the wait it sent."""
+    error = _response_error(_FAILED_URL, 429)
+    error.headers = {"Retry-After": "90"}  # ty: ignore[invalid-assignment]
+
+    failure = network.as_outage(error, _FAILED_URL)
+
+    assert isinstance(failure, ProviderRateLimitError)
+    assert failure.retry_after == 91
+    assert failure.__cause__ is error
 
 
 @pytest.mark.parametrize(

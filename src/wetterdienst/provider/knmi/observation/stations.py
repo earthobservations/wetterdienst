@@ -91,7 +91,7 @@ def _listing(url: str, settings: Settings) -> dict | None:
 
     """
     file = fetch(url, settings, _LISTING_EXPIRY)
-    raise_if_unanswered(file, settings)
+    raise_if_unanswered(file)
     if isinstance(file.content, Exception):
         log.warning(f"KNMI's EDR API has no listing {_without_url_secrets(url)} (status {file.status})")
         return None
@@ -159,7 +159,7 @@ def _last_data(settings: Settings, wsis: list[str], now: dt.datetime) -> dict[st
             COLLECTION_BY_RESOLUTION[Resolution.MONTHLY], wsis[start : start + size], monthly, chunk, Resolution.MONTHLY
         )
         file = fetch(url, settings, _ENDS_EXPIRY)
-        raise_if_unanswered(file, settings)
+        raise_if_unanswered(file)
         if not isinstance(file.content, Exception):
             months.update(_last_stamps(file.content, url))
     daily = _parameters("daily")
@@ -175,7 +175,7 @@ def _last_data(settings: Settings, wsis: list[str], now: dt.datetime) -> dict[st
             COLLECTION_BY_RESOLUTION[Resolution.DAILY], [by_wsi[station]], daily, Chunk(month, last), Resolution.DAILY
         )
         file = fetch(url, settings, _ENDS_EXPIRY)
-        raise_if_unanswered(file, settings)
+        raise_if_unanswered(file)
         if not isinstance(file.content, Exception):
             ends[station] = max(month, _last_stamps(file.content, url).get(station, month))
     return ends

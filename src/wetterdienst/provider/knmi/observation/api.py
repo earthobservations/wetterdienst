@@ -99,7 +99,7 @@ def _probe_key(settings: Settings) -> bool | None:
     A 401 or a 403 is answered by the gateway before the quota, so a refusal costs none; an acceptance costs one request
     and is kept for a minute. One attempt: it is a question about now. None for what says nothing of the key: no
     network, a 429, a 5xx, and a 403 whose body says `Quota exceeded` (the gateway answers a key that is fine and used
-    up for the hour with the status of a key it refuses, GH-4046), which is read from the body
+    up for the hour with the status of a key it refuses, GH-4046), which is read from the body the download kept
     (`edr.read_quota_exceeded`).
     """
     if not settings.auth.knmi_edr:
@@ -117,7 +117,7 @@ def _probe_key(settings: Settings) -> bool | None:
     )
     if not isinstance(file.content, Exception):
         return True
-    if file.status == 403 and edr.read_quota_exceeded(file, settings) is not None:
+    if file.status == 403 and edr.read_quota_exceeded(file) is not None:
         log.warning("Could not check the KNMI EDR key: its quota of the hour is used up")
         return None
     if file.status in {401, 403}:

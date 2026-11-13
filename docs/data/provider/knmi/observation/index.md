@@ -85,10 +85,10 @@ that is times times parameters times stations; beyond it the API answers 413.
   `DownloadError` (a 502); an answer that is no CoverageJSON is a `DownloadError`; no connection a
   `NoInternetError`; a refused key a `CredentialRejectedError`. The quota of the key used up is a
   `ProviderRateLimitError` (a `DownloadError`; REST 503 `upstream-quota-exhausted`, with `Retry-After`): a 429 (the
-  rate of 200 a second or the hour's quota: the error says neither, and asks for a wait of 60 seconds), and the
-  403 `{"error": "Quota exceeded"}` that the gateway answers a key that is fine and used up with, which has the status
-  of a key it refuses (`Access to this API has been disallowed`, a 403 too), so a 403 is told by its body, which is
-  asked for again once. `auth` says unknown (`null`) for it, not invalid. The query ends there and is never asked
+  rate of 200 a second or the hour's quota: the error says neither, and asks for the wait KNMI sends, else 60 seconds),
+  and the 403 `{"error": "Quota exceeded"}` that the gateway answers a key that is fine and used up with, which has the
+  status of a key it refuses (`Access to this API has been disallowed`, a 403 too), so a 403 is told by its body, which
+  is read from that first answer (no second request). `auth` says unknown (`null`) for it, not invalid. The query ends there and is never asked
   again. A range read in part is never an answer.
 
 The "validated" collections lag real time (hourly: the values of an hour come 5.5 to 78 hours after it, median 25), so
