@@ -939,7 +939,7 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
         # a refusal of a key whose quota is used up, with the wait it says (KNMI's gateway, 2026-11-13)
         return 403, b'{"error": "Quota exceeded"}', {"Retry-After": "1200"}
     if path == "/long":
-        # a refusal whose body is far longer than the 500 characters that are kept
+        # a refusal whose body is far longer than the 500 characters that may be shown
         return 403, b"x" * 2000, {}
     if path == "/missing":
         return 404, b'{"error": "not found"}', {}
@@ -1078,8 +1078,8 @@ def test_a_refusal_is_kept_from_the_first_answer_with_its_body_and_wait(
     assert file.refusal is not None
     assert file.refusal.status == 403
     assert json.loads(file.refusal.body) == {"error": "Quota exceeded"}
-    assert file.refusal.retry_after == 1201
-    assert file.retry_after == 1201
+    assert file.refusal.retry_after == 1200
+    assert file.retry_after == 1200
     assert [(request["method"], request["path"]) for request in requests] == [("GET", "/quota")]
     assert requests[0]["headers"]["Authorization"] == "Basic Zm9v"
 
@@ -1095,15 +1095,24 @@ def test_the_reason_of_a_refusal_is_in_the_body_that_is_kept(http_server: tuple[
     assert _asked(requests, "/too-many") == 1
 
 
-def test_the_body_of_a_refusal_is_cut_at_500_characters(http_server: tuple[str, list], tmp_path: Path) -> None:
-    """Only the first 500 characters are kept, whatever the server sends."""
+def test_a_refusal_keeps_the_whole_body_for_matching_and_shows_500_characters_of_it(
+    http_server: tuple[str, list], tmp_path: Path
+) -> None:
+    """The body is kept whole (64 KiB at most), so a reason that follows a long echo of the request is within it.
+
+    Frost's `ErrorResponse` puts the request's own URL before `error.reason`. What may be shown is the excerpt, the
+    first 500 characters, and the body is no part of the `repr` of the refusal or of the file.
+    """
     base_url, _ = http_server
 
     file = _fetch(base_url, "/long", tmp_path)
 
     assert file.refusal is not None
-    assert file.refusal.body == "x" * network.REFUSAL_BODY_CHARS
+    assert file.refusal.body == "x" * 2000
+    assert file.refusal.excerpt == "x" * network.REFUSAL_BODY_CHARS
     assert network.REFUSAL_BODY_CHARS == 500
+    assert "xxxx" not in repr(file.refusal)
+    assert "xxxx" not in repr(file)
 
 
 @pytest.mark.parametrize("path", ["/token", "/boom", "/missing"])
@@ -1159,17 +1168,18 @@ def test_a_body_past_the_bytes_it_may_have_is_not_kept(
     monkeypatch.setattr(network, "_REFUSAL_MAX_BYTES", 16 * 1024**2)
     read = _fetch(base_url, path, tmp_path)
     assert read.refusal is not None
-    assert read.refusal.body == "x" * network.REFUSAL_BODY_CHARS
+    assert read.refusal.body.startswith("x" * 1000)
+    assert read.refusal.excerpt == "x" * network.REFUSAL_BODY_CHARS
 
 
 @pytest.mark.parametrize(
     ("path", "lowest", "highest", "sent"),
     [
         pytest.param("/limit-bare", 60, 60, False, id="none sent: a minute"),
-        pytest.param("/limit-seconds", 121, 121, True, id="Retry-After seconds"),
+        pytest.param("/limit-seconds", 120, 120, True, id="Retry-After seconds"),
         pytest.param("/limit-date", 599, 602, True, id="Retry-After date"),
-        pytest.param("/limit-ratelimit-reset", 46, 46, True, id="RateLimit-Reset"),
-        pytest.param("/limit-x-reset-seconds", 31, 31, True, id="X-Ratelimit-Reset seconds"),
+        pytest.param("/limit-ratelimit-reset", 45, 45, True, id="RateLimit-Reset"),
+        pytest.param("/limit-x-reset-seconds", 30, 30, True, id="X-Ratelimit-Reset seconds"),
         pytest.param("/limit-x-reset-epoch", 599, 602, True, id="X-RateLimit-Reset epoch second"),
         pytest.param("/limit-zero", 60, 60, False, id="not positive is none"),
         pytest.param("/limit-past-a-day", 60, 60, False, id="past a day is none"),
@@ -1215,21 +1225,21 @@ def test_a_429_is_not_asked_again_by_a_listing_or_a_post_and_is_the_same_error(
 
     with pytest.raises(ProviderRateLimitError) as listed:
         list_remote_files_fsspec(f"{base_url}/limit-seconds", settings=Settings(cache_dir=tmp_path))
-    assert listed.value.retry_after == 121
+    assert listed.value.retry_after == 120
     assert _asked(requests, "/limit-seconds") == 1
 
     with pytest.raises(ProviderRateLimitError) as directory:
         list_remote_directory_fsspec(f"{base_url}/limit-ratelimit-reset", settings=Settings(cache_dir=tmp_path))
-    assert directory.value.retry_after == 46
+    assert directory.value.retry_after == 45
     assert _asked(requests, "/limit-ratelimit-reset") == 1
 
     posted = post_file(f"{base_url}/limit-x-reset-seconds", auth=("user", "pa:ss"))
     assert posted.status == 429
     assert posted.refusal is not None
-    assert posted.refusal.retry_after == 31
+    assert posted.refusal.retry_after == 30
     with pytest.raises(ProviderRateLimitError) as raised:
         posted.raise_if_exception()
-    assert raised.value.retry_after == 31
+    assert raised.value.retry_after == 30
     assert _asked(requests, "/limit-x-reset-seconds") == 1
 
 
@@ -1241,7 +1251,7 @@ def test_as_outage_hands_a_429_back_as_the_rate_limit_error(http_server: tuple[s
     failure = network.as_outage(file.content, file.url)
 
     assert isinstance(failure, ProviderRateLimitError)
-    assert failure.retry_after == 121
+    assert failure.retry_after == 120
     assert failure.__cause__ is file.content
 
 
@@ -1316,12 +1326,12 @@ def test_the_key_and_the_body_of_a_refusal_are_in_no_message_and_no_log(
 def test_rate_limited_names_no_provider_url_or_key_and_says_the_wait_it_is_given() -> None:
     """The sentence is true of every provider: it names none, and the wait only where the provider sent one."""
     bare = rate_limited("https://api.example.org/v1/x?key=SECRET")
-    waited = rate_limited("https://api.example.org/v1/x?key=SECRET", 121)
+    waited = rate_limited("https://api.example.org/v1/x?key=SECRET", 120)
     shortly = rate_limited("https://api.example.org/v1/x", 45)
 
     assert bare.retry_after == network.RATE_LIMIT_RETRY_AFTER_SECONDS == 60
     assert "asks for a wait" not in bare.reason
-    assert "about 3 minutes" in waited.reason
+    assert "about 2 minutes" in waited.reason
     assert "about 45 seconds" in shortly.reason
     for error in (bare, waited, shortly):
         assert "429" in error.reason
@@ -1329,17 +1339,17 @@ def test_rate_limited_names_no_provider_url_or_key_and_says_the_wait_it_is_given
         assert "SECRET" not in str(error)
         assert "SECRET" not in error.url
         assert "retry later" in error.reason.lower() or "try again later" in error.reason.lower()
-    assert pickle.loads(pickle.dumps(waited)).retry_after == 121  # noqa: S301
+    assert pickle.loads(pickle.dumps(waited)).retry_after == 120  # noqa: S301
 
 
 @pytest.mark.parametrize(
     ("headers", "expected"),
     [
-        ({"Retry-After": "120"}, 121),
-        ({"Retry-After": "Fri, 13 Nov 2026 12:10:00 GMT"}, 601),
-        ({"RateLimit-Reset": "45"}, 46),
-        ({"X-RateLimit-Reset": "EPOCH_PLUS_600"}, 601),
-        ({"X-Ratelimit-Reset": "30", "Retry-After": "90"}, 91),  # the standard header first
+        ({"Retry-After": "120"}, 120),
+        ({"Retry-After": "Fri, 13 Nov 2026 12:10:00 GMT"}, 600),
+        ({"RateLimit-Reset": "45"}, 45),
+        ({"X-RateLimit-Reset": "EPOCH_PLUS_600"}, 600),
+        ({"X-Ratelimit-Reset": "30", "Retry-After": "90"}, 90),  # the standard header first
         ({"Retry-After": "0"}, None),
         ({"Retry-After": "-5"}, None),
         ({"Retry-After": "99999999"}, None),  # past a day: a server with no idea
@@ -1357,6 +1367,15 @@ def test_retry_after_of_reads_the_wait_a_refusal_asks_for_and_none_it_does_not(
     headers = {name: epoch if value == "EPOCH_PLUS_600" else value for name, value in headers.items()}
 
     assert retry_after_of(headers, now) == expected
+
+
+def test_retry_after_of_rounds_a_fraction_of_a_second_up_and_leaves_a_whole_number_alone() -> None:
+    """A moment that is a fraction away (a date, an epoch second) is rounded up; `120` seconds are 120, not 121."""
+    now = dt.datetime(2026, 11, 13, 12, 0, 0, 400_000, tzinfo=dt.UTC)
+
+    assert retry_after_of({"Retry-After": "Fri, 13 Nov 2026 12:10:00 GMT"}, now) == 600  # 599.6 s away
+    assert retry_after_of({"X-RateLimit-Reset": str(int(now.timestamp()) + 60)}, now) == 60  # 59.6 s away
+    assert retry_after_of({"Retry-After": "120"}, now) == 120
 
 
 def test_post_file_returns_a_dropped_connection_as_a_file() -> None:
@@ -3418,7 +3437,7 @@ def test_as_outage_gives_a_429_as_the_rate_limit_error_with_its_wait() -> None:
     failure = network.as_outage(error, _FAILED_URL)
 
     assert isinstance(failure, ProviderRateLimitError)
-    assert failure.retry_after == 91
+    assert failure.retry_after == 90
     assert failure.__cause__ is error
 
 

@@ -236,7 +236,7 @@ missing file is an ordinary answer (a station that does not report a parameter i
 hands the failures that are no answer to `as_outage()`, which turns them into these errors. URLs are shown without
 query, fragment and user information, and credentials are removed from the errors, so a key does not reach a log.
 A refused download (a 4xx but a 404) keeps what the provider answered on `File.refusal`, read from that first answer
-and never asked for again: the status, the first 500 characters of the body (64 KiB and 15 s at most) and the wait. A
+and never asked for again: the status, the body (64 KiB and 15 s at most; `Refusal.excerpt` is the first 500 characters, the part that may be shown) and the wait. A
 provider that says why in the body (Frost's 403 for too many observations, KNMI's 403 `Quota exceeded`) reads it
 there; the body is no part of a message, a log line or the cache, and the key is nowhere on the `File`.
 [Troubleshooting](../usage/troubleshooting.md) is the same table from the user's side.

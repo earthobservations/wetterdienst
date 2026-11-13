@@ -556,7 +556,7 @@ def test_ceda_token_exchange_that_is_rate_limited_raises_the_rate_limit_error(mo
     with pytest.raises(ProviderRateLimitError) as raised:
         download.get_ceda_token(Settings(auth={"ceda": "user:pass"}))
     assert isinstance(raised.value, DownloadError)
-    assert raised.value.retry_after == 121
+    assert raised.value.retry_after == 120
     assert "pass" not in str(raised.value)
     assert not download._TOKEN_CACHE  # noqa: SLF001
 

@@ -714,7 +714,8 @@ def _raise_if_window_too_large(file: File) -> None:
     Frost answers a request for more than 100,000 observations with a 403, the same status it gives a client ID it
     refuses, and says which in the body: "The estimated number of observations (...) exceeds the maximum number
     allowed (100000)". The key is fine then, and the caller has to ask for less. The body is read from the first answer
-    (`File.refusal`, at most 500 characters): the provider is not asked again.
+    (`File.refusal`, the whole body: the reason follows a long echo of the request): the provider is not asked
+    again.
     """
     if file.status != HTTPStatus.FORBIDDEN or not isinstance(file.content, Exception):
         return

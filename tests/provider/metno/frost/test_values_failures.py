@@ -4,9 +4,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import json
+import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -16,9 +21,10 @@ import pytest
 from tests.provider.metno.frost.catalogue_rows import is_series_listing, series_of
 from tests.provider.metno.frost.weekly_readers import unread_station_years
 from wetterdienst.exceptions import CredentialRejectedError, InvalidParameterError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
-from wetterdienst.util.network import File, Refusal
+from wetterdienst.util.network import File, Refusal, download_file
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
@@ -966,6 +972,101 @@ def test_metno_frost_window_over_the_limit_is_a_time_interval_error_and_not_a_re
     assert asked[0].endswith("timeresolutions=PT6H")
 
 
+class _RefusingFrost(BaseHTTPRequestHandler):
+    """Answer every request with the 403 body that was set for it, as Frost words it (a real `ErrorResponse`)."""
+
+    def do_GET(self) -> None:
+        body = self.server.bodies[self.path].encode()  # ty: ignore[unresolved-attribute]
+        self.send_response(403)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_args: object) -> None:
+        """Keep the test output free of the server's own access log."""
+
+
+def _frost_error_response(url: str, *, pretty: bool) -> str:
+    """Give Frost's `ErrorResponse` for a window over the limit, as it writes it: the request's own URL comes first.
+
+    The keys before `error.reason` are those of Frost's answers (`@context`, `@type`, `apiVersion`, `license`,
+    `createdAt`, `queryTime`, `currentLink`), so for a request of a whole dataset, whose URL names every element, the
+    reason is far past the 500th character.
+    """
+    document = {
+        "@context": "https://frost.met.no/schema",
+        "@type": "ErrorResponse",
+        "apiVersion": "v0",
+        "license": "https://creativecommons.org/licenses/by/3.0/no/",
+        "createdAt": "2026-11-13T12:00:00Z",
+        "queryTime": 0.004,
+        "currentLink": url,
+        "error": {
+            "code": 403,
+            "message": "Forbidden",
+            "reason": (
+                "The estimated number of observations (155123) exceeds the maximum number allowed (100000). "
+                "Reduce the number of sources, elements or the length of the reference time."
+            ),
+            "help": "Read the documentation at https://frost.met.no/api.html#!/observations/observations",
+        },
+    }
+    return json.dumps(document, indent=2 if pretty else None, ensure_ascii=False)
+
+
+@pytest.mark.parametrize("pretty", [False, True], ids=["compact", "pretty"])
+@pytest.mark.parametrize(
+    "requested",
+    [
+        pytest.param([("6_hours", "data", "precipitation_amount")], id="one-parameter"),
+        pytest.param([("hourly", "data")], id="whole-dataset-with-many-elements"),
+    ],
+)
+def test_metno_frost_window_over_the_limit_is_told_by_a_full_error_response_whose_reason_is_far_in(
+    monkeypatch: pytest.MonkeyPatch, requested: list[tuple[str, ...]], *, pretty: bool
+) -> None:
+    """Test that Frost's own `ErrorResponse`, read through the real download, tells the window and not a rejected key.
+
+    The reason follows the echo of the request in `currentLink`, which for a dataset names every element: past the 500th
+    character, where a body cut there misses it and the window error became `CredentialRejectedError` (REST 501). The
+    body is served by a local server and read by `download_file` as any 403 is, so the chain is the real one (GH-4048).
+    """
+    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _RefusingFrost)
+    server.bodies = {}  # ty: ignore[unresolved-attribute]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    reasons_at: list[int] = []
+
+    def refused(url: str) -> File:
+        body = _frost_error_response(url, pretty=pretty)
+        reasons_at.append(body.index("exceeds the maximum"))
+        server.bodies["/refused"] = body  # ty: ignore[unresolved-attribute]
+        file = download_file(
+            url=f"http://127.0.0.1:{server.server_port}/refused",
+            cache_dir=Path(tempfile.mkdtemp()),
+            ttl=CacheExpiry.NO_CACHE,
+            cache_disable=True,
+        )
+        return dataclasses.replace(file, url=url)
+
+    try:
+        values, _ = _values(monkeypatch, refused, requested)
+        with pytest.raises(InvalidTimeIntervalError, match="narrow the window") as excinfo:
+            values.all()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    assert not isinstance(excinfo.value, CredentialRejectedError)
+    # the reason is beyond the 500 characters that may be shown, which is what this holds the reading to
+    assert reasons_at
+    assert min(reasons_at) > 450
+    assert any(at > 500 for at in reasons_at)
+
+
 @pytest.mark.parametrize("path", ["batch", "single", "discovery", "series"])
 def test_metno_frost_window_over_the_limit_is_told_by_every_reader(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
     """Test that the batch, the single parameter, the discovery listing and the discovered series all read a 403 why.
@@ -1025,12 +1126,12 @@ def _rate_limited(url: str, headers: dict[str, str]) -> File:
     error = ClientResponseError(
         info, (), status=429, message="Too Many Requests", headers=CIMultiDictProxy(CIMultiDict(headers))
     )
-    return File(url=url, content=error, status=429, refusal=Refusal(429, '{"message": "slow down"}', 91))
+    return File(url=url, content=error, status=429, refusal=Refusal(429, '{"message": "slow down"}', 90))
 
 
 @pytest.mark.parametrize(
     ("headers", "wait"),
-    [({"Retry-After": "90"}, 91), ({"RateLimit-Reset": "30"}, 31), ({}, 60)],
+    [({"Retry-After": "90"}, 90), ({"RateLimit-Reset": "30"}, 30), ({}, 60)],
     ids=["retry-after", "ratelimit-reset", "none-sent"],
 )
 def test_metno_frost_429_is_the_rate_limit_error_with_the_wait_frost_sent(

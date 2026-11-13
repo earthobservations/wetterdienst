@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+import json
 import logging
 import math
 import time
@@ -332,12 +333,27 @@ def test_a_403_that_says_the_quota_is_exceeded_is_the_rate_limit_error_and_not_a
     assert [request["status"] for request in edr_server.requests] == [403]
 
 
+def test_a_quota_403_whose_words_come_after_a_long_body_is_still_the_rate_limit_error(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """The body of a 403 is matched whole: `Quota exceeded` is found past the 500th character (GH-4048)."""
+    edr_server.quota_after = 0
+    edr_server.quota_body = json.dumps({"detail": "x" * 3000, "error": "Quota exceeded"}, indent=2).encode()
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
+
+    assert not isinstance(raised.value, CredentialRejectedError)
+    assert "xxxx" not in str(raised.value)
+    assert [request["status"] for request in edr_server.requests] == [403]
+
+
 @pytest.mark.parametrize(
     ("headers", "seconds"),
     [
-        ({"Retry-After": "1500"}, 1501),
-        ({"X-Ratelimit-Reset": "2400"}, 2401),
-        ({"X-Ratelimit-Reset": "epoch+600"}, 601),
+        ({"Retry-After": "1500"}, 1500),
+        ({"X-Ratelimit-Reset": "2400"}, 2400),
+        ({"X-Ratelimit-Reset": "epoch+600"}, 600),
     ],
     ids=["retry-after", "ratelimit-reset-seconds", "ratelimit-reset-epoch"],
 )
@@ -625,8 +641,8 @@ def test_the_wait_that_knmi_sends_with_a_429_is_in_the_error_and_the_default_is_
     with pytest.raises(ProviderRateLimitError) as raised:
         reader.read([("daily", "data")], _at(2019, 12, 1), _at(2020, 12, 31))
 
-    assert raised.value.retry_after == 301
-    assert "KNMI says to wait about 6 minutes" in str(raised.value)
+    assert raised.value.retry_after == 300
+    assert "KNMI says to wait about 5 minutes" in str(raised.value)
     assert [request["status"] for request in edr_server.requests][-1:] == [429]
 
 

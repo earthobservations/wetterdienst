@@ -216,10 +216,10 @@ def read_quota_exceeded(file: File) -> ProviderRateLimitError | None:
     """Tell whether a 403 is the quota of the key used up, from the body of that answer: the error if it is, else None.
 
     The gateway answers 403 for a key it refuses and for a key whose quota is used up, saying which only in the body
-    (`Access to this API has been disallowed`, `Quota exceeded`). The download keeps that body (`File.refusal`, at most
-    `REFUSAL_BODY_CHARS` characters, read from the first answer): no second request is made. Nothing of it is logged or
-    put into the message. A 403 that has no body to read (a timeout, a body too long) is None: the status alone then
-    says the key is refused, as it always did.
+    (`Access to this API has been disallowed`, `Quota exceeded`). The download keeps that body
+    (`File.refusal`, read whole from the first answer, at most 64 KiB): no second request is made. Nothing of it is
+    logged or put into the message. A 403 that has no body to read (a timeout, a body too long) is None: the status
+    alone then says the key is refused, as it always did.
     """
     refusal = file.refusal
     if (

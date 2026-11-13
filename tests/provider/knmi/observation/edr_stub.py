@@ -188,6 +188,8 @@ class EdrStub(ThreadingHTTPServer):
         #: (`X-Ratelimit-Reset`, `Retry-After`)
         self.quota_after: int | None = None
         self.quota_headers: dict[str, str] = {}
+        #: the body of that 403, the gateway's own sentence if None
+        self.quota_body: bytes | None = None
         #: the headers to answer the requests that `statuses` forces with (`Retry-After` of a 429)
         self.status_headers: dict[str, str] = {}
 
@@ -208,7 +210,8 @@ class _EdrHandler(BaseHTTPRequestHandler):
         headers = {k.lower(): v for k, v in self.headers.items()}
         server.requests.append({"path": self.path, "headers": headers})
         if server.quota_after is not None and len(server.requests) > server.quota_after:
-            self._send(403, json.dumps({"error": "Quota exceeded"}).encode(), "application/json", server.quota_headers)
+            body = server.quota_body or json.dumps({"error": "Quota exceeded"}).encode()
+            self._send(403, body, "application/json", server.quota_headers)
             return
         if server.key is not None and headers.get("authorization") != server.key:
             # the words of the gateway (2026-11-13)

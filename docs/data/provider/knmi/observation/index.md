@@ -28,8 +28,8 @@ refuses, is an error that says where to get one. `wetterdienst auth
 
 The quota of a registered key is 1,000 requests an hour and 200 a second, whatever the size of a request (the API's
 `X-Ratelimit-*` headers say how much is left). A 429 (the rate or the quota) or a 403 `Quota exceeded` (the hour's quota used
-up) ends the query with an error that says so; only the 403 names the reset time, where KNMI sends it, and a 429 asks
-for a short wait. Nothing is read from anywhere else.
+up) ends the query with an error that says so, with the wait KNMI sends (`Retry-After`, `RateLimit-Reset` or
+`X-Ratelimit-Reset`); a 429 that comes with none asks for 60 seconds. Nothing is read from anywhere else.
 
 ## How the values are read
 

@@ -987,8 +987,8 @@ def test_aemet_fetch_datos_returns_a_fault_of_the_envelope_as_a_download_error(
     ("as_envelope", "headers", "expected_wait"),
     [
         pytest.param(False, {}, 60, id="http-429"),
-        pytest.param(False, {"Retry-After": "45"}, 46, id="http-429-retry-after"),
-        pytest.param(False, {"RateLimit-Reset": "30"}, 31, id="http-429-ratelimit-reset"),
+        pytest.param(False, {"Retry-After": "45"}, 45, id="http-429-retry-after"),
+        pytest.param(False, {"RateLimit-Reset": "30"}, 30, id="http-429-ratelimit-reset"),
         pytest.param(True, {}, 60, id="estado-429"),
     ],
 )

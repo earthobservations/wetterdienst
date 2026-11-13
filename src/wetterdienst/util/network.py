@@ -13,6 +13,7 @@ import hashlib
 import ipaddress
 import json
 import logging
+import math
 import os
 import posixpath
 import re
@@ -841,8 +842,10 @@ async def _note_refusal(_session: object, _context: SimpleNamespace, params: Tra
     the body ("Quota exceeded", "the estimated number of observations exceeds the maximum") or when to come back in a
     header (`Retry-After`) cannot be told by the status alone. Reading it here, as the answer arrives, is what saves
     asking a second time. The body is held to the limits of a download (`_REFUSAL_MAX_BYTES` and
-    `_REFUSAL_MAX_SECONDS`; one that is longer, slower or unreadable is kept as an empty one) and cut to
-    `REFUSAL_BODY_CHARS`; nothing of it is logged. Nothing is raised: a refusal that cannot be read is still one.
+    `_REFUSAL_MAX_SECONDS`; one that is longer, slower or unreadable is kept as an empty one) and is kept whole, for
+    a provider to match what it says in it wherever it says it (Frost's reason follows a long `currentLink`);
+    nothing of it is logged or rendered (`Refusal.excerpt` is the part that may be shown). Nothing is raised: a refusal
+    that cannot be read is still one.
     """
     response = params.response
     if not (HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR) or (
@@ -858,7 +861,7 @@ async def _note_refusal(_session: object, _context: SimpleNamespace, params: Tra
         _REFUSAL_ATTRIBUTE,
         Refusal(
             response.status,
-            body.decode("utf-8", errors="replace")[:REFUSAL_BODY_CHARS],
+            body.decode("utf-8", errors="replace"),
             retry_after_of(response.headers),
         ),
     )
@@ -3755,7 +3758,7 @@ def post_file(
 _REFUSAL_MAX_BYTES = 64 * 1024
 _REFUSAL_MAX_SECONDS = 15.0
 
-#: How many characters of a refusal's body are kept (`Refusal.body`): the reason is the first of it
+#: How many characters of a refusal's body may be shown (`Refusal.excerpt`)
 REFUSAL_BODY_CHARS = 500
 
 #: The attribute of a response and of the error raised for it that holds its `Refusal`
@@ -3784,11 +3787,17 @@ class Refusal:
 
     status: int
     """The HTTP status of the answer."""
-    body: str
-    """The first `REFUSAL_BODY_CHARS` characters of the body, as text; empty where it was longer than the 64 KiB read
-    at most, did not arrive in 15 seconds or could not be read."""
+    body: str = field(repr=False)
+    """The whole body, as text, for a provider to match what it says in it: at most 64 KiB, so a reason that follows a
+    long echo of the request is within it. Empty where it was longer than that, did not arrive in 15 seconds or could
+    not be read. Never logged, put into a message or shown whole: `excerpt` is what may be."""
     retry_after: int | None = None
     """Seconds after which the provider says the request may be made again, where it says (`retry_after_of`)."""
+
+    @property
+    def excerpt(self) -> str:
+        """Give the first `REFUSAL_BODY_CHARS` characters of the body, the part that may be shown."""
+        return self.body[:REFUSAL_BODY_CHARS]
 
 
 def retry_after_of(headers: Mapping[str, str], now: dt.datetime | None = None) -> int | None:
@@ -3817,7 +3826,9 @@ def retry_after_of(headers: Mapping[str, str], now: dt.datetime | None = None) -
                 date = date.replace(tzinfo=dt.UTC) if date.tzinfo is None else date
                 seconds = (date - now).total_seconds()
         if seconds is not None and 0 < seconds <= _RETRY_AFTER_MAX_SECONDS:
-            return int(seconds) + 1
+            # a whole number of seconds as it was said; a moment that is a fraction away (a date, an epoch second)
+            # rounded up, so that the caller does not come back a moment early
+            return math.ceil(seconds)
     return None
 
 
