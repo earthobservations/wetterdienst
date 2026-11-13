@@ -699,6 +699,7 @@ const selectionStyle = computed(() => {
             :id="readoutId"
             ref="readoutEl"
             class="mg-readout"
+            :class="{ 'mg-readout-narrow': outerPx < 520 }"
             role="group"
             :aria-label="t('meteogram.chart.readoutFor', { time: readout.time })"
             :style="readoutStyle"
@@ -724,10 +725,10 @@ const selectionStyle = computed(() => {
                 <UIcon name="i-ph-x" class="size-3.5" aria-hidden="true" />
               </button>
             </div>
-            <dl class="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5">
+            <dl class="mt-1.5 grid grid-cols-[1fr_auto] gap-x-2 gap-y-0.5">
               <template v-for="row in readout.rows" :key="row.id">
                 <dt class="flex items-center gap-1.5 text-toned">
-                  <span class="size-2 shrink-0 rounded-full" aria-hidden="true" :style="{ background: row.colour }" />{{ row.label }}
+                  <span class="mg-dot size-2 shrink-0 rounded-full" aria-hidden="true" :style="{ background: row.colour }" />{{ row.label }}
                 </dt>
                 <dd class="m-0 text-end font-medium text-highlighted tabular-nums">
                   {{ row.value }}
@@ -814,6 +815,15 @@ const selectionStyle = computed(() => {
   cursor: default;
   user-select: text;
   -webkit-user-select: text;
+}
+.mg-readout-narrow {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+/* at a phone's width the readout has half the chart: the colour dots, which the words name as well, leave their room to the words */
+.mg-readout-narrow .mg-dot {
+  display: none;
 }
 .mg-close {
   display: inline-flex;
