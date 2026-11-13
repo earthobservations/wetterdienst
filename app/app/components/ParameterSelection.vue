@@ -459,25 +459,25 @@ watch([provider, network, resolution, dataset, parameters, dateRequired, network
         </h2>
       </div>
     </template>
-    <!-- only once coverage has settled: while the request is out every provider looks unavailable,
-         and flashing "not available from this backend" on each cold load is worse than silence -->
-    <UAlert
-      v-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"
-      color="error"
-      variant="subtle"
-      :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
-      icon="i-ph-warning-circle"
-      class="mx-6 mt-4"
-    />
-    <UAlert
-      v-else-if="coverageSettled && restrictNetwork && !restrictedNetworkAvailable"
-      color="error"
-      variant="subtle"
-      :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
-      icon="i-ph-warning-circle"
-      class="mx-6 mt-4"
-    />
     <UContainer class="flex flex-col gap-4">
+      <!-- only once coverage has settled: while the request is out every provider looks unavailable,
+           and flashing "not available from this backend" on each cold load is worse than silence.
+           Inside the container, with the fields: a root that is as wide as its box with a margin on top of it ran
+           past it (8 px past a 320 px window, GH-4037) -->
+      <UAlert
+        v-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"
+        color="error"
+        variant="subtle"
+        :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"
+        icon="i-ph-warning-circle"
+      />
+      <UAlert
+        v-else-if="coverageSettled && restrictNetwork && !restrictedNetworkAvailable"
+        color="error"
+        variant="subtle"
+        :title="t('parameterSelection.networkRestrictionUnavailable', { network: restrictNetwork })"
+        icon="i-ph-warning-circle"
+      />
       <UFormField :label="t('parameterSelection.providerLabel')">
         <USelect v-model="provider" :items="providerItems" :placeholder="t('parameterSelection.selectProvider')" :disabled="!!restrictProvider || coveragePending" :loading="coveragePending" class="w-full" :class="{ 'needs-input': activeField === 'provider' }" />
       </UFormField>

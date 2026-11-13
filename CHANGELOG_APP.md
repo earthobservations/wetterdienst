@@ -31,6 +31,10 @@ Types of changes:
 
 ### Fixed
 
+- `[History]` The banner "The configured provider is not available from this backend",
+  which also shows when the backend cannot be reached, no longer runs 8 px past the window at
+  320 px (all languages): it stands within the same edges as the fields below it at every width
+  (GH-4037)
 - `[Translations, Explorer]` In Luxembourgish, the Explorer's number fields (threshold, distances,
   number of stations) no longer use the system's language in Chrome, which has no data for it: a
   typed "1,5" was read as 15 and numbers were written "1,234.5". They take German's separators,

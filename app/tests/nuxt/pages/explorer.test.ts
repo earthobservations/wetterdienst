@@ -1609,11 +1609,38 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
   })
 })
 
+describe('explorer Page date range from the stations\' span (GH-2439)', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    clearNuxtState('server-settings')
+  })
+
+  it('fills a required date range from the span the backend gives the chosen stations', async () => {
+    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
+    const wrapper = await mountSuspended(ExplorerPage)
+    mounted.push(wrapper)
+    const vm = wrapper.vm as any
+    // the parameter selection settles first, as its first choices clear the stations
+    await vi.waitFor(
+      () => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false),
+      { timeout: 5000 },
+    )
+    await nextTick()
+
+    // interpolation needs a date range, which the page then takes from the stations
+    vm.stationSelectionState.mode = 'interpolation'
+    vm.stationSelectionState.selection.stations = [
+      { station_id: '00001', name: 'Old', start_timestamp: '1950-01-01T00:00:00.000000+00:00', end_timestamp: '2020-12-31T00:00:00.000000+00:00' },
+      { station_id: '00002', name: 'Young', start_timestamp: '1990-06-01T00:00:00.000000+00:00', end_timestamp: '2010-01-01T00:00:00.000000+00:00' },
+    ]
+    await vi.waitFor(() => expect(vm.stationSelectionState.dateRange).toMatchObject({ startDate: '1950-01-01', endDate: '2020-12-31' }))
+  })
+})
+
 // Nuxt UI hands reka's number fields the app's bare locale code, `lb`, and Chrome has no data for Luxembourgish: the
 // field then formats and parses in the system's language ("1,234.5", and a typed "1,5" is 15). The explorer gives each
 // field the language tag, `de-LU` (GH-4037). `chromeWithoutLuxembourgish` stands in for Chrome, as Node has the data.
-// It stays above the describes that call `clearNuxtState()` with no key (GH-2439): that clears the state of the language
-// too, and `lb` is then the locale with the page still in English.
 describe('explorer Page number fields in Luxembourgish', () => {
   let chrome: ChromeWithoutLuxembourgish | undefined
 
@@ -1661,34 +1688,5 @@ describe('explorer Page number fields in Luxembourgish', () => {
     expect(fields.length).toBeGreaterThan(0)
     for (const field of fields)
       expect((field.props() as Record<string, unknown>).locale).toBe('de-LU')
-  })
-})
-
-describe('explorer Page date range from the stations\' span (GH-2439)', () => {
-  afterEach(() => {
-    mounted.splice(0).forEach(wrapper => wrapper.unmount())
-    endpoints.splice(0).forEach(remove => remove())
-    clearNuxtState()
-  })
-
-  it('fills a required date range from the span the backend gives the chosen stations', async () => {
-    endpoints.push(registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } })))
-    const wrapper = await mountSuspended(ExplorerPage)
-    mounted.push(wrapper)
-    const vm = wrapper.vm as any
-    // the parameter selection settles first, as its first choices clear the stations
-    await vi.waitFor(
-      () => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false),
-      { timeout: 5000 },
-    )
-    await nextTick()
-
-    // interpolation needs a date range, which the page then takes from the stations
-    vm.stationSelectionState.mode = 'interpolation'
-    vm.stationSelectionState.selection.stations = [
-      { station_id: '00001', name: 'Old', start_timestamp: '1950-01-01T00:00:00.000000+00:00', end_timestamp: '2020-12-31T00:00:00.000000+00:00' },
-      { station_id: '00002', name: 'Young', start_timestamp: '1990-06-01T00:00:00.000000+00:00', end_timestamp: '2010-01-01T00:00:00.000000+00:00' },
-    ]
-    await vi.waitFor(() => expect(vm.stationSelectionState.dateRange).toMatchObject({ startDate: '1950-01-01', endDate: '2020-12-31' }))
   })
 })

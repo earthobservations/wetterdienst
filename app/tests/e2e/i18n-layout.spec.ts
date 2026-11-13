@@ -3,7 +3,7 @@ import type { Handlers } from './accessibility/mock-backend'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { defaultHandlers, mockBackend } from './accessibility/mock-backend'
+import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
 // Luxembourgish, Czech, Low German, Italian and French (the last two scrolled sideways on the stripes and history
@@ -453,5 +453,41 @@ for (const language of ['en', ...LONG_LANGUAGES]) {
       return rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1
     })
     expect(inside, `the details on the card in ${language}`).toBe(true)
+  })
+}
+
+// The banner of a provider the page is configured for but the backend does not offer (GH-4037): it is shown too when the
+// list of providers cannot be read at all (an unreachable backend). It was `w-full` with a margin of 24 px on both sides,
+// so it ran 24 px past the card's content at every width, 8 px past the window at 320 px. It stands where the fields
+// stand: the same left and right edge as the first select, inside the window, at a phone's, a tablet's and a desktop's width.
+function restrictionTitle(language: string): string {
+  const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+  return catalog.parameterSelection.providerRestrictionUnavailable.replace('{provider}', 'dwd')
+}
+
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  test(`/history with the backend's providers unreadable shows the banner of its provider within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
+    const unreachable = () => new ApiFailure(503, 'Service Unavailable')
+    await mockBackend(page, baseURL!, { providers: unreachable, coverage: unreachable })
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto('/history')
+    const title = page.getByText(restrictionTitle(language), { exact: true })
+    await expect(title).toBeVisible({ timeout: 60_000 })
+    for (const width of [320, 640, 1280]) {
+      await page.setViewportSize({ width, height: 844 })
+      await settle(page)
+      const edges = await title.evaluate((el) => {
+        const alert = el.closest('[data-slot="root"]')!.getBoundingClientRect()
+        const field = document.querySelector('button[role="combobox"]')!.getBoundingClientRect()
+        return { alertLeft: alert.left, alertRight: alert.right, fieldLeft: field.left, fieldRight: field.right, window: document.documentElement.clientWidth }
+      })
+      const where = `the banner of /history in ${language} at ${width}px`
+      expect(Math.abs(edges.alertLeft - edges.fieldLeft), `${where}: left edge against the fields'`).toBeLessThanOrEqual(1)
+      expect(Math.abs(edges.alertRight - edges.fieldRight), `${where}: right edge against the fields'`).toBeLessThanOrEqual(1)
+      expect(edges.alertRight, `${where}: inside the window`).toBeLessThanOrEqual(edges.window)
+      if (width === 320)
+        expect(await offendersOf(page), where).toEqual([])
+    }
   })
 }
