@@ -393,10 +393,16 @@ describe('the place from the reader\'s position', () => {
   it('takes the place of the link out of the address, and keeps the position out of it', async () => {
     mockBrowser()
     const wrapper = await mountAsk('/?place=02564&ask=rain')
+    expect(useRoute().fullPath, 'the link names a place').toContain('place=02564')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+    // the place is set, and the address follows: the component takes the place out with `router.replace`, a navigation
+    // that settles after the page shows the new place, so the address is read once it has (it was read at once, and
+    // failed when the navigation was still on its way)
+    await vi.waitFor(() => expect(useRoute().fullPath).not.toContain('place='))
     const address = useRoute().fullPath
     expect(address).not.toContain('place=')
+    expect(address).toContain('ask=rain')
     expect(address).not.toMatch(/lat|lon|53\.6|10\.05/)
   })
 

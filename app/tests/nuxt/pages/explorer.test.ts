@@ -1,16 +1,18 @@
 import type { H3Event } from 'h3'
 import type { ProviderNetworkCoverageResponse, ServerSettings } from '#shared/types/api'
+import type { ChromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, setResponseHeader } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp, UInputNumber } from '#components'
-import { clearNuxtState, useRouter, useServerSettings, useSettings, useToast } from '#imports'
+import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useSettings, useToast } from '#imports'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 import ExplorerPage from '~/pages/explorer.vue'
+import { chromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 import { networksAnswer } from '../fixtures/providers'
 
@@ -1611,7 +1613,7 @@ describe('explorer Page date range from the stations\' span (GH-2439)', () => {
   afterEach(() => {
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     endpoints.splice(0).forEach(remove => remove())
-    clearNuxtState()
+    clearNuxtState('server-settings')
   })
 
   it('fills a required date range from the span the backend gives the chosen stations', async () => {
@@ -1633,5 +1635,58 @@ describe('explorer Page date range from the stations\' span (GH-2439)', () => {
       { station_id: '00002', name: 'Young', start_timestamp: '1990-06-01T00:00:00.000000+00:00', end_timestamp: '2010-01-01T00:00:00.000000+00:00' },
     ]
     await vi.waitFor(() => expect(vm.stationSelectionState.dateRange).toMatchObject({ startDate: '1950-01-01', endDate: '2020-12-31' }))
+  })
+})
+
+// Nuxt UI hands reka's number fields the app's bare locale code, `lb`, and Chrome has no data for Luxembourgish: the
+// field then formats and parses in the system's language ("1,234.5", and a typed "1,5" is 15). The explorer gives each
+// field the language tag, `de-LU` (GH-4037). `chromeWithoutLuxembourgish` stands in for Chrome, as Node has the data.
+describe('explorer Page number fields in Luxembourgish', () => {
+  let chrome: ChromeWithoutLuxembourgish | undefined
+
+  afterEach(async () => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+    useToast().clear()
+    chrome?.restore()
+    chrome = undefined
+    await useNuxtApp().$i18n.setLocale('en')
+  })
+
+  async function interpolationSettings() {
+    chrome = chromeWithoutLuxembourgish()
+    await useNuxtApp().$i18n.setLocale('lb')
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    vm.stationSelectionState.mode = 'interpolation'
+    await wrapper.vm.$nextTick()
+    await wrapper.findAll('button').find(b => b.text() === 'Astellungen')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.findAll('input[inputmode="decimal"]').length).toBeGreaterThan(0))
+    return { wrapper, vm }
+  }
+
+  it('parses a typed "1,5" as 1.5 and writes it with German separators', async () => {
+    const { wrapper, vm } = await interpolationSettings()
+    const field = wrapper.findAllComponents(UInputNumber).find(c => (c.props() as Record<string, unknown>).step === 0.1)!
+    const input = field.find('input')
+
+    await input.setValue('1,5')
+    await input.trigger('blur')
+    await wrapper.vm.$nextTick()
+    expect(vm.dataSettings.useNearbyStationDistance).toBe(1.5)
+
+    await input.setValue('1.234,5')
+    await input.trigger('blur')
+    await wrapper.vm.$nextTick()
+    expect(vm.dataSettings.useNearbyStationDistance).toBe(1234.5)
+    expect((input.element as HTMLInputElement).value).toBe('1.234,5')
+    expect(chrome!.passed.filter(language => /^lb(?:-|$)/i.test(language)), 'a language Chrome has no data for').toEqual([])
+  })
+
+  it('gives every number field the tag, not the code', async () => {
+    const { wrapper } = await interpolationSettings()
+    const fields = wrapper.findAllComponents(UInputNumber)
+    expect(fields.length).toBeGreaterThan(0)
+    for (const field of fields)
+      expect((field.props() as Record<string, unknown>).locale).toBe('de-LU')
   })
 })
