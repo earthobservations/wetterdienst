@@ -31,6 +31,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Translations, Explorer]` In Luxembourgish, the Explorer's number fields (threshold, distances,
+  number of stations) no longer use the system's language in Chrome, which has no data for it: a
+  typed "1,5" was read as 15 and numbers were written "1,234.5". They take German's separators,
+  "1,5" and "1.234,5" (GH-4037)
 - `[Translations, Forecast, Map, Explorer, Home, Glossary, Providers]` Luxembourgish no longer
   falls back to the system's language in Chrome, which has no data for it: the sorting of the
   providers, glossary and answers, the numbers of the date range and the map, and the percentages

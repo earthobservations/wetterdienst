@@ -16,6 +16,9 @@ import { MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } fro
 import { requestUnitTargets } from '~/utils/unit-targets'
 
 const { t, te } = useI18n()
+// the number fields format and parse in the language's tag (`de-LU` for `lb`, which Chrome has no data for): Nuxt UI gives
+// them the bare code (GH-4037)
+const formatLanguage = useFormatLanguage()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('explorer.title') })
@@ -962,6 +965,7 @@ function removeParameterDistance(id: string, paramName: string) {
                       <label class="text-sm">{{ t('explorer.threshold') }}{{ t('common.colon') }}</label>
                       <UInputNumber
                         v-model="dataSettings.skipThreshold"
+                        :locale="formatLanguage"
                         :min="0.05"
                         :max="1"
                         :step="0.05"
@@ -990,6 +994,7 @@ function removeParameterDistance(id: string, paramName: string) {
                         <label class="text-sm font-medium">{{ t('explorer.nearbyDistance') }}{{ t('common.colon') }}</label>
                         <UInputNumber
                           v-model="dataSettings.useNearbyStationDistance"
+                          :locale="formatLanguage"
                           :min="0"
                           :step="0.1"
                           size="sm"
@@ -1024,6 +1029,7 @@ function removeParameterDistance(id: string, paramName: string) {
                               <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}{{ t('common.colon') }}</span>
                               <UInputNumber
                                 v-model="dataSettings.stationDistanceHomogeneous"
+                                :locale="formatLanguage"
                                 :min="0"
                                 :max="MAX_STATION_DISTANCE"
                                 :step="1"
@@ -1037,6 +1043,7 @@ function removeParameterDistance(id: string, paramName: string) {
                               <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}{{ t('common.colon') }}</span>
                               <UInputNumber
                                 v-model="dataSettings.stationDistanceHeterogeneous"
+                                :locale="formatLanguage"
                                 :min="0"
                                 :max="MAX_STATION_DISTANCE"
                                 :step="1"
@@ -1070,6 +1077,7 @@ function removeParameterDistance(id: string, paramName: string) {
                                 @update:model-value="updateParameterName(entry.id, entry.paramName, String($event))"
                               />
                               <UInputNumber
+                                :locale="formatLanguage"
                                 :model-value="entry.distance"
                                 :min="0"
                                 :max="MAX_STATION_DISTANCE"
@@ -1114,6 +1122,7 @@ function removeParameterDistance(id: string, paramName: string) {
                               <label class="text-sm font-medium">{{ t('explorer.minGain') }}{{ t('common.colon') }}</label>
                               <UInputNumber
                                 v-model="dataSettings.minGainOfValuePairs"
+                                :locale="formatLanguage"
                                 :min="0.01"
                                 :max="1"
                                 :step="0.01"
@@ -1131,6 +1140,7 @@ function removeParameterDistance(id: string, paramName: string) {
                               <label class="text-sm font-medium">{{ t('explorer.additionalStations') }}{{ t('common.colon') }}</label>
                               <UInputNumber
                                 v-model="dataSettings.numAdditionalStations"
+                                :locale="formatLanguage"
                                 :min="0"
                                 :max="MAX_ADDITIONAL_STATIONS"
                                 :step="1"

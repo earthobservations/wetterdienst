@@ -100,6 +100,14 @@ describe('what the source leaves to the language', () => {
       expect(found(pattern)).toEqual([])
   })
 
+  it('gives every number field the language tag: Nuxt UI hands it the bare locale code, which Chrome may have no data for', () => {
+    // each `<UInputNumber ... />` up to its closing `/>`, which no attribute holds
+    const missing = files.flatMap(file => [...file.text.matchAll(/<UInputNumber\b[\s\S]*?\/>/g)]
+      .filter(([tag]) => !/\s:locale="formatLanguage"/.test(tag))
+      .map(([tag]) => `${file.name}:${file.text.slice(0, file.text.indexOf(tag)).split('\n').length}: ${tag.split('\n')[1]?.trim()}`))
+    expect(missing).toEqual([])
+  })
+
   it('writes no time of day out of its parts: the separator is the language\'s', () => {
     // the offset to UTC ("UTC+01:00") is ISO 8601 notation, with a colon in every language
     const allowed: Record<string, string> = { [code('(UTC§{sign}§{h}:§{m})')]: 'a UTC offset, ISO 8601 notation' }
