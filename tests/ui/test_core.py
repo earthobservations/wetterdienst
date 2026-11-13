@@ -800,6 +800,7 @@ _STATUS_OF = {
     "ProductFileNotFoundError": 502,
     "ProviderContractError": 500,
     "ProviderNotFoundError": 404,
+    "ProviderRateLimitError": 503,
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,

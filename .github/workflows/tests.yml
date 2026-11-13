@@ -160,12 +160,16 @@ jobs:
           echo "::endgroup::"
 
       # the provider keys are given to this step alone: `uv sync` builds packages of the lock, and
-      # apt, brew and `install.sh` run code that is not ours; none of them may see the keys
+      # apt, brew and `install.sh` run code that is not ours; none of them may see the keys.
+      # KNMI's EDR key is given to one leg of the matrix only (Ubuntu, the newest Python): the quota of a key is
+      # 1,000 requests an hour and the remote tests of `knmi/observation` take about 50 of them each time (and
+      # about 8 more each for `test_api_knmi_observation` and the KNMI case of `test_station_catalogues_live.py`), so
+      # every job that had the key ran the quota out (GH-4046). The tests skip where the key is not set.
       - name: Run tests
         env:
           WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
           WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-          WD_AUTH__KNMI_EDR: ${{ secrets.WD_AUTH__KNMI_EDR }}
+          WD_AUTH__KNMI_EDR: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.15' && secrets.WD_AUTH__KNMI_EDR || '' }}
           WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: |
           uv run poe test
@@ -214,12 +218,12 @@ jobs:
         run: uv pip list
 
       # the provider keys are given to this step alone: `uv sync` builds packages of the lock, and
-      # apt, brew and `install.sh` run code that is not ours; none of them may see the keys
+      # apt, brew and `install.sh` run code that is not ours; none of them may see the keys.
+      # No KNMI EDR key: the remote tests of `knmi/observation` run in one leg of the matrix above (GH-4046)
       - name: Run tests
         env:
           WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
           WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-          WD_AUTH__KNMI_EDR: ${{ secrets.WD_AUTH__KNMI_EDR }}
           WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: |
           uv run poe test

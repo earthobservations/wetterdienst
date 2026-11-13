@@ -41,6 +41,7 @@ from wetterdienst.exceptions import (
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
+    ProviderRateLimitError,
     ReversedTimeIntervalError,
     StationListingIncompleteError,
     UpstreamError,
@@ -136,6 +137,7 @@ from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout
 from wetterdienst.ui.problems import (
     PROBLEM_MEDIA_TYPE,
     PROBLEMS,
+    QUOTA_RETRY_AFTER_SECONDS,
     RETRY_AFTER_STATUSES,
     ProblemError,
     ProblemKind,
@@ -2289,6 +2291,8 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     defect, so it is an error with one.
     """
     status = failure_status(e)
+    if isinstance(e, ProviderRateLimitError):
+        return _quota_exhausted(e, what)
     if isinstance(e, (NoInternetError, DownloadError, StationListingIncompleteError)):
         log.warning(f"Failed to {what}: {e}")
     else:
@@ -2302,6 +2306,23 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
         status, ProblemKind.UPSTREAM_FAILED
     )
     return ProblemError(status, detail, kind)
+
+
+def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
+    """Answer a provider that refuses the key of this server for its quota with a 503, `upstream-quota-exhausted`.
+
+    Not a rejected credential (a 501): the key is accepted and used up for now, and the same request can succeed once
+    the quota resets, which `Retry-After` says (the provider's own wait where it sent one, else
+    `QUOTA_RETRY_AFTER_SECONDS`). The `reason` names the provider, holds no URL and no key and says to try again later,
+    so the body carries it.
+    """
+    log.warning(f"Failed to {what}: {e}")
+    return ProblemError(
+        503,
+        f"{e.reason.rstrip('.')}. The request was valid.",
+        ProblemKind.UPSTREAM_QUOTA_EXHAUSTED,
+        headers={"Retry-After": str(e.retry_after or QUOTA_RETRY_AFTER_SECONDS)},
+    )
 
 
 def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:

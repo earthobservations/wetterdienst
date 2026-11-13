@@ -27,7 +27,9 @@ def _no_ambient_settings(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
     if request.node.get_closest_marker("remote"):
         return
     for name in list(os.environ):
-        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+        # `WD_FRAMES_SNAPSHOT` is a switch of the test run, read when the test ends: a write run of the frame snapshot
+        # (`uv run poe frames:snapshot`) would otherwise take these tests for a comparison and record none of them
+        if name.startswith("WD_") and name not in {"WD_CACHE_DIR", "WD_FRAMES_SNAPSHOT"}:
             monkeypatch.delenv(name)
     # the settings read `.env` from the working directory
     monkeypatch.chdir(tmp_path)

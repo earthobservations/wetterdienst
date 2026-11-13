@@ -36,7 +36,13 @@ from tests.provider.knmi.observation.edr_stub import (
     World,
     real_world,
 )
-from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError, RequestError
+from wetterdienst.exceptions import (
+    CredentialMissingError,
+    CredentialRejectedError,
+    DownloadError,
+    ProviderRateLimitError,
+    RequestError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation import api, edr
@@ -283,8 +289,9 @@ def test_a_key_that_is_refused_is_an_error_that_says_an_edr_key_is_needed(
     assert "Open Data" in message
     assert KEY not in message
     assert KEY not in caplog.text
-    # the first request that carried the key was the last
-    assert len(edr_server.requests) == 1
+    # the first request that carried the key was the last, but for the one that reads the body of a 403 (here it is
+    # answered with data: no refusal to read, so the status alone is the answer)
+    assert len(edr_server.requests) == (2 if status == 403 else 1)
 
 
 def test_a_gateway_that_refuses_the_key_before_the_stations_is_the_same_error(
@@ -296,7 +303,107 @@ def test_a_gateway_that_refuses_the_key_before_the_stations_is_the_same_error(
     with pytest.raises(CredentialRejectedError, match="WD_AUTH__KNMI_EDR"):
         reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
 
-    assert [request["status"] for request in edr_server.requests] == [403]
+    # the second is the one that reads the body of the 403
+    assert [request["status"] for request in edr_server.requests] == [403, 403]
+
+
+# --- a quota that is used up is no rejected key (GH-4046) --------------------------------------------------------
+
+
+def test_a_403_that_says_the_quota_is_exceeded_is_the_rate_limit_error_and_not_a_rejected_key(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, reader: Reader
+) -> None:
+    """KNMI answers a key whose quota of the hour is used up 403 `Quota exceeded`: say that, and stop at once."""
+    edr_server.quota_after = 0
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(ProviderRateLimitError) as raised:
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
+
+    message = str(raised.value)
+    assert not isinstance(raised.value, CredentialRejectedError)
+    assert isinstance(raised.value, DownloadError)
+    assert "quota" in message
+    assert "1,000 requests an hour" in message
+    assert "Try again later" in message
+    assert "WD_AUTH__KNMI_EDR" not in message
+    assert KEY not in message
+    assert KEY not in caplog.text
+    assert raised.value.retry_after is None
+    # the request, and the one that reads its body: nothing is asked again, a loop would burn the quota further
+    assert [request["status"] for request in edr_server.requests] == [403, 403]
+
+
+@pytest.mark.parametrize(
+    ("headers", "seconds"),
+    [
+        ({"Retry-After": "1500"}, 1501),
+        ({"X-Ratelimit-Reset": "2400"}, 2401),
+        ({"X-Ratelimit-Reset": "epoch+600"}, 601),
+    ],
+    ids=["retry-after", "ratelimit-reset-seconds", "ratelimit-reset-epoch"],
+)
+def test_the_wait_that_knmi_sends_with_the_quota_is_in_the_error(
+    edr_server: EdrStub, reader: Reader, headers: dict[str, str], seconds: int
+) -> None:
+    """`Retry-After` and `X-Ratelimit-Reset` (seconds, or the epoch second) are kept, in the error and its text."""
+    edr_server.quota_after = 0
+    # the epoch second is taken when the test runs, not when it is collected
+    edr_server.quota_headers = {
+        name: str(int(time.time()) + 600) if value == "epoch+600" else value for name, value in headers.items()
+    }
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
+
+    assert raised.value.retry_after == pytest.approx(seconds, abs=2)
+    assert "resets in about" in str(raised.value)
+
+
+def test_a_quota_that_is_used_up_in_the_middle_of_a_query_ends_it_with_one_more_request(
+    edr_server: EdrStub, reader: Reader
+) -> None:
+    """The list of the stations and the first chunk are answered, the second is the 403: the query ends there."""
+    _serve(edr_server, World.generated(Resolution.DAILY, [DE_BILT], _at(2019, 12, 2), 700))
+    edr_server.quota_after = 3
+
+    with pytest.raises(ProviderRateLimitError, match="quota"):
+        reader.read([("daily", "data")], _at(2019, 12, 1), _at(2020, 12, 31))
+
+    # three answered, the 403 and the one that reads its body
+    assert [request["status"] for request in edr_server.requests][-2:] == [403, 403]
+    assert len(edr_server.requests) == 5
+
+
+def test_a_403_that_says_the_access_is_disallowed_is_a_rejected_key(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, reader: Reader
+) -> None:
+    """The gateway's words for another key (`Access to this API has been disallowed`) stay the credential error."""
+    edr_server.key = "the-key-the-api-takes"
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(CredentialRejectedError) as raised:
+        reader.read([("hourly", "data")], _at(2020, 1, 1, 1), _at(2020, 1, 3))
+
+    assert not isinstance(raised.value, ProviderRateLimitError)
+    assert "HTTP 403" in str(raised.value)
+    assert "WD_AUTH__KNMI_EDR" in str(raised.value)
+    assert KEY not in str(raised.value)
+    assert KEY not in caplog.text
+
+
+def test_a_401_that_says_the_authorization_is_missing_is_a_rejected_key(edr_server: EdrStub, reader: Reader) -> None:
+    """A 401 is never read for a quota: the key goes unasked for again, and the error is the credential's."""
+    from wetterdienst.provider.knmi.observation.download import download_with_retry  # noqa: PLC0415
+
+    edr_server.key = "the-key-the-api-takes"
+    settings = reader.settings()
+    # a request without the key, as the gateway's `Authorization field missing` is answered to
+    file = download_with_retry(f"{edr.EDR_BASE_URL}/", settings, CacheExpiry.NO_CACHE, client_kwargs={})
+
+    assert file.status == 401
+    with pytest.raises(CredentialRejectedError, match="HTTP 401"):
+        edr.raise_if_unanswered(file, settings)
+
+    assert [request["status"] for request in edr_server.requests] == [401]
 
 
 # --- the requests that a query costs ---------------------------------------------------------------------------
@@ -500,6 +607,11 @@ def test_a_quota_that_is_used_up_is_an_error_that_says_so(edr_server: EdrStub, r
 
     assert "quota" in str(raised.value)
     assert KEY not in str(raised.value)
+    # the same error as the 403 of a used-up quota, which is no rejected key (GH-4046), but a 429 may be the rate per
+    # second and not the hour's quota: no promise that the hour must pass, and a short wait
+    assert isinstance(raised.value, ProviderRateLimitError)
+    assert "hour has passed" not in str(raised.value)
+    assert raised.value.retry_after == edr.RATE_LIMIT_RETRY_AFTER_SECONDS
 
 
 def test_an_answer_that_is_no_coverage_json_is_an_error_and_is_not_kept(edr_server: EdrStub, reader: Reader) -> None:
