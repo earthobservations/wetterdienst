@@ -43,15 +43,16 @@ Types of changes:
   characters, `metadata` included, in every data format, and say so in an `answer-truncated`
   warning (for CSV also the `X-Wetterdienst-Truncated` header and the tool's sentence). `values`
   keeps whole timestamps: the end nearest to now, or the start of the `timestamp` window if one is
-  given, and the note names the next window. `stations` without `rank`, `distance` or `name` keeps
-  the first stations and says how many match. Ask for a `timestamp` window, or use the REST API or
-  the library for everything; REST, command line and Python are unchanged (GH-4022)
+  given, and the note names the next window. `stations` without `rank` or `name` keeps the first
+  stations (the nearest, for a `distance`) and says how many match. A CSV or NDJSON answer is
+  counted as the JSON the client receives. Ask for a `timestamp` window, or use the REST API or
+  the library for everything; REST, command line and Python are unchanged (GH-4022, GH-4029)
 - **Breaking** (MCP clients): the 40,000-character cut now holds for `interpolate`, `summarize`,
   `stripes_stations` and `coverage`. `interpolate` and `summarize` keep whole timestamps from the
   start of their `timestamp` window; `stripes_stations` keeps the first stations and says to give
   the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block over the
-  budget alone is left out, also of a `rank`, `distance`, `name` or one station. `coverage` sends
-  the parameters' `description` as null, then whole datasets in order; its note, at the start of
+  budget alone is left out, also of a `rank`, `name` or one station. `coverage` sends the
+  parameters' `description` as null, then whole datasets in order; its note, at the start of
   the first resolution's `description`, names the datasets left out and how to ask for them.
   REST, command line and Python are unchanged (GH-4024)
 - **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`,

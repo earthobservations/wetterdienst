@@ -27,6 +27,7 @@ from tests.ui.test_mcp_budget import (
     _client_sees,
     _compact,
     _note_of,
+    _received,
     _rest_client,
     _stations_of,
     _the_client_gets,
@@ -163,8 +164,8 @@ def test_every_data_format_of_an_estimate_is_within_the_budget(
 
     assert not result.is_error, result.content
     structured = result.structured_content
-    seen = structured["result"] if fmt == "csv" else json.dumps(structured, separators=(",", ":"), ensure_ascii=False)
-    assert ANSWER_BUDGET - 2_500 < len(seen) <= ANSWER_BUDGET
+    seen = structured["result"]
+    assert ANSWER_BUDGET - 2_500 < _received(result) <= ANSWER_BUDGET
     if fmt == "csv":
         assert result.meta["wetterdienst"]["warnings"] == ["answer-truncated"]
         assert "Truncated: The answer was cut to stay within 40,000 characters" in seen
@@ -277,11 +278,7 @@ def test_what_a_client_receives_of_the_stripes_stations_is_within_the_budget(mon
 
     for fmt in ("json", "csv"):
         result = _client_sees("stripes_stations", {"kind": "temperature", "format": fmt})
-        structured = result.structured_content
-        seen = (
-            structured["result"] if fmt == "csv" else json.dumps(structured, separators=(",", ":"), ensure_ascii=False)
-        )
-        assert ANSWER_BUDGET - 1_500 < len(seen) <= ANSWER_BUDGET, fmt
+        assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET, fmt
 
 
 def test_the_stripes_stations_within_the_budget_are_left_as_they_are(monkeypatch: pytest.MonkeyPatch) -> None:
