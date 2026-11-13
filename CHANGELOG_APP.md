@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-13
+
 ### Fixed
 
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" no longer uses a
@@ -2137,7 +2139,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...HEAD
+[0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...app-v0.47.0
 [0.46.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...app-v0.46.0
