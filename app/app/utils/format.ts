@@ -44,7 +44,25 @@ export function withData(language: string, supported: (languages: string[]) => s
  * formatNumber(3.14159, 'de', 2) // '3,14'
  */
 export function formatNumber(value: number, locale: string, digits: number): string {
-  return new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
+  return numberFormat(locale, digits).format(value)
+}
+
+// A table of 240 rows of 13 numbers is 3,000 calls, and a formatter is dear to make (it was 17 ms of the Meteogram's mount):
+// one for each language and number of digits, and none that outlives the `Intl` that made it (a test swaps it)
+const numberFormats = new Map<string, Intl.NumberFormat>()
+let numberFormatClass = Intl.NumberFormat
+function numberFormat(locale: string, digits: number): Intl.NumberFormat {
+  if (Intl.NumberFormat !== numberFormatClass) {
+    numberFormats.clear()
+    numberFormatClass = Intl.NumberFormat
+  }
+  const key = `${locale}|${digits}`
+  let format = numberFormats.get(key)
+  if (!format) {
+    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    numberFormats.set(key, format)
+  }
+  return format
 }
 
 /**
@@ -158,18 +176,4 @@ export function hourFormatter(language: string, timeZone = 'UTC'): (ms: number) 
     timeZone,
   })
   return ms => format.format(ms)
-}
-
-/**
- * The format of the Meteogram's hover heading (Plotly's `hoverformat`, d3's time format): the short
- * weekday, the day and month in the order and with the separators the language writes them, and the
- * time. The weekday's name comes from {@link plotlyDateLocale}.
- * @example
- * plotlyHoverFormat('de-DE') // '%a %d.%m. %H:%M'
- */
-export function plotlyHoverFormat(language: string): string {
-  const parts = new Intl.DateTimeFormat(withData(language, Intl.DateTimeFormat.supportedLocalesOf), { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
-    .formatToParts(Date.UTC(2023, 9, 15))
-  const dayMonth = parts.map(part => part.type === 'day' ? '%d' : part.type === 'month' ? '%m' : part.value.replaceAll('%', '%%')).join('')
-  return `%a ${dayMonth} %H:%M`
 }

@@ -152,8 +152,7 @@ describe('the chart is drawn', { timeout: 15_000 }, () => {
     expect(option.dataZoom[0].xAxisIndex).toEqual([0, 1, 2, 3, 4, 5])
   })
 
-  it('draws no animation for a visitor who asked for none, and says its colour scheme', async () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ matches: query.includes('reduce'), media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false, onchange: null }) as MediaQueryList)
+  it('draws no animation, whatever the visitor asked for, and says the colour scheme it is drawn in', async () => {
     await showChart()
     expect(lastOption().animation).toBe(false)
     expect(document.body.querySelector('.mg-canvas')!.getAttribute('data-chart-scheme')).toBeTruthy()

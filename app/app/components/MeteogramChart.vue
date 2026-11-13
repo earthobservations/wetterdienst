@@ -45,7 +45,6 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const formatLanguage = useFormatLanguage()
 const { theme } = useChartTheme()
-const reducedMotion = usePreferredReducedMotion()
 
 const rootEl = ref<HTMLElement | null>(null)
 const scrollerEl = ref<HTMLElement | null>(null)
@@ -494,7 +493,7 @@ let renderPending = false
 // what the chart on the page was drawn from: a drawing for the same is none (the sun's code arriving changes the model
 // the drawing that waited for it has already used)
 let drawnFrom: unknown[] | null = null
-const drawInputs = () => [model.value, theme.value, outerPx.value, reducedMotion.value, locale.value, now.value]
+const drawInputs = () => [model.value, theme.value, outerPx.value, locale.value, now.value]
 
 async function render() {
   if (isRendering) {
@@ -589,7 +588,6 @@ async function draw() {
     gutterLeft: gutterLeft.value,
     window: win.value,
     now: now.value,
-    reducedMotion: reducedMotion.value === 'reduce',
     fontFamily: fontFamily(),
     locale: locale.value,
     hourLabel: hourLabel.value,
@@ -602,7 +600,7 @@ async function draw() {
 
 let clock: ReturnType<typeof setInterval> | undefined
 
-watch([model, theme, outerPx, reducedMotion, locale, now], () => void render())
+watch([model, theme, outerPx, locale, now], () => void render())
 // the window moves without drawing the chart again
 watch(win, (next) => {
   chart?.dispatchAction({ type: 'dataZoom', dataZoomId: 'zoom', startValue: next.start, endValue: next.end })
@@ -637,7 +635,7 @@ const selectionStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="meteogram-chart" :data-widget="widget ? '' : undefined">
+  <div ref="rootEl" class="meteogram-chart" :class="widget ? undefined : 'app-chart'" :data-widget="widget ? '' : undefined">
     <div
       v-if="renderFailed"
       ref="chartNotice"
@@ -754,7 +752,6 @@ const selectionStyle = computed(() => {
 <style scoped>
 .meteogram-chart {
   position: relative;
-  width: 100%;
 }
 .mg-scroller {
   overflow-x: auto;

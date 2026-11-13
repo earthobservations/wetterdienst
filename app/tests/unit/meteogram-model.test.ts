@@ -116,12 +116,16 @@ describe('the temperature panel', () => {
 })
 
 describe('the precipitation panel', () => {
-  it('has one bar for each stamp in one of three stacks by the kind of the precipitation, and a null in the others', () => {
+  it('has a point for each stamp in each of three stacks, with a value in at most one and none where there is no rain', () => {
     const m = model()
     const [rain, mixed, snow] = ['rain', 'mixed', 'snow'].map(id => m.series.find(s => s.id === id)!)
     expect(rain!.data).toHaveLength(mixed!.data.length)
     for (let i = 0; i < rain!.data.length; i++)
-      expect([rain!.data[i]![1], mixed!.data[i]![1], snow!.data[i]![1]].filter(v => v !== null)).toHaveLength(1)
+      expect([rain!.data[i]![1], mixed!.data[i]![1], snow!.data[i]![1]].filter(v => v !== null).length).toBeLessThanOrEqual(1)
+    // a bar of no height is no element, and the readout of that hour still says 0
+    expect(rain!.data.every(point => point[1] !== 0)).toBe(true)
+    const readoutRain = m.readout.find(r => r.id === 'rain')!
+    expect(readoutValue(readoutRain, Date.UTC(2026, 9, 1, 10))).toBe(0)
   })
 
   it('tells snow from rain by the wet bulb: a cold night is snow, a mild day rain', () => {

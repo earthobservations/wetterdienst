@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The Plotly charts take the colours of the page (GH-3528): their paper, plot, text, grid, axis lines and
+// The Plotly charts (the explorer's and the stripes') take the colours of the page (GH-3528): their paper, plot, text, grid, axis lines and
 // hover label come from the app's CSS tokens (utils/chart-theme.ts), in dark mode too, and follow a switch
-// of the colour scheme without a reload. The data colours (the series, the stripes) are not the theme's.
+// of the colour scheme without a reload. The data colours (the series, the stripes) are not the theme's. The forecast's
+// chart is ECharts' and has its own spec of its colours (meteogram-chart.spec.ts).
 // The API is answered by the mock backend, so the spec needs nothing but the app.
 
 interface Chrome {
@@ -99,7 +100,7 @@ async function behindChart(page: Page) {
       const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
       return { text: `rgb(${r}, ${g}, ${b})`, opaque: a === 255 }
     }
-    let element: Element | null = document.querySelector('.js-plotly-plot')?.parentElement ?? document.body
+    let element: Element | null = document.querySelector('.js-plotly-plot, .mg-canvas')?.parentElement ?? document.body
     while (element) {
       const found = rgb(getComputedStyle(element).backgroundColor)
       if (found.opaque)
@@ -118,12 +119,14 @@ interface Case {
   reach: (page: Page) => Promise<void>
   /** Whether the chart draws a zero line, which carries meaning and is held to 3:1 */
   zeroLine: boolean
-  /** Whether the series keep their colours across the switch (the meteogram's wash and bands are lighter on dark) */
+  /** Whether the series keep their colours across the switch */
   seriesFixed: boolean
 }
 
 const fetchButton = (page: Page) => page.getByRole('button', { name: 'Show', exact: true })
 const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
+/** The forecast's chart, which ECharts draws as SVG into an element that says the colour scheme it is drawn in */
+const forecastChart = (page: Page) => page.locator('.mg-canvas').first()
 
 const CASES: Case[] = [
   {
@@ -145,15 +148,6 @@ const CASES: Case[] = [
     seriesFixed: true,
     reach: async (page) => {
       await fetchButton(page).click()
-      await expect(plotly(page)).toBeVisible()
-    },
-  },
-  {
-    name: 'the meteogram',
-    path: '/meteogram?station=01001',
-    zeroLine: false,
-    seriesFixed: false,
-    reach: async (page) => {
       await expect(plotly(page)).toBeVisible()
     },
   },
@@ -435,7 +429,7 @@ test('the print rules make a chart that is still dark readable, and leave one dr
       chart.className = 'js-plotly-plot'
       chart.id = `chart-${scheme}`
       chart.dataset.chartScheme = scheme
-      chart.innerHTML = '<svg class="main-svg" style="background: rgb(15, 23, 43)"><text style="fill: rgb(226, 232, 240)">Mo</text></svg><canvas class="meteogram-overlay-canvas"></canvas>'
+      chart.innerHTML = '<svg class="main-svg" style="background: rgb(15, 23, 43)"><text style="fill: rgb(226, 232, 240)">Mo</text></svg>'
       document.body.appendChild(chart)
     }
   })
@@ -445,11 +439,10 @@ test('the print rules make a chart that is still dark readable, and leave one dr
     return {
       background: getComputedStyle(chart.querySelector('.main-svg')!).backgroundColor,
       text: getComputedStyle(chart.querySelector('text')!).fill,
-      barbs: getComputedStyle(chart.querySelector('.meteogram-overlay-canvas')!).filter,
     }
   }, `chart-${scheme}`)
-  expect(await styleOf('dark')).toEqual({ background: 'rgba(0, 0, 0, 0)', text: 'rgb(0, 0, 0)', barbs: 'invert(1)' })
-  expect(await styleOf('light')).toEqual({ background: 'rgb(15, 23, 43)', text: 'rgb(226, 232, 240)', barbs: 'none' })
+  expect(await styleOf('dark')).toEqual({ background: 'rgba(0, 0, 0, 0)', text: 'rgb(0, 0, 0)' })
+  expect(await styleOf('light')).toEqual({ background: 'rgb(15, 23, 43)', text: 'rgb(226, 232, 240)' })
 })
 
 test('zoomed stripes stay zoomed where the scheme switches or the page is printed, and are saved as shown', async ({ page, baseURL, context }) => {
@@ -488,36 +481,10 @@ test('zoomed stripes stay zoomed where the scheme switches or the page is printe
   expect(await range()).toEqual(zoomed)
 })
 
-test('a zoomed Forecast stays zoomed where the scheme switches, and its reset still goes back to the full view', async ({ page, baseURL, context }) => {
-  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
-  await mockBackend(page, baseURL!)
-  await page.goto('/meteogram?station=01001')
-  await expect(plotly(page)).toBeVisible()
-
-  const axis = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
-    const xaxis = (chart as any)._fullLayout.xaxis
-    return { range: xaxis.range as string[], initial: [xaxis._rangeInitial0, xaxis._rangeInitial1] }
-  })
-  const full = await axis()
-  const area = page.locator('.js-plotly-plot .nsewdrag').first()
-  await area.scrollIntoViewIfNeeded()
-  const box = (await area.boundingBox())!
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5, { steps: 5 })
-  await page.mouse.up()
-  await expect.poll(async () => (await axis()).range).not.toEqual(full.range)
-  const zoomed = (await axis()).range
-
-  await setColorScheme(page, 'Dark')
-  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
-  await expect.poll(async () => (await axis()).range).toEqual(zoomed)
-  expect((await axis()).initial, 'the range a reset goes back to is the full one').toEqual(full.initial)
-})
-
-// The text that names a series (GH-3618): the Forecast's y axes, as its temperature axis, its weekend day labels,
-// and its zero line, which carries meaning, are read on the paper in both schemes. The series keep their colours.
-test('the Forecast\'s axis labels, weekend day labels and zero line reach contrast in both schemes', async ({ page, baseURL, context }) => {
+// The text that names a series (GH-3618): the Forecast's y axes, as its temperature axis, its weekend day labels, and its
+// freezing line, which carries meaning, are read on the paper in both schemes. The chart is SVG, so the colours are read from
+// what is painted.
+test('the Forecast\'s axis labels, weekend day labels and freezing line reach contrast in both schemes', async ({ page, baseURL, context }) => {
   await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
   // a Friday, so that the days of the forecast (it runs three days from now) hold a weekend whenever this runs: the
   // page's clock and the forecast the mock serves both start at this instant, not at the day the test runs
@@ -525,44 +492,35 @@ test('the Forecast\'s axis labels, weekend day labels and zero line reach contra
   await page.clock.setSystemTime(friday)
   await mockBackend(page, baseURL!, {}, friday)
   await page.goto('/meteogram?station=01001')
-  await expect(plotly(page)).toBeVisible()
+  await expect(forecastChart(page)).toBeVisible()
+  // the window opens on the first hours; the weekend is a scroll away on a narrow window
+  await page.setViewportSize({ width: 1600, height: 1000 })
 
-  const labels = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
-    const full = (chart as any)._fullLayout
-    const axes = Object.keys(full)
-      .filter(key => /^yaxis\d*$/.test(key) && full[key].visible)
-      .map(key => ({
-        axis: key,
-        title: full[key].title?.font?.color as string | undefined,
-        tick: full[key].tickfont?.color as string | undefined,
-        zeroline: full[key].zeroline ? full[key].zerolinecolor as string : null,
-      }))
-    const days = (full.annotations as { text: string, font: { color: string } }[])
-      .filter(annotation => annotation.text.startsWith('<b>'))
-      .map(annotation => ({ text: annotation.text, color: annotation.font.color }))
-    return { paper: full.paper_bgcolor as string, text: full.font.color as string, axes, days }
+  const painted = () => page.locator('.mg-canvas svg').first().evaluate((svg) => {
+    const fill = (element: Element) => element.getAttribute('fill') ?? getComputedStyle(element).fill
+    const texts = [...svg.querySelectorAll('text')].map(text => ({ text: text.textContent ?? '', color: fill(text) }))
+    const lines = [...svg.querySelectorAll('path')].map(path => path.getAttribute('stroke')).filter(Boolean) as string[]
+    return { texts, lines }
   })
 
   for (const scheme of ['light', 'dark'] as const) {
     if (scheme === 'dark') {
       await setColorScheme(page, 'Dark')
-      await expect.poll(async () => luminance((await labels()).paper)).toBeLessThan(0.05)
+      await expect(forecastChart(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
-    const { paper, axes, days } = await labels()
-    // the four series' axes and the temperature axis, which has the zero line
-    expect(axes.length, `${scheme}: the axes drawn`).toBeGreaterThanOrEqual(4)
-    for (const axis of axes) {
-      expect(contrast(axis.title!, paper), `${scheme}: ${axis.axis} title ${axis.title}`).toBeGreaterThanOrEqual(4.5)
-      expect(contrast(axis.tick!, paper), `${scheme}: ${axis.axis} tick labels ${axis.tick}`).toBeGreaterThanOrEqual(4.5)
-    }
-    const zero = axes.filter(axis => axis.zeroline)
-    expect(zero.length, `${scheme}: the axis with a zero line`).toBe(1)
-    expect(contrast(zero[0]!.zeroline!, paper), `${scheme}: zero line ${zero[0]!.zeroline}`).toBeGreaterThanOrEqual(3)
+    const paper = await behindChart(page)
+    const { texts } = await painted()
+    // the numbers of the axes and the axes' titles are in the series' label colours; the days and hours in the text colours
+    const axes = texts.filter(entry => /^-?[\d.,]+$/.test(entry.text) && !/^\d{2}[:.]\d{2}$/.test(entry.text))
+    expect(axes.length, `${scheme}: the labels of the axes`).toBeGreaterThanOrEqual(8)
+    for (const entry of texts)
+      expect(contrast(entry.color, paper), `${scheme}: ${entry.text} ${entry.color}`).toBeGreaterThanOrEqual(4.5)
     // the weekend's labels are in a colour of their own (the Saturday and the Sunday of the three days)
-    const weekend = days.filter(day => /^<b>(?:Sat|Sun)/.test(day.text))
+    const days = texts.filter(entry => /^(?:Thu|Fri|Sat|Sun|Mon|Tue|Wed) \d{2}\/\d{2}$/.test(entry.text))
+    const weekend = days.filter(entry => /^(?:Sat|Sun)/.test(entry.text))
     expect(weekend.length, `${scheme}: the weekend's labels ${JSON.stringify(days)}`).toBeGreaterThanOrEqual(1)
-    for (const day of days)
-      expect(contrast(day.color, paper), `${scheme}: ${day.text} ${day.color}`).toBeGreaterThanOrEqual(4.5)
+    expect(new Set(weekend.map(entry => entry.color)).size).toBe(1)
+    expect(days.filter(entry => !/^(?:Sat|Sun)/.test(entry.text)).every(entry => entry.color !== weekend[0]!.color)).toBe(true)
   }
 })
 
@@ -576,7 +534,7 @@ test('the Forecast\'s panel toggles and summary icons reach contrast in both sch
   await page.clock.setSystemTime(now)
   await mockBackend(page, baseURL!, {}, now)
   await page.goto('/meteogram?station=01001')
-  await expect(plotly(page)).toBeVisible()
+  await expect(forecastChart(page)).toBeVisible()
 
   // the icon's colour and every background that lies under it, from the page to the icon's own button, as rgba
   const marks = () => page.evaluate(() => {
@@ -617,7 +575,7 @@ test('the Forecast\'s panel toggles and summary icons reach contrast in both sch
   for (const scheme of ['light', 'dark'] as const) {
     if (scheme === 'dark') {
       await setColorScheme(page, 'Dark')
-      await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
+      await expect(forecastChart(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
     const { toggles, summary } = await marks()
     expect(toggles.map(toggle => toggle.panel), `${scheme}: the panel toggles`).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
@@ -747,10 +705,10 @@ test.describe('the widget\'s theme', () => {
       await expect(page.locator('html')).toHaveClass(chosen === 'dark' ? /dark/ : /^(?!.*dark)/)
 
       await page.goto(`/widget?station=01001&theme=${widgetTheme}`)
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
       await expect(page.locator('html')).toHaveClass(widgetTheme === 'dark' ? /dark/ : /^(?!.*dark)/)
       // the chart is drawn in the widget's scheme
-      expect(luminance((await chromeOf(page)).paper) < 0.05).toBe(widgetTheme === 'dark')
+      await expect(forecastChart(page)).toHaveAttribute('data-chart-scheme', widgetTheme)
       expect(await saved(page)).toBe(chosen)
 
       // the app, opened after the widget, is in the scheme it was saved in

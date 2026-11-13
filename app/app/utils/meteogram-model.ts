@@ -273,9 +273,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const drawn: DrawnSeries[] = []
   const readout: ReadoutSeries[] = []
   const lookup = (s: Series) => new Map(s.x.map((d, i) => [d.getTime(), s.y[i]!]))
-  const push = (spec: DrawnSeries, unit: string, mode: ReadoutSeries['mode'] = 'line') => {
+  const push = (spec: DrawnSeries, unit: string, mode: ReadoutSeries['mode'] = 'line', readFrom: DrawnSeries['data'] = spec.data) => {
     drawn.push(spec)
-    const valid = spec.data.filter((p): p is [number, number] => p[1] !== null)
+    const valid = readFrom.filter((p): p is [number, number] => p[1] !== null)
     readout.push({ id: spec.id, panel: spec.panel, tone: spec.tone, hover: spec.hover, digits: spec.digits, unit, x: valid.map(p => p[0]), y: valid.map(p => p[1]), mode })
   }
   const unitOfQ = (q: Quantity) => units.unitOf(q)
@@ -404,6 +404,8 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       mixed.push([time, phase === 'mixed' ? amount : null])
       snow.push([time, phase === 'snow' ? amount : null])
     })
+    // a bar of no height is no element: the stamp keeps its point (the bars are as wide as the stamps are apart) with no value, and the readout still says 0
+    const unseen = (data: [number, number | null][]): [number, number | null][] => data.map(([time, amount]) => [time, amount || null])
     const bar = (id: string, tone: Tone, data: [number, number | null][], name: string, hover: string): DrawnSeries => ({
       id,
       panel: 'precip',
@@ -418,9 +420,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       quantity: 'precipitation',
       digits: units.digits('precipitation'),
     })
-    push(bar('rain', 'rain', rain, t('meteogram.chart.seriesRain'), t('meteogram.chart.hoverRain')), unitOfQ('precipitation'), 'exact')
-    push(bar('mixed', 'mixed', mixed, t('meteogram.chart.seriesMixed'), t('meteogram.chart.hoverMixed')), unitOfQ('precipitation'), 'exact')
-    push(bar('snow', 'snow', snow, t('meteogram.chart.seriesSnow'), t('meteogram.chart.hoverSnow')), unitOfQ('precipitation'), 'exact')
+    push(bar('rain', 'rain', unseen(rain), t('meteogram.chart.seriesRain'), t('meteogram.chart.hoverRain')), unitOfQ('precipitation'), 'exact', rain)
+    push(bar('mixed', 'mixed', unseen(mixed), t('meteogram.chart.seriesMixed'), t('meteogram.chart.hoverMixed')), unitOfQ('precipitation'), 'exact', mixed)
+    push(bar('snow', 'snow', unseen(snow), t('meteogram.chart.seriesSnow'), t('meteogram.chart.hoverSnow')), unitOfQ('precipitation'), 'exact', snow)
     const pMax = Math.max(0, ...precipSeries.y.map(v => v ?? 0))
     range.precip = [0, Math.max(shown('precipitation', 1), pMax * 1.15)]
   }

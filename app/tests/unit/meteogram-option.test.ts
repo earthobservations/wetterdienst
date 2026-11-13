@@ -17,8 +17,8 @@ const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ?
 const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textStrong: 'rgb(0, 0, 0)', textMuted: 'rgb(90, 100, 120)', zeroline: 'rgb(90, 100, 120)' }
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)', textStrong: 'rgb(255, 255, 255)' }
 
-function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, reducedMotion?: boolean, now?: number | null, without?: string[] } = {}) {
-  const { width = 800, hours = 240, theme = LIGHT, reducedMotion = false, now = null, without = [] } = options
+function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[] } = {}) {
+  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [] } = options
   const model = buildMeteogramModel({
     series: buildSeries(forecastValues({ hours, without }) as any),
     panels: { temp: true, wind: true, precip: true, cloud: true, pressure: true },
@@ -43,7 +43,6 @@ function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, 
     gutterLeft,
     window,
     now,
-    reducedMotion,
     fontFamily: 'sans-serif',
     locale: 'en',
     hourLabel: hourFormatter('en-GB', 'Europe/Berlin'),
@@ -109,12 +108,11 @@ describe('the option', () => {
     expect(option.yAxis[4].axisLabel.formatter(1013)).toBe('1,013')
   })
 
-  it('draws no animation for a visitor who asked for none, and every series is silent', () => {
-    const calm = build({ reducedMotion: true }).option
-    expect(calm.animation).toBe(false)
-    expect(calm.series.every((s: any) => s.animation === false || s.animation === undefined)).toBe(true)
-    expect(build().option.animation).toBe(true)
-    expect(calm.series.every((s: any) => s.silent)).toBe(true)
+  it('has no animation, which a visitor who asked for less motion has nothing to switch off of, and every series is silent', () => {
+    const { option } = build()
+    expect(option.animation).toBe(false)
+    expect(option.series.every((s: any) => s.animation === false || s.animation === undefined)).toBe(true)
+    expect(option.series.every((s: any) => s.silent)).toBe(true)
   })
 
   it('has the smooth lines and the held steps, a stack of bars, and the custom series that the library has no kind for', () => {

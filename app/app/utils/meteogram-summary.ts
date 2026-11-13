@@ -128,10 +128,13 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
   const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
   return {
     columns: [t('meteogram.chart.tableTime', { zone }), ...columns.map(column => column.label)],
-    rows: times.map(ms => [
-      writeTime(ms),
-      ...byTime.get(ms)!.map((value, index) => value === null ? '–' : formatNumber(value, locale, columns[index]!.digits)),
-    ]),
+    // written when it is read: the table of the values is a view of its own, and the chart's sentence needs no row
+    get rows() {
+      return times.map(ms => [
+        writeTime(ms),
+        ...byTime.get(ms)!.map((value, index) => value === null ? '–' : formatNumber(value, locale, columns[index]!.digits)),
+      ])
+    },
     summary: [
       t('meteogram.chart.summaryRange', { from: writeTime(times[0]!), to: writeTime(times.at(-1)!) }),
       ...(temperatures.length

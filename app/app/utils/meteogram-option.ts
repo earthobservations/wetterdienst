@@ -58,7 +58,6 @@ export interface OptionInput {
   window: TimeWindow
   /** the moment it is, which a line marks while the forecast spans it */
   now: number | null
-  reducedMotion: boolean
   fontFamily: string
   locale: string
   /** the name of the day and the hour as the page writes it */
@@ -89,7 +88,7 @@ const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4 } as cons
 
 /** The option of the chart in `input` */
 export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
-  const { model, theme, layout, outerPx, plotPx, gutterLeft, window: win, now: nowInput, reducedMotion, fontFamily, locale, hourLabel } = input
+  const { model, theme, layout, outerPx, plotPx, gutterLeft, window: win, now: nowInput, fontFamily, locale, hourLabel } = input
   const symbolUrl = input.symbolUrl ?? yrSymbolUrl
   const dark = theme.dark
   const rows = layout.rows
@@ -164,7 +163,6 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       xAxisIndex: i + 1,
       yAxisIndex: i + 1,
       silent: true,
-      clip: true,
       z: 1,
       animation: false,
       data,
@@ -200,7 +198,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     const colour = toneColor(s.tone, dark)
     const fill = dark ? TONES[s.tone].fillDark : TONES[s.tone].fillLight
     const index = gridOf(s.panel)
-    const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: !reducedMotion }
+    const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: false }
     if (s.kind === 'bar') {
       return { ...common, type: 'bar', stack: 'precipitation', barWidth: '90%', itemStyle: { color: colour }, z: 3 }
     }
@@ -271,7 +269,6 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     xAxisIndex: 0,
     yAxisIndex: 0,
     silent: true,
-    clip: true,
     z: 5,
     animation: false,
     data: model.days.map((d, i) => [d.noon, d.start, d.end, i]),
@@ -301,7 +298,6 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     xAxisIndex: 0,
     yAxisIndex: 0,
     silent: true,
-    clip: true,
     z: 5,
     animation: false,
     data: model.hours.map(h => [h.t, h.hour]),
@@ -343,9 +339,10 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
 
   return {
-    animation: !reducedMotion,
-    animationDuration: 300,
-    animationDurationUpdate: 200,
+    // none: the chart follows a finger that scrolls and a pinch that zooms, so a tween would lag behind them; it is SVG, where
+    // an animation is a style of keyframes for each of the hundreds of elements, which doubled the time to draw; and a visitor
+    // who asked for less motion (prefers-reduced-motion) has nothing to switch off
+    animation: false,
     backgroundColor: 'transparent',
     textStyle: { fontFamily, color: theme.text },
     grid: grids,
