@@ -13,9 +13,9 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.47.0` is the app of 0.186.0 and needs it (it asks for
-`unit_targets` on the stripes and reads the separate `providers` and `coverage`; `app-v0.46.0` went with 0.185.0).
-Upgrade both
+The web app is released as a pair with the backend: `app-v0.48.0` is the app of 0.187.0 (it asks no more of
+the backend than `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads
+the separate `providers` and `coverage`; `app-v0.46.0` went with 0.185.0). Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
