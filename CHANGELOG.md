@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.188.0] - 2026-11-13
+
 ### Changed
 
 - **Breaking**: a 429 from any provider is a `ProviderRateLimitError` (a `DownloadError`) with the
@@ -8071,7 +8073,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...HEAD
+[0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0
 [0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
 [0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
 [0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0
