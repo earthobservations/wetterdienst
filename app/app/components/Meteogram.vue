@@ -192,7 +192,7 @@ const chartTable = computed(() => meteogramTable(seriesCache.value, {
   panels: visiblePanels.value,
   horizonHours: horizonHours.value,
   zone: stationTimeZone.value,
-  language: formatLanguage.value,
+  formatLanguage: formatLanguage.value,
   locale: locale.value,
   units: units.value,
   t,

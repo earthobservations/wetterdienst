@@ -147,6 +147,20 @@ export function formatHour(ms: number, language: string, timeZone = 'UTC'): stri
 }
 
 /**
+ * {@link formatHour} for many moments of one language and zone: the formatter is built once, which is what a
+ * chart that writes a label for each of its hours needs.
+ */
+export function hourFormatter(language: string, timeZone = 'UTC'): (ms: number) => string {
+  const format = new Intl.DateTimeFormat(withData(language, Intl.DateTimeFormat.supportedLocalesOf), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  })
+  return ms => format.format(ms)
+}
+
+/**
  * The format of the Meteogram's hover heading (Plotly's `hoverformat`, d3's time format): the short
  * weekday, the day and month in the order and with the separators the language writes them, and the
  * time. The weekday's name comes from {@link plotlyDateLocale}.

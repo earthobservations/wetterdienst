@@ -67,7 +67,7 @@ export interface TableContext {
   /** the hours of the run that are shown, from its start; null for all of it */
   horizonHours: number | null
   zone: string
-  language: string
+  formatLanguage: string
   locale: string
   units: MeteogramUnits
   t: Translate
@@ -80,7 +80,7 @@ export interface TableContext {
  * row for each time the forecast has a value, as far as the horizon chosen reaches. The values are the forecast's own, in
  * the units the answer reports them in, not the chart's resampled curve.
  */
-export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, language, locale, units, t, widget }: TableContext): MeteogramTable | null {
+export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, formatLanguage, locale, units, t, widget }: TableContext): MeteogramTable | null {
   if (!series.size)
     return null
   const { named, digits, unitName } = units
@@ -123,7 +123,7 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
   if (!times.length)
     return null
 
-  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone }).setLocale(language).toLocaleString(DateTime.DATETIME_SHORT)
+  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone }).setLocale(formatLanguage).toLocaleString(DateTime.DATETIME_SHORT)
   const main = columns.findIndex(column => column.main)
   const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
   return {
