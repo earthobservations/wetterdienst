@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from aiohttp import ClientError
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
@@ -721,7 +721,8 @@ class HubeauRequest(TimeseriesRequest):
             one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
             cannot be read: the elevation is all it supplies, and a station list without one is
             better than none at all. Not when no connection can be made, which raises
-            ``NoInternetError`` as the station list it enriches would.
+            ``NoInternetError`` as the station list it enriches would, nor when the provider answers 429, which raises
+            ``ProviderRateLimitError`` (GH-4053).
 
         """
         from typing import cast  # noqa: PLC0415
@@ -730,9 +731,10 @@ class HubeauRequest(TimeseriesRequest):
         error: Exception | None = None
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
             # not a referential that is unreadable: a library that is offline, which the station
-            # list this enriches would be too (GH-2640)
+            # list this enriches would be too (GH-2640), and a provider that limits how fast it is
+            # asked, which the next request meets too (GH-4053)
             raise
         except (DownloadError, OSError, ClientError, ValueError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and

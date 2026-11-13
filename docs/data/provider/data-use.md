@@ -33,7 +33,8 @@ What the requests of the library do, whichever provider they go to:
 - **It fetches ahead for five networks**, `dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology` and `smhi`
   (of four providers), where one station is one set of files: while it parses one station it downloads the files of the
   next four (`fetch_ahead`, at most eight, and no more than eight connections to one host for all the reads of a
-  process). 0 switches it off; `interpolate` and `summarize` do not fetch ahead.
+  process). 0 switches it off; `interpolate` and `summarize` do not fetch ahead. A 429 met ahead ends the walk with the
+  `ProviderRateLimitError` at the next station at the latest, and is not asked again.
 - **It keeps what it downloaded** for a lifetime of its own (below), and it does not read the provider's cache headers.
   It reads a provider's wait from the headers of a 429 (`Retry-After`, `RateLimit-Reset`, `X-RateLimit-Reset`) to tell
   you, but does not count your requests against a limit, or queue them to stay under

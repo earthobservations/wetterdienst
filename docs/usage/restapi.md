@@ -473,8 +473,8 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408, 425 or
-  429), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
+  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408 or
+  425), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
   report such as FMI's rate limit) and a directory found empty may be back, so it says to try again later; a refused
   download (too large, too slow, an off-host redirect, or a request the server turns down for good: a 400, 401, 403 or
   410, or an exception report that names a request error such as `InvalidParameterValue`) and a file that would not

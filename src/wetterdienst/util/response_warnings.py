@@ -132,7 +132,8 @@ class SkipCause(Enum):
     retries them gets the same.
     """
 
-    #: the download failed (a reset, a timeout, a 5xx, a 408, 425 or 429)
+    #: the download failed (a reset, a timeout, a 5xx, a 408 or 425; not a 429, which no provider lets go: it is the
+    #: `ProviderRateLimitError`, GH-4053)
     FAILED = ("the download failed", "a failed download", True)
     #: the file the listing named is not on the server (a 404)
     WITHDRAWN = ("the file was gone", "a withdrawn file", True)

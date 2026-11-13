@@ -296,7 +296,11 @@ def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
     whatever it was raised from or while handling. A skip is not a failure, so a test that skipped
     on a timeout would never be asked a second time.
 
-    Only the global ``reruns`` and ``--only-rerun`` (option or ini) are modelled, which is all this
+    ``--rerun-except`` is the other way round (GH-4053): an error of the chain that matches it is never rerun, whatever
+    ``--only-rerun`` says, as the plugin decides it (the chain of its causes, not of what it was raised while
+    handling). The rate limit of a provider is one, though its cause is a 429 that ``--only-rerun`` matches.
+
+    Only the global ``reruns``, ``--only-rerun`` and ``--rerun-except`` (option or ini) are modelled, which is all this
     suite sets: not the ``flaky`` marker's own ``only_rerun``, ``rerun_except`` or ``condition``.
     """
     if not item.config.pluginmanager.hasplugin("rerunfailures"):
@@ -305,6 +309,14 @@ def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
 
     if getattr(item, "execution_count", 1) > (get_reruns_count(item) or 0):
         return False
+    excepted = item.config.getoption("rerun_except") or item.config.getini("rerun_except")
+    causes: set[int] = set()
+    cause: BaseException | None = error
+    while cause is not None and id(cause) not in causes:
+        causes.add(id(cause))
+        if any(re.search(pattern, f"{type(cause).__name__}: {cause}") for pattern in excepted):
+            return False
+        cause = cause.__cause__
     patterns = item.config.getoption("only_rerun") or item.config.getini("only_rerun")
     if not patterns:
         return True

@@ -26,6 +26,7 @@ from wetterdienst.exceptions import (
     IssueNotFoundError,
     NoInternetError,
     ParameterNotCarriedError,
+    ProviderRateLimitError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
@@ -953,7 +954,8 @@ class DwdDmoRequest(TimeseriesRequest):
             reader = KMLReader(station_ids=[], settings=settings)
             # the reader owns the open archive; parsing finishes before it goes out of scope
             return _placemark_metadata(reader.fetch(newest))
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
+            # a limit is no reading that failed: the next request meets it too (GH-4053)
             raise
         except Exception as ex:  # noqa: BLE001
             log.warning(
@@ -996,7 +998,8 @@ class DwdDmoRequest(TimeseriesRequest):
         url = urljoin("https://opendata.dwd.de", _dmo_station_dir(dataset_name_original))
         try:
             entries = list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
+            # a limit is no reading that failed: the next request meets it too (GH-4053)
             raise
         except Exception as ex:  # noqa: BLE001
             # degraded audibly rather than silently: falling back to the shared catalogue is the
