@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
+import type { PanelId } from '~/composables/useMeteogramView'
 import type { ChartTheme, SeriesLabel } from '~/utils/chart-theme'
 import type { MeteogramView } from '~/utils/meteogram'
 import type { Quantity } from '~/utils/units'
-import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime, Info } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { formatDayMonth, formatHour, formatNumber, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
-import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, meteogramView, meteogramViewFromQuery, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { formatDayMonth, formatHour, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
+import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { meteogramDays } from '~/utils/meteogram-days'
+import { buildSeries, findFirstAvailable, resampleSeries } from '~/utils/meteogram-series'
+import { meteogramSummary, meteogramTable } from '~/utils/meteogram-summary'
 import { fitAxisTitle, MARGIN_LEFT, MARGIN_RIGHT, plotWidth, tickStepHours } from '~/utils/meteogram-ticks'
+import { meteogramUnits } from '~/utils/meteogram-units'
 import { plotlyLocaleConfig } from '~/utils/plotly-locale'
-import { CANONICAL_UNITS, differenceIn, digitsOf, fromCanonical, toCanonical, unitText, withUnit } from '~/utils/units'
-import { WEATHER_ICONS, weatherCodeToKind } from '~/utils/weather-kind'
+import { digitsOf, withUnit } from '~/utils/units'
+import { WEATHER_ICONS } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
@@ -54,37 +58,21 @@ let overlayAttached = false
 // scheme in force (utils/chart-theme.ts); a switch of the scheme draws the chart again below
 const { theme, isDark } = useChartTheme()
 
-// The forecast is shown as the chart, as the compact overview (day cards) or as the table of its values: one
-// choice, remembered in local storage and written to the URL (`?view=table`), so that a link opens the view.
-const view = ref<MeteogramView>(props.daysOnly ? 'compact' : 'chart')
-const compact = computed(() => view.value === 'compact')
+// What the reader chose: the view (remembered, and in the address), the panels, the horizon
+const { view, compact, visiblePanels, horizonHours, chooseView } = useMeteogramView(props)
 // The chart's type in px (GH-3558): a printed chart is scaled down, so 12 px ticks print at about 6 pt
 const TICK_FONT = 12
 const chartHeight = computed(() => (compact.value ? '320px' : '540px'))
-// Limit how many days the compact view will show by default
-const MAX_COMPACT_DAYS = 7
-const LOCAL_STORAGE_KEY = 'meteogram.view'
-// the key from before the table was a view: `true` for the compact overview, `false` for the chart
-const LEGACY_STORAGE_KEY = 'meteogram.compact'
 const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
   { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-ph-chart-line' },
   { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-ph-squares-four' },
   { value: 'table', label: t('meteogram.chart.viewTable'), icon: 'i-ph-table' },
 ])
 
-// Interactive panel visibility controls
-const visiblePanels = ref({
-  temp: true,
-  wind: true,
-  precip: true,
-  cloud: true,
-  pressure: true,
-})
-
 // The panel toggles, in the order of the panels: the colour of each is that of its series' labels
 // `icon` is the outline, `iconOn` the filled variant of the same icon: a toggle that is on draws the filled one, so that on
 // and off differ by shape and not by colour alone (WCAG 1.4.1, GH-3951)
-const panelToggles: { panel: keyof typeof visiblePanels.value, icon: string, iconOn: string, title: string, series: SeriesLabel }[] = [
+const panelToggles: { panel: PanelId, icon: string, iconOn: string, title: string, series: SeriesLabel }[] = [
   { panel: 'temp', icon: 'i-ph-thermometer', iconOn: 'i-ph-thermometer-fill', title: 'meteogram.chart.panelTemperature', series: 'red' },
   { panel: 'wind', icon: 'i-ph-wind', iconOn: 'i-ph-wind-fill', title: 'meteogram.chart.panelWind', series: 'cyan' },
   { panel: 'precip', icon: 'i-ph-cloud-rain', iconOn: 'i-ph-cloud-rain-fill', title: 'meteogram.chart.panelPrecipitation', series: 'blue' },
@@ -94,8 +82,6 @@ const panelToggles: { panel: keyof typeof visiblePanels.value, icon: string, ico
 // a toggle that is on: the icon in the label colour, on a wash and in an edge of it
 const activeToggleStyle = (series: SeriesLabel) => panelToggleStyle(seriesLabelColor(series, isDark.value))
 
-// Forecast horizon filter: null = show all data
-const horizonHours = ref<number | null>(null)
 const horizonOptions = computed(() => [
   { label: '24h', value: 24 },
   { label: '3d', value: 72 },
@@ -103,162 +89,21 @@ const horizonOptions = computed(() => [
   { label: t('meteogram.chart.horizonAll'), value: null },
 ])
 
-// Ensure at least one panel is always active
-watch(visiblePanels, (newVal) => {
-  const anyActive = Object.values(newVal).some(v => v)
-  if (!anyActive) {
-    visiblePanels.value.temp = true
-  }
-}, { deep: true })
-
 const seriesCache = computed(() => buildSeries(props.values ?? []))
 
-// The quantity each group of series is of: what the unit of a series is looked up by, and the canonical unit a verdict
-// about it is judged in
-const GROUP_QUANTITY: Partial<Record<keyof typeof METEOGRAM_SERIES, Quantity>> = {
-  precipitation: 'precipitation',
-  temperature: 'temperature',
-  temperatureMax: 'temperature',
-  temperatureMin: 'temperature',
-  dewPoint: 'temperature',
-  humidity: 'fraction',
-  windSpeed: 'speed',
-  gust: 'speed',
-  windDirection: 'angle',
-  cloudCover: 'fraction',
-  cloudCoverLow: 'fraction',
-  cloudCoverMid: 'fraction',
-  cloudCoverHigh: 'fraction',
-  pressure: 'pressure',
-}
-
-// The unit the answer reports for each quantity: that of the first of its series the answer states a unit for (every
-// series of a quantity is asked for in the one unit), else the canonical unit of the quantity
-const quantityUnits = computed<Record<Quantity, string>>(() => {
-  const found: Record<Quantity, string> = { ...CANONICAL_UNITS }
-  const done = new Set<Quantity>()
-  for (const [group, quantity] of Object.entries(GROUP_QUANTITY) as [keyof typeof METEOGRAM_SERIES, Quantity][]) {
-    if (done.has(quantity))
-      continue
-    const stated = METEOGRAM_SERIES[group].map(name => props.units?.[name]).find((unit): unit is string => !!unit)
-    if (stated) {
-      found[quantity] = stated
-      done.add(quantity)
-    }
-  }
-  return found
-})
-/** The unit the answer's numbers of a quantity are in */
-const unitOf = (quantity: Quantity) => quantityUnits.value[quantity]
-/** A number of the answer, in the canonical unit of its quantity: what thresholds are compared with */
-const canon = (quantity: Quantity, value: number) => toCanonical(quantity, unitOf(quantity), value)
-/** A number in the canonical unit of its quantity, in the unit of the answer */
-const shown = (quantity: Quantity, value: number) => fromCanonical(quantity, unitOf(quantity), value)
-/** A canonical difference (a degree, a hectopascal), in the unit of the answer */
-const stretch = (quantity: Quantity, delta: number) => differenceIn(quantity, unitOf(quantity), delta)
-/** The unit of a quantity as a name has it: `Temperature °C` */
-const unitName = (quantity: Quantity) => unitText(unitOf(quantity))
+const units = computed(() => meteogramUnits(props.units, t))
+const unitOf = (quantity: Quantity) => units.value.unitOf(quantity)
+const canon = (quantity: Quantity, value: number) => units.value.canon(quantity, value)
+const shown = (quantity: Quantity, value: number) => units.value.shown(quantity, value)
+const stretch = (quantity: Quantity, delta: number) => units.value.stretch(quantity, delta)
+const unitName = (quantity: Quantity) => units.value.unitName(quantity)
+const digits = (quantity: Quantity) => units.value.digits(quantity)
+const named = (key: string, quantity: Quantity) => units.value.named(key, quantity)
 /** A number of a quantity with its unit after it, as the hover texts of the charts write it */
 function hoverUnit(quantity: Quantity) {
   const unit = unitOf(quantity)
   return withUnit(`%{y:.${digitsOf(quantity, unit)}f}`, unit)
 }
-/** The decimals the numbers of a quantity are written with in the unit of the answer */
-const digits = (quantity: Quantity) => digitsOf(quantity, unitOf(quantity))
-/** A name that carries the unit of its quantity (the translation has the place `{unit}` for it), trimmed where there is none */
-const named = (key: string, quantity: Quantity) => t(key, { unit: unitName(quantity) }).trim()
-
-// The view last chosen. The old key held only whether the view was the compact overview: its value is taken over
-// once, as the same choice under the new key, and the old key is gone.
-function storedView(): MeteogramView | null {
-  try {
-    const stored = meteogramView(localStorage.getItem(LOCAL_STORAGE_KEY))
-    if (stored)
-      return stored
-    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
-    if (legacy === null)
-      return null
-    const migrated = legacy === 'true' ? 'compact' : 'chart'
-    localStorage.setItem(LOCAL_STORAGE_KEY, migrated)
-    localStorage.removeItem(LEGACY_STORAGE_KEY)
-    return migrated
-  }
-  catch {
-    return null
-  }
-}
-
-// On mount try to restore user preference and auto-enable compact on small screens,
-// with URL params taking precedence over localStorage.
-onMounted(() => {
-  // the day rows and nothing else: no preference to restore, and no link to write
-  if (props.daysOnly)
-    return
-  if (typeof window !== 'undefined') {
-    const stored = storedView()
-    // the widget has no control to leave the table with: it shows the chart or the day cards
-    if (stored && !(props.widget && stored === 'table'))
-      view.value = stored
-    // in rem, so that a reader who has set a larger text size gets the compact view sooner (GH-3518)
-    else if (!stored && window.matchMedia('(max-width: 40rem)').matches)
-      view.value = 'compact'
-  }
-
-  if (!props.widget) {
-    const q = useRoute().query
-    if (q.horizon) {
-      const h = Number(q.horizon.toString())
-      if (Number.isFinite(h) && h > 0)
-        horizonHours.value = h
-    }
-    if (q.panels) {
-      const names = q.panels.toString().split(',').filter(Boolean)
-      visiblePanels.value = {
-        temp: names.includes('temp'),
-        wind: names.includes('wind'),
-        precip: names.includes('precip'),
-        cloud: names.includes('cloud'),
-        pressure: names.includes('pressure'),
-      }
-    }
-    // `compact=true` is the link of the time the table was no view: it still opens the compact overview
-    const linked = meteogramViewFromQuery(q)
-    if (linked)
-      view.value = linked
-
-    const router = useRouter()
-    const route = useRoute()
-    // A rejected navigation (e.g. superseded by a subsequent replace() before this one resolves) would
-    // otherwise be an unhandled promise rejection, as the pages that sync their state to the URL catch it.
-
-    watch(horizonHours, (h) => {
-      const q = { ...route.query } as Record<string, any>
-      if (h !== null)
-        q.horizon = String(h)
-      else
-        delete q.horizon
-      void router.replace({ query: q }).catch(() => {})
-    })
-
-    watch(visiblePanels, (panels) => {
-      const visible = (Object.keys(panels) as Array<keyof typeof panels>).filter(k => panels[k])
-      const q = { ...route.query } as Record<string, any>
-      if (visible.length < 5)
-        q.panels = visible.join(',')
-      else
-        delete q.panels
-      void router.replace({ query: q }).catch(() => {})
-    }, { deep: true })
-
-    watch(view, (v) => {
-      const q = { ...route.query } as Record<string, any>
-      q.view = v
-      delete q.compact
-      void router.replace({ query: q }).catch(() => {})
-    })
-  }
-})
-
 // overlay redraw handler ref for attach/detach
 let overlayRedrawHandler: ((ev?: any) => void) | null = null
 
@@ -271,17 +116,6 @@ function resetChart() {
     const el = chartRef.value as any
     Plotly.relayout(el, { 'xaxis.autorange': true })
     requestRender(false)
-  }
-  catch {
-    // ignore
-  }
-}
-
-// A choice of the reader's: remembered. A view that a link or the small screen gave is not.
-function chooseView(next: MeteogramView) {
-  view.value = next
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, next)
   }
   catch {
     // ignore
@@ -344,344 +178,30 @@ onBeforeUnmount(() => {
   clearInterval(clock)
 })
 
-const compactDays = computed(() => {
-  const out: { date: any, kind: WeatherKind, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean, partialHours: number | null }[] = []
-  const series = seriesCache.value
-  const available = new Set(series.keys())
-  const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
-  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
-  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
-  const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
-
-  const stationTZ = stationTimeZone.value
-  // the start of today at the station: where the rows start, and the row that is marked as today
-  const today = DateTime.fromISO(localToday.value, { zone: stationTZ }).startOf('day')
-
-  const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
-  if (!allTimes.length) {
-    return out
-  }
-  const minTime = Math.min(...allTimes)
-  const maxTime = Math.max(...allTimes)
-
-  // The rows start at today (the station's local day): the run begins before midnight, and what is left of
-  // the day before it is a stub of a day that is over (GH-3840)
-  const first = DateTime.fromMillis(minTime, { zone: stationTZ }).startOf('day')
-  let dt = first < today ? today : first
-  const last = DateTime.fromMillis(maxTime, { zone: stationTZ }).startOf('day')
-  // the step the run ends with, from its last two times: the run is hourly and then 3-hourly, which the span says
-  // nothing of
-  const times = [...new Set(allTimes)].sort((a, b) => a - b)
-  const endStep = times.length > 1 ? times[times.length - 1]! - times[times.length - 2]! : 3_600_000
-  while (dt.toMillis() <= last.toMillis()) {
-    const startUTC = dt.toUTC().toMillis()
-    const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
-
-    // null while neither a weather code nor the fallback below has said
-    let kind: WeatherKind | null = null
-
-    // Prefer significant weather codes when available
-    if (weatherKey && series.has(weatherKey)) {
-      const ws = series.get(weatherKey)!
-      const allCounts = new Map<number, number>()
-
-      for (let i = 0; i < ws.x.length; i++) {
-        const t = ws.x[i]!.getTime()
-        if (t >= startUTC && t < endUTC) {
-          const raw = ws.y[i]
-          const code = typeof raw === 'number' ? Math.round(raw) : Number.parseInt(String(raw))
-          if (!Number.isNaN(code)) {
-            allCounts.set(code, (allCounts.get(code) ?? 0) + 1)
-          }
-        }
-      }
-
-      if (allCounts.size > 0) {
-        // Choose best code: if any code with severity >= 3 occurs at least 2 times,
-        // we pick the one with highest severity. Otherwise, we choose the most frequent code.
-        const getWeatherSeverity = (code: number): number => {
-          if (code >= 95 && code <= 99)
-            return 9 // thunderstorm
-          if (code >= 80 && code <= 86)
-            return 8 // showers
-          if (code >= 70 && code <= 79)
-            return 7 // snow
-          if (code >= 60 && code <= 69)
-            return 6 // rain
-          if (code >= 50 && code <= 59)
-            return 5 // drizzle
-          if (code >= 40 && code <= 49)
-            return 4 // fog
-          if (code === 3)
-            return 3 // overcast / cloudy
-          if (code === 2)
-            return 2 // partly cloudy
-          if (code === 1)
-            return 1 // mostly clear
-          return 0 // clear / sunny / default
-        }
-
-        let best = -1
-        let highestSeverity = -1
-        let mostFrequent = -1
-        let maxCount = -1
-
-        for (const [c, cnt] of allCounts) {
-          if (cnt > maxCount) {
-            mostFrequent = c
-            maxCount = cnt
-          }
-          const sev = getWeatherSeverity(c)
-          if (sev >= 3 && cnt >= 2) {
-            if (sev > highestSeverity) {
-              highestSeverity = sev
-              best = c
-            }
-          }
-        }
-
-        // If no significant weather with count >= 2, fall back to most frequent
-        if (best === -1) {
-          best = mostFrequent
-        }
-
-        if (best !== -1) {
-          kind = weatherCodeToKind(best)
-        }
-      }
-    }
-
-    let minT = Number.POSITIVE_INFINITY
-    let maxT = Number.NEGATIVE_INFINITY
-    if (tempKey && series.has(tempKey)) {
-      const ts = series.get(tempKey)!
-      for (let i = 0; i < ts.x.length; i++) {
-        const t = ts.x[i]!.getTime()
-        if (t >= startUTC && t < endUTC) {
-          const val = Number(ts.y[i] ?? Number.NaN)
-          if (!Number.isNaN(val)) {
-            minT = Math.min(minT, val)
-            maxT = Math.max(maxT, val)
-          }
-        }
-      }
-    }
-
-    // Precipitation total for the day (always computed)
-    let dayPrecip = 0
-    if (precipKey && series.has(precipKey)) {
-      const ps = series.get(precipKey)!
-      for (let i = 0; i < ps.x.length; i++) {
-        const t = ps.x[i]!.getTime()
-        if (t >= startUTC && t < endUTC)
-          dayPrecip += Number(ps.y[i] ?? 0)
-      }
-    }
-
-    // Fallback heuristics: cloud cover
-    if (kind === null) {
-      let cloudSum = 0
-      let cloudCount = 0
-      if (cloudKey && series.has(cloudKey)) {
-        const cs = series.get(cloudKey)!
-        for (let i = 0; i < cs.x.length; i++) {
-          const t = cs.x[i]!.getTime()
-          if (t >= startUTC && t < endUTC) {
-            // in percent whatever the unit the cloud cover is shown in: the thresholds below are percentages
-            cloudSum += canon('fraction', cs.y[i] ?? 0)
-            cloudCount++
-          }
-        }
-      }
-      const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
-      // judged in millimetres and degrees Celsius, whatever the units the day is shown in (GH-3980)
-      if (canon('precipitation', dayPrecip) > 0.5)
-        kind = (Number.isFinite(minT) && canon('temperature', minT) <= 0.5) ? 'snow' : 'rain'
-      else if (avgCloud >= 70)
-        kind = 'cloudy'
-      else if (avgCloud >= 30)
-        kind = 'partlyCloudy'
-      else
-        kind = 'clear'
-    }
-
-    const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? withUnit(`${Math.round(minT)} / ${Math.round(maxT)}`, unitOf('temperature')) : null
-    const precipLabel = canon('precipitation', dayPrecip) >= 0.1 ? withUnit(formatNumber(dayPrecip, locale.value, 1), unitOf('precipitation')) : null
-    const isToday = dt.hasSame(today, 'day')
-    // The last day of the run, when the run ends before it does: its minimum and maximum are those of the hours
-    // the run reaches, so the row says how many they are, and is not read as a day's own
-    let partialHours: number | null = null
-    if (dt.toMillis() === last.toMillis() && maxTime + endStep < endUTC) {
-      partialHours = Math.max(1, Math.round((maxTime + endStep - Math.max(startUTC, minTime)) / 3_600_000))
-    }
-    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, formatLanguage.value), dayMonth: formatDayMonth(dt, formatLanguage.value), tempLabel, precipLabel, isToday, partialHours })
-    dt = dt.plus({ days: 1 })
-  }
-  // Limit number of days shown in compact mode for readability
-  if (out.length > MAX_COMPACT_DAYS) {
-    return out.slice(0, MAX_COMPACT_DAYS)
-  }
-  return out
-})
+const compactDays = computed(() => meteogramDays(seriesCache.value, {
+  zone: stationTimeZone.value,
+  today: localToday.value,
+  units: units.value,
+  locale: locale.value,
+  language: formatLanguage.value,
+}))
 
 // What the chart draws, as a table and a sentence (WCAG 1.1.1, 1.3.1, and 1.4.13 for the values that appear
-// on hover only): the panels that are shown, one column for each series they plot, one row for each time
-// the forecast has a value, as far as the horizon chosen reaches. The values are the forecast's own, in
-// the units the answer reports them in, not the chart's resampled curve.
-const chartTable = computed(() => {
-  const series = seriesCache.value
-  if (!series.size)
-    return null
-  const available = new Set(series.keys())
-  const pick = (names: readonly string[]) => findFirstAvailable(names, available)
-  const panels = visiblePanels.value
-  const specs: { shown: boolean, key: string | undefined, label: string, digits: number, main?: boolean }[] = [
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperature), label: named('meteogram.chart.seriesTemperature', 'temperature'), digits: digits('temperature'), main: true },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMax), label: named('meteogram.chart.seriesMaxTemp', 'temperature'), digits: digits('temperature') },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMin), label: named('meteogram.chart.seriesMinTemp', 'temperature'), digits: digits('temperature') },
-    { shown: panels.temp, key: pick(METEOGRAM_SERIES.dewPoint), label: `${t('meteogram.chart.seriesDewPoint')} ${unitName('temperature')}`, digits: digits('temperature') },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windSpeed), label: named('meteogram.chart.seriesWind', 'speed'), digits: digits('speed') },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} ${unitName('angle')}`, digits: digits('angle') },
-    { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: named('meteogram.chart.seriesWindGust', 'speed'), digits: digits('speed') },
-    { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCover), label: named('meteogram.chart.seriesTotalCloud', 'fraction'), digits: digits('fraction') },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverLow), label: named('meteogram.chart.seriesLowClouds', 'fraction'), digits: digits('fraction') },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverMid), label: named('meteogram.chart.seriesMidClouds', 'fraction'), digits: digits('fraction') },
-    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverHigh), label: named('meteogram.chart.seriesHighClouds', 'fraction'), digits: digits('fraction') },
-    { shown: panels.pressure, key: pick(METEOGRAM_SERIES.pressure), label: named('meteogram.chart.seriesPressure', 'pressure'), digits: digits('pressure') },
-  ]
-  const columns = specs.filter((spec): spec is typeof spec & { key: string } => spec.shown && spec.key !== undefined)
-  if (!columns.length)
-    return null
-
-  const firstTime = Math.min(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
-  const lastShown = horizonHours.value !== null ? firstTime + horizonHours.value * 3_600_000 : Number.POSITIVE_INFINITY
-  const byTime = new Map<number, (number | null)[]>()
-  columns.forEach((column, index) => {
-    const s = series.get(column.key)!
-    s.x.forEach((date, i) => {
-      const ms = date.getTime()
-      if (ms > lastShown)
-        return
-      const row = byTime.get(ms) ?? Array.from<number | null>({ length: columns.length }).fill(null)
-      row[index] = s.y[i]!
-      byTime.set(ms, row)
-    })
-  })
-  const times = [...byTime.keys()].sort((a, b) => a - b)
-  if (!times.length)
-    return null
-
-  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(formatLanguage.value).toLocaleString(DateTime.DATETIME_SHORT)
-  const main = columns.findIndex(column => column.main)
-  const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
-  return {
-    columns: [t('meteogram.chart.tableTime', { zone: stationTimeZone.value }), ...columns.map(column => column.label)],
-    rows: times.map(ms => [
-      writeTime(ms),
-      ...byTime.get(ms)!.map((value, index) => value === null ? '–' : formatNumber(value, locale.value, columns[index]!.digits)),
-    ]),
-    summary: [
-      t('meteogram.chart.summaryRange', { from: writeTime(times[0]!), to: writeTime(times.at(-1)!) }),
-      ...(temperatures.length
-        ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1), unit: unitName('temperature') })]
-        : []),
-      // the page chooses the table with the view control above the chart; the widget has the table below it
-      props.widget ? t('common.chartTableHint') : t('meteogram.chart.summaryTableHint'),
-    ].join(' '),
-  }
-})
+// on hover only)
+const chartTable = computed(() => meteogramTable(seriesCache.value, {
+  panels: visiblePanels.value,
+  horizonHours: horizonHours.value,
+  zone: stationTimeZone.value,
+  language: formatLanguage.value,
+  locale: locale.value,
+  units: units.value,
+  t,
+  widget: !!props.widget,
+}))
 const summaryId = useId()
 const chartLabel = computed(() => props.stationName ? t('meteogram.chart.label', { name: props.stationName }) : t('meteogram.chart.labelNoStation'))
 
-// Calculate summary statistics for the loaded forecast period
-const summaryStats = computed(() => {
-  const series = seriesCache.value
-  if (!series.size)
-    return null
-  const available = new Set(series.keys())
-
-  const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
-  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
-  const gustKey = findFirstAvailable(METEOGRAM_SERIES.gust, available)
-  const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
-  const pressureKey = findFirstAvailable(METEOGRAM_SERIES.pressure, available)
-
-  let minTemp = Number.POSITIVE_INFINITY
-  let maxTemp = Number.NEGATIVE_INFINITY
-  if (tempKey && series.has(tempKey)) {
-    const s = series.get(tempKey)!
-    s.y.forEach((v) => {
-      if (v !== null && !Number.isNaN(v)) {
-        minTemp = Math.min(minTemp, v)
-        maxTemp = Math.max(maxTemp, v)
-      }
-    })
-  }
-
-  let totalPrecip = 0
-  if (precipKey && series.has(precipKey)) {
-    const s = series.get(precipKey)!
-    s.y.forEach((v) => {
-      if (v !== null && !Number.isNaN(v)) {
-        totalPrecip += v
-      }
-    })
-  }
-
-  let maxGust = 0
-  if (gustKey && series.has(gustKey)) {
-    const s = series.get(gustKey)!
-    s.y.forEach((v) => {
-      if (v !== null && !Number.isNaN(v)) {
-        maxGust = Math.max(maxGust, v)
-      }
-    })
-  }
-
-  let avgCloud = 0
-  if (cloudKey && series.has(cloudKey)) {
-    const s = series.get(cloudKey)!
-    const valid = s.y.filter(v => v !== null && !Number.isNaN(v))
-    if (valid.length > 0) {
-      const sum = valid.reduce((acc, val) => acc + val, 0)
-      avgCloud = sum / valid.length
-    }
-  }
-
-  let minPres = Number.POSITIVE_INFINITY
-  let maxPres = Number.NEGATIVE_INFINITY
-  if (pressureKey && series.has(pressureKey)) {
-    const s = series.get(pressureKey)!
-    s.y.forEach((v) => {
-      if (v !== null && !Number.isNaN(v)) {
-        minPres = Math.min(minPres, v)
-        maxPres = Math.max(maxPres, v)
-      }
-    })
-  }
-
-  // each number in the unit the answer reports it in, with the unit written after it as the unit asks (`14°C`, `6.0 mm`)
-  const unit = (quantity: Quantity) => unitOf(quantity)
-  // a whole number is written plain, as it was (`1013`, not `1,013`), a fraction with the language's separator
-  const rounded = (value: number, places: number) => places === 0 ? String(Math.round(value)) : formatNumber(value, locale.value, places)
-  const temperature = unit('temperature')
-  const pressureDigits = Math.max(0, digits('pressure') - 1)
-  return {
-    // the lower end has a degree sign where the unit has one (`10° / 14°C`), and none where it has not (`283 / 287 K`)
-    temp: Number.isFinite(minTemp)
-      ? {
-          min: temperature.startsWith('°') ? `${Math.round(minTemp)}°` : String(Math.round(minTemp)),
-          max: withUnit(String(Math.round(maxTemp)), temperature),
-        }
-      : null,
-    precip: { value: rounded(totalPrecip, 1), unit: unitName('precipitation') },
-    gust: { value: rounded(maxGust, 1), unit: unitName('speed') },
-    // nothing after a number that is a decimal, as everywhere a number is written with its unit
-    cloud: { value: rounded(avgCloud, digits('fraction')), unit: unitOf('fraction') === '-' ? '' : unitName('fraction') },
-    pressure: Number.isFinite(minPres) ? { range: `${rounded(minPres, pressureDigits)}–${rounded(maxPres, pressureDigits)}`, unit: unitName('pressure') } : null,
-  }
-})
+const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.value, locale.value))
 
 function ensureOverlay() {
   if (!chartRef.value)
@@ -969,33 +489,6 @@ function cleanupPlotlyOverlayHandlers() {
   }
 }
 
-function findFirstAvailable(names: readonly string[], available: Set<string>) {
-  for (const n of names) {
-    if (available.has(n))
-      return n
-  }
-  return undefined
-}
-
-function buildSeries(values: Value[]) {
-  const series = new Map<string, { x: Date[], y: number[] }>()
-  for (const v of values) {
-    const p = String(v.parameter)
-    if (!series.has(p))
-      series.set(p, { x: [], y: [] })
-    if (v.value !== null && v.value !== undefined) {
-      series.get(p)!.x.push(new Date(v.timestamp))
-      series.get(p)!.y.push(v.value)
-    }
-  }
-  for (const [, s] of series) {
-    const pairs = s.x.map((d, i) => ({ d, y: s.y[i]! })).sort((a, b) => a.d.getTime() - b.d.getTime())
-    s.x = pairs.map(p => p.d)
-    s.y = pairs.map(p => p.y)
-  }
-  return series
-}
-
 function windArrow(fromDeg: number): string {
   const a = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']
   return a[Math.round(((fromDeg % 360) + 360) % 360 / 45) % 8]!
@@ -1020,33 +513,6 @@ function getCalendarDays(startMs: number, endMs: number, tz: string = 'UTC'): Da
     dt = dt.plus({ days: 1 })
   }
   return days
-}
-
-function resampleSeries(
-  series: Map<string, { x: Date[], y: number[] }>,
-  minTime: number,
-  maxTime: number,
-  stepKeys: Set<string> = new Set(),
-): Map<string, { x: Date[], y: number[] }> {
-  const cadenceMs = resampleCadenceMs(minTime, maxTime)
-  const resampled = new Map<string, { x: Date[], y: number[] }>()
-
-  for (const [key, s] of series) {
-    const newX: Date[] = []
-    const newY: number[] = []
-    const startTick = Math.ceil(minTime / cadenceMs) * cadenceMs
-    for (let t = startTick; t <= maxTime; t += cadenceMs) {
-      const val = stepKeys.has(key) ? nearestNeighbor(s.x, s.y, t) : interpSeries(s.x, s.y, t)
-      if (val !== null) {
-        newX.push(new Date(t))
-        newY.push(val)
-      }
-    }
-    if (newX.length > 0) {
-      resampled.set(key, { x: newX, y: newY })
-    }
-  }
-  return resampled
 }
 
 let isRendering = false
