@@ -11,6 +11,8 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const open = ref(false)
+// a finger in the open dialog moves nothing behind it (GH-3761)
+useDialogTouchGuard(open)
 
 // Ctrl+K and ⌘K on every system (Nuxt UI's `meta_k` is ⌘K alone on a Mac, where a reader may well use Ctrl), and
 // from a field as well: the search is where one goes from anywhere

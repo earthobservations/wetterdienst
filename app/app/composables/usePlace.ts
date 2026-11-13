@@ -24,11 +24,11 @@ export const DEFAULT_PLACE: Place = { id: '02564', name: 'Kiel-Holtenau', latitu
 /** The network whose stations are places: DWD's measurements, by their daily climate summary */
 export const PLACE_NETWORK = { provider: 'dwd', network: 'observation', parameters: 'daily/climate_summary' } as const
 
-const STORAGE_KEY = 'wd-place'
+export const PLACE_STORAGE_KEY = 'wd-place'
 
 function stored(): Place | null {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
+    const raw = JSON.parse(localStorage.getItem(PLACE_STORAGE_KEY) ?? 'null')
     if (raw && typeof raw.id === 'string' && typeof raw.name === 'string' && Number.isFinite(raw.latitude) && Number.isFinite(raw.longitude))
       return { id: raw.id, name: raw.name, latitude: raw.latitude, longitude: raw.longitude, region: typeof raw.region === 'string' ? raw.region : null, ...(raw.fromPosition === true ? { fromPosition: true } : {}) }
   }
@@ -55,7 +55,19 @@ export function usePlace() {
     if (!keep)
       return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      localStorage.setItem(PLACE_STORAGE_KEY, JSON.stringify(next))
+    }
+    catch {}
+  }
+
+  /**
+   * The entry in the browser goes where it is the one that came from the position (GH-4014), whenever the position's own
+   * entry is removed: a station must not outlive the position it was made from. The place of the page is left as it is.
+   */
+  function forgetStoredPositionPlace() {
+    try {
+      if (stored()?.fromPosition)
+        localStorage.removeItem(PLACE_STORAGE_KEY)
     }
     catch {}
   }
@@ -66,14 +78,23 @@ export function usePlace() {
    * one the browser still keeps, or Kiel, as the position it was derived from is forgotten.
    */
   function dropPositionPlace() {
-    try {
-      if (stored()?.fromPosition)
-        localStorage.removeItem(STORAGE_KEY)
-    }
-    catch {}
+    forgetStoredPositionPlace()
     if (place.value.fromPosition)
       place.value = stored() ?? DEFAULT_PLACE
   }
 
-  return { place, setPlace, dropPositionPlace }
+  /**
+   * Another tab changed what the browser keeps (GH-4014): a place that the position made, and that the browser no longer
+   * keeps as such (forgotten, replaced by another place, or by the place a newer position made), gives way to the one it
+   * keeps, or to Kiel.
+   */
+  function followStoredPlace() {
+    if (!place.value.fromPosition)
+      return
+    const kept = stored()
+    if (!kept?.fromPosition || kept.id !== place.value.id)
+      place.value = kept ?? DEFAULT_PLACE
+  }
+
+  return { place, setPlace, dropPositionPlace, forgetStoredPositionPlace, followStoredPlace }
 }
