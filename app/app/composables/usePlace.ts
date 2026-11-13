@@ -61,16 +61,24 @@ export function usePlace() {
   }
 
   /**
-   * What the reader's position made of the place is taken back (GH-3651): the entry in the browser goes where it is the
-   * one that came from the position (the reader's own choice of a place is theirs), and the place of the page is the
-   * one the browser still keeps, or Kiel, as the position it was derived from is forgotten.
+   * The entry in the browser goes where it is the one that came from the position (GH-4014), whenever the position's own
+   * entry is removed: a station must not outlive the position it was made from. The place of the page is left as it is.
    */
-  function dropPositionPlace() {
+  function forgetStoredPositionPlace() {
     try {
       if (stored()?.fromPosition)
         localStorage.removeItem(PLACE_STORAGE_KEY)
     }
     catch {}
+  }
+
+  /**
+   * What the reader's position made of the place is taken back (GH-3651): the entry in the browser goes where it is the
+   * one that came from the position (the reader's own choice of a place is theirs), and the place of the page is the
+   * one the browser still keeps, or Kiel, as the position it was derived from is forgotten.
+   */
+  function dropPositionPlace() {
+    forgetStoredPositionPlace()
     if (place.value.fromPosition)
       place.value = stored() ?? DEFAULT_PLACE
   }
@@ -88,5 +96,5 @@ export function usePlace() {
       place.value = kept ?? DEFAULT_PLACE
   }
 
-  return { place, setPlace, dropPositionPlace, followStoredPlace }
+  return { place, setPlace, dropPositionPlace, forgetStoredPositionPlace, followStoredPlace }
 }

@@ -373,14 +373,14 @@ describe('a stored position and the permission of the browser (GH-4014)', () => 
   }
 
   it('deletes the stored position and its station when a press finds the permission `denied`, and says so in the status', async () => {
-    const { getCurrentPosition, query } = storedPosition('granted')
+    const { getCurrentPosition, query } = storedPosition('denied')
     const wrapper = await mountControl()
-    await vi.waitFor(() => expect(query).toHaveBeenCalledTimes(1))
     expect(withdrawn(wrapper).attributes('role')).toBe('status')
     expect(withdrawn(wrapper).text()).toBe('')
     expect(chip(wrapper).exists()).toBe(true)
+    // the control alone looks at nothing: the home page does, as it loads
+    expect(query).not.toHaveBeenCalled()
 
-    query.mockResolvedValue({ state: 'denied' })
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe(WITHDRAWN))
     expect(chip(wrapper).exists()).toBe(false)
@@ -392,19 +392,10 @@ describe('a stored position and the permission of the browser (GH-4014)', () => 
     expect(wrapper.find('[data-testid="use-my-location-problem"]').exists()).toBe(false)
   })
 
-  it('deletes them at load, where the station that the position made is stored and the permission is `denied`, and says so', async () => {
-    const { getCurrentPosition } = storedPosition('denied')
-    const wrapper = await mountControl()
-    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe(WITHDRAWN))
-    expect(chip(wrapper).exists()).toBe(false)
-    expect(stored()).toBeNull()
-    expect(localStorage.getItem('wd-place')).toBeNull()
-    expect(getCurrentPosition).not.toHaveBeenCalled()
-  })
-
   it('takes the telling away with the page that told it', async () => {
     storedPosition('denied')
     const first = await mountControl()
+    await button(first).trigger('click')
     await vi.waitFor(() => expect(withdrawn(first).text()).toBe(WITHDRAWN))
     first.unmount()
     const second = await mountControl()

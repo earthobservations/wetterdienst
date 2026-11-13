@@ -79,7 +79,9 @@ watch(() => route.query.place, async (id) => {
 // "Here" (GH-3651): the reader's own position, given by "Use my location" and rounded to about 1 km, takes the DWD station
 // nearest to it (the stations request, ranked by the position) as the place, for this visit only unless the reader ticked
 // "remember". The address then names no other place; the position itself is in no address.
-const { remember, position, checking } = useMyLocation()
+const { remember, position, checking, checkOnLoad } = useMyLocation()
+// the stored position's station is this page's place as it loads: the permission is looked at before it is asked about
+checkOnLoad()
 // "Remember" is ticked after the press (GH-4011), when the place the position made is already in hand, for this visit:
 // it is kept in the browser with the position, as it would have been had the box been ticked before
 watch(remember, (on) => {
