@@ -66,6 +66,10 @@ Types of changes:
 
 ### Fixed
 
+- DWD observation `history` no longer fails for a station with an umlaut in its name when the
+  `name` section is read, such as 01975 Hamburg-Fuhlsbüttel: the station name file is read as
+  latin-1, as DWD writes it, where it raised `UnicodeDecodeError` (CLI) or answered a 500 (REST)
+  (GH-4021)
 - The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
   `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
 - The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),

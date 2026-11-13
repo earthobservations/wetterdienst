@@ -11,7 +11,8 @@ import type { Point } from '~/utils/map-tool'
 // - at first only the button;
 // - after a press, with a position in hand and nothing stored: the box "Remember my position in this browser" and the
 //   note (what is kept, the link to the privacy policy) under the button, so that the note is read before the box is
-//   ticked. The box is there only while a position is in hand, so that ticking it always stores that position;
+//   ticked. The box is there only while a position is in hand, so that ticking it always stores that position. Where the
+//   browser refuses to keep it (blocked or full storage, GH-4014), the box stays unticked and an alert says so;
 // - once a position is stored (ticked, or restored from an earlier visit): a compact "Stored" control beside the
 //   button, which discloses the position and "Forget" and replaces the box and the note. "Forget" takes the position
 //   back to nothing, and the next press starts again.
@@ -42,7 +43,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { position, failure, busy, remember, remembered, locate, rememberPosition, forget } = useMyLocation()
+const { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget } = useMyLocation()
 
 /** The box and its note: a position is in hand and nothing is stored */
 const offerToKeep = computed(() => position.value !== null && !remembered.value)
@@ -53,8 +54,11 @@ const stored = useTemplateRef<{ $el: HTMLElement }>('stored')
 
 // a refusal of an earlier visit to another tool is not this one's to tell until the button is pressed here
 onMounted(() => {
-  if (!props.offerOnly)
+  if (!props.offerOnly) {
     failure.value = null
+    // the card's copy told it already: the list's copy, mounted after it, does not announce it again
+    notKept.value = false
+  }
 })
 
 const working = computed(() => busy.value)
@@ -164,6 +168,11 @@ watch(remembered, (now) => {
         <NuxtLink to="/datenschutz#location" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline" data-testid="use-my-location-privacy">
           {{ t('location.privacyLink') }}
         </NuxtLink>
+      </p>
+      <!-- the browser did not keep the position (GH-4014): the box stays, since nothing is stored. Here, beside the box, and
+           not with the failures below, so that the copy of the map's station card, which has no alert of its own, tells it -->
+      <p v-if="notKept" :key="notKeptCount" class="text-sm text-error" role="alert" data-testid="use-my-location-not-kept">
+        {{ t('location.notKept') }}
       </p>
     </template>
     <!-- the status is in the page and in the tree from the start (`empty:sr-only`, never `hidden`), so that the text that

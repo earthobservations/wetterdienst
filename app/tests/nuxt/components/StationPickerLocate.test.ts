@@ -350,3 +350,36 @@ describe('"remember"', () => {
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
   })
 })
+
+// "Forget my position" with a lookup on its way (GH-4014): the position is gone, so an answer that arrives after it is not the
+// reader's: it picks no station and tells nothing
+describe('"Forget my position" during a lookup', () => {
+  it('drops the answer: no station is picked and no distance is told for a position that is gone', async () => {
+    mockBrowser({})
+    let release!: () => void
+    hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const { wrapper, picked } = await mountPage({ locate: query })
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    // the position is in hand, so the box is there; it is ticked and forgotten while the lookup is on its way
+    await vi.waitFor(() => expect(remember(wrapper).exists()).toBe(true))
+    await remember(wrapper).trigger('click')
+    const stored = () => wrapper.find('[data-testid="use-my-location-stored"]')
+    await vi.waitFor(() => expect(stored().exists()).toBe(true))
+    await stored().trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(stored().exists()).toBe(false))
+    // the lookup was dropped at once: the button is no longer busy
+    expect(button(wrapper).attributes('aria-busy')).toBe('false')
+
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(picked.value).toEqual([])
+    expect(status(wrapper).text()).toBe('')
+    expect(problem(wrapper).exists()).toBe(false)
+  })
+})

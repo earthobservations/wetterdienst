@@ -1,6 +1,8 @@
+import type { ChromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 import { DateTime } from 'luxon'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
@@ -163,24 +165,50 @@ describe('formatRunTime', () => {
   })
 })
 
-describe('a language the browser has no data for', () => {
-  // Chrome ships none for Luxembourgish: its Intl then writes the system's language instead, and
-  // the 5th of October month first for an English reader
-  afterEach(() => {
-    vi.restoreAllMocks()
+describe('formatHour', () => {
+  const four = Date.UTC(2026, 9, 15, 4, 0)
+
+  it.each([
+    ['de-DE', '04:00'],
+    ['en-GB', '04:00'],
+    ['fr-FR', '04:00'],
+    ['nl-NL', '04:00'],
+    ['cs-CZ', '04:00'],
+    // Danish writes a point between the hour and the minute, which `HH:mm` built from parts never could
+    ['da-DK', '04.00'],
+  ])('writes 04:00 UTC as the %s reader reads it: %s', (language, text) => {
+    expect(formatHour(four, language)).toBe(text)
   })
 
-  function withoutLuxembourgish() {
-    for (const format of [Intl.NumberFormat, Intl.DateTimeFormat]) {
-      const supported = format.supportedLocalesOf
-      vi.spyOn(format, 'supportedLocalesOf').mockImplementation((languages, options) =>
-        supported((languages as string[]).filter(language => !language.startsWith('lb')), options))
-    }
-  }
+  it('writes the hour of the zone it is given, not of the machine', () => {
+    // 04:00 UTC is 06:00 in Berlin in October (CEST) and 13:00 in Tokyo
+    expect(formatHour(four, 'de-DE', 'Europe/Berlin')).toBe('06:00')
+    expect(formatHour(four, 'da-DK', 'Asia/Tokyo')).toBe('13.00')
+  })
+
+  it('writes midnight as 00:00, not 24:00', () => {
+    expect(formatHour(Date.UTC(2026, 9, 15, 0, 0), 'en-GB')).toBe('00:00')
+    expect(formatHour(Date.UTC(2026, 9, 15, 0, 0), 'da-DK')).toBe('00.00')
+  })
+
+  it('refuses a zone the browser does not know, for the caller to fall back to UTC', () => {
+    expect(() => formatHour(four, 'de-DE', 'Mars/Olympus')).toThrow(RangeError)
+  })
+})
+
+describe('a language the browser has no data for', () => {
+  // Chrome ships none for Luxembourgish: its Intl then writes the system's language instead, and
+  // the 5th of October month first for an English reader. Node has the data, so the browser is stood in for by
+  // constructors that write `en-US` for `lb` (tests/helpers/chrome-without-luxembourgish.ts)
+  let chrome: ChromeWithoutLuxembourgish
+  beforeEach(() => {
+    chrome = chromeWithoutLuxembourgish()
+  })
+  afterEach(() => {
+    chrome.restore()
+  })
 
   it('asks for German in its place, with its separators and day', () => {
-    expect(withData('lb', Intl.NumberFormat.supportedLocalesOf)).toBe('lb')
-    withoutLuxembourgish()
     expect(withData('lb', Intl.NumberFormat.supportedLocalesOf)).toBe('de-LU')
     expect(withData('lb-LU', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-LU')
     expect(plotlySeparators('lb')).toBe(',.')
@@ -188,10 +216,52 @@ describe('a language the browser has no data for', () => {
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'lb-LU')).toBe('05.10.')
   })
 
+  it('writes the run and the hover heading of Luxembourgish as German, and hands Intl no Luxembourgish', () => {
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'lb-LU')).toBe('15.10.2026, 04:00 UTC')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'lb-LU')).toBe('04:00')
+    expect(plotlyHoverFormat('lb')).toBe('%a %d.%m. %H:%M')
+    expect(chrome.passed).toContain('de-LU')
+    expect(chrome.passed.filter(language => language.startsWith('lb'))).toEqual([])
+  })
+
+  it('would write English where Luxembourgish is handed to Intl as it is', () => {
+    // what the stand-in guards against: the same call, with the bare code, writes the system's language
+    expect(new Intl.NumberFormat('lb').format(1234.5)).toBe('1,234.5')
+    expect(new Intl.DateTimeFormat('lb-LU', { timeZone: 'UTC' }).format(Date.UTC(2026, 9, 15))).toBe('10/15/2026')
+  })
+
   it('leaves a language it has data for as it is', () => {
-    withoutLuxembourgish()
     expect(withData('fr-FR', Intl.DateTimeFormat.supportedLocalesOf)).toBe('fr-FR')
     expect(withData('en', Intl.NumberFormat.supportedLocalesOf)).toBe('en')
+  })
+})
+
+describe('the locale codes of the app that are no language', () => {
+  // `de-hh` (Hamburgisch) has no data of its own in any browser: it is written as German. Chrome already resolves the
+  // code to German, so these document the mapping (`withData` asks for `de-DE` before the browser is asked) and
+  // hold the output; they cannot tell the mapping from the browser's own fallback.
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('asks for German in place of Hamburgisch, as the browser answers or not', () => {
+    expect(withData('de-hh', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-DE')
+    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
+    expect(withData('de-hh', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-DE')
+  })
+
+  it('writes Hamburgisch with the separators and the order of German', () => {
+    expect(formatNumber(1234.5, 'de-hh', 2)).toBe('1.234,50')
+    expect(plotlySeparators('de-hh')).toBe(',.')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'de-hh')).toBe('04:00')
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'de-hh')).toBe('15.10.2026, 04:00 UTC')
+    expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'de-hh')).toBe('05.10.')
+  })
+
+  it('writes Danish with its own separators', () => {
+    expect(formatNumber(1234.5, 'da', 2)).toBe('1.234,50')
+    expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'da-DK')).toBe('04.00')
+    expect(formatRunTime('2026-10-15T04:00:00+00:00', 'da-DK')).toMatch(/^15\.10\.2026.+04[.:]00 UTC$/)
   })
 })
 

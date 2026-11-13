@@ -22,7 +22,8 @@ const emit = defineEmits<{
 
 const modelValue = defineModel<DateRange>({ required: true })
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const formatLanguage = useFormatLanguage()
 
 // High resolution thresholds (resolutions that require date filtering)
 const HIGH_RESOLUTION_THRESHOLDS: Resolution[] = ['1_minute', '5_minutes', '10_minutes']
@@ -98,8 +99,8 @@ const validationError = computed(() => {
 
   if (exceedsLimit.value) {
     return t('dateRange.errExceedsLimit', {
-      count: estimatedValues.value?.toLocaleString(locale.value),
-      max: MAX_VALUES.toLocaleString(locale.value),
+      count: estimatedValues.value === null ? undefined : formatNumber(estimatedValues.value, formatLanguage.value, 0),
+      max: formatNumber(MAX_VALUES, formatLanguage.value, 0),
     })
   }
 
@@ -141,7 +142,7 @@ const note = computed(() => {
     return null
   const text = t('dateRange.defaultNote', {
     span: t(`dataViewer.limitUnit.${window.unit}`, { count: window.count }),
-    rows: formatNumber(window.rows, locale.value, 0),
+    rows: formatNumber(window.rows, formatLanguage.value, 0),
   })
   return canClear.value ? `${text} ${t('dateRange.defaultNoteClear')}` : text
 })
@@ -218,8 +219,8 @@ defineExpose({ isValid, validationError })
 
     <div v-if="isHighResolution && estimatedValues !== null" class="text-sm">
       <span :class="exceedsLimit ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">
-        {{ t('dateRange.estimatedValues', { count: estimatedValues.toLocaleString(locale) }) }}
-        <span v-if="exceedsLimit"> ({{ t('dateRange.max', { max: MAX_VALUES.toLocaleString(locale) }) }})</span>
+        {{ t('dateRange.estimatedValues', { count: formatNumber(estimatedValues, formatLanguage, 0) }) }}
+        <span v-if="exceedsLimit"> ({{ t('dateRange.max', { max: formatNumber(MAX_VALUES, formatLanguage, 0) }) }})</span>
       </span>
     </div>
 

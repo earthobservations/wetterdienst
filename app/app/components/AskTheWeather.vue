@@ -79,7 +79,7 @@ watch(() => route.query.place, async (id) => {
 // "Here" (GH-3651): the reader's own position, given by "Use my location" and rounded to about 1 km, takes the DWD station
 // nearest to it (the stations request, ranked by the position) as the place, for this visit only unless the reader ticked
 // "remember". The address then names no other place; the position itself is in no address.
-const { remember } = useMyLocation()
+const { remember, position } = useMyLocation()
 // "Remember" is ticked after the press (GH-4011), when the place the position made is already in hand, for this visit:
 // it is kept in the browser with the position, as it would have been had the box been ticked before
 watch(remember, (on) => {
@@ -90,6 +90,17 @@ const locating = ref(false)
 const locatedText = ref('')
 const locateProblem = ref('')
 let locateRequest = 0
+// "Forget my position" (GH-4014) takes back what the position made of the place (`useMyLocation`), and a lookup of the
+// nearest station still on its way is dropped with it: its late answer would put the place back for the visit and the
+// status would read as if the position were current. Synchronous, so that no answer lands between the forget and this.
+watch(position, (now) => {
+  if (now)
+    return
+  locateRequest++
+  locating.value = false
+  locatedText.value = ''
+  locateProblem.value = ''
+}, { flush: 'sync' })
 async function onPosition(point: { latitude: number, longitude: number }) {
   const mine = ++locateRequest
   locating.value = true

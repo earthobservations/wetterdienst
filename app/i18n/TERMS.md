@@ -112,9 +112,18 @@ is followed by its value takes the colon from `common.colon`, which French sets 
 space before it (`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out
 of its parts and an `Intl` call that names no language). Coordinates and elevations are the
 exception to the rule for numbers and keep a point in every language (`toFixed`): a position is
-copied into a map or a query, and the number input that takes one reads a point. Chrome has no
-data for Luxembourgish, so `withData` writes `lb` as German (`de-LU`) is written, which is the
-same.
+copied into a map or a query, and the number input that takes one reads a point.
+
+Every `Intl`, `toLocale*String` and luxon `setLocale` call is handed the language that
+`useFormatLanguage()` answers (named `formatLanguage`), never the app's code (`lb`, `de-hh`) or a
+tag read from `localeProperties`: it is the locale's tag (`en-GB`, `de-DE`) through `withData`.
+Chrome has no data for Luxembourgish and writes `lb` in the system's language (an English reader
+gets `en-US`: numbers "1,234.5", dates month first), so `withData` asks for German (`de-LU`) in
+its place, whose order and separators Luxembourgish shares. `de-hh` is written as `de-DE`. The
+helpers of `utils/format.ts` take a code or a tag and map it themselves. A time of day is written
+by `formatHour` (the Meteogram's axis: "04:00" in German, "04.00" in Danish), in the station's
+zone, never built from its parts (`HH:mm`); `tests/unit/i18n-source.test.ts` holds the source to
+both.
 
 ## Parameter glossaries
 
@@ -232,6 +241,11 @@ meant to be understood, not to be the last word, and **a review by a native spea
   says `bewahrt` for "stays in this browser"); `lb` `Gespäichert`; `pl` `Zapisana` and `cs` `Uložená`; and in `fr`, `es`, `it`,
   `pl` and `cs` the feminine (`Mémorisée`, `Guardada`, `Salvata`, `Zapisana`, `Uložená`), which agrees with the language's word
   for the position (`position`, `ubicación`, `posizione`, `lokalizacja`, `poloha`), which the chip leaves out.
+- **Machine-made**: the alert of "Use my location" for a browser that refuses to keep the position (`location.notKept`, GH-4014)
+  was written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read it.
+  The second sentence names the position again (not "it"), so that it cannot read as the browser. Least certain: `de-hh`
+  `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`; `De Standort` for the masculine article);
+  `lb` `erlaabt` and `gëtt just fir`; `cs` `neumožnil` and `Poloha se použije`; `da` `tillod ikke, at`.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.

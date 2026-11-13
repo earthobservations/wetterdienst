@@ -780,6 +780,7 @@
     "forget": "Olvidar mi ubicación",
     "stored": "Guardada",
     "storedLabel": "Guardada: mi ubicación en este navegador",
+    "notKept": "Tu navegador no permitió guardar la ubicación. La ubicación solo se usa durante esta visita.",
     "denied": "Tu navegador bloquea la ubicación para este sitio. Para permitirla, abre los ajustes del sitio en tu navegador, pon Ubicación en Permitir y vuelve a pulsar el botón. La búsqueda sigue funcionando.",
     "unsupported": "Este navegador no puede determinar tu ubicación. Usa la búsqueda en su lugar.",
     "unavailable": "No se pudo encontrar tu ubicación. Usa la búsqueda en su lugar.",
