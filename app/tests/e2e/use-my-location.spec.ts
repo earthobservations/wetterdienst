@@ -193,6 +193,22 @@ test.describe('the stored position and the browser\'s permission (GH-4014)', () 
     expect(asked.filter(query => query.latitude)).toEqual([])
   })
 
+  test('a stored position whose station is the place of the home page is deleted at load where the permission is `denied`, and the reader is told', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('wd-location', JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+      localStorage.setItem('wd-place', JSON.stringify({ id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.63, longitude: 10, region: 'Hamburg', fromPosition: true }))
+      navigator.permissions.query = async () => ({ state: 'denied' }) as PermissionStatus
+    })
+    asked.length = 0
+    await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+    await mockBackend(page, baseURL!, ranked())
+    await page.goto('/?ask=rain')
+    await expect(page.getByTestId('use-my-location-withdrawn')).toHaveText(en.location.withdrawn)
+    await expect(page.getByRole('button', { name: en.location.storedLabel })).toHaveCount(0)
+    expect(await page.evaluate(() => [localStorage.getItem('wd-location'), localStorage.getItem('wd-place')])).toEqual([null, null])
+    expect(asked.filter(query => query.latitude === '53.63' || query.stations === '01975')).toEqual([])
+  })
+
   test('a position forgotten in one tab is forgotten in the other open tab', async ({ page, baseURL, context }) => {
     await open(page, baseURL!, '/meteogram', en.meteogram.title)
     await page.getByTestId('use-my-location-button').click()

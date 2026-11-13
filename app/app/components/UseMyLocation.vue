@@ -58,8 +58,12 @@ onMounted(() => {
     failure.value = null
     // the card's copy told it already: the list's copy, mounted after it, does not announce it again
     notKept.value = false
-    withdrawn.value = false
   }
+})
+// what was told of a withdrawn permission stays with the page that told it: it can come at load, before this mounts
+onBeforeUnmount(() => {
+  if (!props.offerOnly)
+    withdrawn.value = false
 })
 
 const working = computed(() => busy.value)

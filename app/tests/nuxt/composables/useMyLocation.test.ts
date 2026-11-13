@@ -1,7 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
-import { clearNuxtState } from '#app'
+import { clearNuxtState, useState } from '#app'
 import { useMyLocation } from '~/composables/useMyLocation'
 import { DEFAULT_PLACE, usePlace } from '~/composables/usePlace'
 import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY } from '~/utils/geolocation'
@@ -543,6 +543,19 @@ function otherTab(key: string, value: string | null) {
   window.dispatchEvent(new StorageEvent('storage', { key, newValue: value, storageArea: localStorage }))
 }
 
+/** The Permissions API answers `granted` until the test withdraws the permission: the way a permission is withdrawn mid-session */
+function withdraw(query: ReturnType<typeof mockPermission>) {
+  query.mockResolvedValue({ state: 'denied' } as never)
+}
+
+/** A permission query that waits for the test, and the way to let it go with an answer */
+function heldQuery() {
+  const answers: Array<(state: PermissionState) => void> = []
+  const query = vi.fn(() => new Promise(resolve => answers.push(state => resolve({ state }))))
+  Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query } })
+  return { query, answers }
+}
+
 // GH-4014: a stored position is not used once the browser's permission is withdrawn
 describe('a stored position and the permission of the browser', () => {
   beforeEach(() => {
@@ -552,12 +565,14 @@ describe('a stored position and the permission of the browser', () => {
   })
   afterEach(() => localStorage.clear())
 
-  it('is deleted with its station when the permission is `denied`: nothing is returned, the browser is not asked, the reader is told', async () => {
+  it('is deleted with its station when a press finds the permission `denied`: nothing is returned, the browser is not asked, the reader is told', async () => {
     const getCurrentPosition = mockGeolocation({ latitude: 1, longitude: 2 })
-    mockPermission('denied')
+    const query = mockPermission('granted')
     const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
     expect(location.remember).toBe(true)
 
+    withdraw(query)
     expect(await location.locate()).toBeNull()
     expect(getCurrentPosition).not.toHaveBeenCalled()
     expect(location.position).toBeNull()
@@ -570,18 +585,22 @@ describe('a stored position and the permission of the browser', () => {
 
   it('takes the place that the position made with it', async () => {
     mockGeolocation({ latitude: 1, longitude: 2 })
-    mockPermission('denied')
+    const query = mockPermission('granted')
     const { place } = usePlace()
     place.value = STORED_PLACE
     const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    withdraw(query)
     await location.locate()
     expect(place.value).toEqual(DEFAULT_PLACE)
   })
 
   it('takes the telling back at the next press', async () => {
     mockGeolocation({ latitude: 48.137, longitude: 11.575 })
-    const query = mockPermission('denied')
+    const query = mockPermission('granted')
     const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    withdraw(query)
     await location.locate()
     expect(location.withdrawn).toBe(true)
     query.mockResolvedValue({ state: 'granted' } as never)
@@ -596,6 +615,7 @@ describe('a stored position and the permission of the browser', () => {
     expect(await location.locate()).toEqual(STORED)
     expect(getCurrentPosition).not.toHaveBeenCalled()
     expect(location.withdrawn).toBe(false)
+    expect(location.checking).toBe(false)
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.getItem('wd-place')).not.toBeNull()
   })
@@ -607,6 +627,7 @@ describe('a stored position and the permission of the browser', () => {
     expect(await location.locate()).toEqual(STORED)
     expect(getCurrentPosition).not.toHaveBeenCalled()
     expect(location.withdrawn).toBe(false)
+    expect(location.checking).toBe(false)
     expect(location.position).toEqual(STORED)
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.getItem('wd-place')).not.toBeNull()
@@ -614,13 +635,165 @@ describe('a stored position and the permission of the browser', () => {
 
   it('is not told of by a press that a forget overtook while the permission was looked at', async () => {
     mockGeolocation({ latitude: 1, longitude: 2 })
-    mockPermission('denied')
+    const query = mockPermission('granted')
     const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    withdraw(query)
     const press = location.locate()
     location.forget()
     expect(await press).toBeNull()
     expect(location.position).toBeNull()
     // the reader forgot it: the press that was overtaken does not tell about a withdrawn permission
+    expect(location.withdrawn).toBe(false)
+  })
+
+  // a press that drops one that waits for the browser must not leave `busy` on
+  it('leaves `busy` off when it drops a press that was waiting for the browser (a third press, with "remember" ticked meanwhile)', async () => {
+    localStorage.clear()
+    mockPermission('granted')
+    const answers: Array<(position: unknown) => void> = []
+    let first = true
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((success: (position: unknown) => void) => {
+          if (first) {
+            first = false
+            success({ coords: { latitude: 53.55, longitude: 9.99 } })
+          }
+          else {
+            answers.push(success)
+          }
+        }),
+      },
+    })
+    const location = await mountHarness()
+    await location.locate()
+    const second = location.locate()
+    await vi.waitFor(() => expect(answers).toHaveLength(1))
+    expect(location.busy).toBe(true)
+    location.rememberPosition()
+    expect(location.remembered).toBe(true)
+
+    expect(await location.locate()).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(location.busy).toBe(false)
+    answers[0]!({ coords: { latitude: 1, longitude: 2 } })
+    expect(await second).toBeNull()
+    expect(location.busy).toBe(false)
+  })
+})
+
+// GH-4014: the stored station is used by the home page's questions as it loads, so the permission is looked at then too
+describe('a stored position at load, with the station it made', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
+    usePlace().place.value = STORED_PLACE
+  })
+  afterEach(() => localStorage.clear())
+
+  it('is deleted with the station when the permission is `denied`, the reader is told, and the page waits for the answer', async () => {
+    const getCurrentPosition = mockGeolocation({ latitude: 1, longitude: 2 })
+    const { answers } = heldQuery()
+    const location = await mountHarness()
+    expect(location.checking).toBe(true)
+    expect(location.position).toEqual(STORED)
+
+    answers[0]!('denied')
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    expect(location.position).toBeNull()
+    expect(location.remember).toBe(false)
+    expect(location.withdrawn).toBe(true)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(usePlace().place.value).toEqual(DEFAULT_PLACE)
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+  })
+
+  it.each(['granted', 'prompt'] as const)('keeps both when the permission is `%s`', async (state) => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    mockPermission(state)
+    const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+    expect(usePlace().place.value).toEqual(STORED_PLACE)
+    expect(localStorage.getItem('wd-place')).not.toBeNull()
+  })
+
+  it.each(['missing', 'throws'] as const)('keeps both where the Permissions API is %s', async (how) => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    mockPermission(how)
+    const location = await mountHarness()
+    await vi.waitFor(() => expect(location.checking).toBe(false))
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+    expect(usePlace().place.value).toEqual(STORED_PLACE)
+  })
+
+  it('looks at nothing for a position that made no station: only a press does', async () => {
+    localStorage.removeItem('wd-place')
+    usePlace().place.value = DEFAULT_PLACE
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const query = mockPermission('denied')
+    const location = await mountHarness()
+    expect(location.checking).toBe(false)
+    expect(query).not.toHaveBeenCalled()
+    expect(location.position).toEqual(STORED)
+  })
+
+  it('is looked at once at a time, though several controls are set up', async () => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { query, answers } = heldQuery()
+    await mountHarness()
+    await mountHarness()
+    expect(query).toHaveBeenCalledTimes(1)
+    answers[0]!('granted')
+  })
+
+  it('is not decided by the load where a press found the permission `denied` first', async () => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { query, answers } = heldQuery()
+    const location = await mountHarness()
+    const press = location.locate()
+    expect(query).toHaveBeenCalledTimes(2)
+    answers[1]!('denied')
+    expect(await press).toBeNull()
+    expect(location.withdrawn).toBe(true)
+    expect(location.checking).toBe(false)
+    // the load's answer comes late, and changes nothing
+    answers[0]!('granted')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(location.position).toBeNull()
+    expect(location.withdrawn).toBe(true)
+    expect(location.checking).toBe(false)
+  })
+
+  it('is held on by a press that decides: the load\'s late `denied` does not forget what the press found allowed', async () => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { answers } = heldQuery()
+    const location = await mountHarness()
+    const press = location.locate()
+    answers[1]!('granted')
+    expect(await press).toEqual(STORED)
+    expect(location.checking).toBe(false)
+    answers[0]!('denied')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
+  })
+
+  it('ends with a forget that comes while the permission is looked at', async () => {
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { answers } = heldQuery()
+    const location = await mountHarness()
+    expect(location.checking).toBe(true)
+    location.forget()
+    expect(location.checking).toBe(false)
+    answers[0]!('denied')
+    await new Promise(resolve => setTimeout(resolve, 0))
     expect(location.withdrawn).toBe(false)
   })
 })
@@ -634,8 +807,10 @@ describe('another tab', () => {
 
   it('forgets the position there: this tab forgets it too, with the place it made', async () => {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
     const { place } = usePlace()
     place.value = STORED_PLACE
+    mockPermission('granted')
     const location = await mountHarness()
     expect(location.remembered).toBe(true)
 
@@ -678,8 +853,10 @@ describe('another tab', () => {
 
   it('chooses another place there: the place that the stored position made here gives way to it, and the position stays', async () => {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
     const { place } = usePlace()
     place.value = STORED_PLACE
+    mockPermission('granted')
     const location = await mountHarness()
     const chosen = { id: '00183', name: 'Alfhausen', latitude: 52.4, longitude: 7.9, region: 'Niedersachsen', fromPosition: false }
 
@@ -688,10 +865,103 @@ describe('another tab', () => {
     expect(location.position).toEqual(STORED)
   })
 
-  it('leaves other entries alone', async () => {
+  // GH-4014: a tab with no control mounted has no listener, and must not use what another tab forgot meanwhile
+  describe('while no control is set up here', () => {
+    it('is followed when a control is set up again: what was forgotten is not remembered', async () => {
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+      const { place } = usePlace()
+      place.value = STORED_PLACE
+      localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
+      mockPermission('granted')
+      const first = await mountSuspended(Harness)
+      await vi.waitFor(() => expect((first.vm as any).checking).toBe(false))
+      expect((first.vm as any).remembered).toBe(true)
+      first.unmount()
+
+      // another tab forgets, and this tab has no listener
+      otherTab('wd-place', null)
+      otherTab(LOCATION_STORAGE_KEY, null)
+      const second = await mountHarness()
+      expect(second.position).toBeNull()
+      expect(second.remember).toBe(false)
+      expect(second.remembered).toBe(false)
+      expect(place.value).toEqual(DEFAULT_PLACE)
+    })
+
+    it('takes a position that another tab stored meanwhile, where this tab has none', async () => {
+      const first = await mountSuspended(Harness)
+      first.unmount()
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+      const second = await mountHarness()
+      expect(second.position).toEqual(STORED)
+      expect(second.remembered).toBe(true)
+    })
+
+    it('is not used by a press, which asks the browser as a press with nothing stored does, and the browser is not sent the forgotten position', async () => {
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+      const getCurrentPosition = mockGeolocation({ latitude: 53.551, longitude: 9.993 })
+      mockPermission('granted')
+      const location = await mountHarness()
+      // forgotten elsewhere, and no event came: a tab that was away (the back/forward cache) or had no listener
+      localStorage.removeItem(LOCATION_STORAGE_KEY)
+
+      expect(await location.locate()).toEqual({ latitude: 53.55, longitude: 9.99 })
+      expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+      expect(location.remember).toBe(false)
+      expect(location.position).toEqual({ latitude: 53.55, longitude: 9.99 })
+      expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+    })
+
+    function pageshow(persisted: boolean) {
+      const event = new Event('pageshow')
+      Object.defineProperty(event, 'persisted', { value: persisted })
+      window.dispatchEvent(event)
+    }
+
+    it('is followed when the page comes back from the back/forward cache', async () => {
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+      mockPermission('granted')
+      const location = await mountHarness()
+      localStorage.removeItem(LOCATION_STORAGE_KEY)
+      pageshow(false)
+      expect(location.remembered).toBe(true)
+      pageshow(true)
+      expect(location.remembered).toBe(false)
+      expect(location.position).toBeNull()
+    })
+  })
+
+  it('takes what another tab stored, and the telling and the failure of this tab with the old state go', async () => {
+    const location = await mountHarness()
+    useState('wd-location-withdrawn').value = true
+    useState('wd-location-failure').value = 'denied'
+    otherTab(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+    expect(location.failure).toBeNull()
+  })
+
+  it('follows a place that a newer position made there: the place of the older one gives way', async () => {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
     const { place } = usePlace()
     place.value = STORED_PLACE
+    mockPermission('granted')
+    const location = await mountHarness()
+    const newer = { id: '00183', name: 'Alfhausen', latitude: 52.4, longitude: 7.9, region: 'Niedersachsen', fromPosition: true }
+
+    otherTab(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.4, longitude: 7.9 }))
+    otherTab('wd-place', JSON.stringify(newer))
+    expect(location.position).toEqual({ latitude: 52.4, longitude: 7.9 })
+    expect(place.value).toMatchObject({ id: '00183', fromPosition: true })
+  })
+
+  it('leaves other entries alone', async () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
+    const { place } = usePlace()
+    place.value = STORED_PLACE
+    mockPermission('granted')
     const location = await mountHarness()
     // the entries differ from this tab's, but no event says so: only the event of another key comes
     localStorage.removeItem(LOCATION_STORAGE_KEY)

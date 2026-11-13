@@ -19,12 +19,14 @@ Types of changes:
 ### Fixed
 
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" no longer uses a
-  stored position once the browser's location permission is blocked: the press deletes the
-  position and the station stored with it and says so. Where the browser cannot tell, the stored
-  position is used as before. Forgetting the position in one tab now also reaches the other open
-  tabs, which stop showing "Stored", and a position stored in one is taken by the others. The
-  privacy policy (en, de) says that withdrawing the permission deletes the stored position
-  (GH-4014)
+  stored position once the browser reports the location permission as blocked (denied): a press,
+  and the load of the home page with a station that the position made, delete the position and
+  that station and say so; the home page asks nothing about the station until it is checked. Where
+  the browser does not report it, the stored position is used as before. Forgetting the position in
+  one tab reaches the other open tabs, also those that have no control open at the time or come
+  back from the browser's cache, and a press no longer uses a position that was forgotten
+  elsewhere. A press that drops one still waiting for the browser no longer leaves the button
+  busy. The privacy policy (en, de) says so (GH-4014)
 
 ## [0.48.0] - 2026-11-13
 

@@ -77,11 +77,15 @@ export function usePlace() {
 
   /**
    * Another tab changed what the browser keeps (GH-4014): a place that the position made, and that the browser no longer
-   * keeps as such, gives way to the one it keeps, or to Kiel.
+   * keeps as such (forgotten, replaced by another place, or by the place a newer position made), gives way to the one it
+   * keeps, or to Kiel.
    */
   function followStoredPlace() {
-    if (place.value.fromPosition && !stored()?.fromPosition)
-      place.value = stored() ?? DEFAULT_PLACE
+    if (!place.value.fromPosition)
+      return
+    const kept = stored()
+    if (!kept?.fromPosition || kept.id !== place.value.id)
+      place.value = kept ?? DEFAULT_PLACE
   }
 
   return { place, setPlace, dropPositionPlace, followStoredPlace }

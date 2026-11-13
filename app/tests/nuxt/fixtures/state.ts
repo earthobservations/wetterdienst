@@ -11,6 +11,7 @@ export const LOCATION_STATE = [
   'wd-location-not-kept',
   'wd-location-not-kept-count',
   'wd-location-withdrawn',
+  'wd-location-checking',
   'wd-location-loaded',
   'place',
 ]

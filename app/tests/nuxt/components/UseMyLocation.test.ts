@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearNuxtState } from '#app'
 import UseMyLocation from '~/components/UseMyLocation.vue'
+import { usePlace } from '~/composables/usePlace'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
 import { LOCATION_STATE } from '../fixtures/state'
 
@@ -352,28 +353,36 @@ describe('where the browser refuses to keep the position (GH-4014)', () => {
   })
 })
 
-// "Forget" with a press on its way (GH-4014): the position request that is still waiting for the browser is let go
 // GH-4014: a stored position is not used once the browser's permission is withdrawn, and what another tab forgets is forgotten
 describe('a stored position and the permission of the browser (GH-4014)', () => {
   const withdrawn = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-withdrawn"]')
+  const WITHDRAWN = 'Your browser no longer allows location for this site, so the stored position was deleted.'
+  const PLACE = { id: '00433', name: 'Berlin-Tempelhof', latitude: 52.47, longitude: 13.4, region: 'Berlin', fromPosition: true }
 
-  function storedPosition(state: 'denied' | 'granted') {
+  /** A stored position, and the station made from it unless `withPlace` is false (then nothing is looked at at load) */
+  function storedPosition(state: PermissionState, withPlace = true) {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
-    localStorage.setItem('wd-place', JSON.stringify({ id: '00433', name: 'Berlin-Tempelhof', latitude: 52.47, longitude: 13.4, region: 'Berlin', fromPosition: true }))
+    if (withPlace) {
+      localStorage.setItem('wd-place', JSON.stringify(PLACE))
+      usePlace().place.value = PLACE
+    }
     const getCurrentPosition = mockBrowser()
-    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state })) } })
-    return getCurrentPosition
+    const query = vi.fn(async () => ({ state }))
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query } })
+    return { getCurrentPosition, query }
   }
 
-  it('deletes the stored position and its station when the permission is `denied`, and says so in the status', async () => {
-    const getCurrentPosition = storedPosition('denied')
+  it('deletes the stored position and its station when a press finds the permission `denied`, and says so in the status', async () => {
+    const { getCurrentPosition, query } = storedPosition('granted')
     const wrapper = await mountControl()
+    await vi.waitFor(() => expect(query).toHaveBeenCalledTimes(1))
     expect(withdrawn(wrapper).attributes('role')).toBe('status')
     expect(withdrawn(wrapper).text()).toBe('')
     expect(chip(wrapper).exists()).toBe(true)
 
+    query.mockResolvedValue({ state: 'denied' })
     await button(wrapper).trigger('click')
-    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe('Your browser no longer allows location for this site, so the stored position was deleted.'))
+    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe(WITHDRAWN))
     expect(chip(wrapper).exists()).toBe(false)
     expect(box(wrapper).exists()).toBe(false)
     expect(stored()).toBeNull()
@@ -383,8 +392,27 @@ describe('a stored position and the permission of the browser (GH-4014)', () => 
     expect(wrapper.find('[data-testid="use-my-location-problem"]').exists()).toBe(false)
   })
 
+  it('deletes them at load, where the station that the position made is stored and the permission is `denied`, and says so', async () => {
+    const { getCurrentPosition } = storedPosition('denied')
+    const wrapper = await mountControl()
+    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe(WITHDRAWN))
+    expect(chip(wrapper).exists()).toBe(false)
+    expect(stored()).toBeNull()
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+  })
+
+  it('takes the telling away with the page that told it', async () => {
+    storedPosition('denied')
+    const first = await mountControl()
+    await vi.waitFor(() => expect(withdrawn(first).text()).toBe(WITHDRAWN))
+    first.unmount()
+    const second = await mountControl()
+    expect(withdrawn(second).text()).toBe('')
+  })
+
   it('uses the stored position when the permission is `granted`, and says nothing', async () => {
-    storedPosition('granted')
+    storedPosition('granted', false)
     const wrapper = await mountControl()
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('position')).toEqual([[{ latitude: 52.52, longitude: 13.4 }]]))
@@ -405,6 +433,7 @@ describe('a stored position and the permission of the browser (GH-4014)', () => 
   })
 })
 
+// "Forget" with a press on its way (GH-4014): the position request that is still waiting for the browser is let go
 describe('"Forget my position" during a press', () => {
   it('drops the position that the browser gives late: it is not put back for the visit', async () => {
     mockBrowser()
