@@ -219,6 +219,29 @@ class DownloadError(UpstreamError):
         return f"Failed to download {self.url}: {self.reason}"
 
 
+class ProviderRateLimitError(DownloadError):
+    """Raised when a provider refuses a request as the quota of the key this installation uses is used up (GH-4046).
+
+    A `DownloadError`, which is what a 429 of the provider was before this had a type of its own, so that a caller
+    catching that still catches it. Its own type because the key is fine and the request is valid: replacing the key
+    would not help and the same request succeeds once the quota resets, which is what a client may retry on. The REST
+    API answers it with a 503 of the kind `upstream-quota-exhausted` and a `Retry-After`, never as a rejected credential
+    (a 501).
+
+    `reason` is a sentence for the caller that names the provider and holds no URL and no key, so the REST API shows
+    it as it is. `retry_after` is the seconds the provider says to wait, None where it says none.
+    """
+
+    def __init__(self, url: str, reason: str, retry_after: int | None = None) -> None:
+        """Keep the address, the sentence and the wait the provider asks for."""
+        super().__init__(url, reason)
+        self.retry_after = retry_after
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the three arguments, so the error pickles."""
+        return type(self), (self.url, self.reason, self.retry_after), self.__dict__
+
+
 class StationListingIncompleteError(UpstreamError):
     """Raised when a station is not found while the lookup of the stations went without a listing of the provider.
 

@@ -76,6 +76,8 @@ from wetterdienst.util.network import (
     list_remote_files_fsspec,
     post_file,
     read_refusal,
+    read_refusal_answer,
+    retry_after_of,
 )
 
 
@@ -920,6 +922,9 @@ def _answer_for(path: str, *, asked_before: bool) -> tuple[int, bytes, dict[str,
     if path == "/too-many":
         # a refusal that says why in its body, as Frost's 403 for a window of too many observations does
         return 403, _REFUSAL_BODY, {}
+    if path == "/quota":
+        # a refusal of a key whose quota is used up, with the wait it says (KNMI's gateway, 2026-11-13)
+        return 403, b'{"error": "Quota exceeded"}', {"Retry-After": "1200"}
     if path in _STATUS_BY_PATH:
         return _STATUS_BY_PATH[path], b"", {}
     return 200, _TOKEN_BODY, {}
@@ -1033,6 +1038,47 @@ def test_read_refusal_gives_the_body_of_a_4xx_and_sends_the_headers(http_server:
     assert "exceeds the maximum number allowed (100000)" in body
     assert requests[-1]["method"] == "GET"
     assert requests[-1]["headers"]["Authorization"] == "Basic Zm9v"
+
+
+def test_read_refusal_answer_gives_the_status_the_body_and_the_wait_the_answer_asks_for(
+    http_server: tuple[str, list],
+) -> None:
+    """`Retry-After` of a refusal is read with its body, for a provider whose 403 is a quota (GH-4046)."""
+    base_url, _ = http_server
+
+    refusal = read_refusal_answer(f"{base_url}/quota")
+
+    assert refusal is not None
+    assert refusal.status == 403
+    assert json.loads(refusal.body) == {"error": "Quota exceeded"}
+    assert refusal.retry_after == 1201
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Retry-After": "120"}, 121),
+        ({"Retry-After": "Fri, 13 Nov 2026 12:10:00 GMT"}, 601),
+        ({"RateLimit-Reset": "45"}, 46),
+        ({"X-RateLimit-Reset": "EPOCH_PLUS_600"}, 601),
+        ({"X-Ratelimit-Reset": "30", "Retry-After": "90"}, 91),  # the standard header first
+        ({"Retry-After": "0"}, None),
+        ({"Retry-After": "-5"}, None),
+        ({"Retry-After": "99999999"}, None),  # past a day: a server with no idea
+        ({"Retry-After": "soon"}, None),
+        ({"X-RateLimit-Reset": "1000000001"}, None),  # the epoch second is long past
+        ({}, None),
+    ],
+)
+def test_retry_after_of_reads_the_wait_a_refusal_asks_for_and_none_it_does_not(
+    headers: dict[str, str], expected: int | None
+) -> None:
+    """Seconds, an HTTP date, or the epoch second of a reset; a wait that is not positive or past a day is none."""
+    now = dt.datetime(2026, 11, 13, 12, 0, tzinfo=dt.UTC)
+    epoch = str(int(now.timestamp()) + 600)
+    headers = {name: epoch if value == "EPOCH_PLUS_600" else value for name, value in headers.items()}
+
+    assert retry_after_of(headers, now) == expected
 
 
 def test_read_refusal_cuts_the_body_at_max_chars(http_server: tuple[str, list]) -> None:

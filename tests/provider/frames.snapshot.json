@@ -1480,6 +1480,7 @@
   "tests/provider/knmi/observation/test_values.py::test_a_period_that_has_not_ended_is_not_asked_for": [["KnmiObservationRequest", "c03657e6", 15, "b8a6be37db4de193"], ["KnmiObservationRequest", "c03657e6", 15, "50c4fbae75099a43"]],
   "tests/provider/knmi/observation/test_values.py::test_a_query_that_takes_more_requests_than_the_quota_is_refused_before_anything_is_asked": [["KnmiObservationRequest", "c03657e6", 16, "a97c869dc8cd0210"]],
   "tests/provider/knmi/observation/test_values.py::test_a_query_within_the_quota_is_not_refused_and_a_walk_that_stops_where_the_data_says_is_left_alone": [["KnmiObservationRequest", "c03657e6", 16, "a97c869dc8cd0210"], ["KnmiObservationRequest", "c03657e6", 16, "a97c869dc8cd0210"]],
+  "tests/provider/knmi/observation/test_values.py::test_a_quota_that_is_used_up_in_the_middle_of_a_query_ends_it_with_one_more_request": [["KnmiObservationRequest", "c03657e6", 15, "50c4fbae75099a43"]],
   "tests/provider/knmi/observation/test_values.py::test_a_quota_that_is_used_up_is_an_error_that_says_so": [["KnmiObservationRequest", "c03657e6", 15, "50c4fbae75099a43"]],
   "tests/provider/knmi/observation/test_values.py::test_a_range_that_the_memory_budget_cannot_hold_for_two_stations_is_read_station_by_station": [["KnmiObservationRequest", "c03657e6", 15, "b8a6be37db4de193"]],
   "tests/provider/knmi/observation/test_values.py::test_a_range_wholly_in_the_future_asks_for_nothing": [["KnmiObservationRequest", "c03657e6", 15, "b8a6be37db4de193"]],

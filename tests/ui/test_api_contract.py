@@ -97,6 +97,12 @@ STATUS_TABLE = [
         "upstream-unreachable",
         id="503-no-internet",
     ),
+    pytest.param(
+        exceptions.ProviderRateLimitError("https://api.example.org/", "KNMI's quota of the key is used up"),
+        503,
+        "upstream-quota-exhausted",
+        id="503-quota-exhausted",
+    ),
     pytest.param(_timeout(), 504, "upstream-timeout", id="504-timeout"),
     pytest.param(RuntimeError("/srv/secret/path"), 500, "internal-error", id="500-bug"),
     pytest.param(exceptions.WetterdienstError("unplaced"), 500, "internal-error", id="500-unplaced"),
@@ -282,6 +288,32 @@ def test_a_failure_is_answered_with_the_status_of_its_place_in_the_hierarchy(
         # the server's, the provider's or ours: the text is the log's, which names a setting, a path or a URL
         for secret in ("WD_AUTH", "pip install", "/srv/secret", "opendata.example.org", "No internet", "reason"):
             assert secret not in _text_of(body), secret
+
+
+@pytest.mark.parametrize(("retry_after", "header"), [(1500, "1500"), (None, "600")], ids=["sent", "not-sent"])
+def test_a_provider_quota_that_is_used_up_is_a_503_that_says_so_and_names_no_url_and_no_credential_problem(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, retry_after: int | None, header: str
+) -> None:
+    """KNMI's 403 `Quota exceeded` is the server's key used up, not a rejected one: a 503 with the reason (GH-4046).
+
+    The sentence is the provider's quota and a retry later, the `Retry-After` is the wait the provider sent or the
+    quota's default, the URL stays in the log and the kind is none of the credential's (a 501).
+    """
+    error = exceptions.ProviderRateLimitError(
+        "https://api.dataplatform.knmi.nl/edr/v1/collections/x",
+        "KNMI's EDR API answered 403: the quota of 1,000 requests an hour of the key of this installation is used up",
+        retry_after,
+    )
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", _raising(error))
+
+    response = client.get("/api/v1/values", params=_VALUES)
+    body = _is_a_problem(response, 503, "upstream-quota-exhausted")
+
+    assert "quota of 1,000 requests an hour" in body["detail"]
+    assert "try again later" in body["detail"]
+    assert "dataplatform.knmi.nl" not in response.text
+    assert "credential" not in response.text.lower()
+    assert response.headers["Retry-After"] == header
 
 
 def _text_of(body: dict[str, Any]) -> str:

@@ -199,7 +199,22 @@ def test_a_key_the_api_refuses_is_invalid_and_costs_no_quota_and_is_not_kept(
     assert KnmiObservationRequest.is_valid(settings) is False
     assert KnmiObservationRequest.is_valid(settings) is False
 
-    assert [request["status"] for request in edr_server.requests] == [403, 403]
+    # each call asks, and asks again for the body of the 403, which tells a refused key from a used-up quota
+    assert [request["status"] for request in edr_server.requests] == [403, 403, 403, 403]
+
+
+def test_a_quota_that_is_used_up_leaves_the_key_unknown_and_never_invalid(
+    caplog: pytest.LogCaptureFixture, edr_server: EdrStub, tmp_path: Path
+) -> None:
+    """The gateway answers 403 `Quota exceeded` for a key that is fine: `None`, not `False` (GH-4046)."""
+    edr_server.quota_after = 0
+    edr_server.quota_headers = {"Retry-After": "900"}
+
+    with caplog.at_level(logging.WARNING):
+        assert KnmiObservationRequest.is_valid(_settings(tmp_path)) is None
+
+    assert "quota" in caplog.text
+    assert KEY not in caplog.text
 
 
 def test_no_key_is_invalid_without_a_request(edr_server: EdrStub, tmp_path: Path) -> None:

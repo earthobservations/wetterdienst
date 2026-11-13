@@ -27,8 +27,8 @@ refuses, is an error that says where to get one. `wetterdienst auth
 (`GET /`, one request of the quota; a refusal costs none), and `coverage` says whether it is `configured`.
 
 The quota of a registered key is 1,000 requests an hour and 200 a second, whatever the size of a request (the API's
-`X-Ratelimit-*` headers say how much is left). A 429 ends the query with an error that says so; nothing is read from
-anywhere else.
+`X-Ratelimit-*` headers say how much is left). A quota that is used up (a 429, or a 403 `Quota exceeded`) ends the
+query with an error that says so and when KNMI says it resets; nothing is read from anywhere else.
 
 ## How the values are read
 
@@ -81,8 +81,13 @@ that is times times parameters times stations; beyond it the API answers 413.
   place in the order) and is left out once a request is answered; if the next request of several stations is refused as
   well, or none is answered, or a third station is refused, the query ends with a `DownloadError` that gives what the
   client knows of the 400. A 5xx or a dropped connection is retried twice, then it is a
-  `DownloadError` (a 502); a 429 or an answer that is no CoverageJSON is a `DownloadError`; no connection a
-  `NoInternetError`; a refused key a `CredentialRejectedError`. A range read in part is never an answer.
+  `DownloadError` (a 502); an answer that is no CoverageJSON is a `DownloadError`; no connection a
+  `NoInternetError`; a refused key a `CredentialRejectedError`. The quota of the key used up is a
+  `ProviderRateLimitError` (a `DownloadError`; REST 503 `upstream-quota-exhausted`, with `Retry-After`): a 429, and the
+  403 `{"error": "Quota exceeded"}` that the gateway answers a key that is fine and used up with, which has the status
+  of a key it refuses (`Access to this API has been disallowed`, a 403 too), so a 403 is told by its body, which is
+  asked for again once. `auth` says unknown (`null`) for it, not invalid. The query ends there and is never asked
+  again. A range read in part is never an answer.
 
 The "validated" collections lag real time (hourly: the values of an hour come 5.5 to 78 hours after it, median 25), so
 only historical data is available; a period that is not yet published simply has no data in the answer.

@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- An exhausted KNMI quota is reported as such, not as a rejected key. KNMI's EDR API answers a key
+  whose 1,000 requests of the hour are used up with a 403 `Quota exceeded`, which was a
+  `CredentialRejectedError` (a REST 501) while the key was valid. It is now a
+  `ProviderRateLimitError` (a `DownloadError`; REST 503, kind `upstream-quota-exhausted`, with
+  `Retry-After`) and `auth` says `null`; a 429 is the same error. A 401 and a 403 `Access to this
+  API has been disallowed` stay `CredentialRejectedError` (GH-4046)
+
 ## [0.187.0] - 2026-11-13
 
 ### Added

@@ -33,6 +33,7 @@ from wetterdienst.exceptions import (
     NoParametersFoundError,
     NotEnoughDataError,
     NotFoundError,
+    ProviderRateLimitError,
     RequestError,
     StartDateEndDateError,
     StationListingIncompleteError,
@@ -1761,6 +1762,7 @@ def failure_status(e: BaseException) -> int:
         ConfigurationError                   501  a credential or optional dependency this installation lacks
         NotImplementedError                  501  something wetterdienst does not do for a network, e.g. history
         NoInternetError                      503  no connection to the provider could be made
+        ProviderRateLimitError               503  the quota of the key of this server is used up
         UpstreamError after a timeout        504  the provider did not answer in time
         ImageTimeoutError                    504  the browser that draws an image did not finish in time
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
@@ -1774,7 +1776,8 @@ def failure_status(e: BaseException) -> int:
     dependency this installation lacks, is a 501: the request was well formed, and the deployment
     declines it, and so is a `NotImplementedError`, which says what wetterdienst does not do for a network (GH-3065).
     A `NoInternetError` is a 503: nothing is wrong with the request or the server's
-    code, and the same request can succeed once the connection is back (GH-2640). Any other
+    code, and the same request can succeed once the connection is back (GH-2640). So is a `ProviderRateLimitError`, the
+    quota of the key of this server used up: the same request can succeed once it resets (GH-4046). Any other
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
     underneath (its `__cause__`) was a timeout. An `ImageTimeoutError` is a 504 as well: no provider is involved,
@@ -1792,7 +1795,7 @@ def failure_status(e: BaseException) -> int:
         return 400
     if isinstance(e, (ConfigurationError, NotImplementedError)):
         return 501
-    if isinstance(e, NoInternetError):
+    if isinstance(e, (NoInternetError, ProviderRateLimitError)):
         return 503
     if isinstance(e, ImageTimeoutError):
         return 504

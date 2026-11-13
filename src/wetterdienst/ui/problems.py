@@ -49,6 +49,9 @@ _REQUEST_ID = re.compile(r"[A-Za-z0-9._~-]{1,128}")
 #: seconds a `Retry-After` of a 502, 503 or 504 says. A retry is worth making once the provider is back, and
 #: the work of a request that timed out has gone on, so that its cache is warm: not a promise, a place to begin
 RETRY_AFTER_SECONDS = 30
+#: seconds a `Retry-After` of `upstream-quota-exhausted` says where the provider names none: the quota of a key is an
+#: hour's, so a retry within the half minute of the others is a wasted request
+QUOTA_RETRY_AFTER_SECONDS = 600
 #: the statuses whose problem carries `Retry-After`: the request was valid and the same one can succeed later.
 #: There is no 429: the server limits no rate, which is for the proxy in front of it
 RETRY_AFTER_STATUSES = frozenset({502, 503, 504})
@@ -80,6 +83,7 @@ class ProblemKind(StrEnum):
     NOT_READY = "not-ready"
     UPSTREAM_UNREACHABLE = "upstream-unreachable"
     UPSTREAM_TIMEOUT = "upstream-timeout"
+    UPSTREAM_QUOTA_EXHAUSTED = "upstream-quota-exhausted"
     REQUEST_TIMEOUT = "request-timeout"
     IMAGE_TIMEOUT = "image-timeout"
     INTERNAL_ERROR = "internal-error"
@@ -157,6 +161,11 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ),
     ProblemKind.UPSTREAM_UNREACHABLE: ProblemSpec(
         503, "The server could not reach the data provider (no connection). The request was valid; retry it."
+    ),
+    ProblemKind.UPSTREAM_QUOTA_EXHAUSTED: ProblemSpec(
+        503,
+        "The data provider refused the request because the quota of the key this server uses is used up for now. The "
+        "key is accepted and the request was valid; retry it after `Retry-After`.",
     ),
     ProblemKind.UPSTREAM_TIMEOUT: ProblemSpec(
         504, "The data provider did not answer in time. The request was valid; retry it."

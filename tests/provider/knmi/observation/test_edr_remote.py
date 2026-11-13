@@ -3,7 +3,8 @@
 """KNMI's EDR API, live, for De Bilt and the list of the stations (GH-3928).
 
 Needs the key of the EDR API in `WD_AUTH__KNMI_EDR`, and is skipped without it. Each case is a few requests of the quota
-of 1,000 an hour, which the key shares with whoever else uses it.
+of 1,000 an hour, which the key shares with whoever else uses it: all of them take about 50, which CI spends once per
+run, in one leg of `tests.yml` (the only job that is given the key, GH-4046).
 
 There is no second route to compare the values with any more: the Open Data files were. Their values are the facts these
 tests hold the API to (De Bilt on 2020-01-01: TG 0.8, TN -0.2, TX 1.8, RH 0.0, read from the files on 2026-07-19 and
