@@ -26,6 +26,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
@@ -3633,6 +3634,111 @@ _REFUSAL_MAX_BYTES = 64 * 1024
 _REFUSAL_MAX_SECONDS = 15.0
 
 
+#: The longest wait a refusal may ask for that is believed (`retry_after_of`): a day. A header that says more is a
+#: server that has no idea, and a client told to wait that long would not come back.
+_RETRY_AFTER_MAX_SECONDS = 86_400
+
+#: The headers a rate limit says when it resets in, in the order they are read: the standard one, then the two
+#: spellings that gateways send. Their value is seconds from now, or, where it is that large, the epoch second.
+_RESET_HEADERS = ("Retry-After", "RateLimit-Reset", "X-RateLimit-Reset")
+
+#: What a count of seconds a header holds may be at most for it to be read as a count and not as the epoch second
+_EPOCH_FROM = 10**9
+
+
+@dataclass(frozen=True)
+class Refusal:
+    """What a provider answered a request it refused with a 4xx: the status, the first of its body and its wait."""
+
+    status: int
+    """The HTTP status of the answer."""
+    body: str
+    """The first characters of the body (`read_refusal_answer`'s ``max_chars``), as text."""
+    retry_after: int | None = None
+    """Seconds after which the provider says the request may be made again, where it says (`retry_after_of`)."""
+
+
+def retry_after_of(headers: Mapping[str, str], now: dt.datetime | None = None) -> int | None:
+    """Read the seconds a refusal asks the caller to wait from its headers, None where it asks none that is believed.
+
+    `Retry-After` is seconds or an HTTP date; `RateLimit-Reset` and `X-RateLimit-Reset` are seconds, or, from a billion
+    on, the epoch second the limit resets at. A wait that is not positive or is past a day (`_RETRY_AFTER_MAX_SECONDS`)
+    is none: nothing a header says is trusted to be sane.
+    """
+    now = now or dt.datetime.now(dt.UTC)
+    for name in _RESET_HEADERS:
+        value = (headers.get(name) or "").strip()
+        if not value:
+            continue
+        seconds: float | None = None
+        if value.isascii() and value.isdigit() and len(value) <= 12:
+            number = int(value)
+            seconds = number - now.timestamp() if number >= _EPOCH_FROM else number
+        elif name == "Retry-After":
+            # not `parse_http_date`, which is for a date in the past (a `Last-Modified`) and refuses one ahead
+            try:
+                date = parsedate_to_datetime(value)
+            except (TypeError, ValueError, IndexError):
+                date = None
+            if date is not None:
+                date = date.replace(tzinfo=dt.UTC) if date.tzinfo is None else date
+                seconds = (date - now).total_seconds()
+        if seconds is not None and 0 < seconds <= _RETRY_AFTER_MAX_SECONDS:
+            return int(seconds) + 1
+    return None
+
+
+def read_refusal_answer(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    client_kwargs: dict | None = None,
+    use_certifi: bool = False,
+    max_chars: int = 2000,
+    max_bytes: int = _REFUSAL_MAX_BYTES,
+    max_seconds: float = _REFUSAL_MAX_SECONDS,
+) -> Refusal | None:
+    """Ask for a URL once more and give the answer if that is a 4xx, for a provider that says why in the body.
+
+    A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
+    (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
+    exceeds the maximum", "Quota exceeded") cannot be told from one that refuses the credential by the status alone. A
+    refusal is cheap to ask again: one more request, made on a 403 only, not retried and not cached. Through the same
+    HTTP stack as `post_file`; the headers are sent with the request and not kept in the client, so the credential never
+    reaches the key the filesystem is cached under, and no message names it.
+
+    The body is held to the limits of a download: no more than ``max_bytes`` of it (refused at once if the answer says
+    it is longer, as it arrives if not) and ``max_seconds`` in all, which a client timeout, bounding each silence only,
+    does not give (GH-2258).
+
+    Returns:
+        The status, the first ``max_chars`` of the body and the wait the answer asks for (`retry_after_of`), or None
+        where the answer is no 4xx, has no body within the limits, or could not be had (a timeout, a lost connection):
+        the caller then falls back on the status alone.
+
+    """
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False,
+        listings_expiry_time=0,
+        use_certifi=use_certifi,
+        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
+    )
+
+    async def _get() -> Refusal | None:
+        session = await filesystem.set_session()
+        async with _within_time(max_seconds), session.get(url, headers=headers, allow_redirects=False) as response:
+            if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
+                return None
+            body = await _read_capped(response, max_bytes)
+            waited = retry_after_of(response.headers)
+        return Refusal(response.status, body.decode("utf-8", errors="replace")[:max_chars], waited)
+
+    try:
+        return sync(filesystem.loop, _get)
+    except Exception:  # noqa: BLE001 -- a refusal that cannot be read again is still a refusal; nothing of it is raised
+        return None
+
+
 def read_refusal(
     url: str,
     *,
@@ -3643,43 +3749,17 @@ def read_refusal(
     max_bytes: int = _REFUSAL_MAX_BYTES,
     max_seconds: float = _REFUSAL_MAX_SECONDS,
 ) -> str | None:
-    """Ask for a URL once more and give the body of its answer if that is a 4xx, for a provider that says why in it.
-
-    A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
-    (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
-    exceeds the maximum") cannot be told from one that refuses the credential by the status alone. A refusal is cheap to
-    ask again: one more request, made on a 403 only, not retried and not cached. Through the same HTTP stack as
-    `post_file`; the headers are sent with the request and not kept in the client, so the credential never reaches the
-    key the filesystem is cached under, and no message names it.
-
-    The body is held to the limits of a download: no more than ``max_bytes`` of it (refused at once if the answer says
-    it is longer, as it arrives if not) and ``max_seconds`` in all, which a client timeout, bounding each silence only,
-    does not give (GH-2258).
-
-    Returns:
-        The first ``max_chars`` of the body, or None where the answer is no 4xx, has no body within the limits, or could
-        not be had (a timeout, a lost connection): the caller then falls back on the status alone.
-
-    """
-    filesystem = HTTPFileSystem(
-        use_listings_cache=False,
-        listings_expiry_time=0,
+    """Give the body of the answer of `read_refusal_answer`, None where that is none (see there for the limits)."""
+    refusal = read_refusal_answer(
+        url,
+        headers=headers,
+        client_kwargs=client_kwargs,
         use_certifi=use_certifi,
-        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
+        max_chars=max_chars,
+        max_bytes=max_bytes,
+        max_seconds=max_seconds,
     )
-
-    async def _get() -> str | None:
-        session = await filesystem.set_session()
-        async with _within_time(max_seconds), session.get(url, headers=headers, allow_redirects=False) as response:
-            if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
-                return None
-            body = await _read_capped(response, max_bytes)
-        return body.decode("utf-8", errors="replace")[:max_chars]
-
-    try:
-        return sync(filesystem.loop, _get)
-    except Exception:  # noqa: BLE001 -- a refusal that cannot be read again is still a refusal; nothing of it is raised
-        return None
+    return None if refusal is None else refusal.body
 
 
 def download_files(

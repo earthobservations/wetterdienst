@@ -14,6 +14,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
 | `DownloadError`, 502 `upstream-failed`, 504 `upstream-timeout` | the provider answered badly or too late | the same |
+| `ProviderRateLimitError`, 503 `upstream-quota-exhausted` | the quota of the key the server holds is used up (the key is fine) | wait the `Retry-After`, see [Upstream outages](#upstream-outages) |
 | 400 `limit-exceeded`, 504 `request-timeout` | the REST API or MCP server holds a request to its limits | see [Limits](#limits-and-timeouts) |
 | `ImageTimeoutError`, exit 1, 504 `image-timeout` | the browser that draws an image did not finish within 120 seconds and was closed | try again; if it keeps happening, check that Chrome starts on this machine, see [Other things that go wrong](#other-things-that-go-wrong) |
 | 503 `server-busy` | the server works on as many requests as it is set to | wait the `Retry-After` and ask again, see [Limits](#limits-and-timeouts) |
@@ -139,6 +140,13 @@ say which:
 - **`DownloadError`** (REST 502, 504 when it timed out): the provider answered with an error status, cut the answer
   short, or sent a file in a layout the parser does not know. The request was valid; try again later. If a provider has
   changed its files, that is a [bug to report](#reporting-a-problem).
+- **`ProviderRateLimitError`** (a `DownloadError`; REST 503 `upstream-quota-exhausted` with a `Retry-After`): the
+  provider refuses the request because the quota of the key it was given is used up. The key is fine: `auth` says
+  `null` (unknown), not `false`, and `CredentialRejectedError` is not raised. KNMI's EDR API allows a key 1,000 requests
+  an hour and answers the 1,001st with a 403 `Quota exceeded`, the status it gives a key it refuses, so wetterdienst reads the
+  body to tell them apart. Wait for the quota to reset (the error says when the provider tells), or narrow the query
+  (a shorter range, fewer stations); a query that `knmi/observation` can see takes more requests than a key has is
+  refused before it starts.
 - **A provider that throttles.** A burst of downloads can make a provider refuse your address for a
   while (DWD has been seen to); the failures then differ from run to run and pass later. Request less (one
   parameter, a shorter window, fewer stations) or wait; the [cache](python-api.md#caching) keeps what was downloaded.

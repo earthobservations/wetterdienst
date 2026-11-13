@@ -183,6 +183,11 @@ class EdrStub(ThreadingHTTPServer):
         self.locations_bodies: deque[bytes] = deque()
         #: the key it takes, any if None: a missing one is a 401, another a 403
         self.key: str | None = None
+        #: after how many requests the quota of the key is used up (2026-11-13), None if it never is: every request
+        #: after that is a 403 `Quota exceeded`, the status of a key it refuses, with these headers
+        #: (`X-Ratelimit-Reset`, `Retry-After`)
+        self.quota_after: int | None = None
+        self.quota_headers: dict[str, str] = {}
 
     def asked(self) -> list[str]:
         """Give the paths of the requests, with their query."""
@@ -200,9 +205,17 @@ class _EdrHandler(BaseHTTPRequestHandler):
         server = self.server
         headers = {k.lower(): v for k, v in self.headers.items()}
         server.requests.append({"path": self.path, "headers": headers})
+        if server.quota_after is not None and len(server.requests) > server.quota_after:
+            self._send(403, json.dumps({"error": "Quota exceeded"}).encode(), "application/json", server.quota_headers)
+            return
         if server.key is not None and headers.get("authorization") != server.key:
-            status = 401 if "authorization" not in headers else 403
-            self._send(status, json.dumps({"error": "refused"}).encode(), "application/json")
+            # the words of the gateway (2026-11-13)
+            if "authorization" not in headers:
+                self._send(401, json.dumps({"error": "Authorization field missing"}).encode(), "application/json")
+            else:
+                self._send(
+                    403, json.dumps({"error": "Access to this API has been disallowed"}).encode(), "application/json"
+                )
             return
         forced = server.statuses.popleft() if server.statuses else None
         if forced not in (None, 200):
@@ -299,10 +312,12 @@ class _EdrHandler(BaseHTTPRequestHandler):
         body = json.dumps({"type": "CoverageCollection", "domainType": "PointSeries", "coverages": coverages}).encode()
         self._send(200, body, "application/prs.coverage+json")
 
-    def _send(self, status: int, body: bytes, content_type: str) -> None:
+    def _send(self, status: int, body: bytes, content_type: str, extra: dict[str, str] | None = None) -> None:
         self.server.requests[-1]["status"] = status
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        for name, value in (extra or {}).items():
+            self.send_header(name, value)
         if "gzip" in self.headers.get("Accept-Encoding", ""):
             body = gzip.compress(body)
             self.send_header("Content-Encoding", "gzip")

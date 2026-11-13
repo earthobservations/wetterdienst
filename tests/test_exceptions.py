@@ -43,6 +43,7 @@ from wetterdienst.exceptions import (
     ProductFileNotFoundError,
     ProviderContractError,
     ProviderNotFoundError,
+    ProviderRateLimitError,
     RequestError,
     ReversedTimeIntervalError,
     StartDateEndDateError,
@@ -80,6 +81,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     MetadataNotFoundError: (NotFoundError, (LookupError,)),
     NoInternetError: (UpstreamError, (OSError,)),
     DownloadError: (UpstreamError, (Exception,)),
+    ProviderRateLimitError: (DownloadError, (UpstreamError,)),
     MissingDependencyError: (ConfigurationError, (ImportError,)),
     BufrReaderMissingError: (ConfigurationError, (MissingDependencyError, ImportError)),
     CredentialMissingError: (ConfigurationError, (ValueError,)),
@@ -174,6 +176,7 @@ def test_the_os_errors_keep_the_layout_of_their_built_in_class() -> None:
 #: constructor arguments of the classes whose constructor takes more than a message
 _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     DownloadError: ("https://example.com/a", "timed out"),
+    ProviderRateLimitError: ("https://example.com/a", "the quota is used up", 900),
     ImageTimeoutError: (120.0,),
     ImageTooLargeError: (1, 2, 3),
     StationListingIncompleteError: ("00044", {"`a/`": "its listing came back empty or missing"}),
