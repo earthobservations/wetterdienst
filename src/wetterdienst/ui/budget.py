@@ -480,7 +480,7 @@ def _fit_stations(
     def fits(count: int) -> bool:
         cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
         far = cut.get_column("distance").max() if distance is not None and "distance" in cut.columns else None
-        farthest = float(far) if far is not None else None  # ty: ignore[invalid-argument-type]
+        farthest = float(far) if isinstance(far, int | float) else None
         note = _stations_note(
             request=request,
             count=count,
