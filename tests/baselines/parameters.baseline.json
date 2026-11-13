@@ -2103,6 +2103,60 @@
           "wind_gust_max",
           "wind_speed_mean"
         ]
+      },
+      "monthly": {
+        "data": [
+          "cloud_cover_total_mean",
+          "humidity_relative_max",
+          "humidity_relative_mean",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "precipitation_duration",
+          "pressure_air_sea_level_max",
+          "pressure_air_sea_level_mean",
+          "pressure_air_sea_level_min",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "sunshine_duration",
+          "sunshine_duration_relative",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_water_mean",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_max",
+          "wind_speed_mean",
+          "wind_speed_min"
+        ]
+      },
+      "annual": {
+        "data": [
+          "cloud_cover_total_mean",
+          "humidity_relative_max",
+          "humidity_relative_mean",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "precipitation_duration",
+          "pressure_air_sea_level_max",
+          "pressure_air_sea_level_mean",
+          "pressure_air_sea_level_min",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "sunshine_duration",
+          "sunshine_duration_relative",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_water_mean",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_max",
+          "wind_speed_mean",
+          "wind_speed_min"
+        ]
       }
     },
     "lhmt/observation": {
@@ -3542,5 +3596,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.186.0"
+  "x-release": "0.187.0"
 }
