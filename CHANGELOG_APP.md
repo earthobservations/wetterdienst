@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[All pages]` On iPhone, a drag in an open dialog (the search, the place dialog of "Ask the
+  weather", the menu sheet) no longer scrolls the page behind it when the list is at its top or its
+  end, such as the search's list right after it opens with the keyboard up. A list still scrolls
+  inside, a pinch still zooms (GH-3761)
+- `[All pages]` On iPhone the tab bar reaches the bottom edge of the screen; before, a strip of the
+  page showed through under it, above Safari's address bar. The page now fills the whole screen, and
+  the header, the tab bar, the page's margins and the menu sheet keep clear of a notch, the status
+  bar and the home indicator (GH-3761)
+
 ## [0.48.0] - 2026-11-13
 
 ### Changed

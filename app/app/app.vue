@@ -7,6 +7,8 @@ const route = useRoute()
 
 // a toast over the footer must not hide the link the focus is on (GH-3575)
 useToastInset()
+// and a finger in an open dialog moves nothing behind it, nor a list that is at its end (GH-3761)
+useDialogTouchGuard()
 
 // What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
 // shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the

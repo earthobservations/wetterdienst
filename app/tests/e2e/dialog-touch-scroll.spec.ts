@@ -14,10 +14,11 @@ import { mockBackend, STATIONS } from './accessibility/mock-backend'
 // the top that does not move proves nothing about a lock. Chromium holds the page still by the `overflow: hidden` the
 // dialog library sets on the body, so the same drags are made once more with that lock taken off: a contract for the
 // dialog's own CSS (`touch-action` on the overlay, `overscroll-behavior` on the content and the body) in a browser that
-// ignores the body's lock. It is not a reproduction of the report: that is likeliest iOS Safari, where reka-ui already
-// guards `touchmove` and the search's list already had `overscroll-behavior`, and which this cannot run. The on-screen
-// keyboard (the field is focused on open, the visual viewport shrinks) is the open likely cause, and no test here covers
-// it. The backend is the accessibility spec's mock, so nothing here reaches a provider.
+// ignores the body's lock. It is not a reproduction of the report, which is iOS Safari with the on-screen keyboard up
+// and which this cannot run. What the report turned out to be is a gap in reka-ui's iOS `touchmove` guard, which steps
+// aside for every move that has an overflowing ancestor, also one that is at its top or its end (the search's list
+// just opened); the last two tests hold the app's guard on the move (`useDialogTouchGuard`) to that, with moves that a
+// script makes. The backend is the accessibility spec's mock, so nothing here reaches a provider.
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 
@@ -218,4 +219,63 @@ test.describe('the dialogs on a phone', () => {
       await holds(page, dialog, dialog.locator('[data-slot="body"]'), { unlocked, still: [dialog.locator('[data-slot="header"]')] })
     })
   }
+})
+
+/**
+ * A one-finger move as touch events that a script makes (`new TouchEvent`), not the browser's input: a start at the
+ * middle of `target` and a move of `dy` pixels, and whether the page cancelled the move (`defaultPrevented`). What a
+ * list does with a real finger is the drags above; this is the decision of the app's guard on the move (`useDialogTouchGuard`),
+ * for the cases a finger of a test cannot be placed in: a list at its top or its end where the move would otherwise go
+ * on to the page.
+ */
+async function moveIsCancelled(target: Locator, dy: number, fingers = 1) {
+  return target.evaluate((element, { dy, fingers }) => {
+    const rect = element.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    const touch = (id: number, offset: number) => new Touch({ identifier: id, target: element, clientX: x + id * 20, clientY: y + offset })
+    const at = (offset: number) => Array.from({ length: fingers }, (_, id) => touch(id, offset))
+    const init = { bubbles: true, cancelable: true, composed: true }
+    element.dispatchEvent(new TouchEvent('touchstart', { ...init, touches: at(0), targetTouches: at(0), changedTouches: at(0) }))
+    const move = new TouchEvent('touchmove', { ...init, touches: at(dy), targetTouches: at(dy), changedTouches: at(dy) })
+    element.dispatchEvent(move)
+    return move.defaultPrevented
+  }, { dy, fingers })
+}
+
+test.describe('the guard on a move at the edge of a list (GH-3761)', () => {
+  test('the search\'s list lets a move scroll it, and cancels one at its top and at its end, as the dialog is just opened', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await page.getByRole('button', { name: en.shell.search }).click()
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog).toBeVisible()
+    const list = dialog.getByRole('listbox', { name: en.shell.results })
+    await expect.poll(() => list.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(100)
+    const option = list.getByRole('option').first()
+    await expect.poll(() => scrollTop(list)).toBe(0)
+
+    // at its top: a finger going up (the list scrolls down) is the list's, a finger going down has nothing above to bring
+    expect(await moveIsCancelled(option, -30), 'up, at the top: the list scrolls').toBe(false)
+    expect(await moveIsCancelled(option, 30), 'down, at the top: it would go on to the page').toBe(true)
+    // a pinch is the browser's, whatever the edge
+    expect(await moveIsCancelled(option, 30, 2), 'two fingers: left alone').toBe(false)
+
+    // at its end the other way round
+    await list.evaluate(element => element.scrollTo(0, element.scrollHeight))
+    await expect.poll(() => list.evaluate(element => Math.ceil(element.scrollTop + element.clientHeight) >= element.scrollHeight)).toBe(true)
+    expect(await moveIsCancelled(option, -30), 'up, at the end: it would go on to the page').toBe(true)
+    expect(await moveIsCancelled(option, 30), 'down, at the end: the list scrolls back').toBe(false)
+
+    // the parts that do not scroll, whichever way
+    for (const part of palette(dialog)) {
+      expect(await moveIsCancelled(part, -30)).toBe(true)
+      expect(await moveIsCancelled(part, 30)).toBe(true)
+    }
+  })
+
+  test('a move on the page with no dialog open is the page\'s own', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    expect(await moveIsCancelled(page.getByTestId('ask'), -30)).toBe(false)
+    expect(await moveIsCancelled(page.getByTestId('ask'), 30)).toBe(false)
+  })
 })
