@@ -1587,6 +1587,100 @@ def test_dwd_obs_history_reads_the_name_file_with_either_line_ending(newline: st
     assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
 
 
+_FOOTER = "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+
+#: how the end of a metadata file may look: DWD's footer, no footer, and an empty line after either (GH-4034)
+_ENDINGS = {
+    "footer": _FOOTER,
+    "no footer": "",
+    "footer, empty line": _FOOTER + "\n",
+    "no footer, empty line": "\n",
+}
+
+
+@pytest.mark.parametrize("ending", _ENDINGS.values(), ids=_ENDINGS.keys())
+@pytest.mark.parametrize("first", ["station", "operator"])
+def test_dwd_obs_history_name_file_keeps_its_last_row_with_or_without_footer(ending: str, first: str) -> None:
+    """Test the last row is read whether or not the name file ends with the `generiert:` line (GH-4034).
+
+    The reader cut the last line of the file unconditionally, which is the footer in every file DWD wrote so far, and
+    the last row of one that has none.
+    """
+    station = "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+    operator = (
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n  1975;Wetterdienst;19340801;19521110\n  1975;DWD;19521111;\n"
+    )
+    # the second section is the one the old slice cut a row of
+    text = station + "\n" + operator if first == "station" else operator + "\n" + station
+    zfs = ZipFileSystem(_metadata_zip({"Metadaten_Stationsname_Betreibername_01975.txt": text + ending}))
+
+    name = DwdObservationHistory.read_name_history(zfs)
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+@pytest.mark.parametrize("first", ["station", "operator"])
+def test_dwd_obs_history_name_file_stops_at_the_footer(first: str) -> None:
+    """Test the rows after the `generiert:` line are not read: the footer ends the file (GH-4034)."""
+    station = "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+    operator = (
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n  1975;Wetterdienst;19340801;19521110\n  1975;DWD;19521111;\n"
+    )
+    text = station + "\n" + operator if first == "station" else operator + "\n" + station
+    after_footer = "  1975;Nachzuegler;19600101;\n"
+    zfs = ZipFileSystem(
+        _metadata_zip({"Metadaten_Stationsname_Betreibername_01975.txt": text + _FOOTER + after_footer})
+    )
+
+    name = DwdObservationHistory.read_name_history(zfs)
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+# `read_missing_data_history` strips the text before it splits it into lines, so an empty line at the end never
+# reaches the helper: only the footer and its absence are cases there
+@pytest.mark.parametrize("ending", [_FOOTER, ""], ids=["footer", "no footer"])
+def test_dwd_obs_history_missing_data_file_keeps_its_last_row_with_or_without_footer(ending: str) -> None:
+    """Test the last period row is read whether or not the missing-data file ends with `generiert:` (GH-4034)."""
+    text = (
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;TMK;01.01.1934;18.04.2026;5689;Gesamt_Messzeitraum;eor;\n"
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;SHK_TAG;09.01.2024;10.01.2024;2;;eor;\n"
+        "1048;Dresden-Klotzsche;TMK;01.03.1945;03.03.1945;3;;eor;\n"
+    )
+    zfs = ZipFileSystem(_metadata_zip({"Metadaten_Fehldaten_01048_19340101_20251231.txt": text + ending}))
+
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+
+    assert [record.missing_count for record in missing_data.summary] == [5689]
+    assert [record.missing_count for record in missing_data.periods] == [2, 3]
+
+
+def test_dwd_obs_history_other_readers_keep_their_last_row_without_footer() -> None:
+    """Test the parameter, device and geography readers keep the last row of a file with no `generiert:` line.
+
+    The parameter and device readers skip the footer by its text; the geography reader takes every line with enough
+    fields, and its live files have no footer. None of them cuts the last line (GH-4034).
+    """
+    files = {
+        name: "".join(
+            line for line in text.splitlines(keepends=True) if not line.startswith(("generiert:", "Legende:"))
+        )
+        for name, text in _STATION_01048_METADATA.items()
+        if name.startswith(("Metadaten_Parameter", "Metadaten_Geraete", "Metadaten_Geographie"))
+    }
+    # the data row is the last line of each file now, so a reader that cut a line would lose it
+    assert all(text.rstrip("\n").splitlines()[-1].startswith(("1048;", "  1048;")) for text in files.values())
+    zfs = ZipFileSystem(_metadata_zip(files))
+
+    assert [record.parameter for record in DwdObservationHistory.read_parameter_history(zfs)] == ["VPM"]
+    assert len(DwdObservationHistory.read_device_history(zfs)) == 1
+    assert len(DwdObservationHistory.read_geography_history(zfs)) == 1
+
+
 def test_dwd_obs_history_records_give_their_validity() -> None:
     """Test every history record gives the span it held for as `valid_from` and `valid_to` (GH-2440).
 
