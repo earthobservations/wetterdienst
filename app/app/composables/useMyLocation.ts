@@ -6,6 +6,7 @@ import {
   forgetRememberedPosition,
   LOCATE_TIMEOUT_MS,
   LOCATION_STORAGE_KEY,
+  PERMISSION_QUERY_TIMEOUT_MS,
   POSITION_OPTIONS,
   readRememberedPosition,
   roundPosition,
@@ -73,16 +74,30 @@ export function useMyLocation() {
     notKeptCount.value++
   }
 
-  /** The state of the permission as the Permissions API tells it, or null where it cannot */
+  /**
+   * The state of the permission as the Permissions API tells it, or null where it cannot: no API, a name it does not
+   * know (Safari), or no answer within `PERMISSION_QUERY_TIMEOUT_MS`, whose late answer is ignored. The one place that
+   * asks, for the load check and for a press.
+   */
   async function permissionState(): Promise<PermissionState | null> {
+    let clock: ReturnType<typeof setTimeout> | undefined
     try {
       if (!navigator.permissions?.query)
         return null
-      return (await navigator.permissions.query({ name: 'geolocation' as PermissionName })).state
+      const silent = new Promise<null>((resolve) => {
+        clock = setTimeout(resolve, PERMISSION_QUERY_TIMEOUT_MS, null)
+      })
+      const answered = navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(status => status.state)
+      // a query that fails after the wait is no unhandled rejection
+      answered.catch(() => {})
+      return await Promise.race([answered, silent])
     }
     catch {
       // Safari and others that know the API but not this name: the browser's own prompt does the asking
       return null
+    }
+    finally {
+      clearTimeout(clock)
     }
   }
 

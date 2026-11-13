@@ -4,7 +4,7 @@ import { defineComponent, h } from 'vue'
 import { clearNuxtState, useState } from '#app'
 import { useMyLocation } from '~/composables/useMyLocation'
 import { DEFAULT_PLACE, usePlace } from '~/composables/usePlace'
-import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY, PERMISSION_QUERY_TIMEOUT_MS } from '~/utils/geolocation'
 import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" (GH-3651): the one composable that calls the browser's Geolocation and Permissions APIs. The browser
@@ -795,6 +795,77 @@ describe('a stored position at load, with the station it made', () => {
     answers[0]!('denied')
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(location.withdrawn).toBe(false)
+  })
+})
+
+// GH-4014: a Permissions API that never answers (seen in some webviews) is "cannot tell": the stored position is used
+describe('a permission query that never answers', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.clear()
+  })
+  const store = () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    localStorage.setItem('wd-place', JSON.stringify(STORED_PLACE))
+    usePlace().place.value = STORED_PLACE
+  }
+
+  it('ends the check at load after the wait: the stored position and its station stay, and a late `denied` is ignored', async () => {
+    store()
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { answers } = heldQuery()
+    const location = await mountHarness()
+    expect(location.checking).toBe(true)
+    await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_TIMEOUT_MS - 1)
+    expect(location.checking).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(location.checking).toBe(false)
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+
+    answers[0]!('denied')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(location.position).toEqual(STORED)
+    expect(location.withdrawn).toBe(false)
+    expect(localStorage.getItem(LOCATION_STORAGE_KEY)).not.toBeNull()
+  })
+
+  it('does not leave a press with a stored position hanging: it returns the position after the wait', async () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(STORED))
+    const getCurrentPosition = mockGeolocation({ latitude: 1, longitude: 2 })
+    heldQuery()
+    const location = await mountHarness()
+    const press = location.locate()
+    await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_TIMEOUT_MS)
+    expect(await press).toEqual(STORED)
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+  })
+
+  it('does not leave a press with nothing stored hanging: the browser is asked after the wait', async () => {
+    const getCurrentPosition = mockGeolocation({ latitude: 53.551, longitude: 9.993 })
+    heldQuery()
+    const location = await mountHarness()
+    const press = location.locate()
+    await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_TIMEOUT_MS)
+    expect(await press).toEqual({ latitude: 53.55, longitude: 9.99 })
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes an answer that comes within the wait', async () => {
+    store()
+    mockGeolocation({ latitude: 1, longitude: 2 })
+    const { answers } = heldQuery()
+    const location = await mountHarness()
+    await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_TIMEOUT_MS - 1)
+    answers[0]!('denied')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(location.position).toBeNull()
+    expect(location.withdrawn).toBe(true)
   })
 })
 

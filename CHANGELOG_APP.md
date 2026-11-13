@@ -26,7 +26,8 @@ Types of changes:
   one tab reaches the other open tabs, also those that have no control open at the time or come
   back from the browser's cache, and a press no longer uses a position that was forgotten
   elsewhere. A press that drops one still waiting for the browser no longer leaves the button
-  busy. The privacy policy (en, de) says so (GH-4014)
+  busy, and a permission query that never answers is treated as "cannot tell" after 1.5 s. The
+  privacy policy (en, de) says so (GH-4014)
 
 ## [0.48.0] - 2026-11-13
 

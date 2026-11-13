@@ -19,6 +19,12 @@ export const POSITION_OPTIONS: PositionOptions = { enableHighAccuracy: false, ti
 export const LOCATE_TIMEOUT_MS = 60_000
 
 /**
+ * How long the page waits for the Permissions API (GH-4014): a query that never answers (seen in some webviews) is taken
+ * as "cannot tell", like a missing API, so that it neither holds the page's questions back nor leaves a press hanging.
+ */
+export const PERMISSION_QUERY_TIMEOUT_MS = 1500
+
+/**
  * Why there is no position, as the page says it: the reader refused (or the browser blocks the site), there is no
  * Geolocation API, the device could not tell, or it took too long.
  */
