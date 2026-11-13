@@ -51,10 +51,11 @@ Types of changes:
 - **Breaking** (MCP clients): the 40,000-character cut now holds for `interpolate`, `summarize`,
   `stripes_stations` and `coverage`. `interpolate` and `summarize` keep whole timestamps from the
   start of their `timestamp` window; `stripes_stations` keeps the first stations and says to give
-  the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block over the
-  budget alone is left out, also of a `rank` that fits whole, a `name` or one station. `coverage` sends the
-  parameters' `description` as null, then whole datasets in order; its note, at the start of
-  the first resolution's `description`, names the datasets left out and how to ask for them.
+  the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block is kept and
+  the rows are cut to make room for it; one that is over the budget alone is left out, as it is of
+  a `name` or one station. `coverage` sends the parameters' `description` as null, then whole
+  datasets in order; its note, at the start of the first resolution's `description`, names the
+  datasets left out and how to ask for them.
   REST, command line and Python are unchanged (GH-4024)
 - **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`,
   `dwd/swsmos`) starts at the current hour (UTC) without a `timestamp`, and with one of whole days

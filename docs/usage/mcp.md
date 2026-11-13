@@ -204,10 +204,12 @@ ending where the caller's window did) and the ways to ask for less: a narrower `
 is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
 `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
-parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
-that `coverage` and `glossary` give the units. The same holds for a `rank` whose rows fit, a `name` or a single
-station, whose rows are not cut: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is left out of them,
-and nothing else is.
+parameters. It counts toward the budget and is kept: the rows (timestamps, or the stations of a `rank`, a `distance`
+or a listing) are cut to make room for it. Only where not even one timestamp or station fits with it, and one fits
+without it, is it left out, the always-present `metadata` stays, and the note says how many characters it was and that
+`coverage` and `glossary` give the units. A `name` and a single station are not cut, so there the block is left out
+where it is what makes the answer over the budget: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is
+left out of them, and nothing else is.
 
 The instructions and the description of `values` recommend a `timestamp` window, so an assistant that follows them
 asks for a day or a week and is not cut. A forecast of ten days of three parameters in the long JSON is about 100,000

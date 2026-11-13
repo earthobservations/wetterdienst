@@ -508,6 +508,20 @@ def test_what_a_client_receives_of_a_large_rank_is_within_the_budget(monkeypatch
         assert "Truncated: The answer was cut to stay within 40,000 characters: the nearest " in structured
 
 
+def test_a_rank_larger_than_the_listing_says_how_many_it_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The network has 300 stations near enough: the note says 300 are listed and that the rank asked for 700."""
+    _stub_stations(monkeypatch, _stations_by_rank(300, 700, with_umlaut=True))
+
+    response = _tool_client().get("/api/stations", params=_A_RANK)
+
+    note = unquote(response.headers["x-wetterdienst-truncated"])
+    kept = len(response.json()["stations"])
+    assert 0 < kept < 300
+    assert f"the nearest {kept:,} of 300 stations are returned" in note
+    assert "700 stations were asked for with `rank`" in note
+    assert "300 stations were asked for" not in note
+
+
 def test_a_rank_that_fits_is_left_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
     """Twenty stations of a rank of twenty are no cut: nothing is noted."""
     _stub_stations(monkeypatch, _stations_by_rank(900, 20))

@@ -29,6 +29,7 @@ from tests.ui.test_mcp_budget import (
     _note_of,
     _received,
     _rest_client,
+    _stations_by_rank,
     _stations_of,
     _the_client_gets,
     _tool_client,
@@ -312,19 +313,43 @@ def test_the_block_over_the_budget_is_left_out_of_a_few_stations(monkeypatch: py
     assert "stations are returned" not in note
 
 
-def test_a_rank_whose_rows_fit_loses_the_block_and_no_station(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A rank is cut where its rows do not fit (GH-4036); where they do, only the block that overflows goes."""
+def test_a_rank_keeps_the_block_and_is_cut_to_make_room_for_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rank is cut like a distance (GH-4036): the block asked for stays, and the stations give way to it."""
     monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(25_000))
-    listing = _stub_a_rank(monkeypatch, 100)
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_by_rank(900, 100))
 
-    answer, size = _the_client_gets(_client_sees("stations", {**_A_RANK, "with_metadata": True}))
+    answer, size = _the_client_gets(_client_sees("stations", {**_A_RANK, "rank": 100, "with_metadata": True}))
 
-    assert size <= ANSWER_BUDGET
-    assert len(answer["stations"]) == listing.df.height == 100
-    assert "quality" not in answer["metadata"]
+    assert ANSWER_BUDGET - 1_500 < size <= ANSWER_BUDGET
+    kept = len({station["station_id"] for station in answer["stations"]})
+    assert 0 < kept < 100
+    assert "quality" in answer["metadata"]
     note = _note_of(answer)
-    assert note.startswith("The `with_metadata` block (")
-    assert "stations are returned" not in note
+    assert f"the nearest {kept:,} of 100 stations are returned, nearest first" in note
+    assert "100 stations were asked for with `rank`" in note
+    assert "with_metadata" not in note
+
+
+def test_a_larger_rank_never_returns_fewer_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With `with_metadata`, more rank is never fewer stations: the block does not make the answer jump (GH-4036).
+
+    The rank that fits without the block (127 near Berlin, with the legend of the real dataset) used to give all of
+    them, and a few ranks more gave 89, as the block was kept and the stations cut.
+    """
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(8_000))
+    returned = []
+    for rank in (20, 60, 80, 95, 100, 110, 115, 120, 125, 130, 135, 150, 200, 700):
+        monkeypatch.setattr(restapi, "get_stations", lambda rank=rank, **_kwargs: _stations_by_rank(900, rank))
+        response = _tool_client().get("/api/stations", params={**_A_RANK, "rank": rank, "with_metadata": True})
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert "quality" in body["metadata"], rank
+        assert _compact(response.text) <= ANSWER_BUDGET
+        returned.append(len({station["station_id"] for station in body["stations"]}))
+    assert returned == sorted(returned), returned
+    # the ranks that fit are whole, and from the first that does not the number kept stays where the budget puts it
+    assert returned[0] == 20
+    assert returned[-1] == returned[-2] < 200
 
 
 def test_a_few_stations_with_a_block_that_fits_are_left_as_they_are(monkeypatch: pytest.MonkeyPatch) -> None:

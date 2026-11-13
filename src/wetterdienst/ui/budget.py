@@ -15,8 +15,9 @@ the `timestamp` window to ask for it. Nothing is refused: the answer keeps what 
 The answers of `interpolate` and `summarize` are series of timestamps as those of `values` are, and are cut the same
 way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). The stripes' stations
 are a list of stations as those of `stations` are, with no way to select (`fit_stations`; the note tells how to
-name a place instead). A `with_metadata` block that is more than the budget on its own is left out of an answer that
-is cut or that would be without it, and of one of a name.
+name a place instead). A `with_metadata` block is kept, and the stations or timestamps are cut to make room for it;
+one with which not even one station or timestamp fits is left out (when one fits without it), and so is the block of
+a name or of a single station, whose rows are not cut, where it is what makes the answer over the budget.
 
 Only a tool's request is cut (`ui.mcp.is_tool_request`). The REST API, the command line and the library answer all of
 it: the app lists every station of a network, and a script reads a whole series.
@@ -289,7 +290,7 @@ def _without_block(
     result: StationsResult | _SeriesResult,
     request: _ListRequest | _SeriesRequest,
     render: Callable[[Any, ResponseMetadata, Any], str | bytes],
-    fit: Callable[[Any, int, str], _Attempt],
+    fit: Callable[[Any, int, str], _Attempt] | None,
 ) -> tuple[_Attempt, Any] | None:
     """Try an answer that is over the budget with its `with_metadata` block again without the block.
 
@@ -297,7 +298,8 @@ def _without_block(
     characters: with it not even the smallest cut, one timestamp or one station, may fit, although without it many do.
     The request is made without `with_metadata`, the answer is fitted again by `fit(request, size, lead)` (`lead` is
     the note of what was left out) and, where it fits the budget now, given back with that request. None where the
-    request has no block, or where leaving it out does not help either, which `fit_*` then tells as it is.
+    request has no block, or where leaving it out does not help either, which `fit_*` then tells as it is. Without a
+    `fit` the rows are not cut: the answer is the whole one without the block, or none.
     """
     if not getattr(request, "with_metadata", False):
         return None
@@ -306,7 +308,7 @@ def _without_block(
     block = _made(result, request, empty, "", render).size - _made(result, lean, empty, "", render).size
     lead = _block_left_out(block)
     whole = _made(result, lean, result.df, lead, render)
-    fitted = whole if whole.size <= ANSWER_BUDGET else fit(lean, whole.size, lead)
+    fitted = whole if whole.size <= ANSWER_BUDGET or fit is None else fit(lean, whole.size, lead)
     return (fitted, lean) if fitted.size <= ANSWER_BUDGET else None
 
 
@@ -517,13 +519,11 @@ def _leave_block_out(
 ) -> tuple[str | bytes, ResponseMetadata] | None:
     """Give a few stations' answer again without its `with_metadata` block, where only that makes it fit the budget.
 
-    A name asks for a few stations, so the rows are never cut; the block (the units and the
-    quality legend of every dataset asked for) can be tens of thousands of characters on its own. None where there is
+    A name asks for a few stations, so the rows are never cut; the block (the units and the quality legend of every
+    dataset asked for) can be tens of thousands of characters on its own. None where there is
     no block to leave out, or where the answer is over the budget without it as well.
     """
-    dropped = _without_block(
-        result, request, render, lambda lean, _, lead: _made(result, lean, result.df, lead, render)
-    )
+    dropped = _without_block(result, request, render, None)
     if dropped is None:
         return None
     chosen, _ = dropped
@@ -547,8 +547,9 @@ def fit_stations(
     left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
     Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids, the stripes' list) the stations that fit
     are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
-    many match (or were asked for) and what narrows them. Where even one station is over
-    the budget with the `with_metadata` block and fits without it, the block is left out, and the note says so.
+    many match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for
+    it: only where even one station is over the budget with the block, and fits without it, is the block left out,
+    and the note says so. So a larger `rank` never returns fewer stations (GH-4036).
     `render` writes the answer for a cut result, its block and the request; `content` and `metadata` are the whole
     answer.
     """
@@ -559,11 +560,6 @@ def fit_stations(
         return content, metadata
     if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
         return _leave_block_out(result, request, render) or (content, metadata)
-    if result._stations_filter is StationsFilter.BY_RANK and (  # noqa: SLF001
-        left_out := _leave_block_out(result, request, render)
-    ):
-        # a rank whose rows fit without the `with_metadata` block keeps them all: only the block goes (GH-4036)
-        return left_out
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
     if chosen.size > ANSWER_BUDGET and (
