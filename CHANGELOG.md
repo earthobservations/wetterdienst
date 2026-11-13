@@ -16,13 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.187.0] - 2026-11-13
+
 ### Added
 
-- `alerts` (Python, REST, command line and the MCP tool) takes `latitude` and `longitude`, which keep
-  the warnings whose polygons contain the point, and `name`, which keeps those with an area of that
-  name or warn cell id (`Kiel`, `101002000`; DWD's German names). Without them the answer is every
-  warning of Germany as before, 100 to 370 KB. A place without a warning is a 200 with
-  no alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
+- `alerts` (Python, REST, command line and the MCP tool) takes `latitude` and `longitude`, which
+  keep the warnings whose polygons contain the point, and `name`, which keeps those with an area of
+  that name or warn cell id (`Kiel`, `101002000`; DWD's German names). Without them the answer is
+  every warning of Germany as before, 100 to 370 KB. A place without a warning is a 200 with no
+  alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
   newest `sent` of the whole snapshot, not of the warnings kept. A latitude without a longitude is a
   422 (GH-4019)
 - `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
@@ -33,12 +35,13 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: `knmi/observation` reads KNMI's EDR API only, in a few requests where the Open Data files took one
-  for each time step. The file reader and the `knmi` extra are removed. Register an EDR key at KNMI (the API
-  Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`).
-  `WD_AUTH__KNMI` (`auth.knmi`), the Open Data key, is ignored with a warning, and a request with only that key
-  is refused with a message that says so. Rows, stamps, codes and flags are the files'. The quota is 1,000
-  requests an hour: a query that takes more is refused with its count (GH-3928)
+- **Breaking**: `knmi/observation` reads KNMI's EDR API only, in a few requests where the Open Data
+  files took one for each time step. The file reader and the `knmi` extra are removed. Register an
+  EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR`
+  (`Settings(auth={"knmi_edr": ...})`). `WD_AUTH__KNMI` (`auth.knmi`), the Open Data key, is ignored
+  with a warning, and a request with only that key is refused with a message that says so. Rows,
+  stamps, codes and flags are the files'. The quota is 1,000 requests an hour: a query that takes
+  more is refused with its count (GH-3928)
 - **Breaking** (MCP clients): the `values` and `stations` tools cut an answer to 40,000
   characters, `metadata` included, in every data format, and say so in an `answer-truncated`
   warning (for CSV also the `X-Wetterdienst-Truncated` header and the tool's sentence). `values`
@@ -80,12 +83,12 @@ Types of changes:
   and CSV, and a point in a hole is not in the warning. An area with one polygon is unchanged
   (GH-4019)
 - `knmi/observation` lists the stations of the list of the EDR API (`/locations`) and not those of
-  the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are in
-  the API, are listed, and the list no longer varies with the latest file. Fog stations are listed at
-  10 minutes only, and the Caribbean stations (block 78) not at annual, which has no value of them.
-  A closed station has an `end_timestamp` (the end of its last day with a value, read from the API), so a
-  listing for a later window leaves it out, as does the rank listing that had Soesterberg second
-  nearest to De Bilt in 2026, and not one it has data in (GH-4008)
+  the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are
+  in the API, are listed, and the list no longer varies with the latest file. Fog stations are
+  listed at 10 minutes only, and the Caribbean stations (block 78) not at annual, which has no value
+  of them. A closed station has an `end_timestamp` (the end of its last day with a value, read from
+  the API), so a listing for a later window leaves it out, as does the rank listing that had
+  Soesterberg second nearest to De Bilt in 2026, and not one it has data in (GH-4008)
 - The MCP tools answer `format=csv` and `format=ndjson` with the body in the structured `result`
   as well, after the sentence naming the licence. Claude Code hands the model the structured
   content and not the content blocks, so it saw only "sent as text content of this result" and no
@@ -8047,7 +8050,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...HEAD
+[0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
 [0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0
 [0.185.0]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...v0.185.0
 [0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0

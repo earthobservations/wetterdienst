@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.186.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.186.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.187.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.187.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -35,7 +35,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | `click` 8.2.0 to 8.3.1 | `click>=8.3.2`: on 8.2.0 `--provider` and `--network` complete nothing or the wrong candidates, on 8.3.0 and 8.3.1 every boolean option without a value (`--all`, `--pretty`, `--debug`, `--quiet`) is refused; upgrade click where an older one is pinned | 0.184.0, GH-3826 |
 | `bufr` and `eccodes` extras with `findlibs` 0.1.3 or older, on Linux | `findlibs>=0.1.4`: the older ones loaded the PROJ bundled with `eccodes` 2.43+ globally, so a process that loaded `eccodes` and then imported `pyproj` aborted at exit (status 134 or 139) | 0.184.0, GH-2441 |
 | `.env` read in the locale's encoding | read as UTF-8; a `.env` in a Windows code page with a non-ASCII value raises `UnicodeDecodeError` on `Settings()`: save it as UTF-8 | 0.147.0, GH-2568 |
-| the `knmi` extra (`knmi/observation` read NetCDF files) | the extra is gone: KNMI is read from its EDR API, which needs no package. `wetterdienst[radar]` and `[export]` still install `h5netcdf`; drop `knmi` from the extras you ask for | unreleased, GH-3928 |
+| the `knmi` extra (`knmi/observation` read NetCDF files) | the extra is gone: KNMI is read from its EDR API, which needs no package. `wetterdienst[radar]` and `[export]` still install `h5netcdf`; drop `knmi` from the extras you ask for | 0.187.0, GH-3928 |
 | `fsspec_client_kwargs` (or `WD_FSSPEC_CLIENT_KWARGS`) replaced the defaults | it is merged into them, `headers` one level deep; give `"timeout": None` for aiohttp's own timeout, a `User-Agent` of your own to replace ours | 0.140.0, GH-2269 |
 
 ## Python API
@@ -86,7 +86,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 | `geo_station_distance_resolution_factors={"6_hour": ...}`, `Resolution` `6_hour` | `{"6_hours": ...}`; the value is `6_hours`, as `10_minutes` is (`metno/frost`) | 0.155.0, GH-2641, GH-2561 |
 | a `ts_geo_station_distance` override keyed by an old `_mean_` name | the row takes the default radius: key the override by the new name | 0.145.0, GH-2651, GH-2657, GH-2660 |
 | `ts_skip_threshold` above 1 or 0 was accepted and skipped every station | refused: such a `WD_TS_SKIP_THRESHOLD` fails every `Settings()`; `/api/values` answers a `skip_threshold` of 0 with a 422 | 0.140.0, GH-2334 |
-| the key of KNMI's Open Data API, `Settings(auth={"knmi": ...})` or its environment variable | ignored with one warning that names `WD_AUTH__KNMI_EDR`; a `knmi/observation` request with no EDR key says the old key no longer works (`CredentialMissingError`), and the API refuses an Open Data key with a 403 (`CredentialRejectedError`). Register an EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`) in its place; the quota is 1,000 requests an hour, and a query that takes more is refused with a `RequestError` (REST 400) that gives the count | unreleased, GH-3928 |
+| the key of KNMI's Open Data API, `Settings(auth={"knmi": ...})` or its environment variable | ignored with one warning that names `WD_AUTH__KNMI_EDR`; a `knmi/observation` request with no EDR key says the old key no longer works (`CredentialMissingError`), and the API refuses an Open Data key with a 403 (`CredentialRejectedError`). Register an EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR` (`Settings(auth={"knmi_edr": ...})`) in its place; the quota is 1,000 requests an hour, and a query that takes more is refused with a `RequestError` (REST 400) that gives the count | 0.187.0, GH-3928 |
 | the REST API and MCP accepted `sql` and `sql_values` | a 403 unless the server runs with `WD_RESTAPI_SQL=true` | 0.140.0, GHSA-rpwr-qmm5-m9wp |
 
 ### Export targets
@@ -149,9 +149,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.186.0 renames by network, resolution and dataset.
+0.187.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.186.0 are shown from the name of 0.139.0 to the name of 0.186.0.
+Moves of the same parameter between 0.145.0 and 0.187.0 are shown from the name of 0.139.0 to the name of 0.187.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -418,6 +418,9 @@ arguments are the query parameters. In addition:
 | `stations` with `lead_time`, `issue` | a tool error | 0.157.0, GH-3056 |
 | `summarize` with `use_nearby_station_distance` | refused | 0.158.0, GH-3077 |
 | the tool `coverage` without `provider` and `network` listed every provider and network; the tool `providers` took `datasets` | **Breaking**: `provider` and `network` of `coverage` are required (in its schema), and a call without them is a tool error that names the tool `providers`, which lists every provider and network, each with `configured`; `datasets` of `providers` is gone ("datasets is not an argument of providers"): the resolutions and datasets of a network are `coverage` of it (see the REST API row). The instructions of the server no longer tell a model to call `coverage` with no arguments | 0.186.0, GH-3996 |
+| the tools `values` and `stations` returned the whole answer, whatever its size | **Breaking**: an answer is cut to 40,000 characters, `metadata` included, in every format (a CSV or NDJSON answer is counted as the JSON the client receives), with an `answer-truncated` warning (for CSV also the `X-Wetterdienst-Truncated` header). `values` keeps whole timestamps, the end nearest to now or the start of a given `timestamp` window, and the note names the next window; `stations` without `name` keeps the first stations (the nearest, for a `rank` or a `distance`) and says how many match. Ask for a `timestamp` window, or use the REST API or the library for the whole answer; those are unchanged | 0.187.0, GH-4022, GH-4029, GH-4036 |
+| the tools `interpolate`, `summarize`, `stripes_stations` and `coverage` returned the whole answer | **Breaking**: the same 40,000-character cut. `interpolate` and `summarize` keep whole timestamps from the start of their `timestamp` window; `stripes_stations` keeps the first stations (give a station's name to `stripes_values` or `stripes_image`); `coverage` sends the parameters' `description` as null, then whole datasets in order, and its note names the datasets left out and how to ask for them. REST, command line and Python are unchanged | 0.187.0, GH-4024 |
+| the tool `values` of a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) without a `timestamp`, or with one of whole days, returned the whole model run, past hours of today included | **Breaking**: it starts at the current hour (UTC), and a `timestamp` of whole days (`2026-11-12`, `2026-11-12/2026-11-14`) that contains now leaves today's earlier hours out; a `forecast-from-now` warning (for CSV also the `X-Wetterdienst-Forecast-From-Now` header) names the `timestamp` to ask for them. To read the past hours, pass a window with a time part (`2026-11-12T10:00/2026-11-12T14:00`). REST, command line and Python return the whole run as before | 0.187.0, GH-4025 |
 | the endpoint kept a session | stateless: no `mcp-session-id`, no `initialize` needed before `tools/list` or `tools/call`; `DELETE` and the `GET` that opens a stream answer 405. A client that depended on being given a session id has to stop | 0.159.0, GH-3088 |
 | `/mcp` | `/mcp/v1` is the endpoint to configure; `/mcp` stays as an alias of the current version | 0.158.0, GH-3074 (nothing to change) |
 

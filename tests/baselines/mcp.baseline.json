@@ -32,6 +32,40 @@
             }
           ]
         },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "format": {
           "type": "string",
           "enum": [
@@ -1760,5 +1794,5 @@
       ]
     }
   },
-  "x-release": "0.186.0"
+  "x-release": "0.187.0"
 }
