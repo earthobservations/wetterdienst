@@ -223,6 +223,7 @@ else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a 
 | --- | --- | --- |
 | no connection could be made (offline, a name that does not resolve, a refusing host) | `NoInternetError`: the URL in the message, the connection error as `__cause__` | 503 |
 | the source answered badly: a 4xx or 5xx, a dropped connection, a body cut short, a timeout, a TLS failure, a refused redirect | `DownloadError(url, reason)`, the failure as `__cause__` | 502, 504 for a timeout |
+| the provider answered 429 (it limits how fast the key or client may ask) | `ProviderRateLimitError`, a `DownloadError` that carries the provider's wait as `retry_after` (`Retry-After`, `RateLimit-Reset`, `X-RateLimit-Reset`; 60 seconds where none is sent); never retried | 503, `Retry-After` |
 | the file is not there | a `File` with `status == 404`, whose `raise_if_exception()` raises a `DownloadError` like any other failure | 502 if raised |
 | the directory is not there | `[]` from `list_remote_files_fsspec`; a `FileNotFoundError` from `list_remote_directory_fsspec` | |
 | a 200 page that is no index of a directory, where a URL ending in `/` lists no file or entry (a CDN's error page, a JSON error) | `DownloadError` from both listings, never an empty list | 502 |
@@ -234,6 +235,10 @@ empty frame, because a scheduled job cannot tell an empty frame from a source wi
 missing file is an ordinary answer (a station that does not report a parameter is a 404) checks the status first and
 hands the failures that are no answer to `as_outage()`, which turns them into these errors. URLs are shown without
 query, fragment and user information, and credentials are removed from the errors, so a key does not reach a log.
+A refused download (a 4xx but a 404) keeps what the provider answered on `File.refusal`, read from that first answer
+and never asked for again: the status, the body (64 KiB and 15 s at most; `Refusal.excerpt` is the first 500 characters, the part that may be shown) and the wait. A
+provider that says why in the body (Frost's 403 for too many observations, KNMI's 403 `Quota exceeded`) reads it
+there; the body is no part of a message, a log line or the cache, and the key is nowhere on the `File`.
 [Troubleshooting](../usage/troubleshooting.md) is the same table from the user's side.
 
 ## Settings and options

@@ -199,8 +199,8 @@ def test_a_key_the_api_refuses_is_invalid_and_costs_no_quota_and_is_not_kept(
     assert KnmiObservationRequest.is_valid(settings) is False
     assert KnmiObservationRequest.is_valid(settings) is False
 
-    # each call asks, and asks again for the body of the 403, which tells a refused key from a used-up quota
-    assert [request["status"] for request in edr_server.requests] == [403, 403, 403, 403]
+    # each call asks once: the body of the 403, which tells a refused key from a used-up quota, is of that answer
+    assert [request["status"] for request in edr_server.requests] == [403, 403]
 
 
 def test_a_quota_that_is_used_up_leaves_the_key_unknown_and_never_invalid(

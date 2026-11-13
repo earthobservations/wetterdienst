@@ -1379,8 +1379,10 @@ in the table.
 
 A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
 provider is back (or, after a timeout, with what the server has cached by then). The exception is
-`upstream-quota-exhausted`, whose `Retry-After` is the wait the provider sent, else 600 seconds (60 for a provider's
-429, which does not say the hour's quota ran out). The server limits no rate, so
+`upstream-quota-exhausted`, whose `Retry-After` is the wait the provider sent (`Retry-After` as seconds or a date,
+`RateLimit-Reset`, `X-RateLimit-Reset`; not if it is not positive or is past a day), else 60 seconds for a 429, which
+does not say that an hour's quota ran out, and 600 for a quota that is known to be one's. A 429 of any provider is this
+kind, no longer a 502 `upstream-failed`. The server limits no rate, so
 there is no 429; a proxy in front of it may, and the web app's own server does (a problem of the kind
 `urn:wetterdienst:problem:rate-limited` with `Retry-After`, see [Web app](app.md#rate-limit)). The app's problems are
 not in the table.

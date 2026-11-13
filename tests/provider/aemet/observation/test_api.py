@@ -18,10 +18,11 @@ import polars as pl
 import pytest
 from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Options
-from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.aemet.observation.api import (
@@ -38,7 +39,7 @@ from wetterdienst.provider.aemet.observation.parser import (
 )
 from wetterdienst.settings import Settings
 from wetterdienst.ui.core import failure_status
-from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File, rate_limited
 
 MADRID_RETIRO = "3195"
 BARCELONA = "0076"
@@ -696,13 +697,15 @@ def test_aemet_observation_values_do_not_log_the_signature_of_the_datos_link(
     assert "SIG123" not in caplog.text
 
 
-def _response_error(status: int) -> ClientResponseError:
-    return ClientResponseError(request_info=MagicMock(), history=(), status=status)
+def _response_error(status: int, headers: dict[str, str] | None = None) -> ClientResponseError:
+    return ClientResponseError(
+        request_info=MagicMock(), history=(), status=status, headers=CIMultiDictProxy(CIMultiDict(headers or {}))
+    )
 
 
 def _rate_limited(cause: Exception) -> DownloadError:
-    """Make the `DownloadError` `_fetch_datos` returns for a rate limit, with its `cause`."""
-    error = DownloadError("https://opendata.aemet.es/opendata/api/x", "AEMET answered 429, the rate limit")
+    """Make the `ProviderRateLimitError` `_fetch_datos` returns for a rate limit, with its `cause`."""
+    error = rate_limited("https://opendata.aemet.es/opendata/api/x")
     error.__cause__ = cause
     return error
 
@@ -981,28 +984,37 @@ def test_aemet_fetch_datos_returns_a_fault_of_the_envelope_as_a_download_error(
 
 
 @pytest.mark.parametrize(
-    ("as_envelope", "reason"),
+    ("as_envelope", "headers", "expected_wait"),
     [
-        pytest.param(False, "HTTP 429, the rate limit", id="http-429"),
-        pytest.param(True, "estado 429, the rate limit: the answer", id="estado-429"),
+        pytest.param(False, {}, 60, id="http-429"),
+        pytest.param(False, {"Retry-After": "45"}, 45, id="http-429-retry-after"),
+        pytest.param(False, {"RateLimit-Reset": "30"}, 30, id="http-429-ratelimit-reset"),
+        pytest.param(True, {}, 60, id="estado-429"),
     ],
 )
-def test_aemet_fetch_datos_returns_a_rate_limit_as_a_download_error(
+def test_aemet_fetch_datos_returns_a_rate_limit_as_the_rate_limit_error(
     monkeypatch: pytest.MonkeyPatch,
     as_envelope: bool,  # noqa: FBT001
-    reason: str,
+    headers: dict[str, str],
+    expected_wait: int,
 ) -> None:
-    """A rate limit that outlasted the retries is no answer: a `DownloadError` naming the file, caused by the 429."""
-    file = _envelope(429) if as_envelope else File(url=_ENDPOINT, content=_response_error(429), status=429)
+    """A rate limit that outlasted the retries is no answer: a `ProviderRateLimitError`, caused by the 429 (GH-4048).
+
+    It is a `DownloadError` as it was, with the wait AEMET sent in the headers of an HTTP 429 (a minute where it sent
+    none, and for an `estado` of the envelope, which has no headers), and it is answered with a 503, not a 502.
+    """
+    file = _envelope(429) if as_envelope else File(url=_ENDPOINT, content=_response_error(429, headers), status=429)
     _serve_envelope_and_datos(monkeypatch, file)
     result = _fetch()
+    assert isinstance(result, ProviderRateLimitError)
     assert isinstance(result, DownloadError)
     assert result.url == file.url
-    assert reason in str(result)
+    assert result.retry_after == expected_wait
+    assert "429" in result.reason
     assert result.__cause__ is not None
     assert getattr(result.__cause__, "status", None) == HTTPStatus.TOO_MANY_REQUESTS
-    # a 429 is a failure of the provider's, answered as the table of `failure_status` has it
-    assert failure_status(result) == HTTPStatus.BAD_GATEWAY
+    # a 429 is the provider limiting the key, answered as the table of `failure_status` has it
+    assert failure_status(result) == HTTPStatus.SERVICE_UNAVAILABLE
 
 
 def test_aemet_fetch_datos_returns_a_rate_limit_of_the_datos_link_as_a_download_error(
@@ -1012,7 +1024,7 @@ def test_aemet_fetch_datos_returns_a_rate_limit_of_the_datos_link_as_a_download_
     refusal = _response_error(429)
     _serve_envelope_and_datos(monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=refusal, status=429))
     result = _fetch()
-    assert isinstance(result, DownloadError)
+    assert isinstance(result, ProviderRateLimitError)
     assert result.url == "https://opendata.aemet.es/opendata/sh/0123abc"
     assert "secret" not in str(result)
     assert result.__cause__ is refusal
@@ -1024,7 +1036,7 @@ def test_aemet_observation_values_raise_a_rate_limit_rather_than_skip_the_chunk(
 ) -> None:
     """A chunk the rate limit refused is not "no data": the request ends with the error, not with a partial result."""
     attempted = _fake_fetch_datos(monkeypatch, _rate_limited(_response_error(429)))
-    with pytest.raises(DownloadError, match="the rate limit"):
+    with pytest.raises(ProviderRateLimitError, match="429"):
         _values(resolution, years=10)
     assert len(attempted) == 1
 

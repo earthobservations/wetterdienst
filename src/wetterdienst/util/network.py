@@ -13,6 +13,7 @@ import hashlib
 import ipaddress
 import json
 import logging
+import math
 import os
 import posixpath
 import re
@@ -23,9 +24,9 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Iterator, MutableMapping
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from io import BytesIO
@@ -59,7 +60,7 @@ from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 from fsspec.utils import atomic_write, isfilelike
 
-from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.datetime import parse_http_date
 from wetterdienst.util.listing_cache import (
@@ -72,7 +73,6 @@ from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, prov
 from wetterdienst.util.response_warnings import SkipCause
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from types import SimpleNamespace
 
     from wetterdienst.settings import Settings
@@ -137,6 +137,21 @@ class File:
     """When the copy the body is of was made, as `time.time()` has it, from when its download began; None where the body
     is not held in the cache (the cache is off, or the download failed). For a provider whose source dates its files, to
     tell which copy a date is of (GH-2567)."""
+    refusal: Refusal | None = field(default=None, repr=False)
+    """What the provider answered a request it turned down with a 4xx (but a 404): the status, the first characters of
+    its body and its wait (`Refusal`), kept from that first answer so that no provider asks again to read why. None for
+    a download that did not fail so, and for one that was served from the cache: a refusal is never cached. Not in the
+    `repr`, so that a body the provider wrote is no part of a log line."""
+
+    @property
+    def retry_after(self) -> int | None:
+        """Give the seconds the provider asked the caller to wait (`Retry-After` and the like), None if it asked none.
+
+        Read from the headers of the failed answer, so also for a download whose body could not be read.
+        """
+        if self.refusal is not None and self.refusal.retry_after is not None:
+            return self.refusal.retry_after
+        return retry_after_of_failure(self.content) if isinstance(self.content, Exception) else None
 
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
@@ -283,6 +298,8 @@ def _download_error(error: Exception, url: str) -> DownloadError:
     anything else by its own message unless that is empty or holds a URL, and by the name of its
     type then.
     """
+    if _is_rate_limited(error):
+        return rate_limited(url, retry_after_of_failure(error))
     if isinstance(error, ClientResponseError) and error.status:
         reason = f"{error.status}, message={error.message!r}"
     else:
@@ -290,6 +307,44 @@ def _download_error(error: Exception, url: str) -> DownloadError:
     if not reason or "://" in reason:
         reason = type(error).__name__
     return DownloadError(_without_url_secrets(url), reason)
+
+
+#: The seconds a 429 is asked to wait where the provider names none: a rate limit is mostly per second or per minute,
+#: so a 429 is not known to need an hour
+RATE_LIMIT_RETRY_AFTER_SECONDS = 60
+
+
+def _is_rate_limited(error: BaseException) -> bool:
+    """Tell whether a failure is a provider's 429 (Too Many Requests)."""
+    return isinstance(error, ClientResponseError) and error.status == HTTPStatus.TOO_MANY_REQUESTS
+
+
+def retry_after_of_failure(error: BaseException) -> int | None:
+    """Read the wait the answer behind a failure asked for from its headers, None for a failure with none."""
+    headers = getattr(error, "headers", None)
+    return retry_after_of(headers) if isinstance(headers, Mapping) else None
+
+
+def _wait_text(seconds: int) -> str:
+    return f"{seconds} seconds" if seconds < 2 * 60 else f"{-(-seconds // 60)} minutes"
+
+
+def rate_limited(url: str, retry_after: int | None = None) -> ProviderRateLimitError:
+    """Say that a provider limits how fast this installation may ask (a 429), whichever provider it is.
+
+    The sentence is true of every provider: it names none, no URL and no key, so the REST API shows it as it is. A
+    provider that says what it limits, the quota of an hour or a rate per second, words its own (`edr.rate_limited`).
+    `retry_after` is the wait the provider sent, in seconds, where it sent one (`retry_after_of`): the message says it,
+    and it is what the error carries; where it sent none the error carries `RATE_LIMIT_RETRY_AFTER_SECONDS`, which the
+    message does not claim the provider said.
+    """
+    asked = f" It asks for a wait of about {_wait_text(retry_after)}." if retry_after else ""
+    return ProviderRateLimitError(
+        _without_url_secrets(url),
+        "The provider answered 429: it limits how fast the key or client of this installation may ask, which is no "
+        f"fault of the request. Try again later.{asked}",
+        retry_after or RATE_LIMIT_RETRY_AFTER_SECONDS,
+    )
 
 
 def as_outage(error: Exception, url: str) -> Exception:
@@ -309,13 +364,17 @@ def as_outage(error: Exception, url: str) -> Exception:
     for it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
     refused for its size, its time or an unannounced compression (`DownloadRefusedError`, GH-3340).
 
+    A 429 is one too, the `ProviderRateLimitError` (a `DownloadError`) with the wait the provider sent (`rate_limited`):
+    the data of that request was not handed out, which a request let go as "no data" would read as. It is not asked
+    for again (`_worth_retrying`).
+
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
-    a refused key or a 429 -- the source answering -- and what is no download error at all.
+    a refused key -- the source answering -- and what is no download error at all.
     """
     if isinstance(error, NoInternetError):
         return error
     refused = (ClientSSLError, ssl.SSLError, RedirectRefusedError, DownloadRefusedError)
-    if _worth_retrying(error) or isinstance(error, refused):
+    if _worth_retrying(error) or isinstance(error, refused) or _is_rate_limited(error):
         failure = _download_error(error, url)
         failure.__cause__ = error
         return failure
@@ -772,7 +831,57 @@ def _redirect_guard() -> TraceConfig:
     trace.on_request_start.append(remember_first_url)
     trace.on_request_redirect.append(check_redirect)
     trace.on_request_end.append(note_last_modified)
+    trace.on_request_end.append(_note_refusal)
     return trace
+
+
+async def _note_refusal(_session: object, _context: SimpleNamespace, params: TraceRequestEndParams) -> None:
+    """Keep what a provider answers a request it turns down with a 4xx (not a 404) on the response, first time.
+
+    A download that fails stores the status and the reason phrase and not the body, and a provider that says why in
+    the body ("Quota exceeded", "the estimated number of observations exceeds the maximum") or when to come back in a
+    header (`Retry-After`) cannot be told by the status alone. Reading it here, as the answer arrives, is what saves
+    asking a second time. The body is held to the limits of a download (`_REFUSAL_MAX_BYTES` and
+    `_REFUSAL_MAX_SECONDS`; one that is longer, slower or unreadable is kept as an empty one) and is kept whole, for
+    a provider to match what it says in it wherever it says it (Frost's reason follows a long `currentLink`);
+    nothing of it is logged or rendered (`Refusal.excerpt` is the part that may be shown). Nothing is raised: a refusal
+    that cannot be read is still one.
+    """
+    response = params.response
+    if not (HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR) or (
+        response.status == HTTPStatus.NOT_FOUND
+    ):
+        return
+    body = b""
+    with contextlib.suppress(Exception):
+        async with _within_time(_REFUSAL_MAX_SECONDS):
+            body = await _read_capped(response, _REFUSAL_MAX_BYTES)
+    setattr(
+        response,
+        _REFUSAL_ATTRIBUTE,
+        Refusal(
+            response.status,
+            body.decode("utf-8", errors="replace"),
+            retry_after_of(response.headers),
+        ),
+    )
+
+
+def _raise_for_status(response: ClientResponse) -> None:
+    """Raise the `ClientResponseError` of a 4xx or 5xx response, with the refusal read from it (`_note_refusal`)."""
+    try:
+        response.raise_for_status()
+    except ClientResponseError as error:
+        refusal = getattr(response, _REFUSAL_ATTRIBUTE, None)
+        if refusal is not None:
+            setattr(error, _REFUSAL_ATTRIBUTE, refusal)
+        raise
+
+
+def _refusal_of(error: BaseException) -> Refusal | None:
+    """Give the refusal read from the answer a failure was raised for, None where there is none."""
+    refusal = getattr(error, _REFUSAL_ATTRIBUTE, None)
+    return refusal if isinstance(refusal, Refusal) else None
 
 
 #: The directories that could not be used as a cache, each with the temporary one standing in for it.
@@ -1122,6 +1231,16 @@ class HTTPFileSystem(_HTTPFileSystem):
             listings_expiry_time=listings_expiry_time,
             listings_cache_location=listings_cache_location,
         )
+
+    def _raise_not_found_for_status(self, response: ClientResponse, url: str) -> None:
+        """Raise `FileNotFoundError` for a 404, and for any other error status the error that keeps the refusal.
+
+        Upstream's `raise_for_status` loses what the provider wrote with a 4xx. The error raised here carries it
+        (`_note_refusal`), for `download_file` to store on the `File` (`File.refusal`).
+        """
+        if response.status == HTTPStatus.NOT_FOUND:
+            raise FileNotFoundError(url)
+        _raise_for_status(response)
 
     async def _cat_file(self, url: str, start: int | None = None, end: int | None = None, **kwargs) -> bytes:  # noqa: ANN003
         """Read a whole file, up to ``max_bytes`` of it (`MAX_DOWNLOAD_BYTES` unless given) and `MAX_DOWNLOAD_SECONDS`.
@@ -3227,6 +3346,7 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
             url=url,
             content=_without_credentials(error, sent_credentials=sent_credentials),
             status=error.status or 500,
+            refusal=_refusal_of(error),
         )
     if isinstance(error, ClientError):
         # ClientPayloadError among them, and every other aiohttp client failure -- a dropped
@@ -3576,7 +3696,7 @@ def post_file(
         # answer with whatever that returned -- an HTML login page reads as a 200 with an
         # unparseable body, where the 302 says plainly what happened. So the redirect is the answer.
         async with session.post(url, headers=headers, allow_redirects=False) as response:
-            response.raise_for_status()
+            _raise_for_status(response)
             return response.status, await response.read()
 
     shown = _without_url_secrets(url)
@@ -3605,7 +3725,12 @@ def post_file(
         raise AssertionError(msg)
     except ClientResponseError as e:
         log.info(f"Failed to post to {shown}.")
-        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=e.status or 500)
+        return File(
+            url=url,
+            content=_without_credentials(e, sent_credentials=sent_credentials),
+            status=e.status or 500,
+            refusal=_refusal_of(e),
+        )
     except ClientSSLError as e:
         # not being offline, and stored as the error underneath: see `download_file`
         log.info(f"Failed to post to {shown}.")
@@ -3628,10 +3753,16 @@ def post_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
-#: The most of a refusal's body that is read (`read_refusal`), and the longest the reading may take in all: a reason
+#: The most of a refusal's body that is read (`_note_refusal`), and the longest the reading may take in all: a reason
 #: is a sentence, so a body past this is no reason, and a server that drips one byte at a time is not waited for.
 _REFUSAL_MAX_BYTES = 64 * 1024
 _REFUSAL_MAX_SECONDS = 15.0
+
+#: How many characters of a refusal's body may be shown (`Refusal.excerpt`)
+REFUSAL_BODY_CHARS = 500
+
+#: The attribute of a response and of the error raised for it that holds its `Refusal`
+_REFUSAL_ATTRIBUTE = "wd_refusal"
 
 
 #: The longest wait a refusal may ask for that is believed (`retry_after_of`): a day. A header that says more is a
@@ -3648,14 +3779,25 @@ _EPOCH_FROM = 10**9
 
 @dataclass(frozen=True)
 class Refusal:
-    """What a provider answered a request it refused with a 4xx: the status, the first of its body and its wait."""
+    """What a provider answered a request it refused with a 4xx (a 404 is none): the status, its body and its wait.
+
+    Read from the first answer, as it arrives (`_note_refusal`): the provider is not asked again to say why. It is on
+    the `File` of the failed download (`File.refusal`), never cached and never logged.
+    """
 
     status: int
     """The HTTP status of the answer."""
-    body: str
-    """The first characters of the body (`read_refusal_answer`'s ``max_chars``), as text."""
+    body: str = field(repr=False)
+    """The whole body, as text, for a provider to match what it says in it: at most 64 KiB, so a reason that follows a
+    long echo of the request is within it. Empty where it was longer than that, did not arrive in 15 seconds or could
+    not be read. Never logged, put into a message or shown whole: `excerpt` is what may be."""
     retry_after: int | None = None
     """Seconds after which the provider says the request may be made again, where it says (`retry_after_of`)."""
+
+    @property
+    def excerpt(self) -> str:
+        """Give the first `REFUSAL_BODY_CHARS` characters of the body, the part that may be shown."""
+        return self.body[:REFUSAL_BODY_CHARS]
 
 
 def retry_after_of(headers: Mapping[str, str], now: dt.datetime | None = None) -> int | None:
@@ -3684,82 +3826,10 @@ def retry_after_of(headers: Mapping[str, str], now: dt.datetime | None = None) -
                 date = date.replace(tzinfo=dt.UTC) if date.tzinfo is None else date
                 seconds = (date - now).total_seconds()
         if seconds is not None and 0 < seconds <= _RETRY_AFTER_MAX_SECONDS:
-            return int(seconds) + 1
+            # a whole number of seconds as it was said; a moment that is a fraction away (a date, an epoch second)
+            # rounded up, so that the caller does not come back a moment early
+            return math.ceil(seconds)
     return None
-
-
-def read_refusal_answer(
-    url: str,
-    *,
-    headers: dict[str, str] | None = None,
-    client_kwargs: dict | None = None,
-    use_certifi: bool = False,
-    max_chars: int = 2000,
-    max_bytes: int = _REFUSAL_MAX_BYTES,
-    max_seconds: float = _REFUSAL_MAX_SECONDS,
-) -> Refusal | None:
-    """Ask for a URL once more and give the answer if that is a 4xx, for a provider that says why in the body.
-
-    A refused download is stored as the exception it met, which holds the status and the reason phrase and not the body
-    (`download_file`), and a provider that says what it refused in the body ("the estimated number of observations
-    exceeds the maximum", "Quota exceeded") cannot be told from one that refuses the credential by the status alone. A
-    refusal is cheap to ask again: one more request, made on a 403 only, not retried and not cached. Through the same
-    HTTP stack as `post_file`; the headers are sent with the request and not kept in the client, so the credential never
-    reaches the key the filesystem is cached under, and no message names it.
-
-    The body is held to the limits of a download: no more than ``max_bytes`` of it (refused at once if the answer says
-    it is longer, as it arrives if not) and ``max_seconds`` in all, which a client timeout, bounding each silence only,
-    does not give (GH-2258).
-
-    Returns:
-        The status, the first ``max_chars`` of the body and the wait the answer asks for (`retry_after_of`), or None
-        where the answer is no 4xx, has no body within the limits, or could not be had (a timeout, a lost connection):
-        the caller then falls back on the status alone.
-
-    """
-    filesystem = HTTPFileSystem(
-        use_listings_cache=False,
-        listings_expiry_time=0,
-        use_certifi=use_certifi,
-        client_kwargs={"timeout": _POST_TIMEOUT_SECONDS, **(client_kwargs or {})},
-    )
-
-    async def _get() -> Refusal | None:
-        session = await filesystem.set_session()
-        async with _within_time(max_seconds), session.get(url, headers=headers, allow_redirects=False) as response:
-            if not HTTPStatus.BAD_REQUEST <= response.status < HTTPStatus.INTERNAL_SERVER_ERROR:
-                return None
-            body = await _read_capped(response, max_bytes)
-            waited = retry_after_of(response.headers)
-        return Refusal(response.status, body.decode("utf-8", errors="replace")[:max_chars], waited)
-
-    try:
-        return sync(filesystem.loop, _get)
-    except Exception:  # noqa: BLE001 -- a refusal that cannot be read again is still a refusal; nothing of it is raised
-        return None
-
-
-def read_refusal(
-    url: str,
-    *,
-    headers: dict[str, str] | None = None,
-    client_kwargs: dict | None = None,
-    use_certifi: bool = False,
-    max_chars: int = 2000,
-    max_bytes: int = _REFUSAL_MAX_BYTES,
-    max_seconds: float = _REFUSAL_MAX_SECONDS,
-) -> str | None:
-    """Give the body of the answer of `read_refusal_answer`, None where that is none (see there for the limits)."""
-    refusal = read_refusal_answer(
-        url,
-        headers=headers,
-        client_kwargs=client_kwargs,
-        use_certifi=use_certifi,
-        max_chars=max_chars,
-        max_bytes=max_bytes,
-        max_seconds=max_seconds,
-    )
-    return None if refusal is None else refusal.body
 
 
 def download_files(

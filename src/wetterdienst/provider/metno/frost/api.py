@@ -37,7 +37,6 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     raise_if_credential_rejected,
-    read_refusal,
 )
 from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_open_window, note_skipped_download
 
@@ -709,23 +708,18 @@ _TOO_MANY_OBSERVATIONS = re.compile(
 )
 
 
-def _raise_if_window_too_large(file: File, settings: Settings | None, client_kwargs: dict | None) -> None:
+def _raise_if_window_too_large(file: File) -> None:
     """Raise `InvalidTimeIntervalError` for a 403 that Frost gives a window it will not compute (GH-3748).
 
     Frost answers a request for more than 100,000 observations with a 403, the same status it gives a client ID it
     refuses, and says which in the body: "The estimated number of observations (...) exceeds the maximum number
-    allowed (100000)". The key is fine then, and the caller has to ask for less. The body is not kept by the
-    download, so the refusal is asked for again, once, and only when the status is a 403.
+    allowed (100000)". The key is fine then, and the caller has to ask for less. The body is read from the first answer
+    (`File.refusal`, the whole body: the reason follows a long echo of the request): the provider is not asked
+    again.
     """
-    if settings is None or file.status != HTTPStatus.FORBIDDEN or not isinstance(file.content, Exception):
+    if file.status != HTTPStatus.FORBIDDEN or not isinstance(file.content, Exception):
         return
-    headers = (client_kwargs or {}).get("headers")
-    reason = read_refusal(
-        file.url,
-        headers=headers,
-        client_kwargs={key: value for key, value in (client_kwargs or {}).items() if key != "headers"},
-        use_certifi=settings.use_certifi,
-    )
+    reason = None if file.refusal is None else file.refusal.body
     match = _TOO_MANY_OBSERVATIONS.search(reason or "")
     if match is None:
         return
@@ -741,19 +735,19 @@ def _raise_if_window_too_large(file: File, settings: Settings | None, client_kwa
     raise InvalidTimeIntervalError(msg)
 
 
-def _raise_if_unanswered(file: File, settings: Settings | None = None, client_kwargs: dict | None = None) -> None:
+def _raise_if_unanswered(file: File) -> None:
     """Raise for a download that Frost did not answer, or answered with a refusal (GH-3022, GH-3018, GH-3748).
 
     A window that Frost will not compute (a 403 whose body says so) is the `InvalidTimeIntervalError` the caller can
     rephrase. A client ID that Frost refuses (401, 403) is the `CredentialRejectedError`, whoever runs the process
     has to replace it. A timeout, a dropped connection, a body cut short, a 5xx and a connection that could not be made
-    are the `DownloadError` and the `NoInternetError` (`as_outage`): none of them is Frost saying there is no data,
+    are the `DownloadError` and the `NoInternetError` (`as_outage`), and a 429 the `ProviderRateLimitError` (a
+    `DownloadError`, with Frost's wait where it sends one): none of them is Frost saying there is no data,
     and answered as an empty frame they read as a station without data. What Frost does answer stays with the
     caller, which reads the status: a 404 and a 412 are no data, and any other 4xx is warned about.
 
-    ``settings`` and ``client_kwargs`` are those the download was made with, for the 403 to be read again.
     """
-    _raise_if_window_too_large(file, settings, client_kwargs)
+    _raise_if_window_too_large(file)
     _raise_if_rejected(file)
     if isinstance(file.content, Exception):
         failure = as_outage(file.content, file.url)
@@ -1336,7 +1330,7 @@ class MetnoFrostValues(TimeseriesValues):
         # the status is read before the generic failure warning below: a 404 or 412 says there is
         # nothing (or that a fallback applies), not that the request failed
         # 412: no data for this station/elements/period combination
-        _raise_if_unanswered(file, settings, client_kwargs)
+        _raise_if_unanswered(file)
         if file.status == 412:
             return pl.DataFrame()
         # 404: Frost's "No data found" for a window without data. The elements are resolved one by one and then
@@ -1457,7 +1451,7 @@ class MetnoFrostValues(TimeseriesValues):
         )
         # the status before the body, as in `_collect_station_parameter_or_dataset`
         # 412: no data for this station/element/period combination
-        _raise_if_unanswered(file, settings, client_kwargs)
+        _raise_if_unanswered(file)
         if file.status == 412:
             return pl.DataFrame()
         # 404: no data in the window; the time series are asked for (see `_collect_via_time_series_discovery`)
@@ -1545,7 +1539,7 @@ class MetnoFrostValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        _raise_if_unanswered(avail_file, settings, client_kwargs)
+        _raise_if_unanswered(avail_file)
         if avail_file.status in (404, 412):
             return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
@@ -1601,7 +1595,7 @@ class MetnoFrostValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            _raise_if_unanswered(obs_file, settings, client_kwargs)
+            _raise_if_unanswered(obs_file)
             # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
             # may have a gap in the window), 412 "No available time series for the query parameters"
             if obs_file.status in (404, 412):

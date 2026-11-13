@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a 429 from any provider is a `ProviderRateLimitError` (a `DownloadError`) with the
+  provider's wait in `retry_after` (`Retry-After` as seconds or a date, `RateLimit-Reset`,
+  `X-RateLimit-Reset`; else 60 s), and REST answers 503 `upstream-quota-exhausted` with that
+  `Retry-After`, not 502 `upstream-failed`. `metno/frost`, `smhi/observation` and
+  `metoffice/observation` (the CEDA token exchange) raise it where a 429 was a warning and an empty
+  result. It is still not retried. A refused request is no longer asked a second time to read its
+  body: `File.refusal` keeps it (64 KiB at most); `read_refusal` is gone. Catch
+  `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
+
 ## [0.187.1] - 2026-11-13
 
 ### Fixed

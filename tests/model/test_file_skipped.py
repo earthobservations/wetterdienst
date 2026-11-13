@@ -190,7 +190,7 @@ def _assert_advice(message: str, advice: str | None) -> None:
             lambda url: _failed_file(url, FileNotFoundError("not found")), False, None, None, id="not reported"
         ),
         pytest.param(lambda url: _refused(url, 403), True, "the download was refused", "report", id="403 refused"),
-        pytest.param(lambda url: _refused(url, 429), True, "the download failed", "retry", id="429 rate limit"),
+        pytest.param(lambda url: _refused(url, 425), True, "the download failed", "retry", id="425 too early"),
     ],
 )
 def test_smhi_names_the_station_whose_file_was_refused(
@@ -203,7 +203,8 @@ def test_smhi_names_the_station_whose_file_was_refused(
 ) -> None:
     """A 404 is SMHI answering that the station does not report the parameter; a refusal is a file let go.
 
-    A 403 stays as it is at the next request, so it is reported; a 429 is a rate limit, which may be gone.
+    A 403 stays as it is at the next request, so it is reported; a 425 (too early) may be gone. A 429 is no skip:
+    it ends the read as the `ProviderRateLimitError` (GH-4048).
     """
 
     def download_files(urls: list[str], **_: object) -> list[File]:

@@ -220,16 +220,18 @@ class DownloadError(UpstreamError):
 
 
 class ProviderRateLimitError(DownloadError):
-    """Raised when a provider refuses a request as the quota of the key this installation uses is used up (GH-4046).
+    """Raised when a provider limits how fast this installation may ask: a 429 of any provider, or a quota used up.
 
     A `DownloadError`, which is what a 429 of the provider was before this had a type of its own, so that a caller
-    catching that still catches it. Its own type because the key is fine and the request is valid: replacing the key
-    would not help and the same request succeeds once the quota resets, which is what a client may retry on. The REST
-    API answers it with a 503 of the kind `upstream-quota-exhausted` and a `Retry-After`, never as a rejected credential
-    (a 501).
+    catching that still catches it (GH-4046, GH-4048). Its own type because the request is valid and, where it is a key,
+    the key is fine: replacing the key would not help and the same request succeeds once the limit resets, which is
+    what a client may retry on. It is not asked again by wetterdienst itself. The REST API answers it with a 503 of the
+    kind `upstream-quota-exhausted` and a `Retry-After`, never as a rejected credential (a 501) nor as a failed
+    provider (a 502).
 
-    `reason` is a sentence for the caller that names the provider and holds no URL and no key, so the REST API shows
-    it as it is. `retry_after` is the seconds the provider says to wait, None where it says none.
+    `reason` is a sentence for the caller that holds no URL and no key, so the REST API shows it as it is.
+    `retry_after` is the seconds the provider says to wait (`Retry-After` as seconds or a date, `RateLimit-Reset`,
+    `X-RateLimit-Reset`), a minute for a 429 that says none, None where a quota gives no wait.
     """
 
     def __init__(self, url: str, reason: str, retry_after: int | None = None) -> None:

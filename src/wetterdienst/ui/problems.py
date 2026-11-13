@@ -49,8 +49,9 @@ _REQUEST_ID = re.compile(r"[A-Za-z0-9._~-]{1,128}")
 #: seconds a `Retry-After` of a 502, 503 or 504 says. A retry is worth making once the provider is back, and
 #: the work of a request that timed out has gone on, so that its cache is warm: not a promise, a place to begin
 RETRY_AFTER_SECONDS = 30
-#: seconds a `Retry-After` of `upstream-quota-exhausted` says where the provider names none: the quota of a key is an
-#: hour's, so a retry within the half minute of the others is a wasted request
+#: seconds a `Retry-After` of `upstream-quota-exhausted` says where the error holds none (a quota, an hour's, so
+#: a retry within the half minute of the others is a wasted request; a 429 holds its own, a minute where the provider
+#: names none)
 QUOTA_RETRY_AFTER_SECONDS = 600
 #: the statuses whose problem carries `Retry-After`: the request was valid and the same one can succeed later.
 #: There is no 429: the server limits no rate, which is for the proxy in front of it

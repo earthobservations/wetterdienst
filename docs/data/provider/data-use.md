@@ -25,7 +25,8 @@ What the requests of the library do, whichever provider they go to:
 - **It retries a failure that may pass, and not an answer.** For every provider a download is attempted twice and a
   listing three times, after a reset, a timeout, a `5xx` or a handshake the server fumbled, and a download also once
   more after a `404` (a file index can be read before the file it names is published). A certificate that does not
-  verify and a `429 Too Many Requests` are not asked again, and the answer comes back to you as it is. Two providers
+  verify and a `429 Too Many Requests` are not asked again, and the answer comes back to you as it is (a 429 as a
+  `ProviderRateLimitError` with the wait the provider sent). Two providers
   add a loop of their own: AEMET and KNMI ask up to three times in all, waiting 2 seconds to start with and 15 at most. AEMET retries a
   `429` (and any status but `400`, `401`, `403` and `404`); KNMI's EDR API is asked once for a `404` (no data, a request of
   its quota) and retries a reset or a `5xx`, not a `400`, `401`, `403`, `404`, `413`, `422` or `429`.
@@ -34,7 +35,8 @@ What the requests of the library do, whichever provider they go to:
   next four (`fetch_ahead`, at most eight, and no more than eight connections to one host for all the reads of a
   process). 0 switches it off; `interpolate` and `summarize` do not fetch ahead.
 - **It keeps what it downloaded** for a lifetime of its own (below), and it does not read the provider's cache headers.
-  It does not read a provider's rate-limit headers, count your requests against a limit, or queue them to stay under
+  It reads a provider's wait from the headers of a 429 (`Retry-After`, `RateLimit-Reset`, `X-RateLimit-Reset`) to tell
+  you, but does not count your requests against a limit, or queue them to stay under
   it. A request for many stations over a long window is many requests, and nothing in the library asks whether the
   provider allows that many.
 

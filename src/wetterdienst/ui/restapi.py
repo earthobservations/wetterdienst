@@ -2309,12 +2309,13 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
 
 
 def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
-    """Answer a provider that refuses the key of this server for its quota with a 503, `upstream-quota-exhausted`.
+    """Answer a provider that limits the rate or whose quota is used up with a 503, `upstream-quota-exhausted`.
 
-    Not a rejected credential (a 501): the key is accepted and used up for now, and the same request can succeed once
-    the quota resets, which `Retry-After` says (the provider's own wait where it sent one, else
-    `QUOTA_RETRY_AFTER_SECONDS`). The `reason` names the provider, holds no URL and no key and says to try again later,
-    so the body carries it.
+    A 429 of any provider is this, not a 502: the request was valid and the key is accepted, only limited for now, so
+    it is no rejected credential (a 501) and no failed provider. The same request can succeed once the limit resets,
+    which `Retry-After` says (the provider's own wait where it sent one, a minute for a 429 that says none, else
+    `QUOTA_RETRY_AFTER_SECONDS` for a quota). The `reason` holds no URL and no key and says to try again later, so the
+    body carries it.
     """
     log.warning(f"Failed to {what}: {e}")
     return ProblemError(
