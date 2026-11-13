@@ -136,6 +136,8 @@ async function onPosition(point: { latitude: number, longitude: number }) {
 
 // the place dialog: the search of stations (AppCommandPalette in its place mode). A place chosen is in the link too.
 const placeOpen = ref(false)
+// a finger in the open place dialog moves nothing behind it (GH-3761)
+useDialogTouchGuard(placeOpen)
 const placeButton = ref<HTMLButtonElement | null>(null)
 function onPlace(chosen: { id: string }) {
   placeOpen.value = false

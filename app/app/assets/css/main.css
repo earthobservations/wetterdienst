@@ -192,7 +192,17 @@
   --frame-max: 84rem;
   --frame-gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
   --measure: 46rem;
-  --header-height: 4rem;
+  /* What the notch, the status bar and the home indicator take of the window (`viewport-fit=cover`, nuxt.config.ts:
+     without it a browser reports 0 and the page is laid out inside them, so iOS Safari's bottom bar, which the page
+     draws under, showed a strip of it under the tab bar, GH-3761). 0 where there is none. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The header: the bar proper (`--header-bar`) under the status bar's room. `--header-height` is the whole of it, what
+     everything that stands under the header measures from (the sticky preview, the map, the scroll padding). */
+  --header-bar: 4rem;
+  --header-height: calc(var(--header-bar) + var(--safe-top));
   /* the tab bar of the narrow layout, and the space the page keeps free under it */
   --tabbar-height: 0rem;
 
@@ -402,7 +412,8 @@
   width: 100%;
   max-width: calc(var(--frame-max) + 2 * var(--frame-gutter));
   margin-inline: auto;
-  padding-inline: var(--frame-gutter);
+  /* the gutter, and clear of a notch on either side of a phone on its side */
+  padding-inline: max(var(--frame-gutter), var(--safe-left)) max(var(--frame-gutter), var(--safe-right));
 }
 
 /* The link that takes a keyboard user past the header to the page (WCAG 2.4.1): out of sight until it has the
@@ -410,8 +421,8 @@
 .skip-link {
   position: fixed;
   z-index: 100;
-  top: 0.5rem;
-  left: var(--frame-gutter);
+  top: calc(0.5rem + var(--safe-top));
+  left: max(var(--frame-gutter), var(--safe-left));
   transform: translateY(-200%);
   padding: 0.625rem 1rem;
   border-radius: calc(var(--ui-radius) * 2);
@@ -430,7 +441,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
+  /* the status bar's room is the header's own (its colour reaches the top edge), the bar proper is `--header-bar` */
   height: var(--header-height);
+  padding-top: var(--safe-top);
   border-bottom: 1px solid var(--ui-border);
   background: color-mix(in oklab, var(--ui-bg) 92%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -480,7 +493,7 @@
   content: "";
   position: absolute;
   inset-inline: var(--nav-tab-pad);
-  bottom: calc((var(--header-height) - 2.5rem) / -2 - 1px);
+  bottom: calc((var(--header-bar) - 2.5rem) / -2 - 1px);
   height: 3px;
   border-radius: 3px 3px 0 0;
   background: var(--app-current);
@@ -507,7 +520,7 @@
 /* The tab bar of the narrow layout, fixed to the foot of the window; the page keeps its height free */
 @media (width < 64rem) {
   :root {
-    --tabbar-height: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    --tabbar-height: calc(4.25rem + var(--safe-bottom));
   }
 }
 .app-tabbar {
@@ -516,7 +529,8 @@
   bottom: 0;
   z-index: 40;
   height: var(--tabbar-height);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* the home indicator's room under the tabs, and the notch's at the sides; the bar's own fill reaches the edge */
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   border-top: 1px solid var(--ui-border);
   background: color-mix(in oklab, var(--ui-bg) 94%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -572,7 +586,7 @@
    scrolls away with the page, and the tab bar stands under it, in the order the keyboard already reaches them. */
 @media (max-height: 30rem) {
   :root {
-    --header-height: 3.5rem;
+    --header-bar: 3.5rem;
     --tabbar-height: 0rem;
   }
   .app-header {
@@ -581,6 +595,8 @@
   .app-tabbar {
     position: static;
     height: auto;
+    /* it stands under the header here, not on the window's foot: nothing of the home indicator's room */
+    padding-bottom: 0;
     border-top: 0;
     border-bottom: 1px solid var(--ui-border);
   }
@@ -595,8 +611,17 @@
   min-height: calc(100dvh - var(--header-height));
   padding-bottom: var(--tabbar-height);
 }
+/* clear of the tab bar, and of the home indicator where there is no bar (wide layout, or the low window) */
 .app-footer {
-  padding-bottom: var(--tabbar-height);
+  padding-bottom: max(var(--tabbar-height), var(--safe-bottom));
+}
+
+/* The menu sheet of the narrow layout (below `sm`, 40 rem) stands on the window's foot: its last link is clear of the
+   home indicator. From `sm` it is a dialog in the middle of the window. */
+@media (width < 40rem) {
+  .menu-sheet {
+    padding-bottom: var(--safe-bottom);
+  }
 }
 
 /* The links of the narrow layout's menu sheet */
@@ -1162,10 +1187,11 @@ body {
 }
 
 /* Where the tab bar is (narrow layout), the toasts stand above it, not over it: a fixed tab cannot scroll clear of
-   a toast, and a focused one under it is not seen (WCAG 2.4.11). Unlayered, so it wins over the toaster's own
-   `bottom-4`; `--tabbar-height` is 0 where the bar scrolls with the page. */
-@media (width < 64rem) {
-  .app-toast-viewport {
-    bottom: calc(var(--tabbar-height) + 1rem);
-  }
+   a toast, and a focused one under it is not seen (WCAG 2.4.11). Where there is none, they stand clear of the home
+   indicator, and a notch at the side, now that the page reaches the window's edges (`viewport-fit=cover`):
+   `--tabbar-height` holds the inset where the bar stands (and is 0 where it scrolls with the page), so the larger
+   of the two is the room under them. Unlayered, so it wins over the toaster's own `bottom-4` and `right-4`. */
+.app-toast-viewport {
+  bottom: calc(max(var(--tabbar-height), var(--safe-bottom)) + 1rem);
+  right: calc(1rem + var(--safe-right));
 }

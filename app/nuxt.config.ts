@@ -17,6 +17,10 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // `viewport-fit=cover`: the page is laid out to the window's edges and `env(safe-area-inset-*)` reports what a notch, the
+      // status bar or the home indicator takes (main.css, `--safe-*`). Without it iOS Safari lays the page out inside them and
+      // draws it under its translucent bottom bar, which showed as a strip of the page under the tab bar (GH-3761).
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
       // no `title`: the page's own (`app/app.vue`, the sentence that says what the site is, in the visitor's language) and
       // the server's (`server/plugins/seo-head.ts`) are the document's, and a default here would be the title of a page
       // that names none, with the app's name after it
