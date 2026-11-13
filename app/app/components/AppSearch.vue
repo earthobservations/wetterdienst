@@ -12,7 +12,13 @@ const props = defineProps<{
 const { t } = useI18n()
 const open = ref(false)
 // the page behind the open dialog is held on iOS, and a finger in it moves nothing behind it (GH-3761)
-useModalDialogHold(open)
+const hold = useModalDialogHold(open)
+// a step of the history (the back swipe) or a link takes the reader to another page: the dialog is closed with it, as the
+// menu sheet is (AppTabBar.vue), and does not stay over the page that is arrived at
+const route = useRoute()
+watch(() => route.path, () => {
+  open.value = false
+})
 
 // Ctrl+K and ⌘K on every system (Nuxt UI's `meta_k` is ⌘K alone on a Mac, where a reader may well use Ctrl), and
 // from a field as well: the search is where one goes from anywhere
@@ -58,6 +64,7 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     :description="t('shell.searchPlaceholder')"
     :close="false"
     :ui="{ content: 'app-vv-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+    @after:leave="hold.afterLeave"
   >
     <template #body>
       <AppCommandPalette @done="open = false" />

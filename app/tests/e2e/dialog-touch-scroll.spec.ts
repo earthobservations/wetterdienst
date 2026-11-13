@@ -356,7 +356,7 @@ test.describe('the page behind a modal dialog, held on iOS (GH-3761)', () => {
     position: document.body.style.position,
     top: document.body.style.top,
     overscroll: [document.documentElement, document.body].map(element => element.style.getPropertyValue('overscroll-behavior')),
-    locked: document.documentElement.hasAttribute('data-page-locked'),
+    locked: document.documentElement.hasAttribute('data-dialog-viewport'),
   }))
 
   test('fixes the body at the scroll offset while the search is open, and gives the offset back, exactly, on close', async ({ page, baseURL }) => {
@@ -370,7 +370,8 @@ test.describe('the page behind a modal dialog, held on iOS (GH-3761)', () => {
     const dialog = page.getByRole('dialog', { name: en.shell.search })
     await expect(dialog).toBeVisible()
     expect(await bodyStyle(page)).toEqual({ position: 'fixed', top: `-${PAGE_OFFSET}px`, overscroll: ['none', 'none'], locked: true })
-    expect(await page.evaluate(() => window.scrollY), 'nothing is left to scroll').toBe(0)
+    expect(await page.evaluate(() => document.documentElement.scrollTop), 'nothing is left to scroll').toBe(0)
+    expect(await page.evaluate(() => window.scrollY), 'and the page is at its offset for whoever asks').toBe(PAGE_OFFSET)
     expect(await page.locator('.app-header').evaluate(element => element.getBoundingClientRect().top), 'the sticky header does not jump').toBe(headerTop)
     expect(await page.locator('.app-main').evaluate(element => element.getBoundingClientRect().top), 'the page does not jump').toBe(mainTop)
 
@@ -402,6 +403,73 @@ test.describe('the page behind a modal dialog, held on iOS (GH-3761)', () => {
     await expect(sheet).toBeHidden()
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(PAGE_OFFSET)
     expect((await bodyStyle(page)).position).toBe('')
+  })
+
+  test('a step of the history with the search open: the page that is left keeps its place, the one that is arrived at is not moved to it', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    // by the router's links, so that it keeps the positions: the home page, About, the home page again
+    await page.locator('a[href="/about"]').first().evaluate(link => (link as HTMLElement).click())
+    await expect(page).toHaveURL(/\/about$/)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    const offsetOfAbout = 300
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight), 'About has room to scroll').toBeGreaterThan(offsetOfAbout + 100)
+    await page.evaluate(offset => window.scrollTo(0, offset), offsetOfAbout)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(offsetOfAbout)
+
+    await page.locator('.brand').click()
+    await expect(page.getByTestId('ask')).toBeVisible()
+    const offsetOfHome = 2000
+    await page.evaluate(offset => window.scrollTo(0, offset), offsetOfHome)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(offsetOfHome)
+
+    await openSearch(page)
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog).toBeVisible()
+    expect((await bodyStyle(page)).position).toBe('fixed')
+    // what the router reads of the page it leaves while the body is fixed
+    expect(await page.evaluate(() => window.scrollY), 'the page is still at its offset as far as the router can tell').toBe(offsetOfHome)
+
+    // the back swipe: the dialog goes with the route and the page that is arrived at is not put where the other one was
+    await page.goBack()
+    await expect(page).toHaveURL(/\/about$/)
+    await expect(dialog).toBeHidden()
+    await expect.poll(() => bodyStyle(page)).toEqual({ position: '', top: '', overscroll: ['', ''], locked: false })
+    expect(await page.evaluate(() => window.scrollY), 'About is not moved to the offset of the home page').toBeLessThanOrEqual(offsetOfAbout)
+
+    // and forward again: the home page is where it was left, 2000 (the router saved it as that, not as 0)
+    await page.goForward()
+    await expect(page.getByTestId('ask')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(offsetOfHome)
+  })
+
+  test('lets go of the page at once on close, and of the dialog\'s layout by the visual viewport when it has left', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await scrollPage(page)
+    await openSearch(page)
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('combobox')).toBeFocused()
+    expect((await bodyStyle(page)).locked).toBe(true)
+
+    await page.keyboard.press('Escape')
+    // on its way out (reka-ui keeps it for the length of the animation): the page is in the flow, at its offset, the field
+    // has let go of the focus (the keyboard drops), and the dialog is still laid out by the visual viewport
+    const leaving = await page.evaluate(() => ({
+      dialog: !!document.querySelector('[role="dialog"]'),
+      position: document.body.style.position,
+      scrollY: window.scrollY,
+      layout: document.documentElement.hasAttribute('data-dialog-viewport'),
+      fieldFocused: document.activeElement?.getAttribute('role') === 'combobox',
+    }))
+    expect(leaving.dialog, 'the dialog is still there').toBe(true)
+    expect(leaving.position).toBe('')
+    expect(leaving.scrollY).toBe(PAGE_OFFSET)
+    expect(leaving.layout, 'and still laid out by the visual viewport').toBe(true)
+    expect(leaving.fieldFocused, 'the field has let go of the focus').toBe(false)
+
+    await expect(dialog).toBeHidden()
+    await expect.poll(() => bodyStyle(page)).toEqual({ position: '', top: '', overscroll: ['', ''], locked: false })
+    expect(await page.evaluate(() => window.scrollY)).toBe(PAGE_OFFSET)
   })
 
   test('does not hold the settings popover, which is no modal', async ({ page, baseURL }) => {

@@ -1198,16 +1198,16 @@ body {
 
 /* The search and the place dialog on iOS while the page behind them is held (utils/page-lock.ts, GH-3761): laid out by
    the visual viewport, the part of the page that is on the screen, which the keyboard makes smaller and the browser
-   pans. The height and the top of it are written to `--app-vv-height` and `--app-vv-top` by the lock; the dialog is
+   pans. The height and the top of it are written to `--app-vv-height` and `--app-vv-top` by `holdViewportLayout`; the dialog is
    as high as that allows and stands in it, so the field is on the screen without the browser having to pan to it and
    the list's last entry is above the keyboard. Below `sm` it is in the middle (Nuxt UI's `top-1/2`), from `sm` where
    its `sm:top-[12vh]` puts it. Unlayered, so that it wins over the utilities of the dialog's own classes. */
-html[data-page-locked] .app-vv-dialog {
+html[data-dialog-viewport] .app-vv-dialog {
   top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) / 2);
   max-height: min(36rem, calc(var(--app-vv-height, 100dvh) - 2rem));
 }
 @media (width >= 40rem) {
-  html[data-page-locked] .app-vv-dialog {
+  html[data-dialog-viewport] .app-vv-dialog {
     top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) * 0.12);
     max-height: min(36rem, calc(var(--app-vv-height, 100dvh) * 0.84));
   }

@@ -22,7 +22,7 @@ const { t } = useI18n()
 const route = useRoute()
 const open = ref(false)
 // the page behind the open sheet is held on iOS, and a finger in it moves nothing behind it (GH-3761)
-useModalDialogHold(open)
+useModalDialogHold(open, { layout: false })
 
 // A sheet gives the focus back to its tab when it closes. On the way to the chooser of the bar (`/settings#bar`) the
 // settings page takes the focus to the chooser's heading, which the tab would then take back, so the sheet is told to
