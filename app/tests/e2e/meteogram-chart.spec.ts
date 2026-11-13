@@ -49,6 +49,10 @@ for (const [name, path] of [['the forecast page', PAGE], ['the widget', WIDGET]]
     expect(await svg(page).locator('image').count()).toBeGreaterThan(5)
     expect(await svg(page).locator('path').count()).toBeGreaterThan(100)
     expect(await svg(page).locator('text').allTextContents()).toEqual(expect.arrayContaining([expect.stringMatching(/^[A-Z][a-z]{2} \d{2}\/\d{2}$/)]))
+    // drawn at a size it says, which a print scales the picture by
+    const [width, height] = (await svg(page).getAttribute('viewBox'))!.split(' ').slice(2).map(Number)
+    expect(width).toBe(Number(await svg(page).getAttribute('width')))
+    expect(height).toBe(Number(await svg(page).getAttribute('height')))
     // every request the page made was one the mock answers, so a missing barb is not a missing answer
     expect(backend.unanswered).toEqual([])
   })

@@ -401,6 +401,12 @@
     height: auto !important;
     position: static !important;
   }
+  /* the box ECharts makes round its SVG has the chart's size in px, as the SVG has */
+  .mg-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
   .mg-canvas svg {
     width: 100% !important;
     height: auto !important;

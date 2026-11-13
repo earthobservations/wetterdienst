@@ -592,6 +592,8 @@ async function draw() {
     locale: locale.value,
     hourLabel: hourLabel.value,
   }), { notMerge: true })
+  // the size it is drawn at, as a viewBox: on paper (main.css) the SVG is as wide as the sheet and its content is scaled with it
+  el.querySelector('svg')?.setAttribute('viewBox', `0 0 ${outerPx.value} ${lay.height}`)
   drawnFrom = drawInputs()
   el.dataset.chartScheme = theme.value.dark ? 'dark' : 'light'
   el.dataset.drawn = 'true'

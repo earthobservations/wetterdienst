@@ -89,9 +89,14 @@ async function chartTexts(page: Page): Promise<string[]> {
   return texts
 }
 
-/** Every piece of text the forecast's chart draws */
+/**
+ * The texts of the forecast's chart that the PDF reader of this spec finds once the picture is scaled to the sheet: the day
+ * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers and their rotated titles are
+ * 12 px as well, and are not found in a scaled print by `pdf-text.ts`, which reads one run for each piece of text.)
+ */
 async function forecastTexts(page: Page): Promise<string[]> {
-  return page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
+  const texts = await page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
+  return texts.filter(text => /^(?:[A-Z][a-z]{2}(?: \d{2}\/\d{2})?|\d{2}:\d{2})$/.test(text))
 }
 
 /** Prints the page on every sheet and holds the smallest of `texts` to `floor` points (and finds every one of them) */

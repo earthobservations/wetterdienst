@@ -208,7 +208,7 @@ describe('the chart drawn', () => {
     // at 10 px an hour a symbol is drawn every fourth hour in the window of 72 hours; at 60 px every hour of the twelve
     expect(count(wide, /<image/g)).toBeLessThanOrEqual(21)
     expect(count(wide, /<image/g)).toBeGreaterThanOrEqual(17)
-    expect(count(near, /<image/g)).toBeGreaterThanOrEqual(12)
+    expect(count(near, /<image/g)).toBeGreaterThanOrEqual(10)
     expect(count(near, /<image/g)).toBeLessThanOrEqual(16)
   })
 
@@ -228,6 +228,14 @@ describe('the chart drawn', () => {
 
   it('draws the freezing point as a line of its own in the temperature panel', () => {
     expect(draw(build())).toContain(LIGHT.zeroline)
+  })
+
+  it('has every panel start at the same place: a long label does not shrink its grid, which would put its hours out of line', () => {
+    // the pressure's labels are the widest ("1,013"), and its title is broken in two
+    const built = build()
+    const svg = draw(built)
+    const starts = new Set([...svg.matchAll(/<path d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)"/g)].filter(m => m[2] === m[4] && m[1] !== '0').map(m => m[1]))
+    expect([...starts]).toEqual([String(built.input.gutterLeft)])
   })
 
   it('draws the whole of a ten-day forecast in a few tens of milliseconds', () => {

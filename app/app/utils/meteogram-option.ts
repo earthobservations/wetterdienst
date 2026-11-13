@@ -102,14 +102,15 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   const now = nowInput !== null && nowInput > bounds.start && nowInput < bounds.end ? nowInput : null
   const numberTag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
 
-  const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false }]
+  const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false, outerBoundsMode: 'none' }]
   const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false }]
   const yAxes: any[] = [{ type: 'value', gridIndex: 0, min: 0, max: 1, show: false }]
   rows.forEach((row, i) => {
     const axis = model.axes[row.id]!
     const labelColour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
     const format = new Intl.NumberFormat(numberTag, { maximumFractionDigits: axis.decimals })
-    grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false })
+    // outerBoundsMode: the plot is where the gutters say, whatever the labels' width: a grid that shrinks for a long label puts its hours out of line with the others'
+    grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false, outerBoundsMode: 'none' })
     xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false })
     yAxes.push({
       type: 'value',
@@ -330,7 +331,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         if (api.value(2) % every(spacing, api.value(1), SYMBOL_SPACING) !== 0)
           return null
         const x = api.coord([api.value(0), 0])[0]
-        if (outsidePlot(x, params.coordSys.x, params.coordSys.x + params.coordSys.width, SYMBOL_SIZE))
+        if (outsidePlot(x, params.coordSys.x, params.coordSys.x + params.coordSys.width, -SYMBOL_SIZE / 2))
           return null
         const point = model.symbols[api.value(3)]!
         return { type: 'image', silent: true, style: { image: symbolFile(point), x: x - SYMBOL_SIZE / 2, y: top + 2, width: SYMBOL_SIZE, height: SYMBOL_SIZE } }
