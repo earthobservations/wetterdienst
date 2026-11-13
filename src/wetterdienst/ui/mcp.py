@@ -566,15 +566,18 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], 
 def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
     """Count the characters of the structured content a client gets for an answer whose `body` is text of `media_type`.
 
-    For data that is not JSON (csv, ndjson) it is the sentence of the answer and the body (`_sentence_of`, which
-    `_return_bodies_as_content` builds from the same `headers` the REST app sent): what `ui.budget` holds to its budget
-    (GH-4022). Any other media type is not repeated in the structured content, and counts as its body.
+    For data that is not JSON (csv, ndjson) the structured content is `{"result": <text>}`, where the text is the
+    sentence of the answer (`_sentence_of`, which `_return_bodies_as_content` builds from the same `headers` the REST
+    app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
+    an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
+    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029). Any other media type is not
+    repeated in the structured content, and counts as its body.
     """
     if media_type not in _REPEATED_MEDIA_TYPES:
         return len(body)
     size = len(body.encode("utf-8"))
     sentence = _sentence_of(media_type, size, "text content", _report_of(headers), repeated=True)
-    return len(f"{sentence}\n\n{body}")
+    return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
 
 
 def _envelope_of(result: ToolResult) -> dict[str, Any] | None:

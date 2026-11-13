@@ -113,6 +113,21 @@ def _is_value_column(column: str) -> bool:
     )
 
 
+def _rows_before_footer(lines: list[str]) -> list[str]:
+    """Give the rows of a history section: up to the `generiert:` footer if there is one, without empty lines.
+
+    DWD ends its metadata files with `generiert: <date> -- Deutscher Wetterdienst --`, so a slice that drops the last
+    line works until a file has no footer, when it drops the last row (GH-4034).
+    """
+    rows = []
+    for line in lines:
+        if line.startswith("generiert:"):
+            break
+        if line.strip():
+            rows.append(line)
+    return rows
+
+
 def _in_spans(
     df: pl.DataFrame, spans_by_station: Iterable[tuple[str, tuple[tuple[dt.datetime, dt.datetime], ...]]]
 ) -> list[pl.Expr]:
@@ -642,14 +657,10 @@ class DwdObservationHistory(TimeseriesHistory):
         # determine which part is station name and which is operator name
         if "Stationsname" in lines[0]:
             station_name_lines = lines[1:split_index]
-            operator_name_lines = lines[split_index + 2 : -1]
-            if operator_name_lines[-1].startswith("generiert:"):
-                operator_name_lines = operator_name_lines[:-1]
+            operator_name_lines = _rows_before_footer(lines[split_index + 2 :])
         else:
             operator_name_lines = lines[1:split_index]
-            station_name_lines = lines[split_index + 2 : -1]
-            if station_name_lines[-1].startswith("generiert:"):
-                station_name_lines = station_name_lines[:-1]
+            station_name_lines = _rows_before_footer(lines[split_index + 2 :])
 
         station_name_data = []
         for line in station_name_lines:
@@ -821,7 +832,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     split_line = i
                     break
         summary_lines = lines[1:split_line]
-        period_lines = lines[split_line + 1 : -1]
+        period_lines = _rows_before_footer(lines[split_line + 1 :])
         summary_records = []
         for line in summary_lines:
             parts = line.split(";")
