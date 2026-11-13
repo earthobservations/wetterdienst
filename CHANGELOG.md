@@ -27,6 +27,8 @@ Types of changes:
   body: `File.refusal` keeps it (64 KiB at most); `read_refusal` is gone. Catch
   `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
 
+## [0.187.1] - 2026-11-13
+
 ### Fixed
 
 - An exhausted KNMI quota is reported as such, not as a rejected key. KNMI's EDR API answers a key
@@ -8062,7 +8064,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...HEAD
+[0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
 [0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
 [0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0
 [0.185.0]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...v0.185.0
