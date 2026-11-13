@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from wetterdienst import exceptions
+from wetterdienst.provider.knmi.observation import edr
 from wetterdienst.ui import restapi
 
 if TYPE_CHECKING:
@@ -299,21 +300,38 @@ def test_a_provider_quota_that_is_used_up_is_a_503_that_says_so_and_names_no_url
     The sentence is the provider's quota and a retry later, the `Retry-After` is the wait the provider sent or the
     quota's default, the URL stays in the log and the kind is none of the credential's (a 501).
     """
-    error = exceptions.ProviderRateLimitError(
-        "https://api.dataplatform.knmi.nl/edr/v1/collections/x",
-        "KNMI's EDR API answered 403: the quota of 1,000 requests an hour of the key of this installation is used up",
-        retry_after,
+    error = edr.quota_exceeded(
+        "https://api.dataplatform.knmi.nl/edr/v1/collections/x", status=403, retry_after=retry_after
     )
     monkeypatch.setattr("wetterdienst.ui.restapi.get_values", _raising(error))
 
     response = client.get("/api/v1/values", params=_VALUES)
     body = _is_a_problem(response, 503, "upstream-quota-exhausted")
 
-    assert "quota of 1,000 requests an hour" in body["detail"]
-    assert "try again later" in body["detail"]
+    assert body["detail"].startswith("KNMI's EDR API answered 403: the quota of 1,000 requests an hour")
+    assert ".." not in body["detail"]
+    assert body["detail"].lower().count("try again") == 1
+    assert body["detail"].endswith(". The request was valid.")
     assert "dataplatform.knmi.nl" not in response.text
     assert "credential" not in response.text.lower()
     assert response.headers["Retry-After"] == header
+
+
+def test_a_429_of_a_provider_is_a_503_that_asks_for_a_short_wait_and_promises_no_reset(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """KNMI also limits the rate per second, so a 429 is not "the hour's quota": 60 seconds, no reset time (GH-4046)."""
+    error = edr.rate_limited("https://api.dataplatform.knmi.nl/edr/v1/collections/x")
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", _raising(error))
+
+    response = client.get("/api/v1/values", params=_VALUES)
+    body = _is_a_problem(response, 503, "upstream-quota-exhausted")
+
+    assert response.headers["Retry-After"] == "60"
+    assert "hour has passed" not in body["detail"]
+    assert "resets" not in body["detail"]
+    assert ".." not in body["detail"]
+    assert body["detail"].lower().count("try again") == 1
 
 
 def _text_of(body: dict[str, Any]) -> str:

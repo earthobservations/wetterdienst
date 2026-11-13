@@ -607,8 +607,11 @@ def test_a_quota_that_is_used_up_is_an_error_that_says_so(edr_server: EdrStub, r
 
     assert "quota" in str(raised.value)
     assert KEY not in str(raised.value)
-    # the same error as the 403 of a used-up quota, which is no rejected key (GH-4046)
+    # the same error as the 403 of a used-up quota, which is no rejected key (GH-4046), but a 429 may be the rate per
+    # second and not the hour's quota: no promise that the hour must pass, and a short wait
     assert isinstance(raised.value, ProviderRateLimitError)
+    assert "hour has passed" not in str(raised.value)
+    assert raised.value.retry_after == edr.RATE_LIMIT_RETRY_AFTER_SECONDS
 
 
 def test_an_answer_that_is_no_coverage_json_is_an_error_and_is_not_kept(edr_server: EdrStub, reader: Reader) -> None:

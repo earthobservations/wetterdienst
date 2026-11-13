@@ -195,6 +195,25 @@ def quota_exceeded(url: str, *, status: int, retry_after: int | None = None) -> 
     )
 
 
+#: The seconds a 429 is asked to wait where KNMI names none: it limits the rate per second as well as the quota of the
+#: hour, so a 429 is not known to need the hour
+RATE_LIMIT_RETRY_AFTER_SECONDS = 60
+
+
+def rate_limited(url: str) -> ProviderRateLimitError:
+    """Say that KNMI limits how fast the key may ask (a 429), without saying that the hour's quota is what ran out.
+
+    The API limits the rate per second (200) as well as the requests of the hour, and a 429 does not say which, so no
+    reset time is promised: the answer to wait for is short (`RATE_LIMIT_RETRY_AFTER_SECONDS`).
+    """
+    return ProviderRateLimitError(
+        _without_url_secrets(url),
+        "KNMI's EDR API answered 429: it limits how fast the key of this installation may ask (a rate per second, "
+        f"and a quota of {MAX_REQUESTS:,} requests an hour), which is no fault of the key. Try again later.",
+        RATE_LIMIT_RETRY_AFTER_SECONDS,
+    )
+
+
 def _minutes(seconds: int) -> str:
     return f"{seconds} seconds" if seconds < 2 * 60 else f"{_ceil_div(seconds / 60)} minutes"
 
@@ -255,7 +274,7 @@ def raise_if_unanswered(file: File, settings: Settings) -> None:
     if file.status in CREDENTIAL_REJECTED_STATUSES:
         raise key_rejected(file.status)
     if file.status == HTTPStatus.TOO_MANY_REQUESTS:
-        raise quota_exceeded(file.url, status=file.status)
+        raise rate_limited(file.url)
     file.raise_if_exception()
 
 

@@ -162,7 +162,8 @@ jobs:
       # the provider keys are given to this step alone: `uv sync` builds packages of the lock, and
       # apt, brew and `install.sh` run code that is not ours; none of them may see the keys.
       # KNMI's EDR key is given to one leg of the matrix only (Ubuntu, the newest Python): the quota of a key is
-      # 1,000 requests an hour and the remote tests of `knmi/observation` take about 50 of them each time, so
+      # 1,000 requests an hour and the remote tests of `knmi/observation` take about 50 of them each time (and
+      # about 8 more each for `test_api_knmi_observation` and the KNMI case of `test_station_catalogues_live.py`), so
       # every job that had the key ran the quota out (GH-4046). The tests skip where the key is not set.
       - name: Run tests
         env:

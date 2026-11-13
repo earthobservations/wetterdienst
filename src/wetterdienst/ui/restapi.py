@@ -2313,12 +2313,13 @@ def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
 
     Not a rejected credential (a 501): the key is accepted and used up for now, and the same request can succeed once
     the quota resets, which `Retry-After` says (the provider's own wait where it sent one, else
-    `QUOTA_RETRY_AFTER_SECONDS`). The `reason` names the provider and holds no URL and no key, so the body carries it.
+    `QUOTA_RETRY_AFTER_SECONDS`). The `reason` names the provider, holds no URL and no key and says to try again later,
+    so the body carries it.
     """
     log.warning(f"Failed to {what}: {e}")
     return ProblemError(
         503,
-        f"{e.reason}. The request was valid; try again later.",
+        f"{e.reason.rstrip('.')}. The request was valid.",
         ProblemKind.UPSTREAM_QUOTA_EXHAUSTED,
         headers={"Retry-After": str(e.retry_after or QUOTA_RETRY_AFTER_SECONDS)},
     )

@@ -164,8 +164,8 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ),
     ProblemKind.UPSTREAM_QUOTA_EXHAUSTED: ProblemSpec(
         503,
-        "The data provider refused the request because the quota of the key this server uses is used up for now. The "
-        "key is accepted and the request was valid; retry it after `Retry-After`.",
+        "The data provider refused the request because the quota or the rate limit of the key this server uses is used "
+        "up for now. The key is accepted and the request was valid; retry it after `Retry-After`.",
     ),
     ProblemKind.UPSTREAM_TIMEOUT: ProblemSpec(
         504, "The data provider did not answer in time. The request was valid; retry it."
