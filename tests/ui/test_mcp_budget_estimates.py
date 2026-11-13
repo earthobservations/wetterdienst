@@ -312,6 +312,21 @@ def test_the_block_over_the_budget_is_left_out_of_a_few_stations(monkeypatch: py
     assert "stations are returned" not in note
 
 
+def test_a_rank_whose_rows_fit_loses_the_block_and_no_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rank is cut where its rows do not fit (GH-4036); where they do, only the block that overflows goes."""
+    monkeypatch.setattr("wetterdienst.ui.response_metadata.quality_legend", lambda *_: _a_legend_of(25_000))
+    listing = _stub_a_rank(monkeypatch, 100)
+
+    answer, size = _the_client_gets(_client_sees("stations", {**_A_RANK, "with_metadata": True}))
+
+    assert size <= ANSWER_BUDGET
+    assert len(answer["stations"]) == listing.df.height == 100
+    assert "quality" not in answer["metadata"]
+    note = _note_of(answer)
+    assert note.startswith("The `with_metadata` block (")
+    assert "stations are returned" not in note
+
+
 def test_a_few_stations_with_a_block_that_fits_are_left_as_they_are(monkeypatch: pytest.MonkeyPatch) -> None:
     """The usual `with_metadata` of a rank is well within the budget: it stays, with no note."""
     _stub_a_rank(monkeypatch, 5)

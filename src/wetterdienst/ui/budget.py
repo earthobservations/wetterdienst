@@ -16,7 +16,7 @@ The answers of `interpolate` and `summarize` are series of timestamps as those o
 way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). The stripes' stations
 are a list of stations as those of `stations` are, with no way to select (`fit_stations`; the note tells how to
 name a place instead). A `with_metadata` block that is more than the budget on its own is left out of an answer that
-is cut or that would be without it, and of one of a rank or a name.
+is cut or that would be without it, and of one of a name.
 
 Only a tool's request is cut (`ui.mcp.is_tool_request`). The REST API, the command line and the library answer all of
 it: the app lists every station of a network, and a script reads a whole series.
@@ -71,9 +71,10 @@ _MEDIA_TYPES = {"csv": "text/csv", "ndjson": "application/x-ndjson"}
 #: the characters FastMCP adds around the JSON answer of a tool: `{"result":` and `}`
 _RESULT_WRAPPER = len('{"result":}')
 
-#: the selections that are small: a rank or a name asks for a few stations, so they are never cut. A distance is not
-#: among them: a wide one lists hundreds of stations (983 within 500 km of Berlin), and is cut to the nearest (GH-4029)
-_SMALL_SELECTIONS = frozenset({StationsFilter.BY_RANK, StationsFilter.BY_NAME})
+#: the selections that are small: a name asks for a few stations, so it is never cut. A distance and a rank are not
+#: among them: a wide distance lists hundreds of stations (983 within 500 km of Berlin), and a large rank asks for as
+#: many (700), so both are cut to the nearest that fit (GH-4029, GH-4036)
+_SMALL_SELECTIONS = frozenset({StationsFilter.BY_NAME})
 
 
 @dataclass(frozen=True)
@@ -419,6 +420,7 @@ def _stations_note(
     lead: str,
     honest: bool,
     distance: float | None = None,
+    rank: int | None = None,
     farthest: float | None = None,
 ) -> str:
     """Write the note of a stations answer cut to its first `count` of `total` stations.
@@ -426,16 +428,22 @@ def _stations_note(
     The list of the climate stripes' stations has no selection to narrow with: a place goes to the stripes' tools as
     a `name`, which they match themselves, and `stations` finds a station near a point. The stations of a `distance`
     are in the order of their distance, so the ones kept are the nearest: `distance` is the one asked for, `farthest`
-    the distance in km of the last station returned, which says what a smaller `distance` would still keep.
+    the distance in km of the last station returned, which says what a smaller `distance` would still keep. So are
+    the stations of a `rank` (GH-4036), whose note gives the number asked for instead of a distance.
     """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
-    if distance is not None:
+    if distance is not None or rank is not None:
         returned = (
             "the nearest station is returned, nearest first"
             if count == 1
             else f"the nearest {count:,} of {total:,} stations are returned, nearest first"
         )
         reach = f" (the farthest returned is {farthest:,.1f} km away)" if farthest is not None else ""
+        if rank is not None:
+            return (
+                f"{head}{returned}{reach}. {rank:,} stations were asked for with `rank`; ask again with a smaller "
+                "`rank`."
+            )
         return (
             f"{head}{returned}{reach}. {total:,} stations lie within {distance:,.10g} km of the point; ask again "
             "with a smaller `distance`, or with `rank` for the nearest few."
@@ -469,17 +477,20 @@ def _fit_stations(
     df = result.df
     ids = df.get_column("station_id").unique(maintain_order=True)
     count_all = len(ids)
-    # the nearest stations are the first of a search by distance, whose rows are in the order of their distance
+    # the nearest stations are the first of a search by distance or by rank, whose rows are in the order of their
+    # distance
     distance = (
         getattr(request, "distance", None)
         if result._stations_filter is StationsFilter.BY_DISTANCE  # noqa: SLF001
         else None
     )
+    rank = result._rank if result._stations_filter is StationsFilter.BY_RANK else None  # noqa: SLF001
+    nearest = distance is not None or rank is not None
     tried: dict[int, _Attempt] = {}
 
     def fits(count: int) -> bool:
         cut = df.filter(pl.col("station_id").is_in(ids.head(count).implode()))
-        far = cut.get_column("distance").max() if distance is not None and "distance" in cut.columns else None
+        far = cut.get_column("distance").max() if nearest and "distance" in cut.columns else None
         farthest = float(far) if isinstance(far, int | float) else None
         note = _stations_note(
             request=request,
@@ -488,6 +499,7 @@ def _fit_stations(
             lead=lead,
             honest=honest,
             distance=distance,
+            rank=rank,
             farthest=farthest,
         )
         tried[count] = _made(result, request, cut, note, render)
@@ -505,7 +517,7 @@ def _leave_block_out(
 ) -> tuple[str | bytes, ResponseMetadata] | None:
     """Give a few stations' answer again without its `with_metadata` block, where only that makes it fit the budget.
 
-    A rank or a name asks for a few stations, so the rows are never cut; the block (the units and the
+    A name asks for a few stations, so the rows are never cut; the block (the units and the
     quality legend of every dataset asked for) can be tens of thousands of characters on its own. None where there is
     no block to leave out, or where the answer is over the budget without it as well.
     """
@@ -531,11 +543,11 @@ def fit_stations(
 ) -> tuple[str | bytes, ResponseMetadata]:
     """Cut the answer of a `stations` or `stripes_stations` tool call to the budget, keeping the first stations.
 
-    The answer is unchanged where it fits. A rank or a name asks for a few stations, and so does one station: their
-    rows are left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a
-    note). Otherwise (all stations, a bounding box, a distance, `sql`, ids, the stripes' list) the stations that fit
-    are kept, in list order (for a distance the nearest first, which is its order), and the note says how many match
-    and what narrows them. Where even one station is over
+    The answer is unchanged where it fits. A name asks for a few stations, and so does one station: their rows are
+    left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
+    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids, the stripes' list) the stations that fit
+    are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
+    many match (or were asked for) and what narrows them. Where even one station is over
     the budget with the `with_metadata` block and fits without it, the block is left out, and the note says so.
     `render` writes the answer for a cut result, its block and the request; `content` and `metadata` are the whole
     answer.
@@ -547,6 +559,11 @@ def fit_stations(
         return content, metadata
     if result._stations_filter in _SMALL_SELECTIONS or result.df.get_column("station_id").n_unique() < 2:  # noqa: SLF001
         return _leave_block_out(result, request, render) or (content, metadata)
+    if result._stations_filter is StationsFilter.BY_RANK and (  # noqa: SLF001
+        left_out := _leave_block_out(result, request, render)
+    ):
+        # a rank whose rows fit without the `with_metadata` block keeps them all: only the block goes (GH-4036)
+        return left_out
     asked = request
     chosen = _fit_stations(result, asked, render, size, lead="", honest=False)
     if chosen.size > ANSWER_BUDGET and (

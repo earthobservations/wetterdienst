@@ -106,6 +106,14 @@ def _stations_by_distance(count: int, *, with_umlaut: bool = False) -> StationsR
     return replace(listing, df=frame, _df_all=frame, _stations_filter=StationsFilter.BY_DISTANCE, _rank=None)
 
 
+def _stations_by_rank(count: int, rank: int, *, with_umlaut: bool = False) -> StationsResult:
+    """Give `count` stations as a search by rank lists them (GH-4036): all of them, nearest first, with a distance."""
+    from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
+
+    listing = _stations_by_distance(count, with_umlaut=with_umlaut)
+    return replace(listing, _stations_filter=StationsFilter.BY_RANK, _rank=rank)
+
+
 def _stub_stations(monkeypatch: pytest.MonkeyPatch, result: StationsResult) -> None:
     monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: result)
 
@@ -427,25 +435,12 @@ def test_the_stations_of_a_client_are_within_the_budget(monkeypatch: pytest.Monk
         assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET, fmt
 
 
-@pytest.mark.parametrize(
-    "selection",
-    [
-        {"name": "Station", "rank": 700},
-        {"latitude": 51.1, "longitude": 13.8, "rank": 700},
-    ],
-)
-def test_a_rank_or_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch, selection: dict[str, Any]) -> None:
-    """They ask for a few stations: nothing is cut, however many come back, and nothing is noted."""
+def test_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name asks for a few stations: nothing is cut, however many come back, and nothing is noted."""
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
-    kind = StationsFilter.BY_NAME if "name" in selection and "rank" not in selection else StationsFilter.BY_RANK
-    listing = replace(_stations_of(700), _stations_filter=kind, _rank=None)
-    _stub_stations(monkeypatch, listing)
-    params = {k: v for k, v in _STATIONS.items() if k != "all"} | {
-        key: value for key, value in selection.items() if key != "rank" or "name" not in selection
-    }
-    if kind is StationsFilter.BY_NAME:
-        params = {k: v for k, v in params.items() if k != "rank"}
+    _stub_stations(monkeypatch, replace(_stations_of(700), _stations_filter=StationsFilter.BY_NAME, _rank=None))
+    params = {k: v for k, v in _STATIONS.items() if k != "all"} | {"name": "Station"}
 
     response = _tool_client().get("/api/stations", params=params)
 
@@ -453,6 +448,91 @@ def test_a_rank_or_a_name_is_not_cut(monkeypatch: pytest.MonkeyPatch, selection:
     body = response.json()
     assert len(body["stations"]) == 700
     assert body["metadata"]["warnings"] == []
+    assert "x-wetterdienst-truncated" not in response.headers
+
+
+_A_RANK = {k: v for k, v in _STATIONS.items() if k != "all"} | {"latitude": 52.52, "longitude": 13.4, "rank": 700}
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv", "ndjson"])
+def test_a_large_rank_is_cut_to_the_nearest_stations(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """A rank that asks for hundreds of stations keeps the nearest that fit; the note says how many it asked for."""
+    # the listing holds more stations than the rank asks for, as the core's does: the rank trims it first
+    _stub_stations(monkeypatch, _stations_by_rank(900, 700, with_umlaut=True))
+
+    response = _tool_client().get("/api/stations", params={**_A_RANK, "format": fmt})
+
+    assert response.status_code == 200
+    note = unquote(response.headers["x-wetterdienst-truncated"])
+    assert re.search(
+        r"the nearest [\d,]+ of 700 stations are returned, nearest first "
+        r"\(the farthest returned is [\d,.]+ km away\)\. "
+        r"700 stations were asked for with `rank`; ask again with a smaller `rank`\.",
+        note,
+    )
+    # it is no list order, no bounding box and no distance
+    assert "list order" not in note
+    assert "latitude, longitude" not in note
+    assert "lie within" not in note
+    if fmt == "json":
+        body = response.json()
+        kept = [station["station_id"] for station in body["stations"]]
+        assert 0 < len(kept) < 700
+        # the nearest first: the order the core hands out, which is the order of the distance
+        assert kept == [f"{i:05d}" for i in range(len(kept))]
+        assert body["metadata"]["counts"]["stations"] == len(kept)
+        assert _note_of(body) == note
+        assert _compact(response.text) <= ANSWER_BUDGET
+        # the farthest returned is the distance of the last station kept
+        farthest = max(station["distance"] for station in body["stations"])
+        assert f"the farthest returned is {farthest:,.1f} km away" in note
+        assert f"the nearest {len(kept):,} of 700 stations" in note
+    elif fmt == "csv":
+        assert 0 < len(response.text.splitlines()) - 1 < 700
+
+
+@pytest.mark.parametrize("fmt", ["json", "csv", "ndjson"])
+def test_what_a_client_receives_of_a_large_rank_is_within_the_budget(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """Through a real MCP session: within the budget, as the client receives it, and not far under it."""
+    _stub_stations(monkeypatch, _stations_by_rank(700, 700, with_umlaut=True))
+
+    result = _client_sees("stations", {**_A_RANK, "format": fmt})
+
+    assert not result.is_error, result.content
+    assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET
+    structured = result.structured_content["result"]
+    if fmt == "json":
+        assert [w["code"] for w in structured["metadata"]["warnings"]] == ["answer-truncated"]
+        assert "700 stations were asked for with `rank`" in structured["metadata"]["warnings"][0]["message"]
+    else:
+        assert "Truncated: The answer was cut to stay within 40,000 characters: the nearest " in structured
+
+
+def test_a_rank_that_fits_is_left_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Twenty stations of a rank of twenty are no cut: nothing is noted."""
+    _stub_stations(monkeypatch, _stations_by_rank(900, 20))
+
+    response = _tool_client().get("/api/stations", params={**_A_RANK, "rank": 20})
+
+    assert [station["station_id"] for station in response.json()["stations"]] == [f"{i:05d}" for i in range(20)]
+    assert response.json()["metadata"]["warnings"] == []
+    assert "x-wetterdienst-truncated" not in response.headers
+
+
+def test_a_large_rank_is_whole_over_rest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same request, not from a tool, lists every station the rank asks for, without a note."""
+    _stub_stations(monkeypatch, _stations_by_rank(900, 700))
+
+    def never(*_args: object, **_kwargs: object) -> None:
+        msg = "the budget is for a tool's request alone"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(restapi, "fit_stations", never)
+
+    response = _rest_client().get("/api/stations", params=_A_RANK)
+
+    assert len(response.json()["stations"]) == 700
+    assert response.json()["metadata"]["warnings"] == []
     assert "x-wetterdienst-truncated" not in response.headers
 
 
@@ -524,6 +604,10 @@ def test_the_note_of_one_station_is_told_in_the_singular() -> None:
     assert "the nearest station is returned, nearest first (the farthest returned is 0.4 km away)." in near
     assert "9 stations lie within 500 km of the point" in near
     assert "1 of" not in near
+    asked = _stations_note(request=request, count=1, total=9, lead="", honest=True, rank=9, farthest=0.4)  # ty: ignore[invalid-argument-type]
+    assert "the nearest station is returned, nearest first (the farthest returned is 0.4 km away)." in asked
+    assert "9 stations were asked for with `rank`" in asked
+    assert "1 of" not in asked
     first = _stations_note(request=request, count=1, total=9, lead="", honest=True)  # ty: ignore[invalid-argument-type]
     assert "the first station is returned, in the provider's list order" in first
     assert "1 of" not in first

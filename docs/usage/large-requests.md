@@ -408,8 +408,9 @@ refusal, over REST as through a tool, names a shorter `timestamp` window or fewe
 A tool's answer that is not refused but long is cut to 40,000 characters of what the assistant receives, `metadata` and
 the sentence of a CSV included (see [The size of an answer](mcp.md#the-size-of-an-answer)). A `values` answer keeps the
 end nearest to now, or the start of a `timestamp` window, and its `answer-truncated` warning names the window to ask for
-next; a `stations` list that is no `rank` or `name` keeps its first stations (the nearest, for a `distance`) and says how
-many match. The REST API and the library are not cut. What does help is to ask for less and to ask in slices:
+next; a `stations` list that is no `name` keeps its first stations (the nearest, for a `rank` or a `distance`) and
+says how many match, or how many the `rank` asked for. The REST API and the library are not cut. What does help is to
+ask for less and to ask in slices:
 
 - Ask for a window: a day, a month or a year, "the daily maximum of 2024". The assistant can follow the refusal, which
   says what to shorten, and ask again for the next window.
