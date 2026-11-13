@@ -892,9 +892,10 @@ def _refetch_before(resource: dict) -> float | None:
 def _download_climate_resources(resources: list[dict], settings: Settings) -> dict[str, File]:
     """Download resources concurrently (grouped by cache ttl), keyed by url.
 
-    A handful of downloads commonly fail transiently when many requests go out at once (e.g.
-    server-side rate limiting) even after download_file's own retries, so failed ones get one
-    more, less concurrent attempt rather than silently dropping their data from the result.
+    A handful of downloads commonly fail transiently when many requests go out at once even after
+    download_file's own retries, so failed ones get one more, less concurrent attempt rather than
+    silently dropping their data from the result. Not a 429: the provider limits how fast it is asked,
+    which the caller raises (`File.is_rate_limited`, GH-4053), and a second attempt would ask it again.
     """
     files_by_url: dict[str, File] = {}
     resources_by_ttl: dict[CacheExpiry, list[dict]] = {}
@@ -920,7 +921,8 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
         files_by_url.update(zip(urls, files, strict=True))
         # retrying is only worthwhile for likely-transient failures; a missing connection or a
         # genuinely nonexistent resource (404) will just fail again immediately, and so will a redirect that was
-        # refused (data.gouv.fr in maintenance, a hop out of the provider's hosts)
+        # refused (data.gouv.fr in maintenance, a hop out of the provider's hosts). A 429 is not asked again either:
+        # it is raised by the caller (GH-4053)
         failed_urls = [
             url
             for url, file in files_by_url.items()
@@ -929,6 +931,7 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
             and not file.is_no_internet_error
             and not isinstance(file.content, RedirectRefusedError)
             and file.status != 404
+            and not file.is_rate_limited
         ]
         if failed_urls:
             log.info(f"Retrying {len(failed_urls)} file(s) that failed to download.")

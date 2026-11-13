@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from aiohttp import ClientError
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
@@ -730,9 +730,10 @@ class HubeauRequest(TimeseriesRequest):
         error: Exception | None = None
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
             # not a referential that is unreadable: a library that is offline, which the station
-            # list this enriches would be too (GH-2640)
+            # list this enriches would be too (GH-2640), and a provider that limits how fast it is
+            # asked, which the next request meets too (GH-4053)
             raise
         except (DownloadError, OSError, ClientError, ValueError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and

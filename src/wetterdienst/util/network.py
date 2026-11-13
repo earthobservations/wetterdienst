@@ -153,6 +153,20 @@ class File:
             return self.refusal.retry_after
         return retry_after_of_failure(self.content) if isinstance(self.content, Exception) else None
 
+    @property
+    def is_rate_limited(self) -> bool:
+        """Tell whether the download failed because the provider answered 429: it limits how fast this client may ask.
+
+        Read from the status, the refusal and the stored error, never from a message. For a provider that lets a failed
+        file go with a warning (`note_skipped_download`): a 429 is not a file to let go, it is a limit that the next
+        file meets too, and `raise_if_exception` raises it as the `ProviderRateLimitError` it is, with the wait the
+        provider sent.
+        """
+        if not isinstance(self.content, Exception):
+            return False
+        refusal_status = self.refusal.status if self.refusal is not None else None
+        return HTTPStatus.TOO_MANY_REQUESTS in (self.status, refusal_status) or _is_rate_limited(self.content)
+
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
 
@@ -411,9 +425,10 @@ def skip_cause_of_failure(error: BaseException) -> SkipCause:
     good (`refused_for_good`: a 400, a 403, a 410, on the error or an `estado` it carries as `status`) and a TLS
     failure that is the same on every attempt (a certificate that does not verify, a protocol or a cipher the two
     cannot agree on) are the same refusal at the next request, until the provider fixes it. Every other failure, a
-    reset, a timeout, a 5xx, a 429, may be gone the next time. So may a handshake the server only fumbled
-    (`_is_transient_tls_failure`: `WRONG_VERSION_NUMBER`, `INVALID_SESSION_ID`): the network layer asks again before
-    a file is let go, and one that outlasted the retries is a failed download, not a refusal.
+    reset, a timeout, a 5xx, may be gone the next time (no provider lets a 429 go, GH-4053: `File.is_rate_limited`). So
+    may a handshake the server only fumbled (`_is_transient_tls_failure`: `WRONG_VERSION_NUMBER`,
+    `INVALID_SESSION_ID`): the network layer asks again before a file is let go, and one that outlasted the retries is
+    a failed download, not a refusal.
     """
     seen: set[int] = set()
     current: BaseException | None = error

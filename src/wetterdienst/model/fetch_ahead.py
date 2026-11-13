@@ -11,8 +11,10 @@ provider's own download finds its files in the cache and the provider's code is 
 Nothing else about a read changes. The bytes come through the same `download_file` (its retries, its ceilings, its
 cache), the provider's own download follows as it always did and raises what it always raised at the station it
 raises it at, and a fetch ahead that fails is not heard of: it is the station's own download that meets the failure
-again. What fetch-ahead holds the reader to is `FetchAhead`'s: a bounded number of stations, a bounded number of
-connections to one host, and nothing started that the consumer has not asked for.
+again. Except for a 429: a provider that limits how fast it is asked is not asked again for the same file at the
+station's turn, where it would answer the same or a fraction later, but the walk ends with the
+`ProviderRateLimitError` (GH-4053). What fetch-ahead holds the reader to is `FetchAhead`'s: a bounded number of
+stations, a bounded number of connections to one host, and nothing started that the consumer has not asked for.
 """
 
 from __future__ import annotations
@@ -26,9 +28,10 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
+from wetterdienst.exceptions import ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import FETCH_AHEAD_MAX
-from wetterdienst.util.network import _without_url_secrets, download_file
+from wetterdienst.util.network import _without_url_secrets, download_file, rate_limited
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -148,11 +151,17 @@ class FetchAhead:
     `HOST_CONNECTIONS` to a host for all the reads of the process), and a station is started only when the walk has
     come within `depth` of it: a consumer that stops has started nothing past that.
 
-    What a fetch ahead does not do: it raises nothing. A hook that fails, a download that fails and a thread that
-    breaks are logged at debug level and cost the station its head start, nothing more; the provider's own download
-    at the station's turn goes through the same steps and fails as it would have. After a failure other than a missing
-    file (a 404 is routine, a timeout or a refused connection is an outage) nothing more is fetched ahead, so that a
-    host that is failing is not asked by `depth` threads on top of the walk.
+    What a fetch ahead does not do: it raises nothing of its own. A hook that fails, a download that fails and a
+    thread that breaks are logged at debug level and cost the station its head start, nothing more; the provider's own
+    download at the station's turn goes through the same steps and fails as it would have. After a failure other than a
+    missing file (a 404 is routine, a timeout or a refused connection is an outage) nothing more is fetched ahead, so
+    that a host that is failing is not asked by `depth` threads on top of the walk.
+
+    The one failure it hands on is a 429 (GH-4053): the provider says how fast it may be asked, and the station's own
+    download would ask it again for the file it just refused. It is kept as the `ProviderRateLimitError` of the file
+    (with the wait the provider sent), nothing more is fetched, and `advance` raises it, at the next station of the walk
+    at the latest: the one whose files were refused, or one before it, never after. A hook that meets one while it
+    lists a directory is the same.
 
     Not thread-safe: the walk drives it from one thread, the one that consumes the generator.
     """
@@ -191,6 +200,8 @@ class FetchAhead:
         self._seen: set[str] = set()
         self._cache: dict[int, tuple[str, list[DatasetModel]] | None] = {}
         self._failed = threading.Event()
+        #: the 429 a fetch or a hook met, which `advance` raises: the first one, whichever thread met it
+        self._rate_limited: ProviderRateLimitError | None = None
 
     def advance(self, position: int, slots: int | None = None) -> None:
         """Start the fetches of the stations after ``position`` and wait for the one of ``position``, if it has one.
@@ -203,12 +214,20 @@ class FetchAhead:
             slots: how many stations the walk still collects at the most, the one in hand included, where it is
                 counted (a ranked read stops after its rank): no more are fetched ahead than there are slots left.
 
+        Raises:
+            ProviderRateLimitError: a file that was fetched ahead, or a directory that was listed for one, was
+                answered with a 429.
+
         """
+        # a limit met by a fetch that has run since the last station ends the walk here, before more is asked
+        self._raise_if_rate_limited()
         for passed in [key for key in self._cache if key < position]:
             del self._cache[passed]
         try:
             if not self._failed.is_set():
                 self._plan_ahead(position, slots)
+        except ProviderRateLimitError as error:
+            self._note_rate_limit(error)
         except Exception as error:  # noqa: BLE001 -- the stations of the walk meet it themselves, each at its turn
             log.debug("Fetch-ahead: planning failed at position %d: %r", position, error)
             self._failed.set()
@@ -219,6 +238,19 @@ class FetchAhead:
             fetch.stop.set()
             if not fetch.future.cancel():
                 wait([fetch.future])
+        # the files of this station may have been the ones refused: its own download is not to ask for them again
+        self._raise_if_rate_limited()
+
+    def _note_rate_limit(self, error: ProviderRateLimitError) -> None:
+        """Keep the first 429 met ahead, and fetch nothing more."""
+        if self._rate_limited is None:
+            self._rate_limited = error
+        log.info("Fetch-ahead stops: the provider answered 429")
+        self._failed.set()
+
+    def _raise_if_rate_limited(self) -> None:
+        if self._rate_limited is not None:
+            raise self._rate_limited
 
     def _plan_ahead(self, position: int, slots: int | None) -> None:
         """Ask the provider for the files of the station at ``position`` and of those within the window after it."""
@@ -298,6 +330,11 @@ class FetchAhead:
                     )
                 finally:
                     slot.release()
+                if file.is_rate_limited:
+                    error = rate_limited(url, file.retry_after)
+                    error.__cause__ = file.content if isinstance(file.content, Exception) else None
+                    self._note_rate_limit(error)
+                    return
                 if isinstance(file.content, Exception) and file.status != HTTPStatus.NOT_FOUND:
                     log.info(f"Fetch-ahead stops: {_without_url_secrets(url)} failed with {file.status}")
                     self._failed.set()

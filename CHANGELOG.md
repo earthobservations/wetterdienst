@@ -26,6 +26,12 @@ Types of changes:
   result. It is still not retried. A refused request is no longer asked a second time to read its
   body: `File.refusal` keeps it (64 KiB at most); `read_refusal` is gone. Catch
   `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
+- **Breaking**: a 429 is no longer let go where a failed file or listing was. A group of `dwd/road`
+  with a 429 among its files, `dwd/dmo`'s read of the stations a product covers and Hubeau's
+  elevations raise `ProviderRateLimitError` where they answered from the rest and warned; the
+  walks that fetch ahead (`dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology`, `smhi`) end
+  with it, and the refused URL is asked once, not again at the station's turn. Wait `retry_after`
+  and ask again (GH-4053)
 
 ## [0.187.1] - 2026-11-13
 

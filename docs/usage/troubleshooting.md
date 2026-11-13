@@ -142,7 +142,9 @@ say which:
   changed its files, that is a [bug to report](#reporting-a-problem).
 - **`ProviderRateLimitError`** (a `DownloadError`; REST 503 `upstream-quota-exhausted` with a `Retry-After`): the
   provider limits how fast the key or client may ask (a 429, from any provider, which is not asked again) or the quota
-  of the key it was given is used up. The key is fine: `auth` says `null` (unknown), not `false`, and
+  of the key it was given is used up. A walk that lets a failed file go with a `file-skipped` warning does not let a
+  429 go: the files after it would meet it too, so the walk ends with this error, and one that fetches ahead ends at
+  the station whose file was refused at the latest, without asking that file again. The key is fine: `auth` says `null` (unknown), not `false`, and
   `CredentialRejectedError` is not raised. The error carries the wait the provider sent (`Retry-After`,
   `RateLimit-Reset`, `X-RateLimit-Reset`) as `retry_after`, else 60 seconds for a 429. KNMI's EDR API allows a key 1,000
   requests an hour and answers the 1,001st with a 403 `Quota exceeded`, the status it gives a key it refuses, so
