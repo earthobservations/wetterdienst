@@ -171,11 +171,14 @@ An answer over the budget is cut, not refused, and says so:
 - **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
   required, so it is always the start of the window that is kept and the next window continues it. They have no
   `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
-- **`stations`** with `rank` or `name` is never cut: they ask for a few stations. Otherwise (`all`, a bounding
+- **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
   box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
   `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
   hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
   how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.
+  So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
+  how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
+  `rank`. A `rank` that fits is unchanged.
 - **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
   note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
   station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
@@ -201,10 +204,12 @@ ending where the caller's window did) and the ways to ask for less: a narrower `
 is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
 `metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
 (the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
-parameters: it is then left out, the always-present `metadata` stays, and the note says how many characters it was and
-that `coverage` and `glossary` give the units. The same holds for a `rank`, a `name` or a single station,
-whose rows are never cut: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is left out of them, and nothing
-else is.
+parameters. It counts toward the budget and is kept: the rows (timestamps, or the stations of a `rank`, a `distance`
+or a listing) are cut to make room for it. Only where not even one timestamp or station fits with it, and one fits
+without it, is it left out, the always-present `metadata` stays, and the note says how many characters it was and that
+`coverage` and `glossary` give the units. A `name` and a single station are not cut, so there the block is left out
+where it is what makes the answer over the budget: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is
+left out of them, and nothing else is.
 
 The instructions and the description of `values` recommend a `timestamp` window, so an assistant that follows them
 asks for a day or a week and is not cut. A forecast of ten days of three parameters in the long JSON is about 100,000
