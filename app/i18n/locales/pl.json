@@ -522,7 +522,7 @@
       "readoutFor": "Prognoza na {time}",
       "readoutClose": "Zamknij wartości",
       "keysHint": "Strzałki przesuwają o godzinę, z Shift o sześć godzin. Page Up i Page Down przesuwają o dobę, Home i End prowadzą do początku i końca. Plus, minus i 0 powiększają, pomniejszają i resetują. Esc zamyka wartości.",
-      "symbolsCredit": "Symbole pogody: {yr} (NRK i Norweski Instytut Meteorologiczny), {licence}.",
+      "symbolsCredit": "Symbole pogody © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Wszystko",
       "viewLabel": "Widok",
       "viewChart": "Wykres",

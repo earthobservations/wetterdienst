@@ -522,7 +522,7 @@
       "readoutFor": "Verwachting voor {time}",
       "readoutClose": "Waarden sluiten",
       "keysHint": "Met de pijltjestoetsen ga je uur voor uur door de verwachting, met Shift per zes uur. Page Up en Page Down springen een dag, Home en End naar het begin en het einde. Plus, min en 0 zoomen in, uit en herstellen. Esc sluit de waarden.",
-      "symbolsCredit": "Weersymbolen van {yr} (NRK en het Noorse meteorologische instituut), {licence}.",
+      "symbolsCredit": "Weersymbolen © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Alles",
       "viewLabel": "Weergave",
       "viewChart": "Grafiek",

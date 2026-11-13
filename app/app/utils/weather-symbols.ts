@@ -1,9 +1,10 @@
 import type { WeatherKind } from './weather-kind'
 
 /**
- * The weather symbols of the forecast chart: the set of Yr (NRK and the Norwegian Meteorological Institute), as
- * `public/yr-symbols/` holds it, in its light and dark mode. The files are those of github.com/nrkno/yr-weather-symbols
- * (symbols/lightmode and symbols/darkmode), unchanged; the credit is in `public/yr-symbols/LICENSE` and on the About page.
+ * The weather symbols of the forecast chart: the set of Yr (Yr/NRK), as `public/yr-symbols/` holds it, in its light and dark
+ * mode. The files are those of the repository nrkno/yr-weather-symbols (symbols/lightmode and symbols/darkmode), unchanged.
+ * Their LICENSE is CC BY 4.0: the credit is under the chart (`meteogram.chart.symbolsCredit`) and, with the licence text, at
+ * the end of `/third-party-licenses.txt`.
  *
  * The set names its symbols by the number of the Yr API (`01d` clear sky by day, `01n` by night, `04` cloudy). A
  * symbol is the picture only: the words for it are `meteogram.chart.weather.<kind>` (GH-3223), and the symbols are

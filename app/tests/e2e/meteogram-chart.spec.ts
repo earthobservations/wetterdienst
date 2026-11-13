@@ -129,6 +129,25 @@ test.describe('the shape of the chart', () => {
     expect(days.filter(text => /^[A-Z][a-z]{2}/.test(text)).length).toBeGreaterThan(0)
   })
 
+  test('scrolls to the very end of a short forecast that is drawn at its widest spacing, and stays there', async ({ page, baseURL }) => {
+    // 24 hours at 22 px an hour: the chart is narrower than its column, and so is its scroller
+    await open(page, baseURL!, `${PAGE}&horizon=24`, { width: 1280, height: 900 })
+    await figure(page).focus()
+    for (let i = 0; i < 4; i++)
+      await page.keyboard.press('+')
+    await page.keyboard.press('End')
+    await expect(readout(page)).toBeVisible()
+    const strip = scroller(page)
+    // the scroller is as wide as the chart, and the end of the strip is the end of the window
+    const sizes = await strip.evaluate(element => ({ scroller: element.clientWidth, stage: (element.querySelector('.mg-stage') as HTMLElement).offsetWidth, left: element.scrollLeft, max: element.scrollWidth - element.clientWidth }))
+    expect(sizes.scroller).toBe(sizes.stage)
+    expect(sizes.left).toBeGreaterThanOrEqual(sizes.max - 1)
+    // and the window does not come back from it: the last hour is still the one the crosshair is at
+    await page.waitForTimeout(500)
+    await expect(readout(page)).toBeVisible()
+    expect(await strip.evaluate(element => element.scrollLeft)).toBeGreaterThanOrEqual(sizes.max - 1)
+  })
+
   test('fills the width up to the cap on a wide screen, where the whole forecast fits', async ({ page, baseURL }) => {
     await open(page, baseURL!, WIDGET, { width: 1800, height: 900 })
     // the widget is not capped: 72 hours at 22 px at the widest is 1584 px, which the screen holds
@@ -204,24 +223,49 @@ test.describe('the readout (WCAG 1.4.13)', () => {
     return { x: box.x + 68 + (box.width - 78) * fraction, y: box.y + box.height * 0.6 }
   }
 
-  test('appears under the pointer, can be moved onto, and stays while the pointer is over it', async ({ page, baseURL }) => {
+  test('appears under the pointer, is docked at the far edge, can be moved onto and holds its hour while the pointer is over it', async ({ page, baseURL }) => {
     await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
     const point = await overPlot(page)
     await page.mouse.move(point.x, point.y)
     await expect(readout(page)).toBeVisible()
+    const stage = (await page.locator('.mg-stage').boundingBox())!
     const box = (await readout(page).boundingBox())!
-    // level with the pointer, so that moving onto it is one step
-    expect(box.y).toBeLessThanOrEqual(point.y)
-    expect(box.y + box.height).toBeGreaterThanOrEqual(point.y)
-    await page.mouse.move(box.x + box.width / 2, point.y, { steps: 8 })
-    await expect(readout(page)).toBeVisible()
-    // the pointer is over it and it is the same hour
+    // the crosshair is in the left of the chart, the readout at its right edge
+    expect(box.x + box.width).toBeGreaterThan(stage.x + stage.width - 12)
+    expect(box.x).toBeGreaterThan(point.x)
     const hour = await readout(page).locator('.font-semibold').textContent()
-    await page.mouse.move(box.x + box.width / 2 + 2, point.y)
-    expect(await readout(page).locator('.font-semibold').textContent()).toBe(hour)
+    // across to it, by the way a pointer goes, and onto it
+    await page.mouse.move(box.x + box.width / 2, box.y + 40, { steps: 25 })
+    await expect(readout(page)).toBeVisible()
+    const held = await readout(page).locator('.font-semibold').textContent()
+    expect(held).not.toBe(hour)
+    await page.mouse.move(box.x + box.width / 2 + 4, box.y + 60, { steps: 4 })
+    expect(await readout(page).locator('.font-semibold').textContent()).toBe(held)
     // and it goes where the pointer leaves the chart
     await page.mouse.move(5, 5)
     await expect(readout(page)).toHaveCount(0)
+  })
+
+  test('does not hold up a pointer that scrubs slowly along the hours: the crosshair follows every step', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
+    const stage = (await page.locator('.mg-stage').boundingBox())!
+    const y = stage.y + stage.height * 0.5
+    const start = stage.x + 120
+    await page.mouse.move(start, y)
+    await expect(readout(page)).toBeVisible()
+    const hourAt = async () => (await readout(page).locator('.font-semibold').textContent())!
+    const first = await hourAt()
+    // a hundred pixels at 4 px a step: ten hours at 10 px an hour
+    for (let dx = 4; dx <= 100; dx += 4)
+      await page.mouse.move(start + dx, y)
+    await expect.poll(hourAt).not.toBe(first)
+    const readoutBox = (await readout(page).boundingBox())!
+    // the pointer is nowhere near the readout, and the hour is the one under it
+    expect(start + 100).toBeLessThan(readoutBox.x)
+    await page.mouse.move(start + 112, y)
+    const next = await hourAt()
+    await page.mouse.move(start + 100, y)
+    expect(await hourAt()).not.toBe(next)
   })
 
   test('is dismissed by Escape under the pointer, stays dismissed while it rests, and comes back where it moves on', async ({ page, baseURL }) => {
@@ -232,6 +276,11 @@ test.describe('the readout (WCAG 1.4.13)', () => {
     await page.keyboard.press('Escape')
     await expect(readout(page)).toHaveCount(0)
     await page.waitForTimeout(500)
+    await expect(readout(page)).toHaveCount(0)
+    // a pixel to the side is the same hour, and no new hover (WCAG 1.4.13)
+    await page.mouse.move(point.x + 1, point.y)
+    await page.mouse.move(point.x - 1, point.y)
+    await page.waitForTimeout(200)
     await expect(readout(page)).toHaveCount(0)
     await page.mouse.move(point.x + 25, point.y)
     await expect(readout(page)).toBeVisible()
@@ -299,7 +348,7 @@ test.describe('the colours', () => {
   test('credit the symbols to Yr under CC BY 4.0, with links', async ({ page, baseURL }) => {
     await open(page, baseURL!)
     const credit = page.getByTestId('meteogram-credit')
-    await expect(credit).toContainText('Weather symbols by Yr')
+    await expect(credit).toContainText('Weather symbols © 2015 Yr/NRK, CC BY 4.0.')
     await expect(credit.getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
     await expect(credit.getByRole('link', { name: 'Yr' })).toHaveAttribute('href', 'https://github.com/nrkno/yr-weather-symbols')
   })

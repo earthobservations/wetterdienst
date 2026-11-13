@@ -233,3 +233,40 @@ export function windBarb(dirFrom: number, knots: number, scale = 1): Barb {
 export function knotsOf(metresPerSecond: number): number {
   return (metresPerSecond * 3600) / 1852
 }
+
+// -- the readout ---------------------------------------------------------------------------------------------------
+
+/** The width of the readout in px, and the room it leaves at the edges of the chart */
+export const READOUT_WIDTH = 236
+export const READOUT_MARGIN = 4
+export type ReadoutSide = 'left' | 'right'
+
+export interface ReadoutPlacement { side: ReadoutSide, left: number, width: number }
+
+/**
+ * Where the readout of a crosshair at `cursorX` stands in a chart `outerPx` wide: docked at the left edge or the right
+ * edge, never under the crosshair and never out of the chart, so that a pointer that scrubs along the hours does not meet
+ * it on the way (a readout next to the crosshair is under the pointer a few px later, and the pointer's moves over it are
+ * the readout's, which froze the crosshair). `previous`, the side it was on, is kept for as long as the crosshair is clear
+ * of it, so that it does not jump from side to side while the pointer rests near the middle; without one it is put on
+ * the side the crosshair is not on. On a chart too narrow for both docks to clear the crosshair it is the dock that is
+ * farther from it, and the readout is narrowed to half of the chart.
+ */
+export function readoutPlacement(cursorX: number, outerPx: number, previous: ReadoutSide | null = null, width = READOUT_WIDTH): ReadoutPlacement {
+  // no wider than half the chart, so that on a phone's width one of the docks is always clear of the crosshair
+  const w = Math.max(0, Math.min(width, outerPx - 2 * READOUT_MARGIN, Math.round(outerPx / 2)))
+  const dock = (side: ReadoutSide) => side === 'left' ? READOUT_MARGIN : outerPx - w - READOUT_MARGIN
+  const clear = (side: ReadoutSide) => cursorX < dock(side) - 6 || cursorX > dock(side) + w + 6
+  const preferred: ReadoutSide = cursorX < outerPx / 2 ? 'right' : 'left'
+  const other: ReadoutSide = preferred === 'right' ? 'left' : 'right'
+  let side: ReadoutSide
+  if (previous && clear(previous))
+    side = previous
+  else if (clear(preferred))
+    side = preferred
+  else if (clear(other))
+    side = other
+  else
+    side = Math.abs(cursorX - (dock('left') + w / 2)) > Math.abs(cursorX - (dock('right') + w / 2)) ? 'left' : 'right'
+  return { side, left: dock(side), width: w }
+}

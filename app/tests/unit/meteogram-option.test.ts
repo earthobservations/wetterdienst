@@ -183,11 +183,17 @@ describe('the chart drawn', () => {
     expect(svg).toMatch(/fill="#dc2626"[^>]*>Sat 03\/10/)
   })
 
-  it('labels every hour when zoomed in to a day, and every third at six hours', () => {
+  it('labels the hours as often as there is room: every hour at 60 px an hour, every third at 20 and every sixth at 10', () => {
     const day = Date.UTC(2026, 9, 2)
-    const zoomed = texts(draw(build({ window: { start: day, end: day + 12 * HOUR_MS } })))
-    expect(zoomed).toContain('07:00')
-    expect(zoomed).toContain('08:00')
+    // the steps between the hours that are written, which the window's width in hours decides (722 px of plot)
+    const steps = (hours: number) => {
+      const labels = texts(draw(build({ window: { start: day, end: day + hours * HOUR_MS } }))).filter(text => /^\d{2}:00$/.test(text)).map(text => Number(text.slice(0, 2)))
+      expect(labels.length, `${hours} h`).toBeGreaterThan(2)
+      return [...new Set(labels.slice(1).map((hour, i) => (hour - labels[i]! + 24) % 24))]
+    }
+    expect(steps(12)).toEqual([1])
+    expect(steps(36)).toEqual([3])
+    expect(steps(72)).toEqual([6])
   })
 
   it('draws the wind barbs in the plot: pennants for the strong wind, none outside the window', () => {

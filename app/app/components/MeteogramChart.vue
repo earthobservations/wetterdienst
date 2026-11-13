@@ -13,7 +13,7 @@
  * onto it, it stays until the pointer or the focus leaves, and Escape closes it (WCAG 1.4.13).
  */
 import type { ECharts } from 'echarts/core'
-import type { PanelName, TimeWindow } from '~/utils/meteogram-geometry'
+import type { PanelName, ReadoutSide, TimeWindow } from '~/utils/meteogram-geometry'
 import type { MeteogramModel, SunLibrary } from '~/utils/meteogram-model'
 import type { SeriesMap } from '~/utils/meteogram-series'
 import type { MeteogramUnits } from '~/utils/meteogram-units'
@@ -21,7 +21,7 @@ import { DateTime } from 'luxon'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { formatDayMonth, formatNumber, hourFormatter, weekdayShort } from '~/utils/format'
 import { findNearestIndex } from '~/utils/meteogram'
-import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, revealInstant, scrollStrip, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
+import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '~/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '~/utils/meteogram-option'
 import { withUnit } from '~/utils/units'
@@ -56,7 +56,8 @@ const noticeEl = useTemplateRef<HTMLElement>('chartNotice')
 // the hour the crosshair stands at, and whether it was the pointer or a key that put it there
 const cursor = ref<number | null>(null)
 const cursorSource = ref<'pointer' | 'keyboard' | 'touch'>('pointer')
-const pointerY = ref(0)
+// the side of the chart the readout is docked at, which a pointer's hour does not change while the crosshair is clear of it
+const readoutSide = ref<ReadoutSide | null>(null)
 const dismissed = ref(false)
 const announcement = ref('')
 // the line of now moves on a minute at a time
@@ -243,25 +244,34 @@ const readout = computed(() => {
   }
 })
 
-// at the right of the crosshair, or at its left where the right has no room; level with the pointer, so that the pointer
-// is moved onto it by moving across the one step to the crosshair's hour, and no further
-const READOUT_WIDTH = 236
+// docked at an edge of the chart, on the side the crosshair is not on (`readoutPlacement`), and at the top of the panels
 const readoutStyle = computed(() => {
-  const x = cursorX.value ?? 0
-  const right = x + READOUT_WIDTH + 6 <= outerPx.value
-  const height = layout.value?.height ?? 0
-  const estimated = 56 + (readout.value?.rows.length ?? 0) * 20
-  const top = cursorSource.value === 'pointer'
-    ? Math.max(layout.value?.header.height ?? 0, Math.min(pointerY.value - 24, height - estimated))
-    : (layout.value?.header.height ?? 0)
-  return { top: `${Math.max(0, top)}px`, ...(right ? { left: `${x + 2}px` } : { left: `${x - READOUT_WIDTH - 2}px` }), width: `${READOUT_WIDTH}px` }
+  const placement = readoutPlacement(cursorX.value ?? 0, outerPx.value, readoutSide.value)
+  const top = (layout.value?.header.height ?? 0) + 4
+  return { top: `${top}px`, left: `${placement.left}px`, width: `${placement.width}px` }
 })
 
+/**
+ * Puts the crosshair at an hour. A pointer's move to the hour it is at already brings nothing back that Escape took away:
+ * a jitter of a pixel is no new hover (1.4.13); a key, a tap or another hour is.
+ */
 function select(time: number | null, source: 'pointer' | 'keyboard' | 'touch') {
+  const same = time === cursor.value && source === cursorSource.value
   cursor.value = time
   cursorSource.value = source
-  dismissed.value = false
+  if (time === null) {
+    readoutSide.value = null
+    return
+  }
+  if (!same || source !== 'pointer')
+    dismissed.value = false
+  // a key puts the readout on the side the crosshair is not on; a pointer keeps the side it found
+  readoutSide.value = readoutPlacement(xOfTime(time), outerPx.value, source === 'pointer' ? readoutSide.value : null).side
 }
+watch(cursor, (time) => {
+  if (time === null)
+    readoutSide.value = null
+})
 function dismiss() {
   dismissed.value = true
 }
@@ -303,9 +313,6 @@ let suppressClick = false
 function stageX(event: PointerEvent | MouseEvent): number {
   return event.clientX - (stageEl.value?.getBoundingClientRect().left ?? 0)
 }
-function stageY(event: PointerEvent | MouseEvent): number {
-  return event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
-}
 const insidePlot = (x: number) => x >= gutterLeft.value && x <= gutterLeft.value + plotPx.value
 const onReadout = (event: Event) => !!readoutEl.value && event.target instanceof Node && readoutEl.value.contains(event.target)
 
@@ -323,7 +330,6 @@ function onPointerMove(event: PointerEvent) {
   if (event.pointerType === 'touch' || onReadout(event))
     return
   const x = stageX(event)
-  pointerY.value = stageY(event)
   if (drag.value) {
     const clamped = Math.min(gutterLeft.value + plotPx.value, Math.max(gutterLeft.value, x))
     drag.value = { ...drag.value, x1: clamped, active: drag.value.active || Math.abs(clamped - drag.value.x0) >= 6 }
@@ -369,7 +375,6 @@ function onClick(event: MouseEvent) {
     return
   const stamp = nearestStamp(timeAtX(x))
   if (stamp !== null) {
-    pointerY.value = stageY(event)
     // a tap stays until it is closed or tapped away: there is no leaving a touch
     select(stamp, (event as PointerEvent).pointerType === 'touch' ? 'touch' : 'pointer')
   }
@@ -658,7 +663,8 @@ const selectionStyle = computed(() => {
     </div>
 
     <!-- the strip scrolls and the chart stays where it is: the axes are always in view -->
-    <div ref="scrollerEl" class="mg-scroller" data-testid="meteogram-scroller" @scroll.passive="onScroll">
+    <!-- as wide as the chart: the strip is the forecast and the gutters wide, and a scroller wider than that would reach less of it than the window does -->
+    <div ref="scrollerEl" class="mg-scroller" data-testid="meteogram-scroller" :style="{ width: `${outerPx}px`, maxWidth: '100%' }" @scroll.passive="onScroll">
       <div class="mg-track" :style="{ width: `${strip.width || outerPx}px`, height: `${layout?.height ?? 0}px` }">
         <!-- a figure, as the app's other charts, and no landmark; one tab stop for the whole chart (Chartability) -->
         <div

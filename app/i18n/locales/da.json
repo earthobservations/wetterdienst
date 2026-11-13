@@ -522,7 +522,7 @@
       "readoutFor": "Prognose for {time}",
       "readoutClose": "Luk værdierne",
       "keysHint": "Piletasterne går time for time, med Skift seks timer ad gangen. Page Up og Page Down går en dag, Home og End til begyndelsen og slutningen. Plus, minus og 0 zoomer ind, zoomer ud og nulstiller. Esc lukker værdierne.",
-      "symbolsCredit": "Vejrsymboler fra {yr} (NRK og Det Norske Meteorologiske Institut), {licence}.",
+      "symbolsCredit": "Vejrsymboler © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Alle",
       "viewLabel": "Visning",
       "viewChart": "Diagram",

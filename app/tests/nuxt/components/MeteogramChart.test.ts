@@ -1,6 +1,7 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { nextTick } from 'vue'
 import MeteogramChart from '~/components/MeteogramChart.vue'
 import { HOUR_MS } from '~/utils/meteogram-geometry'
 import { buildSeries } from '~/utils/meteogram-series'
@@ -70,6 +71,27 @@ function pointer(type: string, init: { clientX?: number, clientY?: number, point
   Object.defineProperty(event, 'pointerType', { value: init.pointerType ?? 'mouse' })
   Object.defineProperty(event, 'pointerId', { value: 1 })
   return event
+}
+
+/**
+ * What a pointer at (x, y) is over: the readout where it lies (its box is the styled one, as tall as its rows need, which this
+ * document has no layout to measure), else the chart. A move of the pointer is sent to that element, as a browser sends it, and
+ * reaches the chart's handler by bubbling.
+ */
+function underPointer(x: number, y: number): Element {
+  const element = readout()
+  if (element) {
+    const left = Number.parseFloat(element.style.left)
+    const top = Number.parseFloat(element.style.top)
+    const width = Number.parseFloat(element.style.width)
+    const height = 56 + element.querySelectorAll('dt').length * 22
+    if (x >= left && x <= left + width && y >= top && y <= top + height)
+      return element
+  }
+  return stage()
+}
+function movePointerTo(x: number, y: number) {
+  underPointer(x, y).dispatchEvent(pointer('pointermove', { clientX: x, clientY: y }))
 }
 function key(name: string, init: KeyboardEventInit = {}) {
   stage().dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init }))
@@ -158,13 +180,28 @@ describe('the chart is drawn', { timeout: 15_000 }, () => {
     expect(document.body.querySelector('.mg-canvas')!.getAttribute('data-chart-scheme')).toBeTruthy()
   })
 
-  it('draws again, and keeps the window, where the colours change', async () => {
+  it('draws again, and keeps the window, where a panel is switched off', async () => {
     await showChart()
     const before = lastOption().dataZoom[0]
     await wrapper!.setProps({ panels: { ...ALL_PANELS, pressure: false } })
     await vi.waitFor(() => expect(echarts.chart.setOption).toHaveBeenCalledTimes(2))
     expect(lastOption().xAxis).toHaveLength(5)
     expect(lastOption().dataZoom[0].startValue).toBe(before.startValue)
+  })
+
+  it('draws again in the colours of the scheme the page switches to, and keeps the window it was moved to', async () => {
+    await showChart()
+    expect(lastOption().series.find((series: { id: string }) => series.id === 'tempMax').lineStyle.color).toBe('#b91c1c')
+    key('End')
+    await flushPromises()
+    const moved = zoomWindow()
+    expect(moved.start).toBeGreaterThan(t0)
+    document.documentElement.classList.add('dark')
+    onTestFinished(() => document.documentElement.classList.remove('dark'))
+    await vi.waitFor(() => expect(echarts.chart.setOption).toHaveBeenCalledTimes(2))
+    expect(lastOption().series.find((series: { id: string }) => series.id === 'tempMax').lineStyle.color).toBe('#fca5a5')
+    expect(lastOption().dataZoom[0].startValue).toBe(moved.start)
+    expect(document.body.querySelector('.mg-canvas')!.getAttribute('data-chart-scheme')).toBe('dark')
   })
 
   it('draws nothing, and disposes the chart, where there are no values', async () => {
@@ -373,16 +410,102 @@ describe('the readout', { timeout: 15_000 }, () => {
     expect(readout()!.querySelector('img')!.getAttribute('src')).toContain('/yr-symbols/lightmode/22.svg')
   })
 
-  it('sits level with the pointer at the right of the crosshair, and at its left where the right has no room', async () => {
+  it('is docked at the edge of the chart the crosshair is not on, at the top of the panels', async () => {
     await showChart()
-    stage().dispatchEvent(pointer('pointermove', { clientX: 118, clientY: 300 }))
+    movePointerTo(118, 300)
     await flushPromises()
-    const right = readout()!.style
-    expect(Number.parseInt(right.left)).toBe(118 + 2)
-    expect(Number.parseInt(right.top)).toBe(300 - 24)
-    stage().dispatchEvent(pointer('pointermove', { clientX: 760, clientY: 300 }))
+    // 800 px wide: the right dock is at 800 - 236 - 4
+    expect(Number.parseInt(readout()!.style.left)).toBe(560)
+    expect(Number.parseInt(readout()!.style.width)).toBe(236)
+    expect(Number.parseInt(readout()!.style.top)).toBeGreaterThan(70)
+    // below the readout, which is over the pointer where it stands
+    movePointerTo(700, 600)
     await flushPromises()
-    expect(Number.parseInt(readout()!.style.left)).toBeLessThan(760)
+    expect(Number.parseInt(readout()!.style.left)).toBe(4)
+  })
+
+  it('does not stand in the way of a pointer that scrubs slowly along the hours: the crosshair follows it all the way', async () => {
+    await showChart()
+    // the element under the pointer gets each move: a readout beside the crosshair would be under the pointer after a few pixels,
+    // and the moves over it are the readout's, which froze the crosshair
+    for (let x = 118; x <= 230; x += 3) {
+      movePointerTo(x, 300)
+      await nextTick()
+    }
+    await flushPromises()
+    // 230 px is 16.2 hours in: the 16th hour, 18:00 in Berlin
+    expect(readout()!.textContent).toContain('Thu 01/10 18:00')
+  })
+
+  it('can be reached by the pointer, and holds its hour while the pointer is over it', async () => {
+    await showChart()
+    movePointerTo(300, 300)
+    await flushPromises()
+    const hour = readout()!.querySelector('.font-semibold')!.textContent
+    // up and across to the readout at the right
+    for (let x = 300; x <= 700; x += 20) {
+      movePointerTo(x, x < 560 ? 300 : 120)
+      await nextTick()
+    }
+    await flushPromises()
+    const over = underPointer(700, 120)
+    expect(over).toBe(readout())
+    // it is where the pointer moved to: the hour it showed on the way, not one of the hours under it
+    expect(readout()!.querySelector('.font-semibold')!.textContent).not.toBe(hour)
+    const held = readout()!.querySelector('.font-semibold')!.textContent
+    movePointerTo(650, 120)
+    movePointerTo(720, 150)
+    await flushPromises()
+    expect(readout()!.querySelector('.font-semibold')!.textContent).toBe(held)
+  })
+
+  it('stays inside a phone\'s chart whatever hour the crosshair is at, and out of the crosshair where there is room', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    await showChart()
+    const width = Number.parseInt(stage().style.width)
+    expect(width).toBeLessThanOrEqual(390)
+    // below the readout, which the pointer would be over where it lies
+    for (let x = 90; x < width - 10; x += 10) {
+      movePointerTo(x, 600)
+      await flushPromises()
+      const left = Number.parseInt(readout()!.style.left)
+      const readoutWidth = Number.parseInt(readout()!.style.width)
+      expect(left, `crosshair at ${x}`).toBeGreaterThanOrEqual(0)
+      expect(left + readoutWidth, `crosshair at ${x}`).toBeLessThanOrEqual(width)
+      if (x < 170 || x > 220)
+        expect(x < left || x > left + readoutWidth, `crosshair at ${x}`).toBe(true)
+    }
+  })
+
+  it('stays away after Escape where the pointer only trembles, and comes back for another hour', async () => {
+    await showChart()
+    movePointerTo(200, 300)
+    await flushPromises()
+    expect(readout()).not.toBeNull()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(readout()).toBeNull()
+    // a pixel to either side is the same hour
+    for (const x of [201, 199, 202, 200, 203])
+      movePointerTo(x, 300)
+    await flushPromises()
+    expect(readout()).toBeNull()
+    // the next hour is a new hover
+    movePointerTo(212, 300)
+    await flushPromises()
+    expect(readout()).not.toBeNull()
+  })
+
+  it('comes back for a key or a tap after Escape, hour or no hour', async () => {
+    await showChart()
+    movePointerTo(200, 300)
+    await flushPromises()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(readout()).toBeNull()
+    stage().dispatchEvent(pointer('click', { clientX: 200, clientY: 300, pointerType: 'touch' }))
+    await flushPromises()
+    expect(readout()).not.toBeNull()
   })
 })
 
@@ -399,6 +522,28 @@ describe('the window', { timeout: 15_000 }, () => {
     key('End')
     await flushPromises()
     await vi.waitFor(() => expect(scroller.scrollLeft).toBeGreaterThan(1500))
+  })
+
+  it('has a scroller as wide as the chart, so that its scroll reaches the whole of the strip', async () => {
+    // 24 hours fit the plot at up to 22 px an hour: the chart is narrower than the column, and a scroller as wide as the column
+    // would reach less of the strip than the window does
+    await showChart({ horizonHours: 24 })
+    const scroller = document.body.querySelector<HTMLElement>('.mg-scroller')!
+    expect(scroller.style.width).toBe(stage().style.width)
+    expect(Number.parseInt(stage().style.width)).toBeLessThan(800)
+    for (let i = 0; i < 4; i++)
+      key('+')
+    key('End')
+    await flushPromises()
+    const end = zoomWindow()
+    expect(end.end).toBe(t0 + 24 * HOUR_MS)
+    // the furthest the scroller goes is the strip less its own width: and that is where the window ends at the end of the forecast
+    const track = Number.parseInt(document.body.querySelector<HTMLElement>('.mg-track')!.style.width)
+    scroller.scrollLeft = track - Number.parseInt(scroller.style.width)
+    scroller.dispatchEvent(new Event('scroll'))
+    await flushPromises()
+    expect(Math.abs(zoomWindow().end - end.end)).toBeLessThan(120_000)
+    expect(zoomWindow().end).toBeLessThanOrEqual(t0 + 24 * HOUR_MS)
   })
 
   it('zooms to the box a mouse drags', async () => {

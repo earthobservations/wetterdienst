@@ -522,7 +522,7 @@
       "readoutFor": "Vorhersage für {time}",
       "readoutClose": "Werte schließen",
       "keysHint": "Mit den Pfeiltasten gehst du stundenweise durch die Vorhersage, mit Umschalt in Sechs-Stunden-Schritten. Bild auf und Bild ab springen um einen Tag, Pos1 und Ende zum Anfang und zum Ende. Plus, Minus und 0 vergrößern, verkleinern und setzen zurück. Esc schließt die Werte.",
-      "symbolsCredit": "Wettersymbole von {yr} (NRK und das Norwegische Meteorologische Institut), {licence}.",
+      "symbolsCredit": "Wettersymbole © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Alles",
       "viewLabel": "Ansicht",
       "viewChart": "Diagramm",

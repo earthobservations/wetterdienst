@@ -522,7 +522,7 @@
       "readoutFor": "Previsione per {time}",
       "readoutClose": "Chiudi i valori",
       "keysHint": "Le frecce scorrono le ore, con Maiusc di sei in sei. Pag su e Pag giù avanzano di un giorno, Home e Fine vanno agli estremi. Più, meno e 0 ingrandiscono, riducono e reimpostano. Esc chiude i valori.",
-      "symbolsCredit": "Simboli meteo di {yr} (NRK e l'Istituto meteorologico norvegese), {licence}.",
+      "symbolsCredit": "Simboli meteo © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Tutto",
       "viewLabel": "Vista",
       "viewChart": "Grafico",

@@ -17,6 +17,9 @@ import {
   PANEL_HEIGHT,
   panWindow,
   plotWidthFor,
+  READOUT_MARGIN,
+  READOUT_WIDTH,
+  readoutPlacement,
   revealInstant,
   scrollStrip,
   windBarb,
@@ -239,5 +242,53 @@ describe('the wind barb', () => {
   it('has the force of the speed in knots, whatever unit the speed is in: 6 m/s is one full barb', () => {
     expect(knotsOf(6)).toBeCloseTo(11.66, 2)
     expect(windBarb(270, knotsOf(6)).ticks).toHaveLength(1)
+  })
+})
+
+describe('where the readout stands', () => {
+  const outer = 800
+
+  it('is docked at the edge of the chart that the crosshair is not on', () => {
+    expect(readoutPlacement(150, outer)).toMatchObject({ side: 'right', left: outer - READOUT_WIDTH - READOUT_MARGIN, width: READOUT_WIDTH })
+    expect(readoutPlacement(650, outer)).toMatchObject({ side: 'left', left: READOUT_MARGIN })
+  })
+
+  it('is never under the crosshair, at any hour, on a chart that has room for it', () => {
+    for (let x = 0; x <= outer; x += 5) {
+      const { left, width } = readoutPlacement(x, outer)
+      expect(x < left || x > left + width, `crosshair at ${x}`).toBe(true)
+    }
+  })
+
+  it('keeps its side while the crosshair is clear of it, and moves only where the crosshair comes to it', () => {
+    // a pointer that scrubs through the middle does not see it jump from side to side
+    expect(readoutPlacement(420, outer, 'right').side).toBe('right')
+    expect(readoutPlacement(380, outer, 'left').side).toBe('left')
+    expect(readoutPlacement(700, outer, 'right').side).toBe('left')
+  })
+
+  it('is inside the chart, at any width of it, and narrowed to half of a chart that is narrow', () => {
+    for (const width of [200, 320, 390, 800]) {
+      for (let x = 0; x <= width; x += 7) {
+        const placement = readoutPlacement(x, width)
+        expect(placement.left, `${width}: ${x}`).toBeGreaterThanOrEqual(0)
+        expect(placement.left + placement.width, `${width}: ${x}`).toBeLessThanOrEqual(width)
+      }
+    }
+    expect(readoutPlacement(50, 200).width).toBe(100)
+  })
+
+  it('is on the dock farther from the crosshair where neither dock is clear of it', () => {
+    // 390 px: the readout is 195 wide, the docks 4-199 and 191-386, and a crosshair at 195 is under both
+    expect(readoutPlacement(190, 390).side).toBe('right')
+    expect(readoutPlacement(200, 390).side).toBe('left')
+  })
+
+  it('has a dock clear of the crosshair on a phone\'s width everywhere but a few pixels at its middle', () => {
+    for (let x = 0; x <= 390; x += 5) {
+      const { left, width } = readoutPlacement(x, 390)
+      if (x < 180 || x > 210)
+        expect(x < left || x > left + width, `crosshair at ${x}`).toBe(true)
+    }
   })
 })

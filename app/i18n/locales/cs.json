@@ -522,7 +522,7 @@
       "readoutFor": "Předpověď pro {time}",
       "readoutClose": "Zavřít hodnoty",
       "keysHint": "Šipky posouvají o hodinu, se Shiftem o šest hodin. Page Up a Page Down posouvají o den, Home a End na začátek a konec. Plus, mínus a 0 přibližují, oddalují a vracejí původní zobrazení. Esc zavře hodnoty.",
-      "symbolsCredit": "Symboly počasí: {yr} (NRK a Norský meteorologický ústav), {licence}.",
+      "symbolsCredit": "Symboly počasí © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Vše",
       "viewLabel": "Zobrazení",
       "viewChart": "Graf",

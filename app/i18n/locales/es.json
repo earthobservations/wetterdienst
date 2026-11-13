@@ -522,7 +522,7 @@
       "readoutFor": "Previsión para {time}",
       "readoutClose": "Cerrar los valores",
       "keysHint": "Las flechas recorren las horas, con Mayús de seis en seis. Re Pág y Av Pág avanzan un día, Inicio y Fin van a los extremos. Más, menos y 0 acercan, alejan y restablecen. Esc cierra los valores.",
-      "symbolsCredit": "Símbolos meteorológicos de {yr} (NRK y el Instituto Meteorológico de Noruega), {licence}.",
+      "symbolsCredit": "Símbolos meteorológicos © 2015 {yr}/NRK, {licence}.",
       "horizonAll": "Todo",
       "viewLabel": "Vista",
       "viewChart": "Gráfico",
