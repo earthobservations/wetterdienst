@@ -751,7 +751,8 @@
     "datasetLabel": "Jeu de données",
     "parametersLabel": "Paramètres",
     "providerRestrictionUnavailable": "Le fournisseur configuré « {provider} » n'est pas disponible sur ce backend.",
-    "networkRestrictionUnavailable": "Le réseau configuré « {network} » n'est pas disponible pour ce fournisseur."
+    "networkRestrictionUnavailable": "Le réseau configuré « {network} » n'est pas disponible pour ce fournisseur.",
+    "backendUnreachable": "Le backend est injoignable, les fournisseurs ne peuvent donc pas être listés."
   },
   "stationSelection": {
     "loading": "Chargement des stations …",

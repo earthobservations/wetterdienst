@@ -42,7 +42,7 @@ const isInitializing = ref(true)
 // `ssr: false` the nearest Suspense boundary is the page itself -- so the Explorer rendered
 // nothing at all, not even its own headings, until the backend had answered this request. The
 // selects render empty-and-loading instead, and `initializeFromProps()` waits for the answer.
-const { data: providerList, status: coverageStatus } = useProviders()
+const { data: providerList, status: coverageStatus, refresh: refreshProviders } = useProviders()
 // The networks as the selects read them, by provider and then network. What a network has (its
 // resolutions, datasets and parameters) is the coverage of that network, asked for when one is chosen.
 const coverage = computed<Record<string, Record<string, ProviderNetwork>> | null>(() => {
@@ -54,6 +54,9 @@ const coverage = computed<Record<string, Record<string, ProviderNetwork>> | null
 // and an answer that has not arrived yet are indistinguishable in the data, but not to a reader.
 const coverageSettled = computed(() => coverageStatus.value === 'success' || coverageStatus.value === 'error')
 const coveragePending = computed(() => !coverageSettled.value)
+// A request that failed (the backend is down, a 5xx, an answer that is not the list) says nothing about which
+// providers exist: the restriction banners below speak only of an answer that arrived
+const coverageFailed = computed(() => coverageStatus.value === 'error')
 
 // Whether the backend accepts the credentials of a network is not part of the list of networks: it
 // is a request to the provider, which a list of every provider must not wait for (GH-2564). It is
@@ -256,8 +259,20 @@ const paramItems = computed(() => params.value.map(p => ({
 })))
 
 // Initialize from query params and validate step by step
+// What the parent handed over when initialization first ran: a retry of a failed request restores from it, not from
+// what the parent holds by then
+let initialModel: NonNullable<typeof props.modelValue> = {}
+
+// Where initialization ends, the parent is told the selection it came to. Not where it ran on a failed request: nothing
+// could be restored then, and an empty selection would replace the parent's, and the address it writes, for good. The
+// parent keeps what it had until a retry is answered.
+function emitInitial() {
+  if (!coverageFailed.value)
+    emitUpdate()
+}
+
 async function initializeFromProps() {
-  const initial = { ...props.modelValue }
+  const initial = { ...initialModel }
 
   // A restricted provider/network overrides anything URL-provided — there's
   // only one valid value, so no point treating a mismatch as "invalid input".
@@ -281,7 +296,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -293,7 +308,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -303,7 +318,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -313,7 +328,7 @@ async function initializeFromProps() {
   }
   else {
     isInitializing.value = false
-    emitUpdate()
+    emitInitial()
     return
   }
 
@@ -331,7 +346,7 @@ async function initializeFromProps() {
   // Wait another tick to ensure watchers have processed before turning off initialization mode
   await nextTick()
   isInitializing.value = false
-  emitUpdate()
+  emitInitial()
 }
 
 // Initialization needs the coverage answer -- every validation step above reads it -- and that is
@@ -342,11 +357,24 @@ async function initializeFromProps() {
 // Not an `immediate` watcher, which would run this during setup: the answer can already be cached
 // (both /explorer and /history mount this component against the same `useFetch` key), and
 // `emitUpdate()` firing mid-render mutates the parent's state while it is still rendering.
+//
+// An initialization that ran on a failed request restricted nothing, restored nothing and told the parent nothing
+// (`emitInitial`): it is run again, from what the parent handed over the first time, when the retry is answered.
 let initializationStarted = false
+let initializedOnFailure = false
 function initializeWhenCoverageSettled() {
-  if (initializationStarted || !coverageSettled.value)
+  if (!coverageSettled.value)
     return
+  if (initializationStarted) {
+    if (!initializedOnFailure || coverageStatus.value !== 'success')
+      return
+    isInitializing.value = true
+  }
+  else {
+    initialModel = { ...props.modelValue, parameters: props.modelValue?.parameters ? [...props.modelValue.parameters] : undefined }
+  }
   initializationStarted = true
+  initializedOnFailure = coverageFailed.value
   initializeFromProps()
 }
 onMounted(initializeWhenCoverageSettled)
@@ -461,11 +489,20 @@ watch([provider, network, resolution, dataset, parameters, dateRequired, network
     </template>
     <UContainer class="flex flex-col gap-4">
       <!-- only once coverage has settled: while the request is out every provider looks unavailable,
-           and flashing "not available from this backend" on each cold load is worse than silence.
+           and flashing "not available from this backend" on each cold load is worse than silence. A request that
+           failed says the backend could not be reached, with a retry, and not that the provider is missing.
            Inside the container, with the fields: a root that is as wide as its box with a margin on top of it ran
            past it (8 px past a 320 px window, GH-4037) -->
       <UAlert
-        v-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"
+        v-if="coverageFailed"
+        color="error"
+        variant="subtle"
+        :title="t('parameterSelection.backendUnreachable')"
+        icon="i-ph-warning-circle"
+        :actions="[{ label: t('common.retry'), icon: 'i-ph-arrow-clockwise', color: 'neutral', variant: 'outline', size: 'sm', class: 'max-w-full h-auto', ui: { label: 'whitespace-normal text-clip text-left' }, onClick: () => refreshProviders() }]"
+      />
+      <UAlert
+        v-else-if="coverageSettled && restrictProvider && !restrictedProviderAvailable"
         color="error"
         variant="subtle"
         :title="t('parameterSelection.providerRestrictionUnavailable', { provider: restrictProvider })"

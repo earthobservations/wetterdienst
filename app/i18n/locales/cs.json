@@ -751,7 +751,8 @@
     "datasetLabel": "Datová sada",
     "parametersLabel": "Parametry",
     "providerRestrictionUnavailable": "Nakonfigurovaný poskytovatel „{provider}“ není u tohoto backendu dostupný.",
-    "networkRestrictionUnavailable": "Nakonfigurovaná síť „{network}“ není u tohoto poskytovatele dostupná."
+    "networkRestrictionUnavailable": "Nakonfigurovaná síť „{network}“ není u tohoto poskytovatele dostupná.",
+    "backendUnreachable": "Backend není dostupný, proto nelze zobrazit poskytovatele."
   },
   "stationSelection": {
     "loading": "Načítání stanic …",

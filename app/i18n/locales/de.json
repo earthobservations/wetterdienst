@@ -751,7 +751,8 @@
     "datasetLabel": "Datensatz",
     "parametersLabel": "Parameter",
     "providerRestrictionUnavailable": "Der konfigurierte Anbieter „{provider}“ ist bei diesem Backend nicht verfügbar.",
-    "networkRestrictionUnavailable": "Das konfigurierte Netzwerk „{network}“ ist für diesen Anbieter nicht verfügbar."
+    "networkRestrictionUnavailable": "Das konfigurierte Netzwerk „{network}“ ist für diesen Anbieter nicht verfügbar.",
+    "backendUnreachable": "Das Backend ist nicht erreichbar, daher lassen sich die Anbieter nicht auflisten."
   },
   "stationSelection": {
     "loading": "Stationen werden geladen …",

@@ -9,6 +9,7 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 import { networksAnswer } from '../fixtures/providers'
+import { EXPLORER_STATE } from '../fixtures/state'
 
 // The date range the explorer starts for a selection whose whole record is more than the server sends as one
 // answer (GH-3457), and who the range belongs to once the user has touched it
@@ -40,7 +41,7 @@ const endpoints: (() => void)[] = []
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
-  clearNuxtState()
+  clearNuxtState(EXPLORER_STATE)
   useToast().clear()
 })
 
@@ -337,5 +338,38 @@ describe('explorer default date range', () => {
       await new Promise(resolve => setTimeout(resolve, 200))
       expect(note(wrapper)).toBe('')
     })
+  })
+})
+
+// A backend that cannot be reached tells the page nothing about the link's selection: it is neither emptied nor taken out of
+// the address, and a Retry that is answered restores it (GH-4042)
+describe('explorer opened at a link while the backend cannot be reached', () => {
+  const LINK = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m&mode=station&stations=00001'
+
+  it('keeps the selection of the link in the address, and restores it when a Retry is answered', async () => {
+    let up = false
+    endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: stations(3) })))
+    endpoints.push(registerEndpoint('/api/providers', (event) => {
+      if (up)
+        return networksAnswer({ dwd: { observation: {} } })
+      setResponseStatus(event, 503)
+      return { detail: 'Service Unavailable' }
+    }))
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: LINK })
+    mounted.push(wrapper)
+    const selectionOf = () => wrapper.findComponent(ParameterSelection).vm as any
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The backend could not be reached'))
+    await vi.waitFor(() => expect(selectionOf().isInitializing).toBe(false))
+    await new Promise(resolve => setTimeout(resolve, 200))
+    const kept = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: 'temperature_air_max_2m', stations: '00001' }
+    expect(query()).toMatchObject(kept)
+
+    up = true
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('The backend could not be reached'))
+    await vi.waitFor(() => expect([selectionOf().provider, selectionOf().network, selectionOf().resolution, selectionOf().dataset]).toEqual(['dwd', 'observation', 'daily', 'climate_summary']))
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(query()).toMatchObject(kept)
   })
 })

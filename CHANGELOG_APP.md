@@ -31,6 +31,13 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer, History, Translations]` When the backend cannot be reached or answers a 5xx, the
+  provider selection says so ("The backend could not be reached, so the providers cannot be
+  listed.") with a Retry button, in all languages, instead of "The configured provider is not
+  available from this backend", which blamed a provider that may well exist. That text stays for an
+  answer that arrived without the provider. While the backend is down the page keeps the selection
+  of its link (and the address it is in); Retry asks again and, once the backend answers, restores
+  that selection (GH-4042)
 - `[History]` The banner "The configured provider is not available from this backend",
   which also shows when the backend cannot be reached, no longer runs 8 px past the window at
   320 px (all languages): it stands within the same edges as the fields below it at every width

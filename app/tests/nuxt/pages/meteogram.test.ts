@@ -14,6 +14,19 @@ async function showMap(wrapper: VueWrapper) {
   await wrapper.findAll('[role="radio"]').find(radio => radio.text() === 'Map')!.trigger('click')
 }
 
+/**
+ * Mounts the page and unmounts it when the test is over. A page left mounted keeps its watchers on the app's one
+ * route, and one whose lookup of the link's station is still under way when the route leaves that station forgets
+ * what it asked for, and asks again when a later test navigates to `/meteogram?station=…`: into that test's endpoint
+ * and count. The first tests of this file left 14 pages, so `asked` was 14 (GH-4042). On a quiet machine the lookups are
+ * answered before the route moves and the leftovers stay silent, which is why it showed under load only.
+ */
+async function mountPage(options?: Parameters<typeof mountSuspended>[1]) {
+  const wrapper = await mountSuspended(MeteogramPage, options)
+  onTestFinished(() => wrapper.unmount())
+  return wrapper
+}
+
 describe('meteogram Page', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn()
@@ -21,28 +34,28 @@ describe('meteogram Page', () => {
   })
 
   it('renders the page', async () => {
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     expect(wrapper.exists()).toBe(true)
   })
 
   it('displays the forecast heading', async () => {
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     expect(wrapper.text()).toContain('Weather forecast')
   })
 
   it('shows the empty-state hint before a station is selected', async () => {
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     expect(wrapper.text()).toContain('Search for a station or pick one on the map to see its forecast')
     expect(wrapper.find('[data-testid="tool-placeholder"]').attributes('data-tool')).toBe('forecast')
   })
 
   it('titles the first card by what it holds, a station', async () => {
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     expect(wrapper.find('.text-lg.font-bold').text()).toBe('Station')
   })
 
   it('has a station picker with a toggle between the search and the map', async () => {
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const radios = wrapper.findAll('[role="radio"]')
     expect(radios.map(radio => radio.text())).toEqual(['List', 'Map'])
     expect(radios.map(radio => radio.attributes('aria-checked'))).toEqual(['true', 'false'])
@@ -53,7 +66,7 @@ describe('meteogram Page', () => {
       new Response(JSON.stringify({ values: [] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -71,7 +84,7 @@ describe('meteogram Page', () => {
       new Response('<html>proxy page</html>', { status: 500, statusText: 'Internal Server Error' }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -83,7 +96,7 @@ describe('meteogram Page', () => {
       new Response('<!doctype html><html><body>Bad gateway</body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -95,7 +108,7 @@ describe('meteogram Page', () => {
       new Response(JSON.stringify({ message: 'something else answered' }), { status: 200, headers: { 'content-type': 'application/json' } }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -109,7 +122,7 @@ describe('meteogram Page', () => {
       new Response(JSON.stringify({ detail: [{ loc: ['query', 'stations'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -121,7 +134,7 @@ describe('meteogram Page', () => {
       new Response(JSON.stringify({ values: [] }), { status: 200 }),
     )
 
-    const wrapper = await mountSuspended(MeteogramPage)
+    const wrapper = await mountPage()
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
@@ -136,7 +149,7 @@ describe('meteogram Page', () => {
   })
 
   it('clicking the about toggle reveals the explanatory text', async () => {
-    const wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body })
+    const wrapper = await mountPage({ attachTo: document.body })
     expect(wrapper.text()).not.toContain('multi-day weather forecast from DWD MOSMIX')
 
     const aboutButton = wrapper.findAll('button').find(b => b.text().includes('About the forecast'))
@@ -155,7 +168,7 @@ describe('meteogram Page', () => {
     // leaflet.markercluster (CJS/PNG asset code that isn't happy-dom/Node-ESM
     // friendly and isn't what this test is about). The map's own rendering
     // is covered by e2e (real browser) tests instead.
-    const wrapper = await mountSuspended(MeteogramPage, { attachTo: document.body, global: { stubs: { ClientOnly: true } } })
+    const wrapper = await mountPage({ attachTo: document.body, global: { stubs: { ClientOnly: true } } })
     const vm = wrapper.vm as any
     // the list is large: not asked for before the search is opened or the map shown
     expect(vm.stations).toEqual([])

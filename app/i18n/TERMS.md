@@ -246,6 +246,13 @@ meant to be understood, not to be the last word, and **a review by a native spea
   The second sentence names the position again (not "it"), so that it cannot read as the browser. Least certain: `de-hh`
   `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`; `De Standort` for the masculine article);
   `lb` `erlaabt` and `gëtt just fir`; `cs` `neumožnil` and `Poloha se použije`; `da` `tillod ikke, at`.
+- **Machine-made**: the banner of the provider selection for a backend that could not be reached
+  (`parameterSelection.backendUnreachable`, GH-4042) was written by a language model (Claude) in **all ten locales
+  besides `en`**, `de` included, and no person has read it. It says "provider" with the locale's word and names no
+  one, so it needs no address. Least certain: `de-hh` `weer nich to recken` (the catalog's `utreken` and `ümreken` are "calculate", so `recken` is a guess at
+  "reach") and `laat sik … wiesen`; `lb` `war net
+  erreechbar` and `ugewise ginn`; `pl` `połączyć z backendem`; `cs` `Backend není dostupný`; `fr` `injoignable` and
+  `listés`; and in every language whether "could not be reached" is right for a 5xx, where the backend answered.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.

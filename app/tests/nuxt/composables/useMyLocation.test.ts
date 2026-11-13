@@ -5,6 +5,7 @@ import { clearNuxtState } from '#app'
 import { useMyLocation } from '~/composables/useMyLocation'
 import { DEFAULT_PLACE, usePlace } from '~/composables/usePlace'
 import { LOCATE_TIMEOUT_MS, LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" (GH-3651): the one composable that calls the browser's Geolocation and Permissions APIs. The browser
 // is mocked: `navigator.geolocation` answers with a fix or an error, `navigator.permissions` with a state.
@@ -51,14 +52,14 @@ async function mountHarness() {
 }
 
 beforeEach(() => {
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   delete (navigator as any).geolocation
   delete (navigator as any).permissions
   vi.unstubAllGlobals()
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 
 describe('asking the browser', () => {

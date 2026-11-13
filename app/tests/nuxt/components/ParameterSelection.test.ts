@@ -1,6 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, ref } from 'vue'
 import { clearNuxtData } from '#app'
 import { ParameterSelection } from '#components'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
@@ -80,9 +81,9 @@ describe('parameterSelection Component', () => {
   })
 
   it('emits update when parameters change', async () => {
-    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
-    )
+    // an answer: a failed request has nothing to restore and tells the parent nothing (GH-4042)
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
 
     const wrapper = await mountReady({
       modelValue: {
@@ -101,10 +102,8 @@ describe('parameterSelection Component', () => {
   })
 
   it('initializes with provided model value', async () => {
-    vi.mocked(globalThis.fetch)
-      .mockResolvedValue(
-        new Response(JSON.stringify({ dwd: ['observation'] }), { status: 200 }),
-      )
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { observation: {} } }))
 
     const initialValue = {
       provider: 'dwd',
@@ -502,5 +501,195 @@ describe('parameterSelection credential checks', () => {
     await vi.waitFor(() => expect(vm.isInitializing).toBe(false))
     await vi.waitFor(() => expect(vm.provider).toBeUndefined())
     expect(vm.network).toBeUndefined()
+  })
+})
+
+// The list of providers is the one request the selects are built from. A request that failed says nothing about which
+// providers exist, so it is not the banner "not available from this backend", which is for an answer that arrived and does
+// not list the provider (GH-4042).
+describe('parameterSelection Component, the list of providers', () => {
+  beforeEach(() => {
+    clearNuxtData()
+  })
+
+  const RESTRICTED = { modelValue: {}, restrictProvider: 'dwd', restrictNetwork: 'observation' }
+  const UNREACHABLE = 'The backend could not be reached, so the providers cannot be listed.'
+  const NOT_AVAILABLE = 'is not available from this backend'
+  const retryButton = (wrapper: { findAll: (selector: string) => Array<{ text: () => string, trigger: (event: string) => Promise<unknown> }> }) =>
+    wrapper.findAll('button').find(button => button.text() === 'Retry')
+  const serviceUnavailable = (event: Parameters<typeof setResponseStatus>[0]) => {
+    setResponseStatus(event, 503)
+    return { detail: 'Service Unavailable' }
+  }
+
+  it('says the backend could not be reached when the request fails with a 5xx, and does not blame the provider', async () => {
+    registerEndpoint('/api/providers', serviceUnavailable)
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  it('says the same where the page restricts nothing: the selects are empty and the reader is told why', async () => {
+    registerEndpoint('/api/providers', serviceUnavailable)
+
+    const wrapper = await mountReady({ modelValue: {} })
+
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  it('keeps the text about the provider for an answer that arrived and does not list it, with no retry', async () => {
+    registerEndpoint('/api/providers', () => networksAnswer({ noaa: { ghcn: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain('The configured provider “dwd” is not available from this backend.')
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('keeps the text about the network for an answer that lists the provider without it', async () => {
+    registerEndpoint('/api/providers', () => networksAnswer({ dwd: { mosmix: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+
+    expect(wrapper.text()).toContain('The configured network “observation” is not available for this provider.')
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('shows neither while the request is out', async () => {
+    registerEndpoint('/api/providers', () => new Promise(() => {}))
+
+    const wrapper = await mountSuspended(ParameterSelection, { props: RESTRICTED })
+    mountedWrappers.push(wrapper)
+
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+  })
+
+  // The backend's state, which the test changes between the first answer and the retry. `asked` counts the requests made,
+  // and one failed `GET` is asked twice (ofetch retries a 503 once), so a count is compared with itself, not with a number.
+  function backend(whenUp: () => unknown) {
+    const state = { up: false, asked: 0 }
+    registerEndpoint('/api/providers', (event) => {
+      state.asked++
+      return state.up ? whenUp() : serviceUnavailable(event)
+    })
+    return state
+  }
+
+  it('asks again on Retry, takes the banner away and restores the restricted selection from the answer', async () => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    const vm = wrapper.vm as any
+    expect(wrapper.text()).toContain(UNREACHABLE)
+    expect(vm.provider).toBeUndefined()
+    const askedBefore = server.asked
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain(UNREACHABLE))
+    // exactly one more request, and the answer is what the selects are built from
+    expect(server.asked).toBe(askedBefore + 1)
+    await vi.waitFor(() => expect(vm.isInitializing).toBe(false))
+    await vi.waitFor(() => expect(vm.provider).toBe('dwd'))
+    expect(vm.network).toBe('observation')
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
+  })
+
+  it('keeps the banner and its button when the retry fails too', async () => {
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    const askedBefore = server.asked
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(server.asked).toBeGreaterThan(askedBefore))
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    expect(wrapper.text()).not.toContain(NOT_AVAILABLE)
+    expect(retryButton(wrapper)).toBeDefined()
+  })
+
+  // A parent that holds the selection as the Explorer and History do (v-model), starting from a link's selection
+  async function mountWithParent(restricted: boolean) {
+    const selection = ref<any>({ provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] })
+    const emitted: any[] = []
+    const Parent = defineComponent({
+      setup: () => () => h(ParameterSelection, {
+        'modelValue': selection.value,
+        'onUpdate:modelValue': (value: any) => {
+          emitted.push(value)
+          selection.value = value
+        },
+        ...(restricted ? { restrictProvider: 'dwd', restrictNetwork: 'observation' } : {}),
+      }),
+    })
+    const wrapper = await mountSuspended(Parent)
+    mountedWrappers.push(wrapper)
+    return { wrapper, selection, emitted }
+  }
+
+  it.each([true, false])('keeps the parent\'s selection while the backend is down, and restores it on Retry (restricted: %s)', async (restricted) => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+    const link = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: ['temperature_air_max_2m'] }
+
+    const { wrapper, selection, emitted } = await mountWithParent(restricted)
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    await vi.waitFor(() => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    // nothing could be restored, so nothing was told: the parent (and the address it writes) keeps the link's selection
+    expect(emitted).toEqual([])
+    expect(selection.value).toEqual(link)
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    const vm = wrapper.findComponent(ParameterSelection).vm as any
+    // the selects hold the link's selection again, from the first `modelValue`, and the parent is told it
+    await vi.waitFor(() => {
+      expect(vm.isInitializing).toBe(false)
+      expect([vm.provider, vm.network, vm.resolution, vm.dataset, vm.parameters]).toEqual(['dwd', 'observation', 'daily', 'climate_summary', ['temperature_air_max_2m']])
+    })
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(emitted.at(-1)).toMatchObject(link)
+    expect(selection.value).toMatchObject(link)
+  })
+
+  it('restores from what the parent handed over first, not from what it holds by the time of the retry', async () => {
+    registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage())
+    const server = backend(() => networksAnswer({ dwd: { observation: {} } }))
+
+    const { wrapper, selection } = await mountWithParent(false)
+    await vi.waitFor(() => expect(wrapper.text()).toContain(UNREACHABLE))
+    await vi.waitFor(() => expect((wrapper.findComponent(ParameterSelection).vm as any).isInitializing).toBe(false))
+    // a parent that moved on meanwhile (the address changed, a reset)
+    selection.value = { parameters: [] }
+
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    const vm = wrapper.findComponent(ParameterSelection).vm as any
+    await vi.waitFor(() => expect([vm.provider, vm.network, vm.resolution, vm.dataset]).toEqual(['dwd', 'observation', 'daily', 'climate_summary']))
+  })
+
+  it('tells a retry that finds the provider missing apart from one that fails', async () => {
+    const server = backend(() => networksAnswer({ noaa: { ghcn: {} } }))
+
+    const wrapper = await mountReady(RESTRICTED)
+    server.up = true
+    await retryButton(wrapper)!.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The configured provider “dwd” is not available from this backend.'))
+    expect(wrapper.text()).not.toContain(UNREACHABLE)
+    expect(retryButton(wrapper)).toBeUndefined()
   })
 })
