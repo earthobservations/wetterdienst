@@ -782,6 +782,7 @@
     "stored": "Uložená",
     "storedLabel": "Uložená: moje poloha v tomto prohlížeči",
     "notKept": "Tvůj prohlížeč neumožnil polohu uložit. Poloha se použije jen při této návštěvě.",
+    "withdrawn": "Tvůj prohlížeč už pro tento web nepovoluje polohu, proto byla uložená poloha smazána.",
     "denied": "Tvůj prohlížeč blokuje polohu pro tento web. Chceš-li ji povolit, otevři nastavení webu v prohlížeči, nastav Polohu na Povolit a tlačítko stiskni znovu. Vyhledávání funguje dál.",
     "unsupported": "Tento prohlížeč tvoji polohu zjistit neumí. Použij místo toho vyhledávání.",
     "unavailable": "Tvoji polohu se nepodařilo zjistit. Použij místo toho vyhledávání.",

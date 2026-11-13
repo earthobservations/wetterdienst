@@ -353,6 +353,58 @@ describe('where the browser refuses to keep the position (GH-4014)', () => {
 })
 
 // "Forget" with a press on its way (GH-4014): the position request that is still waiting for the browser is let go
+// GH-4014: a stored position is not used once the browser's permission is withdrawn, and what another tab forgets is forgotten
+describe('a stored position and the permission of the browser (GH-4014)', () => {
+  const withdrawn = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-withdrawn"]')
+
+  function storedPosition(state: 'denied' | 'granted') {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    localStorage.setItem('wd-place', JSON.stringify({ id: '00433', name: 'Berlin-Tempelhof', latitude: 52.47, longitude: 13.4, region: 'Berlin', fromPosition: true }))
+    const getCurrentPosition = mockBrowser()
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state })) } })
+    return getCurrentPosition
+  }
+
+  it('deletes the stored position and its station when the permission is `denied`, and says so in the status', async () => {
+    const getCurrentPosition = storedPosition('denied')
+    const wrapper = await mountControl()
+    expect(withdrawn(wrapper).attributes('role')).toBe('status')
+    expect(withdrawn(wrapper).text()).toBe('')
+    expect(chip(wrapper).exists()).toBe(true)
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe('Your browser no longer allows location for this site, so the stored position was deleted.'))
+    expect(chip(wrapper).exists()).toBe(false)
+    expect(box(wrapper).exists()).toBe(false)
+    expect(stored()).toBeNull()
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(wrapper.emitted('position')).toBeUndefined()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="use-my-location-problem"]').exists()).toBe(false)
+  })
+
+  it('uses the stored position when the permission is `granted`, and says nothing', async () => {
+    storedPosition('granted')
+    const wrapper = await mountControl()
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('position')).toEqual([[{ latitude: 52.52, longitude: 13.4 }]]))
+    expect(withdrawn(wrapper).text()).toBe('')
+    expect(stored()).not.toBeNull()
+  })
+
+  it('forgets in this tab what another tab forgot: the "Stored" control goes', async () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    mockBrowser()
+    const wrapper = await mountControl()
+    expect(chip(wrapper).exists()).toBe(true)
+
+    localStorage.removeItem(LOCATION_STORAGE_KEY)
+    window.dispatchEvent(new StorageEvent('storage', { key: LOCATION_STORAGE_KEY, newValue: null, storageArea: localStorage }))
+    await vi.waitFor(() => expect(chip(wrapper).exists()).toBe(false))
+    expect(box(wrapper).exists()).toBe(false)
+  })
+})
+
 describe('"Forget my position" during a press', () => {
   it('drops the position that the browser gives late: it is not put back for the visit', async () => {
     mockBrowser()

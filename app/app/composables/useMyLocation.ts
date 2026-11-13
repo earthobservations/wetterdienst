@@ -1,9 +1,11 @@
 import type { LocationFailure } from '~/utils/geolocation'
 import type { Point } from '~/utils/map-tool'
+import { PLACE_STORAGE_KEY } from '~/composables/usePlace'
 import {
   failureOfCode,
   forgetRememberedPosition,
   LOCATE_TIMEOUT_MS,
+  LOCATION_STORAGE_KEY,
   POSITION_OPTIONS,
   readRememberedPosition,
   roundPosition,
@@ -25,10 +27,15 @@ let latestPress = 0
  *   (`wd-location`), where a later press of the button uses it without asking the browser, until the reader forgets it.
  *   "Remember" can be ticked only with a position in hand, and forgetting takes the position too, so that the state
  *   is one of three: no position, a position for this visit, a position kept in the browser (GH-4010).
+ * - A stored position is used only while the browser's permission is not `denied` (GH-4014): a press that finds it
+ *   withdrawn deletes the stored position and its station, as "Forget" does, and sets `withdrawn` so that the reader is
+ *   told. Where the Permissions API cannot tell, the stored position is used as before.
+ * - What another tab does to the storage reaches this one (the `storage` event): a position forgotten there is forgotten
+ *   here, one stored there is taken here, unless this tab holds a position of its own for the visit (GH-4014).
  * - A refusal, no support, no fix and a timeout are failures to tell, not errors: nothing else is affected.
  */
 export function useMyLocation() {
-  const { dropPositionPlace } = usePlace()
+  const { dropPositionPlace, followStoredPlace } = usePlace()
   const position = useState<Point | null>('wd-location-position', () => null)
   const failure = useState<LocationFailure | null>('wd-location-failure', () => null)
   const busy = useState<boolean>('wd-location-busy', () => false)
@@ -37,6 +44,8 @@ export function useMyLocation() {
   const notKept = useState<boolean>('wd-location-not-kept', () => false)
   /** How many times the browser refused: the alert is keyed on it, so that a second refusal is announced again (GH-4014) */
   const notKeptCount = useState<number>('wd-location-not-kept-count', () => 0)
+  /** The browser's permission was found withdrawn on a press, and the stored position deleted: the reader is told (GH-4014) */
+  const withdrawn = useState<boolean>('wd-location-withdrawn', () => false)
   /** Whether the storage was looked at in this visit: once, when a component first asks, as a client-side read */
   const loaded = useState<boolean>('wd-location-loaded', () => false)
 
@@ -90,8 +99,21 @@ export function useMyLocation() {
   async function locate(): Promise<Point | null> {
     failure.value = null
     notKept.value = false
-    if (position.value && remember.value)
+    withdrawn.value = false
+    if (position.value && remember.value) {
+      // the stored position is used while the permission is not withdrawn; where the browser cannot tell, it is used. A
+      // press while this one waits, or a forget, takes its place
+      const mine = ++latestPress
+      const state = await permissionState()
+      if (mine !== latestPress)
+        return null
+      if (state === 'denied') {
+        forget()
+        withdrawn.value = true
+        return null
+      }
       return position.value
+    }
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       failure.value = 'unsupported'
       return null
@@ -165,9 +187,38 @@ export function useMyLocation() {
     remember.value = false
     notKept.value = false
     failure.value = null
+    withdrawn.value = false
     forgetRememberedPosition()
     dropPositionPlace()
   }
 
-  return { position, failure, busy, remember, notKept, notKeptCount, remembered, locate, rememberPosition, forget }
+  /**
+   * Another tab changed the storage (GH-4014): this tab follows what is kept, so that it does not show "Stored" or use a
+   * position that was forgotten there. A position that is only for this visit (not remembered here) is the tab's own and
+   * is kept, and a position stored there is taken only where this tab has none of its own.
+   */
+  function onStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== LOCATION_STORAGE_KEY && event.key !== PLACE_STORAGE_KEY)
+      return
+    if (event.key === null || event.key === LOCATION_STORAGE_KEY) {
+      const kept = readRememberedPosition()
+      if (!kept) {
+        if (remember.value)
+          forget()
+      }
+      else if (!position.value || remember.value) {
+        position.value = kept
+        remember.value = true
+        notKept.value = false
+      }
+    }
+    if (remember.value)
+      followStoredPlace()
+  }
+  if (import.meta.client && getCurrentScope()) {
+    window.addEventListener('storage', onStorage)
+    onScopeDispose(() => window.removeEventListener('storage', onStorage))
+  }
+
+  return { position, failure, busy, remember, notKept, notKeptCount, withdrawn, remembered, locate, rememberPosition, forget }
 }

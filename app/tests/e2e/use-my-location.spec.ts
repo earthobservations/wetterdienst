@@ -168,6 +168,52 @@ test.describe('the stored position', () => {
   })
 })
 
+test.describe('the stored position and the browser\'s permission (GH-4014)', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  const stored = (page: Page) => page.evaluate(() => localStorage.getItem('wd-location'))
+
+  test('a press that finds the permission withdrawn deletes the stored position and says so; the browser is not asked', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/meteogram', en.meteogram.title)
+    const button = page.getByTestId('use-my-location-button')
+    const chip = page.getByRole('button', { name: en.location.storedLabel })
+    await button.click()
+    await page.getByRole('checkbox', { name: en.location.remember }).click()
+    await expect(chip).toBeVisible()
+
+    // Playwright's `permissions` cannot withdraw a permission in a running page: the Permissions API answers `denied` from here on
+    await page.evaluate(() => {
+      navigator.permissions.query = async () => ({ state: 'denied' }) as PermissionStatus
+    })
+    asked.length = 0
+    await button.click()
+    await expect(page.getByTestId('use-my-location-withdrawn')).toHaveText(en.location.withdrawn)
+    await expect(chip).toHaveCount(0)
+    expect(await stored(page)).toBeNull()
+    expect(asked.filter(query => query.latitude)).toEqual([])
+  })
+
+  test('a position forgotten in one tab is forgotten in the other open tab', async ({ page, baseURL, context }) => {
+    await open(page, baseURL!, '/meteogram', en.meteogram.title)
+    await page.getByTestId('use-my-location-button').click()
+    await page.getByRole('checkbox', { name: en.location.remember }).click()
+    await expect(page.getByRole('button', { name: en.location.storedLabel })).toBeVisible()
+
+    const other = await context.newPage()
+    await mockBackend(other, baseURL!, ranked())
+    await other.goto('/meteogram')
+    await expect(other.getByRole('heading', { level: 1 })).toHaveText(en.meteogram.title)
+    const otherChip = other.getByRole('button', { name: en.location.storedLabel })
+    await expect(otherChip).toBeVisible()
+
+    await otherChip.click()
+    await other.getByRole('button', { name: en.location.forget }).click()
+    await expect(otherChip).toHaveCount(0)
+    await expect(page.getByRole('button', { name: en.location.storedLabel })).toHaveCount(0)
+    expect(await stored(page)).toBeNull()
+  })
+})
+
 test.describe('the stored position, on the map', () => {
   test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
 
